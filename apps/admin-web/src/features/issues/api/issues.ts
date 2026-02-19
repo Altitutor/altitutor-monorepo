@@ -4,17 +4,50 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IssueFilters, IssueWithTags, IssueInsert, IssueUpdate, IssueTagInsert, IssueTag, Issue } from '../types';
 import { extractMentions } from '@/shared/utils/extractMentions';
 import type { JSONContent } from '@altitutor/ui';
+import { parseTags } from '@/shared/utils/tagParsing';
 
 /**
  * Issues API client for working with issue data
  */
 export const issuesApi = {
   /**
-   * Sync tags based on mentions in description JSON
+   * Sync tags based on mentions in name and description
    */
-  syncTags: async (issueId: string, description: JSONContent | null | undefined): Promise<void> => {
+  syncTags: async (issueId: string, name?: string | null, description?: JSONContent | null): Promise<void> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const mentions = extractMentions(description);
+    
+    // If either name or description is not provided, fetch them from the database
+    let finalName = name;
+    let finalDescription = description;
+    
+    if (finalName === undefined || finalDescription === undefined) {
+      const { data: issue } = await supabase
+        .from('issues')
+        .select('name, description')
+        .eq('id', issueId)
+        .single();
+      
+      if (issue) {
+        if (finalName === undefined) finalName = issue.name;
+        if (finalDescription === undefined) finalDescription = issue.description as JSONContent;
+      }
+    }
+
+    // Extract mentions from description (JSON)
+    const descriptionMentions = extractMentions(finalDescription);
+    
+    // Extract tags from name (Regex)
+    const nameTags = parseTags(finalName || '');
+    const nameMentions = nameTags.map(tag => ({
+      id: tag.id,
+      type: tag.type,
+      label: tag.displayText
+    }));
+
+    // Combine and deduplicate mentions
+    const allMentions = Array.from(new Map(
+      [...descriptionMentions, ...nameMentions].map(m => [`${m.type}:${m.id}`, m])
+    ).values());
 
     // Get current tags
     const { data: currentTags } = await supabase
@@ -37,7 +70,7 @@ export const issuesApi = {
       else if (tag.subject_id) existingTagMap.set(`subject:${tag.subject_id}`, tag.id);
     });
 
-    const newMentionKeys = new Set(mentions.map(m => `${m.type}:${m.id}`));
+    const newMentionKeys = new Set(allMentions.map(m => `${m.type}:${m.id}`));
 
     // Determine tags to delete
     const tagIdsToDelete = currentTags
@@ -56,7 +89,7 @@ export const issuesApi = {
       .map(tag => tag.id) || [];
 
     // Determine tags to insert
-    mentions.forEach(mention => {
+    allMentions.forEach(mention => {
       const key = `${mention.type}:${mention.id}`;
       if (!existingTagMap.has(key)) {
         const tag: any = {};
@@ -168,9 +201,9 @@ export const issuesApi = {
 
     if (issueError) throw issueError;
 
-    // Sync tags from description mentions
-    if (issue.description) {
-      await issuesApi.syncTags(issueData.id, issue.description as JSONContent);
+    // Sync tags from mentions in name or description
+    if (issue.name || issue.description) {
+      await issuesApi.syncTags(issueData.id, issue.name, issue.description as JSONContent);
     }
 
     if (tags && tags.length > 0) {
@@ -200,9 +233,9 @@ export const issuesApi = {
 
     if (error) throw error;
 
-    // Sync tags from description mentions
-    if (updates.description) {
-      await issuesApi.syncTags(issueId, updates.description as JSONContent);
+    // Sync tags from mentions in name or description
+    if (updates.name || updates.description) {
+      await issuesApi.syncTags(issueId, updates.name, updates.description as JSONContent);
     }
 
     return data as Issue;
