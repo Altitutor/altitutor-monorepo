@@ -37,6 +37,7 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
+import { IssuePill } from '@/features/issues';
 
 interface ViewClassModalProps {
   isOpen: boolean;
@@ -289,7 +290,14 @@ export function ViewClassModal({
                       {isEditing ? 'Edit Class' : 'Class Details'}
                     </SheetTitle>
                     <SheetDescription className="text-lg font-medium">
-                      {formatClassName(classData, subject)}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {formatClassName(classData, subject)}
+                        <IssuePill
+                          entityType="class"
+                          entityId={classId}
+                          enabled={isOpen && !!classId}
+                        />
+                      </div>
                     </SheetDescription>
                   </div>
                 </div>

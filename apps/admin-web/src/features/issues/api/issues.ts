@@ -196,11 +196,25 @@ export const issuesApi = {
 
     // Dynamic filters
     for (const [key, value] of Object.entries(otherFilters)) {
-        if (Array.isArray(value) && value.length > 0) {
-            query = query.in(key, value);
-        } else if (value !== undefined && value !== null) {
-            query = query.eq(key, value);
+      if (!Array.isArray(value) || value.length === 0) continue;
+
+      const dateRanges = value.filter((v) => typeof v === 'object' && v !== null && (v as { type?: string }).type === 'date_range');
+      const otherValues = value.filter((v) => typeof v !== 'object' || v === null || (v as { type?: string }).type !== 'date_range');
+
+      if (otherValues.length > 0) {
+        query = query.in(key, otherValues);
+      }
+
+      if (dateRanges.length > 0) {
+        const dr = dateRanges[0] as { operator?: 'gte' | 'lte'; start?: string; end?: string };
+        if (dr.operator === 'gte' && dr.start) {
+          query = query.gte(key, dr.start);
+        } else if (dr.operator === 'lte' && dr.end) {
+          query = query.lte(key, dr.end);
+        } else if (dr.start && dr.end) {
+          query = query.gte(key, dr.start).lte(key, dr.end);
         }
+      }
     }
 
     query = query.order('created_at', { ascending: false });
@@ -324,5 +338,56 @@ export const issuesApi = {
       .eq('id', tagId);
     
     if (error) throw error;
+  },
+
+  /**
+   * Get open issues linked to a specific entity
+   */
+  getOpenIssuesByEntity: async (
+    entityType: 'student' | 'staff' | 'parent' | 'class' | 'session' | 'invoice',
+    entityId: string
+  ): Promise<IssueWithTags[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    
+    const columnMap: Record<string, string> = {
+      student: 'student_id',
+      staff: 'staff_id',
+      parent: 'parent_id',
+      class: 'class_id',
+      session: 'session_id',
+      invoice: 'invoice_id',
+    };
+    
+    const column = columnMap[entityType];
+    if (!column) {
+      return [];
+    }
+    
+    const { data: tagsData, error: tagsError } = await supabase
+      .from('issue_tags')
+      .select('issue_id')
+      .eq(column, entityId);
+    
+    if (tagsError) throw tagsError;
+    
+    if (!tagsData?.length) {
+      return [];
+    }
+    
+    const issueIds = Array.from(new Set(tagsData.map(tag => tag.issue_id)));
+    
+    const { data: issuesData, error: issuesError } = await supabase
+      .from('issues')
+      .select(`
+        *,
+        tags:issue_tags(*),
+        created_by_staff:staff!issues_created_by_fkey(id, first_name, last_name)
+      `)
+      .in('id', issueIds)
+      .in('status', ['open', 'awaiting_response']);
+    
+    if (issuesError) throw issuesError;
+    
+    return (issuesData || []) as IssueWithTags[];
   }
 };

@@ -43,6 +43,7 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
 import { studentsApi } from '../api/students';
+import { IssuePill } from '@/features/issues';
 import { classesApi } from '@/shared/api';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
 import { useStudentClasses } from '../hooks/useStudentClasses';
@@ -346,7 +347,7 @@ export function ViewStudentModal({
                           {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
                         </SheetTitle>
                         <SheetDescription className="text-lg font-medium">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             {student.first_name} {student.last_name}
                             <Badge 
                               variant={
@@ -359,6 +360,11 @@ export function ViewStudentModal({
                             >
                               {student.status}
                             </Badge>
+                            <IssuePill
+                              entityType="student"
+                              entityId={studentId}
+                              enabled={isOpen && !!studentId}
+                            />
                           </div>
                         </SheetDescription>
                       </div>

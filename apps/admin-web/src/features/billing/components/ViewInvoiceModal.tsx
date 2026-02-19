@@ -11,6 +11,7 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { cn } from '@/shared/utils';
 import { useToast } from '@altitutor/ui';
+import { IssuePill } from '@/features/issues';
 import { format } from 'date-fns';
 import { getErrorMessage } from '@/shared/utils';
 import {
@@ -215,7 +216,14 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   <div className="flex-1">
                     <SheetTitle>Invoice Details</SheetTitle>
                     <SheetDescription className="text-lg font-medium">
-                      Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                        <IssuePill
+                          entityType="invoice"
+                          entityId={invoiceId}
+                          enabled={isOpen && !!invoiceId}
+                        />
+                      </div>
                     </SheetDescription>
                   </div>
                 </div>

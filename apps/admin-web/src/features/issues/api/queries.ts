@@ -17,3 +17,18 @@ export function useIssue(issueId: string, enabled = true) {
     enabled: !!issueId && enabled,
   });
 }
+
+export function useOpenIssuesByEntity(
+  entityType: 'student' | 'staff' | 'parent' | 'class' | 'session' | 'invoice',
+  entityId: string | null,
+  enabled = true
+) {
+  return useQuery({
+    queryKey: [...issueKeys.all, 'byEntity', entityType, entityId],
+    queryFn: () => {
+      if (!entityId) return [];
+      return issuesApi.getOpenIssuesByEntity(entityType, entityId);
+    },
+    enabled: !!entityId && enabled,
+  });
+}
