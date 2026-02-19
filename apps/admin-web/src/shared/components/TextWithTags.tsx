@@ -1,7 +1,6 @@
 'use client';
 
 import { parseTags, type TagEntityType } from '@/shared/utils/tagParsing';
-import { Badge } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 
 interface TextWithTagsProps {
@@ -30,17 +29,16 @@ export function TextWithTags({ text, className, onTagClick }: TextWithTagsProps)
       );
     }
 
-    // Unified styling for tag pills
-    const stylingClass = 'bg-primary/10 text-primary px-1 rounded-sm font-medium transition-colors hover:bg-primary/20';
+    // Unified styling for tag pills matching body styling
+    const stylingClass = 'bg-primary/10 text-primary px-1 rounded-sm font-medium transition-colors whitespace-nowrap';
 
     // Add tag as pill
     components.push(
-      <Badge
+      <span
         key={`tag-${index}`}
-        variant="outline"
         className={cn(
-          'mx-0.5 px-1.5 py-0 h-5 text-[10px] font-medium border-none shadow-none',
-          onTagClick && 'cursor-pointer',
+          'mx-0.5 px-1 py-0 text-[11px] inline-flex items-center rounded-sm',
+          onTagClick && 'cursor-pointer hover:bg-primary/20',
           stylingClass
         )}
         onClick={(e) => {
@@ -51,7 +49,7 @@ export function TextWithTags({ text, className, onTagClick }: TextWithTagsProps)
         }}
       >
         {tag.displayText}
-      </Badge>
+      </span>
     );
 
     lastIndex = tag.endIndex;
