@@ -53,6 +53,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const isUpdatingFromServerRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialFocusDone, setInitialFocusDone] = useState(false);
+  
+  // Track last saved title to prevent duplicate saves on blur
+  const lastBlurSavedTitleRef = useRef<string | null>(null);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema) as any,
@@ -69,6 +72,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     if (currentNoteIdRef.current !== noteId) {
       setIsInitialized(false);
       setInitialFocusDone(false);
+      lastBlurSavedTitleRef.current = null;
       currentNoteIdRef.current = noteId;
     }
 
@@ -79,11 +83,15 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         content: (note.content as unknown as JSONContent) || '',
         folder_id: note.folder_id,
       });
+      lastBlurSavedTitleRef.current = note.title;
       setIsInitialized(true);
       // Reset flag after form values are set
       setTimeout(() => {
         isUpdatingFromServerRef.current = false;
       }, 0);
+    } else if (note && isInitialized && note.title !== lastBlurSavedTitleRef.current) {
+      // Update ref when note is updated from server (e.g., after auto-save completes)
+      lastBlurSavedTitleRef.current = note.title;
     }
   }, [note, noteId, form, isInitialized]);
 
@@ -142,9 +150,37 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
 
   const {
     ref: titleRef,
-    handleBlur: handleTitleBlur,
+    handleBlur: handleTitleBlurBase,
     handleInput: handleTitleInput,
   } = useContentEditableField(form, 'title', form.watch('title'));
+
+  // Wrap blur handler to trigger immediate save on blur
+  const handleTitleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
+    // First, update the form value (from useContentEditableField)
+    handleTitleBlurBase(e);
+    
+    // Extract title directly from the contentEditable element to ensure we have the latest value
+    const getTextWithLineBreaks = (element: HTMLElement): string => {
+      return element.innerText || '';
+    };
+    const currentTitle = getTextWithLineBreaks(e.currentTarget);
+    
+    // Immediately save the title (bypassing debounce) if it changed
+    // Compare against both note.title and lastBlurSavedTitleRef to prevent duplicate saves
+    if (
+      note && 
+      currentTitle && 
+      currentTitle !== note.title && 
+      currentTitle !== lastBlurSavedTitleRef.current
+    ) {
+      lastBlurSavedTitleRef.current = currentTitle;
+      updateNote.mutate({
+        id: noteId,
+        updates: { title: currentTitle },
+        silent: true,
+      });
+    }
+  }, [handleTitleBlurBase, note, noteId, updateNote]);
 
   // Combine refs - memoize to ensure stability
   const combinedTitleRef = useCallback((node: HTMLDivElement | null) => {
