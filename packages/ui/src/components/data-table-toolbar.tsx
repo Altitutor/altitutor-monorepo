@@ -4,6 +4,8 @@ import * as React from 'react';
 import {
   LayoutGrid,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Filter,
   X,
   ChevronDown,
@@ -25,7 +27,6 @@ import { Input } from './input';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -35,6 +36,7 @@ import {
   DropdownMenuTrigger,
 } from './dropdown-menu';
 import { ScrollArea } from './scroll-area';
+import { Checkbox } from './checkbox';
 import { cn } from '../lib/cn';
 
 interface DataTableToolbarProps {
@@ -105,14 +107,6 @@ export function DataTableToolbar({
     // Only trigger if the debounced value is different from the current state search
     if (debouncedSearch !== state.search) {
       isInternalUpdateRef.current = true;
-      onSearchChange(debouncedSearch);
-    }
-  }, [debouncedSearch, onSearchChange, state.search]);
-
-  // Call onSearchChange when debounced value changes
-  React.useEffect(() => {
-    // Only trigger if the debounced value is different from the current state search
-    if (debouncedSearch !== state.search) {
       onSearchChange(debouncedSearch);
     }
   }, [debouncedSearch, onSearchChange, state.search]);
@@ -199,15 +193,27 @@ export function DataTableToolbar({
               <DropdownMenuContent align="end" className="w-[200px]">
                 <DropdownMenuLabel>Show columns</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {columnDefinitions.map((col) => (
-                  <DropdownMenuCheckboxItem
-                    key={col.key}
-                    checked={state.visibleColumns.includes(col.key)}
-                    onCheckedChange={() => togglePillVisibility(col.key)}
-                  >
-                    {col.label}
-                  </DropdownMenuCheckboxItem>
-                ))}
+                {columnDefinitions.map((col) => {
+                  const isVisible = state.visibleColumns.includes(col.key);
+                  return (
+                    <DropdownMenuItem
+                      key={col.key}
+                      onSelect={(e) => {
+                        e.preventDefault();
+                        togglePillVisibility(col.key);
+                      }}
+                      className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
+                    >
+                      <Checkbox
+                        checked={isVisible}
+                        aria-label={col.label}
+                        tabIndex={-1}
+                        className="pointer-events-none"
+                      />
+                      <span>{col.label}</span>
+                    </DropdownMenuItem>
+                  );
+                })}
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -252,17 +258,29 @@ export function DataTableToolbar({
 
           {/* Sort By */}
           {sortOptions.length > 0 && (
-            <div className="flex items-center">
+            <div className="flex items-center shrink-0">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className={cn("h-9", state.sortBy && "rounded-r-none")}>
-                    <ArrowUpDown className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">
-                      {state.sortBy 
-                        ? `${sortOptions.find(o => o.key === state.sortBy)?.label ?? 'Sorted'} (${state.sortDirection})`
-                        : 'Sort by'}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className={cn(
+                      "h-9 flex-nowrap shrink-0",
+                      state.sortBy && "rounded-r-none min-w-[7.5rem]"
+                    )}
+                  >
+                    <ArrowUpDown className="h-4 w-4 mr-2 shrink-0" />
+                    <span className="hidden sm:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
+                      {state.sortBy ? (
+                        <>
+                          <span className="min-w-0 truncate">{sortOptions.find(o => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
+                          {state.sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 shrink-0" /> : <ArrowDown className="h-3.5 w-3.5 shrink-0" />}
+                        </>
+                      ) : (
+                        'Sort by'
+                      )}
                     </span>
-                    <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
+                    <ChevronDown className="h-4 w-4 ml-1 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px]">
@@ -273,10 +291,13 @@ export function DataTableToolbar({
                         const nextDir = state.sortBy === o.key && state.sortDirection === 'asc' ? 'desc' : 'asc';
                         onSortChange(o.key, nextDir);
                       }}
+                      className="flex items-center gap-2"
                     >
-                      {o.label}
+                      <span>{o.label}</span>
                       {state.sortBy === o.key && (
-                        <span className="ml-auto text-xs opacity-50">({state.sortDirection})</span>
+                        <span className="ml-auto">
+                          {state.sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 opacity-70" /> : <ArrowDown className="h-4 w-4 opacity-70" />}
+                        </span>
                       )}
                     </DropdownMenuItem>
                   ))}
@@ -419,13 +440,22 @@ export function DataTableToolbar({
                                 (def.options ?? []).map((opt: DataTableFilterOption<unknown>) => {
                                   const isSelected = (state.filters[def.key] ?? []).some((v: unknown) => String(v) === String(opt.value));
                                   return (
-                                    <DropdownMenuCheckboxItem
+                                    <DropdownMenuItem
                                       key={String(opt.value)}
-                                      checked={isSelected}
-                                      onCheckedChange={() => toggleFilterValue(def.key, opt.value)}
+                                      onSelect={(e) => {
+                                        e.preventDefault();
+                                        toggleFilterValue(def.key, opt.value);
+                                      }}
+                                      className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
                                     >
-                                      {opt.label}
-                                    </DropdownMenuCheckboxItem>
+                                      <Checkbox
+                                        checked={isSelected}
+                                        aria-label={opt.label}
+                                        tabIndex={-1}
+                                        className="pointer-events-none"
+                                      />
+                                      <span>{opt.label}</span>
+                                    </DropdownMenuItem>
                                   );
                                 })
                               )}
@@ -443,13 +473,22 @@ export function DataTableToolbar({
                             {(def.options ?? []).map((opt: DataTableFilterOption<unknown>) => {
                               const isSelected = (state.filters[def.key] ?? []).some((v: unknown) => String(v) === String(opt.value));
                               return (
-                                <DropdownMenuCheckboxItem
+                                <DropdownMenuItem
                                   key={String(opt.value)}
-                                  checked={isSelected}
-                                  onCheckedChange={() => toggleFilterValue(def.key, opt.value)}
+                                  onSelect={(e) => {
+                                    e.preventDefault();
+                                    toggleFilterValue(def.key, opt.value);
+                                  }}
+                                  className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
                                 >
-                                  {opt.label}
-                                </DropdownMenuCheckboxItem>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    aria-label={opt.label}
+                                    tabIndex={-1}
+                                    className="pointer-events-none"
+                                  />
+                                  <span>{opt.label}</span>
+                                </DropdownMenuItem>
                               );
                             })}
                           </ScrollArea>
