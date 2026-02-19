@@ -56,11 +56,68 @@ export interface EntityListPillColumn<TItem, TValue = unknown> {
   getValue: (item: TItem) => TValue;
   renderPill: (item: TItem, onChange: (value: TValue) => void, collapsed?: boolean) => React.ReactNode;
   filterOptions?: { value: TValue; label: string }[];
+  filterSearchable?: boolean;
   groupable?: boolean;
   sortable?: boolean;
   filterable?: boolean;
   compare?: (a: TValue, b: TValue) => number;
   defaultValue?: TValue;
+}
+
+function FilterOptionsSubmenu({
+  label,
+  options,
+  selectedValues,
+  searchable = false,
+  onToggle,
+}: {
+  label: string;
+  options: { value: unknown; label: string }[];
+  selectedValues: unknown[];
+  searchable?: boolean;
+  onToggle: (value: unknown) => void;
+}) {
+  const [search, setSearch] = React.useState('');
+  const filteredOptions = React.useMemo(() => {
+    const query = search.trim().toLowerCase();
+    if (!searchable || !query) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(query));
+  }, [options, search, searchable]);
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        {searchable && (
+          <div className="p-2 pb-1">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              placeholder={`Search ${label.toLowerCase()}...`}
+              className="h-8"
+            />
+          </div>
+        )}
+        {filteredOptions.length === 0 ? (
+          <DropdownMenuItem disabled>No matches</DropdownMenuItem>
+        ) : (
+          filteredOptions.map((opt) => {
+            const selected = selectedValues.includes(opt.value);
+            return (
+              <DropdownMenuCheckboxItem
+                key={String(opt.value)}
+                checked={selected}
+                onCheckedChange={() => onToggle(opt.value)}
+              >
+                {opt.label}
+              </DropdownMenuCheckboxItem>
+            );
+          })
+        )}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
 }
 
 export interface QuickFilter {
@@ -101,6 +158,8 @@ export interface EntityListProps<TItem> {
   onApplyQuickFilter?: (filter: QuickFilter) => void;
   /** Resolve group key to display label (e.g. id -> name for assignee) */
   getGroupLabel?: (columnKey: string, valueKey: string) => string;
+  /** Custom ordering function for groups. Returns a number for ordering (lower = earlier). If not provided, groups are sorted alphabetically. */
+  getGroupOrder?: (columnKey: string, valueKey: string) => number;
   /** Description field configuration */
   descriptionConfig?: {
     enabled: boolean;
@@ -179,6 +238,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     quickFilters = [],
     onApplyQuickFilter,
     getGroupLabel,
+    getGroupOrder,
     descriptionConfig,
     hideToolbar = false,
     noPadding = false,
@@ -308,13 +368,20 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(item);
     }
-    const entries = Array.from(map.entries()).sort(([a], [b]) => a.localeCompare(b));
+    const entries = Array.from(map.entries()).sort(([a], [b]) => {
+      if (getGroupOrder) {
+        const orderA = getGroupOrder(groupBy, a);
+        const orderB = getGroupOrder(groupBy, b);
+        if (orderA !== orderB) return orderA - orderB;
+      }
+      return a.localeCompare(b);
+    });
     return entries.map(([k, groupItems]) => ({
       key: k,
       label: getGroupLabel ? getGroupLabel(groupBy, k) : (k === '__null__' ? 'No value' : k),
       items: groupItems,
     }));
-  }, [sortedItems, groupBy, rightPills, statusColumn, getGroupLabel]);
+  }, [sortedItems, groupBy, rightPills, statusColumn, getGroupLabel, getGroupOrder]);
 
   return (
     <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
@@ -515,23 +582,13 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                     if (statusColumn && statusColumn.filterable !== false) {
                       renderedKeys.add(statusColumn.key);
                       filterElements.push(
-                        <DropdownMenuSub key={statusColumn.key}>
-                          <DropdownMenuSubTrigger>Status</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent>
-                            {statusColumn.options.map((opt) => {
-                              const selected = (filters[statusColumn.key] ?? []).includes(opt.value);
-                              return (
-                                <DropdownMenuCheckboxItem
-                                  key={String(opt.value)}
-                                  checked={selected}
-                                  onCheckedChange={() => toggleFilter(statusColumn.key, opt.value)}
-                                >
-                                  {opt.label}
-                                </DropdownMenuCheckboxItem>
-                              );
-                            })}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
+                        <FilterOptionsSubmenu
+                          key={statusColumn.key}
+                          label="Status"
+                          options={statusColumn.options}
+                          selectedValues={filters[statusColumn.key] ?? []}
+                          onToggle={(value) => toggleFilter(statusColumn.key, value)}
+                        />
                       );
                     }
 
@@ -541,23 +598,14 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                         if (renderedKeys.has(p.key)) return;
                         renderedKeys.add(p.key);
                         filterElements.push(
-                          <DropdownMenuSub key={p.key}>
-                            <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent>
-                              {p.filterOptions!.map((opt) => {
-                                const selected = (filters[p.key] ?? []).includes(opt.value);
-                                return (
-                                  <DropdownMenuCheckboxItem
-                                    key={String(opt.value)}
-                                    checked={selected}
-                                    onCheckedChange={() => toggleFilter(p.key, opt.value)}
-                                  >
-                                    {opt.label}
-                                  </DropdownMenuCheckboxItem>
-                                );
-                              })}
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
+                          <FilterOptionsSubmenu
+                            key={p.key}
+                            label={p.label}
+                            options={p.filterOptions!}
+                            selectedValues={filters[p.key] ?? []}
+                            searchable={p.filterSearchable}
+                            onToggle={(value) => toggleFilter(p.key, value)}
+                          />
                         );
                       });
 
