@@ -1,6 +1,8 @@
 import type {
   AbsenceOperation,
   LogAbsencesResponse,
+  UndoAbsenceOperation,
+  UndoAbsencesResponse,
   GetRescheduleSessionsParams,
   RescheduleSession,
   StudentSession,
@@ -53,6 +55,45 @@ export const absencesApi = {
   },
 
   /**
+   * Undo student absences (reschedule or credit revert)
+   * All operations are executed atomically via RPC function
+   */
+  undoAbsences: async (
+    operations: UndoAbsenceOperation[],
+    staffId: string
+  ): Promise<UndoAbsencesResponse> => {
+    try {
+      const response = await fetch('/api/absences/undo', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          operations,
+          staffId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        return {
+          success: false,
+          error: errorData.error || 'Failed to undo absences',
+        };
+      }
+
+      const result = await response.json();
+      return result;
+    } catch (error) {
+      console.error('Error undoing absences:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'An unexpected error occurred',
+      };
+    }
+  },
+
+  /**
    * Get a student's future sessions with session-student enrollment details
    * 
    * Note: We use direct queries from sessions_students rather than search_sessions_admin RPC
@@ -61,13 +102,16 @@ export const absencesApi = {
    */
   getStudentFutureSessions: async (
     studentId: string, 
-    weeksAhead: number = 8,
+    weeksAhead: number | null = 8,
     allowPastSessions: boolean = false,
     weeksBack: number = 4
   ): Promise<StudentSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const now = new Date();
-    const maxDate = new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
+    // If weeksAhead is null, don't set a maxDate (fetch all future sessions)
+    const maxDate = weeksAhead === null 
+      ? null 
+      : new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
     const minDate = allowPastSessions 
       ? new Date(now.getTime() - weeksBack * 7 * 24 * 60 * 60 * 1000)
       : now;
@@ -118,6 +162,10 @@ export const absencesApi = {
         .filter((session) => {
           // Filter by date range on the client side
           const sessionDate = new Date(session.start_at || 0);
+          if (maxDate === null) {
+            // No maxDate limit - only check minDate
+            return sessionDate >= minDate;
+          }
           return sessionDate >= minDate && sessionDate <= maxDate;
         })
         .sort((a, b) => {
@@ -209,4 +257,3 @@ export const absencesApi = {
     }
   },
 };
-

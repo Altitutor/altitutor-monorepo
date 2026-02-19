@@ -72,12 +72,30 @@ export function AbsenceBulkActionSelector({
 
   // Get reschedule sessions for the active session
   const activeSession = sessions.find((s) => s.id === activeRescheduleSessionId);
+  
+  // Calculate dynamic dateRangeDays based on the week being viewed
+  // This ensures we fetch sessions for the week the user is viewing
+  const dynamicDateRangeDays = useMemo(() => {
+    if (!activeSession?.start_at) return 7; // Default fallback
+    
+    const originalSessionDate = new Date(activeSession.start_at);
+    const currentWeekStartDate = new Date(rescheduleWeekStart);
+    
+    // Calculate the distance in days between original session and current week start
+    const daysDiff = Math.abs(
+      Math.floor((currentWeekStartDate.getTime() - originalSessionDate.getTime()) / (1000 * 60 * 60 * 24))
+    );
+    
+    // Add buffer: distance + 7 days buffer on each side to ensure we capture the full week
+    return Math.max(7, daysDiff + 7);
+  }, [activeSession?.start_at, rescheduleWeekStart]);
+  
   const { data: rescheduleSessions, isLoading: loadingRescheduleSessions } = useAvailableRescheduleSessions(
     activeRescheduleSessionId && activeSession
       ? {
           originalSessionId: activeRescheduleSessionId,
           studentId,
-          dateRangeDays: 7,
+          dateRangeDays: dynamicDateRangeDays,
         }
       : null
   );

@@ -41,7 +41,8 @@ interface LogAbsenceDialogProps {
 }
 
 export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, initialSessionId, allowPastSessions = false }: LogAbsenceDialogProps) {
-  const [step, setStep] = useState<WizardStep>('select-student');
+  // Start at select-sessions if we have an initial student, otherwise start at select-student
+  const [step, setStep] = useState<WizardStep>(initialStudentId ? 'select-sessions' : 'select-student');
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<AbsenceDecision[]>([]);
@@ -68,10 +69,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     setPage(0);
   }, [searchQuery]);
 
-  // Get student's sessions (8 weeks ahead by default, optionally include past sessions)
+  // Get student's sessions - fetch all future sessions (no limit)
   const { data: futureSessions, isLoading: loadingSessions } = useStudentFutureSessions(
     selectedStudent?.id || initialStudentId || null,
-    8,
+    null, // null = fetch all future sessions with no limit
     allowPastSessions,
     4 // weeks back when allowing past sessions
   );
@@ -114,11 +115,13 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   }, [initialStudentData, initialSessionId, hasInitialized]);
 
   // Auto-advance to select-sessions when student is loaded and we have initial values
+  // This handles the case where dialog opens without initialStudentId but user selects a student
   useEffect(() => {
-    if (isOpen && selectedStudent && initialStudentId && hasInitialized && step === 'select-student') {
-      setStep('select-sessions');
+    if (isOpen && selectedStudent && !initialStudentId && step === 'select-student') {
+      // User manually selected a student, but don't auto-advance - they need to click Next
+      // This effect is kept for consistency but won't auto-advance
     }
-  }, [isOpen, selectedStudent, initialStudentId, hasInitialized, step]);
+  }, [isOpen, selectedStudent, initialStudentId, step]);
 
   // Auto-advance to process-sessions when session is selected and both initial values are provided
   useEffect(() => {
@@ -143,6 +146,13 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       setHasInitialized(false);
     }
   }, [isOpen]);
+
+  // When dialog opens with initialStudentId, start at select-sessions step
+  useEffect(() => {
+    if (isOpen && initialStudentId && step === 'select-student') {
+      setStep('select-sessions');
+    }
+  }, [isOpen, initialStudentId, step]);
 
   const selectedSessionsArray = useMemo(() => {
     if (!allSessions || allSessions.length === 0) {
@@ -268,25 +278,16 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             ) : studentResults && studentResults.students && studentResults.students.length > 0 ? (
               <div className="flex-1 overflow-y-auto space-y-2 min-h-0">
                 {studentResults.students.map((student) => (
-                  <div
+                  <StudentCard
                     key={student.id}
-                    className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
-                      selectedStudent?.id === student.id
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:border-primary/50 hover:bg-primary/5'
-                    }`}
+                    student={student}
+                    subjects={[]}
+                    showSubjects={false}
+                    showActions={false}
+                    isSelecting={true}
+                    isSelected={selectedStudent?.id === student.id}
                     onClick={() => handleStudentSelect(student)}
-                  >
-                    <div className="font-medium">
-                      {student.first_name} {student.last_name}
-                    </div>
-                    {student.school && (
-                      <div className="text-sm text-muted-foreground">{student.school}</div>
-                    )}
-                    {student.year_level && (
-                      <div className="text-xs text-muted-foreground">Year {student.year_level}</div>
-                    )}
-                  </div>
+                  />
                 ))}
                 {/* Pagination controls */}
                 {studentResults && studentResults.total > pageSize && (
@@ -324,13 +325,15 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         );
 
       case 'select-sessions':
+        // Use selectedStudent if available, otherwise fall back to initialStudentData
+        const displayStudent = selectedStudent || initialStudentData;
         return (
           <div className="flex flex-col h-full">
             {/* Sticky Header */}
-            {selectedStudent && (
+            {displayStudent && (
               <div className="sticky top-0 bg-background z-10 pb-4 border-b mb-4">
                 <StudentCard
-                  student={selectedStudent}
+                  student={displayStudent}
                   subjects={[]}
                   showSubjects={false}
                   showActions={false}
