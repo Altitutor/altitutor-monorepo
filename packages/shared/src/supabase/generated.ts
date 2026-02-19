@@ -1979,12 +1979,10 @@ export type Database = {
       issue_tags: {
         Row: {
           class_id: string | null
-          conversation_id: string | null
           created_at: string
           id: string
           invoice_id: string | null
           issue_id: string
-          message_id: string | null
           parent_id: string | null
           session_id: string | null
           staff_id: string | null
@@ -1993,12 +1991,10 @@ export type Database = {
         }
         Insert: {
           class_id?: string | null
-          conversation_id?: string | null
           created_at?: string
           id?: string
           invoice_id?: string | null
           issue_id: string
-          message_id?: string | null
           parent_id?: string | null
           session_id?: string | null
           staff_id?: string | null
@@ -2007,12 +2003,10 @@ export type Database = {
         }
         Update: {
           class_id?: string | null
-          conversation_id?: string | null
           created_at?: string
           id?: string
           invoice_id?: string | null
           issue_id?: string
-          message_id?: string | null
           parent_id?: string | null
           session_id?: string | null
           staff_id?: string | null
@@ -2049,13 +2043,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "issue_tags_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "issue_tags_invoice_id_fkey"
             columns: ["invoice_id"]
             isOneToOne: false
@@ -2074,13 +2061,6 @@ export type Database = {
             columns: ["issue_id"]
             isOneToOne: false
             referencedRelation: "issues"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "issue_tags_message_id_fkey"
-            columns: ["message_id"]
-            isOneToOne: false
-            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
