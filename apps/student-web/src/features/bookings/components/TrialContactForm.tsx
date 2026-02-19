@@ -3,7 +3,7 @@
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSubjectsSearch, useSubjectSearchWithTerm } from '@/shared/hooks';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
@@ -266,28 +266,34 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     });
   };
 
-  // Expose form to parent for programmatic submission
+  // Expose form to parent for programmatic submission (only when form reference changes to avoid infinite loops)
+  const lastFormRef = useRef<UseFormReturn<TrialContactFormValues> | null>(null);
   useEffect(() => {
-    if (onFormReady) {
-      // Type assertion needed due to react-hook-form's type inference with default values
+    if (onFormReady && form !== lastFormRef.current) {
+      lastFormRef.current = form as unknown as UseFormReturn<TrialContactFormValues>;
       onFormReady(form as unknown as UseFormReturn<TrialContactFormValues>);
     }
   }, [form, onFormReady]);
 
-  // Watch form validity and notify parent
+  // Watch form validity and notify parent only when value changes
   const isValid = form.formState.isValid;
+  const lastValidRef = useRef<boolean | undefined>(undefined);
   useEffect(() => {
-    if (onValidityChange) {
+    if (onValidityChange && isValid !== lastValidRef.current) {
+      lastValidRef.current = isValid;
       onValidityChange(isValid);
     }
   }, [isValid, onValidityChange]);
 
-  // Notify parent of selected subjects changes
+  // Notify parent of selected subjects changes only when selection actually changes
+  const lastSubjectIdsRef = useRef<string | null>(null);
+  const subjectIdsKey = selectedSubjectIds.slice().sort().join(',');
   useEffect(() => {
-    if (onSelectedSubjectsChange) {
+    if (onSelectedSubjectsChange && subjectIdsKey !== lastSubjectIdsRef.current) {
+      lastSubjectIdsRef.current = subjectIdsKey;
       onSelectedSubjectsChange(selectedSubjects);
     }
-  }, [selectedSubjects, onSelectedSubjectsChange]);
+  }, [subjectIdsKey, selectedSubjects, onSelectedSubjectsChange]);
 
   return (
     <Form {...form}>

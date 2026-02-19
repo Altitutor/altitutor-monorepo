@@ -18,15 +18,26 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Verify user is authenticated
-    const userClient = createServerClient();
-    const { data: { user }, error: authError } = await userClient.auth.getUser();
+    // Public keys: read-only booking config needed for unauthenticated trial/session booking
+    const PUBLIC_BOOKING_KEYS = new Set([
+      'trial_session_duration_minutes',
+      'drafting_session_duration_minutes',
+      'subsidy_interview_duration_minutes',
+    ]);
 
-    if (authError || !user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+    const isPublicKey = PUBLIC_BOOKING_KEYS.has(settingKey);
+
+    // Require auth only for non-public keys
+    if (!isPublicKey) {
+      const userClient = createServerClient();
+      const { data: { user }, error: authError } = await userClient.auth.getUser();
+
+      if (authError || !user) {
+        return NextResponse.json(
+          { error: 'Unauthorized' },
+          { status: 401 }
+        );
+      }
     }
 
     // Use service role to bypass RLS for reading booking settings
