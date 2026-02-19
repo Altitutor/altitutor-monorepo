@@ -52,7 +52,7 @@ export function useEntitySearch({
     queryFn: async () => {
       const result = await staffApi.listMinimal({
         search: trimmedSearch,
-        statuses: ['ACTIVE'],
+        statuses: ['ACTIVE', 'TRIAL'],
         limit: entityTypes.staff.limit,
         offset: 0,
         excludeClassSearch: true,

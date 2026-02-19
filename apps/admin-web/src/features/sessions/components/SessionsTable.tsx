@@ -21,10 +21,12 @@ import {
   X,
   Search,
 } from 'lucide-react';
+import { format } from 'date-fns';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from './TutorLogAvatar';
+import { AttendanceCell } from './AttendanceCell';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
@@ -55,7 +57,112 @@ type SessionsTableProps = {
   hideClassColumn?: boolean; // Hide Class column
   hideStudentsColumn?: boolean; // Hide Students column
   initialStudentFilters?: string[]; // Initial student filters (for external filter control)
+  showAttendanceBreakdown?: boolean; // Show planned and actual attendance badges per person
 };
+
+type SessionTableStudent = Tables<'students'> & {
+  planned_absence?: boolean;
+  actual_attended?: boolean | null;
+  actual_was_trial?: boolean | null;
+  invoice_status?: string | null;
+  sessions_students_id?: string | null;
+  is_extra?: boolean;
+  was_trial?: boolean;
+  is_rescheduled?: boolean;
+  is_credited?: boolean;
+  rescheduled_session?: {
+    session?: {
+      id: string;
+      start_at?: string;
+      class?: {
+        start_time?: string | null;
+      } | null;
+    } | null;
+  } | null;
+};
+
+type SessionTableStaff = Tables<'staff'> & {
+  planned_absence?: boolean;
+  actual_attended?: boolean | null;
+  actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+  is_swapped_in?: boolean;
+  is_swapped?: boolean;
+  swapped_staff?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
+};
+
+function getStudentAttendanceStatus(student: SessionTableStudent, hasTutorLog: boolean, plannedStudentIds: Set<string>) {
+  const isUnplanned = (student.sessions_students_id === null || student.sessions_students_id === undefined) && student.is_extra;
+  const wasTrialPlanned = student.was_trial ?? false;
+
+  let plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
+  let rescheduledSessionId = '';
+  let rescheduledDate = '';
+
+  if (student.planned_absence && !isUnplanned) {
+    plannedStatus = 'absent';
+    if (student.is_rescheduled && student.rescheduled_session?.session) {
+      plannedStatus = 'rescheduled';
+      rescheduledSessionId = student.rescheduled_session.session.id;
+      if (student.rescheduled_session.session.start_at) {
+        rescheduledDate = `${format(new Date(student.rescheduled_session.session.start_at), 'EEE dd/MM')} ${student.rescheduled_session.session.class?.start_time || ''}`.trim();
+      }
+    } else if (student.is_credited) {
+      plannedStatus = 'credited';
+    }
+  } else if (isUnplanned) {
+    plannedStatus = 'unplanned';
+  } else if (student.is_extra && plannedStudentIds.has(student.id)) {
+    plannedStatus = wasTrialPlanned ? 'attending-extra-trial' : 'attending-extra';
+  } else {
+    plannedStatus = wasTrialPlanned ? 'attending-trial' : 'attending';
+  }
+
+  const wasTrialActual = student.actual_was_trial ?? false;
+  const actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend' = !hasTutorLog
+    ? 'not-logged'
+    : student.actual_attended
+    ? (wasTrialActual ? 'attended-trial' : 'attended')
+    : 'did-not-attend';
+
+  return {
+    plannedStatus,
+    actualStatus,
+    rescheduledSessionId,
+    rescheduledDate,
+  };
+}
+
+function getStaffAttendanceStatus(staff: SessionTableStaff, hasTutorLog: boolean) {
+  let plannedStatus: 'attending' | 'absent' | 'swapped' = 'attending';
+  let swappedStaffId = '';
+  let swappedStaffName = '';
+
+  if (staff.planned_absence) {
+    plannedStatus = 'absent';
+    if (staff.is_swapped && staff.swapped_staff) {
+      plannedStatus = 'swapped';
+      swappedStaffId = staff.swapped_staff.id;
+      swappedStaffName = `${staff.swapped_staff.first_name} ${staff.swapped_staff.last_name}`.trim();
+    }
+  }
+
+  const actualStatus: 'not-logged' | 'attended' | 'did-not-attend' = !hasTutorLog
+    ? 'not-logged'
+    : staff.actual_attended
+    ? 'attended'
+    : 'did-not-attend';
+
+  return {
+    plannedStatus,
+    actualStatus,
+    swappedStaffId,
+    swappedStaffName,
+  };
+}
 
 export function SessionsTable({
   studentId,
@@ -77,6 +184,7 @@ export function SessionsTable({
   hideClassColumn = false,
   hideStudentsColumn = false,
   initialStudentFilters = [],
+  showAttendanceBreakdown = false,
 }: SessionsTableProps) {
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
@@ -394,19 +502,18 @@ export function SessionsTable({
                   {state.visibleColumns.includes('staff') && (
                     <TableCell>
                       {(() => {
-                        const staffList: any[] = (sessionStaff[session.id] || []) as any[];
+                        const staffList = (sessionStaff[session.id] || []) as SessionTableStaff[];
+                        const hasTutorLog = !!tutorLogs[session.id];
                         if (!staffList.length) return <span className="text-muted-foreground text-sm">-</span>;
                         return (
                           <div className="flex flex-col gap-1">
                             {staffList.map((s) => {
                               const planned_absence = s.planned_absence === true;
-                              const actualAttended = s.actual_attended;
-                              const nameClass = planned_absence 
-                                ? "text-muted-foreground line-through" 
-                                : "";
+                              const nameClass = planned_absence ? "text-muted-foreground line-through" : "";
+                              const attendance = getStaffAttendanceStatus(s, hasTutorLog);
                               
                               return (
-                                <div key={s.id} className="flex items-center gap-1">
+                                <div key={s.id} className="flex items-center gap-2 flex-wrap">
                                   <Button
                                     variant="link"
                                     size="sm"
@@ -415,11 +522,33 @@ export function SessionsTable({
                                   >
                                     {s.first_name} {s.last_name}
                                   </Button>
-                                  {actualAttended !== null && (
-                                    actualAttended ? (
-                                      <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                    ) : (
-                                      <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                  {showAttendanceBreakdown ? (
+                                    <>
+                                      <AttendanceCell
+                                        status={attendance.plannedStatus}
+                                        linkTo={
+                                          attendance.plannedStatus === 'swapped' && attendance.swappedStaffId
+                                            ? {
+                                                type: 'staff',
+                                                id: attendance.swappedStaffId,
+                                                onClick: () => (onOpenStaff as any)?.(attendance.swappedStaffId),
+                                              }
+                                            : undefined
+                                        }
+                                        linkText={attendance.swappedStaffName}
+                                      />
+                                      <AttendanceCell
+                                        status={attendance.actualStatus}
+                                        staffType={s.actual_type ?? undefined}
+                                      />
+                                    </>
+                                  ) : (
+                                    s.actual_attended !== null && (
+                                      s.actual_attended ? (
+                                        <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                      ) : (
+                                        <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                      )
                                     )
                                   )}
                                 </div>
@@ -433,14 +562,19 @@ export function SessionsTable({
                   {state.visibleColumns.includes('students') && !hideStudentsColumn && (
                     <TableCell>
                       {(() => {
-                        const studentList: any[] = (sessionStudents[session.id] || []) as any[];
+                        const studentList = (sessionStudents[session.id] || []) as SessionTableStudent[];
+                        const hasTutorLog = !!tutorLogs[session.id];
+                        const plannedStudentIds = new Set(
+                          studentList
+                            .filter((student) => student.sessions_students_id !== null && student.sessions_students_id !== undefined)
+                            .map((student) => student.id)
+                        );
                         if (!studentList.length) return <span className="text-muted-foreground text-sm">-</span>;
                         
                         return (
                           <div className="flex flex-col gap-1">
                             {studentList.map((s) => {
                               const planned_absence = s.planned_absence === true;
-                              const actualAttended = s.actual_attended;
                               const invoiceStatus = s.invoice_status;
                               const isExtra = s.is_extra === true;
                               const nameClass = planned_absence 
@@ -448,11 +582,12 @@ export function SessionsTable({
                                 : isExtra
                                 ? "text-orange-600 dark:text-orange-400"
                                 : "";
+                              const attendance = getStudentAttendanceStatus(s, hasTutorLog, plannedStudentIds);
                               
                               const badgeInfo = getInvoiceStatusBadgeVariant(invoiceStatus);
                               
                               return (
-                                <div key={s.id} className="flex items-center gap-1 flex-wrap">
+                                <div key={s.id} className="flex items-center gap-2 flex-wrap">
                                   <Button
                                     variant="link"
                                     size="sm"
@@ -461,11 +596,30 @@ export function SessionsTable({
                                   >
                                     {s.first_name} {s.last_name}
                                   </Button>
-                                  {actualAttended !== null && (
-                                    actualAttended ? (
-                                      <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
-                                    ) : (
-                                      <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                  {showAttendanceBreakdown ? (
+                                    <>
+                                      <AttendanceCell
+                                        status={attendance.plannedStatus}
+                                        linkTo={
+                                          attendance.plannedStatus === 'rescheduled' && attendance.rescheduledSessionId
+                                            ? {
+                                                type: 'session',
+                                                id: attendance.rescheduledSessionId,
+                                                onClick: () => onOpenSession?.(attendance.rescheduledSessionId),
+                                              }
+                                            : undefined
+                                        }
+                                        linkText={attendance.rescheduledDate}
+                                      />
+                                      <AttendanceCell status={attendance.actualStatus} />
+                                    </>
+                                  ) : (
+                                    s.actual_attended !== null && (
+                                      s.actual_attended ? (
+                                        <Check className="h-3 w-3 text-green-600 flex-shrink-0" />
+                                      ) : (
+                                        <X className="h-3 w-3 text-red-600 flex-shrink-0" />
+                                      )
                                     )
                                   )}
                                   {!hideBilling && badgeInfo && (

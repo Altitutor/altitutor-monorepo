@@ -25,8 +25,38 @@ type SessionStaffWithRelationsRow = {
 
 type SearchSessionsRpcResponse = {
   sessions: Tables<'sessions'>[];
-  sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>>;
-  sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>>;
+  sessionStudents: Record<string, Array<Tables<'students'> & {
+    planned_absence?: boolean;
+    actual_attended?: boolean | null;
+    actual_was_trial?: boolean | null;
+    invoice_status?: string | null;
+    sessions_students_id?: string | null;
+    is_extra?: boolean;
+    was_trial?: boolean;
+    is_rescheduled?: boolean;
+    is_credited?: boolean;
+    rescheduled_session?: {
+      session?: {
+        id: string;
+        start_at?: string;
+        class?: {
+          start_time?: string | null;
+        } | null;
+      } | null;
+    } | null;
+  }>>;
+  sessionStaff: Record<string, Array<Tables<'staff'> & {
+    planned_absence?: boolean;
+    actual_attended?: boolean | null;
+    actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+    is_swapped_in?: boolean;
+    is_swapped?: boolean;
+    swapped_staff?: {
+      id: string;
+      first_name: string;
+      last_name: string;
+    } | null;
+  }>>;
   tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
   classesById: Record<string, Tables<'classes'>>;
   subjectsById: Record<string, Tables<'subjects'>>;
@@ -144,8 +174,38 @@ export const sessionsApi = {
    */
   getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean; search?: string; studentId?: string; staffId?: string; classId?: string; adminShiftId?: string; types?: string[]; orderBy?: string; ascending?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
-    sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>>;
-    sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>>;
+    sessionStudents: Record<string, Array<Tables<'students'> & {
+      planned_absence?: boolean;
+      actual_attended?: boolean | null;
+      actual_was_trial?: boolean | null;
+      invoice_status?: string | null;
+      sessions_students_id?: string | null;
+      is_extra?: boolean;
+      was_trial?: boolean;
+      is_rescheduled?: boolean;
+      is_credited?: boolean;
+      rescheduled_session?: {
+        session?: {
+          id: string;
+          start_at?: string;
+          class?: {
+            start_time?: string | null;
+          } | null;
+        } | null;
+      } | null;
+    }>>;
+    sessionStaff: Record<string, Array<Tables<'staff'> & {
+      planned_absence?: boolean;
+      actual_attended?: boolean | null;
+      actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+      is_swapped_in?: boolean;
+      is_swapped?: boolean;
+      swapped_staff?: {
+        id: string;
+        first_name: string;
+        last_name: string;
+      } | null;
+    }>>;
     tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
     classesById: Record<string, Tables<'classes'>>;
     subjectsById: Record<string, Tables<'subjects'>>;
@@ -201,9 +261,44 @@ export const sessionsApi = {
       const sessions = (rpcData.sessions || []) as Tables<'sessions'>[];
       
       // Transform sessionStudents - RPC returns full student objects with additional fields
-      const sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>> = {};
+      const sessionStudents: Record<string, Array<Tables<'students'> & {
+        planned_absence?: boolean;
+        actual_attended?: boolean | null;
+        actual_was_trial?: boolean | null;
+        invoice_status?: string | null;
+        sessions_students_id?: string | null;
+        is_extra?: boolean;
+        was_trial?: boolean;
+        is_rescheduled?: boolean;
+        is_credited?: boolean;
+        rescheduled_session?: {
+          session?: {
+            id: string;
+            start_at?: string;
+            class?: {
+              start_time?: string | null;
+            } | null;
+          } | null;
+        } | null;
+      }>> = {};
       Object.entries(rpcData.sessionStudents || {}).forEach(([sessionId, students]) => {
         sessionStudents[sessionId] = (students || []).map((s) => {
+          const studentWithExtra = s as typeof s & {
+            actual_was_trial?: boolean | null;
+            was_trial?: boolean;
+            is_rescheduled?: boolean;
+            is_credited?: boolean;
+            sessions_students_id?: string | null;
+            rescheduled_session?: {
+              session?: {
+                id: string;
+                start_at?: string;
+                class?: {
+                  start_time?: string | null;
+                } | null;
+              } | null;
+            } | null;
+          };
           const mapped = {
             id: s.id,
             first_name: s.first_name,
@@ -214,18 +309,63 @@ export const sessionsApi = {
             school: s.school,
             planned_absence: s.planned_absence ?? false,
             actual_attended: s.actual_attended ?? null,
+            actual_was_trial: studentWithExtra.actual_was_trial ?? null,
             invoice_status: s.invoice_status ?? null,
-            sessions_students_id: s.sessions_students_id ?? undefined,
+            sessions_students_id: studentWithExtra.sessions_students_id ?? null,
             is_extra: s.is_extra ?? false,
+            was_trial: studentWithExtra.was_trial ?? false,
+            is_rescheduled: studentWithExtra.is_rescheduled ?? false,
+            is_credited: studentWithExtra.is_credited ?? false,
+            rescheduled_session: studentWithExtra.rescheduled_session ?? null,
           };
           return mapped;
-        }) as Array<Tables<'students'> & { planned_absence?: boolean; actual_attended?: boolean | null; invoice_status?: string | null; sessions_students_id?: string; is_extra?: boolean }>;
+        }) as Array<Tables<'students'> & {
+          planned_absence?: boolean;
+          actual_attended?: boolean | null;
+          actual_was_trial?: boolean | null;
+          invoice_status?: string | null;
+          sessions_students_id?: string | null;
+          is_extra?: boolean;
+          was_trial?: boolean;
+          is_rescheduled?: boolean;
+          is_credited?: boolean;
+          rescheduled_session?: {
+            session?: {
+              id: string;
+              start_at?: string;
+              class?: {
+                start_time?: string | null;
+              } | null;
+            } | null;
+          } | null;
+        }>;
       });
       
       // Transform sessionStaff - RPC returns full staff objects with additional fields
-      const sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>> = {};
+      const sessionStaff: Record<string, Array<Tables<'staff'> & {
+        planned_absence?: boolean;
+        actual_attended?: boolean | null;
+        actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+        is_swapped_in?: boolean;
+        is_swapped?: boolean;
+        swapped_staff?: {
+          id: string;
+          first_name: string;
+          last_name: string;
+        } | null;
+      }>> = {};
       Object.entries(rpcData.sessionStaff || {}).forEach(([sessionId, staff]) => {
-        sessionStaff[sessionId] = (staff || []).map((s) => ({
+        sessionStaff[sessionId] = (staff || []).map((s) => {
+          const staffWithExtra = s as typeof s & {
+            actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+            is_swapped?: boolean;
+            swapped_staff?: {
+              id: string;
+              first_name: string;
+              last_name: string;
+            } | null;
+          };
+          return {
           id: s.id,
           first_name: s.first_name,
           last_name: s.last_name,
@@ -233,8 +373,23 @@ export const sessionsApi = {
           status: s.status,
           planned_absence: s.planned_absence ?? false,
           actual_attended: s.actual_attended ?? null,
+          actual_type: staffWithExtra.actual_type ?? null,
           is_swapped_in: s.is_swapped_in ?? false,
-        })) as Array<Tables<'staff'> & { planned_absence?: boolean; actual_attended?: boolean | null; is_swapped_in?: boolean }>;
+          is_swapped: staffWithExtra.is_swapped ?? false,
+          swapped_staff: staffWithExtra.swapped_staff ?? null,
+        };
+        }) as Array<Tables<'staff'> & {
+          planned_absence?: boolean;
+          actual_attended?: boolean | null;
+          actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+          is_swapped_in?: boolean;
+          is_swapped?: boolean;
+          swapped_staff?: {
+            id: string;
+            first_name: string;
+            last_name: string;
+          } | null;
+        }>;
       });
       
       // Transform tutorLogs
@@ -909,8 +1064,4 @@ export const sessionsApi = {
       throw error;
     }
   },
-
-  // Note: Session resource files linking has been removed in the resources overhaul
-  // If you need to link resources to sessions in the future, consider a new approach
-  // using the topics_files table
 }; 

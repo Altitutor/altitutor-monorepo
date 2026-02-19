@@ -134,7 +134,8 @@ export const studentsApi = {
     // Always use RPC function (supports both search and "get all" when search is empty)
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
       p_search: trimmed.length > 0 ? trimmed : undefined,
-      p_statuses: statuses.length > 0 ? statuses : ['ACTIVE', 'TRIAL'],
+      // Pass an empty array explicitly so RPC defaults are not applied.
+      p_statuses: statuses.length > 0 ? statuses : [],
       p_include_relationships: true,
       p_exclude_class_search: false,
       p_limit: limit,

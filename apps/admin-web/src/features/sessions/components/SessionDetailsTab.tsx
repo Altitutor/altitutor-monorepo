@@ -63,6 +63,10 @@ type SessionDetailsTabProps = {
   onLogAbsenceStaff?: (staffId: string) => void;
   onSendBookingConfirmation?: (studentId: string) => void;
   onLogSession?: () => void;
+  onAddStudentToSession?: () => void;
+  onAddStaffToSession?: () => void;
+  onRemoveStudentFromSession?: (studentId: string, studentName: string) => void;
+  onRemoveStaffFromSession?: (staffId: string, staffName: string) => void;
 };
 
 export function SessionDetailsTab({
@@ -86,6 +90,10 @@ export function SessionDetailsTab({
   onLogAbsenceStaff,
   onSendBookingConfirmation,
   onLogSession: _onLogSession,
+  onAddStudentToSession,
+  onAddStaffToSession,
+  onRemoveStudentFromSession,
+  onRemoveStaffFromSession,
 }: SessionDetailsTabProps) {
   const hasTutorLog = !!tutorLog;
   const subject = (session as any).subject || session.class?.subject;
@@ -157,7 +165,14 @@ export function SessionDetailsTab({
 
       {/* Students Section */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Students ({studentsData.length})</h3>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
+          {onAddStudentToSession && (
+            <Button size="sm" variant="outline" onClick={onAddStudentToSession}>
+              Add student
+            </Button>
+          )}
+        </div>
         {studentsData.length === 0 ? (
           <div className="text-center py-4 text-sm text-muted-foreground">
             No students planned
@@ -245,14 +260,6 @@ export function SessionDetailsTab({
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              onOpenStudent(data.student.id);
-                            }}
-                          >
-                            View Student
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
                               onMessageStudent(data.student.id);
                             }}
                           >
@@ -278,6 +285,18 @@ export function SessionDetailsTab({
                               Log Absence
                             </DropdownMenuItem>
                           )}
+                          {(data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
+                                onRemoveStudentFromSession(data.student.id, studentName || 'Student');
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              Remove from session
+                            </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -293,7 +312,14 @@ export function SessionDetailsTab({
 
       {/* Staff Section */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Staff ({staffData.length})</h3>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h3 className="text-lg font-semibold">Staff ({staffData.length})</h3>
+          {onAddStaffToSession && (
+            <Button size="sm" variant="outline" onClick={onAddStaffToSession}>
+              Add staff
+            </Button>
+          )}
+        </div>
         {staffData.length === 0 ? (
           <div className="text-center py-4 text-sm text-muted-foreground">
             No staff planned
@@ -366,14 +392,6 @@ export function SessionDetailsTab({
                           <DropdownMenuItem
                             onClick={(e) => {
                               e.stopPropagation();
-                              onOpenStaff(data.staff.id);
-                            }}
-                          >
-                            View Staff
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={(e) => {
-                              e.stopPropagation();
                               onMessageStaff(data.staff.id);
                             }}
                           >
@@ -387,6 +405,18 @@ export function SessionDetailsTab({
                               }}
                             >
                               Log Absence
+                            </DropdownMenuItem>
+                          )}
+                          {onRemoveStaffFromSession && (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const staffName = `${data.staff.first_name || ''} ${data.staff.last_name || ''}`.trim();
+                                onRemoveStaffFromSession(data.staff.id, staffName || 'Staff');
+                              }}
+                              className="text-destructive focus:text-destructive"
+                            >
+                              Remove from session
                             </DropdownMenuItem>
                           )}
                         </DropdownMenuContent>

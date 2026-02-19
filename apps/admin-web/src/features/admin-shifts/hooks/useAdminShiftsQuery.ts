@@ -19,6 +19,7 @@ export interface UseAdminShiftsListParams {
   search?: string;
   dayOfWeek?: number;
   daysOfWeek?: number[];
+  statuses?: string[];
   page?: number;
   pageSize?: number;
   orderBy?: keyof Tables<'admin_shifts'>;
@@ -30,6 +31,7 @@ export function useAdminShiftsMinimalPaginated(params: UseAdminShiftsListParams 
     search = '',
     dayOfWeek,
     daysOfWeek = [],
+    statuses = [],
     page = 1,
     pageSize = 50,
     orderBy = 'day_of_week',
@@ -39,12 +41,13 @@ export function useAdminShiftsMinimalPaginated(params: UseAdminShiftsListParams 
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: adminShiftsKeys.minimal({ search, dayOfWeek, daysOfWeek, page, pageSize, orderBy, ascending }),
+    queryKey: adminShiftsKeys.minimal({ search, dayOfWeek, daysOfWeek, statuses, page, pageSize, orderBy, ascending }),
     queryFn: () =>
       adminShiftsApi.listMinimal({
         search,
         dayOfWeek,
         daysOfWeek,
+        statuses,
         limit: pageSize,
         offset,
         orderBy,

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { useSessionActions } from '../hooks/useSessionActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -20,10 +20,17 @@ import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
 import { SessionDetailsTab } from './SessionDetailsTab';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
+import { AddStudentToSessionModal } from './AddStudentToSessionModal';
+import { AddStaffToSessionModal } from './AddStaffToSessionModal';
+import { RemoveFromSessionConfirmDialog } from './RemoveFromSessionConfirmDialog';
 import {
   useSessionData,
   useSessionModals,
   useSessionHelpers,
+  useAddStudentToSession,
+  useAssignStaffToSession,
+  useRemoveStudentFromSession,
+  useRemoveStaffFromSession,
 } from '../hooks';
 import {
   buildStudentAttendanceMap,
@@ -31,6 +38,7 @@ import {
   processSessionStudents,
   processSessionStaff,
 } from '../utils';
+import { formatTime } from '@/shared/utils/datetime';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -40,8 +48,13 @@ type SessionModalProps = {
 
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
   const router = useRouter();
+  const { toast } = useToast();
   const openWindow = useChatStore(s => s.openWindow);
   const { data: currentStaff } = useCurrentStaff();
+  const addStudentMutation = useAddStudentToSession();
+  const addStaffMutation = useAssignStaffToSession();
+  const removeStudentMutation = useRemoveStudentFromSession();
+  const removeStaffMutation = useRemoveStaffFromSession();
 
   // Business logic hooks
   const sessionData = useSessionData({
@@ -114,6 +127,24 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     }
   };
 
+  const handleMutationError = (error: unknown) => {
+    const message = error instanceof Error ? error.message : 'Something went wrong';
+    const lower = message.toLowerCase();
+    if (lower.includes('duplicate') || lower.includes('already')) {
+      toast({
+        title: 'Already in session',
+        description: 'This person is already in the session.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({
+      title: 'Error',
+      description: message,
+      variant: 'destructive',
+    });
+  };
+
   // Session helpers
   const helpers = useSessionHelpers({
     session: sessionData.data?.session,
@@ -159,6 +190,22 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   const { session, sessionsStudents, sessionsStaff, tutorLog } = sessionData.data;
   const sessionTitle = getSessionTitle(session);
+  const sessionDay = session.start_at
+    ? new Date(session.start_at).toLocaleDateString('en-US', { weekday: 'long' })
+    : 'Unknown day';
+  const sessionTime = (() => {
+    if (session.start_at && session.end_at) {
+      const start = new Date(session.start_at);
+      const end = new Date(session.end_at);
+      const startHHMM = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+      const endHHMM = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+      return `${formatTime(startHHMM)} - ${formatTime(endHHMM)}`;
+    }
+    if (session.class?.start_time && session.class?.end_time) {
+      return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
+    }
+    return 'Unknown time';
+  })();
 
   // Process attendance data
   const actualStudentAttendance = buildStudentAttendanceMap(tutorLog);
@@ -167,6 +214,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   // Process students and staff data
   const studentsData = processSessionStudents(sessionsStudents, actualStudentAttendance, helpers.hasTutorLog);
   const staffData = processSessionStaff(sessionsStaff, actualStaffAttendance, helpers.hasTutorLog, tutorLog?.created_by);
+  const existingStudentIds = sessionsStudents
+    .map((row: any) => row.student_id)
+    .filter((id: string | null | undefined): id is string => !!id);
+  const existingStaffIds = sessionsStaff
+    .map((row: any) => row.staff_id)
+    .filter((id: string | null | undefined): id is string => !!id);
 
   return (
     <>
@@ -235,6 +288,14 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onLogAbsenceStudent={modals.openLogStudentAbsenceDialog}
                     onLogAbsenceStaff={modals.openLogStaffAbsenceDialog}
                     onSendBookingConfirmation={modals.openBookingConfirmationDialog}
+                    onAddStudentToSession={modals.openAddStudentToSessionModal}
+                    onAddStaffToSession={modals.openAddStaffToSessionModal}
+                    onRemoveStudentFromSession={(studentId, studentName) =>
+                      modals.openRemoveFromSessionDialog({ entityType: 'student', entityId: studentId, entityName: studentName })
+                    }
+                    onRemoveStaffFromSession={(staffId, staffName) =>
+                      modals.openRemoveFromSessionDialog({ entityType: 'staff', entityId: staffId, entityName: staffName })
+                    }
                   />
                   <Separator className="my-6" />
                   {/* Session Files Section - Only show for meetings, not classes */}
@@ -316,6 +377,84 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           onClose={modals.closeBookingConfirmationDialog}
           sessionId={sessionId}
           studentId={modals.selectedStudentForBookingConfirmation}
+        />
+      )}
+
+      <AddStudentToSessionModal
+        isOpen={modals.isAddStudentToSessionModalOpen}
+        onClose={modals.closeAddStudentToSessionModal}
+        sessionTitle={sessionTitle}
+        sessionTime={sessionTime}
+        sessionDay={sessionDay}
+        existingStudentIds={existingStudentIds}
+        isPending={addStudentMutation.isPending}
+        onConfirm={async (student) => {
+          if (!sessionId) return;
+          try {
+            await addStudentMutation.mutateAsync({ sessionId, studentId: student.id });
+            await sessionData.refresh();
+            toast({
+              title: 'Student added',
+              description: `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student added to session.',
+            });
+          } catch (error) {
+            handleMutationError(error);
+            throw error;
+          }
+        }}
+      />
+
+      <AddStaffToSessionModal
+        isOpen={modals.isAddStaffToSessionModalOpen}
+        onClose={modals.closeAddStaffToSessionModal}
+        sessionTitle={sessionTitle}
+        sessionTime={sessionTime}
+        sessionDay={sessionDay}
+        existingStaffIds={existingStaffIds}
+        isPending={addStaffMutation.isPending}
+        onConfirm={async (staff) => {
+          if (!sessionId) return;
+          try {
+            await addStaffMutation.mutateAsync({ sessionId, staffId: staff.id, type: 'MAIN_TUTOR' });
+            await sessionData.refresh();
+            toast({
+              title: 'Staff added',
+              description: `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Staff added to session.',
+            });
+          } catch (error) {
+            handleMutationError(error);
+            throw error;
+          }
+        }}
+      />
+
+      {modals.removeFromSessionTarget && (
+        <RemoveFromSessionConfirmDialog
+          isOpen={modals.isRemoveFromSessionDialogOpen}
+          entityType={modals.removeFromSessionTarget.entityType}
+          entityName={modals.removeFromSessionTarget.entityName}
+          sessionTitle={sessionTitle}
+          isPending={removeStudentMutation.isPending || removeStaffMutation.isPending}
+          onCancel={modals.closeRemoveFromSessionDialog}
+          onConfirm={async () => {
+            if (!sessionId || !modals.removeFromSessionTarget) return;
+            const target = modals.removeFromSessionTarget;
+            try {
+              if (target.entityType === 'student') {
+                await removeStudentMutation.mutateAsync({ sessionId, studentId: target.entityId });
+              } else {
+                await removeStaffMutation.mutateAsync({ sessionId, staffId: target.entityId });
+              }
+              await sessionData.refresh();
+              modals.closeRemoveFromSessionDialog();
+              toast({
+                title: `${target.entityType === 'student' ? 'Student' : 'Staff'} removed`,
+                description: `${target.entityName} removed from session.`,
+              });
+            } catch (error) {
+              handleMutationError(error);
+            }
+          }}
         />
       )}
 
