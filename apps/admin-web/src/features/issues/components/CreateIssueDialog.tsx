@@ -124,6 +124,7 @@ export function CreateIssueDialog({
                 
                 <IssueContentPanel 
                   isOpen={isOpen}
+                  tags={initialTags}
                 />
               </form>
             </Form>

@@ -479,18 +479,6 @@ export function useMentionField<T extends Record<string, unknown>>({
       const time = classData.start_time || '';
       const subjectName = subject?.short_name || subject?.long_name || '';
       displayText = `${subjectName} ${dayAbbr} ${time}`.trim();
-    } else if (result.type === 'session') {
-      const sessionData = result.data;
-      const classData = sessionData.class;
-      const subject = classData?.subject;
-      const subjectName = subject?.short_name || subject?.long_name || '';
-      const startDate = sessionData.start_at
-        ? new Date(sessionData.start_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-        : '';
-      const startTime = sessionData.start_at
-        ? new Date(sessionData.start_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-        : '';
-      displayText = `${subjectName} - ${startDate} ${startTime}`.trim();
     } else if (result.type === 'subject') {
       displayText = result.data.long_name || result.data.short_name || result.data.name || '';
     } else if (result.type === 'topic') {

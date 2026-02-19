@@ -29,16 +29,18 @@ const handleEntityClick = (type: string, id: string) => {
 
 interface IssueContentPanelProps {
   issue?: IssueWithTags;
+  tags?: any[];
   isOpen: boolean;
 }
 
-export const IssueContentPanel = memo(function IssueContentPanel({ issue, isOpen }: IssueContentPanelProps) {
-  const conversationTag = useMemo(() => issue?.tags.find(t => t.conversation_id), [issue?.tags]);
-  const studentTag = useMemo(() => issue?.tags.find(t => t.student_id), [issue?.tags]);
+export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: propTags, isOpen }: IssueContentPanelProps) {
+  const activeTags = useMemo(() => issue?.tags || propTags || [], [issue?.tags, propTags]);
+  const conversationTag = useMemo(() => activeTags.find(t => t.conversation_id), [activeTags]);
+  const studentTag = useMemo(() => activeTags.find(t => t.student_id), [activeTags]);
   const contactRelatedId = studentTag?.student_id || undefined;
   
   const { data: contactId } = useQuery({
-    queryKey: ['issue-contact', issue?.id, conversationTag?.conversation_id, contactRelatedId],
+    queryKey: ['issue-contact', issue?.id || 'new', conversationTag?.conversation_id, contactRelatedId],
     queryFn: async () => {
       if (conversationTag?.conversation_id) {
         return getContactIdFromConversation(conversationTag.conversation_id);
@@ -54,10 +56,10 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, isOpen
       }
       return null;
     },
-    enabled: isOpen && !!issue && (!!conversationTag || !!contactRelatedId)
+    enabled: isOpen && (!!conversationTag || !!contactRelatedId)
   });
 
-  if (!issue) {
+  if (!issue && activeTags.length === 0) {
     return (
       <div className="hidden md:flex w-80 border-l flex-col min-w-0 flex-shrink-0 items-center justify-center p-8 text-center text-muted-foreground">
         Tag entities after creating the issue to see chat and related data.
@@ -104,7 +106,7 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, isOpen
           <TabsContent value="entities" className="h-full m-0 overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-6 space-y-6">
-                <IssueEntitiesList tags={issue.tags} />
+                <IssueEntitiesList tags={activeTags} />
               </div>
             </ScrollArea>
           </TabsContent>

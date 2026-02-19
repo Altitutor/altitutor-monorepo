@@ -24,7 +24,6 @@ export type CommandPaletteEntityResult =
   | { type: 'class'; id: string; data: MinimalClass }
   | { type: 'subject'; id: string; data: Tables<'subjects'> }
   | { type: 'topic'; id: string; data: Tables<'topics'> & { subject: Tables<'subjects'> } }
-  | { type: 'session'; id: string; data: Tables<'sessions'> & { class?: Tables<'classes'> | null; subject?: Tables<'subjects'> | null; staff?: Tables<'staff'> | null } }
   | { type: 'file'; id: string; data: { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } } };
 
 /**
