@@ -1,0 +1,150 @@
+'use client';
+
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  type JSONContent,
+} from '@altitutor/ui';
+import { Button } from '@altitutor/ui';
+import { Form } from '@altitutor/ui';
+import { X } from 'lucide-react';
+import { useCreateIssue } from '../api/mutations';
+import type { IssueStatus, IssueTagInsert } from '../types';
+import { IssueContentPanel } from './panels/IssueContentPanel';
+import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
+import { useEffect } from 'react';
+
+const formSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  description: z.any().optional(),
+  status: z.enum(['open', 'awaiting_response', 'resolved', 'closed']),
+});
+
+type FormData = {
+  name: string;
+  description?: JSONContent | null;
+  status: IssueStatus;
+};
+
+interface CreateIssueDialogProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onIssueCreated?: () => void;
+  initialStatus?: IssueStatus;
+  initialTags?: Omit<IssueTagInsert, 'issue_id'>[];
+}
+
+export function CreateIssueDialog({ 
+  isOpen, 
+  onClose, 
+  onIssueCreated, 
+  initialStatus = 'open',
+  initialTags 
+}: CreateIssueDialogProps) {
+  const createIssue = useCreateIssue();
+
+  const form = useForm<FormData>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      name: '',
+      description: null,
+      status: initialStatus,
+    },
+  });
+
+  useEffect(() => {
+    if (isOpen) {
+      form.reset({
+        name: '',
+        description: null,
+        status: initialStatus,
+      });
+    }
+  }, [isOpen, initialStatus, form]);
+
+  const onSubmit = async (data: FormData) => {
+    try {
+      await createIssue.mutateAsync({
+        issue: {
+          name: data.name,
+          description: data.description || null,
+          status: data.status,
+        },
+        tags: initialTags,
+      });
+      onIssueCreated?.();
+      handleClose();
+    } catch (error) {
+      console.error('Failed to create issue:', error);
+    }
+  };
+
+  const handleClose = () => {
+    form.reset();
+    onClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+          <div className="flex items-center justify-between gap-4 w-full">
+            <div className="flex items-center gap-3 flex-1">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleClose}
+                className="shrink-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+              <div className="flex-1">
+                <DialogTitle>Create Issue</DialogTitle>
+              </div>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-hidden min-h-0">
+          <div className="h-full flex">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="flex-1 flex min-h-0">
+                <IssuePropertiesPanel
+                  form={form as any}
+                  notes={[]}
+                  isOpen={isOpen}
+                  onClose={handleClose}
+                />
+                
+                <IssueContentPanel 
+                  isOpen={isOpen}
+                />
+              </form>
+            </Form>
+          </div>
+        </div>
+
+        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
+          <div className="flex items-center gap-2 w-full justify-end">
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              onClick={form.handleSubmit(onSubmit)}
+              disabled={createIssue.isPending}
+            >
+              {createIssue.isPending ? 'Creating...' : 'Create Issue'}
+            </Button>
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

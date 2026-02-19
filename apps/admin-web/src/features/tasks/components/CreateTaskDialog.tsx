@@ -163,13 +163,6 @@ export function CreateTaskDialog({
           <div className="h-full flex">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
-                <TaskPropertiesPanel
-                  form={form as any}
-                  selectedAssignee={selectedAssignee}
-                  onAssigneeChange={setSelectedAssignee}
-                  taskStatus={defaultStatus}
-                  enabled={isOpen}
-                />
                 <TaskContentPanel
                   form={form as any}
                   taskId={createdTaskId}
@@ -181,6 +174,13 @@ export function CreateTaskDialog({
                   taskStatus={defaultStatus}
                   enabled={isOpen}
                   autoFocusTitle={true}
+                />
+                <TaskPropertiesPanel
+                  form={form as any}
+                  selectedAssignee={selectedAssignee}
+                  onAssigneeChange={setSelectedAssignee}
+                  taskStatus={defaultStatus}
+                  enabled={isOpen}
                 />
               </form>
             </Form>

@@ -5,28 +5,15 @@ import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui'
 import { LayoutGrid, List, Plus } from 'lucide-react';
 import { IssuesBoard } from '@/features/issues/components/IssuesBoard';
 import { IssuesList } from '@/features/issues/components/IssuesList';
-import { IssueDialog } from '@/features/issues/components/IssueDialog';
-import { useCreateIssue } from '@/features/issues/api/mutations';
+import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
+import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 
 export default function IssuesPage() {
   const [view, setView] = useState<'kanban' | 'list'>('kanban');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [newIssueId, setNewIssueId] = useState<string | null>(null);
   
-  const createIssue = useCreateIssue();
-
-  const handleCreateIssue = async () => {
-    try {
-      const result = await createIssue.mutateAsync({
-        issue: {
-          name: 'New Issue',
-          status: 'open',
-        },
-      });
-      setNewIssueId(result.id);
-    } catch (error) {
-      console.error('Failed to create issue:', error);
-    }
+  const handleCreateIssue = () => {
+    setIsCreateDialogOpen(true);
   };
 
   return (
@@ -46,9 +33,9 @@ export default function IssuesPage() {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-          <Button onClick={handleCreateIssue} disabled={createIssue.isPending}>
+          <Button onClick={handleCreateIssue}>
             <Plus className="h-4 w-4 mr-2" />
-            {createIssue.isPending ? 'Creating...' : 'New Issue'}
+            New Issue
           </Button>
         </div>
       </div>
@@ -61,13 +48,10 @@ export default function IssuesPage() {
         )}
       </div>
 
-      {newIssueId && (
-        <IssueDialog
-          isOpen={!!newIssueId}
-          onClose={() => setNewIssueId(null)}
-          issueId={newIssueId}
-        />
-      )}
+      <CreateIssueDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+      />
     </div>
   );
 }

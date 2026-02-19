@@ -28,17 +28,17 @@ const handleEntityClick = (type: string, id: string) => {
 };
 
 interface IssueContentPanelProps {
-  issue: IssueWithTags;
+  issue?: IssueWithTags;
   isOpen: boolean;
 }
 
 export const IssueContentPanel = memo(function IssueContentPanel({ issue, isOpen }: IssueContentPanelProps) {
-  const conversationTag = useMemo(() => issue.tags.find(t => t.conversation_id), [issue.tags]);
-  const studentTag = useMemo(() => issue.tags.find(t => t.student_id), [issue.tags]);
+  const conversationTag = useMemo(() => issue?.tags.find(t => t.conversation_id), [issue?.tags]);
+  const studentTag = useMemo(() => issue?.tags.find(t => t.student_id), [issue?.tags]);
   const contactRelatedId = studentTag?.student_id || undefined;
   
   const { data: contactId } = useQuery({
-    queryKey: ['issue-contact', issue.id, conversationTag?.conversation_id, contactRelatedId],
+    queryKey: ['issue-contact', issue?.id, conversationTag?.conversation_id, contactRelatedId],
     queryFn: async () => {
       if (conversationTag?.conversation_id) {
         return getContactIdFromConversation(conversationTag.conversation_id);
@@ -54,11 +54,19 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, isOpen
       }
       return null;
     },
-    enabled: isOpen && (!!conversationTag || !!contactRelatedId)
+    enabled: isOpen && !!issue && (!!conversationTag || !!contactRelatedId)
   });
 
+  if (!issue) {
+    return (
+      <div className="hidden md:flex w-80 border-l flex-col min-w-0 flex-shrink-0 items-center justify-center p-8 text-center text-muted-foreground">
+        Tag entities after creating the issue to see chat and related data.
+      </div>
+    );
+  }
+
   return (
-    <div className="hidden md:flex w-80 border-r flex-col min-w-0 flex-shrink-0">
+    <div className="hidden md:flex w-80 border-l flex-col min-w-0 flex-shrink-0">
       <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
         <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10 px-6 pb-4 pt-4">
           <TabsList className="grid w-full grid-cols-2">
