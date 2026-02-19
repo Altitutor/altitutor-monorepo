@@ -6,6 +6,7 @@ import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from '../hooks';
+import { sessionsApi } from '@/features/sessions/api/sessions';
 
 // Import step components
 import { Step1SessionPicker } from './steps/Step1SessionPicker';
@@ -220,6 +221,9 @@ export function LogSessionModal({
             currentStaffId={selectedStaffId}
             staffAttendance={formData.staffAttendance || []}
             onUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
+            onAddStaffToSession={async (staffId: string) => {
+              await sessionsApi.assignStaffToSession(formData.sessionId!, staffId);
+            }}
           />
         );
       case 2:

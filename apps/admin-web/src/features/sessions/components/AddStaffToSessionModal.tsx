@@ -12,12 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  ScrollArea,
 } from '@altitutor/ui';
 import { Loader2, Search, X, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { staffApi } from '@/features/staff/api/staff';
 import { cn } from '@/shared/utils';
+import { StaffCard } from '@/shared/components/StaffCard';
 
 type AddStaffToSessionModalProps = {
   isOpen: boolean;
@@ -49,7 +49,7 @@ export function AddStaffToSessionModal({
     queryFn: async () => {
       const result = await staffApi.listMinimal({
         search,
-        statuses: ['ACTIVE'],
+        statuses: ['ACTIVE', 'TRIAL'],
         limit: 50,
         offset: 0,
         orderBy: 'first_name',
@@ -160,42 +160,30 @@ export function AddStaffToSessionModal({
                   />
                 </div>
 
-                <ScrollArea className="h-[360px] border rounded-lg">
-                  <div className="p-2 space-y-2">
-                    {isLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : selectableStaff.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-10">
-                        No staff available to add
-                      </p>
-                    ) : (
-                      selectableStaff.map((staffMember) => {
-                        const name = `${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim();
-                        const isSelected = selectedStaffId === staffMember.id;
-                        return (
-                          <button
-                            key={staffMember.id}
-                            type="button"
-                            className={cn(
-                              'w-full text-left p-3 rounded-md border transition-colors',
-                              isSelected
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:bg-muted'
-                            )}
-                            onClick={() => setSelectedStaffId(staffMember.id)}
-                          >
-                            <div className="font-medium">{name || 'Unnamed staff'}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {staffMember.role || 'No role'}
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
-                </ScrollArea>
+                ) : selectableStaff.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-10">
+                    No staff available to add
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectableStaff.map((staffMember) => (
+                      <StaffCard
+                        key={staffMember.id}
+                        staff={staffMember}
+                        subjects={[]}
+                        showSubjects={false}
+                        showActions={false}
+                        isSelecting
+                        isSelected={selectedStaffId === staffMember.id}
+                        onClick={() => setSelectedStaffId(staffMember.id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </>
             )}
 

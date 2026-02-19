@@ -12,12 +12,12 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
-  ScrollArea,
 } from '@altitutor/ui';
 import { Loader2, Search, X, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { studentsApi } from '@/features/students/api/students';
 import { cn } from '@/shared/utils';
+import { StudentCard } from '@/shared/components/StudentCard';
 
 type AddStudentToSessionModalProps = {
   isOpen: boolean;
@@ -49,7 +49,7 @@ export function AddStudentToSessionModal({
     queryFn: async () => {
       const result = await studentsApi.listMinimal({
         search,
-        statuses: ['ACTIVE'],
+        statuses: ['ACTIVE', 'TRIAL'],
         limit: 50,
         offset: 0,
         orderBy: 'first_name',
@@ -162,42 +162,30 @@ export function AddStudentToSessionModal({
                   />
                 </div>
 
-                <ScrollArea className="h-[360px] border rounded-lg">
-                  <div className="p-2 space-y-2">
-                    {isLoading ? (
-                      <div className="flex items-center justify-center py-10">
-                        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      </div>
-                    ) : selectableStudents.length === 0 ? (
-                      <p className="text-sm text-muted-foreground text-center py-10">
-                        No students available to add
-                      </p>
-                    ) : (
-                      selectableStudents.map((student) => {
-                        const name = `${student.first_name || ''} ${student.last_name || ''}`.trim();
-                        const isSelected = selectedStudentId === student.id;
-                        return (
-                          <button
-                            key={student.id}
-                            type="button"
-                            className={cn(
-                              'w-full text-left p-3 rounded-md border transition-colors',
-                              isSelected
-                                ? 'border-primary bg-primary/5'
-                                : 'border-border hover:bg-muted'
-                            )}
-                            onClick={() => setSelectedStudentId(student.id)}
-                          >
-                            <div className="font-medium">{name || 'Unnamed student'}</div>
-                            <div className="text-xs text-muted-foreground">
-                              {student.curriculum || 'No curriculum'}{student.year_level ? ` • Year ${student.year_level}` : ''}
-                            </div>
-                          </button>
-                        );
-                      })
-                    )}
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-10">
+                    <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
                   </div>
-                </ScrollArea>
+                ) : selectableStudents.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-10">
+                    No students available to add
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {selectableStudents.map((student) => (
+                      <StudentCard
+                        key={student.id}
+                        student={student}
+                        subjects={[]}
+                        showSubjects={false}
+                        showActions={false}
+                        isSelecting
+                        isSelected={selectedStudentId === student.id}
+                        onClick={() => setSelectedStudentId(student.id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </>
             )}
 

@@ -108,6 +108,7 @@ export function Step2StaffAttendance({
     try {
       const result = await staffApi.listMinimal({
         search,
+        statuses: ['ACTIVE', 'TRIAL'],
         limit: 20,
         offset: 0,
         orderBy: 'first_name',
