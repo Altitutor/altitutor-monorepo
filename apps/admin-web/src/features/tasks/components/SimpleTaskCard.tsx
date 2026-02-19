@@ -13,7 +13,7 @@ import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
 import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, getStatusIconColor, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
 import { Calendar, Circle, Clock, Eye, CheckCircle } from 'lucide-react';
 import { useUpdateTask } from '../api/mutations';
-import { TaskTextWithTags } from './fields/TaskTextWithTags';
+import { TextWithTags } from '@/shared/components/TextWithTags';
 import type { LucideIcon } from 'lucide-react';
 
 interface SimpleTaskCardProps {
@@ -79,7 +79,7 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
         <div className="flex-1 min-w-0 space-y-2">
           {/* Title */}
           <div className="font-medium text-sm">
-            <TaskTextWithTags text={task.title} />
+            <TextWithTags text={task.title} />
           </div>
 
           {/* Assignee */}

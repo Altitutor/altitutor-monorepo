@@ -2,7 +2,7 @@ import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IssueFilters, IssueWithTags, IssueInsert, IssueUpdate, IssueTagInsert, IssueTag, Issue } from '../types';
-import { extractMentions } from '../utils/extractMentions';
+import { extractMentions } from '@/shared/utils/extractMentions';
 import type { JSONContent } from '@altitutor/ui';
 
 /**

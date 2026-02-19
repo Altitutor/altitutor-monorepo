@@ -23,7 +23,7 @@ import { useTasks } from '../api/queries';
 import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
-import { TaskTextWithTags } from './fields/TaskTextWithTags';
+import { TextWithTags } from '@/shared/components/TextWithTags';
 import { EditTaskDialog } from './EditTaskDialog';
 import {
   TaskAssigneeEntityPill,
@@ -332,7 +332,7 @@ export function TasksList({
       <EntityList<TaskWithAssignee>
         items={filteredTasks}
         getItemId={(t) => t.id}
-        renderName={(t) => <TaskTextWithTags text={t.title} />}
+        renderName={(t) => <TextWithTags text={t.title} />}
         statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee>}
         rightPills={rightPills}
         groupByOptions={groupByOptions}

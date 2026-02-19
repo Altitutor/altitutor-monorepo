@@ -2,7 +2,7 @@
 
 import { Badge } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
-import type { TagEntityType } from '../../utils/tagParsing';
+import type { TagEntityType } from '@/shared/utils/tagParsing';
 import {
   GraduationCap,
   UserRound,

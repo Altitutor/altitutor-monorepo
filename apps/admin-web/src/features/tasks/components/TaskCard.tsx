@@ -8,7 +8,7 @@ import { getPriorityColor, getPriorityLabel, isOverdue, formatDueDate, getUserIn
 import { Calendar } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TaskTextWithTags } from './fields/TaskTextWithTags';
+import { TextWithTags } from '@/shared/components/TextWithTags';
 
 interface TaskCardProps {
   task: TaskWithAssignee;
@@ -55,7 +55,7 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
     >
       {/* Title */}
       <div className="font-medium text-sm">
-        <TaskTextWithTags text={task.title} />
+        <TextWithTags text={task.title} />
       </div>
 
       {/* Badges row */}

@@ -5,19 +5,24 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  RichTextEditor,
+  type RichTextEditorRef,
+  type JSONContent,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
-import { TaskEditor, type TaskEditorRef } from '../TaskEditor';
-import type { TagEntityType } from '../../utils/tagParsing';
+import type { TagEntityType } from '@/shared/utils/tagParsing';
+import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 
 interface TaskDescriptionFieldProps {
-  form: UseFormReturn<{ description?: string }>;
-  value?: string | null;
+  form: UseFormReturn<any>;
+  value?: JSONContent | null;
   onTagClick?: (type: TagEntityType, id: string) => void;
-  descriptionRef?: React.RefObject<TaskEditorRef>;
+  descriptionRef?: React.RefObject<RichTextEditorRef>;
 }
 
 export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }: TaskDescriptionFieldProps) {
+  const mentionSuggestions = useMentionSuggestions();
+
   return (
     <FormField
       control={form.control}
@@ -25,11 +30,13 @@ export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }
       render={({ field }) => (
         <FormItem>
           <FormControl>
-            <TaskEditor
+            <RichTextEditor
               ref={descriptionRef}
               content={field.value || ''}
               onChange={field.onChange}
-              placeholder="Add description..."
+              placeholder="Add task description..."
+              className="min-h-0"
+              mentionSuggestions={mentionSuggestions as any}
             />
           </FormControl>
           <FormMessage />

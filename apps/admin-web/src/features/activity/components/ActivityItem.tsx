@@ -7,7 +7,7 @@ import { FormattedActivityMessage } from './FormattedActivityMessage';
 import { cn } from '@/shared/utils';
 import { Card, CardContent, Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
-import { renderTextWithTagsAsPlainText } from '@/features/tasks/utils/tagDisplay';
+import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
 
 interface ActivityItemProps {
   activity: ActivityEventDisplay;

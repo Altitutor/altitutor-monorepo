@@ -11,7 +11,7 @@ import { IssueDescriptionField } from '@/features/issues/components/fields/Issue
 import { IssueNotes } from '@/features/issues/components/IssueNotes';
 import type { RichTextEditorRef } from '@altitutor/ui';
 import type { IssueWithTags, IssueStatus } from '../../types';
-import type { TagEntityType } from '../../../tasks/utils/tagParsing';
+import type { TagEntityType } from '@/shared/utils/tagParsing';
 import type { Tables } from '@altitutor/shared';
 
 type NoteWithStaff = Tables<'notes'> & {

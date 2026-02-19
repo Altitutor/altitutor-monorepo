@@ -7,11 +7,11 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
-import { useMentionField } from '../../../tasks/hooks/useMentionField';
-import { MentionAutocomplete } from '../../../tasks/components/fields/MentionAutocomplete';
+import { useMentionField } from '@/shared/hooks/useMentionField';
+import { MentionAutocomplete } from '@/shared/components/MentionAutocomplete';
 import { useCallback } from 'react';
 import type { EntitySearchResult } from '@/shared/hooks/useEntitySearch';
-import type { TagEntityType } from '../../../tasks/utils/tagParsing';
+import type { TagEntityType } from '@/shared/utils/tagParsing';
 
 interface IssueTitleFieldProps {
   form: UseFormReturn<{ name: string }>;
