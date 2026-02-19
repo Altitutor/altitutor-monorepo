@@ -57,20 +57,20 @@ export function useTaskAutoSave({
   const estimate = form.watch('estimate');
   const dueDate = form.watch('dueDate');
 
-  // Debounce fields that need it
-  const debouncedTitle = useDebounce(title, 1000);
+  // Debounce used only as a trigger; we save the current value when the effect runs (same as description).
+  const debouncedTitleTrigger = useDebounce(title, 1000);
   const debouncedDescriptionTrigger = useDebounce(description, 1000);
 
-  // Auto-save for title
+  // Auto-save for title (same pattern as description: effect runs on every change, saves current value)
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
-    if (task && debouncedTitle && debouncedTitle !== lastSavedValuesRef.current.title) {
-      lastSavedValuesRef.current.title = debouncedTitle;
-      onSave({ title: debouncedTitle });
+    if (task && title !== undefined && title !== '' && title !== lastSavedValuesRef.current.title) {
+      lastSavedValuesRef.current.title = title;
+      onSave({ title });
     }
-  }, [debouncedTitle, task, isInitialized, isUpdatingFromServer, onSave]);
+  }, [debouncedTitleTrigger, title, task, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Auto-save for description
+  // Auto-save for description (trigger + current value so it saves on every change)
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
     

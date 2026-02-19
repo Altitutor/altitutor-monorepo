@@ -44,25 +44,23 @@ export function useNoteAutoSave({
   const content = form.watch('content');
   const folderId = form.watch('folder_id');
 
-  // Debounce title and content (folder_id saves immediately)
-  const debouncedTitle = useDebounce(title, 1000);
+  // Debounce used only as a trigger; we save the current value when the effect runs (same for title and content).
+  const debouncedTitleTrigger = useDebounce(title, 1000);
   const debouncedContentTrigger = useDebounce(content, 1000);
 
-  // Auto-save for title
+  // Auto-save for title (same pattern as content: effect runs on every change, saves current value)
   useEffect(() => {
     const isUpdating = typeof isUpdatingFromServer === 'function' 
       ? isUpdatingFromServer() 
       : isUpdatingFromServer;
     if (!isInitialized || isUpdating) return;
-    if (note && debouncedTitle && debouncedTitle !== lastSavedValuesRef.current.title) {
-      lastSavedValuesRef.current.title = debouncedTitle;
-      onSave({ title: debouncedTitle });
+    if (note && title !== undefined && title !== '' && title !== lastSavedValuesRef.current.title) {
+      lastSavedValuesRef.current.title = title;
+      onSave({ title });
     }
-  }, [debouncedTitle, note, isInitialized, isUpdatingFromServer, onSave]);
+  }, [debouncedTitleTrigger, title, note, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Auto-save for content
-  // Use debouncedContentTrigger as trigger (fires after debounce), but save current content value
-  // This ensures we save the latest value, not a stale debounced value
+  // Auto-save for content (trigger + current value so it saves on every change)
   useEffect(() => {
     const isUpdating = typeof isUpdatingFromServer === 'function' 
       ? isUpdatingFromServer() 
@@ -71,7 +69,6 @@ export function useNoteAutoSave({
     if (!isInitialized || isUpdating) return;
     
     const contentJson = JSON.stringify(content);
-    // Compare current content (not debounced) against last saved to ensure we save the latest value
     if (note && content !== undefined && contentJson !== lastSavedValuesRef.current.contentJson) {
       lastSavedValuesRef.current.contentJson = contentJson;
       onSave({ content });
