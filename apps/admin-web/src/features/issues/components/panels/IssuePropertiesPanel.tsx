@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, memo } from 'react';
-import { ScrollArea, type JSONContent, Separator, Button } from '@altitutor/ui';
+import { ScrollArea, type JSONContent, Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { IssueActivityTab } from '@/features/issues/components/IssueActivityTab';
@@ -13,8 +13,6 @@ import type { RichTextEditorRef } from '@altitutor/ui';
 import type { IssueWithTags, IssueStatus } from '../../types';
 import type { TagEntityType } from '../../../tasks/utils/tagParsing';
 import type { Tables } from '@altitutor/shared';
-import { useDeleteIssue } from '../../api/mutations';
-import { Trash2, AlertCircle } from 'lucide-react';
 
 type NoteWithStaff = Tables<'notes'> & {
   staff?: Tables<'staff'> | null;
@@ -41,8 +39,6 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
 }: IssuePropertiesPanelProps) {
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const descriptionRef = useRef<RichTextEditorRef>(null);
-  const deleteIssue = useDeleteIssue();
-  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleTagClick = useCallback((type: TagEntityType, id: string) => {
     // Dispatch custom event for MentionModalProvider to handle
@@ -59,15 +55,6 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
       }
     }
   }, []);
-
-  const handleDelete = async () => {
-    try {
-      await deleteIssue.mutateAsync(issue.id);
-      onClose();
-    } catch (error) {
-      console.error('Failed to delete issue:', error);
-    }
-  };
 
   return (
     <>
@@ -136,51 +123,6 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
                 sessionIds={issue.tags.map(t => t.session_id!).filter(Boolean)}
                 invoiceIds={issue.tags.map(t => t.invoice_id!).filter(Boolean)}
               />
-            </div>
-
-            {/* Delete Section */}
-            <div className="pt-12 pb-8 border-t">
-              {!isDeleting ? (
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
-                  className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                  onClick={() => setIsDeleting(true)}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete Issue
-                </Button>
-              ) : (
-                <div className="bg-destructive/5 border border-destructive/20 rounded-lg p-4 space-y-4">
-                  <div className="flex items-start gap-3">
-                    <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="text-sm font-semibold text-destructive">Delete this issue?</h4>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        This action cannot be undone. All linked data will be preserved but the issue record will be permanently removed.
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleDelete}
-                      disabled={deleteIssue.isPending}
-                    >
-                      {deleteIssue.isPending ? 'Deleting...' : 'Confirm Delete'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsDeleting(false)}
-                      disabled={deleteIssue.isPending}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
         </ScrollArea>
