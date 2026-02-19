@@ -2522,6 +2522,48 @@ export type Database = {
           },
         ]
       }
+      notes_daily: {
+        Row: {
+          content: Json
+          date: string
+          id: string
+          search_vector: unknown
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content?: Json
+          date: string
+          id?: string
+          search_vector?: unknown
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: Json
+          date?: string
+          id?: string
+          search_vector?: unknown
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_daily_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_daily_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       notes_folders: {
         Row: {
           created_at: string
@@ -8111,4 +8153,3 @@ export const Constants = {
     },
   },
 } as const
-
