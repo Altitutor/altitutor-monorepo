@@ -17,7 +17,7 @@ import { BookingConfirmationCalendar } from './BookingConfirmationCalendar';
 import { useStudentSubjects } from '../hooks/useStudentSubjects';
 import { useCreateBooking } from '../hooks/useCreateBooking';
 import { useMyReservations } from '../hooks/useReservations';
-import { useStudentSessions } from '@/features/sessions/hooks/useSessions';
+import { useStudentSessions } from '@/shared/hooks';
 import { pricingApi } from '../api/pricing';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';

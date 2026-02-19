@@ -88,6 +88,24 @@ export function filterTutorLogsByStaff<T extends { id: string; created_by: strin
 }
 
 /**
+ * Filter tutor logs by student IDs.
+ */
+export function filterTutorLogsByStudent<T extends { id: string }>(
+  tutorLogs: T[],
+  studentFilters: string[],
+  studentAttendance: Record<string, Array<{ student_id: string }>>
+): T[] {
+  if (studentFilters.length === 0) {
+    return tutorLogs;
+  }
+
+  return tutorLogs.filter((log) => {
+    const attendance = studentAttendance[log.id] || [];
+    return attendance.some((att) => studentFilters.includes(att.student_id));
+  });
+}
+
+/**
  * Paginate tutor logs
  */
 export function paginateTutorLogs<T>(

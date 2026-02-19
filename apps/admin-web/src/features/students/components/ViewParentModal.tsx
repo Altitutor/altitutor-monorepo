@@ -3,6 +3,19 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { Input } from "@altitutor/ui";
+import { Label } from "@altitutor/ui";
+import { useToast } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
 import { Loader2, X } from "lucide-react";
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { ViewStudentModal } from './ViewStudentModal';
@@ -13,7 +26,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useRouter } from 'next/navigation';
-import { useParentDetails, parentsKeys } from '@/features/parents/hooks/useParentsQuery';
+import { useParentDetails, parentsKeys, useDeleteParent } from '@/features/parents/hooks/useParentsQuery';
 import {
   useParentEditFlow,
   useParentMutations,
@@ -70,6 +83,12 @@ export function ViewParentModal({
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const deleteParentMutation = useDeleteParent();
+  const { toast } = useToast();
 
   // Reset modals when modal closes
   useEffect(() => {
@@ -92,6 +111,28 @@ export function ViewParentModal({
         toRemove: editFlow.studentsToRemove,
       }
     );
+  };
+
+  const handleDeleteParent = async () => {
+    if (!parent || !parentId) return;
+    try {
+      setIsDeleting(true);
+      await deleteParentMutation.mutateAsync(parentId);
+      onClose();
+      onParentUpdated?.();
+      toast({
+        title: 'Parent deleted',
+        description: 'Parent has been deleted successfully.',
+      });
+    } catch {
+      toast({
+        title: 'Delete failed',
+        description: 'There was an error deleting the parent. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   if (!parent && loadingParent) {
@@ -145,9 +186,15 @@ export function ViewParentModal({
                     {parentId && (
                       <ActionsMenu
                         type="parent"
+                        entityId={parentId}
+                        copyTagDisplayText={`${parent.first_name || ''} ${parent.last_name || ''}`.trim()}
                         onOpenInPage={() => {
                           router.push(`/parents/${parentId}`);
                           onClose();
+                        }}
+                        onDelete={() => {
+                          setDeleteConfirmText('');
+                          setIsDeleteDialogOpen(true);
                         }}
                       />
                     )}
@@ -256,7 +303,57 @@ export function ViewParentModal({
           }}
         />
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+        if (!open) setDeleteConfirmText('');
+        setIsDeleteDialogOpen(open);
+      }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the parent
+              {parent ? ` ${parent.first_name} ${parent.last_name}` : ''} and all associated data from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <div className="space-y-2">
+              <Label>
+                Type <strong>DELETE</strong> to confirm deletion
+              </Label>
+              <Input
+                type="text"
+                placeholder="Type DELETE to confirm"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="mt-2"
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                handleDeleteParent();
+                setIsDeleteDialogOpen(false);
+                setDeleteConfirmText('');
+              }}
+              disabled={isDeleting || deleteConfirmText !== 'DELETE'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
-

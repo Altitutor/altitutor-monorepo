@@ -121,5 +121,17 @@ export const parentsApi = {
     if (error) throw error;
     return updated as Tables<'parents'>;
   },
+
+  /**
+   * Delete a parent
+   * Note: Removes parents_students links first. May fail if parent has other dependencies (e.g. contacts).
+   */
+  delete: async (id: string): Promise<void> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    // Remove parents_students links first (no cascade in schema typically)
+    await supabase.from('parents_students').delete().eq('parent_id', id);
+    const { error } = await supabase.from('parents').delete().eq('id', id);
+    if (error) throw error;
+  },
 };
 

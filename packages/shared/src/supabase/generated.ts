@@ -23,6 +23,7 @@ export type Database = {
           entity_type: string
           event_type: string
           id: string
+          issue_id: string | null
           metadata: Json | null
           parent_id: string | null
           performed_at: string
@@ -40,6 +41,7 @@ export type Database = {
           entity_type: string
           event_type: string
           id?: string
+          issue_id?: string | null
           metadata?: Json | null
           parent_id?: string | null
           performed_at?: string
@@ -57,6 +59,7 @@ export type Database = {
           entity_type?: string
           event_type?: string
           id?: string
+          issue_id?: string | null
           metadata?: Json | null
           parent_id?: string | null
           performed_at?: string
@@ -93,6 +96,13 @@ export type Database = {
             columns: ["class_id"]
             isOneToOne: false
             referencedRelation: "vtutor_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_events_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "issues"
             referencedColumns: ["id"]
           },
           {
@@ -1966,6 +1976,248 @@ export type Database = {
           },
         ]
       }
+      issue_tags: {
+        Row: {
+          class_id: string | null
+          created_at: string
+          id: string
+          invoice_id: string | null
+          issue_id: string
+          parent_id: string | null
+          session_id: string | null
+          staff_id: string | null
+          student_id: string | null
+          subject_id: string | null
+        }
+        Insert: {
+          class_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          issue_id: string
+          parent_id?: string | null
+          session_id?: string | null
+          staff_id?: string | null
+          student_id?: string | null
+          subject_id?: string | null
+        }
+        Update: {
+          class_id?: string | null
+          created_at?: string
+          id?: string
+          invoice_id?: string | null
+          issue_id?: string
+          parent_id?: string | null
+          session_id?: string | null
+          staff_id?: string | null
+          student_id?: string | null
+          subject_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issue_tags_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_class_detail"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "issue_tags_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_class_detail"
+            referencedColumns: ["class_id"]
+          },
+          {
+            foreignKeyName: "issue_tags_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_classes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "issue_tags_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "issue_tags_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "issue_tags_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "issue_tags_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "issue_tags_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issue_tags_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      issues: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: Json | null
+          id: string
+          name: string
+          search_vector: unknown
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: Json | null
+          id?: string
+          name: string
+          search_vector?: unknown
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: Json | null
+          id?: string
+          name?: string
+          search_vector?: unknown
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "issues_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_attachments: {
         Row: {
           created_at: string | null
@@ -2202,7 +2454,7 @@ export type Database = {
       }
       notes_documents: {
         Row: {
-          content: string
+          content: Json | null
           created_at: string
           created_by: string
           folder_id: string | null
@@ -2213,7 +2465,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
-          content?: string
+          content?: Json | null
           created_at?: string
           created_by: string
           folder_id?: string | null
@@ -2224,7 +2476,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
-          content?: string
+          content?: Json | null
           created_at?: string
           created_by?: string
           folder_id?: string | null
@@ -2635,6 +2887,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      quick_filters: {
+        Row: {
+          config: Json
+          created_at: string
+          id: string
+          name: string
+          target_entity: string
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          id?: string
+          name: string
+          target_entity: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          id?: string
+          name?: string
+          target_entity?: string
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
       }
       sessions: {
         Row: {
@@ -3718,6 +4000,7 @@ export type Database = {
           status: string
           updated_at: string | null
           user_id: string | null
+          welcome_modal_acknowledged_at: string | null
           year_level: number | null
         }
         Insert: {
@@ -3743,6 +4026,7 @@ export type Database = {
           status: string
           updated_at?: string | null
           user_id?: string | null
+          welcome_modal_acknowledged_at?: string | null
           year_level?: number | null
         }
         Update: {
@@ -3768,6 +4052,7 @@ export type Database = {
           status?: string
           updated_at?: string | null
           user_id?: string | null
+          welcome_modal_acknowledged_at?: string | null
           year_level?: number | null
         }
         Relationships: [
@@ -3970,11 +4255,13 @@ export type Database = {
           assigned_to: string | null
           created_at: string | null
           created_by: string | null
-          description: string | null
+          description: Json | null
           due_date: string | null
           estimate: number | null
           id: string
+          issue_id: string | null
           priority: number | null
+          search_vector: unknown
           source_activity_id: string | null
           source_rule_id: string | null
           status: string
@@ -3985,11 +4272,13 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string | null
           created_by?: string | null
-          description?: string | null
+          description?: Json | null
           due_date?: string | null
           estimate?: number | null
           id?: string
+          issue_id?: string | null
           priority?: number | null
+          search_vector?: unknown
           source_activity_id?: string | null
           source_rule_id?: string | null
           status?: string
@@ -4000,11 +4289,13 @@ export type Database = {
           assigned_to?: string | null
           created_at?: string | null
           created_by?: string | null
-          description?: string | null
+          description?: Json | null
           due_date?: string | null
           estimate?: number | null
           id?: string
+          issue_id?: string | null
           priority?: number | null
+          search_vector?: unknown
           source_activity_id?: string | null
           source_rule_id?: string | null
           status?: string
@@ -4038,6 +4329,13 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_issue_id_fkey"
+            columns: ["issue_id"]
+            isOneToOne: false
+            referencedRelation: "issues"
             referencedColumns: ["id"]
           },
           {
@@ -5419,6 +5717,7 @@ export type Database = {
           status: string | null
           updated_at: string | null
           user_id: string | null
+          welcome_modal_acknowledged_at: string | null
           year_level: number | null
         }
         Insert: {
@@ -5442,6 +5741,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
+          welcome_modal_acknowledged_at?: string | null
           year_level?: number | null
         }
         Update: {
@@ -5465,6 +5765,7 @@ export type Database = {
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
+          welcome_modal_acknowledged_at?: string | null
           year_level?: number | null
         }
         Relationships: []

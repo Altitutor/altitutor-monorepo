@@ -22,7 +22,8 @@ import { Badge } from '@altitutor/ui';
 import { Loader2, Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
-import { subjectsApi } from '@/features/subjects/api/subjects';
+import { useSubjectsList } from '@/features/subjects/hooks/useSubjectsQuery';
+import { useDebounce } from '@/shared/hooks/useDebounce';
 
 const adminTrialContactSchema = z.object({
   student_first_name: z.string().min(1, 'First name is required').max(100),
@@ -87,80 +88,37 @@ export function AdminTrialContactForm({
   // Subject search state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
-  const [subjectSearchResults, setSubjectSearchResults] = useState<Tables<'subjects'>[]>([]);
-  const [isSearchingSubjects, setIsSearchingSubjects] = useState(false);
-  const [allSubjects, setAllSubjects] = useState<Tables<'subjects'>[]>([]);
+  const debouncedSubjectSearch = useDebounce(subjectSearchQuery, 300);
   const [selectedSubjectsCache, setSelectedSubjectsCache] = useState<Map<string, Tables<'subjects'>>>(new Map());
 
-  // Fetch subjects filtered by curriculum/year level
-  useEffect(() => {
-    const fetchSubjects = async () => {
-      setIsSearchingSubjects(true);
-      try {
-        const params: {
-          curriculums?: string[];
-          yearLevels?: number[];
-          limit?: number;
-        } = {
-          limit: 100,
-        };
-        
-        // Filter by curriculum and year level if provided
-        if (curriculum) {
-          params.curriculums = [curriculum];
-        }
-        if (yearLevel) {
-          const yearLevelNum = yearLevel === 'Reception' ? 0 : parseInt(yearLevel, 10);
-          params.yearLevels = [yearLevelNum];
-        }
-        
-        const { subjects } = await subjectsApi.list(params);
-        setAllSubjects(subjects || []);
-      } catch (error) {
-        console.error('Error fetching subjects:', error);
-        setAllSubjects([]);
-      } finally {
-        setIsSearchingSubjects(false);
-      }
-    };
+  const curriculumFilter = curriculum ? [curriculum] : undefined;
+  const yearLevelFilter = yearLevel
+    ? [yearLevel === 'Reception' ? 0 : parseInt(yearLevel, 10)]
+    : undefined;
 
-    fetchSubjects();
-  }, [curriculum, yearLevel]);
+  const { data: allSubjectsData, isLoading: isLoadingFiltered } = useSubjectsList({
+    curriculums: curriculumFilter,
+    yearLevels: yearLevelFilter,
+    limit: 100,
+    offset: 0,
+  });
+  const allSubjects = allSubjectsData?.subjects ?? [];
 
-  // Debounced subject search
+  const { data: searchResultsData, isLoading: isSearchingSubjects } = useSubjectsList({
+    search: debouncedSubjectSearch.trim() || undefined,
+    limit: 100,
+    offset: 0,
+  });
+  const subjectSearchResults =
+    debouncedSubjectSearch.trim().length > 0 ? (searchResultsData?.subjects ?? []) : allSubjects;
+  const isSubjectListLoading =
+    subjectSearchQuery.trim().length > 0 ? isSearchingSubjects : isLoadingFiltered;
+
   useEffect(() => {
     if (!isSubjectPopoverOpen) {
       setSubjectSearchQuery('');
-      setSubjectSearchResults([]);
-      return;
     }
-
-    const timeoutId = setTimeout(async () => {
-      if (subjectSearchQuery.trim().length === 0) {
-        // No search term - use filtered subjects (respect curriculum/year level)
-        setSubjectSearchResults(allSubjects);
-        setIsSearchingSubjects(false);
-      } else {
-        // Search term present - search ALL subjects (ignore filters)
-        setIsSearchingSubjects(true);
-        try {
-          const { subjects } = await subjectsApi.list({
-            search: subjectSearchQuery.trim(),
-            limit: 100,
-            offset: 0,
-          });
-          setSubjectSearchResults(subjects || []);
-        } catch (error) {
-          console.error('Error searching subjects:', error);
-          setSubjectSearchResults([]);
-        } finally {
-          setIsSearchingSubjects(false);
-        }
-      }
-    }, 300);
-
-    return () => clearTimeout(timeoutId);
-  }, [subjectSearchQuery, isSubjectPopoverOpen, allSubjects]);
+  }, [isSubjectPopoverOpen]);
 
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
@@ -418,7 +376,7 @@ export function AdminTrialContactForm({
                         />
                         <ScrollArea className="h-[300px]">
                           <div className="space-y-1 pr-4">
-                            {isSearchingSubjects ? (
+                            {isSubjectListLoading ? (
                               <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
                                 <Loader2 className="h-4 w-4 animate-spin" />
                                 Searching...

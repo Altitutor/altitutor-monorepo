@@ -138,7 +138,7 @@ export function TaskNotes({ taskId, notes, onNoteAdded }: TaskNotesProps) {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Notes</h3>
+      <h3 className="text-lg font-semibold">Progress</h3>
 
       {/* Notes List */}
       {notes.length > 0 && (

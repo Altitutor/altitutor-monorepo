@@ -27,6 +27,37 @@ export function useSubjects() {
   });
 }
 
+// Paginated subject list (for pickers, filters)
+export function useSubjectsList(params?: {
+  limit?: number;
+  offset?: number;
+  search?: string;
+  curriculums?: string[];
+  yearLevels?: number[];
+}) {
+  const {
+    limit = 100,
+    offset = 0,
+    search,
+    curriculums,
+    yearLevels,
+  } = params ?? {};
+  return useQuery({
+    queryKey: [
+      ...subjectsKeys.lists(),
+      'paginated',
+      limit,
+      offset,
+      search ?? '',
+      curriculums?.join(',') ?? '',
+      yearLevels?.join(',') ?? '',
+    ] as const,
+    queryFn: () => subjectsApi.list({ limit, offset, search, curriculums, yearLevels }),
+    staleTime: 1000 * 60 * 5,
+    gcTime: 1000 * 60 * 15,
+  });
+}
+
 // Get single subject
 export function useSubject(subjectId: string) {
   return useQuery({

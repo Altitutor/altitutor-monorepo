@@ -29,11 +29,13 @@ import { useCreateStudent } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { studentsApi } from '../api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
+import { useCreateParent } from '@/features/parents/hooks/useParentsQuery';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -75,13 +77,30 @@ const formSchema = z.object({
   availability_saturday_pm: z.boolean(),
   availability_sunday_am: z.boolean(),
   availability_sunday_pm: z.boolean(),
+  // Optional parents array
+  parents: z.array(z.object({
+    first_name: z.string().optional().or(z.literal('')),
+    last_name: z.string().optional().or(z.literal('')),
+    email: z.string().email('Invalid email address').optional().or(z.literal('')),
+    phone: z
+      .union([
+        z.string().regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format'),
+        z.literal(''),
+        z.null()
+      ])
+      .transform((val) => val === '' ? null : val)
+      .optional()
+      .nullable(),
+  })).optional().default([]),
 });
 
 type FormData = z.infer<typeof formSchema>;
 
 export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentModalProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const createStudentMutation = useCreateStudent();
+  const createParentMutation = useCreateParent();
   const { data: allSubjects = [] } = useSubjects();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -116,7 +135,13 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
       availability_saturday_pm: false,
       availability_sunday_am: false,
       availability_sunday_pm: false,
+      parents: [{ first_name: '', last_name: '', email: '', phone: null }],
     }
+  });
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: 'parents',
   });
 
   const onSubmit: SubmitHandler<FormData> = async (formData: FormData) => {
@@ -169,6 +194,48 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
           });
         }
       }
+
+      // Create and assign parents if provided
+      if (formData.parents && formData.parents.length > 0 && createdStudent) {
+        try {
+          await Promise.all(
+            formData.parents.map(async (parentData) => {
+              // Only create parent if at least one field is filled in
+              const hasAnyData =
+                (parentData.first_name?.trim()) ||
+                (parentData.last_name?.trim()) ||
+                (parentData.email?.trim()) ||
+                (parentData.phone && String(parentData.phone).trim());
+              if (hasAnyData) {
+                const parentDataToCreate: any = {
+                  id: crypto.randomUUID(),
+                  first_name: parentData.first_name || '',
+                  last_name: parentData.last_name || '',
+                  email: (parentData.email || null) as any,
+                  phone: (parentData.phone || null) as any,
+                  created_at: null,
+                  updated_at: null,
+                };
+
+                const createdParent = await createParentMutation.mutateAsync(parentDataToCreate);
+                
+                // Assign parent to student
+                await studentsApi.assignStudentToParent(createdParent.id, createdStudent.id);
+              }
+            })
+          );
+          
+          // Invalidate all-parents query to refresh parent lists
+          queryClient.invalidateQueries({ queryKey: ['students', 'all-parents'] });
+        } catch (parentError) {
+          console.error('Failed to create/assign some parents:', parentError);
+          toast({
+            title: "Warning",
+            description: "Student created but some parents could not be added.",
+            variant: "default",
+          });
+        }
+      }
       
       toast({
         title: "Success",
@@ -209,6 +276,10 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
       setSubjectSearchQuery('');
       onClose();
     }
+  };
+
+  const handleAddParent = () => {
+    append({ first_name: '', last_name: '', email: '', phone: null });
   };
 
   const handleAddSubject = (subjectId: string) => {
@@ -470,6 +541,110 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
                 </PopoverContent>
               </Popover>
             </div>
+          </div>
+
+          {/* Parents Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Parents (Optional)</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleAddParent}
+                disabled={isSubmitting}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Parent
+              </Button>
+            </div>
+            
+            {fields.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No parents added</p>
+            ) : (
+              <div className="space-y-4">
+                {fields.map((field, index) => (
+                  <div key={field.id} className="border rounded-lg p-4 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium text-sm">Parent {index + 1}</h4>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => remove(index)}
+                        disabled={isSubmitting}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`parent-${index}-firstName`}>First Name</Label>
+                        <Input
+                          id={`parent-${index}-firstName`}
+                          {...register(`parents.${index}.first_name`)}
+                          disabled={isSubmitting}
+                        />
+                        {errors.parents?.[index]?.first_name && (
+                          <p className="text-sm text-red-500">
+                            {errors.parents[index]?.first_name?.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`parent-${index}-lastName`}>Last Name</Label>
+                        <Input
+                          id={`parent-${index}-lastName`}
+                          {...register(`parents.${index}.last_name`)}
+                          disabled={isSubmitting}
+                        />
+                        {errors.parents?.[index]?.last_name && (
+                          <p className="text-sm text-red-500">
+                            {errors.parents[index]?.last_name?.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor={`parent-${index}-email`}>Email</Label>
+                        <Input
+                          id={`parent-${index}-email`}
+                          type="email"
+                          {...register(`parents.${index}.email`)}
+                          disabled={isSubmitting}
+                        />
+                        {errors.parents?.[index]?.email && (
+                          <p className="text-sm text-red-500">
+                            {errors.parents[index]?.email?.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor={`parent-${index}-phone`}>Phone</Label>
+                        <Controller
+                          control={control}
+                          name={`parents.${index}.phone`}
+                          render={({ field }) => (
+                            <PhoneInput
+                              value={field.value || ''}
+                              onChange={field.onChange}
+                              disabled={isSubmitting}
+                              error={errors.parents?.[index]?.phone?.message}
+                            />
+                          )}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           
           <div className="space-y-2">

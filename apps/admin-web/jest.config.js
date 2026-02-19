@@ -32,7 +32,7 @@ const config = {
     },
   },
   transformIgnorePatterns: [
-    'node_modules/(?!(react-big-calendar|date-fns)/)',
+    'node_modules/(?!(react-big-calendar|date-fns|@tiptap|marked)/)',
   ],
 };
 

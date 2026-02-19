@@ -37,17 +37,11 @@ import { MessagesTabContent } from '@/features/messages/components/MessagesTabCo
 import { ViewParentModal } from './ViewParentModal';
 import { ParentSearchPopover } from './ParentSearchPopover';
 import { Badge, useToast } from '@altitutor/ui';
+import { AddParentModal } from '@/features/parents/components/AddParentModal';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
-import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@altitutor/ui";
 import { studentsApi } from '../api/students';
 import { classesApi } from '@/shared/api';
 import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
@@ -62,7 +56,9 @@ import {
   useStudentActions,
   studentsKeys,
 } from '../hooks';
+import { parentsKeys } from '@/features/parents/hooks/useParentsQuery';
 import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
+import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
@@ -123,12 +119,13 @@ export function ViewStudentModal({
   const [activeTab, setActiveTab] = useState('details');
   const [loadingAccountUpdate, setLoadingAccountUpdate] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [_isDiscontinuing, setIsDiscontinuing] = useState(false);
+  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   
   // Modal states for new actions
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
-  const [isAddSubjectDialogOpen, setIsAddSubjectDialogOpen] = useState(false);
-  
+  const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
+  const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
+
   // Get student classes for enroll modal
   const { data: studentClasses = [] } = useStudentClasses(studentId || '');
   
@@ -199,19 +196,19 @@ export function ViewStudentModal({
     }
   };
 
-  // Handle discontinue student
-  const handleDiscontinue = async () => {
-    if (!student || !currentStaff) return;
-    
+  // Handle discontinue student. Returns true on success, false otherwise.
+  const handleDiscontinue = async (): Promise<boolean> => {
+    if (!student || !currentStaff) return false;
+
     try {
       setIsDiscontinuing(true);
       const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
-      
+
       if (!result.success) {
         if (result.error === 'Unenroll student from classes first') {
           toast({
             title: 'Cannot Discontinue',
-            description: 'Unenroll student from classes first',
+            description: 'Cannot discontinue student while still enrolled in classes. Please unenroll from all classes first.',
             variant: 'destructive',
           });
         } else if (result.error === 'Student has future sessions') {
@@ -228,15 +225,16 @@ export function ViewStudentModal({
             variant: 'destructive',
           });
         }
-        return;
+        return false;
       }
-      
+
       await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
       onStudentUpdated();
       toast({
         title: 'Success',
         description: 'Student discontinued successfully.',
       });
+      return true;
     } catch (error) {
       console.error('Failed to discontinue student:', error);
       toast({
@@ -244,6 +242,7 @@ export function ViewStudentModal({
         description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
         variant: 'destructive',
       });
+      return false;
     } finally {
       setIsDiscontinuing(false);
     }
@@ -252,29 +251,6 @@ export function ViewStudentModal({
   // Handle add class
   const handleAddClass = () => {
     setIsEnrollModalOpen(true);
-  };
-
-  // Handle add subject
-  const handleAddSubject = async (subject: Tables<'subjects'>) => {
-    if (!student) return;
-    
-    try {
-      await studentsApi.assignSubjectToStudent(student.id, subject.id);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId || '') });
-      setIsAddSubjectDialogOpen(false);
-      onStudentUpdated();
-      toast({
-        title: 'Success',
-        description: 'Subject added successfully.',
-      });
-    } catch (error) {
-      console.error('Failed to add subject:', error);
-      toast({
-        title: 'Add failed',
-        description: 'There was an error adding the subject. Please try again.',
-        variant: 'destructive',
-      });
-    }
   };
 
   // Handle enrollment
@@ -335,8 +311,7 @@ export function ViewStudentModal({
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
     onAddClass: handleAddClass,
-    onAddSubject: () => setIsAddSubjectDialogOpen(true),
-    onDiscontinue: handleDiscontinue,
+    onDiscontinue: () => setIsDiscontinueDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });
 
@@ -391,6 +366,8 @@ export function ViewStudentModal({
                     {studentId && (
                       <ActionsMenu
                         type="student"
+                        entityId={studentId}
+                        copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
                         {...studentActions}
                       />
                     )}
@@ -437,6 +414,7 @@ export function ViewStudentModal({
                             allParents={allParents}
                             selectedParents={editFlow.tempStudentParents}
                             onSelectParent={editFlow.assignParent}
+                            onCreateNewParent={() => setIsAddParentModalOpen(true)}
                           />
                         ) : undefined
                       }
@@ -635,6 +613,17 @@ export function ViewStudentModal({
         </AlertDialog>
       )}
 
+      {/* Discontinue Confirmation Dialog */}
+      {student && (
+        <DiscontinueStudentConfirmDialog
+          isOpen={isDiscontinueDialogOpen}
+          onOpenChange={setIsDiscontinueDialogOpen}
+          studentName={`${student.first_name} ${student.last_name}`}
+          onConfirm={handleDiscontinue}
+          isDiscontinuing={isDiscontinuing}
+        />
+      )}
+
       {/* Nested Session Modal */}
       <SessionModal
         isOpen={!!nestedSessionId}
@@ -677,27 +666,22 @@ export function ViewStudentModal({
         />
       )}
 
-      {/* Add Subject Dialog */}
-      {student && (
-        <Dialog open={isAddSubjectDialogOpen} onOpenChange={setIsAddSubjectDialogOpen}>
-          <DialogContent className="sm:max-w-[500px]">
-            <DialogHeader>
-              <DialogTitle>Add Subject</DialogTitle>
-            </DialogHeader>
-            <div className="py-4">
-              <SubjectSearchPopover
-                selectedSubjects={studentSubjects}
-                onSelectSubject={handleAddSubject}
-                trigger={
-                  <Button variant="outline" className="w-full">
-                    Select a subject
-                  </Button>
-                }
-              />
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      {/* Add Parent Modal */}
+      <AddParentModal
+        isOpen={isAddParentModalOpen}
+        onClose={() => setIsAddParentModalOpen(false)}
+        onParentAdded={async (newParent?: Tables<'parents'>) => {
+          if (!newParent) return;
+          
+          // Invalidate queries to refresh parent list
+          queryClient.invalidateQueries({ queryKey: ['students', 'all-parents'] });
+          queryClient.invalidateQueries({ queryKey: parentsKeys.lists() });
+          
+          // Select the newly created parent
+          editFlow.assignParent(newParent);
+          setIsAddParentModalOpen(false);
+        }}
+      />
       
     </>
   );

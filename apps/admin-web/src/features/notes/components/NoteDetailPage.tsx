@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem } from '@altitutor/ui';
+import { Form, FormControl, FormField, FormItem, type JSONContent } from '@altitutor/ui';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
 import { NotePropertyPills } from './NotePropertyPills';
@@ -13,7 +13,7 @@ import { NoteTableOfContents } from './NoteTableOfContents';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import type { Editor } from '@tiptap/react';
 import { useNote } from '../api/queries';
-import { useUpdateNote, useDeleteNote } from '../api/mutations';
+import { useUpdateNote, useDeleteNote } from '../hooks/useNoteMutations';
 import { useFolders } from '../api/queries';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
@@ -21,11 +21,15 @@ import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  content: z.string(),
+  content: z.any(),
   folder_id: z.string().nullable().optional(),
 });
 
-type FormData = z.infer<typeof formSchema>;
+type FormData = {
+  title: string;
+  content: JSONContent | string;
+  folder_id?: string | null;
+};
 
 interface NoteDetailPageProps {
   noteId: string;
@@ -51,7 +55,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const [initialFocusDone, setInitialFocusDone] = useState(false);
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       title: '',
       content: '',
@@ -72,7 +76,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       isUpdatingFromServerRef.current = true;
       form.reset({
         title: note.title,
-        content: note.content || '',
+        content: (note.content as unknown as JSONContent) || '',
         folder_id: note.folder_id,
       });
       setIsInitialized(true);
@@ -118,7 +122,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     onSave: (updates) => {
       updateNote.mutate({
         id: noteId,
-        updates,
+        updates: updates as any,
         silent: true, // Silent auto-save
       });
     },
@@ -196,7 +200,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
               <div className="flex-1 max-w-3xl mx-auto w-full">
                 <Form {...form}>
                   <FormField
-                    control={form.control}
+                    control={form.control as any}
                     name="title"
                     render={() => (
                       <FormItem>
@@ -225,7 +229,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
             <Form {...form}>
               {/* Property Pills - Mobile Only */}
               <div className="md:hidden pt-4 mb-4">
-                <NotePropertyPills form={form} folders={foldersArray} />
+                <NotePropertyPills form={form as any} folders={foldersArray} />
               </div>
 
               {/* Table of Contents - Mobile Only (Collapsible) */}
@@ -236,7 +240,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
               {/* Editor Container with max-width */}
               <div className="max-w-3xl mx-auto w-full relative flex-1 flex flex-col min-h-0">
                 <FormField
-                  control={form.control}
+                  control={form.control as any}
                   name="content"
                   render={({ field }) => (
                     <FormItem className="flex-1 flex flex-col min-h-0">
@@ -277,7 +281,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       <div className="hidden md:flex flex-col h-[calc(100vh-var(--navbar-height)-5rem)] w-80 flex-shrink-0 sticky top-0">
         <div className="flex-1 overflow-y-auto m-4 mr-6 space-y-4">
           {/* Properties Panel */}
-          <NotePropertiesPanel form={form} folders={foldersArray} onDelete={handleDelete} />
+          <NotePropertiesPanel form={form as any} folders={foldersArray} onDelete={handleDelete} />
           
           {/* Table of Contents Card */}
           <NoteTableOfContents editor={editorInstanceRef.current} />

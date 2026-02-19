@@ -2,11 +2,14 @@
 
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
-import { StaffCard } from '@/shared/components/StaffCard';
-import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
+import { formatClassName, formatDate, cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { AssignStaffContext, StaffConflictInfo, ClassConflictInfo, StaffUnavailabilityInfo } from '../../types/enrollment';
+
+function staffDisplayName(s: Tables<'staff'>): string {
+  return [s.first_name, s.last_name].filter(Boolean).join(' ') || 'Staff';
+}
 
 interface AssignStaffStep3SummaryProps {
   context: AssignStaffContext;
@@ -79,67 +82,49 @@ export function AssignStaffStep3Summary({
     });
   }
 
+  const staffLabel = context === 'staff'
+    ? (staff ? staffDisplayName(staff) : '—')
+    : (selectedStaff && selectedStaff.length > 0
+        ? selectedStaff.map(s => staffDisplayName(s)).join(', ')
+        : '—');
+
+  const className = context === 'class' && classData && classSubject
+    ? formatClassName(classData, classSubject)
+    : (selectedClasses && selectedClasses.length > 0
+        ? selectedClasses.map(c => formatClassName(c, c.subject)).join(', ')
+        : '—');
+
+  const dateDisplay = assignmentDate
+    ? formatDate(new Date(assignmentDate))
+    : '—';
+
   return (
     <div className="space-y-4">
-      <div className="space-y-3">
-        {/* Show staff card for staff context */}
-        {context === 'staff' && staff && (
-          <div>
-            <StaffCard
-              staff={staff}
-              subjects={staffSubjects || []}
-              showSubjects={true}
-            />
-          </div>
-        )}
-
-        {/* Show selected classes for staff context */}
-        {context === 'staff' && selectedClasses && selectedClasses.length > 0 && (
-          <div className="space-y-2">
-            {selectedClasses.map(c => (
-              <div key={c.id}>
-                <ClassCard
-                  class={c}
-                  subject={c.subject}
-                  staff={c.staff || []}
-                  students={c.students || []}
-                />
-                <div className="mt-2 p-2 bg-muted rounded text-sm">
-                  <p className="text-muted-foreground">Start Date: {assignmentDate}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Show class card for class context */}
-        {context === 'class' && classData && classSubject && (
-          <div>
-            <ClassCard
-              class={classData}
-              subject={classSubject}
-              staff={classStaff || []}
-              students={[]}
-            />
-          </div>
-        )}
-
-        {/* Show selected staff for class context */}
-        {context === 'class' && selectedStaff && selectedStaff.length > 0 && (
-          <div className="space-y-2">
-            {selectedStaff.map(s => (
-              <div key={s.id}>
-                <StaffCard
-                  staff={s}
-                  subjects={[]}
-                />
-                <div className="mt-2 p-2 bg-muted rounded text-sm">
-                  <p className="text-muted-foreground">Start Date: {assignmentDate}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+      {/* Read-only summary card: Assign {staff} to {class} starting on {date} */}
+      <div className="p-4 bg-muted rounded-lg">
+        <p className="text-sm font-medium">
+          Assign{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {staffLabel}
+          </span>{' '}
+          to{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {className}
+          </span>{' '}
+          starting on{' '}
+          <span className={cn(
+            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
+            "bg-primary/10 text-primary border-primary/20"
+          )}>
+            {dateDisplay}
+          </span>
+        </p>
       </div>
 
       {/* Warnings */}

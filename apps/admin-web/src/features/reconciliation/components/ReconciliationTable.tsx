@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -8,6 +8,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TablePagination,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
@@ -45,6 +46,21 @@ export function ReconciliationTable<T>({
   columns,
 }: ReconciliationTableProps<T>) {
   const [isExpanded, setIsExpanded] = useState(items.length > 0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+
+  const totalItems = items.length;
+  const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+  const pagedItems = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return items.slice(start, start + pageSize);
+  }, [items, page, pageSize]);
+
+  useEffect(() => {
+    if (page > totalPages) {
+      setPage(totalPages);
+    }
+  }, [page, totalPages]);
 
   return (
     <div className="space-y-4">
@@ -97,11 +113,27 @@ export function ReconciliationTable<T>({
                   </TableCell>
                 </TableRow>
               ) : (
-                items.map((item, index) => renderRow(item, index))
+                pagedItems.map((item, index) => {
+                  const absoluteIndex = (page - 1) * pageSize + index;
+                  return renderRow(item, absoluteIndex);
+                })
               )}
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {isExpanded && !isLoading && totalItems > 0 && (
+        <TablePagination
+          page={page}
+          pageSize={pageSize}
+          total={totalItems}
+          onPageChange={setPage}
+          onPageSizeChange={(newPageSize) => {
+            setPageSize(newPageSize);
+            setPage(1);
+          }}
+        />
       )}
     </div>
   );
@@ -257,11 +289,19 @@ export function UnloggedSessionsTable({
       title="Unlogged Sessions"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Subject', 'Tutors']}
+      columns={['Date', 'Subject', 'Staff']}
       renderRow={(item, _index) => {
         const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
         const { style, textColorClass } = getSubjectColorStyle(subject);
         const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
+        const staffDisplay = (item.assigned_tutors ?? [])
+          .map((staff) => {
+            const fullName = `${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim();
+            if (fullName) return fullName;
+            if (staff.email) return staff.email;
+            return staff.id;
+          })
+          .join(', ');
         
         return (
           <TableRow key={item.session_id}>
@@ -286,9 +326,7 @@ export function UnloggedSessionsTable({
               </div>
             </TableCell>
             <TableCell>
-              {item.assigned_tutors && item.assigned_tutors.length > 0
-                ? item.assigned_tutors.map((t) => `${t.first_name} ${t.last_name}`).join(', ')
-                : '—'}
+              {staffDisplay || '—'}
             </TableCell>
             <TableCell>
               <ReconciliationActions type="unlogged_sessions" item={item} />

@@ -2,6 +2,7 @@ import type { Tables } from '@altitutor/shared';
 import { formatClassName } from '@/shared/utils';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
 import { getStudentClassesWithStartDates } from '../api/bulk';
+import { STUDENT_VARIABLES, hasVariablesForRecipientType } from './variableConfig';
 
 /**
  * Format date as "Wed 11th Feb"
@@ -26,8 +27,9 @@ function formatDateWithOrdinal(date: Date): string {
 
 /**
  * Replace template variables with actual student data
- * Supports: {first_name}, {last_name}, {classes}, {classes_with_start_date}, {sender_name}, {registration_link}, {invite_link}, {forgot_password_link}
+ * Supports: {first_name}, {full_name}, {classes}, {classes_with_start_date}, {sender_name}, {registration_link}, {invite_link}, {forgot_password_link}
  * Variables are case-insensitive
+ * Note: {last_name} is deprecated, use {full_name} instead (backward compatibility maintained)
  */
 export async function replaceVariables(
   template: string,
@@ -46,7 +48,11 @@ export async function replaceVariables(
   // Replace {first_name} (case insensitive)
   result = result.replace(/\{first_name\}/gi, student.first_name || '');
 
-  // Replace {last_name} (case insensitive)
+  // Replace {full_name} (case insensitive) - combines first and last name
+  const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim();
+  result = result.replace(/\{full_name\}/gi, fullName);
+  
+  // Backward compatibility: also replace {last_name} (deprecated)
   result = result.replace(/\{last_name\}/gi, student.last_name || '');
 
   // Replace {classes} with formatted list
@@ -137,56 +143,16 @@ export async function replaceVariables(
 }
 
 /**
- * Get list of available variables for templates
+ * Get list of available variables for student templates
+ * Uses centralized variable configuration
  */
-export const TEMPLATE_VARIABLES = [
-  {
-    name: 'first_name',
-    description: 'Student\'s first name',
-    example: 'John',
-  },
-  {
-    name: 'last_name',
-    description: 'Student\'s last name',
-    example: 'Smith',
-  },
-  {
-    name: 'classes',
-    description: 'Student\'s enrolled classes (formatted list)',
-    example: '- SACE 12 Mathematics Mon 2:00 PM - 4:00 PM\n- SACE 12 Physics Wed 3:00 PM - 5:00 PM',
-  },
-  {
-    name: 'classes_with_start_date',
-    description: 'Student\'s enrolled classes with start dates (formatted list)',
-    example: '- PRESACE 9 Mathematics Wed 1:30 PM - 3:00 PM starting on Wed 11th Feb\n- SACE 12 Physics Fri 3:00 PM - 5:00 PM starting on Fri 13th Feb',
-  },
-  {
-    name: 'sender_name',
-    description: 'Name of the currently logged in staff member',
-    example: 'Jane Doe',
-  },
-  {
-    name: 'registration_link',
-    description: 'Registration link for students (students only)',
-    example: 'https://student.altitutor.com/register/abc123...',
-  },
-  {
-    name: 'invite_link',
-    description: 'Invite link for students or staff',
-    example: 'https://student.altitutor.com/invite/abc123...',
-  },
-  {
-    name: 'forgot_password_link',
-    description: 'Password reset link (works for both students and staff)',
-    example: 'https://student.altitutor.com/auth/callback?token=...',
-  },
-] as const;
+export const TEMPLATE_VARIABLES = STUDENT_VARIABLES;
 
 /**
- * Check if a template contains any variables
+ * Check if a template contains any variables for students
  */
 export function hasVariables(template: string): boolean {
-  return /\{(first_name|last_name|classes|classes_with_start_date|sender_name|registration_link|invite_link|forgot_password_link)\}/gi.test(template);
+  return hasVariablesForRecipientType(template, 'STUDENT');
 }
 
 

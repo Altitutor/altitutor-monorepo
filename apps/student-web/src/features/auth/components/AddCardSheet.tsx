@@ -14,7 +14,7 @@ import {
   useToast,
 } from '@altitutor/ui';
 import { CreditCard, Loader2 } from 'lucide-react';
-import { paymentMethodsApi } from '@/features/billing/api/payment-methods';
+import { paymentMethodsApi } from '@/shared/api';
 
 // Initialize Stripe outside of component to avoid recreating on every render
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');

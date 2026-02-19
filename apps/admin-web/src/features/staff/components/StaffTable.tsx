@@ -1,83 +1,57 @@
 'use client';
 
-import { useState, useCallback, memo, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState, useCallback, memo, useEffect, useMemo } from 'react';
 import {
   Table,
   TableBody,
   TableCell,
   TableRow,
+  TableHead,
+  TableHeader,
+  DataTableToolbar,
+  TablePagination,
+  SkeletonTable,
 } from "@altitutor/ui";
-import { SkeletonTable } from "@altitutor/ui";
-import type { Tables } from '@altitutor/shared';
-import { TablePagination } from '@/shared/components/TablePagination';
-import { useStaffMinimalPaginated } from '../hooks/useStaffQuery';
+import { ArrowUpDown } from 'lucide-react';
+import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
+import { useStaffMinimalPaginated, useCurrentStaff } from '../hooks/useStaffQuery';
 import { AddStaffModal } from './AddStaffModal';
 import { ViewStaffModal } from './modal';
 import { ViewClassModal } from '@/features/classes';
-import { StaffTableFilters } from './StaffTableFilters';
-import { StaffTableHeader } from './StaffTableHeader';
 import { StaffTableRow } from './StaffTableRow';
+import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { cn } from '@/shared/utils';
 
 interface StaffTableProps {
   onRefresh?: number;
 }
 
 export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: StaffTableProps = {}) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
+  const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('staff');
   
-  // Initialize from URL params
-  const getSearchFromUrl = () => searchParams.get('search') || '';
-  const getArrayFromUrl = (key: string): string[] => {
-    const param = searchParams.get(key);
-    return param ? param.split(',').filter(Boolean) : [];
-  };
-  const getSortFromUrl = (): { field: keyof Tables<'staff'>; direction: 'asc' | 'desc' } => {
-    const field = (searchParams.get('sort') || 'role') as keyof Tables<'staff'>;
-    const direction = (searchParams.get('order') || 'asc') as 'asc' | 'desc';
-    return { field, direction };
-  };
-  
-  const updateUrlParams = useCallback((updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === '') {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    });
-    router.push(`/staff?${params.toString()}`);
-  }, [searchParams, router]);
-  
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
+  const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
+  const defaultSort = useMemo(() => ({ field: 'role', direction: 'asc' as const }), []);
+  const defaultVisibleColumns = useMemo(() => ['status', 'role', 'first_name', 'last_name', 'classes'], []);
 
-  // Filter and sort state initialized from URL
-  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
-  const [roleFilters, setRoleFilters] = useState<string[]>(getArrayFromUrl('role'));
-  const [statusFilters, setStatusFilters] = useState<string[]>(getArrayFromUrl('status').length > 0 ? getArrayFromUrl('status') : ['ACTIVE']);
-  const sortFromUrl = getSortFromUrl();
-  const [sortField, setSortField] = useState<keyof Tables<'staff'>>(sortFromUrl.field);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortFromUrl.direction);
+  const {
+    state,
+    setSearch,
+    setSort,
+    setFilters,
+    setPage,
+    setPageSize,
+    setVisibleColumns,
+    applyQuickFilter,
+    resetFilters,
+  } = useDataTable({
+    defaultFilters,
+    defaultSort,
+    defaultVisibleColumns,
+    filterKeys: ['role', 'status'],
+  });
   
-  // Sync from URL params
-  useEffect(() => {
-    setSearchTerm(getSearchFromUrl());
-    setRoleFilters(getArrayFromUrl('role'));
-    const statusFromUrl = getArrayFromUrl('status');
-    setStatusFilters(statusFromUrl.length > 0 ? statusFromUrl : ['ACTIVE']);
-    const sort = getSortFromUrl();
-    setSortField(sort.field);
-    setSortDirection(sort.direction);
-    const pageParam = Number(searchParams.get('page'));
-    if (pageParam) setPage(pageParam);
-    const pageSizeParam = Number(searchParams.get('pageSize'));
-    if (pageSizeParam) setPageSize(pageSizeParam);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
   const { 
     data, 
     isLoading, 
@@ -85,14 +59,50 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     refetch,
     isFetching 
   } = useStaffMinimalPaginated({
-    search: searchTerm,
-    roles: roleFilters,
-    statuses: statusFilters,
-    page,
-    pageSize,
-    orderBy: sortField,
-    ascending: sortDirection === 'asc',
+    search: state.search,
+    roles: state.filters.role as string[],
+    statuses: state.filters.status as string[],
+    page: state.page,
+    pageSize: state.pageSize,
+    orderBy: state.sortBy as keyof Tables<'staff'> || 'role',
+    ascending: state.sortDirection === 'asc',
   });
+
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
+    {
+      key: 'role',
+      label: 'Role',
+      options: [
+        { label: 'Admin Staff', value: 'ADMINSTAFF' },
+        { label: 'Tutor', value: 'TUTOR' },
+        { label: 'Admin', value: 'ADMIN' },
+      ],
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      options: [
+        { label: 'ACTIVE', value: 'ACTIVE' },
+        { label: 'INACTIVE', value: 'INACTIVE' },
+        { label: 'TRIAL', value: 'TRIAL' },
+      ],
+    },
+  ], []);
+
+  const sortOptions: DataTableSortOption[] = [
+    { key: 'status', label: 'Status' },
+    { key: 'role', label: 'Role' },
+    { key: 'first_name', label: 'First Name' },
+    { key: 'last_name', label: 'Last Name' },
+  ];
+
+  const columnDefinitions: DataTableColumnDefinition[] = [
+    { key: 'status', label: 'Status' },
+    { key: 'role', label: 'Role' },
+    { key: 'first_name', label: 'First Name' },
+    { key: 'last_name', label: 'Last Name' },
+    { key: 'classes', label: 'Classes' },
+  ];
 
   const staffMembers = (data?.staff as (Tables<'staff'> & { classes?: (Tables<'classes'> & { subject?: Tables<'subjects'> })[] })[] | undefined) || [];
   const total = data?.total ?? 0;
@@ -107,7 +117,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   // Reset to page 1 when search term or filters change
   useEffect(() => {
     setPage(1);
-  }, [searchTerm, roleFilters, statusFilters]);
+  }, [state.search, state.filters, setPage]);
 
   // Event handlers
   const handleStaffClick = useCallback((id: string) => {
@@ -124,70 +134,28 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     setIsClassModalOpen(true);
   }, []);
 
-  const handleSort = useCallback((field: keyof Tables<'staff'>) => {
-    const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
-    const newField = sortField === field ? field : field;
-    setSortField(newField);
-    setSortDirection(newDirection);
-    setPage(1);
-    updateUrlParams({ 
-      sort: newField,
-      order: newDirection,
-      page: null 
-    });
-  }, [sortField, sortDirection, updateUrlParams]);
-
-  const resetFilters = useCallback(() => {
-    setSearchTerm('');
-    setRoleFilters([]);
-    setStatusFilters(['ACTIVE']);
-    setSortField('role');
-    setSortDirection('asc');
-    setPage(1);
-    updateUrlParams({ 
-      search: null,
-      role: null,
-      status: null,
-      sort: null,
-      order: null,
-      page: null 
-    });
-  }, [updateUrlParams]);
-
-  const handleRoleFiltersChange = useCallback((roles: string[]) => {
-    setRoleFilters(roles);
-    setPage(1);
-    updateUrlParams({ 
-      role: roles.length > 0 ? roles.join(',') : null,
-      page: null 
-    });
-  }, [updateUrlParams]);
-
-  const handleStatusFiltersChange = useCallback((statuses: string[]) => {
-    setStatusFilters(statuses.length > 0 ? statuses : []);
-    setPage(1);
-    updateUrlParams({ 
-      status: statuses.length > 0 ? statuses.join(',') : null,
-      page: null 
-    });
-  }, [updateUrlParams]);
-
   // Loading state
   if (isLoading && staffMembers.length === 0) {
     return (
       <div className="space-y-4">
-        <StaffTableFilters
-          searchTerm=""
-          roleFilters={[]}
-          statusFilters={[]}
-          onSearchChange={() => {}}
-          onRoleFiltersChange={() => {}}
-          onStatusFiltersChange={() => {}}
-          onResetFilters={() => {}}
+        <DataTableToolbar
+          state={state}
+          onSearchChange={setSearch}
+          onFiltersChange={setFilters}
+          onSortChange={setSort}
+          onGroupByChange={() => {}}
+          onVisibleColumnsChange={setVisibleColumns}
+          onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+          onReset={resetFilters}
+          filterDefinitions={filterDefinitions}
+          sortOptions={sortOptions}
+          columnDefinitions={columnDefinitions}
+          quickFilters={quickFilters}
+          searchPlaceholder="Search staff..."
           isLoading={true}
         />
         
-        <SkeletonTable rows={8} columns={5} />
+        <SkeletonTable rows={8} columns={state.visibleColumns.length} />
         
         <div className="text-sm text-muted-foreground">
           Loading staff...
@@ -214,39 +182,95 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <StaffTableFilters
-        searchTerm={searchTerm}
-        roleFilters={roleFilters}
-        statusFilters={statusFilters}
-        onSearchChange={(value) => {
-          setSearchTerm(value);
-          setPage(1);
-          updateUrlParams({ 
-            search: value || null,
-            page: null 
-          });
-        }}
-        onRoleFiltersChange={handleRoleFiltersChange}
-        onStatusFiltersChange={handleStatusFiltersChange}
-        onResetFilters={resetFilters}
+      <DataTableToolbar
+        state={state}
+        onSearchChange={setSearch}
+        onFiltersChange={setFilters}
+        onSortChange={setSort}
+        onGroupByChange={() => {}}
+        onVisibleColumnsChange={setVisibleColumns}
+        onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+        onReset={resetFilters}
+        filterDefinitions={filterDefinitions}
+        sortOptions={sortOptions}
+        columnDefinitions={columnDefinitions}
+        quickFilters={quickFilters}
+        searchPlaceholder="Search staff..."
         isLoading={isFetching}
       />
 
       {/* Table */}
       <div className="rounded-md border">
         <Table>
-          <StaffTableHeader
-            sortField={sortField}
-            sortDirection={sortDirection}
-            onSort={handleSort}
-          />
+          <TableHeader>
+            <TableRow>
+              {state.visibleColumns.includes('status') && (
+                <TableHead 
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
+                  onClick={() => setSort('status', state.sortBy === 'status' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
+                >
+                  <div className="flex items-center">
+                    Status
+                    <ArrowUpDown className={cn(
+                      "ml-2 h-4 w-4",
+                      state.sortBy === 'status' ? "opacity-100" : "opacity-40"
+                    )} />
+                  </div>
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('role') && (
+                <TableHead 
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
+                  onClick={() => setSort('role', state.sortBy === 'role' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
+                >
+                  <div className="flex items-center">
+                    Role
+                    <ArrowUpDown className={cn(
+                      "ml-2 h-4 w-4",
+                      state.sortBy === 'role' ? "opacity-100" : "opacity-40"
+                    )} />
+                  </div>
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('first_name') && (
+                <TableHead 
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
+                  onClick={() => setSort('first_name', state.sortBy === 'first_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
+                >
+                  <div className="flex items-center">
+                    First Name
+                    <ArrowUpDown className={cn(
+                      "ml-2 h-4 w-4",
+                      state.sortBy === 'first_name' ? "opacity-100" : "opacity-40"
+                    )} />
+                  </div>
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('last_name') && (
+                <TableHead 
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
+                  onClick={() => setSort('last_name', state.sortBy === 'last_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
+                >
+                  <div className="flex items-center">
+                    Last Name
+                    <ArrowUpDown className={cn(
+                      "ml-2 h-4 w-4",
+                      state.sortBy === 'last_name' ? "opacity-100" : "opacity-40"
+                    )} />
+                  </div>
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('classes') && <TableHead>Classes</TableHead>}
+              <TableHead></TableHead>
+            </TableRow>
+          </TableHeader>
           <TableBody>
             {staffMembers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24">
+                <TableCell colSpan={state.visibleColumns.length + 1} className="text-center h-24">
                   {isLoading ? (
                     "Loading staff..."
-                  ) : searchTerm || roleFilters.length > 0 || statusFilters.length !== 1 || !statusFilters.includes('ACTIVE') ? (
+                  ) : state.search || Object.keys(state.filters).length > 0 ? (
                     "No staff match your filters"
                   ) : (
                     "No staff found"
@@ -270,22 +294,12 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
       </div>
       
       <TablePagination
-        page={page}
-        pageSize={pageSize}
+        page={state.page}
+        pageSize={state.pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={(newPage) => {
-          setPage(newPage);
-          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
-        }}
-        onPageSizeChange={(size) => {
-          setPageSize(size);
-          setPage(1);
-          updateUrlParams({ 
-            pageSize: size === 50 ? null : String(size),
-            page: null 
-          });
-        }}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
 
       {/* Modals */}

@@ -36,8 +36,11 @@ export type TaskUpdate = TablesUpdate<'tasks'>;
 export interface TaskFilters {
   status?: TaskStatus[];
   assignedTo?: string | string[]; // Support both single and array for backward compatibility
+  assignee?: string | string[];   // Support UI key
+  assigned_to?: string | string[]; // Support database column name key
   priority?: TaskPriority | TaskPriority[]; // Support both single and array for backward compatibility
   search?: string;
+  [key: string]: unknown;
 }
 
 /**

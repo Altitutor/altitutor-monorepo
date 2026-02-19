@@ -7,6 +7,10 @@ interface UseAdminShiftActionsProps {
    * Callback when opening in page (for modals, this should close the modal)
    */
   onOpenInPage?: () => void;
+  /**
+   * Callback when delete is clicked - typically opens delete confirmation dialog
+   */
+  onDelete?: () => void;
 }
 
 /**
@@ -16,6 +20,7 @@ interface UseAdminShiftActionsProps {
 export function useAdminShiftActions({
   adminShiftId,
   onOpenInPage,
+  onDelete,
 }: UseAdminShiftActionsProps) {
   const router = useRouter();
 
@@ -29,5 +34,6 @@ export function useAdminShiftActions({
 
   return {
     onOpenInPage: handleOpenInPage,
+    onDelete,
   };
 }

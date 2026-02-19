@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo, useState } from 'react';
 import { Button } from '@altitutor/ui';
 import {
   DropdownMenu,
@@ -7,11 +8,17 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  useToast,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard, UserX, Plus } from 'lucide-react';
+import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard, UserX, Plus, Copy } from 'lucide-react';
+import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
+import type { IssueTagInsert } from '@/features/issues/types';
 
 interface BaseActionsMenuProps {
   onOpenInPage: () => void;
+  entityId?: string;
+  copyTagType?: string;
+  copyTagDisplayText?: string;
 }
 
 interface StudentActionsMenuProps extends BaseActionsMenuProps {
@@ -22,7 +29,6 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   onLogAbsence: () => void;
   onBookDraftingSession: () => void;
   onAddClass?: () => void;
-  onAddSubject?: () => void;
   onDiscontinue?: () => void;
   onDelete: () => void;
 }
@@ -56,14 +62,17 @@ interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
 
 interface ClassActionsMenuProps extends BaseActionsMenuProps {
   type: 'class';
+  onDelete?: () => void;
 }
 
 interface AdminShiftActionsMenuProps extends BaseActionsMenuProps {
   type: 'adminShift';
+  onDelete?: () => void;
 }
 
 interface ParentActionsMenuProps extends BaseActionsMenuProps {
   type: 'parent';
+  onDelete?: () => void;
 }
 
 interface TopicActionsMenuProps extends BaseActionsMenuProps {
@@ -83,69 +92,151 @@ interface TutorLogActionsMenuProps extends BaseActionsMenuProps {
   onEdit: () => void;
 }
 
-type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps;
+interface IssueActionsMenuProps extends BaseActionsMenuProps {
+  type: 'issue';
+  onDelete: () => void;
+}
+
+interface TaskActionsMenuProps extends BaseActionsMenuProps {
+  type: 'task';
+  onDelete: () => void;
+}
+
+type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps | IssueActionsMenuProps | TaskActionsMenuProps;
+
+const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<Record<ActionsMenuProps['type'], string>> = {
+  student: 'student',
+  staff: 'staff',
+  session: 'session',
+  invoice: 'invoice',
+  class: 'class',
+  adminShift: 'adminShift',
+  parent: 'parent',
+  topic: 'topic',
+  subject: 'subject',
+  tutorLog: 'tutorLog',
+  issue: 'issue',
+  task: 'task',
+};
 
 export function ActionsMenu(props: ActionsMenuProps) {
+  const { toast } = useToast();
+  const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
+
+  const issueInitialTags = useMemo<Omit<IssueTagInsert, 'issue_id'>[]>(() => {
+    if (!props.entityId) return [];
+
+    if (props.type === 'student') return [{ student_id: props.entityId }];
+    if (props.type === 'staff') return [{ staff_id: props.entityId }];
+    if (props.type === 'parent') return [{ parent_id: props.entityId }];
+    if (props.type === 'class') return [{ class_id: props.entityId }];
+    if (props.type === 'session') return [{ session_id: props.entityId }];
+
+    return [];
+  }, [props]);
+
+  const canAddIssue = issueInitialTags.length > 0;
+
+  const handleCopyId = async () => {
+    if (!props.entityId) return;
+
+    const tagType = props.copyTagType || DEFAULT_TAG_TYPE_BY_MENU_TYPE[props.type];
+    const displayText = (props.copyTagDisplayText || props.entityId).replace(/\]/g, '');
+    const copyValue = tagType
+      ? `@[${tagType}:${props.entityId}:${displayText}]`
+      : props.entityId;
+
+    try {
+      await navigator.clipboard.writeText(copyValue);
+      toast({
+        title: 'Copied ID',
+        description: 'Copied taggable ID to clipboard',
+      });
+    } catch {
+      toast({
+        title: 'Failed to copy',
+        description: 'Please try again',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const copyMenuItem = props.entityId ? (
+    <DropdownMenuItem onClick={handleCopyId}>
+      <Copy className="h-4 w-4 mr-2" />
+      Copy ID
+    </DropdownMenuItem>
+  ) : null;
+
   if (props.type === 'student') {
     return (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
-            <MoreVertical className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={props.onEditDetails}>
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit details
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={props.onPasswordResetOrRegistration}>
-            <Mail className="h-4 w-4 mr-2" />
-            {props.passwordResetLabel}
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={props.onLogAbsence}>
-            <Calendar className="h-4 w-4 mr-2" />
-            Log absence
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={props.onBookDraftingSession}>
-            <FileText className="h-4 w-4 mr-2" />
-            Book drafting session
-          </DropdownMenuItem>
-          {props.onAddClass && (
-            <DropdownMenuItem onClick={props.onAddClass}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add class
+      <>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="icon" className="shrink-0">
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={props.onOpenInPage}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open in page
             </DropdownMenuItem>
-          )}
-          {props.onAddSubject && (
-            <DropdownMenuItem onClick={props.onAddSubject}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add subject
+            {copyMenuItem}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={props.onEditDetails}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit details
             </DropdownMenuItem>
-          )}
-          <DropdownMenuSeparator />
-          {props.onDiscontinue && (
-            <DropdownMenuItem onClick={props.onDiscontinue} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-              <UserX className="h-4 w-4 mr-2" />
-              Discontinue
+            <DropdownMenuItem onClick={props.onPasswordResetOrRegistration}>
+              <Mail className="h-4 w-4 mr-2" />
+              {props.passwordResetLabel}
             </DropdownMenuItem>
-          )}
-          <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete student
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+            <DropdownMenuItem onClick={props.onLogAbsence}>
+              <Calendar className="h-4 w-4 mr-2" />
+              Log absence
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={props.onBookDraftingSession}>
+              <FileText className="h-4 w-4 mr-2" />
+              Book drafting session
+            </DropdownMenuItem>
+            {canAddIssue && (
+              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add issue
+              </DropdownMenuItem>
+            )}
+            {props.onAddClass && (
+              <DropdownMenuItem onClick={props.onAddClass}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add class
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuSeparator />
+            {props.onDiscontinue && (
+              <DropdownMenuItem onClick={props.onDiscontinue} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+                <UserX className="h-4 w-4 mr-2" />
+                Discontinue
+              </DropdownMenuItem>
+            )}
+            <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete student
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <CreateIssueDialog
+          isOpen={isCreateIssueOpen}
+          onClose={() => setIsCreateIssueOpen(false)}
+          initialTags={issueInitialTags}
+        />
+      </>
     );
   }
 
   if (props.type === 'staff') {
     return (
+      <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0">
@@ -157,6 +248,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
           </DropdownMenuItem>
+          {copyMenuItem}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={props.onEditDetails}>
             <Pencil className="h-4 w-4 mr-2" />
@@ -170,6 +262,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <Calendar className="h-4 w-4 mr-2" />
             Log absence
           </DropdownMenuItem>
+          {canAddIssue && (
+            <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add issue
+            </DropdownMenuItem>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
             <Trash2 className="h-4 w-4 mr-2" />
@@ -177,11 +275,18 @@ export function ActionsMenu(props: ActionsMenuProps) {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      <CreateIssueDialog
+        isOpen={isCreateIssueOpen}
+        onClose={() => setIsCreateIssueOpen(false)}
+        initialTags={issueInitialTags}
+      />
+      </>
     );
   }
 
   if (props.type === 'session') {
     return (
+      <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size="icon" className="shrink-0">
@@ -193,6 +298,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
           </DropdownMenuItem>
+          {copyMenuItem}
           {props.canReschedule && props.onReschedule && (
             <>
               <DropdownMenuSeparator />
@@ -211,6 +317,15 @@ export function ActionsMenu(props: ActionsMenuProps) {
               </DropdownMenuItem>
             </>
           )}
+          {canAddIssue && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add issue
+              </DropdownMenuItem>
+            </>
+          )}
           {!props.hasTutorLog && props.onLogSession && (
             <>
               <DropdownMenuSeparator />
@@ -222,6 +337,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      <CreateIssueDialog
+        isOpen={isCreateIssueOpen}
+        onClose={() => setIsCreateIssueOpen(false)}
+        initialTags={issueInitialTags}
+      />
+      </>
     );
   }
 
@@ -238,6 +359,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
           </DropdownMenuItem>
+          {copyMenuItem}
           {props.onViewOnStripe && (
             <>
               <DropdownMenuSeparator />
@@ -289,6 +411,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
           </DropdownMenuItem>
+          {copyMenuItem}
           {props.onEdit && (
             <>
               <DropdownMenuSeparator />
@@ -325,6 +448,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
           </DropdownMenuItem>
+          {copyMenuItem}
           {props.onEdit && (
             <>
               <DropdownMenuSeparator />
@@ -361,6 +485,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <ExternalLink className="h-4 w-4 mr-2" />
             Open session in page
           </DropdownMenuItem>
+          {copyMenuItem}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={props.onEdit}>
             <Pencil className="h-4 w-4 mr-2" />
@@ -371,7 +496,51 @@ export function ActionsMenu(props: ActionsMenuProps) {
     );
   }
 
-  if (props.type === 'class' || props.type === 'adminShift' || props.type === 'parent') {
+  if (props.type === 'class') {
+    return (
+      <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {copyMenuItem}
+          {canAddIssue && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add issue
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete class
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <CreateIssueDialog
+        isOpen={isCreateIssueOpen}
+        onClose={() => setIsCreateIssueOpen(false)}
+        initialTags={issueInitialTags}
+      />
+      </>
+    );
+  }
+
+  if (props.type === 'adminShift') {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -383,6 +552,123 @@ export function ActionsMenu(props: ActionsMenuProps) {
           <DropdownMenuItem onClick={props.onOpenInPage}>
             <ExternalLink className="h-4 w-4 mr-2" />
             Open in page
+          </DropdownMenuItem>
+          {copyMenuItem}
+          {canAddIssue && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add issue
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete admin shift
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'parent') {
+    return (
+      <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {copyMenuItem}
+          {canAddIssue && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add issue
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.onDelete && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onDelete} className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10">
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete parent
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <CreateIssueDialog
+        isOpen={isCreateIssueOpen}
+        onClose={() => setIsCreateIssueOpen(false)}
+        initialTags={issueInitialTags}
+      />
+      </>
+    );
+  }
+
+  if (props.type === 'issue') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {copyMenuItem}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            onClick={props.onDelete} 
+            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete issue
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'task') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {copyMenuItem}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            onClick={props.onDelete} 
+            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete task
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

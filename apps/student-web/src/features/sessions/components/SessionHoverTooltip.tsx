@@ -1,15 +1,13 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger, Separator, Badge, Button } from '@altitutor/ui';
 import type { Database } from '@altitutor/shared';
 import { formatSessionType, getSubjectColorStyle, formatSubjectDisplay } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { useMediaQuery } from '@/shared/hooks';
+import { useMediaQuery, useCurrentStudentId } from '@/shared/hooks';
 import { cn } from '@/shared/utils';
 import { LogAbsenceDialog } from './LogAbsenceDialog';
-import { BookDraftingSessionModal } from '@/features/bookings/components/BookDraftingSessionModal';
 import { CalendarX } from 'lucide-react';
 import type { StudentSession as AbsenceStudentSession } from '../types/absence';
 
@@ -35,6 +33,8 @@ interface SessionHoverTooltipProps {
     students: StudentMember[];
   };
   children: React.ReactNode;
+  /** Callback when user requests to reschedule a drafting session - parent composes BookDraftingSessionModal */
+  onRequestRescheduleDrafting?: (sessionId: string, subjectId: string | null) => void;
 }
 
 // Helper to format session date like SessionModal
@@ -111,24 +111,11 @@ function StaffCard({ staff }: { staff: StaffMember }) {
   );
 }
 
-export function SessionHoverTooltip({ session, children }: SessionHoverTooltipProps) {
-  const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
+export function SessionHoverTooltip({ session, children, onRequestRescheduleDrafting }: SessionHoverTooltipProps) {
+  const { data: currentStudentId } = useCurrentStudentId();
   const [isOpen, setIsOpen] = useState(false);
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
-  const [isDraftingRescheduleModalOpen, setIsDraftingRescheduleModalOpen] = useState(false);
   const isMobile = useMediaQuery('(max-width: 768px)'); // md breakpoint
-
-  // Get current student ID
-  useEffect(() => {
-    const loadStudentId = async () => {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.rpc('current_student_id');
-      if (!error && data) {
-        setCurrentStudentId(data);
-      }
-    };
-    loadStudentId();
-  }, []);
 
   // Build subject display: {curriculum} {year_level} {name} {level}
   const subjectParts: string[] = [];
@@ -232,11 +219,11 @@ export function SessionHoverTooltip({ session, children }: SessionHoverTooltipPr
 
   // Determine if reschedule button should be shown based on session type
   const sessionType = session.session_type;
-  const shouldShowRescheduleButton = 
-    absenceSession && 
-    !isCurrentStudentAbsent && 
-    (sessionType === 'CLASS' || sessionType === 'DRAFTING');
   const isDraftingSession = sessionType === 'DRAFTING';
+  const shouldShowRescheduleButton =
+    absenceSession &&
+    !isCurrentStudentAbsent &&
+    ((sessionType === 'CLASS') || (isDraftingSession && !!onRequestRescheduleDrafting));
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>
@@ -343,12 +330,13 @@ export function SessionHoverTooltip({ session, children }: SessionHoverTooltipPr
               <div>
                 <Button
                   onClick={() => {
-                    if (isDraftingSession) {
-                      setIsDraftingRescheduleModalOpen(true);
+                    if (isDraftingSession && onRequestRescheduleDrafting && absenceSession?.id) {
+                      onRequestRescheduleDrafting(absenceSession.id, session.subject_id || null);
+                      setIsOpen(false);
                     } else {
                       setIsAbsenceModalOpen(true);
+                      setIsOpen(false);
                     }
-                    setIsOpen(false);
                   }}
                   variant="outline"
                   className="w-full"
@@ -365,15 +353,6 @@ export function SessionHoverTooltip({ session, children }: SessionHoverTooltipPr
         isOpen={isAbsenceModalOpen}
         onClose={() => setIsAbsenceModalOpen(false)}
         initialSession={absenceSession}
-      />
-      <BookDraftingSessionModal
-        isOpen={isDraftingRescheduleModalOpen}
-        onClose={() => setIsDraftingRescheduleModalOpen(false)}
-        originalSessionId={absenceSession?.id || null}
-        originalSubjectId={session.subject_id || null}
-        onBookingCreated={() => {
-          // Optionally refresh data or show notification
-        }}
       />
     </Popover>
   );

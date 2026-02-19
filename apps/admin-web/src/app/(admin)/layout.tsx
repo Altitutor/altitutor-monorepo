@@ -18,6 +18,7 @@ import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
 import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
 import { BookSessionModal } from '@/features/bookings/components';
 import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
+import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 import { NotepadButton, NotepadPanel } from '@/features/notepad';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
@@ -52,6 +53,11 @@ const navItems: NavItem[] = [
     title: 'Tasks',
     href: '/tasks',
     icon: CheckSquare,
+  },
+  {
+    title: 'Issues',
+    href: '/issues',
+    icon: AlertTriangle,
   },
   {
     title: 'Reconciliation',
@@ -348,7 +354,15 @@ function AdminLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
-  const { bookingSessionType, isBookingModalOpen, closeBookingModal, isCreateTaskDialogOpen, closeCreateTaskDialog } = useQuickActions();
+  const {
+    bookingSessionType,
+    isBookingModalOpen,
+    closeBookingModal,
+    isCreateTaskDialogOpen,
+    closeCreateTaskDialog,
+    isCreateIssueDialogOpen,
+    closeCreateIssueDialog,
+  } = useQuickActions();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
@@ -422,6 +436,10 @@ function AdminLayoutContent({
                 isOpen={isCreateTaskDialogOpen}
                 onClose={closeCreateTaskDialog}
               />
+              <CreateIssueDialog
+                isOpen={isCreateIssueDialogOpen}
+                onClose={closeCreateIssueDialog}
+              />
             </>
           )}
         </div>
@@ -441,4 +459,3 @@ export default function AdminLayout({
     </QuickActionsProvider>
   );
 }
-

@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, createContext, useContext } from 'react';
-import { Button } from '@altitutor/ui';
+import { useMemo, useState, createContext, useContext } from 'react';
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/features/messages/state/chatStore';
@@ -12,6 +12,16 @@ import { getErrorMessage } from '@/shared/utils';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
 import { format } from 'date-fns';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
+import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
+import { useIssues } from '@/features/issues/api/queries';
+import { issuesApi } from '@/features/issues/api/issues';
+import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issues/types';
+import type { JSONContent } from '@altitutor/ui';
+import { extractMentions } from '@/shared/utils/extractMentions';
+import { TextWithTags } from '@/shared/components/TextWithTags';
+import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
 import type {
   UninvoicedSession,
   UnpaidInvoice,
@@ -23,6 +33,44 @@ import type {
   TrialStudentNotSignedUp,
   ReconciliationItemType,
 } from '../types';
+
+type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
+
+function getTagKey(tag: Partial<IssueTagInsert>) {
+  if (tag.student_id) return `student:${tag.student_id}`;
+  if (tag.staff_id) return `staff:${tag.staff_id}`;
+  if (tag.parent_id) return `parent:${tag.parent_id}`;
+  if (tag.class_id) return `class:${tag.class_id}`;
+  if (tag.session_id) return `session:${tag.session_id}`;
+  if (tag.invoice_id) return `invoice:${tag.invoice_id}`;
+  if (tag.subject_id) return `subject:${tag.subject_id}`;
+  return null;
+}
+
+function dedupeTags(tags: IssueTagDraft[]): IssueTagDraft[] {
+  const seen = new Set<string>();
+  const result: IssueTagDraft[] = [];
+
+  tags.forEach((tag) => {
+    const key = getTagKey(tag);
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    result.push(tag);
+  });
+
+  return result;
+}
+
+function issueTagToDraft(tag: IssueWithTags['tags'][number]): IssueTagDraft | null {
+  if (tag.student_id) return { student_id: tag.student_id };
+  if (tag.staff_id) return { staff_id: tag.staff_id };
+  if (tag.parent_id) return { parent_id: tag.parent_id };
+  if (tag.class_id) return { class_id: tag.class_id };
+  if (tag.session_id) return { session_id: tag.session_id };
+  if (tag.invoice_id) return { invoice_id: tag.invoice_id };
+  if (tag.subject_id) return { subject_id: tag.subject_id };
+  return null;
+}
 
 interface ReconciliationHandlers {
   onOpenStudent: (studentId: string) => void;
@@ -243,258 +291,566 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     }
   };
 
-  switch (type) {
-    case 'uninvoiced_sessions': {
-      const session = item as UninvoicedSession;
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlers.onOpenSession(session.session_id)}
-          >
-            <Calendar className="h-4 w-4 mr-1" />
-            View Session
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => handleSendInvoice(session.sessions_students_id)}
-            disabled={isLoading || invoiceSessionMutation.isPending}
-          >
-            <CreditCard className="h-4 w-4 mr-1" />
-            {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Invoice Session'}
-          </Button>
-        </div>
-      );
+  const { data: candidateIssues = [] } = useIssues({ status: ['open', 'awaiting_response'] });
+  const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
+  const [isEditIssueOpen, setIsEditIssueOpen] = useState(false);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [createIssueTags, setCreateIssueTags] = useState<IssueTagDraft[]>([]);
+  const [isIssueActionLoading, setIsIssueActionLoading] = useState(false);
+
+  const matchedIssues = useMemo(() => {
+    const hasTag = (issue: IssueWithTags, predicate: (tag: IssueWithTags['tags'][number]) => boolean) =>
+      issue.tags.some(predicate);
+
+    return candidateIssues.filter((issue) => {
+      if (type === 'uninvoiced_sessions') {
+        const current = item as UninvoicedSession;
+        return (
+          hasTag(issue, (tag) => tag.student_id === current.student_id) &&
+          hasTag(issue, (tag) => tag.session_id === current.session_id)
+        );
+      }
+
+      if (type === 'unpaid_invoices') {
+        const current = item as UnpaidInvoice;
+        return (
+          hasTag(issue, (tag) => tag.student_id === current.student_id) &&
+          hasTag(issue, (tag) => tag.invoice_id === current.id)
+        );
+      }
+
+      if (type === 'students_without_payment_method') {
+        const current = item as StudentWithoutPaymentMethod;
+        return hasTag(issue, (tag) => tag.student_id === current.student_id);
+      }
+
+      if (type === 'unlogged_sessions') {
+        const current = item as UnloggedSession;
+        const staffIds = (current.assigned_tutors ?? []).map((staff) => staff.id);
+        return (
+          hasTag(issue, (tag) => tag.session_id === current.session_id) &&
+          staffIds.length > 0 &&
+          hasTag(issue, (tag) => !!tag.staff_id && staffIds.includes(tag.staff_id))
+        );
+      }
+
+      if (type === 'unassigned_classes') {
+        const current = item as UnassignedClass;
+        return hasTag(issue, (tag) => tag.class_id === current.class_id);
+      }
+
+      if (type === 'students_without_classes') {
+        const current = item as StudentWithoutClasses;
+        return (
+          hasTag(issue, (tag) => tag.student_id === current.student_id) &&
+          hasTag(issue, (tag) => tag.subject_id === current.subject_id)
+        );
+      }
+
+      if (type === 'trial_students_not_signed_up') {
+        const current = item as TrialStudentNotSignedUp;
+        return (
+          !!current.first_trial_session_id &&
+          hasTag(issue, (tag) => tag.student_id === current.student_id) &&
+          hasTag(issue, (tag) => tag.session_id === current.first_trial_session_id)
+        );
+      }
+
+      return false;
+    });
+  }, [candidateIssues, item, type]);
+
+  const getParentIdsForStudent = async (studentId: string): Promise<string[]> => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('parents_students')
+      .select('parent_id')
+      .eq('student_id', studentId);
+
+    if (error) throw error;
+    return Array.from(new Set((data ?? []).map((row) => row.parent_id)));
+  };
+
+  const getFirstTrialSessionIdForStudent = async (studentId: string): Promise<string | null> => {
+    const supabase = getSupabaseClient();
+    const { data, error } = await supabase
+      .from('sessions_students')
+      .select('session_id, sessions!inner(type, start_at)')
+      .eq('student_id', studentId);
+
+    if (error) throw error;
+
+    const trialRows = (data ?? [])
+      .filter((row) => (row.sessions as { type: string } | null)?.type === 'TRIAL_SESSION')
+      .sort((a, b) => {
+        const aTime = new Date((a.sessions as { start_at: string } | null)?.start_at ?? 0).getTime();
+        const bTime = new Date((b.sessions as { start_at: string } | null)?.start_at ?? 0).getTime();
+        return aTime - bTime;
+      });
+
+    return trialRows[0]?.session_id ?? null;
+  };
+
+  const getIssueTagsForItem = async (): Promise<IssueTagDraft[]> => {
+    if (type === 'uninvoiced_sessions') {
+      const current = item as UninvoicedSession;
+      return dedupeTags([
+        { student_id: current.student_id },
+        { session_id: current.session_id },
+      ]);
     }
 
-    case 'unpaid_invoices': {
-      const invoice = item as UnpaidInvoice;
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlers.onOpenInvoice(invoice.id)}
-          >
-            <Receipt className="h-4 w-4 mr-1" />
-            View Invoice
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => handleContactStudent(invoice.student_id)}
-            disabled={isLoading}
-          >
-            <MessageCircle className="h-4 w-4 mr-1" />
-            Contact
-          </Button>
-          {invoice.collection_method === 'send_invoice' ? (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => handleSendInvoiceEmail(invoice.id)}
-              disabled={isLoading}
-            >
-              <CreditCard className="h-4 w-4 mr-1" />
-              Resend Invoice
-            </Button>
-          ) : invoice.collection_method === 'charge_automatically' ? (
-            <Button
-              variant="default"
-              size="sm"
-              onClick={() => handleChargeCard(invoice.id, invoice.stripe_invoice_id)}
-              disabled={isLoading}
-            >
-              <CreditCard className="h-4 w-4 mr-1" />
-              Charge Card
-            </Button>
-          ) : null}
-        </div>
-      );
+    if (type === 'unpaid_invoices') {
+      const current = item as UnpaidInvoice;
+      const parentIds = await getParentIdsForStudent(current.student_id);
+      return dedupeTags([
+        { student_id: current.student_id },
+        { invoice_id: current.id },
+        ...parentIds.map((parentId) => ({ parent_id: parentId })),
+      ]);
     }
 
-    case 'unlogged_sessions': {
-      const session = item as UnloggedSession;
-      // Get first tutor ID for logging
-      const firstStaffId = session.assigned_tutors && session.assigned_tutors.length > 0
-        ? session.assigned_tutors[0].id
-        : undefined;
-      
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlers.onOpenSession(session.session_id)}
-          >
-            <Calendar className="h-4 w-4 mr-1" />
-            View Session
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => handlers.onLogSession(session.session_id, firstStaffId)}
-            disabled={isLoading}
-          >
-            <FileText className="h-4 w-4 mr-1" />
-            Log Session
-          </Button>
-        </div>
-      );
+    if (type === 'students_without_payment_method') {
+      const current = item as StudentWithoutPaymentMethod;
+      return [{ student_id: current.student_id }];
     }
 
-    case 'unassigned_classes': {
-      const classItem = item as UnassignedClass;
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlers.onOpenClass(classItem.class_id)}
-          >
-            <Calendar className="h-4 w-4 mr-1" />
-            View Class
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => handlers.onAssignStaff(classItem.class_id)}
-          >
-            <User className="h-4 w-4 mr-1" />
-            Assign Staff
-          </Button>
-        </div>
-      );
+    if (type === 'unlogged_sessions') {
+      const current = item as UnloggedSession;
+      return dedupeTags([
+        { session_id: current.session_id },
+        ...(current.assigned_tutors ?? []).map((staff) => ({ staff_id: staff.id })),
+      ]);
     }
 
-    case 'failed_delivery_messages': {
-      const message = item as FailedDeliveryMessage;
-      
-      const handleDeleteMessage = async () => {
-        if (!confirm('Are you sure you want to delete this failed message? This action cannot be undone.')) {
-          return;
-        }
-        
-        try {
-          await deleteMessageMutation.mutateAsync(message.message_id);
-          toast({
-            title: 'Success',
-            description: 'Message deleted successfully',
-          });
-        } catch (error: unknown) {
-          const errorMessage = getErrorMessage(error);
-          toast({
-            title: 'Error',
-            description: errorMessage || 'Failed to delete message',
-            variant: 'destructive',
-          });
-        }
-      };
-      
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handleOpenConversation(message.conversation_id)}
-            disabled={isLoading}
-          >
-            <MessageCircle className="h-4 w-4 mr-1" />
-            Open Conversation
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleDeleteMessage}
-            disabled={isLoading || deleteMessageMutation.isPending}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            {deleteMessageMutation.isPending ? 'Deleting...' : 'Delete'}
-          </Button>
-        </div>
-      );
+    if (type === 'unassigned_classes') {
+      const current = item as UnassignedClass;
+      return [{ class_id: current.class_id }];
     }
 
-    case 'students_without_payment_method': {
-      const student = item as StudentWithoutPaymentMethod;
-      const handleOpenStripeSync = () => {
-        router.push(`/settings/stripe-sync?studentId=${student.student_id}`);
-      };
-      
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlers.onOpenStudent(student.student_id)}
-          >
-            <User className="h-4 w-4 mr-1" />
-            View Student
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={handleOpenStripeSync}
-          >
-            <CreditCard className="h-4 w-4 mr-1" />
-            Stripe Sync
-          </Button>
-        </div>
-      );
+    if (type === 'students_without_classes') {
+      const current = item as StudentWithoutClasses;
+      return dedupeTags([
+        { student_id: current.student_id },
+        { subject_id: current.subject_id },
+      ]);
     }
 
-    case 'students_without_classes': {
-      const student = item as StudentWithoutClasses;
-      return (
-        <div className="flex gap-2">
+    if (type === 'trial_students_not_signed_up') {
+      const current = item as TrialStudentNotSignedUp;
+      const parentIds = await getParentIdsForStudent(current.student_id);
+      const sessionId = current.first_trial_session_id || await getFirstTrialSessionIdForStudent(current.student_id);
+      return dedupeTags([
+        { student_id: current.student_id },
+        ...parentIds.map((parentId) => ({ parent_id: parentId })),
+        ...(sessionId ? [{ session_id: sessionId }] : []),
+      ]);
+    }
+
+    return [];
+  };
+
+  const appendTagsToIssueDescription = async (issue: IssueWithTags, tags: IssueTagDraft[]) => {
+    const existingIssueTags = issue.tags
+      .map(issueTagToDraft)
+      .filter((tag): tag is IssueTagDraft => !!tag);
+    const allTags = dedupeTags([...existingIssueTags, ...tags]);
+
+    const currentDescription = issue.description as JSONContent | null;
+    const currentDoc: JSONContent =
+      currentDescription && currentDescription.type === 'doc'
+        ? currentDescription
+        : { type: 'doc', content: [] };
+
+    const existingMentionKeys = new Set(
+      extractMentions(currentDoc).map((mention) => `${mention.type}:${mention.id}`)
+    );
+
+    const mentionParagraphs: JSONContent[] = [];
+    const labels = await resolveTagLabels(allTags);
+    allTags.forEach((tag) => {
+      const entity = getTagEntity(tag);
+      if (!entity) return;
+
+      const key = `${entity.type}:${entity.id}`;
+      if (existingMentionKeys.has(key)) return;
+
+      existingMentionKeys.add(key);
+      mentionParagraphs.push({
+        type: 'paragraph',
+        content: [
+          {
+            type: 'mention',
+            attrs: {
+              id: entity.id,
+              type: entity.type,
+              label: labels.get(key) || entity.id,
+            },
+          },
+          { type: 'text', text: ' ' },
+        ],
+      });
+    });
+
+    if (mentionParagraphs.length === 0) return;
+
+    const updatedDescription: JSONContent = {
+      ...currentDoc,
+      content: [...(currentDoc.content || []), ...mentionParagraphs],
+    };
+
+    await issuesApi.update(issue.id, { description: updatedDescription as IssueUpdate['description'] });
+    queryClient.invalidateQueries({ queryKey: ['issues'] });
+  };
+
+  const handleCreateIssue = async () => {
+    try {
+      setIsIssueActionLoading(true);
+      const tags = await getIssueTagsForItem();
+      setCreateIssueTags(tags);
+      setIsCreateIssueOpen(true);
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      toast({
+        title: 'Failed to open issue',
+        description: errorMessage || 'Unable to open issue flow',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsIssueActionLoading(false);
+    }
+  };
+
+  const handleAddToIssue = async (issue: IssueWithTags) => {
+    try {
+      setIsIssueActionLoading(true);
+      const tags = await getIssueTagsForItem();
+      await appendTagsToIssueDescription(issue, tags);
+      setSelectedIssueId(issue.id);
+      setIsEditIssueOpen(true);
+    } catch (error: unknown) {
+      const errorMessage = getErrorMessage(error);
+      toast({
+        title: 'Failed to open issue',
+        description: errorMessage || 'Unable to open issue flow',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsIssueActionLoading(false);
+    }
+  };
+
+  const issueButton = (type === 'failed_delivery_messages') ? null : (
+    matchedIssues.length === 0 ? (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={handleCreateIssue}
+        disabled={isIssueActionLoading}
+      >
+        <Plus className="h-4 w-4 mr-1" />
+        Open issue
+      </Button>
+    ) : (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
             size="sm"
-            onClick={() => handlers.onOpenStudent(student.student_id)}
-          >
-            <User className="h-4 w-4 mr-1" />
-            View Student
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={() => handlers.onAddClass(student.student_id, student.subject_id)}
+            disabled={isIssueActionLoading}
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add Class
+            Open issue
           </Button>
-        </div>
-      );
-    }
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={handleCreateIssue}>
+            Create new issue
+          </DropdownMenuItem>
+          {matchedIssues.map((issue) => (
+            <DropdownMenuItem
+              key={issue.id}
+              onClick={() => handleAddToIssue(issue)}
+            >
+              <span className="mr-1">Add to open issue:</span>
+              <TextWithTags text={issue.name} />
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  );
+  let content: React.ReactNode = null;
 
-    case 'trial_students_not_signed_up': {
-      const student = item as TrialStudentNotSignedUp;
-      return (
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => handlers.onOpenStudent(student.student_id)}
-          >
-            <User className="h-4 w-4 mr-1" />
-            View Student
-          </Button>
+  if (type === 'uninvoiced_sessions') {
+    const session = item as UninvoicedSession;
+    content = (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenStudent(session.student_id)}
+        >
+          <User className="h-4 w-4 mr-1" />
+          View Student
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenSession(session.session_id)}
+        >
+          <Calendar className="h-4 w-4 mr-1" />
+          View Session
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handleSendInvoice(session.sessions_students_id)}
+          disabled={isLoading || invoiceSessionMutation.isPending}
+        >
+          <CreditCard className="h-4 w-4 mr-1" />
+          {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Invoice Session'}
+        </Button>
+        {issueButton}
+      </div>
+    );
+  } else if (type === 'unpaid_invoices') {
+    const invoice = item as UnpaidInvoice;
+    content = (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenInvoice(invoice.id)}
+        >
+          <Receipt className="h-4 w-4 mr-1" />
+          View Invoice
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handleContactStudent(invoice.student_id)}
+          disabled={isLoading}
+        >
+          <MessageCircle className="h-4 w-4 mr-1" />
+          Contact
+        </Button>
+        {invoice.collection_method === 'send_invoice' ? (
           <Button
             variant="default"
             size="sm"
-            onClick={() => handleMessageStudent(student.student_id)}
+            onClick={() => handleSendInvoiceEmail(invoice.id)}
             disabled={isLoading}
           >
-            <MessageCircle className="h-4 w-4 mr-1" />
-            Message
+            <CreditCard className="h-4 w-4 mr-1" />
+            Resend Invoice
           </Button>
-        </div>
-      );
-    }
+        ) : invoice.collection_method === 'charge_automatically' ? (
+          <Button
+            variant="default"
+            size="sm"
+            onClick={() => handleChargeCard(invoice.id, invoice.stripe_invoice_id)}
+            disabled={isLoading}
+          >
+            <CreditCard className="h-4 w-4 mr-1" />
+            Charge Card
+          </Button>
+        ) : null}
+        {issueButton}
+      </div>
+    );
+  } else if (type === 'unlogged_sessions') {
+    const session = item as UnloggedSession;
+    const firstStaffId = session.assigned_tutors && session.assigned_tutors.length > 0
+      ? session.assigned_tutors[0].id
+      : undefined;
 
-    default:
-      return null;
+    content = (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenSession(session.session_id)}
+        >
+          <Calendar className="h-4 w-4 mr-1" />
+          View Session
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handlers.onLogSession(session.session_id, firstStaffId)}
+          disabled={isLoading}
+        >
+          <FileText className="h-4 w-4 mr-1" />
+          Log Session
+        </Button>
+        {issueButton}
+      </div>
+    );
+  } else if (type === 'unassigned_classes') {
+    const classItem = item as UnassignedClass;
+    content = (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenClass(classItem.class_id)}
+        >
+          <Calendar className="h-4 w-4 mr-1" />
+          View Class
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handlers.onAssignStaff(classItem.class_id)}
+        >
+          <User className="h-4 w-4 mr-1" />
+          Assign Staff
+        </Button>
+        {issueButton}
+      </div>
+    );
+  } else if (type === 'failed_delivery_messages') {
+    const message = item as FailedDeliveryMessage;
+
+    const handleDeleteMessage = async () => {
+      if (!confirm('Are you sure you want to delete this failed message? This action cannot be undone.')) {
+        return;
+      }
+
+      try {
+        await deleteMessageMutation.mutateAsync(message.message_id);
+        toast({
+          title: 'Success',
+          description: 'Message deleted successfully',
+        });
+      } catch (error: unknown) {
+        const errorMessage = getErrorMessage(error);
+        toast({
+          title: 'Error',
+          description: errorMessage || 'Failed to delete message',
+          variant: 'destructive',
+        });
+      }
+    };
+
+    content = (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handleOpenConversation(message.conversation_id)}
+          disabled={isLoading}
+        >
+          <MessageCircle className="h-4 w-4 mr-1" />
+          Open Conversation
+        </Button>
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={handleDeleteMessage}
+          disabled={isLoading || deleteMessageMutation.isPending}
+        >
+          <Trash2 className="h-4 w-4 mr-1" />
+          {deleteMessageMutation.isPending ? 'Deleting...' : 'Delete'}
+        </Button>
+      </div>
+    );
+  } else if (type === 'students_without_payment_method') {
+    const student = item as StudentWithoutPaymentMethod;
+    const handleOpenStripeSync = () => {
+      router.push(`/settings/stripe-sync?studentId=${student.student_id}`);
+    };
+
+    content = (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenStudent(student.student_id)}
+        >
+          <User className="h-4 w-4 mr-1" />
+          View Student
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={handleOpenStripeSync}
+        >
+          <CreditCard className="h-4 w-4 mr-1" />
+          Stripe Sync
+        </Button>
+        {issueButton}
+      </div>
+    );
+  } else if (type === 'students_without_classes') {
+    const student = item as StudentWithoutClasses;
+    content = (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenStudent(student.student_id)}
+        >
+          <User className="h-4 w-4 mr-1" />
+          View Student
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handlers.onAddClass(student.student_id, student.subject_id)}
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          Add Class
+        </Button>
+        {issueButton}
+      </div>
+    );
+  } else if (type === 'trial_students_not_signed_up') {
+    const student = item as TrialStudentNotSignedUp;
+    content = (
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenStudent(student.student_id)}
+        >
+          <User className="h-4 w-4 mr-1" />
+          View Student
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handleMessageStudent(student.student_id)}
+          disabled={isLoading}
+        >
+          <MessageCircle className="h-4 w-4 mr-1" />
+          Message
+        </Button>
+        {issueButton}
+      </div>
+    );
   }
+
+  return (
+    <>
+      {content}
+      <CreateIssueDialog
+        isOpen={isCreateIssueOpen}
+        onClose={() => {
+          setIsCreateIssueOpen(false);
+          setCreateIssueTags([]);
+        }}
+        initialTags={createIssueTags}
+      />
+      <EditIssueDialog
+        isOpen={isEditIssueOpen}
+        issueId={selectedIssueId}
+        onClose={() => {
+          setIsEditIssueOpen(false);
+          setSelectedIssueId(null);
+        }}
+      />
+    </>
+  );
 }

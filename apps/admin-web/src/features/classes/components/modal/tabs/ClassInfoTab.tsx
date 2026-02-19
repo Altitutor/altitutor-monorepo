@@ -4,21 +4,9 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
-import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@altitutor/ui";
-import { Loader2, Pencil, Trash2, AlertTriangle } from "lucide-react";
+import { Loader2, Pencil, AlertTriangle } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -51,6 +39,15 @@ const classInfoSchema = z.object({
 }, {
   message: 'Session end date must be after or equal to start date',
   path: ['sessionEndDate'],
+}).refine((data) => {
+  // Validate that end time is after start time
+  if (data.startTime && data.endTime) {
+    return data.endTime > data.startTime;
+  }
+  return true;
+}, {
+  message: 'End time must be after start time',
+  path: ['endTime'],
 });
 
 type FormData = z.infer<typeof classInfoSchema>;
@@ -64,8 +61,6 @@ interface ClassInfoTabProps {
   onEdit: () => void;
   onCancelEdit: () => void;
   onSubmit: (data: FormData) => Promise<void>;
-  onDelete?: () => void;
-  isDeleting?: boolean;
 }
 
 export function ClassInfoTab({
@@ -77,11 +72,7 @@ export function ClassInfoTab({
   onEdit,
   onCancelEdit: _onCancelEdit,
   onSubmit,
-  onDelete,
-  isDeleting = false
 }: ClassInfoTabProps) {
-  const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const form = useForm<FormData>({
     resolver: zodResolver(classInfoSchema),
     defaultValues: {
@@ -484,77 +475,6 @@ export function ClassInfoTab({
                     </p>
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {onDelete && (
-                <>
-                  <Separator className="my-6" />
-                  <div className="pt-4">
-                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
-                      setIsDeleteDialogOpen(open);
-                      if (!open) {
-                        setDeleteConfirmText('');
-                      }
-                    }}>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" type="button" className="flex items-center w-full">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Class
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the class
-                            {classData.level ? ` "${classData.level}"` : ''} and all associated data from the database.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <div className="py-4">
-                          <div className="space-y-2">
-                            <Label>
-                              {classData.level ? (
-                                <>Type <strong>{classData.level}</strong> to confirm deletion</>
-                              ) : (
-                                <>Type <strong>DELETE</strong> to confirm deletion</>
-                              )}
-                            </Label>
-                            <Input
-                              type="text"
-                              placeholder={classData.level || 'DELETE'}
-                              value={deleteConfirmText}
-                              onChange={(e) => setDeleteConfirmText(e.target.value)}
-                              className="mt-2"
-                            />
-                          </div>
-                        </div>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => {
-                              if (onDelete) {
-                                onDelete();
-                                setIsDeleteDialogOpen(false);
-                                setDeleteConfirmText('');
-                              }
-                            }}
-                            disabled={isDeleting || (classData.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isDeleting ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Deleting...
-                              </>
-                            ) : (
-                              'Delete'
-                            )}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </>
               )}
             </form>
           </div>

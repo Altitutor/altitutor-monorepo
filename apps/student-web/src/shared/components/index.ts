@@ -11,4 +11,7 @@ export { ThemeToggle } from './theme-toggle';
 export { ToastProviderWrapper } from './toast-provider-wrapper';
 
 // Logout confirmation modal
-export { LogoutConfirmationModal } from './logout-confirmation-modal'; 
+export { LogoutConfirmationModal } from './logout-confirmation-modal';
+
+// Session display (used by sessions + bookings features)
+export { StudentSessionsCard } from './StudentSessionsCard'; 

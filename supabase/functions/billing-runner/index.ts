@@ -112,7 +112,7 @@ Deno.serve(async (req: Request) => {
         }
       } catch (err) {
         // Auth check failed, continue with normal flow
-        console.error('[billing-runner] Admin token check failed:', err);
+        console.error('[billing-runner] Admin token check failed:', err instanceof Error ? err.message : String(err));
       }
     }
 
@@ -310,7 +310,17 @@ Deno.serve(async (req: Request) => {
       message: `Created ${invoicesCreated.length} invoices${isStripeTestKey ? ' (using Stripe test keys)' : isStripeLiveKey ? ' (using Stripe live keys)' : ''}`,
     });
   } catch (e: any) {
-    console.error('[runner] error', e?.message || e);
-    return json({ error: 'runner_error', message: e?.message || String(e) }, 500);
+    console.error('[billing-runner] Unexpected error:', e instanceof Error ? e.message : String(e));
+    if (e?.stack) {
+      console.error('[billing-runner] Stack trace:', e.stack);
+    }
+    return json(
+      {
+        error: 'internal_server_error',
+        message: e?.message || String(e),
+        dateRange: { start: startIso || 'unknown', end: endIso || 'unknown' },
+      },
+      500
+    );
   }
 });

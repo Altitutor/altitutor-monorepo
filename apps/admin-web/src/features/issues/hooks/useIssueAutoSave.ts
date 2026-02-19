@@ -1,0 +1,84 @@
+import { useEffect, useRef } from 'react';
+import { UseFormReturn } from 'react-hook-form';
+import { useDebounce } from '@/shared/hooks';
+import type { JSONContent } from '@altitutor/ui';
+import type { IssueStatus } from '../types';
+
+type FormData = {
+  name: string;
+  description?: JSONContent | null;
+  status: IssueStatus;
+};
+
+interface UseIssueAutoSaveOptions {
+  form: UseFormReturn<FormData>;
+  issueId: string;
+  issue: { id: string } | undefined;
+  isInitialized: boolean;
+  isUpdatingFromServer: boolean;
+  onSave: (updates: { name?: string; description?: JSONContent | null; status?: IssueStatus }) => Promise<void>;
+}
+
+/**
+ * Hook to handle auto-save for issue fields (name, description, status).
+ * Debounces changes and only saves when values actually change.
+ */
+export function useIssueAutoSave({
+  form,
+  issueId,
+  issue,
+  isInitialized,
+  isUpdatingFromServer,
+  onSave,
+}: UseIssueAutoSaveOptions): void {
+  const lastSavedValuesRef = useRef<{ name?: string; descriptionJson?: string; status?: IssueStatus }>({});
+
+  // Watch form values
+  const name = form.watch('name');
+  const description = form.watch('description');
+  const status = form.watch('status');
+
+  // Debounce name and description (status saves immediately)
+  const debouncedName = useDebounce(name, 1000);
+  const debouncedDescriptionTrigger = useDebounce(description, 1000);
+
+  // Auto-save for name
+  useEffect(() => {
+    if (!isInitialized || isUpdatingFromServer) return;
+    if (issue && debouncedName && debouncedName !== lastSavedValuesRef.current.name) {
+      lastSavedValuesRef.current.name = debouncedName;
+      onSave({ name: debouncedName });
+    }
+  }, [debouncedName, issue, isInitialized, isUpdatingFromServer, onSave]);
+
+  // Auto-save for description
+  useEffect(() => {
+    if (!isInitialized || isUpdatingFromServer) return;
+    
+    const descriptionJson = JSON.stringify(description);
+    if (issue && description !== undefined && descriptionJson !== lastSavedValuesRef.current.descriptionJson) {
+      lastSavedValuesRef.current.descriptionJson = descriptionJson;
+      onSave({ description });
+    }
+  }, [debouncedDescriptionTrigger, description, issue, isInitialized, isUpdatingFromServer, onSave]);
+
+  // Auto-save for status (immediate, no debounce)
+  useEffect(() => {
+    if (!isInitialized || isUpdatingFromServer) return;
+    if (issue && status !== lastSavedValuesRef.current.status) {
+      lastSavedValuesRef.current.status = status;
+      onSave({ status });
+    }
+  }, [status, issue, isInitialized, isUpdatingFromServer, onSave]);
+
+  // Initialize lastSavedValues when issue loads
+  useEffect(() => {
+    if (issue && isInitialized) {
+      lastSavedValuesRef.current = {
+        name: name,
+        descriptionJson: JSON.stringify(description),
+        status: status,
+      };
+    }
+  }, [issue, isInitialized, name, description, status]);
+}

@@ -25,10 +25,8 @@ export function StudentSessionsCalendarView({
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   
-  // #region agent log
   const rangeStartStr = format(weekStart, 'yyyy-MM-dd');
   const rangeEndStr = format(weekEnd, 'yyyy-MM-dd');
-  // #endregion
   
   const { data, isLoading, error } = useSessionsWithDetails({ 
     rangeStart: rangeStartStr, 
@@ -37,12 +35,6 @@ export function StudentSessionsCalendarView({
     classId,
     includeInactive: false // Only show active sessions in calendar view
   });
-  
-  // #region agent log
-  if (typeof window !== 'undefined') {
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StudentSessionsCalendarView.tsx:32',message:'useSessionsWithDetails result',data:{rangeStart:rangeStartStr,rangeEnd:rangeEndStr,studentId,classId,hasData:!!data,sessionsCount:data?.sessions?.length||0,isLoading,error:error?.message},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-  }
-  // #endregion
 
   // Time grid similar to classes timetable
   const slots = Array.from({ length: 12 }, (_, i) => 9 + i); // 9..20 hours
@@ -50,11 +42,6 @@ export function StudentSessionsCalendarView({
 
   const getDaySessions = (d: Date): Tables<'sessions'>[] => {
     const allSessions = (data?.sessions as Tables<'sessions'>[]) || [];
-    // #region agent log
-    if (typeof window !== 'undefined') {
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'StudentSessionsCalendarView.tsx:42',message:'getDaySessions called',data:{day:format(d,'yyyy-MM-dd'),allSessionsCount:allSessions.length,daySessionsCount:allSessions.filter((s:any)=>s.start_at&&isSameDay(new Date(s.start_at),d)).length},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-    }
-    // #endregion
     const sessions = allSessions
       .filter((s: any) => s.start_at && isSameDay(new Date(s.start_at), d));
     return sessions as Tables<'sessions'>[];

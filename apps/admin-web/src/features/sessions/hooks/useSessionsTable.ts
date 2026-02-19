@@ -1,13 +1,13 @@
-import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
-import type { Tables } from '@altitutor/shared';
+import { useMemo, useCallback } from 'react';
+import type { Tables, DataTableState } from '@altitutor/shared';
 import { useSessionsWithDetails } from './useSessionsQuery';
 import { useStudentSearchForFilter } from './useStudentSearchForFilter';
+import { useStaffSearchForFilter } from './useStaffSearchForFilter';
 import {
   formatSessionTableDate,
   formatSessionTimeRange,
   getClassDisplay,
   getClassShortDisplay,
-  isDefaultFilterState,
   filterSessionsByStudents,
   filterSessionsByTutorLog,
   paginateSessions,
@@ -16,6 +16,7 @@ import {
 } from '../utils/sessionsTableHelpers';
 
 export interface UseSessionsTableProps {
+  // External props
   studentId?: string;
   staffId?: string;
   classId?: string;
@@ -26,36 +27,17 @@ export interface UseSessionsTableProps {
   hideStudentFilter?: boolean;
   initialStudentFilters?: string[];
   onResetDates?: () => void;
+  studentSearchQuery?: string;
+  staffSearchQuery?: string;
+
+  // New: state from useDataTable
+  state?: DataTableState;
 }
 
 export interface UseSessionsTableReturn {
-  // Filter state
-  searchTerm: string;
-  setSearchTerm: (term: string) => void;
-  debouncedSearchTerm: string;
-  studentFilters: string[];
-  setStudentFilters: (filters: string[]) => void;
-  toggleStudentFilter: (studentId: string) => void;
-  typeFilters: string[];
-  setTypeFilters: (filters: string[]) => void;
-  toggleTypeFilter: (type: string) => void;
-  showLogged: boolean;
-  setShowLogged: (show: boolean) => void;
-  showUnlogged: boolean;
-  setShowUnlogged: (show: boolean) => void;
-  sortDirection: 'asc' | 'desc';
-  toggleSort: () => void;
-
-  // Student search
-  studentSearchQuery: string;
-  setStudentSearchQuery: (query: string) => void;
+  // Student search (for filter options)
   filteredStudents: Tables<'students'>[];
-
-  // Pagination
-  page: number;
-  setPage: (page: number) => void;
-  pageSize: number;
-  setPageSize: (size: number) => void;
+  filteredStaff: Tables<'staff'>[];
 
   // Data
   allSessions: Tables<'sessions'>[];
@@ -70,13 +52,6 @@ export interface UseSessionsTableReturn {
   error: Error | null;
   isFetching: boolean;
   refetch: () => void;
-
-  // Computed
-  isDefaultState: boolean;
-  apiStudentId: string | undefined;
-
-  // Actions
-  clearAllFilters: () => void;
 
   // Formatting helpers
   formatDate: (dateString: string) => string;
@@ -97,77 +72,43 @@ export function useSessionsTable({
   rangeEnd,
   hideStudentFilter = false,
   initialStudentFilters = [],
-  onResetDates,
+  studentSearchQuery = '',
+  staffSearchQuery = '',
+  state,
 }: UseSessionsTableProps): UseSessionsTableReturn {
-  // Filter state
-  const [searchTerm, setSearchTerm] = useState<string>('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState<string>('');
-  const [studentFilters, setStudentFilters] = useState<string[]>(initialStudentFilters);
-  const [typeFilters, setTypeFilters] = useState<string[]>([]);
-  const [studentSearchQuery, setStudentSearchQuery] = useState('');
-  const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(50);
-  const [sortDirection, setSortDirection] = useState<'desc' | 'asc'>('asc');
-  const [showLogged, setShowLogged] = useState(true);
-  const [showUnlogged, setShowUnlogged] = useState(true);
+  // Use state from useDataTable if provided, otherwise default to empty/1
+  const search = state?.search || '';
+  const filters = state?.filters || {};
+  const page = state?.page || 1;
+  const pageSize = state?.pageSize || 50;
+  const sortDirection = state?.sortDirection || 'desc';
 
-  // Debounce search term
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setPage(1); // Reset to first page when search changes
-    }, 300);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm]);
+  // Extract specific filters
+  const typeFilters = (filters.type as string[]) || [];
+  const studentFilters = (filters.student as string[]) || [];
+  const staffFilters = (filters.staff as string[]) || [];
+  const tutorLogFilters = (filters.tutor_log as string[]) || [];
+  const fromFilters = (filters.from as string[]) || [];
+  const toFilters = (filters.to as string[]) || [];
+  const effectiveRangeStart = rangeStart || fromFilters[0];
+  const effectiveRangeEnd = rangeEnd || toFilters[0];
+  
+  const showLogged = tutorLogFilters.length === 0 || tutorLogFilters.includes('logged');
+  const showUnlogged = tutorLogFilters.length === 0 || tutorLogFilters.includes('unlogged');
 
-  // Student search using RPC hook (supports empty query to show all students)
+  // Student search using RPC hook (for populating filter options)
   const { data: studentSearchData } = useStudentSearchForFilter(
     studentSearchQuery,
     ['ACTIVE', 'TRIAL']
   );
+  const { data: staffSearchData } = useStaffSearchForFilter(staffSearchQuery);
 
-  // Filter students based on search query (client-side filtering of search results)
-  // Note: RPC already handles search, but we do additional client-side filtering for better UX
   const filteredStudents = useMemo(() => {
-    const allStudents = studentSearchData?.students || [];
-    if (!studentSearchQuery.trim()) return allStudents;
-    const query = studentSearchQuery.toLowerCase().trim();
-    return allStudents.filter((student) => {
-      const fullName = `${student.first_name} ${student.last_name}`.toLowerCase();
-      const school = student.school?.toLowerCase() || '';
-      return fullName.includes(query) || school.includes(query);
-    });
-  }, [studentSearchData?.students, studentSearchQuery]);
-
-  // Toggle student filter
-  const toggleStudentFilter = useCallback(
-    (studentId: string) => {
-      setStudentFilters((prev) => {
-        const newFilters = prev.includes(studentId)
-          ? prev.filter((id) => id !== studentId)
-          : [...prev, studentId];
-        setPage(1); // Reset to first page when filter changes
-        return newFilters;
-      });
-    },
-    []
-  );
-
-  // Toggle type filter
-  const toggleTypeFilter = useCallback((type: string) => {
-    setTypeFilters((prev) => {
-      const newFilters = prev.includes(type)
-        ? prev.filter((t) => t !== type)
-        : [...prev, type];
-      setPage(1); // Reset to first page when filter changes
-      return newFilters;
-    });
-  }, []);
-
-  // Toggle sort
-  const toggleSort = useCallback(() => {
-    setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-  }, []);
+    return studentSearchData?.students || [];
+  }, [studentSearchData?.students]);
+  const filteredStaff = useMemo(() => {
+    return staffSearchData?.staff || [];
+  }, [staffSearchData?.staff]);
 
   // Determine which student filters to use for API call
   const activeStudentFilters = hideStudentFilter
@@ -175,6 +116,7 @@ export function useSessionsTable({
     : studentFilters;
   const apiStudentId =
     studentId || (activeStudentFilters.length === 1 ? activeStudentFilters[0] : undefined);
+  const apiStaffId = staffId || (staffFilters.length === 1 ? staffFilters[0] : undefined);
 
   // Fetch sessions data
   const {
@@ -184,12 +126,12 @@ export function useSessionsTable({
     refetch,
     isFetching,
   } = useSessionsWithDetails({
-    rangeStart: rangeStart || undefined,
-    rangeEnd: rangeEnd || undefined,
+    rangeStart: effectiveRangeStart || undefined,
+    rangeEnd: effectiveRangeEnd || undefined,
     includeInactive: false,
-    search: debouncedSearchTerm,
+    search: search,
     studentId: apiStudentId,
-    staffId,
+    staffId: apiStaffId,
     classId,
     adminShiftId,
     types: typeFilters.length > 0 ? typeFilters : undefined,
@@ -205,18 +147,26 @@ export function useSessionsTable({
   const sessionStaff = useMemo(() => data?.sessionStaff || {}, [data?.sessionStaff]);
   const tutorLogs = useMemo(() => data?.tutorLogs || {}, [data?.tutorLogs]);
 
-  // Client-side filtering
+  // Client-side filtering (for things not handled by the API yet)
   const filteredSessions = useMemo(() => {
     if (!allSessions.length) return [];
 
     let result = [...allSessions];
 
-    // Filter by multiple student IDs (if more than one selected)
+    // Filter by multiple student IDs (if more than one selected and API didn't handle it)
     if (activeStudentFilters.length > 1) {
       result = filterSessionsByStudents(result, activeStudentFilters, sessionStudents);
     }
 
-    // Filter by tutor log status
+    // Filter by multiple staff IDs (if more than one selected and API didn't handle it)
+    if (staffFilters.length > 1) {
+      result = result.filter((session) => {
+        const staffInSession = sessionStaff[session.id] || [];
+        return staffInSession.some((s) => staffFilters.includes(s.id));
+      });
+    }
+
+    // Filter by tutor log status (client-side for now)
     result = filterSessionsByTutorLog(result, showLogged, showUnlogged, tutorLogs);
 
     return result;
@@ -227,94 +177,14 @@ export function useSessionsTable({
     showLogged,
     showUnlogged,
     tutorLogs,
+    staffFilters,
+    sessionStaff,
   ]);
 
   // Pagination
   const paginatedSessions = useMemo(() => {
     return paginateSessions(filteredSessions, page, pageSize, limit);
   }, [filteredSessions, page, pageSize, limit]);
-
-  // Reset page when filters change (but not when page itself changes)
-  // Use refs to track previous values and only reset if filters actually changed
-  type FilterState = {
-    studentFilters: string[];
-    typeFilters: string[];
-    debouncedSearchTerm: string;
-    rangeStart: string | undefined;
-    rangeEnd: string | undefined;
-    showLogged: boolean;
-    showUnlogged: boolean;
-  };
-  
-  const prevFiltersRef = useRef<FilterState>({
-    studentFilters: initialStudentFilters,
-    typeFilters: [] as string[],
-    debouncedSearchTerm: '',
-    rangeStart,
-    rangeEnd,
-    showLogged: true,
-    showUnlogged: true,
-  });
-
-  useEffect(() => {
-    const currentFilters = {
-      studentFilters: hideStudentFilter ? initialStudentFilters : studentFilters,
-      typeFilters,
-      debouncedSearchTerm,
-      rangeStart,
-      rangeEnd,
-      showLogged,
-      showUnlogged,
-    };
-
-    // Check if any filter actually changed
-    const filtersChanged =
-      JSON.stringify(prevFiltersRef.current.studentFilters) !== JSON.stringify(currentFilters.studentFilters) ||
-      JSON.stringify(prevFiltersRef.current.typeFilters) !== JSON.stringify(currentFilters.typeFilters) ||
-      prevFiltersRef.current.debouncedSearchTerm !== currentFilters.debouncedSearchTerm ||
-      prevFiltersRef.current.rangeStart !== currentFilters.rangeStart ||
-      prevFiltersRef.current.rangeEnd !== currentFilters.rangeEnd ||
-      prevFiltersRef.current.showLogged !== currentFilters.showLogged ||
-      prevFiltersRef.current.showUnlogged !== currentFilters.showUnlogged;
-
-    if (filtersChanged) {
-      setPage(1);
-      prevFiltersRef.current = currentFilters;
-    }
-  }, [
-    studentFilters,
-    initialStudentFilters,
-    typeFilters,
-    debouncedSearchTerm,
-    rangeStart,
-    rangeEnd,
-    showLogged,
-    showUnlogged,
-    hideStudentFilter,
-  ]);
-
-  // Check if filters are in default state
-  const isDefaultState = useMemo(() => {
-    return isDefaultFilterState(
-      studentFilters,
-      typeFilters,
-      searchTerm,
-      rangeStart,
-      rangeEnd
-    );
-  }, [studentFilters, typeFilters, searchTerm, rangeStart, rangeEnd]);
-
-  // Clear all filters
-  const clearAllFilters = useCallback(() => {
-    setStudentFilters([]);
-    setTypeFilters([]);
-    setSearchTerm('');
-    setStudentSearchQuery('');
-    setPage(1);
-    if (onResetDates) {
-      onResetDates();
-    }
-  }, [onResetDates]);
 
   // Formatting helpers
   const formatDate = useCallback((dateString: string) => {
@@ -357,33 +227,9 @@ export function useSessionsTable({
   );
 
   return {
-    // Filter state
-    searchTerm,
-    setSearchTerm,
-    debouncedSearchTerm,
-    studentFilters,
-    setStudentFilters,
-    toggleStudentFilter,
-    typeFilters,
-    setTypeFilters,
-    toggleTypeFilter,
-    showLogged,
-    setShowLogged,
-    showUnlogged,
-    setShowUnlogged,
-    sortDirection,
-    toggleSort,
-
     // Student search
-    studentSearchQuery,
-    setStudentSearchQuery,
     filteredStudents,
-
-    // Pagination
-    page,
-    setPage,
-    pageSize,
-    setPageSize,
+    filteredStaff,
 
     // Data
     allSessions,
@@ -398,13 +244,6 @@ export function useSessionsTable({
     error: error as Error | null,
     isFetching,
     refetch,
-
-    // Computed
-    isDefaultState,
-    apiStudentId,
-
-    // Actions
-    clearAllFilters,
 
     // Formatting helpers
     formatDate,

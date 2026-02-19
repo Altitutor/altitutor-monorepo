@@ -164,6 +164,8 @@ export const StaffTableRow = memo(function StaffTableRow({
       <TableCell onClick={(e) => e.stopPropagation()}>
         <ActionsMenu
           type="staff"
+          entityId={staff.id}
+          copyTagDisplayText={`${staff.first_name || ''} ${staff.last_name || ''}`.trim()}
           onOpenInPage={() => {
             router.push(`/staff/${staff.id}`);
           }}

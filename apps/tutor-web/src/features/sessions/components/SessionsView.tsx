@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Calendar, Table as TableIcon } from 'lucide-react';
+import { ViewClassModal } from '@/features/classes';
 import { SessionsCalendarView } from './SessionsCalendarView';
 import { SessionsTable } from './SessionsTable';
 import { cn } from '@/shared/utils/index';
@@ -49,8 +50,16 @@ export function SessionsView({ onOpenSession }: SessionsViewProps) {
       {viewMode === 'calendar' ? (
         <SessionsCalendarView onOpenSession={onOpenSession} />
       ) : (
-        <SessionsTable 
+        <SessionsTable
           onOpenSession={onOpenSession}
+          renderClassModal={({ classId, isOpen, onClose }) => (
+            <ViewClassModal
+              classId={classId}
+              isOpen={isOpen}
+              onClose={onClose}
+              onClassUpdated={() => {}}
+            />
+          )}
         />
       )}
     </div>

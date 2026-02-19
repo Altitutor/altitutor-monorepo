@@ -33,18 +33,15 @@ export function ParentCard({
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-sm">
+            <h4 className="font-semibold text-sm truncate">
               {parent.first_name} {parent.last_name}
             </h4>
             {(parent.email || parent.phone) && (
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex flex-col mt-1">
                 {parent.email && (
-                  <span className="text-xs text-muted-foreground truncate">
+                  <span className="text-xs text-muted-foreground truncate" title={parent.email}>
                     {parent.email}
                   </span>
-                )}
-                {parent.email && parent.phone && (
-                  <span className="text-xs text-muted-foreground">•</span>
                 )}
                 {parent.phone && (
                   <span className="text-xs text-muted-foreground truncate">

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,21 +16,21 @@ import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { useQueryClient } from '@tanstack/react-query';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
 import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
-import { useAvailableSenders, getContactIdByRelatedId } from '@/features/messages/api/queries';
+import { useAvailableSenders } from '@/features/messages/api/queries';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { replaceVariables } from '@/features/messages/utils/variableReplacer';
-import { getStudentClasses } from '@/features/messages/api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { templateContainsLinkVariables } from '@/features/messages/utils/generateLinkTokens';
 import { generateLinkTokensForStudent } from '@/features/messages/utils/generateLinkTokens';
 import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveButtons';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useStudentInviteData, studentInviteDataKeys } from '../hooks/useStudentInviteData';
+import { useStudentClassesForTemplate } from '@/features/messages/hooks/useTemplatePreviewData';
+import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 import type { Tables } from '@altitutor/shared';
 
 interface SendStudentInviteDialogProps {
@@ -47,29 +47,63 @@ export function SendStudentInviteDialog({
   linkType,
 }: SendStudentInviteDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState<Record<string, boolean>>({});
   const [smsSent, setSmsSent] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState(false);
   const [sendingEmail, setSendingEmail] = useState<Record<string, boolean>>({});
   const [sendingSms, setSendingSms] = useState<Record<string, boolean>>({});
-  const [parents, setParents] = useState<Array<{ id: string; first_name: string; last_name: string; email: string | null; phone: string | null }>>([]);
   const [customMessage, setCustomMessage] = useState<string>('');
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [selectedRecipient, setSelectedRecipient] = useState<{ type: 'student' | 'parent'; id?: string; method: 'phone' | 'email'; label: string; value: string } | null>(null);
-  const [studentClasses, setStudentClasses] = useState<Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>>([]);
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
-  const [contactId, setContactId] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emailComposerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
+
+  const { data: inviteData } = useStudentInviteData(student.id, linkType, isOpen);
+  const token = inviteData?.token ?? null;
+  const inviteUrl = inviteData?.inviteUrl ?? null;
+  const parents = inviteData?.parents ?? [];
+
+  const { data: studentClasses = [] } = useStudentClassesForTemplate(isOpen ? student.id : null);
+
+  const contactRelatedId = selectedRecipient?.type === 'student' ? student.id : selectedRecipient?.id;
+  const contactType = selectedRecipient?.type === 'parent' ? 'parent' : 'student';
+  const { data: contactIdFromQuery } = useContactIdForRelated(
+    contactRelatedId,
+    contactType,
+    !!(selectedRecipient?.method === 'phone' && (selectedRecipient?.type === 'student' ? student.id : selectedRecipient?.id))
+  );
+  const contactId = contactIdFromQuery ?? null;
+
   const { data: availableSenders } = useAvailableSenders();
   const { data: currentStaff } = useCurrentStaff();
   const canExpand = useResponsiveButtons(buttonRowRef);
+
+  const recipients = useMemo(() => {
+    const recs: Array<{ type: 'student' | 'parent'; id?: string; method: 'phone' | 'email'; label: string; value: string }> = [];
+    if (student.phone) {
+      recs.push({ type: 'student', method: 'phone', label: 'Student Phone', value: student.phone });
+    }
+    parents.forEach((p) => {
+      if (p.phone) {
+        recs.push({ type: 'parent', id: p.id, method: 'phone', label: `${p.first_name} ${p.last_name} Phone`, value: p.phone });
+      }
+    });
+    if (student.email) {
+      recs.push({ type: 'student', method: 'email', label: 'Student Email', value: student.email });
+    }
+    parents.forEach((p) => {
+      if (p.email) {
+        recs.push({ type: 'parent', id: p.id, method: 'email', label: `${p.first_name} ${p.last_name} Email`, value: p.email });
+      }
+    });
+    return recs;
+  }, [student.phone, student.email, parents]);
 
   // Set default sender to iMessage when senders load
   useEffect(() => {
@@ -80,146 +114,27 @@ export function SendStudentInviteDialog({
     }
   }, [availableSenders, selectedSenderId]);
 
-  // Fetch parent data and existing token, initialize message
+  // Set default recipient when recipients load
   useEffect(() => {
-    if (!isOpen || !student.id) return;
-
-    const fetchData = async () => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      
-      // Fetch student with invite_token to check for existing token
-      const { data: studentData, error: studentError } = await supabase
-        .from('students')
-        .select('invite_token')
-        .eq('id', student.id)
-        .single();
-
-      // If there's an existing token, use it instead of generating a new one
-      if (!studentError && studentData?.invite_token) {
-        setToken(studentData.invite_token);
-        const path = linkType === 'invite' ? 'invite' : 'register';
-        const url = getInviteUrlForStudent(studentData.invite_token, path);
-        setInviteUrl(url);
-      }
-      
-      // Fetch parents
-      const { data: parentsData, error: parentsError } = await supabase
-        .from('parents_students')
-        .select('parent_id, parents(id, first_name, last_name, email, phone)')
-        .eq('student_id', student.id);
-
-      if (!parentsError && parentsData) {
-        const parentList = parentsData
-          .map((ps: any) => ps.parents)
-          .filter((p: any) => p !== null);
-        setParents(parentList);
-      }
-    };
-
-    fetchData();
-  }, [isOpen, student.id, linkType]);
-
-  // Build recipient options and set default
-  useEffect(() => {
-    if (!isOpen || !student.id) return;
-
-    const recipients: Array<{ type: 'student' | 'parent'; id?: string; method: 'phone' | 'email'; label: string; value: string }> = [];
-    
-    // Priority: student phone > parent phone > student email > parent email
-    if (student.phone) {
-      recipients.push({
-        type: 'student',
-        method: 'phone',
-        label: 'Student Phone',
-        value: student.phone,
-      });
-    }
-    
-    parents.forEach((parent) => {
-      if (parent.phone) {
-        recipients.push({
-          type: 'parent',
-          id: parent.id,
-          method: 'phone',
-          label: `${parent.first_name} ${parent.last_name} Phone`,
-          value: parent.phone,
-        });
-      }
-    });
-    
-    if (student.email) {
-      recipients.push({
-        type: 'student',
-        method: 'email',
-        label: 'Student Email',
-        value: student.email,
-      });
-    }
-    
-    parents.forEach((parent) => {
-      if (parent.email) {
-        recipients.push({
-          type: 'parent',
-          id: parent.id,
-          method: 'email',
-          label: `${parent.first_name} ${parent.last_name} Email`,
-          value: parent.email,
-        });
-      }
-    });
-
-    // Set default recipient (first one) only if not already set
     if (recipients.length > 0 && !selectedRecipient) {
       setSelectedRecipient(recipients[0]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, student.id, student.phone, student.email, parents]);
+  }, [recipients, selectedRecipient]);
 
-  // Load student classes for template variable replacement
+  // Reset draft/attachments when switching away from phone
   useEffect(() => {
-    if (!isOpen || !student.id) return;
-    
-    const loadClasses = async () => {
-      try {
-        const classes = await getStudentClasses(student.id);
-        setStudentClasses(classes);
-      } catch (error) {
-        console.error('Error loading student classes:', error);
-      }
-    };
-    
-    loadClasses();
-  }, [isOpen, student.id]);
-
-  // Get contactId when phone recipient is selected
-  useEffect(() => {
-    if (!selectedRecipient || selectedRecipient.method !== 'phone') {
-      setContactId(null);
-      setComposerDraft(''); // Reset draft when switching away from phone
-      setEmailAttachments([]); // Clear attachments when switching away from email
-      return;
+    if (selectedRecipient?.method !== 'phone') {
+      setComposerDraft('');
+      setEmailAttachments([]);
     }
+  }, [selectedRecipient?.method]);
 
-    const fetchContactId = async () => {
-      try {
-        // Reset draft when switching phone recipients
-        setComposerDraft('');
-        
-        if (selectedRecipient.type === 'student') {
-          const cid = await getContactIdByRelatedId(student.id, 'student');
-          setContactId(cid);
-        } else if (selectedRecipient.type === 'parent' && selectedRecipient.id) {
-          const cid = await getContactIdByRelatedId(selectedRecipient.id, 'parent');
-          setContactId(cid);
-        }
-      } catch (error) {
-        console.error('Error fetching contactId:', error);
-        setContactId(null);
-      }
-    };
-
-    fetchContactId();
-  }, [selectedRecipient, student.id]);
+  // Reset draft when switching phone recipients (template will repopulate)
+  useEffect(() => {
+    if (selectedRecipient?.method === 'phone') {
+      setComposerDraft('');
+    }
+  }, [selectedRecipient?.id, selectedRecipient?.type]);
 
   // Pre-populate message with SMS template when inviteUrl and recipient are ready
   useEffect(() => {
@@ -291,11 +206,7 @@ export function SendStudentInviteDialog({
         }
 
         const result = await response.json();
-        setToken(result.token);
-        
-        // Build the invite URL for student-web
-        const url = getInviteUrlForStudent(result.token, 'invite');
-        setInviteUrl(url);
+        queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'invite') });
       } else {
         // Use registration API
         const response = await fetch('/api/students/send-registration-invite', {
@@ -310,11 +221,7 @@ export function SendStudentInviteDialog({
         }
 
         const result = await response.json();
-        setToken(result.token);
-        
-        // Build the registration URL for student-web
-        const url = getInviteUrlForStudent(result.token, 'register');
-        setInviteUrl(url);
+        queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'register') });
       }
     } catch (error) {
       console.error('Failed to generate token:', error);
@@ -590,8 +497,6 @@ export function SendStudentInviteDialog({
   };
 
   const handleClose = () => {
-    setToken(null);
-    setInviteUrl(null);
     setEmailSent({});
     setSmsSent({});
     setCopied(false);
@@ -600,53 +505,10 @@ export function SendStudentInviteDialog({
     setCustomMessage('');
     setSelectedSenderId(null);
     setSelectedRecipient(null);
-    setStudentClasses([]);
-    setContactId(null);
     setComposerDraft('');
     setEmailAttachments([]);
     onClose();
   };
-
-  // Build recipient options
-  const recipientOptions: Array<{ type: 'student' | 'parent'; id?: string; method: 'phone' | 'email'; label: string; value: string }> = [];
-  if (student.phone) {
-    recipientOptions.push({
-      type: 'student',
-      method: 'phone',
-      label: 'Student Phone',
-      value: student.phone,
-    });
-  }
-  parents.forEach((parent) => {
-    if (parent.phone) {
-      recipientOptions.push({
-        type: 'parent',
-        id: parent.id,
-        method: 'phone',
-        label: `${parent.first_name} ${parent.last_name} Phone`,
-        value: parent.phone,
-      });
-    }
-  });
-  if (student.email) {
-    recipientOptions.push({
-      type: 'student',
-      method: 'email',
-      label: 'Student Email',
-      value: student.email,
-    });
-  }
-  parents.forEach((parent) => {
-    if (parent.email) {
-      recipientOptions.push({
-        type: 'parent',
-        id: parent.id,
-        method: 'email',
-        label: `${parent.first_name} ${parent.last_name} Email`,
-        value: parent.email,
-      });
-    }
-  });
 
   const isSending = Object.values(sendingEmail).some(v => v) || Object.values(sendingSms).some(v => v);
   
@@ -729,7 +591,7 @@ export function SendStudentInviteDialog({
                   <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0 bg-background">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">Message</span>
-                      {recipientOptions.length > 0 && (
+                      {recipients.length > 0 && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -750,7 +612,7 @@ export function SendStudentInviteDialog({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
-                            {recipientOptions.map((option, index) => (
+                            {recipients.map((option, index) => (
                               <DropdownMenuItem
                                 key={`${option.type}-${option.id || 'student'}-${option.method}-${index}`}
                                 onClick={() => setSelectedRecipient(option)}
@@ -939,7 +801,7 @@ export function SendStudentInviteDialog({
                 </div>
               ) : null}
 
-              {recipientOptions.length === 0 && (
+              {recipients.length === 0 && (
                 <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
                   <p className="text-sm text-orange-800 dark:text-orange-200">
                     No email or phone number found for parents or student. Please add contact information before sending.

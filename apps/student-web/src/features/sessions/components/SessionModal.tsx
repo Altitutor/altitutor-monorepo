@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Badge } from '@altitutor/ui';
 import { Separator } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { sessionsApi } from '../api/sessions';
-import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
+import { getSessionTitle, formatSessionDate, type FlattenedSessionDetail } from '../utils/session-helpers';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { useCurrentStudentId } from '@/shared/hooks';
+import { useSessionWithDetails } from '../hooks/useSessionWithDetails';
 import { cn } from '@/shared/utils';
 
 type SessionModalProps = {
@@ -118,47 +117,8 @@ function StaffCard({ staff }: {
 }
 
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
-  const [data, setData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [currentStudentId, setCurrentStudentId] = useState<string | null>(null);
-
-  // Get current student ID
-  useEffect(() => {
-    const loadStudentId = async () => {
-      const supabase = getSupabaseClient();
-      const { data, error } = await supabase.rpc('current_student_id');
-      if (!error && data) {
-        setCurrentStudentId(data);
-      }
-    };
-    loadStudentId();
-  }, []);
-
-  useEffect(() => {
-    const load = async () => {
-      if (!isOpen || !sessionId) return;
-      setIsLoading(true);
-      try {
-        // Use getSessionWithDetails which returns data from vstudent_session_detail view
-        const result = await sessionsApi.getSessionWithDetails(sessionId);
-        setData(result);
-      } catch (error) {
-        console.error('Failed to load session:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    if (isOpen && sessionId) {
-      load();
-    } else if (!isOpen) {
-      // Delay state reset to allow exit animation to complete
-      const timer = setTimeout(() => {
-        setData(null);
-      }, 300); // Match Sheet animation duration
-      return () => clearTimeout(timer);
-    }
-  }, [isOpen, sessionId]);
+  const { data: currentStudentId } = useCurrentStudentId();
+  const { data, isLoading } = useSessionWithDetails(sessionId, isOpen && !!sessionId);
 
   // Always render the Sheet to allow exit animation
   if (isLoading || !data) {
@@ -179,12 +139,14 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   }
 
   // The data from vstudent_session_detail is a single row with flattened fields
-  const session = data;
-  const sessionsStudents = (data.students || []).map((student: any) => ({
+  const session = data as unknown as FlattenedSessionDetail & { planned_absence?: boolean };
+  const students = Array.isArray(session.students) ? (session.students as NonNullable<FlattenedSessionDetail['students']>) : [];
+  const staff = Array.isArray(session.staff) ? (session.staff as NonNullable<FlattenedSessionDetail['staff']>) : [];
+  const sessionsStudents = students.map((student: { id: string; first_name: string; last_name: string; year_level?: number }) => ({
     student_id: student.id,
-    student: student,
+    student,
   }));
-  const sessionsStaff = (data.staff || []).map((staffMember: any) => ({
+  const sessionsStaff = staff.map((staffMember: { id: string; first_name: string; last_name: string; role?: string; type?: string }) => ({
     staff_id: staffMember.id,
     staff: staffMember,
     type: staffMember.type,
@@ -207,7 +169,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   // Check if current student has planned absence (from session.planned_absence)
   // The vstudent_session_detail view includes planned_absence for the current student
-  const isCurrentStudentAbsent = session.planned_absence === true;
+  const isCurrentStudentAbsent = (session as { planned_absence?: boolean }).planned_absence === true;
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
@@ -281,7 +243,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {sessionsStudents.map((ss: any) => {
+                  {sessionsStudents.map((ss: { student_id: string; student: { id: string; first_name: string; last_name: string; year_level?: number } }) => {
                     const isCurrentStudent = ss.student_id === currentStudentId;
                     return (
                       <StudentCard
@@ -309,7 +271,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {sessionsStaff.map((sf: any) => (
+                  {sessionsStaff.map((sf: { staff_id: string; staff: { id: string; first_name: string; last_name: string; role?: string } }) => (
                     <StaffCard
                       key={sf.staff_id}
                       staff={sf.staff}

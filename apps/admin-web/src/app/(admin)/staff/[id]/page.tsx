@@ -230,6 +230,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         </div>
         <ActionsMenu
           type="staff"
+          entityId={staffMember.id}
+          copyTagDisplayText={`${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim()}
           {...staffActions}
         />
       </div>

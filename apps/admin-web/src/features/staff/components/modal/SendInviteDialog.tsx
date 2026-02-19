@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,22 +18,22 @@ import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, Copy, Check, X, Phone, ChevronDown } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
+import { useQueryClient } from '@tanstack/react-query';
 import { invitesApi } from '@/features/auth/api/invites';
-import { getInviteUrlForStaff } from '@/shared/utils/invites';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
-import { useAvailableSenders, getContactIdByRelatedId } from '@/features/messages/api/queries';
+import { useAvailableSenders } from '@/features/messages/api/queries';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { replaceVariablesForStaff } from '@/features/messages/utils/variableReplacerStaff';
+import { getStaffClasses } from '@/features/messages/api/bulk';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { calculateSMSSegments } from '@/features/messages/utils/smsSegments';
 import { templateContainsLinkVariables } from '@/features/messages/utils/generateLinkTokens';
 import { generateLinkTokensForStaff } from '@/features/messages/utils/generateLinkTokens';
 import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveButtons';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useStaffInviteToken, staffInviteTokenKeys } from '@/features/staff/hooks/useStaffInviteToken';
+import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 import type { Tables } from '@altitutor/shared';
 
 interface SendInviteDialogProps {
@@ -48,11 +48,10 @@ export function SendInviteDialog({
   staffMember,
 }: SendInviteDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSendingSms, setIsSendingSms] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -60,17 +59,35 @@ export function SendInviteDialog({
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
   const [selectedRecipient, setSelectedRecipient] = useState<{ method: 'phone' | 'email'; label: string; value: string } | null>(null);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
-  const [contactId, setContactId] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string>('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emailComposerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
+
+  const { data: inviteTokenData } = useStaffInviteToken(staffMember.id, staffMember.role, isOpen);
+  const token = inviteTokenData?.token ?? null;
+  const inviteUrl = inviteTokenData?.inviteUrl ?? null;
+
+  const { data: contactIdFromQuery } = useContactIdForRelated(
+    staffMember.id,
+    'staff',
+    !!(isOpen && selectedRecipient?.method === 'phone')
+  );
+  const contactId = contactIdFromQuery ?? null;
+
   const { data: availableSenders } = useAvailableSenders();
   const { data: currentStaff } = useCurrentStaff();
   const canExpand = useResponsiveButtons(buttonRowRef);
 
   const hasEmail = !!staffMember.email;
   const hasPhone = !!staffMember.phone_number;
+
+  const recipients = useMemo(() => {
+    const recs: Array<{ method: 'phone' | 'email'; label: string; value: string }> = [];
+    if (hasPhone) recs.push({ method: 'phone', label: 'Phone', value: staffMember.phone_number! });
+    if (hasEmail) recs.push({ method: 'email', label: 'Email', value: staffMember.email! });
+    return recs;
+  }, [hasPhone, hasEmail, staffMember.phone_number, staffMember.email]);
 
   // Helper to get sender display name
   const getSenderDisplayName = (senderId: string | null): string => {
@@ -92,81 +109,19 @@ export function SendInviteDialog({
     }
   }, [availableSenders, selectedSenderId]);
 
-  // Fetch existing token when dialog opens
+  // Set default recipient when recipients load
   useEffect(() => {
-    if (!isOpen) return;
-
-    const fetchExistingToken = async () => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      const { data } = await supabase
-        .from('staff')
-        .select('invite_token')
-        .eq('id', staffMember.id)
-        .single();
-
-      if (data?.invite_token) {
-        setToken(data.invite_token);
-        const url = getInviteUrlForStaff(data.invite_token, staffMember.role);
-        setInviteUrl(url);
-      }
-    };
-
-    fetchExistingToken();
-  }, [isOpen, staffMember.id, staffMember.role]);
-
-  // Set default recipient
-  useEffect(() => {
-    if (!isOpen) return;
-    
-    const recipients: Array<{ method: 'phone' | 'email'; label: string; value: string }> = [];
-    
-    // Priority: phone > email
-    if (hasPhone) {
-      recipients.push({
-        method: 'phone',
-        label: 'Phone',
-        value: staffMember.phone_number!,
-      });
-    }
-    
-    if (hasEmail) {
-      recipients.push({
-        method: 'email',
-        label: 'Email',
-        value: staffMember.email!,
-      });
-    }
-
-    // Set default recipient (first one)
     if (recipients.length > 0 && !selectedRecipient) {
       setSelectedRecipient(recipients[0]);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, hasPhone, hasEmail, staffMember.phone_number, staffMember.email]);
+  }, [recipients, selectedRecipient]);
 
-  // Get contactId when phone recipient is selected
+  // Reset draft when switching away from phone
   useEffect(() => {
-    if (!selectedRecipient || selectedRecipient.method !== 'phone') {
-      setContactId(null);
-      setComposerDraft(''); // Reset draft when switching away from phone
-      return;
+    if (selectedRecipient?.method !== 'phone') {
+      setComposerDraft('');
     }
-
-    const fetchContactId = async () => {
-      try {
-        // Reset draft when switching phone recipients
-        setComposerDraft('');
-        
-        const cid = await getContactIdByRelatedId(staffMember.id, 'staff');
-        setContactId(cid);
-      } catch (error) {
-        console.error('Error fetching contactId:', error);
-        setContactId(null);
-      }
-    };
-
-    fetchContactId();
-  }, [selectedRecipient, staffMember.id]);
+  }, [selectedRecipient?.method]);
 
   // Pre-populate message with SMS template when inviteUrl and recipient are ready
   useEffect(() => {
@@ -216,15 +171,11 @@ export function SendInviteDialog({
 
     try {
       setIsGenerating(true);
-      const result = await invitesApi.generateInviteToken({
+      await invitesApi.generateInviteToken({
         type: 'staff',
         id: staffMember.id,
       });
-      setToken(result.token);
-      
-      // Build the invite URL based on staff role
-      const url = getInviteUrlForStaff(result.token, staffMember.role);
-      setInviteUrl(url);
+      queryClient.invalidateQueries({ queryKey: staffInviteTokenKeys.detail(staffMember.id, staffMember.role) });
     } catch (error) {
       console.error('Failed to generate token:', error);
       toast({
@@ -291,10 +242,14 @@ export function SendInviteDialog({
         }
       }
       
+      // Fetch staff classes
+      const classes = await getStaffClasses(staffMember.id);
+      
       // Replace variables with actual data
-      content = replaceVariablesForStaff(
+      content = await replaceVariablesForStaff(
         template.content,
         staffMember,
+        classes,
         senderName,
         linkTokens ? {
           inviteToken: linkTokens.inviteToken || token,
@@ -396,35 +351,15 @@ export function SendInviteDialog({
   };
 
   const handleClose = () => {
-    setToken(null);
-    setInviteUrl(null);
     setEmailSent(false);
     setSmsSent(false);
     setCopied(false);
     setCustomMessage('');
     setSelectedSenderId(null);
     setSelectedRecipient(null);
-    setContactId(null);
     setComposerDraft('');
     onClose();
   };
-
-  // Build recipient options
-  const recipientOptions: Array<{ method: 'phone' | 'email'; label: string; value: string }> = [];
-  if (hasPhone) {
-    recipientOptions.push({
-      method: 'phone',
-      label: 'Phone',
-      value: staffMember.phone_number!,
-    });
-  }
-  if (hasEmail) {
-    recipientOptions.push({
-      method: 'email',
-      label: 'Email',
-      value: staffMember.email!,
-    });
-  }
 
   const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);
   const isIMessageSender = selectedSender?.provider === 'IMESSAGE';
@@ -504,7 +439,7 @@ export function SendInviteDialog({
                   <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0 bg-background">
                     <div className="flex items-center gap-2">
                       <span className="font-medium text-sm">Message</span>
-                      {recipientOptions.length > 0 && (
+                      {recipients.length > 0 && (
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
@@ -532,7 +467,7 @@ export function SendInviteDialog({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="start">
-                            {recipientOptions.map((option, index) => (
+                            {recipients.map((option, index) => (
                               <DropdownMenuItem
                                 key={`${option.method}-${index}`}
                                 onClick={() => setSelectedRecipient(option)}
@@ -774,7 +709,7 @@ export function SendInviteDialog({
                 </div>
               ) : null}
 
-              {recipientOptions.length === 0 && (
+              {recipients.length === 0 && (
                 <div className="bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg p-4">
                   <p className="text-sm text-orange-800 dark:text-orange-200">
                     This staff member has no email or phone number set. Please add contact information in the Details tab before sending an invite.

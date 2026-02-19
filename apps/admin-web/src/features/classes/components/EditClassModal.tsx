@@ -146,6 +146,10 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
       if (!endTime) {
         throw new Error('End time is required');
       }
+
+      if (endTime <= startTime) {
+        throw new Error('End time must be after start time');
+      }
       
       const finalDayOfWeek = parseInt(dayOfWeek, 10);
       if (isNaN(finalDayOfWeek) || finalDayOfWeek < 0 || finalDayOfWeek > 6) {

@@ -17,6 +17,13 @@ import {
   updateInvoicePaymentError,
 } from './invoice-creation.ts';
 import { sendInvoiceEmail } from './invoice-email.ts';
+import {
+  getStripeErrorDetails,
+  formatStripeErrorMessage,
+  createErrorResponse,
+} from './stripe-errors.ts';
+
+const LOG_PREFIX = '[billing-runner]';
 
 export interface ProcessStudentResult {
   invoiceId: string | null;
@@ -120,10 +127,10 @@ export async function processStudentInvoicing(
         continue;
       }
 
-      // Skip zero-amount sessions
-      if (netCents <= 0) continue;
+      // Include zero-amount sessions (e.g., $0 subsidies) - Stripe will automatically mark $0 invoices as paid
+      // This ensures proper audit trail and reconciliation even when session price is $0
 
-      // Add session charge
+      // Add session charge (even if amount is 0)
       const classLongName = getClassLongName(session, classById, subjectById);
       const sessionDate = formatSessionDate(session.start_at);
       invoiceItems.push({
@@ -140,6 +147,7 @@ export async function processStudentInvoicing(
     }
 
     // Calculate total fees as a separate line item
+    // Note: Fees are only added if totalNetCents > 0 (fees on $0 amounts would be $0 anyway)
     if (totalNetCents > 0 && invoiceCurrency) {
       // If no payment method, assume Australian card (domestic fees)
       const isIntl = defaultPM
@@ -157,7 +165,7 @@ export async function processStudentInvoicing(
       );
       const totalFeesCents = grossCents - totalNetCents;
 
-      // Add fees as a separate line item
+      // Add fees as a separate line item (only if fees > 0)
       if (totalFeesCents > 0 && invoiceItems.length > 0) {
         const firstSessionItem = invoiceItems.find((item: any) => item.sessions_students_id);
         if (firstSessionItem) {
@@ -174,11 +182,18 @@ export async function processStudentInvoicing(
         }
       }
     }
+    // If totalNetCents is 0, fees would also be 0, so we skip adding a fee line item
+    // The invoice will still be created with $0 line items and Stripe will mark it as paid automatically
 
-    // Skip if no items to invoice
+    // Safety check: Skip if no items to invoice
+    // This should rarely happen now that we include $0 sessions, but could occur if all sessions
+    // had currency mismatches or other validation errors
     if (invoiceItems.length === 0) {
-      console.log(`[runner] No invoice items for student ${studentId} on ${invoiceDate}, skipping`);
-      return { invoiceId: null, error: null };
+      console.log(`${LOG_PREFIX} No invoice items for student ${studentId} on ${invoiceDate}, skipping`);
+      return { 
+        invoiceId: null, 
+        error: `No invoice items generated. All sessions may have been skipped due to validation errors.${errors.length > 0 ? ' Errors: ' + errors.join('; ') : ''}` 
+      };
     }
 
     // Validate currency consistency
@@ -248,12 +263,13 @@ export async function processStudentInvoicing(
         billing = billingByStudent[studentId];
 
         console.log(
-          `[runner] Auto-created billing account for student ${studentId} with Stripe customer ${stripeCustomer.id}`
+          `${LOG_PREFIX} Auto-created billing account for student ${studentId} with Stripe customer ${stripeCustomer.id}`
         );
       } catch (createErr: any) {
+        const createErrDetails = getStripeErrorDetails(createErr);
         console.error(
-          `[runner] Failed to auto-create billing account for student ${studentId}:`,
-          createErr?.message || createErr
+          `${LOG_PREFIX} Failed to auto-create billing account for student ${studentId}:`,
+          formatStripeErrorMessage(createErr, 'create billing account', { studentId })
         );
         return {
           invoiceId: null,
@@ -295,11 +311,19 @@ export async function processStudentInvoicing(
         } catch (itemErr: any) {
           // Rollback: delete created invoice items if any failed
           console.error(
-            `[runner] Failed to create invoice items for student ${studentId}, rolling back:`,
-            itemErr?.message || itemErr
+            `${LOG_PREFIX} Failed to create invoice items for student ${studentId}, rolling back:`,
+            formatStripeErrorMessage(itemErr, 'create invoice items', { studentId })
           );
           if (createdStripeItemIds.length > 0) {
-            await rollbackStripeInvoiceItems(stripe, createdStripeItemIds);
+            try {
+              await rollbackStripeInvoiceItems(stripe, createdStripeItemIds);
+              console.log(`${LOG_PREFIX} Successfully rolled back ${createdStripeItemIds.length} invoice items`);
+            } catch (rollbackErr) {
+              console.error(
+                `${LOG_PREFIX} Failed to rollback invoice items:`,
+                formatStripeErrorMessage(rollbackErr, 'rollback invoice items', { studentId })
+              );
+            }
           }
           throw itemErr;
         }
@@ -321,14 +345,16 @@ export async function processStudentInvoicing(
         if (!dbInvoice) {
           // Failed to save - void invoice
           console.error(
-            `[runner] Failed to save invoice for student ${studentId}, voiding Stripe invoice`
+            `${LOG_PREFIX} Failed to save invoice for student ${studentId}, voiding Stripe invoice ${finalizedInvoice.id}`
           );
           try {
             await voidInvoice(stripe, finalizedInvoice.id);
+            console.log(`${LOG_PREFIX} Successfully voided invoice ${finalizedInvoice.id} during rollback`);
           } catch (voidErr) {
+            const voidErrDetails = getStripeErrorDetails(voidErr);
             console.error(
-              `[runner] Failed to void invoice ${finalizedInvoice.id} during rollback:`,
-              voidErr
+              `${LOG_PREFIX} Failed to void invoice ${finalizedInvoice.id} during rollback:`,
+              formatStripeErrorMessage(voidErr, 'void invoice', { studentId, invoiceId: finalizedInvoice.id })
             );
           }
           throw new Error('Failed to save invoice to database');
@@ -341,8 +367,8 @@ export async function processStudentInvoicing(
           await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
         } catch (itemsErr: any) {
           console.error(
-            `[runner] Failed to save invoice items for invoice ${dbInvoice.id}:`,
-            itemsErr?.message || itemsErr
+            `${LOG_PREFIX} Failed to save invoice items for invoice ${dbInvoice.id}:`,
+            formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id })
           );
           // Don't throw - invoice is saved, items can be reconciled later
         }
@@ -365,23 +391,33 @@ export async function processStudentInvoicing(
             );
             
             if (emailResult.sent.length > 0) {
-              console.log(`[runner] Sent invoice ${finalizedInvoice.id} emails to: ${emailResult.sent.join(', ')}`);
+              console.log(`${LOG_PREFIX} Sent invoice ${finalizedInvoice.id} emails to: ${emailResult.sent.join(', ')}`);
             }
             if (emailResult.failed.length > 0) {
-              console.warn(`[runner] Failed to send invoice ${finalizedInvoice.id} emails to: ${emailResult.failed.join(', ')}`);
+              console.warn(`${LOG_PREFIX} Failed to send invoice ${finalizedInvoice.id} emails to: ${emailResult.failed.join(', ')}`);
             }
           } catch (emailErr: any) {
             // Don't fail invoice creation if email fails - log and continue
-            console.error(`[runner] Failed to send invoice email for ${finalizedInvoice.id}:`, emailErr?.message || emailErr);
+            console.error(
+              `${LOG_PREFIX} Failed to send invoice email for ${finalizedInvoice.id}:`,
+              formatStripeErrorMessage(emailErr, 'send invoice email', { studentId, invoiceId: finalizedInvoice.id })
+            );
           }
         } else {
-          console.warn(`[runner] RESEND_API_KEY not configured, skipping invoice email for ${finalizedInvoice.id}`);
+          console.warn(`${LOG_PREFIX} RESEND_API_KEY not configured, skipping invoice email for ${finalizedInvoice.id}`);
         }
 
         return { invoiceId: dbInvoice.id, error: null };
       } catch (e: any) {
-        console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
-        return { invoiceId: null, error: `Student ${studentId}: ${e?.message || 'Invoice creation failed'}` };
+        const errorDetails = getStripeErrorDetails(e);
+        console.error(
+          `${LOG_PREFIX} Failed to create invoice for student ${studentId}:`,
+          formatStripeErrorMessage(e, 'create invoice (send_invoice)', { studentId })
+        );
+        return {
+          invoiceId: null,
+          error: formatStripeErrorMessage(e, 'create invoice', { studentId }),
+        };
       }
     } else {
       // Create invoice with automatic collection
@@ -405,11 +441,19 @@ export async function processStudentInvoicing(
         } catch (itemErr: any) {
           // Rollback: delete created invoice items if any failed
           console.error(
-            `[runner] Failed to create invoice items for student ${studentId}, rolling back:`,
-            itemErr?.message || itemErr
+            `${LOG_PREFIX} Failed to create invoice items for student ${studentId}, rolling back:`,
+            formatStripeErrorMessage(itemErr, 'create invoice items', { studentId })
           );
           if (createdStripeItemIds.length > 0) {
-            await rollbackStripeInvoiceItems(stripe, createdStripeItemIds);
+            try {
+              await rollbackStripeInvoiceItems(stripe, createdStripeItemIds);
+              console.log(`${LOG_PREFIX} Successfully rolled back ${createdStripeItemIds.length} invoice items`);
+            } catch (rollbackErr) {
+              console.error(
+                `${LOG_PREFIX} Failed to rollback invoice items:`,
+                formatStripeErrorMessage(rollbackErr, 'rollback invoice items', { studentId })
+              );
+            }
           }
           throw itemErr;
         }
@@ -432,18 +476,24 @@ export async function processStudentInvoicing(
         if (!dbInvoice) {
           // Failed to save - void invoice
           console.error(
-            `[runner] Failed to save invoice for student ${studentId}, voiding Stripe invoice`
+            `${LOG_PREFIX} Failed to save invoice for student ${studentId}, voiding Stripe invoice ${finalizedInvoice.id}`
           );
           try {
             await voidInvoice(stripe, finalizedInvoice.id);
+            console.log(`${LOG_PREFIX} Successfully voided invoice ${finalizedInvoice.id} during rollback`);
           } catch (voidErr) {
+            const voidErrDetails = getStripeErrorDetails(voidErr);
             console.error(
-              `[runner] Failed to void invoice ${finalizedInvoice.id} during rollback:`,
-              voidErr
+              `${LOG_PREFIX} Failed to void invoice ${finalizedInvoice.id} during rollback:`,
+              formatStripeErrorMessage(voidErr, 'void invoice', { studentId, invoiceId: finalizedInvoice.id })
             );
             return {
               invoiceId: null,
-              error: `Student ${studentId}: Database insert failed and invoice void failed. Manual reconciliation required.`,
+              error: formatStripeErrorMessage(
+                voidErr,
+                'save invoice and void invoice',
+                { studentId, invoiceId: finalizedInvoice.id }
+              ) + ' Manual reconciliation required.',
             };
           }
           throw new Error('Failed to save invoice to database');
@@ -456,8 +506,8 @@ export async function processStudentInvoicing(
           await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
         } catch (itemsErr: any) {
           console.error(
-            `[runner] Failed to save invoice items for invoice ${dbInvoice.id}:`,
-            itemsErr?.message || itemsErr
+            `${LOG_PREFIX} Failed to save invoice items for invoice ${dbInvoice.id}:`,
+            formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id })
           );
           // Don't throw - invoice is saved, items can be reconciled later
         }
@@ -481,18 +531,26 @@ export async function processStudentInvoicing(
             return { invoiceId: dbInvoice.id, error: null };
           } catch (payErr: any) {
             // Payment failed but DB record exists - log for reconciliation
+            const payErrDetails = getStripeErrorDetails(payErr);
             console.warn(
-              `[runner] Failed to pay invoice ${finalizedInvoice.id} for student ${studentId}:`,
-              payErr?.message || payErr
+              `${LOG_PREFIX} Failed to pay invoice ${finalizedInvoice.id} for student ${studentId}:`,
+              formatStripeErrorMessage(payErr, 'pay invoice', { studentId, invoiceId: finalizedInvoice.id })
             );
 
             // Update DB with error status (invoice remains 'open')
-            await updateInvoicePaymentError(supabase, dbInvoice.id, payErr?.message || 'Payment failed');
+            const errorMessage = payErrDetails.isStripeError
+              ? `${payErrDetails.type || 'payment_error'}: ${payErrDetails.message || 'Payment failed'}`
+              : payErr?.message || 'Payment failed';
+            await updateInvoicePaymentError(supabase, dbInvoice.id, errorMessage);
 
             // Don't throw - invoice created, payment can be retried
             return {
               invoiceId: dbInvoice.id,
-              error: `Student ${studentId}: Invoice created but payment failed. Will retry automatically.`,
+              error: formatStripeErrorMessage(
+                payErr,
+                'pay invoice',
+                { studentId, invoiceId: finalizedInvoice.id }
+              ) + ' Invoice created but payment failed. Will retry automatically.',
             };
           }
         } else {
@@ -500,12 +558,24 @@ export async function processStudentInvoicing(
           return { invoiceId: dbInvoice.id, error: null };
         }
       } catch (e: any) {
-        console.error(`[runner] Failed to create invoice for student ${studentId}:`, e?.message || e);
-        return { invoiceId: null, error: `Student ${studentId}: ${e?.message || 'Invoice creation failed'}` };
+        console.error(
+          `${LOG_PREFIX} Failed to create invoice for student ${studentId}:`,
+          formatStripeErrorMessage(e, 'create invoice (charge_automatically)', { studentId })
+        );
+        return {
+          invoiceId: null,
+          error: formatStripeErrorMessage(e, 'create invoice', { studentId }),
+        };
       }
     }
   } catch (e: any) {
-    console.error(`[runner] Error processing student ${studentId}:`, e?.message || e);
-    return { invoiceId: null, error: `Student ${studentId}: ${e?.message || 'Processing failed'}` };
+    console.error(
+      `${LOG_PREFIX} Error processing student ${studentId}:`,
+      formatStripeErrorMessage(e, 'process student invoicing', { studentId })
+    );
+    return {
+      invoiceId: null,
+      error: formatStripeErrorMessage(e, 'process student invoicing', { studentId }),
+    };
   }
 }

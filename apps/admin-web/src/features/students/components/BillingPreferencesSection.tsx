@@ -1,110 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import type { Tables, Database } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 import { Switch } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { useToast } from '@altitutor/ui';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { getErrorMessage } from '@/shared/utils';
 import { Loader2 } from 'lucide-react';
-
-interface BillingPreferences {
-  auto_bill_enabled: boolean;
-  invoice_email_to_student: boolean;
-  invoice_email_to_parents: boolean;
-}
+import { useBillingPreferences } from '@/features/billing/hooks/useBillingPreferences';
 
 interface BillingPreferencesSectionProps {
   student: Tables<'students'>;
 }
 
 export function BillingPreferencesSection({ student }: BillingPreferencesSectionProps) {
-  const [preferences, setPreferences] = useState<BillingPreferences | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const { toast } = useToast();
-
-  // Load billing preferences
-  useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const supabase = getSupabaseClient() as SupabaseClient<Database>;
-        const { data, error } = await supabase
-          .from('students_billing')
-          .select('auto_bill_enabled, invoice_email_to_student, invoice_email_to_parents')
-          .eq('student_id', student.id)
-          .maybeSingle();
-
-        if (error) throw error;
-
-        // Use defaults if billing account doesn't exist yet
-        setPreferences({
-          auto_bill_enabled: data?.auto_bill_enabled ?? true,
-          invoice_email_to_student: data?.invoice_email_to_student ?? true,
-          invoice_email_to_parents: data?.invoice_email_to_parents ?? true,
-        });
-      } catch (error) {
-        console.error('Failed to load billing preferences:', error);
-        toast({
-          title: 'Error',
-          description: 'Failed to load billing preferences',
-          variant: 'destructive',
-        });
-        // Set defaults on error
-        setPreferences({
-          auto_bill_enabled: true,
-          invoice_email_to_student: true,
-          invoice_email_to_parents: true,
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadPreferences();
-  }, [student.id, toast]);
-
-  const updatePreference = async (field: keyof BillingPreferences, value: boolean) => {
-    if (!preferences) return;
-
-    setSaving(true);
-    const previousValue = preferences[field];
-    
-    // Optimistic update
-    setPreferences({ ...preferences, [field]: value });
-
-    try {
-      const response = await fetch(`/api/students/${student.id}/billing-preferences`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ [field]: value }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to update preference');
-      }
-
-      toast({
-        title: 'Success',
-        description: 'Billing preference updated',
-      });
-    } catch (error) {
-      // Revert on error
-      setPreferences({ ...preferences, [field]: previousValue });
-      toast({
-        title: 'Error',
-        description: getErrorMessage(error) || 'Failed to update billing preference',
-        variant: 'destructive',
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
+  const {
+    preferences,
+    isLoading: loading,
+    isUpdating: saving,
+    updatePreference,
+  } = useBillingPreferences({ studentId: student.id });
 
   if (loading) {
     return (
@@ -142,7 +54,7 @@ export function BillingPreferencesSection({ student }: BillingPreferencesSection
           <Switch
             id="auto_bill_enabled"
             checked={preferences.auto_bill_enabled}
-            onCheckedChange={(checked) => updatePreference('auto_bill_enabled', checked)}
+            onCheckedChange={(checked) => updatePreference(student.id, 'auto_bill_enabled', checked)}
             disabled={saving}
           />
         </div>
@@ -168,7 +80,7 @@ export function BillingPreferencesSection({ student }: BillingPreferencesSection
             <Switch
               id="invoice_email_to_student"
               checked={preferences.invoice_email_to_student}
-              onCheckedChange={(checked) => updatePreference('invoice_email_to_student', checked)}
+              onCheckedChange={(checked) => updatePreference(student.id, 'invoice_email_to_student', checked)}
               disabled={saving || !student.email}
             />
           </div>
@@ -186,7 +98,7 @@ export function BillingPreferencesSection({ student }: BillingPreferencesSection
             <Switch
               id="invoice_email_to_parents"
               checked={preferences.invoice_email_to_parents}
-              onCheckedChange={(checked) => updatePreference('invoice_email_to_parents', checked)}
+              onCheckedChange={(checked) => updatePreference(student.id, 'invoice_email_to_parents', checked)}
               disabled={saving}
             />
           </div>

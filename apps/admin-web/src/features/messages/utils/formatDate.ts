@@ -82,6 +82,28 @@ export function isDifferentDay(date1: string, date2: string): boolean {
          d1.getFullYear() !== d2.getFullYear();
 }
 
+/**
+ * Get ordinal suffix for a number (e.g. 1 -> "st", 2 -> "nd", 11 -> "th")
+ */
+export function getOrdinalSuffix(n: number): string {
+  const s = ['th', 'st', 'nd', 'rd'];
+  const v = n % 100;
+  return s[(v - 20) % 10] || s[v] || s[0];
+}
+
+/**
+ * Format date for class start date display: "Wed 11th Feb"
+ */
+export function formatShortDateWithDay(date: Date): string {
+  const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const dayName = dayNames[date.getDay()];
+  const day = date.getDate();
+  const month = monthNames[date.getMonth()];
+  const ordinal = day + getOrdinalSuffix(day);
+  return `${dayName} ${ordinal} ${month}`;
+}
+
 // Format status text for outbound messages
 export function formatMessageStatus(status: string): string {
   const statusMap: Record<string, string> = {

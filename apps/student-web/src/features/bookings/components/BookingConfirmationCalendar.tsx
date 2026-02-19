@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 import { format, differenceInMinutes, isSameDay, parseISO } from 'date-fns';
-import { StudentSessionsCard } from '@/features/sessions/components/StudentSessionsCard';
-import type { StudentSessionWithStaff } from '@/features/sessions/api/sessions';
+import { StudentSessionsCard } from '@/shared/components';
+import type { StudentSessionWithStaff } from '@/shared/api';
 
 interface BookingConfirmationCalendarProps {
   /** The new session that was booked (to highlight) */

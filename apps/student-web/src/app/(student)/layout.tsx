@@ -3,11 +3,12 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, BookOpen, CreditCard, User } from 'lucide-react';
+import { Home, Calendar, BookOpen, CreditCard, User, Settings } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { WelcomeModalGate } from '@/features/welcome';
 import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -44,6 +45,11 @@ const navItems: NavItem[] = [
     title: 'My Profile',
     href: '/my-profile',
     icon: User,
+  },
+  {
+    title: 'Settings',
+    href: '/settings',
+    icon: Settings,
   },
 ];
 
@@ -239,7 +245,7 @@ export default function StudentLayout({
           {children}
         </div>
       </div>
+      <WelcomeModalGate />
     </>
   );
 }
-

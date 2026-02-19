@@ -37,7 +37,9 @@ export type ActivityEntityType =
   | 'tutor_logs_topics_files_students'
   | 'tutor_logs_topics_students'
   | 'admin_shifts'
-  | 'admin_shifts_staff';
+  | 'admin_shifts_staff'
+  | 'issues'
+  | 'issue_tags';
 
 /**
  * Event type
@@ -148,11 +150,13 @@ export interface ActivityEventDisplay {
 export interface ActivityEventsParams {
   entityType?: ActivityEntityType;
   entityId?: string;
-  studentId?: string;
-  staffId?: string;
-  classId?: string;
-  sessionId?: string;
-  parentId?: string;
+  studentId?: string | string[];
+  staffId?: string | string[];
+  classId?: string | string[];
+  sessionId?: string | string[];
+  parentId?: string | string[];
+  issueId?: string | string[];
+  or?: string;
   limit?: number;
   offset?: number;
 }
@@ -169,6 +173,7 @@ export interface ActivityEventsResponse {
     sessions?: Record<string, Tables<'sessions'>>;
     parents?: Record<string, Tables<'parents'>>;
     tasks?: Record<string, Tables<'tasks'>>;
+    issues?: Record<string, Tables<'issues'>>;
     subjects?: Record<string, Tables<'subjects'>>;
     notes?: Record<string, Tables<'notes'>>;
   };

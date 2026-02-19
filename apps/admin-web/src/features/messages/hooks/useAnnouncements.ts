@@ -142,6 +142,7 @@ async function ensureConversationForContactWithSender(contactId: string, ownedNu
 }
 import { getStudentClasses } from '../api/bulk';
 import { replaceVariables } from '../utils/variableReplacer';
+import { replaceVariablesForParent, type StudentWithClasses } from '../utils/variableReplacerParent';
 import { getErrorMessage } from '@/shared/utils';
 import { batchGenerateLinkTokens, templateContainsLinkVariables } from '../utils/generateLinkTokens';
 
@@ -286,10 +287,18 @@ export function useAnnouncements() {
             student_id,
             parents (
               id,
+              first_name,
+              last_name,
               phone
             )
           `)
           .in('student_id', studentIds);
+
+        // Group by parent_id to collect all students for each parent
+        const parentsMap = new Map<string, {
+          parent: Tables<'parents'>;
+          studentIds: string[];
+        }>();
 
         for (const ps of (parentStudents || [])) {
           const parentId = (ps as any).parent_id;
@@ -298,16 +307,61 @@ export function useAnnouncements() {
 
           if (!parent?.phone) continue;
 
+          if (!parentsMap.has(parentId)) {
+            parentsMap.set(parentId, {
+              parent: parent as Tables<'parents'>,
+              studentIds: [],
+            });
+          }
+          parentsMap.get(parentId)!.studentIds.push(studentId);
+        }
+
+        // Process each parent with all their students
+        for (const [parentId, { parent, studentIds }] of parentsMap.entries()) {
           const conversationId = parentConversations[parentId];
           if (!conversationId) continue;
 
-          // Use the student's data for variable replacement
-          const student = students.find(s => s.id === studentId);
-          if (!student) continue;
+          // Build students array with classes and link tokens
+          const studentsWithClasses: StudentWithClasses[] = studentIds
+            .map((studentId) => {
+              const student = students.find(s => s.id === studentId);
+              if (!student) return null;
 
-          const classes = studentClassesMap[studentId] || [];
-          const linkTokens = linkTokensMap[studentId];
-          const personalizedMessage = await replaceVariables(message, student, classes, senderName, linkTokens || undefined);
+              const classes = studentClassesMap[studentId] || [];
+              const linkTokens = linkTokensMap[studentId];
+
+              const result: StudentWithClasses = {
+                student,
+                classes,
+              };
+
+              if (linkTokens) {
+                result.linkTokens = {
+                  registrationToken: linkTokens.registrationToken ?? null,
+                  inviteToken: linkTokens.inviteToken ?? null,
+                  forgotPasswordLink: linkTokens.forgotPasswordLink ?? null,
+                };
+              }
+
+              return result;
+            })
+            .filter((s): s is StudentWithClasses => s !== null);
+
+          // Sort students alphabetically by name (consistent with UI)
+          studentsWithClasses.sort((a, b) => {
+            const nameA = `${a.student.first_name || ''} ${a.student.last_name || ''}`.trim().toLowerCase();
+            const nameB = `${b.student.first_name || ''} ${b.student.last_name || ''}`.trim().toLowerCase();
+            return nameA.localeCompare(nameB);
+          });
+
+          if (!parent.phone) continue; // Skip if parent has no phone
+
+          const personalizedMessage = await replaceVariablesForParent(
+            message,
+            parent,
+            studentsWithClasses,
+            senderName
+          );
 
           messages.push({
             conversationId,

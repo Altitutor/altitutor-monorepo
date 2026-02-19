@@ -14,6 +14,10 @@ export const messagesKeys = {
   messages: (conversationId: string) => [...messagesKeys.all, 'messages', conversationId] as const,
   messagesForContact: (contactId: string) => [...messagesKeys.all, 'messages-for-contact', contactId] as const,
   templates: () => [...messagesKeys.all, 'templates'] as const,
+  studentClasses: (studentId: string) => [...messagesKeys.all, 'student-classes', studentId] as const,
+  staffClasses: (staffId: string) => [...messagesKeys.all, 'staff-classes', staffId] as const,
+  contactId: (relatedId: string, type: 'student' | 'staff' | 'parent') =>
+    [...messagesKeys.all, 'contact-id', relatedId, type] as const,
 };
 
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from '@altitutor/ui';
 import { Separator, Badge } from '@altitutor/ui';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
@@ -10,22 +10,33 @@ import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { useSessionNotes } from '../hooks/useSessionNotes';
 import { SessionNotes } from './SessionNotes';
-import { LogSessionModal } from '@/features/tutor-logs/components/LogSessionModal';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useSessionModalData } from '../hooks/useSessionModalData';
 
 type SessionModalProps = {
   isOpen: boolean;
   sessionId: string | null;
   onClose: () => void;
+  /** Called when user clicks "Add Tutor Log" - parent should open LogSessionModal with preselectedSessionId */
+  onLogSessionClick?: () => void;
+  /** Current staff ID - when provided, shows "Add Tutor Log" button when session has no log yet */
+  currentStaffId?: string | null;
+  /** Passed to SessionNotes for filtering/authorization */
+  currentStaffIdForNotes?: string | null;
+  /** When this value changes, session data is refreshed (e.g. after LogSessionModal completes) */
+  refreshTrigger?: number;
 };
 
-export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
-  const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
-  
+export function SessionModal({
+  isOpen,
+  sessionId,
+  onClose,
+  onLogSessionClick,
+  currentStaffId,
+  currentStaffIdForNotes,
+  refreshTrigger,
+}: SessionModalProps) {
   // Fetch session notes
   const { data: notesData } = useSessionNotes(sessionId || '');
-  const { data: currentStaff } = useCurrentStaff();
 
   // Use hook for all session data loading and processing
   const {
@@ -41,6 +52,13 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     isOpen,
     sessionId,
   });
+
+  // Refresh session data when log modal completes (parent increments refreshTrigger)
+  useEffect(() => {
+    if (refreshTrigger != null && refreshTrigger > 0 && sessionId) {
+      refresh();
+    }
+  }, [refreshTrigger, sessionId, refresh]);
 
   // Always render the Sheet to allow exit animation
   if (isLoading || !session) {
@@ -205,15 +223,18 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Tutor Log</h3>
-                {!hasTutorLog && sessionId && currentStaff?.id && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setIsLogSessionModalOpen(true)}
-                  >
-                    Add Tutor Log
-                  </Button>
-                )}
+                {!hasTutorLog &&
+                  sessionId &&
+                  currentStaffId &&
+                  onLogSessionClick && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={onLogSessionClick}
+                    >
+                      Add Tutor Log
+                    </Button>
+                  )}
               </div>
 
               {/* Topics Covered Section */}
@@ -290,27 +311,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                 sessionId={sessionId}
                 notes={(notesData || []) as any}
                 onNoteAdded={refresh}
+                currentStaffId={currentStaffIdForNotes ?? currentStaffId}
               />
             )}
           </div>
         </div>
       </SheetContent>
-      
-      {/* Log Session Modal */}
-      {currentStaff?.id && (
-        <LogSessionModal
-          isOpen={isLogSessionModalOpen}
-          onClose={() => {
-            setIsLogSessionModalOpen(false);
-            // Refresh session data to show new tutor log
-            if (sessionId) {
-              refresh();
-            }
-          }}
-          currentStaffId={currentStaff.id}
-          preselectedSessionId={sessionId || undefined}
-        />
-      )}
     </Sheet>
   );
 }

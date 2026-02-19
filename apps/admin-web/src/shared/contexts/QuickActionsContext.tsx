@@ -8,6 +8,7 @@ interface QuickActionsContextType {
   isLogStaffAbsenceDialogOpen: boolean;
   isAnnouncementsModalOpen: boolean;
   isCreateTaskDialogOpen: boolean;
+  isCreateIssueDialogOpen: boolean;
   bookingSessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null;
   isBookingModalOpen: boolean;
   openTutorLogModal: () => void;
@@ -20,6 +21,8 @@ interface QuickActionsContextType {
   closeAnnouncementsModal: () => void;
   openCreateTaskDialog: () => void;
   closeCreateTaskDialog: () => void;
+  openCreateIssueDialog: () => void;
+  closeCreateIssueDialog: () => void;
   openBookingModal: (sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW') => void;
   closeBookingModal: () => void;
 }
@@ -32,6 +35,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
+  const [isCreateIssueDialogOpen, setIsCreateIssueDialogOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
@@ -75,6 +79,14 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsCreateTaskDialogOpen(false);
   }, []);
 
+  const openCreateIssueDialog = useCallback(() => {
+    setIsCreateIssueDialogOpen(true);
+  }, []);
+
+  const closeCreateIssueDialog = useCallback(() => {
+    setIsCreateIssueDialogOpen(false);
+  }, []);
+
   const openBookingModal = useCallback((sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW') => {
     setBookingSessionType(sessionType);
     setIsBookingModalOpen(true);
@@ -93,6 +105,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         isLogStaffAbsenceDialogOpen,
         isAnnouncementsModalOpen,
         isCreateTaskDialogOpen,
+        isCreateIssueDialogOpen,
         bookingSessionType,
         isBookingModalOpen,
         openTutorLogModal,
@@ -105,6 +118,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         closeAnnouncementsModal,
         openCreateTaskDialog,
         closeCreateTaskDialog,
+        openCreateIssueDialog,
+        closeCreateIssueDialog,
         openBookingModal,
         closeBookingModal,
       }}
@@ -121,4 +136,3 @@ export function useQuickActions() {
   }
   return context;
 }
-

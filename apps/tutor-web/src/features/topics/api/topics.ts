@@ -53,6 +53,25 @@ export const topicsApi = {
   },
   
   /**
+   * Get topics by IDs.
+   * Uses vtutor_topics view.
+   */
+  getTopicsByIds: async (ids: string[]) => {
+    if (ids.length === 0) return [];
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { data, error } = await supabase
+      .from('vtutor_topics')
+      .select('*')
+      .in('id', ids)
+      .order('index', { ascending: true });
+    if (error) {
+      console.error('Error fetching topics by ids:', error);
+      throw error;
+    }
+    return data ?? [];
+  },
+
+  /**
    * Get topics by subject ID.
    * Uses vtutor_topics view.
    */

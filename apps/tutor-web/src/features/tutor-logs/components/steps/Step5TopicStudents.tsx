@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useTutorLogStep5Data } from '../../hooks/useTutorLogStep5Data';
 
 type TopicItem = {
   topicId: string;
@@ -23,42 +21,26 @@ export function Step5TopicStudents({
   attendedStudentIds,
   onUpdate,
 }: Step5TopicStudentsProps) {
-  const [topicsData, setTopicsData] = useState<Tables<'topics'>[]>([]);
-  const [studentsData, setStudentsData] = useState<Tables<'students'>[]>([]);
+  const topicIds = topics.map((t) => t.topicId);
+  const { topicsData, studentsData, isLoading } = useTutorLogStep5Data(
+    topicIds,
+    attendedStudentIds
+  );
 
+  // Initialize with all students for all topics when data loads (only if any topic has empty studentIds)
   useEffect(() => {
-    const fetchData = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-
-      const topicIds = topics.map((t) => t.topicId);
-
-      if (topicIds.length > 0) {
-        const { data: topicsRes } = await supabase
-          .from('vtutor_topics')
-          .select('*')
-          .in('id', topicIds);
-        setTopicsData((topicsRes || []).filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null));
-      }
-
-      if (attendedStudentIds.length > 0) {
-        const { data: studentsRes } = await supabase
-          .from('vtutor_students')
-          .select('*')
-          .in('id', attendedStudentIds);
-        setStudentsData((studentsRes || []) as Tables<'students'>[]);
-      }
-
-      // Initialize with all students for all topics
+    if (!isLoading && attendedStudentIds.length > 0) {
+      const needsInit = topics.some((t) => t.studentIds.length === 0);
+      if (!needsInit) return;
       const updatedTopics = topics.map((topic) => ({
         ...topic,
-        studentIds: topic.studentIds.length > 0 ? topic.studentIds : attendedStudentIds,
+        studentIds:
+          topic.studentIds.length > 0 ? topic.studentIds : attendedStudentIds,
       }));
       onUpdate(updatedTopics);
-    };
-
-    fetchData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [attendedStudentIds.length, topics.length]);
+  }, [isLoading, attendedStudentIds.length, topics.length]);
 
   const handleRemoveStudent = (topicId: string, studentId: string) => {
     onUpdate(

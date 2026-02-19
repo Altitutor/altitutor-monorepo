@@ -1,5 +1,11 @@
-// Shared API utilities will be added here as needed
-export {};
+export { sharedAuthApi, type UpdatePasswordRequest } from './auth';
+export {
+  sharedInvitesApi,
+  type GenerateInviteRequest,
+  type GenerateInviteResponse,
+  type SendInviteEmailRequest,
+  type SendInviteSmsRequest,
+} from './invites';
 
 // Re-export all feature APIs for convenience
 export { authApi } from '@/features/auth/api';

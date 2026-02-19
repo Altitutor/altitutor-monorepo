@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { X, File, AlertCircle, Loader2 } from 'lucide-react';
 import type { AttachmentFile } from '../hooks/useMessageAttachments';
-import { isHeicFile, convertHeicToPreview } from '../utils/heicConverter';
 
 interface AttachmentPreviewProps {
   attachment: AttachmentFile;
@@ -12,54 +11,27 @@ interface AttachmentPreviewProps {
 }
 
 export function AttachmentPreview({ attachment, onRemove }: AttachmentPreviewProps) {
-  const [heicPreviewUrl, setHeicPreviewUrl] = useState<string | null>(null);
-  const [heicConverting, setHeicConverting] = useState(false);
-  const [heicError, setHeicError] = useState(false);
-  
-  const isHeic = isHeicFile(attachment.file);
-  const isImage = attachment.file.type.startsWith('image/') || isHeic;
+  // Check if it's an image that we can actually preview
+  const isImage = attachment.file.type.startsWith('image/') && 
+                  attachment.file.type !== 'image/heic' && 
+                  attachment.file.type !== 'image/heif';
   const isUploading = attachment.status === 'uploading';
   const isError = attachment.status === 'error';
   const isSuccess = attachment.status === 'success';
 
-  // Convert HEIC to JPEG for preview (convert immediately when file is available)
-  useEffect(() => {
-    if (isHeic && attachment.file && !heicPreviewUrl && !heicError && !heicConverting) {
-      setHeicConverting(true);
-      convertHeicToPreview(attachment.file)
-        .then((url) => {
-          setHeicPreviewUrl(url);
-          setHeicConverting(false);
-        })
-        .catch((error) => {
-          console.error('Failed to convert HEIC:', error);
-          setHeicError(true);
-          setHeicConverting(false);
-        });
-    }
-
-    // Cleanup blob URL on unmount
-    return () => {
-      if (heicPreviewUrl) {
-        URL.revokeObjectURL(heicPreviewUrl);
-      }
-    };
-  }, [isHeic, attachment.file, heicPreviewUrl, heicError, heicConverting]);
-
-  // Image preview (including HEIC after conversion)
-  const previewUrl = isHeic ? heicPreviewUrl : attachment.preview;
-  if (isImage && previewUrl && !heicConverting && !heicError) {
+  // Image preview
+  if (isImage && attachment.preview) {
     return (
       <div className="relative group rounded-lg overflow-hidden border border-border" style={{ maxWidth: '200px', maxHeight: '200px' }}>
         <Image
-          src={previewUrl}
+          src={attachment.preview}
           alt={attachment.file.name}
           fill
           className="object-cover"
           unoptimized
         />
-        {/* Overlay for upload states and HEIC conversion */}
-        {(isUploading || isError || heicConverting) && (
+        {/* Overlay for upload states */}
+        {(isUploading || isError) && (
           <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
             {isUploading && (
               <div className="text-center text-white">
@@ -71,12 +43,6 @@ export function AttachmentPreview({ attachment, onRemove }: AttachmentPreviewPro
               <div className="text-center text-white">
                 <AlertCircle className="h-6 w-6 mx-auto mb-1 text-red-400" />
                 <div className="text-xs">Upload failed</div>
-              </div>
-            )}
-            {heicConverting && (
-              <div className="text-center text-white">
-                <Loader2 className="h-6 w-6 animate-spin mx-auto mb-1" />
-                <div className="text-xs">Converting...</div>
               </div>
             )}
           </div>
@@ -105,32 +71,6 @@ export function AttachmentPreview({ attachment, onRemove }: AttachmentPreviewPro
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
-
-  // Show HEIC conversion error as file card
-  if (isHeic && heicError) {
-    return (
-      <div className="relative flex items-center gap-2 px-3 py-2 bg-muted/50 border border-border rounded-lg group max-w-[300px]">
-        <File className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <div className="flex-1 min-w-0">
-          <div className="text-xs font-medium truncate" title={attachment.file.name}>
-            {attachment.file.name}
-          </div>
-          <div className="text-[10px] text-muted-foreground">
-            {fileExtension && <span className="font-medium">{fileExtension}</span>}
-            {fileExtension && ' • '}
-            {formatFileSize(attachment.file.size)}
-          </div>
-        </div>
-        <button
-          onClick={() => onRemove(attachment.id)}
-          className="p-1 hover:bg-muted-foreground/20 rounded opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
-          aria-label="Remove attachment"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    );
-  }
 
   // File card
   return (

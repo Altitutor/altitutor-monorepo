@@ -14,6 +14,7 @@ interface CommandActions {
   openLogStudentAbsence: () => void;
   openLogStaffAbsence: () => void;
   openCreateTask: () => void;
+  openCreateIssue: () => void;
   openAnnouncementsModal: () => void;
 }
 
@@ -53,6 +54,9 @@ export function useCommandPaletteCommands({
           break;
         case 'add-task':
           action = commandActions.openCreateTask;
+          break;
+        case 'add-issue':
+          action = commandActions.openCreateIssue;
           break;
         case 'make-announcement':
           action = commandActions.openAnnouncementsModal;

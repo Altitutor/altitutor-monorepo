@@ -11,11 +11,8 @@ import {
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check, X } from 'lucide-react';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Tables } from '@altitutor/shared';
+import { useBookingConfirmationData } from '../hooks/useBookingConfirmationData';
 
 interface SendBookingConfirmationDialogProps {
   isOpen: boolean;
@@ -36,49 +33,25 @@ export function SendBookingConfirmationDialog({
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [student, setStudent] = useState<Tables<'students'> | null>(null);
-  const [parents, setParents] = useState<Array<{ id: string; first_name: string; last_name: string; email: string | null; phone: string | null }>>([]);
-  const [isLoading, setIsLoading] = useState(false);
+
+  const { data, isLoading, isError } = useBookingConfirmationData(
+    studentId,
+    isOpen
+  );
+  const student = data?.student ?? null;
+  const parents = data?.parents ?? [];
 
   const bookingUrl = sessionId ? getBookingConfirmationUrl(sessionId) : null;
 
-  // Fetch student and parent data
   useEffect(() => {
-    if (!isOpen || !studentId) return;
-
-    const fetchData = async () => {
-      setIsLoading(true);
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      
-      // Fetch student
-      const { data: studentData, error: studentError } = await supabase
-        .from('students')
-        .select('*')
-        .eq('id', studentId)
-        .single();
-
-      if (!studentError && studentData) {
-        setStudent(studentData);
-      }
-      
-      // Fetch parents
-      const { data: parentsData, error: parentsError } = await supabase
-        .from('parents_students')
-        .select('parent_id, parents(id, first_name, last_name, email, phone)')
-        .eq('student_id', studentId);
-
-      if (!parentsError && parentsData) {
-        const parentList = parentsData
-          .map((ps: any) => ps.parents)
-          .filter((p: any) => p !== null);
-        setParents(parentList);
-      }
-      
-      setIsLoading(false);
-    };
-
-    fetchData();
-  }, [isOpen, studentId]);
+    if (isOpen && isError) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load student data',
+        variant: 'destructive',
+      });
+    }
+  }, [isOpen, isError, toast]);
 
   const handleCopyUrl = async () => {
     if (!bookingUrl) return;
@@ -185,7 +158,7 @@ export function SendBookingConfirmationDialog({
   const recipients = parents.filter(p => p.email || p.phone);
   const hasRecipients = recipients.length > 0 || (student?.email || student?.phone);
 
-  if (!student) {
+  if (!student && !isLoading) {
     return null;
   }
 
@@ -206,7 +179,7 @@ export function SendBookingConfirmationDialog({
               <div className="flex-1">
                 <DialogTitle>Send Booking Confirmation Link</DialogTitle>
                 <DialogDescription>
-                  Send a booking confirmation link for this session to {student.first_name} {student.last_name}'s parent(s)
+                  Send a booking confirmation link for this session to {student?.first_name} {student?.last_name}'s parent(s)
                 </DialogDescription>
               </div>
             </div>
@@ -340,7 +313,7 @@ export function SendBookingConfirmationDialog({
                     ))}
 
                     {/* Fallback to student if no parents */}
-                    {recipients.length === 0 && (
+                    {recipients.length === 0 && student && (
                       <>
                         {student.email && (
                           <div className="flex items-center justify-between p-4 border rounded-lg">

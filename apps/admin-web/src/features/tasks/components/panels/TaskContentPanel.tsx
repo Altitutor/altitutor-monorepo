@@ -1,6 +1,6 @@
 'use client';
 
-import { Separator } from '@altitutor/ui';
+import { Separator, type JSONContent } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { TaskTitleField, TaskDescriptionField } from '../fields';
@@ -17,7 +17,7 @@ import { ViewTopicModal, FilePreviewModal } from '@/features/topics/components';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import type { TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
-import type { TagEntityType } from '../../utils/tagParsing';
+import type { TagEntityType } from '@/shared/utils/tagParsing';
 
 type NoteWithStaff = Tables<'notes'> & {
   staff?: Tables<'staff'> | null;
@@ -25,7 +25,7 @@ type NoteWithStaff = Tables<'notes'> & {
 
 type TaskFormData = {
   title: string;
-  description?: string;
+  description?: JSONContent | null;
   status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
   priority: number;
   assignedTo: string | null;
@@ -34,7 +34,7 @@ type TaskFormData = {
 };
 
 interface TaskContentPanelProps {
-  form: UseFormReturn<TaskFormData>;
+  form: UseFormReturn<any>;
   taskId: string | null;
   notes: NoteWithStaff[];
   isOpen: boolean;
@@ -115,6 +115,19 @@ export function TaskContentPanel({
     }
   }, []);
 
+  // Listen for Tiptap mention clicks
+  useEffect(() => {
+    const handleMentionClick = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail && detail.id && detail.type) {
+        handleTagClick(detail.type as TagEntityType, detail.id);
+      }
+    };
+
+    window.addEventListener('mentionClick', handleMentionClick);
+    return () => window.removeEventListener('mentionClick', handleMentionClick);
+  }, [handleTagClick]);
+
   // Auto-focus title field when dialog opens
   useEffect(() => {
     if (isOpen && autoFocusTitle && titleFieldRef.current) {
@@ -140,7 +153,7 @@ export function TaskContentPanel({
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto p-6 space-y-6 border-r">
         {/* Property Pills - Mobile Only */}
         {selectedAssignee !== undefined && onAssigneeChange && (
           <div className="md:hidden -mt-2">
@@ -168,7 +181,7 @@ export function TaskContentPanel({
         {/* Description */}
         <div className="space-y-2">
           <TaskDescriptionField
-            form={form as unknown as UseFormReturn<{ description?: string }>}
+            form={form as unknown as UseFormReturn<{ description?: any }>}
             value={form.getValues('description')}
             onTagClick={handleTagClick as (type: TagEntityType, id: string) => void}
             descriptionRef={descriptionFieldRef}

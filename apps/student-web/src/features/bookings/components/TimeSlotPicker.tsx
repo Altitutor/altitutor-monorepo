@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useAvailableSlots } from '../hooks/useAvailableSlots';
 import type { GetAvailableSlotsParams, AvailableSlot } from '../api/availability';
 import { cn } from '@/shared/utils';
-import { CONTACT_PHONE } from '@/shared/constants';
+import { ContactUsDialog } from './ContactUsDialog';
 
 interface TimeSlotPickerProps {
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
@@ -135,6 +135,21 @@ export function TimeSlotPicker({
     });
   }, [allSlots]);
 
+  // Check if current week has any available slots
+  const hasSlotsInCurrentWeek = useMemo(() => {
+    return weekDays.some((day) => {
+      const isPastDate = isPast(day) && !isSameDay(day, new Date());
+      if (isPastDate) return false;
+      const dateKey = format(day, 'yyyy-MM-dd');
+      const daySlots = slotsByDate[dateKey] || [];
+      return daySlots.some(
+        (s) => s.is_available && s.available_staff_ids.length > 0
+      );
+    });
+  }, [weekDays, slotsByDate]);
+
+  const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
+
   const handleSlotClick = (slot: AvailableSlot) => {
     if (!slot.is_available || slot.available_staff_ids.length === 0) {
       return;
@@ -192,12 +207,16 @@ export function TimeSlotPicker({
           <p className="text-muted-foreground">
             No slots available at the moment.
           </p>
-          <div className="space-y-1">
-            <p className="text-sm text-muted-foreground">Contact us</p>
-            <a href={`tel:${CONTACT_PHONE}`} className="text-sm font-medium hover:underline">
-              {CONTACT_PHONE}
-            </a>
-          </div>
+          <Button onClick={() => setIsContactDialogOpen(true)}>
+            Contact us
+          </Button>
+        </div>
+      ) : !hasSlotsInCurrentWeek ? (
+        <div className="text-center py-12 space-y-4">
+          <p className="text-muted-foreground">No slots this week.</p>
+          <Button onClick={() => setIsContactDialogOpen(true)}>
+            Contact us
+          </Button>
         </div>
       ) : (
         <div className="grid grid-cols-7 gap-2">
@@ -261,6 +280,11 @@ export function TimeSlotPicker({
           })}
         </div>
       )}
+
+      <ContactUsDialog
+        isOpen={isContactDialogOpen}
+        onOpenChange={setIsContactDialogOpen}
+      />
     </div>
   );
 }

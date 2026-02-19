@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { topicsApi } from '../api';
+import { topicsApi } from '../api/topics';
 
 /**
  * React Query hooks for topics - tutor-web
@@ -11,9 +11,24 @@ import { topicsApi } from '../api';
 // Query keys
 export const topicsKeys = {
   all: ['topics'] as const,
+  byIds: (ids: string[]) => ['topics', 'by-ids', ids.sort().join(',')] as const,
   bySubject: (subjectId: string) => ['topics', 'subject', subjectId] as const,
   subjectResources: () => ['topics', 'subject-resources'] as const,
 };
+
+/**
+ * Get topics by IDs.
+ * Uses vtutor_topics view.
+ */
+export function useTopicsByIds(ids: string[]) {
+  return useQuery({
+    queryKey: topicsKeys.byIds(ids),
+    queryFn: () => topicsApi.getTopicsByIds(ids),
+    enabled: ids.length > 0,
+    staleTime: 1000 * 60 * 3, // 3 minutes
+    gcTime: 1000 * 60 * 10, // 10 minutes
+  });
+}
 
 /**
  * Get all topics accessible to the current tutor

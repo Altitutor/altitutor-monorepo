@@ -9,6 +9,7 @@ import { ConditionalNavbar } from '@/shared/components/layouts/ConditionalNavbar
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
 import { CommandPaletteProvider } from '@/shared/contexts/CommandPaletteContext'
+import { MentionModalProvider } from '@/shared/components/MentionModalProvider';
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 import { MainContentWrapper } from '@/shared/components/layouts/MainContentWrapper'
 
@@ -46,12 +47,14 @@ export default function RootLayout({
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
                     <CommandPaletteProvider>
-                      <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
-                        <ConditionalNavbar />
-                        <MainContentWrapper>
-                          {children}
-                        </MainContentWrapper>
-                      </div>
+                      <MentionModalProvider>
+                        <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
+                          <ConditionalNavbar />
+                          <MainContentWrapper>
+                            {children}
+                          </MainContentWrapper>
+                        </div>
+                      </MentionModalProvider>
                     </CommandPaletteProvider>
                   </MobileMenuProvider>
                 </ToastProviderWrapper>

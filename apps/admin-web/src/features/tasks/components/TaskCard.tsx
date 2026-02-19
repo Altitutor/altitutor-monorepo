@@ -8,14 +8,15 @@ import { getPriorityColor, getPriorityLabel, isOverdue, formatDueDate, getUserIn
 import { Calendar } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TaskTextWithTags } from './fields/TaskTextWithTags';
+import { TextWithTags } from '@/shared/components/TextWithTags';
 
 interface TaskCardProps {
   task: TaskWithAssignee;
   onClick?: () => void;
+  visiblePillKeys?: string[];
 }
 
-export function TaskCard({ task, onClick }: TaskCardProps) {
+export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priority', 'estimate'] }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -54,20 +55,20 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
     >
       {/* Title */}
       <div className="font-medium text-sm">
-        <TaskTextWithTags text={task.title} />
+        <TextWithTags text={task.title} />
       </div>
 
       {/* Badges row */}
       <div className="flex items-center gap-2 flex-wrap">
         {/* Priority */}
-        {task.priority !== 0 && (
+        {task.priority !== 0 && visiblePillKeys.includes('priority') && (
           <Badge className={cn('text-xs', getPriorityColor((task.priority ?? 0) as TaskPriority))}>
             {getPriorityLabel((task.priority ?? 0) as TaskPriority)}
           </Badge>
         )}
 
         {/* Estimate */}
-        {task.estimate && getEstimateLabel(task.estimate) && (
+        {task.estimate && getEstimateLabel(task.estimate) && visiblePillKeys.includes('estimate') && (
           <Badge variant="outline" className="text-xs">
             {getEstimateLabel(task.estimate)}
           </Badge>
@@ -89,7 +90,7 @@ export function TaskCard({ task, onClick }: TaskCardProps) {
       </div>
 
       {/* Assignee */}
-      {task.assignee && (
+      {task.assignee && visiblePillKeys.includes('assignee') && (
         <div className="flex items-center gap-2">
           <TooltipProvider>
             <Tooltip>

@@ -286,6 +286,8 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         {subject && !isEditing && (
           <ActionsMenu
             type="subject"
+            entityId={subject.id}
+            copyTagDisplayText={subject.short_name || subject.name || subject.id}
             {...subjectActions}
           />
         )}

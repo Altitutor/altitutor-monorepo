@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
 import {
   Table,
@@ -10,41 +10,35 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@altitutor/ui";
-import { 
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@altitutor/ui";
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { Checkbox } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
-import { SkeletonTable } from "@altitutor/ui";
-import { TablePagination } from '@/shared/components/TablePagination';
-import { 
-  Search, 
-  ArrowUpDown,
-  Filter,
-  X,
-  Palette,
-  Loader2
-} from 'lucide-react';
-import type { Tables, Enums } from '@altitutor/shared';
-import { cn, getSubjectColorHex, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils/index';
-import { useElementSize } from '@/shared/hooks/useElementSize';
-import { ViewSubjectModal } from './ViewSubjectModal';
-import { subjectsApi } from '../api';
-import { useToast } from '@altitutor/ui';
-import {
+  Button,
+  Input,
+  Checkbox,
+  Badge,
+  SkeletonTable,
+  useToast,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  Label,
+  DataTableToolbar,
+  TablePagination,
 } from "@altitutor/ui";
-import { Label } from "@altitutor/ui";
+import { 
+  ArrowUpDown,
+  X,
+  Palette,
+  Loader2
+} from 'lucide-react';
+import type { Tables, Enums, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
+import { cn, getSubjectColorHex, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils/index';
+import { ViewSubjectModal } from './ViewSubjectModal';
+import { subjectsApi } from '../api';
+import { useDataTable } from '@/shared/hooks/useDataTable';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 interface SubjectsTableProps {
   onRefresh?: number;
@@ -53,66 +47,30 @@ interface SubjectsTableProps {
 
 export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSubject }: SubjectsTableProps) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('subjects');
   
-  // Initialize from URL params
-  const getSearchFromUrl = () => searchParams.get('search') || '';
-  const getArrayFromUrl = (key: string): string[] => {
-    const param = searchParams.get(key);
-    return param ? param.split(',').filter(Boolean) : [];
-  };
-  const getNumberArrayFromUrl = (key: string): number[] => {
-    const param = searchParams.get(key);
-    return param ? param.split(',').map(Number).filter(n => !isNaN(n)) : [];
-  };
-  const getSortFromUrl = (): { field: keyof Tables<'subjects'>; direction: 'asc' | 'desc' } => {
-    const field = (searchParams.get('sort') || 'name') as keyof Tables<'subjects'>;
-    const direction = (searchParams.get('order') || 'asc') as 'asc' | 'desc';
-    return { field, direction };
-  };
-  
-  const updateUrlParams = (updates: Record<string, string | null>) => {
-    const params = new URLSearchParams(searchParams.toString());
-    Object.entries(updates).forEach(([key, value]) => {
-      if (value === null || value === '') {
-        params.delete(key);
-      } else {
-        params.set(key, value);
-      }
-    });
-    router.push(`/subjects?${params.toString()}`);
-  };
-  
-  // Track table width for responsive display
-  const [tableRef] = useElementSize<HTMLDivElement>();
+  const defaultFilters = useMemo(() => ({}), []);
+  const defaultSort = useMemo(() => ({ field: 'name', direction: 'asc' as const }), []);
+  const defaultVisibleColumns = useMemo(() => ['curriculum', 'year_level', 'name', 'code', 'color'], []);
 
-  // Filter and sort state initialized from URL
-  const [searchTerm, setSearchTerm] = useState(getSearchFromUrl);
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
-  const [curriculumFilters, setCurriculumFilters] = useState<Enums<'subject_curriculum'>[]>(getArrayFromUrl('curriculum') as Enums<'subject_curriculum'>[]);
-  const [disciplineFilters, setDisciplineFilters] = useState<Enums<'subject_discipline'>[]>(getArrayFromUrl('discipline') as Enums<'subject_discipline'>[]);
-  const [yearLevelFilters, setYearLevelFilters] = useState<number[]>(getNumberArrayFromUrl('yearLevel'));
-  const sortFromUrl = getSortFromUrl();
-  const [sortField, setSortField] = useState<keyof Tables<'subjects'>>(sortFromUrl.field);
-  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>(sortFromUrl.direction);
-  const [page, setPage] = useState(Number(searchParams.get('page')) || 1);
-  const [pageSize, setPageSize] = useState(Number(searchParams.get('pageSize')) || 50);
-  
-  // Sync from URL params
-  useEffect(() => {
-    setSearchTerm(getSearchFromUrl());
-    setCurriculumFilters(getArrayFromUrl('curriculum') as Enums<'subject_curriculum'>[]);
-    setDisciplineFilters(getArrayFromUrl('discipline') as Enums<'subject_discipline'>[]);
-    setYearLevelFilters(getNumberArrayFromUrl('yearLevel'));
-    const sort = getSortFromUrl();
-    setSortField(sort.field);
-    setSortDirection(sort.direction);
-    const pageParam = Number(searchParams.get('page'));
-    if (pageParam) setPage(pageParam);
-    const pageSizeParam = Number(searchParams.get('pageSize'));
-    if (pageSizeParam) setPageSize(pageSizeParam);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
+  const {
+    state,
+    setSearch,
+    setSort,
+    setFilters,
+    setPage,
+    setPageSize,
+    setVisibleColumns,
+    applyQuickFilter,
+    resetFilters,
+  } = useDataTable({
+    defaultFilters,
+    defaultSort,
+    defaultVisibleColumns,
+    filterKeys: ['curriculum', 'discipline', 'yearLevel'],
+  });
+
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
   
@@ -124,31 +82,6 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const { toast } = useToast();
 
-  // Debounce search term
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(searchTerm);
-      setPage(1); // Reset to first page on search
-      updateUrlParams({ 
-        search: searchTerm || null,
-        page: null 
-      });
-    }, 300);
-    return () => clearTimeout(timeoutId);
-    // updateUrlParams is stable (uses searchParams which is from useSearchParams)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchTerm]);
-
-  // Map sortField to RPC orderBy parameter
-  const rpcOrderBy = useMemo(() => {
-    if (sortField === 'name') return 'name';
-    if (sortField === 'curriculum') return 'curriculum';
-    if (sortField === 'year_level') return 'year_level';
-    if (sortField === 'discipline') return 'discipline';
-    if (sortField === 'level') return 'level';
-    return 'name';
-  }, [sortField]);
-
   // React Query hook for data fetching with server-side filtering and pagination
   const { 
     data: subjectsData, 
@@ -157,16 +90,16 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     refetch,
     isFetching 
   } = useQuery({
-    queryKey: ['subjects-list', debouncedSearchTerm, curriculumFilters, disciplineFilters, yearLevelFilters, rpcOrderBy, sortDirection, page, pageSize],
+    queryKey: ['subjects-list', state.search, state.filters, state.sortBy, state.sortDirection, state.page, state.pageSize],
     queryFn: () => subjectsApi.list({
-      search: debouncedSearchTerm || undefined,
-      curriculums: curriculumFilters.length > 0 ? curriculumFilters : undefined,
-      disciplines: disciplineFilters.length > 0 ? disciplineFilters : undefined,
-      yearLevels: yearLevelFilters.length > 0 ? yearLevelFilters : undefined,
-      limit: pageSize,
-      offset: (page - 1) * pageSize,
-      orderBy: rpcOrderBy as 'name' | 'curriculum' | 'year_level' | 'discipline' | 'level',
-      ascending: sortDirection === 'asc',
+      search: state.search || undefined,
+      curriculums: (state.filters.curriculum as Enums<'subject_curriculum'>[])?.length > 0 ? (state.filters.curriculum as Enums<'subject_curriculum'>[]) : undefined,
+      disciplines: (state.filters.discipline as Enums<'subject_discipline'>[])?.length > 0 ? (state.filters.discipline as Enums<'subject_discipline'>[]) : undefined,
+      yearLevels: (state.filters.yearLevel as number[])?.length > 0 ? (state.filters.yearLevel as number[]) : undefined,
+      limit: state.pageSize,
+      offset: (state.page - 1) * state.pageSize,
+      orderBy: (state.sortBy || 'name') as 'name' | 'curriculum' | 'year_level' | 'discipline' | 'level',
+      ascending: state.sortDirection === 'asc',
     }),
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
@@ -176,7 +109,6 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   const total = subjectsData?.total || 0;
   
   // Get unique year levels from all subjects for filter dropdown
-  // Fetch all subjects without pagination to get unique year levels
   const { data: allSubjectsData } = useQuery({
     queryKey: ['subjects-all-year-levels'],
     queryFn: () => subjectsApi.list({
@@ -197,73 +129,43 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     return Array.from(yearLevels).sort((a, b) => a - b);
   }, [allSubjectsData]);
 
-  // Filter toggle handlers
-  const toggleCurriculumFilter = (curriculum: Enums<'subject_curriculum'>) => {
-    const newFilters = curriculumFilters.includes(curriculum) 
-      ? curriculumFilters.filter(c => c !== curriculum)
-      : [...curriculumFilters, curriculum];
-    setCurriculumFilters(newFilters);
-    setPage(1); // Reset to first page when filter changes
-    updateUrlParams({ 
-      curriculum: newFilters.length > 0 ? newFilters.join(',') : null,
-      page: null 
-    });
-  };
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
+    {
+      key: 'curriculum',
+      label: 'Curriculum',
+      options: ['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'].map(c => ({ label: c, value: c })),
+    },
+    {
+      key: 'discipline',
+      label: 'Discipline',
+      options: ['MATHEMATICS', 'SCIENCE', 'HUMANITIES', 'ENGLISH', 'ART', 'LANGUAGE', 'MEDICINE'].map(d => ({ label: d, value: d })),
+    },
+    {
+      key: 'yearLevel',
+      label: 'Year Level',
+      options: uniqueYearLevels.map(y => ({ label: `Year ${y}`, value: y })),
+    },
+  ], [uniqueYearLevels]);
 
-  const toggleDisciplineFilter = (discipline: Enums<'subject_discipline'>) => {
-    const newFilters = disciplineFilters.includes(discipline) 
-      ? disciplineFilters.filter(d => d !== discipline)
-      : [...disciplineFilters, discipline];
-    setDisciplineFilters(newFilters);
-    setPage(1); // Reset to first page when filter changes
-    updateUrlParams({ 
-      discipline: newFilters.length > 0 ? newFilters.join(',') : null,
-      page: null 
-    });
-  };
+  const sortOptions: DataTableSortOption[] = [
+    { key: 'name', label: 'Name' },
+    { key: 'curriculum', label: 'Curriculum' },
+    { key: 'year_level', label: 'Year Level' },
+    { key: 'discipline', label: 'Discipline' },
+  ];
 
-  const toggleYearLevelFilter = (yearLevel: number) => {
-    const newFilters = yearLevelFilters.includes(yearLevel) 
-      ? yearLevelFilters.filter(y => y !== yearLevel)
-      : [...yearLevelFilters, yearLevel];
-    setYearLevelFilters(newFilters);
-    setPage(1); // Reset to first page when filter changes
-    updateUrlParams({ 
-      yearLevel: newFilters.length > 0 ? newFilters.join(',') : null,
-      page: null 
-    });
-  };
+  const columnDefinitions: DataTableColumnDefinition[] = [
+    { key: 'curriculum', label: 'Curriculum' },
+    { key: 'year_level', label: 'Year Level' },
+    { key: 'name', label: 'Name' },
+    { key: 'code', label: 'Code' },
+    { key: 'color', label: 'Color' },
+  ];
 
-  const clearAllFilters = () => {
-    setCurriculumFilters([]);
-    setDisciplineFilters([]);
-    setYearLevelFilters([]);
-    setSearchTerm('');
+  // Reset to page 1 when search term or filters change
+  useEffect(() => {
     setPage(1);
-    updateUrlParams({ 
-      search: null,
-      curriculum: null,
-      discipline: null,
-      yearLevel: null,
-      page: null 
-    });
-  };
-
-  // Subjects are already filtered and sorted server-side via RPC
-  const filteredSubjects = subjects;
-
-  const handleSort = (field: keyof Tables<'subjects'>) => {
-    const newDirection = sortField === field && sortDirection === 'asc' ? 'desc' : 'asc';
-    const newField = sortField === field ? field : field;
-    setSortField(newField);
-    setSortDirection(newDirection);
-    setPage(1); // Reset to first page when sort changes
-    updateUrlParams({ 
-      sort: newField,
-      order: newDirection,
-      page: null 
-    });
-  };
+  }, [state.search, state.filters, setPage]);
   
   const handleSubjectClick = (id: string, e?: React.MouseEvent) => {
     // Don't open modal if clicking checkbox or in select mode
@@ -292,7 +194,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
 
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedSubjectIds(new Set(filteredSubjects.map(s => s.id)));
+      setSelectedSubjectIds(new Set(subjects.map(s => s.id)));
     } else {
       setSelectedSubjectIds(new Set());
     }
@@ -332,42 +234,28 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     refetch();
   };
 
-  // Count active filters
-  const activeFiltersCount = 
-    (curriculumFilters.length > 0 ? 1 : 0) +
-    (disciplineFilters.length > 0 ? 1 : 0) +
-    (yearLevelFilters.length > 0 ? 1 : 0);
-
   // Loading state
   if (isLoading && subjects.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search subjects..."
-              className="pl-8"
-              disabled
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" disabled>
-              <Filter className="h-4 w-4 mr-2" />
-              Curriculum
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              <Filter className="h-4 w-4 mr-2" />
-              Discipline
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              <Filter className="h-4 w-4 mr-2" />
-              Year Level
-            </Button>
-          </div>
-        </div>
+        <DataTableToolbar
+          state={state}
+          onSearchChange={setSearch}
+          onFiltersChange={setFilters}
+          onSortChange={setSort}
+          onGroupByChange={() => {}}
+          onVisibleColumnsChange={setVisibleColumns}
+          onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+          onReset={resetFilters}
+          filterDefinitions={filterDefinitions}
+          sortOptions={sortOptions}
+          columnDefinitions={columnDefinitions}
+          quickFilters={quickFilters}
+          searchPlaceholder="Search subjects..."
+          isLoading={true}
+        />
         
-        <SkeletonTable rows={8} columns={isSelectMode ? 6 : 5} />
+        <SkeletonTable rows={8} columns={state.visibleColumns.length + (isSelectMode ? 1 : 0)} />
         
         <div className="text-sm text-muted-foreground">
           Loading subjects...
@@ -393,21 +281,8 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search subjects..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => {
-              const value = e.target.value;
-              setSearchTerm(value);
-            }}
-          />
-        </div>
+      <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          {/* Select Mode Toggle */}
           <Button
             variant={isSelectMode ? "secondary" : "outline"}
             size="sm"
@@ -417,6 +292,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                 setSelectedSubjectIds(new Set());
               }
             }}
+            className="h-9"
           >
             {isSelectMode ? (
               <>
@@ -431,161 +307,87 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
             )}
           </Button>
 
-          {/* Bulk Color Change Button */}
           {isSelectMode && selectedSubjectIds.size > 0 && (
             <Button
               variant="default"
               size="sm"
               onClick={() => setIsBulkColorDialogOpen(true)}
+              className="h-9"
             >
               <Palette className="h-4 w-4 mr-2" />
               Change Color ({selectedSubjectIds.size})
             </Button>
           )}
-
-          {/* Clear Filters */}
-          {activeFiltersCount > 0 && (
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={clearAllFilters}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Clear
-            </Button>
-          )}
-
-          {/* Curriculum Filter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button 
-                variant={curriculumFilters.length > 0 ? "secondary" : "outline"} 
-                size="sm"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Curriculum {curriculumFilters.length > 0 && `(${curriculumFilters.length})`}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
-              <div className="space-y-2">
-                <div className="font-medium text-sm mb-2">Curriculum</div>
-                {(['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'] as const).map((curriculum) => (
-                  <label key={curriculum} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={curriculumFilters.includes(curriculum)}
-                      onCheckedChange={() => toggleCurriculumFilter(curriculum)}
-                    />
-                    <span className="text-sm">{curriculum}</span>
-                  </label>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Discipline Filter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button 
-                variant={disciplineFilters.length > 0 ? "secondary" : "outline"} 
-                size="sm"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Discipline {disciplineFilters.length > 0 && `(${disciplineFilters.length})`}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
-              <div className="space-y-2">
-                <div className="font-medium text-sm mb-2">Discipline</div>
-                {(['MATHEMATICS', 'SCIENCE', 'HUMANITIES', 'ENGLISH', 'ART', 'LANGUAGE', 'MEDICINE'] as const).map((discipline) => (
-                  <label key={discipline} className="flex items-center gap-2 cursor-pointer">
-                    <Checkbox
-                      checked={disciplineFilters.includes(discipline)}
-                      onCheckedChange={() => toggleDisciplineFilter(discipline)}
-                    />
-                    <span className="text-sm">{discipline}</span>
-                  </label>
-                ))}
-              </div>
-            </PopoverContent>
-          </Popover>
-
-          {/* Year Level Filter */}
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button 
-                variant={yearLevelFilters.length > 0 ? "secondary" : "outline"} 
-                size="sm"
-              >
-                <Filter className="h-4 w-4 mr-2" />
-                Year Level {yearLevelFilters.length > 0 && `(${yearLevelFilters.length})`}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-56" align="end">
-              <div className="space-y-2">
-                <div className="font-medium text-sm mb-2">Year Level</div>
-                {uniqueYearLevels.length === 0 ? (
-                  <div className="text-sm text-muted-foreground p-2">Loading year levels...</div>
-                ) : (
-                  uniqueYearLevels.map((yearLevel) => (
-                    <label key={yearLevel} className="flex items-center gap-2 cursor-pointer">
-                      <Checkbox
-                        checked={yearLevelFilters.includes(yearLevel)}
-                        onCheckedChange={() => toggleYearLevelFilter(yearLevel)}
-                      />
-                      <span className="text-sm">Year {yearLevel}</span>
-                    </label>
-                  ))
-                )}
-              </div>
-            </PopoverContent>
-          </Popover>
         </div>
+
+        <DataTableToolbar
+          state={state}
+          onSearchChange={setSearch}
+          onFiltersChange={setFilters}
+          onSortChange={setSort}
+          onGroupByChange={() => {}}
+          onVisibleColumnsChange={setVisibleColumns}
+          onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
+          onReset={resetFilters}
+          filterDefinitions={filterDefinitions}
+          sortOptions={sortOptions}
+          columnDefinitions={columnDefinitions}
+          quickFilters={quickFilters}
+          searchPlaceholder="Search subjects..."
+          isLoading={isFetching}
+        />
       </div>
 
-      <div className="rounded-md border" ref={tableRef}>
+      <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
               {isSelectMode && (
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={filteredSubjects.length > 0 && filteredSubjects.every(s => selectedSubjectIds.has(s.id))}
+                    checked={subjects.length > 0 && subjects.every(s => selectedSubjectIds.has(s.id))}
                     onCheckedChange={(checked) => handleSelectAll(checked === true)}
                   />
                 </TableHead>
               )}
-              <TableHead className="cursor-pointer" onClick={() => handleSort('curriculum')}>
-                Curriculum
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'curriculum' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('year_level')}>
-                Year Level
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'year_level' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead className="cursor-pointer" onClick={() => handleSort('name')}>
-                Name
-                <ArrowUpDown className={cn(
-                  "ml-2 h-4 w-4 inline",
-                  sortField === 'name' ? "opacity-100" : "opacity-40"
-                )} />
-              </TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead className="text-right">Color</TableHead>
+              {state.visibleColumns.includes('curriculum') && (
+                <TableHead className="cursor-pointer" onClick={() => setSort('curriculum', state.sortBy === 'curriculum' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
+                  Curriculum
+                  <ArrowUpDown className={cn(
+                    "ml-2 h-4 w-4 inline",
+                    state.sortBy === 'curriculum' ? "opacity-100" : "opacity-40"
+                  )} />
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('year_level') && (
+                <TableHead className="cursor-pointer" onClick={() => setSort('year_level', state.sortBy === 'year_level' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
+                  Year Level
+                  <ArrowUpDown className={cn(
+                    "ml-2 h-4 w-4 inline",
+                    state.sortBy === 'year_level' ? "opacity-100" : "opacity-40"
+                  )} />
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('name') && (
+                <TableHead className="cursor-pointer" onClick={() => setSort('name', state.sortBy === 'name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
+                  Name
+                  <ArrowUpDown className={cn(
+                    "ml-2 h-4 w-4 inline",
+                    state.sortBy === 'name' ? "opacity-100" : "opacity-40"
+                  )} />
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('code') && <TableHead>Code</TableHead>}
+              {state.visibleColumns.includes('color') && <TableHead className="text-right">Color</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredSubjects.length === 0 ? (
+            {subjects.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={isSelectMode ? 6 : 5} className="text-center h-24">
+                <TableCell colSpan={(isSelectMode ? 1 : 0) + state.visibleColumns.length} className="text-center h-24">
                   {isLoading ? (
                     "Loading subjects..."
-                  ) : searchTerm || activeFiltersCount > 0 ? (
+                  ) : state.search || Object.keys(state.filters).length > 0 ? (
                     "No subjects match your filters"
                   ) : (
                     "No subjects found"
@@ -593,7 +395,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                 </TableCell>
               </TableRow>
             ) : (
-              filteredSubjects.map((subject) => {
+              subjects.map((subject) => {
                 const isSelected = selectedSubjectIds.has(subject.id);
                 const subjectColorHex = getSubjectColorHex(subject);
                 const { style, textColorClass } = getSubjectColorStyle(subject);
@@ -617,46 +419,56 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                         />
                       </TableCell>
                     )}
-                    <TableCell>
-                      {subject.curriculum ? (
-                        <Badge variant="outline">{subject.curriculum}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {subject.year_level != null ? (
-                        <Badge variant="outline">Year {subject.year_level}</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="font-medium">
-                      {subject.name || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant="secondary"
-                        className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
-                        style={style.backgroundColor ? style : undefined}
-                      >
-                        {shortName}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {subjectColorHex ? (
-                        <div className="flex items-center justify-end gap-2">
-                          <div
-                            className="w-6 h-6 rounded border border-gray-300"
-                            style={{ backgroundColor: subjectColorHex }}
-                            title={subjectColorHex}
-                          />
-                          <span className="text-xs text-muted-foreground">{subjectColorHex}</span>
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">-</span>
-                      )}
-                    </TableCell>
+                    {state.visibleColumns.includes('curriculum') && (
+                      <TableCell>
+                        {subject.curriculum ? (
+                          <Badge variant="outline">{subject.curriculum}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('year_level') && (
+                      <TableCell>
+                        {subject.year_level != null ? (
+                          <Badge variant="outline">Year {subject.year_level}</Badge>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('name') && (
+                      <TableCell className="font-medium">
+                        {subject.name || '-'}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('code') && (
+                      <TableCell>
+                        <Badge
+                          variant="secondary"
+                          className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
+                          style={style.backgroundColor ? style : undefined}
+                        >
+                          {shortName}
+                        </Badge>
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('color') && (
+                      <TableCell className="text-right">
+                        {subjectColorHex ? (
+                          <div className="flex items-center justify-end gap-2">
+                            <div
+                              className="w-6 h-6 rounded border border-gray-300"
+                              style={{ backgroundColor: subjectColorHex }}
+                              title={subjectColorHex}
+                            />
+                            <span className="text-xs text-muted-foreground">{subjectColorHex}</span>
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 );
               })
@@ -667,22 +479,12 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
 
       {/* Pagination */}
       <TablePagination
-        page={page}
-        pageSize={pageSize}
+        page={state.page}
+        pageSize={state.pageSize}
         total={total}
         isFetching={isFetching}
-        onPageChange={(newPage) => {
-          setPage(newPage);
-          updateUrlParams({ page: newPage === 1 ? null : String(newPage) });
-        }}
-        onPageSizeChange={(newSize) => {
-          setPageSize(newSize);
-          setPage(1);
-          updateUrlParams({ 
-            pageSize: newSize === 50 ? null : String(newSize),
-            page: null 
-          });
-        }}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
       />
 
       <ViewSubjectModal 

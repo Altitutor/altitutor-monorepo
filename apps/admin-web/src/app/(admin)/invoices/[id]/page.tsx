@@ -15,6 +15,7 @@ import {
   getInvoiceStatusBadge,
   formatInvoiceAmount,
   calculateLineItemsSubtotal,
+  formatInvoiceTagText,
 } from '@/features/billing';
 import { useState } from 'react';
 import { useToast } from '@altitutor/ui';
@@ -208,6 +209,12 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         </div>
         <ActionsMenu
           type="invoice"
+          entityId={id}
+          copyTagDisplayText={formatInvoiceTagText({
+            invoiceDate: invoice.invoice_date,
+            lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
+            status: invoice.status,
+          })}
           {...invoiceActions}
         />
       </div>

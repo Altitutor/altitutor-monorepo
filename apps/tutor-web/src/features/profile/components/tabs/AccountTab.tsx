@@ -16,7 +16,7 @@ import {
 import { Input } from '@altitutor/ui';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
-import { authApi } from '@/features/auth/api';
+import { sharedAuthApi } from '@/shared/api/auth';
 import type { Database } from '@altitutor/shared';
 
 type TutorProfile = Database['public']['Views']['vtutor_profile']['Row'];
@@ -57,7 +57,7 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
       setIsLoading(true);
       setIsSuccess(false);
       
-      await authApi.updatePassword({ password: data.password });
+      await sharedAuthApi.updatePassword({ password: data.password });
       
       setIsSuccess(true);
       form.reset();

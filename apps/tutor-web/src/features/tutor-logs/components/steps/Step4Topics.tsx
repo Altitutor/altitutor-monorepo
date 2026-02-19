@@ -1,15 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
-import { topicsApi } from '@/features/topics/api/topics';
-import { sessionsApi } from '@/features/sessions/api/sessions';
-import { subjectsApi } from '@/features/subjects/api/subjects';
+import { useTutorLogStep4Data } from '../../hooks/useTutorLogStep4Data';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { cn } from '@/shared/utils/index';
 
@@ -25,65 +22,17 @@ type Step4TopicsProps = {
 };
 
 export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
-  const [subjectTopics, setSubjectTopics] = useState<Tables<'topics'>[]>([]);
-  const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
-  const [subjectsMap, setSubjectsMap] = useState<Map<string, Tables<'subjects'>>>(new Map());
+  const {
+    subjectTopics,
+    allTopics,
+    subjectsMap,
+    isLoading,
+  } = useTutorLogStep4Data(sessionId);
+
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [isLoading, setIsLoading] = useState(true);
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // Get session to find subject from vtutor_sessions view
-        const sessionData = await sessionsApi.getSession(sessionId);
-
-        if (!sessionData) {
-          setIsLoading(false);
-          return;
-        }
-
-        const subjectId = sessionData.subject_id;
-
-        // Get topics for this subject using vtutor_topics view
-        if (subjectId) {
-          const topicsData = await topicsApi.getTopicsBySubject(subjectId);
-          // Filter out topics with null IDs (shouldn't happen, but type safety)
-          setSubjectTopics((topicsData || []).filter((t): t is Tables<'topics'> => t.id !== null && t.name !== null && t.index !== null && t.subject_id !== null));
-        }
-
-        // Get all topics for search using vtutor_topics view
-        const allTopicsData = await topicsApi.getAllTopics();
-        // Filter out topics with null IDs (shouldn't happen, but type safety)
-        const validTopics = (allTopicsData || []).filter((t): t is Tables<'topics'> => t.id !== null && t.name !== null && t.index !== null && t.subject_id !== null);
-        setAllTopics(validTopics);
-
-        // Fetch subjects for all topics
-        if (validTopics.length > 0) {
-          const subjectIds = [...new Set(validTopics.map((t) => t.subject_id).filter((id): id is string => id !== null))];
-          if (subjectIds.length > 0) {
-            const allSubjects = await subjectsApi.getAllSubjects();
-            const subjects = new Map<string, Tables<'subjects'>>();
-            allSubjects.forEach((s) => {
-              if (s.id && subjectIds.includes(s.id)) {
-                subjects.set(s.id, s as Tables<'subjects'>);
-              }
-            });
-            setSubjectsMap(subjects);
-          }
-        }
-
-        setIsLoading(false);
-      } catch (error) {
-        console.error('Error fetching topics:', error);
-        setIsLoading(false);
-      }
-    };
-
-    fetchData();
-  }, [sessionId]);
 
   const handleToggleTopic = (topicId: string, checked: boolean) => {
     if (checked) {

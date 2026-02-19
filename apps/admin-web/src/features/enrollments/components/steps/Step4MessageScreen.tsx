@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
@@ -14,9 +13,8 @@ import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
+import { useParentsForStudent } from '../../hooks/useParentsForStudent';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 import type { StudentWithEnrollmentInfo } from '../../types/enrollment';
 
 interface Step4MessageScreenProps {
@@ -33,40 +31,9 @@ export function Step4MessageScreen({
   const [selectedRecipient, setSelectedRecipient] = useState<{ type: 'student' | 'parent'; id?: string; label: string; value: string } | null>(null);
   const [contactId, setContactId] = useState<string | null>(null);
   const [composerDraft, setComposerDraft] = useState<string>('');
-  const [parents, setParents] = useState<Array<{ id: string; first_name: string; last_name: string; phone: string | null }>>([]);
+  const { data: parentsData = [] } = useParentsForStudent(selectedStudent?.id, !!selectedStudent?.id);
+  const parents = parentsData;
   const { data: currentStaff } = useCurrentStaff();
-
-  // Fetch parents
-  useEffect(() => {
-    if (!selectedStudent?.id) return;
-
-    const fetchParents = async () => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      const { data: parentsData, error } = await supabase
-        .from('parents_students')
-        .select('parent_id, parents(id, first_name, last_name, phone)')
-        .eq('student_id', selectedStudent.id);
-
-      if (!error && parentsData) {
-        type ParentStudentRow = {
-          parent_id: string;
-          parents: Tables<'parents'> | null;
-        };
-        const parentList = (parentsData as ParentStudentRow[])
-          .map((ps) => ps.parents)
-          .filter((p): p is Tables<'parents'> => p !== null && p.phone !== null)
-          .map((p) => ({
-            id: p.id,
-            first_name: p.first_name,
-            last_name: p.last_name,
-            phone: p.phone,
-          }));
-        setParents(parentList);
-      }
-    };
-
-    fetchParents();
-  }, [selectedStudent?.id]);
 
   // Build recipient options (student phone and parent phones only)
   useEffect(() => {

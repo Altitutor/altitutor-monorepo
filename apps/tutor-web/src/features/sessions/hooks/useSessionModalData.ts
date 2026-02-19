@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { sessionsApi } from '../api/sessions';
-import { tutorLogsApi } from '@/features/tutor-logs/api/tutor-logs';
 import type { Tables } from '@altitutor/shared';
 import type { FlattenedSessionDetail, SessionStaff, SessionStudent } from '../utils/session-helpers';
 
@@ -143,7 +142,7 @@ export function useSessionModalData({
       }
       
       // Fetch tutor log for this session
-      const logResult = await tutorLogsApi.getTutorLogBySessionId(sessionId);
+      const logResult = await sessionsApi.getTutorLogBySessionId(sessionId);
       // Transform logResult to match TutorLog type
       if (logResult && logResult.tutor_log_id) {
         // Parse JSON arrays with proper type guards

@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { formatClassShortName, formatClassName } from '@/shared/utils';
 import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
@@ -455,7 +456,205 @@ export async function getAllClasses(): Promise<Array<{
   }));
 }
 
+type StaffClassWithSubjectRow = {
+  class: Tables<'classes'> & {
+    subject: Tables<'subjects'> | null;
+  } | null;
+};
 
+/**
+ * Get staff member's assigned classes with subject details
+ */
+export async function getStaffClasses(staffId: string): Promise<Array<{
+  class: Tables<'classes'>;
+  subject: Tables<'subjects'> | null;
+}>> {
+  const supabase = getSupabaseClient();
+  
+  const { data, error } = await supabase
+    .from('classes_staff')
+    .select(`
+      class:classes(
+        *,
+        subject:subjects(*)
+      )
+    `)
+    .eq('staff_id', staffId)
+    .is('unassigned_at', null);
+  
+  if (error) throw error;
+  
+  const typedData = (data || []) as StaffClassWithSubjectRow[];
+  return typedData
+    .filter((item): item is { class: NonNullable<StaffClassWithSubjectRow['class']> } => item.class !== null)
+    .map((item) => ({
+      class: item.class,
+      subject: item.class.subject || null,
+    }));
+}
+
+/**
+ * Get staff member's assigned classes with their first session start dates
+ * Returns classes with the date of the first session where the staff is assigned
+ */
+export async function getStaffClassesWithStartDates(staffId: string): Promise<Array<{
+  class: Tables<'classes'>;
+  subject: Tables<'subjects'> | null;
+  startDate: Date | null;
+}>> {
+  const supabase = getSupabaseClient();
+  
+  // First get all assigned classes
+  const classes = await getStaffClasses(staffId);
+  
+  if (classes.length === 0) {
+    return [];
+  }
+  
+  const classIds = classes.map(c => c.class.id);
+  
+  // Get the first session for each class (only future sessions)
+  const now = new Date().toISOString();
+  
+  // Query sessions_staff and join sessions, then filter and sort in memory
+  const { data: sessionsData, error: sessionsError } = await supabase
+    .from('sessions_staff')
+    .select(`
+      session:sessions!inner(
+        id,
+        class_id,
+        start_at
+      )
+    `)
+    .eq('staff_id', staffId)
+    .in('session.class_id', classIds)
+    .gte('session.start_at', now);
+  
+  if (sessionsError) {
+    console.error('Error fetching sessions for staff classes:', sessionsError);
+    // Return classes without start dates if we can't fetch sessions
+    return classes.map(c => ({ ...c, startDate: null }));
+  }
+  
+  // Sort sessions by start_at ascending (client-side)
+  const sortedSessions = (sessionsData || []).sort((a: any, b: any) => {
+    const dateA = a.session?.start_at ? new Date(a.session.start_at).getTime() : 0;
+    const dateB = b.session?.start_at ? new Date(b.session.start_at).getTime() : 0;
+    return dateA - dateB;
+  });
+  
+  // Build a map of class_id -> first session start_at
+  const classStartDateMap = new Map<string, Date>();
+  const processedClasses = new Set<string>();
+  
+  sortedSessions.forEach((item: any) => {
+    const session = item.session;
+    if (session?.class_id && session?.start_at && !processedClasses.has(session.class_id)) {
+      classStartDateMap.set(session.class_id, new Date(session.start_at));
+      processedClasses.add(session.class_id);
+    }
+  });
+  
+  // Map classes with their start dates
+  return classes.map(c => ({
+    class: c.class,
+    subject: c.subject,
+    startDate: classStartDateMap.get(c.class.id) || null,
+  }));
+}
+
+export interface MessagePreviewRecipient {
+  id: string;
+  type: 'student' | 'parent';
+  name: string;
+  phone: string | null;
+  studentId?: string;
+}
+
+export interface MessagePreviewData {
+  recipients: MessagePreviewRecipient[];
+  studentClasses: Record<
+    string,
+    Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>
+  >;
+}
+
+type ParentStudentRow = {
+  parent_id: string;
+  student_id: string;
+  parents: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+  } | null;
+};
+
+/**
+ * Fetch recipients and student classes for bulk message preview.
+ * Replaces useEffect-based loading in MessagePreview component.
+ */
+export async function fetchMessagePreviewData(
+  students: Tables<'students'>[],
+  sendToParents: boolean
+): Promise<MessagePreviewData> {
+  const allRecipients: MessagePreviewRecipient[] = [];
+  const classesMap: Record<
+    string,
+    Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>
+  > = {};
+
+  // Load student classes in parallel
+  const classResults = await Promise.all(
+    students.map((s) => getStudentClasses(s.id))
+  );
+  students.forEach((student, i) => {
+    allRecipients.push({
+      id: student.id,
+      type: 'student',
+      name: `${student.first_name || ''} ${student.last_name || ''}`.trim(),
+      phone: student.phone,
+    });
+    classesMap[student.id] = classResults[i];
+  });
+
+  if (sendToParents && students.length > 0) {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const studentIds = students.map((s) => s.id);
+    const { data: parentStudents, error } = await supabase
+      .from('parents_students')
+      .select(
+        `
+        parent_id,
+        student_id,
+        parents (
+          id,
+          first_name,
+          last_name,
+          phone
+        )
+      `
+      )
+      .in('student_id', studentIds);
+
+    if (!error && parentStudents) {
+      const typed = parentStudents as ParentStudentRow[];
+      typed.forEach((ps) => {
+        if (ps.parents) {
+          allRecipients.push({
+            id: `parent-${ps.parent_id}`,
+            type: 'parent',
+            name: `${ps.parents.first_name || ''} ${ps.parents.last_name || ''}`.trim(),
+            phone: ps.parents.phone,
+            studentId: ps.student_id,
+          });
+        }
+      });
+    }
+  }
+
+  return { recipients: allRecipients, studentClasses: classesMap };
+}
 
 
 

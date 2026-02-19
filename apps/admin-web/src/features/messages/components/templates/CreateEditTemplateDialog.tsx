@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -23,9 +23,7 @@ import {
 } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import { useCreateTemplate, useUpdateTemplate } from '../../api/templates';
-import { getSampleStudents } from '../../utils/templateHelpers';
-import { getStudentClasses } from '../../api/bulk';
-import { replaceVariables } from '../../utils/variableReplacer';
+import { useSampleStudents, useStudentClassesForTemplate } from '../../hooks/useTemplatePreviewData';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
@@ -47,37 +45,22 @@ export function CreateEditTemplateDialog({
   const createMutation = useCreateTemplate();
   const updateMutation = useUpdateTemplate();
   const { data: currentStaff } = useCurrentStaff();
-  
+
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
-  const [sampleStudents, setSampleStudents] = useState<Tables<'students'>[]>([]);
-  const [studentClasses, setStudentClasses] = useState<Record<string, Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>>>({});
-  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
-  const [isLoadingClasses, setIsLoadingClasses] = useState(false);
-  
+
+  const { data: sampleStudents = [], isLoading: isLoadingStudents } = useSampleStudents(isOpen);
+  const { data: studentClassesList, isLoading: isLoadingClasses } =
+    useStudentClassesForTemplate(selectedStudentId || null);
+
+  const studentClasses = useMemo(() => {
+    if (!selectedStudentId || !studentClassesList) return {};
+    return { [selectedStudentId]: studentClassesList };
+  }, [selectedStudentId, studentClassesList]);
+
   const nameInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
-
-  const loadSampleStudents = useCallback(async () => {
-    setIsLoadingStudents(true);
-    try {
-      const students = await getSampleStudents();
-      setSampleStudents(students);
-      if (students.length > 0 && !selectedStudentId) {
-        setSelectedStudentId(students[0].id);
-      }
-    } catch (error) {
-      console.error('Error loading sample students:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load sample students for preview.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoadingStudents(false);
-    }
-  }, [selectedStudentId, toast]);
 
   // Initialize form when dialog opens or template changes
   useEffect(() => {
@@ -89,11 +72,8 @@ export function CreateEditTemplateDialog({
         setName('');
         setContent('');
       }
-      
-      // Load sample students
-      loadSampleStudents();
     }
-  }, [isOpen, template, loadSampleStudents]);
+  }, [isOpen, template]);
 
   // Auto-focus on name input when creating, content when editing
   useEffect(() => {
@@ -108,34 +88,12 @@ export function CreateEditTemplateDialog({
     }
   }, [isOpen, template]);
 
-  // Load classes when student selection changes
-  useEffect(() => {
-    if (selectedStudentId && !studentClasses[selectedStudentId]) {
-      loadStudentClasses(selectedStudentId);
-    }
-  }, [selectedStudentId, studentClasses]);
-
   // Set first student as default when students load
   useEffect(() => {
     if (sampleStudents.length > 0 && !selectedStudentId) {
       setSelectedStudentId(sampleStudents[0].id);
     }
   }, [sampleStudents, selectedStudentId]);
-
-  const loadStudentClasses = async (studentId: string) => {
-    setIsLoadingClasses(true);
-    try {
-      const classes = await getStudentClasses(studentId);
-      setStudentClasses(prev => ({
-        ...prev,
-        [studentId]: classes,
-      }));
-    } catch (error) {
-      console.error('Error loading student classes:', error);
-    } finally {
-      setIsLoadingClasses(false);
-    }
-  };
 
   const handleInsertVariable = (variable: string) => {
     const textarea = contentTextareaRef.current;

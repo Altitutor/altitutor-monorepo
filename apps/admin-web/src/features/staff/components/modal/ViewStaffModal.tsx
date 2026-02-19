@@ -278,6 +278,8 @@ export function ViewStaffModal({
                     {staffId && (
                       <ActionsMenu
                         type="staff"
+                        entityId={staffId}
+                        copyTagDisplayText={`${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim()}
                         {...staffActions}
                       />
                     )}

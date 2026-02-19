@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,10 +11,12 @@ import {
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check, X } from 'lucide-react';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  useRegistrationInviteData,
+  registrationInviteDataKeys,
+} from '../hooks/useRegistrationInviteData';
 
 interface SendRegistrationInviteDialogProps {
   isOpen: boolean;
@@ -28,107 +30,76 @@ export function SendRegistrationInviteDialog({
   studentId,
 }: SendRegistrationInviteDialogProps) {
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
+  const queryClient = useQueryClient();
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSendingSms, setIsSendingSms] = useState(false);
-  const [token, setToken] = useState<string | null>(null);
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [student, setStudent] = useState<{ first_name: string; last_name: string; email: string | null; phone: string | null } | null>(null);
-  const [parents, setParents] = useState<Array<{ id: string; first_name: string; last_name: string; email: string | null; phone: string | null }>>([]);
 
-  // Fetch student and parent data
-  useEffect(() => {
-    if (!isOpen || !studentId) return;
+  const { data, isLoading, isError } = useRegistrationInviteData(
+    studentId,
+    isOpen
+  );
+  const student = data?.student ?? null;
+  const parents = data?.parents ?? [];
+  const token = data?.token ?? null;
+  const inviteUrl = data?.inviteUrl ?? null;
 
-    const fetchData = async () => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      
-      // Fetch student INCLUDING invite_token
-      const { data: studentData, error: studentError } = await supabase
-        .from('students')
-        .select('id, first_name, last_name, email, phone, invite_token')
-        .eq('id', studentId)
-        .single();
-
-      if (studentError || !studentData) {
-        toast({
-          title: 'Error',
-          description: 'Failed to load student data',
-          variant: 'destructive',
-        });
-        return;
-      }
-
-      setStudent(studentData);
-
-      // If there's an existing token, use it instead of generating a new one
-      if (studentData.invite_token) {
-        setToken(studentData.invite_token);
-        const url = getInviteUrlForStudent(studentData.invite_token, 'register');
-        setInviteUrl(url);
-      }
-
-      // Fetch parents
-      const { data: parentsData, error: parentsError } = await supabase
-        .from('parents_students')
-        .select('parent_id, parents(id, first_name, last_name, email, phone)')
-        .eq('student_id', studentId);
-
-      if (!parentsError && parentsData) {
-        const parentList = parentsData
-          .map((ps: any) => ps.parents)
-          .filter((p: any) => p !== null);
-        setParents(parentList);
-      }
-    };
-
-    fetchData();
-  }, [isOpen, studentId, toast]);
-
-  const handleGenerateToken = useCallback(async () => {
-    // Skip if we already have a token
-    if (token) return;
-
-    try {
-      setIsGenerating(true);
+  const generateTokenMutation = useMutation({
+    mutationFn: async () => {
       const response = await fetch('/api/students/send-registration-invite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ studentId }),
       });
-
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to generate registration invite');
+        const resp = await response.json();
+        throw new Error(resp.error || 'Failed to generate registration invite');
       }
-
       const result = await response.json();
-      setToken(result.token);
-      
-      // Build the registration URL for student-web
-      const url = getInviteUrlForStudent(result.token, 'register');
-      setInviteUrl(url);
-    } catch (error) {
-      console.error('Failed to generate token:', error);
+      return result.token as string;
+    },
+    onSuccess: (newToken) => {
+      const url = getInviteUrlForStudent(newToken, 'register');
+      queryClient.setQueryData(
+        registrationInviteDataKeys.detail(studentId),
+        (prev: { student: unknown; parents: unknown } | undefined) =>
+          prev ? { ...prev, token: newToken, inviteUrl: url } : prev
+      );
+    },
+    onError: (err) => {
       toast({
         title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to generate registration invite',
+        description: err instanceof Error ? err.message : 'Failed to generate registration invite',
         variant: 'destructive',
       });
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [studentId, token, toast]);
+    },
+  });
 
-  // Generate token when modal opens ONLY if no existing token
+  const isGenerating = generateTokenMutation.isPending;
+
+  // Auto-generate token when modal opens and no existing token
   useEffect(() => {
-    if (isOpen && !token) {
-      handleGenerateToken();
+    if (
+      isOpen &&
+      !token &&
+      !isLoading &&
+      student &&
+      !generateTokenMutation.isPending &&
+      !generateTokenMutation.isSuccess
+    ) {
+      generateTokenMutation.mutate();
     }
-  }, [isOpen, token, handleGenerateToken]);
+  }, [
+    isOpen,
+    token,
+    isLoading,
+    student,
+    generateTokenMutation.isPending,
+    generateTokenMutation.isSuccess,
+    generateTokenMutation.mutate,
+  ]);
 
   const handleCopyUrl = async () => {
     if (!inviteUrl) return;
@@ -225,13 +196,21 @@ export function SendRegistrationInviteDialog({
   };
 
   const handleClose = () => {
-    setToken(null);
-    setInviteUrl(null);
     setEmailSent(false);
     setSmsSent(false);
     setCopied(false);
     onClose();
   };
+
+  useEffect(() => {
+    if (isOpen && isError) {
+      toast({
+        title: 'Error',
+        description: 'Failed to load student data',
+        variant: 'destructive',
+      });
+    }
+  }, [isOpen, isError, toast]);
 
   // Determine who to send to (parents with email/phone, or student)
   const recipients = parents.filter(p => p.email || p.phone);

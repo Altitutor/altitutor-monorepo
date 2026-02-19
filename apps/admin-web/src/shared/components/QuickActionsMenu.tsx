@@ -16,7 +16,7 @@ import { getBookingActions, getNonBookingActions } from '@/shared/constants/quic
 
 export function QuickActionsMenu() {
   const minimized = useChatStore(s => s.minimized);
-  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog } = useQuickActions();
+  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog } = useQuickActions();
   
   const bookingActions = getBookingActions();
   const nonBookingActions = getNonBookingActions();
@@ -74,6 +74,8 @@ export function QuickActionsMenu() {
                 openLogAbsenceDialog();
               } else if (action.actionType === 'log-staff-absence') {
                 openLogStaffAbsenceDialog();
+              } else if (action.actionType === 'create-issue') {
+                openCreateIssueDialog();
               }
             };
 
@@ -89,4 +91,3 @@ export function QuickActionsMenu() {
     </div>
   );
 }
-

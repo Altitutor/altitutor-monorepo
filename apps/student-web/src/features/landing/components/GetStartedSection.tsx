@@ -4,11 +4,13 @@ import Link from 'next/link';
 import { Button } from '@altitutor/ui';
 import { SectionWrapper } from './SectionWrapper';
 import { ArrowRight } from 'lucide-react';
-import { useAuth } from '@/features/auth/providers/AuthProvider';
 
-export function GetStartedSection() {
-  const { session } = useAuth();
-  const isLoggedIn = !!session;
+interface GetStartedSectionProps {
+  /** Whether the user is logged in - provided by app-level composition */
+  isLoggedIn: boolean;
+}
+
+export function GetStartedSection({ isLoggedIn }: GetStartedSectionProps) {
 
   return (
     <SectionWrapper id="getstarted" className="bg-brand-lightBlue dark:bg-brand-darkBlue flex items-center">

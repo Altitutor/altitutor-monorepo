@@ -1,7 +1,7 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
-import { FormControl, FormField, FormItem } from '@altitutor/ui';
+import { FormControl, FormField, FormItem, type JSONContent } from '@altitutor/ui';
 import {
   Select,
   SelectContent,
@@ -13,14 +13,18 @@ import { z } from 'zod';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  content: z.string(),
+  content: z.any(),
   folder_id: z.string().nullable().optional(),
 });
 
-type FormData = z.infer<typeof formSchema>;
+type FormData = {
+  title: string;
+  content: JSONContent | string;
+  folder_id?: string | null;
+};
 
 interface NotePropertyPillsProps {
-  form: UseFormReturn<FormData>;
+  form: UseFormReturn<any>;
   folders?: Array<{ id: string; name: string }>;
 }
 

@@ -20,8 +20,8 @@
     "db:types:remote": "pnpm exec supabase gen types typescript --project-id \"$SUPABASE_PROJECT_ID\" --schema public > packages/shared/src/supabase/generated.ts && pnpm --filter @altitutor/shared run build"
   },
   "devDependencies": {
-    "supabase": "^2.54.11",
-    "turbo": "^2.0.0"
+    "supabase": "^2.76.9",
+    "turbo": "^2.8.9"
   },
   "packageManager": "pnpm@10.0.0",
   "repository": {

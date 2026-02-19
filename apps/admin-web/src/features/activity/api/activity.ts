@@ -20,6 +20,7 @@ export const activityApi = {
       classId,
       sessionId,
       parentId,
+      issueId,
       limit = 50,
       offset = 0,
     } = params;
@@ -37,22 +38,49 @@ export const activityApi = {
 
     // Filter by denormalized foreign keys
     if (studentId) {
-      query = query.eq('student_id', studentId);
+      if (Array.isArray(studentId)) {
+        query = query.in('student_id', studentId);
+      } else {
+        query = query.eq('student_id', studentId);
+      }
     }
     if (staffId) {
-      // For staff activity, show both:
-      // 1. Actions performed BY the staff (performed_by)
-      // 2. Actions performed ON the staff (staff_id)
-      query = query.or(`staff_id.eq.${staffId},performed_by.eq.${staffId}`);
+      if (Array.isArray(staffId)) {
+        query = query.or(`staff_id.in.(${staffId.join(',')}),performed_by.in.(${staffId.join(',')})`);
+      } else {
+        query = query.or(`staff_id.eq.${staffId},performed_by.eq.${staffId}`);
+      }
     }
     if (classId) {
-      query = query.eq('class_id', classId);
+      if (Array.isArray(classId)) {
+        query = query.in('class_id', classId);
+      } else {
+        query = query.eq('class_id', classId);
+      }
     }
     if (sessionId) {
-      query = query.eq('session_id', sessionId);
+      if (Array.isArray(sessionId)) {
+        query = query.in('session_id', sessionId);
+      } else {
+        query = query.eq('session_id', sessionId);
+      }
     }
     if (parentId) {
-      query = query.eq('parent_id', parentId);
+      if (Array.isArray(parentId)) {
+        query = query.in('parent_id', parentId);
+      } else {
+        query = query.eq('parent_id', parentId);
+      }
+    }
+    if (issueId) {
+      if (Array.isArray(issueId)) {
+        query = query.in('issue_id', issueId);
+      } else {
+        query = query.eq('issue_id', issueId);
+      }
+    }
+    if (params.or) {
+      query = query.or(params.or);
     }
 
     // Pagination
@@ -69,6 +97,7 @@ export const activityApi = {
     const sessionIds = new Set<string>();
     const parentIds = new Set<string>();
     const taskIds = new Set<string>();
+    const issueIds = new Set<string>();
     const subjectIds = new Set<string>();
     const noteIds = new Set<string>();
     const studentsSubjectsIds = new Set<string>();
@@ -81,6 +110,7 @@ export const activityApi = {
       if (event.session_id) sessionIds.add(event.session_id);
       if (event.parent_id) parentIds.add(event.parent_id);
       if (event.task_id) taskIds.add(event.task_id);
+      if (event.issue_id) issueIds.add(event.issue_id);
       
       // For notes CREATED events, fetch the note content
       if (event.entity_type === 'notes' && event.event_type === 'CREATED') {
@@ -109,7 +139,7 @@ export const activityApi = {
     }
 
     // Fetch related entities in parallel
-    const [staffData, studentsData, classesData, sessionsData, parentsData, tasksData, subjectsData, notesData] = await Promise.all([
+    const [staffData, studentsData, classesData, sessionsData, parentsData, tasksData, issuesData, subjectsData, notesData] = await Promise.all([
       staffIds.size > 0
         ? supabase
             .from('staff')
@@ -146,6 +176,12 @@ export const activityApi = {
             .select('id, title, status')
             .in('id', Array.from(taskIds))
         : Promise.resolve({ data: [], error: null }),
+      issueIds.size > 0
+        ? supabase
+            .from('issues')
+            .select('id, name, status')
+            .in('id', Array.from(issueIds))
+        : Promise.resolve({ data: [], error: null }),
       subjectIds.size > 0
         ? supabase
             .from('subjects')
@@ -168,6 +204,7 @@ export const activityApi = {
       sessions: {},
       parents: {},
       tasks: {},
+      issues: {},
       subjects: {},
       notes: {},
     };
@@ -229,6 +266,10 @@ export const activityApi = {
 
     tasksData.data?.forEach((task) => {
       relatedEntities.tasks![task.id] = task as any;
+    });
+
+    issuesData.data?.forEach((issue) => {
+      relatedEntities.issues![issue.id] = issue as any;
     });
 
     subjectsData.data?.forEach((subject) => {
@@ -310,6 +351,49 @@ export const activityApi = {
    */
   getTaskActivity: async (taskId: string, limit = 50, offset = 0) => {
     return activityApi.getActivityEvents({ entityType: 'tasks', entityId: taskId, limit, offset });
+  },
+
+  /**
+   * Get activity events for an issue, including activities for all linked entities
+   */
+  getIssueActivity: async (params: { 
+    issueId: string; 
+    studentIds?: string[]; 
+    staffIds?: string[]; 
+    classIds?: string[]; 
+    sessionIds?: string[]; 
+    invoiceIds?: string[]; 
+    limit?: number; 
+    offset?: number; 
+  }) => {
+    const { issueId, studentIds, staffIds, classIds, sessionIds, invoiceIds, limit = 50, offset = 0 } = params;
+
+    // Build complex OR filter
+    const orParts: string[] = [`issue_id.eq.${issueId}`];
+    
+    if (studentIds && studentIds.length > 0) {
+      orParts.push(`student_id.in.(${studentIds.join(',')})`);
+    }
+    if (staffIds && staffIds.length > 0) {
+      orParts.push(`staff_id.in.(${staffIds.join(',')})`);
+    }
+    if (classIds && classIds.length > 0) {
+      orParts.push(`class_id.in.(${classIds.join(',')})`);
+    }
+    if (sessionIds && sessionIds.length > 0) {
+      orParts.push(`session_id.in.(${sessionIds.join(',')})`);
+    }
+    
+    // For invoices we use entity_type/entity_id since there's no denormalized column yet
+    if (invoiceIds && invoiceIds.length > 0) {
+      orParts.push(`and(entity_type.eq.invoices,entity_id.in.(${invoiceIds.join(',')}))`);
+    }
+
+    return activityApi.getActivityEvents({ 
+      or: orParts.join(','),
+      limit, 
+      offset 
+    });
   },
 
   /**

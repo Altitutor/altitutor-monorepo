@@ -1,11 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useTutorLogStep7Data } from '../../hooks/useTutorLogStep7Data';
 
 type TopicItem = {
   topicId: string;
@@ -29,76 +27,33 @@ export function Step7FileStudents({
   topicFiles,
   onUpdate,
 }: Step7FileStudentsProps) {
-  const [filesData, setFilesData] = useState<Tables<'topics_files'>[]>([]);
-  const [topicsData, setTopicsData] = useState<Tables<'topics'>[]>([]);
-  const [studentsData, setStudentsData] = useState<Tables<'students'>[]>([]);
+  const fileIds = topicFiles.map((tf) => tf.topicsFilesId);
+  const topicIds = topics.map((t) => t.topicId);
+  const studentIds = Array.from(new Set(topics.flatMap((t) => t.studentIds)));
 
+  const { filesData, topicsData, studentsData, isLoading } = useTutorLogStep7Data(
+    topicIds,
+    fileIds,
+    studentIds
+  );
+
+  // Initialize file studentIds from topic when data loads
   useEffect(() => {
-    const fetchData = async () => {
-      const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-
-      const fileIds = topicFiles.map((tf) => tf.topicsFilesId);
-      const topicIds = topics.map((t) => t.topicId);
-      const studentIds = Array.from(new Set(topics.flatMap((t) => t.studentIds)));
-
-      if (fileIds.length > 0) {
-        const { data: filesRes } = await supabase
-          .from('vtutor_topics_files')
-          .select('*')
-          .in('id', fileIds);
-        // Filter and map to topics_files type (view includes extra file fields)
-        setFilesData((filesRes || []).filter(f => 
-          f.id != null && 
-          f.file_id != null && 
-          f.topic_id != null && 
-          f.index != null &&
-          f.code != null &&
-          typeof f.type === 'string'
-        ).map(f => ({
-          id: f.id!,
-          topic_id: f.topic_id!,
-          type: f.type,
-          index: f.index!,
-          code: f.code!,
-          file_id: f.file_id!,
-          is_solutions: f.is_solutions,
-          is_solutions_of_id: f.is_solutions_of_id,
-          created_at: f.created_at,
-          updated_at: f.updated_at,
-          created_by: f.created_by,
-        })) as Tables<'topics_files'>[]);
-      }
-
-      if (topicIds.length > 0) {
-        const { data: topicsRes } = await supabase
-          .from('vtutor_topics')
-          .select('*')
-          .in('id', topicIds);
-        setTopicsData((topicsRes || []).filter((t): t is Tables<'topics'> => t.id != null && t.name != null && t.subject_id != null));
-      }
-
-      if (studentIds.length > 0) {
-        const { data: studentsRes } = await supabase
-          .from('vtutor_students')
-          .select('*')
-          .in('id', studentIds);
-        setStudentsData((studentsRes || []) as Tables<'students'>[]);
-      }
-
-      // Initialize with students from the topic
+    if (!isLoading && topicFiles.length > 0) {
+      const needsInit = topicFiles.some((f) => f.studentIds.length === 0);
+      if (!needsInit) return;
       const updatedFiles = topicFiles.map((file) => {
         const topic = topics.find((t) => t.topicId === file.topicId);
         return {
           ...file,
-          studentIds: file.studentIds.length > 0 ? file.studentIds : (topic?.studentIds || []),
+          studentIds:
+            file.studentIds.length > 0 ? file.studentIds : (topic?.studentIds || []),
         };
       });
       onUpdate(updatedFiles);
-    };
-
-    fetchData();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topicFiles.length, topics.length]);
+  }, [isLoading, topicFiles.length, topics.length]);
 
   const handleRemoveStudent = (fileId: string, studentId: string) => {
     onUpdate(

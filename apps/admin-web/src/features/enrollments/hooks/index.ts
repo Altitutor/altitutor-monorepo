@@ -9,4 +9,5 @@ export { useClassConflicts } from './useClassConflicts';
 export { useAssignStaffData } from './useAssignStaffData';
 export { useAssignStaffConflicts } from './useAssignStaffConflicts';
 export { useAssignStaffFlow } from './useAssignStaffFlow';
+export { useParentsForStudent } from './useParentsForStudent';
 

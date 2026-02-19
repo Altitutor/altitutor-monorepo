@@ -11,7 +11,7 @@ import {
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
-import { invitesApi } from '@/features/auth/api/invites';
+import { sharedInvitesApi } from '@/shared/api/invites';
 import type { Tables } from '@altitutor/shared';
 
 interface SendInviteDialogProps {
@@ -41,7 +41,7 @@ export function SendInviteDialog({
   const handleGenerateToken = useCallback(async () => {
     try {
       setIsGenerating(true);
-      const result = await invitesApi.generateInviteToken({
+      const result = await sharedInvitesApi.generateInviteToken({
         type: 'staff',
         id: staffMember.id,
       });
@@ -95,7 +95,7 @@ export function SendInviteDialog({
 
     try {
       setIsSendingEmail(true);
-      await invitesApi.sendInviteEmail({
+      await sharedInvitesApi.sendInviteEmail({
         type: 'staff',
         id: staffMember.id,
         token,
@@ -122,7 +122,7 @@ export function SendInviteDialog({
 
     try {
       setIsSendingSms(true);
-      await invitesApi.sendInviteSms({
+      await sharedInvitesApi.sendInviteSms({
         type: 'staff',
         id: staffMember.id,
         token,

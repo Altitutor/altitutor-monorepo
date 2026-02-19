@@ -23,7 +23,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@altitutor/ui';
-import { useDeleteNote } from '../api/mutations';
+import { useDeleteNote } from '../hooks/useNoteMutations';
 import { RenameNoteDialog } from './RenameNoteDialog';
 import type { Note } from '../types';
 

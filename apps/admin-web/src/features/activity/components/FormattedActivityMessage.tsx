@@ -1,5 +1,5 @@
 import type { ActivityEventDisplay } from '../types';
-import { renderTextWithTagsAsPlainText } from '@/features/tasks/utils/tagDisplay';
+import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
 
 interface FormattedActivityMessageProps {
   activity: ActivityEventDisplay;

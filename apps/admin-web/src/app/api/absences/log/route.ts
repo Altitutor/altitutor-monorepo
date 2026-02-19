@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@altitutor/shared';
-import type { Json } from '@altitutor/shared/supabase/generated';
+import type { Database, Json } from '@altitutor/shared';
 
 export async function POST(request: Request) {
   try {
