@@ -64,6 +64,7 @@ export function BookingFlow({
               height={36}
               priority
               className="object-contain"
+              style={{ height: 'auto' }}
             />
           </div>
         </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { BookingFlow } from '@/features/bookings/components/BookingFlow';
 import { TimeSlotPicker } from '@/features/bookings/components/TimeSlotPicker';
@@ -78,25 +78,29 @@ export default function BookTrialPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
-  // Sync query params with state (but don't overwrite on initial mount)
+  // Sync query params with state; only replace when desired params differ from URL to avoid loops
+  const lastSyncedParamsRef = useRef<string | null>(null);
   useEffect(() => {
     const params = new URLSearchParams();
     params.set('step', currentStep.toString());
-    
+
     if (selectedSlot) {
       const startDate = new Date(selectedSlot.startAt);
       params.set('date', startDate.toISOString().split('T')[0]);
       params.set('time', `${selectedSlot.startAt}/${selectedSlot.endAt}`);
     }
-    
-    // Only update if params actually changed to avoid infinite loops
-    const currentParams = new URLSearchParams(window.location.search);
-    const stepChanged = currentParams.get('step') !== currentStep.toString();
-    const timeChanged = currentParams.get('time') !== (selectedSlot ? `${selectedSlot.startAt}/${selectedSlot.endAt}` : null);
-    
-    if (stepChanged || timeChanged) {
-      router.replace(`/booking/trial-session?${params.toString()}`, { scroll: false });
+
+    const desiredSearch = params.toString();
+    const currentSearch = typeof window !== 'undefined' ? window.location.search.slice(1) : '';
+
+    if (desiredSearch === lastSyncedParamsRef.current) return;
+    if (desiredSearch === currentSearch) {
+      lastSyncedParamsRef.current = desiredSearch;
+      return;
     }
+
+    lastSyncedParamsRef.current = desiredSearch;
+    router.replace(`/booking/trial-session?${desiredSearch}`, { scroll: false });
   }, [currentStep, selectedSlot, router]);
 
   const handleSlotSelect = (startAt: string, endAt: string, availableStaffIds: string[]) => {
