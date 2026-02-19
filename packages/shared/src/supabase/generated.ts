@@ -2170,6 +2170,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: Json | null
+          due_date: string | null
           id: string
           name: string
           search_vector: unknown
@@ -2180,6 +2181,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: Json | null
+          due_date?: string | null
           id?: string
           name: string
           search_vector?: unknown
@@ -2190,6 +2192,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: Json | null
+          due_date?: string | null
           id?: string
           name?: string
           search_vector?: unknown
@@ -8108,4 +8111,3 @@ export const Constants = {
     },
   },
 } as const
-
