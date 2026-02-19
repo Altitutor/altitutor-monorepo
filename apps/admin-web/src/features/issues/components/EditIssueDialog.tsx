@@ -32,6 +32,7 @@ import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
 import { useIssueAutoSave } from '../hooks/useIssueAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -105,6 +106,11 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
       description: null,
       status: 'open',
     },
+  });
+
+  const liveTags = useLiveIssueTags({ 
+    form, 
+    initialTags: issue?.tags || [] 
   });
 
   useEffect(() => {
@@ -222,6 +228,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
                   <IssueContentPanel 
                     issue={issue}
                     isOpen={isOpen}
+                    tags={liveTags}
                   />
                 </form>
               </Form>

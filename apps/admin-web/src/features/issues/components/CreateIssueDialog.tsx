@@ -18,7 +18,8 @@ import { useCreateIssue } from '../api/mutations';
 import type { IssueStatus, IssueTagInsert } from '../types';
 import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
+import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -57,6 +58,8 @@ export function CreateIssueDialog({
       status: initialStatus,
     },
   });
+
+  const liveTags = useLiveIssueTags({ form, initialTags });
 
   useEffect(() => {
     if (isOpen) {
@@ -124,7 +127,7 @@ export function CreateIssueDialog({
                 
                 <IssueContentPanel 
                   isOpen={isOpen}
-                  tags={initialTags}
+                  tags={liveTags}
                 />
               </form>
             </Form>
