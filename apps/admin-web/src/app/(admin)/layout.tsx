@@ -23,10 +23,6 @@ import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
 import { format } from 'date-fns';
-
-const ChatDock = dynamic(() => import('@/features/messages/floating/ChatDock').then(mod => ({ default: mod.ChatDock })), {
-  ssr: false,
-});
 import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -409,8 +405,6 @@ function AdminLayoutContent({
             </div>
           )}
           {children}
-          {/* Floating chat dock (admin-only) */}
-          <ChatDock />
           {/* Quick action modals */}
           {currentStaff?.id && (
             <>

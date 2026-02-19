@@ -26,6 +26,7 @@ import { useNotificationsRealtime } from '@/features/notifications';
 import { NotepadButton } from '@/features/notepad';
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
 import { DashboardDatePicker } from './DashboardDatePicker';
+import { MessagesDropdown } from '@/features/messages/components/MessagesDropdown';
 
 export function Navbar() {
   const router = useRouter();
@@ -147,6 +148,9 @@ export function Navbar() {
           {user && staffRecord?.id && (
             <NotificationsTray staffId={staffRecord.id} />
           )}
+          
+          {/* Messages Button */}
+          {user && <MessagesDropdown />}
           
           {/* Profile Menu */}
           {user ? (

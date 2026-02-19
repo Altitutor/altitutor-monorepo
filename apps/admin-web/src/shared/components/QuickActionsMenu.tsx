@@ -1,6 +1,5 @@
 'use client';
 
-import { useChatStore } from '@/features/messages/state/chatStore';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import {
   DropdownMenu,
@@ -19,16 +18,10 @@ type QuickActionsMenuProps = {
 };
 
 export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps) {
-  const minimized = useChatStore(s => s.minimized);
   const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog } = useQuickActions();
   
   const bookingActions = getBookingActions();
   const nonBookingActions = getNonBookingActions();
-
-  // Hide floating variant when messages are expanded (not minimized)
-  if (variant === 'floating' && !minimized) {
-    return null;
-  }
 
   if (variant === 'inline') {
     return (

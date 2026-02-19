@@ -13,9 +13,11 @@ interface IssuePillProps {
   entityId: string | null;
   enabled?: boolean;
   className?: string;
+  /** When true, pills get max width, truncate, and show full name on hover */
+  truncateWithTitle?: boolean;
 }
 
-export function IssuePill({ entityType, entityId, enabled = true, className }: IssuePillProps) {
+export function IssuePill({ entityType, entityId, enabled = true, className, truncateWithTitle = false }: IssuePillProps) {
   const { data: issues = [], isLoading } = useOpenIssuesByEntity(entityType, entityId, enabled);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -31,26 +33,34 @@ export function IssuePill({ entityType, entityId, enabled = true, className }: I
 
   return (
     <>
-      <div className={cn('flex items-center gap-2 flex-wrap', className)}>
+      <div className={cn('flex items-center gap-2 flex-wrap min-w-0', className)}>
         {issues.map((issue) => {
           const Icon = issue.status === 'open' ? Circle : Clock;
           const iconColor = issue.status === 'open' ? 'text-orange-500' : 'text-yellow-500';
+
+          const badgeContent = (
+            <>
+              <Icon className={cn('h-3 w-3 flex-shrink-0', iconColor)} />
+              <span className={cn('text-xs', truncateWithTitle && 'truncate max-w-[140px] min-w-0')}>
+                <TextWithTags text={issue.name} />
+              </span>
+            </>
+          );
 
           return (
             <Badge
               key={issue.id}
               variant="outline"
+              title={truncateWithTitle ? issue.name : undefined}
               className={cn(
-                'cursor-pointer transition-colors flex items-center gap-1.5',
+                'cursor-pointer transition-colors flex items-center gap-1.5 max-w-[180px] min-w-0',
+                truncateWithTitle && 'overflow-hidden',
                 'hover:bg-accent hover:text-accent-foreground',
                 'dark:hover:bg-accent/80 dark:hover:border-accent-foreground/20'
               )}
               onClick={() => handleIssueClick(issue.id)}
             >
-              <Icon className={cn('h-3 w-3', iconColor)} />
-              <span className="text-xs">
-                <TextWithTags text={issue.name} />
-              </span>
+              {badgeContent}
             </Badge>
           );
         })}
