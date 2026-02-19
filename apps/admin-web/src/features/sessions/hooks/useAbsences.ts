@@ -4,6 +4,8 @@ import { sessionsKeys } from './useSessionsQuery';
 import type {
   AbsenceOperation,
   LogAbsencesResponse,
+  UndoAbsenceOperation,
+  UndoAbsencesResponse,
   GetRescheduleSessionsParams,
   RescheduleSession,
   StudentSession,
@@ -11,10 +13,11 @@ import type {
 
 /**
  * Hook to get a student's future sessions
+ * @param weeksAhead - Number of weeks ahead to fetch, or null to fetch all future sessions
  */
 export function useStudentFutureSessions(
   studentId: string | null, 
-  weeksAhead: number = 8,
+  weeksAhead: number | null = 8,
   allowPastSessions: boolean = false,
   weeksBack: number = 4
 ) {
@@ -84,3 +87,30 @@ export function useLogAbsences() {
   });
 }
 
+/**
+ * Hook to undo student absences
+ */
+export function useUndoAbsences() {
+  const queryClient = useQueryClient();
+
+  return useMutation<UndoAbsencesResponse, Error, { operations: UndoAbsenceOperation[]; staffId: string }>({
+    mutationFn: ({ operations, staffId }) => absencesApi.undoAbsences(operations, staffId),
+    onSuccess: (data, variables) => {
+      if (data.success) {
+        const affectedStudentIds = new Set(variables.operations.map(op => op.student_id));
+        affectedStudentIds.forEach(studentId => {
+          queryClient.invalidateQueries({
+            queryKey: ['studentFutureSessions', studentId],
+          });
+        });
+
+        queryClient.invalidateQueries({
+          queryKey: sessionsKeys.all,
+        });
+      }
+    },
+    onError: (error) => {
+      console.error('Error undoing absences:', error);
+    },
+  });
+}

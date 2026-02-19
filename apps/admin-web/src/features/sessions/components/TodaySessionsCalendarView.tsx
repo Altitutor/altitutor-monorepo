@@ -1,21 +1,26 @@
 "use client";
 
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, parseISO } from 'date-fns';
 import { useSessionsWithDetails } from '../hooks/useSessionsQuery';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { SessionsCard } from './SessionsCard';
 
-type Props = { onOpenSession?: (id: string) => void };
+type Props = {
+  date?: string;
+  onOpenSession?: (id: string) => void;
+};
 
-export function TodaySessionsCalendarView({ onOpenSession }: Props) {
+export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
+  const selectedDate = date ? parseISO(date) : new Date();
+  const selectedDateStr = format(selectedDate, 'yyyy-MM-dd');
   const today = new Date();
-  const todayStr = format(today, 'yyyy-MM-dd');
+  const isViewingToday = isSameDay(selectedDate, today);
   
   const { data } = useSessionsWithDetails({ 
-    rangeStart: todayStr, 
-    rangeEnd: todayStr,
+    rangeStart: selectedDateStr, 
+    rangeEnd: selectedDateStr,
     includeInactive: false // Only show active sessions in calendar view
   });
 
@@ -23,7 +28,7 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
 
   const getTodaySessions = (): Tables<'sessions'>[] => {
     const sessions = ((data?.sessions as Tables<'sessions'>[]) || [])
-      .filter((s: any) => s.start_at && isSameDay(new Date(s.start_at), today));
+      .filter((s: any) => s.start_at && isSameDay(new Date(s.start_at), selectedDate));
     return sessions as Tables<'sessions'>[];
   };
 
@@ -76,12 +81,12 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
   // For current time indicator, use local time (user's current time)
   const currentMinutesFromStart = (today.getHours() * 60 + today.getMinutes()) - (startHour * 60);
   const totalMinutesInRange = slots.length * 60;
-  const showTodayIndicator = currentMinutesFromStart >= 0 && currentMinutesFromStart < totalMinutesInRange;
+  const showTodayIndicator = isViewingToday && currentMinutesFromStart >= 0 && currentMinutesFromStart < totalMinutesInRange;
 
   if (todaySessions.length === 0) {
     return (
       <div className="text-center py-8">
-        <p className="text-muted-foreground">No sessions scheduled for today</p>
+        <p className="text-muted-foreground">No sessions scheduled for this day</p>
       </div>
     );
   }
@@ -97,7 +102,7 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
           Time
         </div>
         <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-sm bg-blue-50 dark:bg-transparent text-blue-700 dark:text-foreground">
-          {format(today, 'EEE dd MMM')}
+          {format(selectedDate, 'EEE dd MMM')}
         </div>
 
         {/* Rows */}
@@ -298,4 +303,3 @@ export function TodaySessionsCalendarView({ onOpenSession }: Props) {
     </div>
   );
 }
-

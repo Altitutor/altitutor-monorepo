@@ -511,6 +511,10 @@ export function useMentionField<T extends Record<string, unknown>>({
       displayText = `${subjectName} ${dayAbbr} ${time}`.trim();
     } else if (result.type === 'subject') {
       displayText = result.data.long_name || result.data.short_name || result.data.name || '';
+    } else if (result.type === 'task') {
+      displayText = result.data.title || '';
+    } else if (result.type === 'issue') {
+      displayText = result.data.name || '';
     } else if (result.type === 'topic') {
       displayText = result.data.name || '';
     } else if (result.type === 'file') {

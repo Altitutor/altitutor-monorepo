@@ -218,6 +218,7 @@ export default function MessagesPage() {
             onTitleClick={activeContact ? handleTitleClick : undefined}
             onBack={handleBack}
             showBackButton={mobileView === 'thread'}
+            contact={activeContact}
           />
           <div className="flex-1 flex flex-col min-h-0">
             {activeContactId ? (

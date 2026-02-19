@@ -110,6 +110,8 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
           class:classes(
             id,
             subject_id,
+            start_time,
+            end_time,
             subject:subjects(*)
           )
         `)
@@ -124,6 +126,8 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
         .map((cls: any) => ({
           class_id: cls.id,
           subject: cls.subject as Tables<'subjects'>,
+          start_time: cls.start_time,
+          end_time: cls.end_time,
           billing_type: 'CLASS' as const, // Classes always use CLASS billing type
         }));
     },
@@ -179,20 +183,21 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
       };
     });
 
-    // Standard session duration: 1 hour for CLASS billing type
-    const standardDurationHours = 1;
-    const sessionStart = new Date();
-    const sessionEnd = new Date(sessionStart.getTime() + standardDurationHours * 60 * 60 * 1000);
-
     // Calculate price for each class (subject + billing type combination)
-    studentClasses.forEach(({ subject, billing_type, class_id }) => {
-      if (!billing_type || !subject) return;
+    studentClasses.forEach(({ subject, billing_type, class_id, start_time, end_time }) => {
+      if (!billing_type || !subject || !start_time || !end_time) return;
+
+      // Create session start and end times using the class's actual times
+      // Format: YYYY-MM-DDTHH:MM:SS (Adelaide local time, will be parsed correctly)
+      const dateStr = targetDate.toISOString().split('T')[0]; // Get YYYY-MM-DD
+      const sessionStart = `${dateStr}T${start_time}:00`;
+      const sessionEnd = `${dateStr}T${end_time}:00`;
 
       const session = {
         billing_type: billing_type,
         subject_id: subject.id,
-        start_at: sessionStart.toISOString(),
-        end_at: sessionEnd.toISOString(),
+        start_at: sessionStart,
+        end_at: sessionEnd,
       };
 
       const priceResult = calculateSessionPrice(

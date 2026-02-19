@@ -44,6 +44,7 @@ import {
   useStaffConversation,
 } from '../../hooks';
 import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
+import { IssuePill } from '@/features/issues';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -271,7 +272,14 @@ export function ViewStaffModal({
                           {editFlow.isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
                         </SheetTitle>
                         <SheetDescription className="text-lg font-medium">
-                          {staffMember.first_name} {staffMember.last_name}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {staffMember.first_name} {staffMember.last_name}
+                            <IssuePill
+                              entityType="staff"
+                              entityId={staffId}
+                              enabled={isOpen && !!staffId}
+                            />
+                          </div>
                         </SheetDescription>
                       </div>
                     </div>

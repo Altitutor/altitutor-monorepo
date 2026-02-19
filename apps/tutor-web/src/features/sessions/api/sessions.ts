@@ -159,4 +159,42 @@ export const sessionsApi = {
     
     return detailsMap;
   },
+
+  /**
+   * Assign a staff member to a session
+   * Uses API route that handles authorization
+   */
+  assignStaffToSession: async (sessionId: string, staffId: string, type: string = 'MAIN_TUTOR') => {
+    const response = await fetch(`/api/sessions/${sessionId}/staff`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ staffId, type }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to assign staff to session' }));
+      throw new Error(error.error || 'Failed to assign staff to session');
+    }
+    
+    return response.json();
+  },
+
+  /**
+   * Add a student to a session
+   * Uses API route that handles authorization
+   */
+  addStudentToSession: async (sessionId: string, studentId: string) => {
+    const response = await fetch(`/api/sessions/${sessionId}/students`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ studentId }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to add student to session' }));
+      throw new Error(error.error || 'Failed to add student to session');
+    }
+    
+    return response.json();
+  },
 };

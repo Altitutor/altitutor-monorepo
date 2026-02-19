@@ -69,6 +69,20 @@ export function getEntityDisplayText(result: CommandPaletteEntityResult): Entity
     };
   }
 
+  if (result.type === 'task') {
+    return {
+      title: result.data.title || '',
+      subtitle: result.data.status || null,
+    };
+  }
+
+  if (result.type === 'issue') {
+    return {
+      title: result.data.name || '',
+      subtitle: result.data.status || null,
+    };
+  }
+
   if (result.type === 'topic') {
     return {
       title: result.data.name || '',

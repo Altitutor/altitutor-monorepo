@@ -1,9 +1,10 @@
 'use client';
 
-import { Circle, Clock, CheckCircle } from 'lucide-react';
+import { Calendar, Circle, Clock, CheckCircle } from 'lucide-react';
 import type { IssueWithTags, IssueStatus } from '../types';
 import { cn } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
+import { formatIssueDueDate, isIssueOverdue } from '../utils/issueUtils';
 
 import { TextWithTags } from '@/shared/components/TextWithTags';
 
@@ -17,6 +18,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
   const status = issue.status as IssueStatus;
   const color = status === 'open' ? 'text-blue-500' : status === 'awaiting_response' ? 'text-yellow-500' : 'text-green-500';
   const Icon = status === 'open' ? Circle : status === 'awaiting_response' ? Clock : CheckCircle;
+  const overdue = isIssueOverdue(issue.due_date);
 
   return (
     <div
@@ -34,6 +36,19 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
           <Icon className="h-3 w-3" />
           <span>{status.replace('_', ' ')}</span>
         </div>
+
+        {issue.due_date && (
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-[10px] h-4 px-1 font-normal flex items-center gap-1',
+              overdue && 'border-red-500 text-red-700 dark:text-red-400'
+            )}
+          >
+            <Calendar className="h-3 w-3" />
+            {formatIssueDueDate(issue.due_date)}
+          </Badge>
+        )}
         
         {issue.tags.length > 0 && (
           <Badge variant="outline" className="text-[10px] h-4 px-1 font-normal opacity-60">

@@ -9,6 +9,8 @@ import { ViewParentModal } from '@/features/students/components/ViewParentModal'
 import { ViewSubjectModal } from '@/features/subjects/components';
 import { ViewTopicModal } from '@/features/topics/components';
 import { FilePreviewModal } from '@/features/topics/components';
+import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
+import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -27,6 +29,8 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [selectedTopicId, setSelectedTopicId] = useState<string | null>(null);
   const [selectedTopicFileId, setSelectedTopicFileId] = useState<string | null>(null);
+  const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -34,6 +38,8 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
   const [isTopicModalOpen, setIsTopicModalOpen] = useState(false);
   const [isFilePreviewModalOpen, setIsFilePreviewModalOpen] = useState(false);
+  const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
+  const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -56,6 +62,8 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     setSelectedSubjectId(null);
     setSelectedTopicId(null);
     setSelectedTopicFileId(null);
+    setSelectedIssueId(null);
+    setSelectedTaskId(null);
     setIsStudentModalOpen(false);
     setIsStaffModalOpen(false);
     setIsClassModalOpen(false);
@@ -63,6 +71,8 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     setIsSubjectModalOpen(false);
     setIsTopicModalOpen(false);
     setIsFilePreviewModalOpen(false);
+    setIsIssueModalOpen(false);
+    setIsTaskModalOpen(false);
     
     // Set the appropriate state based on entity type
     if (type === 'student') {
@@ -87,10 +97,16 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
       // For files, id is the topics_file_id
       setSelectedTopicFileId(id);
       setIsFilePreviewModalOpen(true);
+    } else if (type === 'issue') {
+      setSelectedIssueId(id);
+      setIsIssueModalOpen(true);
+    } else if (type === 'task') {
+      setSelectedTaskId(id);
+      setIsTaskModalOpen(true);
     }
   };
 
-  if (!isOpen && !selectedStudentId && !selectedStaffId && !selectedClassId && !selectedParentId && !selectedSubjectId && !selectedTopicId && !selectedTopicFileId) {
+  if (!isOpen && !selectedStudentId && !selectedStaffId && !selectedClassId && !selectedParentId && !selectedSubjectId && !selectedTopicId && !selectedTopicFileId && !selectedIssueId && !selectedTaskId) {
     return null;
   }
 
@@ -191,6 +207,30 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
             setSelectedTopicFileId(null);
           }}
           topicFileId={selectedTopicFileId}
+        />
+      )}
+
+      {selectedIssueId && (
+        <EditIssueDialog
+          isOpen={isIssueModalOpen}
+          onClose={() => {
+            setIsIssueModalOpen(false);
+            setSelectedIssueId(null);
+          }}
+          issueId={selectedIssueId}
+          onIssueUpdated={() => {}}
+        />
+      )}
+
+      {selectedTaskId && (
+        <EditTaskDialog
+          isOpen={isTaskModalOpen}
+          onClose={() => {
+            setIsTaskModalOpen(false);
+            setSelectedTaskId(null);
+          }}
+          taskId={selectedTaskId}
+          onTaskUpdated={() => {}}
         />
       )}
     </>

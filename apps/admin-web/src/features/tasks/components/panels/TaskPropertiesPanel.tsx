@@ -5,6 +5,7 @@ import {
   TaskStatusField,
   TaskPriorityField,
   TaskAssigneeField,
+  TaskIssueField,
   TaskEstimateField,
   TaskDueDateField,
 } from '../fields';
@@ -17,6 +18,7 @@ type TaskFormData = {
   status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
   priority: number;
   assignedTo: string | null;
+  issueId: string | null;
   estimate: number | null;
   dueDate: string | null;
 };
@@ -25,6 +27,8 @@ interface TaskPropertiesPanelProps {
   form: UseFormReturn<TaskFormData>;
   selectedAssignee: Tables<'staff'> | null;
   onAssigneeChange: (staff: Tables<'staff'> | null) => void;
+  selectedIssue: { id: string; name: string | null } | null;
+  onIssueChange: (issue: { id: string; name: string | null } | null) => void;
   taskStatus?: TaskStatus;
   enabled?: boolean;
 }
@@ -33,6 +37,8 @@ export function TaskPropertiesPanel({
   form,
   selectedAssignee,
   onAssigneeChange,
+  selectedIssue,
+  onIssueChange,
   taskStatus,
   enabled = true,
 }: TaskPropertiesPanelProps) {
@@ -45,6 +51,11 @@ export function TaskPropertiesPanel({
         selectedAssignee={selectedAssignee}
         onAssigneeChange={onAssigneeChange}
         enabled={enabled}
+      />
+      <TaskIssueField
+        form={form as unknown as UseFormReturn<{ issueId: string | null }>}
+        selectedIssue={selectedIssue}
+        onIssueChange={onIssueChange}
       />
       <TaskEstimateField form={form as unknown as UseFormReturn<{ estimate: number | null }>} />
       <TaskDueDateField form={form as unknown as UseFormReturn<{ dueDate: string | null }>} />

@@ -23,6 +23,8 @@ export type CommandPaletteEntityResult =
   | { type: 'parent'; id: string; data: Pick<Tables<'parents'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone'> }
   | { type: 'class'; id: string; data: MinimalClass }
   | { type: 'subject'; id: string; data: Tables<'subjects'> }
+  | { type: 'task'; id: string; data: Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'> }
+  | { type: 'issue'; id: string; data: Pick<Tables<'issues'>, 'id' | 'name' | 'status' | 'due_date'> }
   | { type: 'topic'; id: string; data: Tables<'topics'> & { subject: Tables<'subjects'> } }
   | { type: 'file'; id: string; data: { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } } };
 

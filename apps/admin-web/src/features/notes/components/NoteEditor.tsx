@@ -1,6 +1,7 @@
 import { RichTextEditor, type RichTextEditorRef as NoteEditorRef, type JSONContent } from '@altitutor/ui';
 import { forwardRef } from 'react';
 import type { Editor } from '@tiptap/react';
+import type { SuggestionOptions } from '@tiptap/suggestion';
 
 export type { NoteEditorRef };
 
@@ -11,6 +12,7 @@ interface NoteEditorProps {
   placeholder?: string;
   autoFocus?: boolean;
   onEditorReady?: (editor: Editor) => void;
+  mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
 }
 
 /**

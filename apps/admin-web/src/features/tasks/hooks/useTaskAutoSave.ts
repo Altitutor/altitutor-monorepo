@@ -10,6 +10,7 @@ type FormData = {
   status: TaskStatus;
   priority: number;
   assignedTo: string | null;
+  issueId: string | null;
   estimate: number | null;
   dueDate: string | null;
 };
@@ -41,6 +42,7 @@ export function useTaskAutoSave({
     status?: TaskStatus;
     priority?: number;
     assignedTo?: string | null;
+    issueId?: string | null;
     estimate?: number | null;
     dueDate?: string | null;
   }>({});
@@ -51,6 +53,7 @@ export function useTaskAutoSave({
   const status = form.watch('status');
   const priority = form.watch('priority');
   const assignedTo = form.watch('assignedTo');
+  const issueId = form.watch('issueId');
   const estimate = form.watch('estimate');
   const dueDate = form.watch('dueDate');
 
@@ -103,6 +106,12 @@ export function useTaskAutoSave({
       hasChanges = true;
     }
 
+    if (issueId !== lastSavedValuesRef.current.issueId) {
+      updates.issueId = issueId;
+      lastSavedValuesRef.current.issueId = issueId;
+      hasChanges = true;
+    }
+
     if (estimate !== lastSavedValuesRef.current.estimate) {
       updates.estimate = estimate;
       lastSavedValuesRef.current.estimate = estimate;
@@ -118,7 +127,7 @@ export function useTaskAutoSave({
     if (hasChanges && task) {
       onSave(updates);
     }
-  }, [status, priority, assignedTo, estimate, dueDate, task, isInitialized, isUpdatingFromServer, onSave]);
+  }, [status, priority, assignedTo, issueId, estimate, dueDate, task, isInitialized, isUpdatingFromServer, onSave]);
 
   // Initialize lastSavedValues when task loads
   useEffect(() => {
@@ -129,9 +138,10 @@ export function useTaskAutoSave({
         status,
         priority,
         assignedTo,
+        issueId,
         estimate,
         dueDate,
       };
     }
-  }, [task, isInitialized, title, description, status, priority, assignedTo, estimate, dueDate]);
+  }, [task, isInitialized, title, description, status, priority, assignedTo, issueId, estimate, dueDate]);
 }

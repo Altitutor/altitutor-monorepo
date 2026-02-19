@@ -80,14 +80,34 @@ export function DataTableToolbar({
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
+  const prevStateSearchRef = React.useRef(state.search);
+  const isInternalUpdateRef = React.useRef(false);
 
   // Sync internal search state with prop state (e.g. if cleared from outside)
-  // We only sync if the value is actually different to avoid unnecessary cycles
+  // Only sync when state.search changes externally, not during local typing
   React.useEffect(() => {
-    if (state.search !== searchValue) {
-      setSearchValue(state.search);
+    // Skip sync if this update came from our own debounced callback
+    if (isInternalUpdateRef.current) {
+      isInternalUpdateRef.current = false;
+      prevStateSearchRef.current = state.search;
+      return;
     }
-  }, [state.search, searchValue]);
+
+    // Only update if state.search changed from an external source
+    if (state.search !== prevStateSearchRef.current) {
+      setSearchValue(state.search);
+      prevStateSearchRef.current = state.search;
+    }
+  }, [state.search]);
+
+  // Call onSearchChange when debounced value changes
+  React.useEffect(() => {
+    // Only trigger if the debounced value is different from the current state search
+    if (debouncedSearch !== state.search) {
+      isInternalUpdateRef.current = true;
+      onSearchChange(debouncedSearch);
+    }
+  }, [debouncedSearch, onSearchChange, state.search]);
 
   // Call onSearchChange when debounced value changes
   React.useEffect(() => {

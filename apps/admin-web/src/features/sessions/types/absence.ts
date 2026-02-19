@@ -16,6 +16,15 @@ export interface AbsenceOperation {
 }
 
 /**
+ * Operation structure for undo API submission
+ */
+export interface UndoAbsenceOperation {
+  student_id: string;
+  original_sessions_students_id: string;
+  action: AbsenceAction;
+}
+
+/**
  * UI state for tracking user decisions during the wizard
  */
 export interface AbsenceDecision {
@@ -53,6 +62,15 @@ export interface LogAbsencesResponse {
 }
 
 /**
+ * Response from undo absences API
+ */
+export interface UndoAbsencesResponse {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+/**
  * Parameters for fetching available reschedule sessions
  */
 export interface GetRescheduleSessionsParams {
@@ -60,4 +78,3 @@ export interface GetRescheduleSessionsParams {
   studentId: string;
   dateRangeDays: number; // +/- days from original session
 }
-

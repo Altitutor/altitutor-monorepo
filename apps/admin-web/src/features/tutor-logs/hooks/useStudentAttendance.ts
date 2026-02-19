@@ -62,6 +62,7 @@ export function useStudentAttendance({
     queryKey: ['students', 'all', 'forSearch'],
     queryFn: async () => {
       const result = await studentsApi.list({
+        statuses: ['ACTIVE', 'TRIAL'],
         limit: 10000, // Large limit to get all students
         offset: 0,
         orderBy: 'first_name',

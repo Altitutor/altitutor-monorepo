@@ -16,8 +16,20 @@ export function useCommandPaletteSearch({ search, enabled = true }: UseCommandPa
     types: Object.keys(entityTypes) as (keyof typeof entityTypes)[]
   });
 
+  const filteredResults = results.filter((result) => {
+    if (result.type === 'task') {
+      return result.data.status !== 'done';
+    }
+
+    if (result.type === 'issue') {
+      return result.data.status !== 'resolved';
+    }
+
+    return true;
+  });
+
   return {
-    results,
+    results: filteredResults,
     isLoading,
     hasError,
   };

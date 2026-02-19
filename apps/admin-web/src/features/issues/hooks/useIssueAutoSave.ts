@@ -8,6 +8,7 @@ type FormData = {
   name: string;
   description?: JSONContent | null;
   status: IssueStatus;
+  dueDate: string | null;
 };
 
 interface UseIssueAutoSaveOptions {
@@ -16,7 +17,7 @@ interface UseIssueAutoSaveOptions {
   issue: { id: string } | undefined;
   isInitialized: boolean;
   isUpdatingFromServer: boolean;
-  onSave: (updates: { name?: string; description?: JSONContent | null; status?: IssueStatus }) => Promise<void>;
+  onSave: (updates: { name?: string; description?: JSONContent | null; status?: IssueStatus; dueDate?: string | null }) => Promise<void>;
 }
 
 /**
@@ -25,18 +26,19 @@ interface UseIssueAutoSaveOptions {
  */
 export function useIssueAutoSave({
   form,
-  issueId,
+  issueId: _issueId,
   issue,
   isInitialized,
   isUpdatingFromServer,
   onSave,
 }: UseIssueAutoSaveOptions): void {
-  const lastSavedValuesRef = useRef<{ name?: string; descriptionJson?: string; status?: IssueStatus }>({});
+  const lastSavedValuesRef = useRef<{ name?: string; descriptionJson?: string; status?: IssueStatus; dueDate?: string | null }>({});
 
   // Watch form values
   const name = form.watch('name');
   const description = form.watch('description');
   const status = form.watch('status');
+  const dueDate = form.watch('dueDate');
 
   // Debounce name and description (status saves immediately)
   const debouncedName = useDebounce(name, 1000);
@@ -71,6 +73,15 @@ export function useIssueAutoSave({
     }
   }, [status, issue, isInitialized, isUpdatingFromServer, onSave]);
 
+  // Auto-save for due date (immediate, no debounce)
+  useEffect(() => {
+    if (!isInitialized || isUpdatingFromServer) return;
+    if (issue && dueDate !== lastSavedValuesRef.current.dueDate) {
+      lastSavedValuesRef.current.dueDate = dueDate;
+      onSave({ dueDate });
+    }
+  }, [dueDate, issue, isInitialized, isUpdatingFromServer, onSave]);
+
   // Initialize lastSavedValues when issue loads
   useEffect(() => {
     if (issue && isInitialized) {
@@ -78,7 +89,8 @@ export function useIssueAutoSave({
         name: name,
         descriptionJson: JSON.stringify(description),
         status: status,
+        dueDate: dueDate,
       };
     }
-  }, [issue, isInitialized, name, description, status]);
+  }, [issue, isInitialized, name, description, status, dueDate]);
 }

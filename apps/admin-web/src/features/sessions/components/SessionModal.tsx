@@ -23,6 +23,7 @@ import { BookSessionModal } from '@/features/bookings/components/BookSessionModa
 import { AddStudentToSessionModal } from './AddStudentToSessionModal';
 import { AddStaffToSessionModal } from './AddStaffToSessionModal';
 import { RemoveFromSessionConfirmDialog } from './RemoveFromSessionConfirmDialog';
+import { UndoLogAbsenceConfirmDialog } from './UndoLogAbsenceConfirmDialog';
 import {
   useSessionData,
   useSessionModals,
@@ -31,6 +32,8 @@ import {
   useAssignStaffToSession,
   useRemoveStudentFromSession,
   useRemoveStaffFromSession,
+  useUndoAbsences,
+  useUndoStaffAbsences,
 } from '../hooks';
 import {
   buildStudentAttendanceMap,
@@ -39,12 +42,50 @@ import {
   processSessionStaff,
 } from '../utils';
 import { formatTime } from '@/shared/utils/datetime';
+import { IssuePill } from '@/features/issues';
 
 type SessionModalProps = {
   isOpen: boolean;
   sessionId: string | null;
   onClose: () => void;
 };
+
+type UndoTarget =
+  | {
+      entityType: 'student';
+      studentId: string;
+      studentName: string;
+      sessionsStudentsId: string;
+      action: 'credit' | 'reschedule';
+      rescheduledSessionTitle?: string;
+    }
+  | {
+      entityType: 'staff';
+      staffId: string;
+      staffName: string;
+      sessionsStaffId: string;
+      action: 'log' | 'swap';
+      swappedStaffName?: string;
+    };
+
+function getShortSessionName(session: any): string {
+  const fromTitle = getSessionTitle(session);
+  if (fromTitle) return fromTitle;
+
+  if (session?.start_at && session?.end_at) {
+    const start = new Date(session.start_at);
+    const end = new Date(session.end_at);
+    const startHHMM = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+    const endHHMM = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+    return `${start.toLocaleDateString('en-US')} ${formatTime(startHHMM)} - ${formatTime(endHHMM)}`;
+  }
+
+  if (session?.class?.start_time && session?.class?.end_time) {
+    return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
+  }
+
+  return 'this session';
+}
 
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
   const router = useRouter();
@@ -55,6 +96,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const addStaffMutation = useAssignStaffToSession();
   const removeStudentMutation = useRemoveStudentFromSession();
   const removeStaffMutation = useRemoveStaffFromSession();
+  const undoAbsenceMutation = useUndoAbsences();
+  const undoStaffAbsenceMutation = useUndoStaffAbsences();
 
   // Business logic hooks
   const sessionData = useSessionData({
@@ -66,11 +109,13 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
+  const [undoTarget, setUndoTarget] = useState<UndoTarget | null>(null);
 
   // Reset modals when modal closes
   useEffect(() => {
     if (!isOpen) {
       modals.reset();
+      setUndoTarget(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -190,6 +235,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   const { session, sessionsStudents, sessionsStaff, tutorLog } = sessionData.data;
   const sessionTitle = getSessionTitle(session);
+  const sessionShortName = getShortSessionName(session);
   const sessionDay = session.start_at
     ? new Date(session.start_at).toLocaleDateString('en-US', { weekday: 'long' })
     : 'Unknown day';
@@ -242,7 +288,14 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     <div className="flex-1">
                       <SheetTitle>Session Details</SheetTitle>
                       <SheetDescription className="text-lg font-medium">
-                        {sessionTitle}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {sessionTitle}
+                          <IssuePill
+                            entityType="session"
+                            entityId={sessionId}
+                            enabled={isOpen && !!sessionId}
+                          />
+                        </div>
                       </SheetDescription>
                     </div>
                   </div>
@@ -287,6 +340,33 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onOpenFile={handleOpenFile}
                     onLogAbsenceStudent={modals.openLogStudentAbsenceDialog}
                     onLogAbsenceStaff={modals.openLogStaffAbsenceDialog}
+                    onUndoLogAbsenceStudent={(payload) => {
+                      const sourceRow = sessionsStudents.find((row: any) =>
+                        (row.sessions_students_id || row.id) === payload.sessionsStudentsId
+                      );
+                      const rescheduledSession = sourceRow?.rescheduled_session?.session;
+
+                      setUndoTarget({
+                        entityType: 'student',
+                        studentId: payload.studentId,
+                        studentName: payload.studentName,
+                        sessionsStudentsId: payload.sessionsStudentsId,
+                        action: payload.action,
+                        rescheduledSessionTitle: rescheduledSession
+                          ? getShortSessionName(rescheduledSession)
+                          : undefined,
+                      });
+                    }}
+                    onUndoLogAbsenceStaff={(payload) => {
+                      setUndoTarget({
+                        entityType: 'staff',
+                        staffId: payload.staffId,
+                        staffName: payload.staffName,
+                        sessionsStaffId: payload.sessionsStaffId,
+                        action: payload.action,
+                        swappedStaffName: payload.swappedStaffName,
+                      });
+                    }}
                     onSendBookingConfirmation={modals.openBookingConfirmationDialog}
                     onAddStudentToSession={modals.openAddStudentToSessionModal}
                     onAddStaffToSession={modals.openAddStaffToSessionModal}
@@ -453,6 +533,87 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               });
             } catch (error) {
               handleMutationError(error);
+            }
+          }}
+        />
+      )}
+
+      {undoTarget && currentStaff && (
+        <UndoLogAbsenceConfirmDialog
+          isOpen={!!undoTarget}
+          title="Undo logged absence?"
+          description={
+            undoTarget.entityType === 'student'
+              ? `Mark ${undoTarget.studentName} as attending ${sessionShortName}?`
+              : `Mark ${undoTarget.staffName} as attending ${sessionShortName}?`
+          }
+          secondaryDescription={
+            undoTarget.entityType === 'student' && undoTarget.action === 'reschedule' && undoTarget.rescheduledSessionTitle
+              ? `This will remove them from the rescheduled session ${undoTarget.rescheduledSessionTitle}.`
+              : undoTarget.entityType === 'staff' && undoTarget.action === 'swap' && undoTarget.swappedStaffName
+              ? `This will remove replacement staff ${undoTarget.swappedStaffName} from this session.`
+              : undefined
+          }
+          confirmLabel="Undo Log Absence"
+          isPending={undoAbsenceMutation.isPending || undoStaffAbsenceMutation.isPending}
+          onCancel={() => setUndoTarget(null)}
+          onConfirm={async () => {
+            try {
+              if (undoTarget.entityType === 'student') {
+                const result = await undoAbsenceMutation.mutateAsync({
+                  staffId: currentStaff.id,
+                  operations: [
+                    {
+                      student_id: undoTarget.studentId,
+                      original_sessions_students_id: undoTarget.sessionsStudentsId,
+                      action: undoTarget.action,
+                    },
+                  ],
+                });
+
+                if (!result.success) {
+                  toast({
+                    title: 'Error',
+                    description: result.error || 'Failed to undo absence',
+                    variant: 'destructive',
+                  });
+                  return;
+                }
+              } else {
+                const result = await undoStaffAbsenceMutation.mutateAsync({
+                  staffId: currentStaff.id,
+                  operations: [
+                    {
+                      staff_id: undoTarget.staffId,
+                      original_sessions_staff_id: undoTarget.sessionsStaffId,
+                      action: undoTarget.action,
+                    },
+                  ],
+                });
+
+                if (!result.success) {
+                  toast({
+                    title: 'Error',
+                    description: result.error || 'Failed to undo staff absence',
+                    variant: 'destructive',
+                  });
+                  return;
+                }
+              }
+
+              await sessionData.refresh();
+              setUndoTarget(null);
+              toast({
+                title: 'Absence undone',
+                description: 'Attendance has been restored for this session.',
+              });
+            } catch (error) {
+              const message = error instanceof Error ? error.message : 'Failed to undo absence';
+              toast({
+                title: 'Error',
+                description: message,
+                variant: 'destructive',
+              });
             }
           }}
         />

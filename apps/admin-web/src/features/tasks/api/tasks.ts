@@ -8,6 +8,33 @@ import type { TaskFilters, TaskWithAssignee, TaskInsert, TaskUpdate } from '../t
  */
 export const tasksApi = {
   /**
+   * Search tasks for mention/command palette usage
+   */
+  search: async (
+    search: string,
+    limit = 8
+  ): Promise<Array<Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'>>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+
+    if (!search.trim()) {
+      return [];
+    }
+
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('id, title, status, due_date, priority')
+      .textSearch('search_vector', search.trim(), {
+        type: 'websearch',
+        config: 'english',
+      })
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw error;
+    return (data ?? []) as Array<Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'>>;
+  },
+
+  /**
    * Get all tasks with optional filters
    */
   list: async (filters?: TaskFilters): Promise<TaskWithAssignee[]> => {
@@ -27,7 +54,8 @@ export const tasksApi = {
       .select(`
         *,
         assignee:staff!tasks_assigned_to_fkey(id, first_name, last_name),
-        creator:staff!tasks_created_by_fkey(id, first_name, last_name)
+        creator:staff!tasks_created_by_fkey(id, first_name, last_name),
+        issue:issues!tasks_issue_id_fkey(id, name)
       `);
 
     // Status filter
@@ -104,7 +132,8 @@ export const tasksApi = {
       .select(`
         *,
         assignee:staff!tasks_assigned_to_fkey(id, first_name, last_name),
-        creator:staff!tasks_created_by_fkey(id, first_name, last_name)
+        creator:staff!tasks_created_by_fkey(id, first_name, last_name),
+        issue:issues!tasks_issue_id_fkey(id, name)
       `)
       .eq('id', taskId)
       .single();
@@ -160,4 +189,3 @@ export const tasksApi = {
     if (error) throw error;
   },
 };
-

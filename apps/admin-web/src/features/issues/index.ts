@@ -3,3 +3,4 @@ export * from './api/mutations';
 export * from './types';
 export * from './components/EditIssueDialog';
 export * from './components/CreateIssueDialog';
+export * from './components/IssuePill';

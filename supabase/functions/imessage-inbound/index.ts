@@ -60,7 +60,27 @@ Deno.serve(async (req: Request) => {
     }>;
     const date = body.Date as string; // ISO 8601 timestamp
 
+    // Log full webhook payload for debugging
+    console.log('[imessage-inbound] Webhook payload received', {
+      From: from,
+      To: to,
+      Body: text ? `${text.substring(0, 100)}${text.length > 100 ? '...' : ''}` : '(empty)',
+      MessageGuid: messageGuid,
+      MessageId: messageId,
+      IsGroupChat: isGroupChat,
+      ChatId: chatId,
+      SenderName: senderName,
+      IsFromMe: isFromMe,
+      IsReaction: isReaction,
+      ReactionType: reactionType,
+      IsReactionRemoval: isReactionRemoval,
+      AssociatedMessageGuid: associatedMessageGuid,
+      AttachmentsCount: attachments.length,
+      Date: date,
+    });
+
     if (!messageGuid) {
+      console.error('[imessage-inbound] Missing MessageGuid in payload', { body });
       return new Response(JSON.stringify({ error: 'missing MessageGuid' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -85,7 +105,10 @@ Deno.serve(async (req: Request) => {
       direction, 
       isFromMe, 
       isGroupChat,
-      hasAttachments: attachments.length > 0 
+      hasAttachments: attachments.length > 0,
+      from,
+      to,
+      conversationType: isGroupChat ? 'group' : 'individual'
     });
 
     let conversationId: string;
@@ -167,12 +190,25 @@ Deno.serve(async (req: Request) => {
     // Check if message already exists (by imessage_guid to avoid duplicates)
     const { data: existingMessage } = await supabase
       .from('messages')
-      .select('id, direction, imessage_guid')
+      .select('id, direction, imessage_guid, from_number_e164, to_number_e164, body, created_at')
       .eq('imessage_guid', messageGuid)
       .maybeSingle();
 
     if (existingMessage?.id) {
-      console.log('[imessage-inbound] Message already exists', { messageGuid });
+      console.log('[imessage-inbound] Message already exists - DUPLICATE DETECTED', {
+        messageGuid,
+        incomingDirection: direction,
+        existingMessageId: existingMessage.id,
+        existingDirection: existingMessage.direction,
+        existingFrom: existingMessage.from_number_e164,
+        existingTo: existingMessage.to_number_e164,
+        existingBody: existingMessage.body ? `${existingMessage.body.substring(0, 50)}...` : '(empty)',
+        existingCreatedAt: existingMessage.created_at,
+        incomingFrom: from,
+        incomingTo: to,
+        incomingIsFromMe: isFromMe,
+        isGUIDCollision: existingMessage.direction !== direction,
+      });
       return new Response(JSON.stringify({ ok: true, duplicate: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
     }
 
@@ -258,7 +294,18 @@ Deno.serve(async (req: Request) => {
       messageData.received_at = timestamp;
     }
 
-    await insertMessage(supabase, messageData, attachmentInserts);
+    const insertedMessageId = await insertMessage(supabase, messageData, attachmentInserts);
+
+    console.log('[imessage-inbound] Message inserted successfully', {
+      messageId: insertedMessageId,
+      messageGuid,
+      direction,
+      conversationId,
+      fromNumber,
+      toNumber,
+      bodyLength: text?.length || 0,
+      attachmentsCount: attachments.length,
+    });
 
     // Update conversation last_message_at
     await supabase
@@ -268,7 +315,13 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (e: any) {
-    console.error('[imessage-inbound] Error', e);
+    console.error('[imessage-inbound] Error processing webhook', {
+      error: e?.message || e,
+      stack: e?.stack,
+      messageGuid: e?.messageGuid || 'unknown',
+      from: e?.from || 'unknown',
+      to: e?.to || 'unknown',
+    });
     return new Response(JSON.stringify({ error: e?.message || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });

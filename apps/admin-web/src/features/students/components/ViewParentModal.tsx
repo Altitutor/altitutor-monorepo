@@ -33,6 +33,7 @@ import {
   useParentModals,
   useParentConversation,
 } from '@/features/parents/hooks';
+import { IssuePill } from '@/features/issues';
 
 interface ViewParentModalProps {
   isOpen: boolean;
@@ -179,7 +180,14 @@ export function ViewParentModal({
                           {editFlow.isEditing ? 'Edit Parent' : 'Parent Details'}
                         </SheetTitle>
                         <SheetDescription className="text-lg font-medium">
-                          {parent.first_name} {parent.last_name}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {parent.first_name} {parent.last_name}
+                            <IssuePill
+                              entityType="parent"
+                              entityId={parentId}
+                              enabled={isOpen && !!parentId}
+                            />
+                          </div>
                         </SheetDescription>
                       </div>
                     </div>

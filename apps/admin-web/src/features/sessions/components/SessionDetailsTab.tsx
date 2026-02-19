@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Separator, Button } from '@altitutor/ui';
-import { MoreVertical } from 'lucide-react';
+import { MoreVertical, MessageSquare, Mail, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
 import { formatSessionDate } from '../utils/session-helpers';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
@@ -20,6 +20,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
@@ -28,6 +29,8 @@ type SessionDetailsTabProps = {
   session: any;
   studentsData: Array<{
     student: Tables<'students'>;
+    sessionsStudentsId: string | null;
+    rescheduledSessionsStudentsId: string | null;
     plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned';
     actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     rescheduledDate: string;
@@ -38,6 +41,8 @@ type SessionDetailsTabProps = {
   }>;
   staffData: Array<{
     staff: Tables<'staff'>;
+    sessionsStaffId: string | null;
+    swappedSessionsStaffId: string | null;
     plannedStatus: 'attending' | 'absent' | 'swapped';
     actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
     staffType?: string;
@@ -61,6 +66,20 @@ type SessionDetailsTabProps = {
   onOpenFile: (fileId: string) => void;
   onLogAbsenceStudent?: (studentId: string) => void;
   onLogAbsenceStaff?: (staffId: string) => void;
+  onUndoLogAbsenceStudent?: (payload: {
+    studentId: string;
+    studentName: string;
+    sessionsStudentsId: string;
+    action: 'credit' | 'reschedule';
+    rescheduledSessionId?: string;
+  }) => void;
+  onUndoLogAbsenceStaff?: (payload: {
+    staffId: string;
+    staffName: string;
+    sessionsStaffId: string;
+    action: 'log' | 'swap';
+    swappedStaffName?: string;
+  }) => void;
   onSendBookingConfirmation?: (studentId: string) => void;
   onLogSession?: () => void;
   onAddStudentToSession?: () => void;
@@ -88,6 +107,8 @@ export function SessionDetailsTab({
   onOpenFile,
   onLogAbsenceStudent,
   onLogAbsenceStaff,
+  onUndoLogAbsenceStudent,
+  onUndoLogAbsenceStaff,
   onSendBookingConfirmation,
   onLogSession: _onLogSession,
   onAddStudentToSession,
@@ -263,6 +284,7 @@ export function SessionDetailsTab({
                               onMessageStudent(data.student.id);
                             }}
                           >
+                            <MessageSquare className="h-4 w-4 mr-2" />
                             Message
                           </DropdownMenuItem>
                           {sessionId && session.type !== 'CLASS' && onSendBookingConfirmation && (
@@ -272,8 +294,13 @@ export function SessionDetailsTab({
                                 onSendBookingConfirmation(data.student.id);
                               }}
                             >
+                              <Mail className="h-4 w-4 mr-2" />
                               Send Booking Confirmation Link
                             </DropdownMenuItem>
+                          )}
+                          {((!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent) ||
+                            ((data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent)) && (
+                            <DropdownMenuSeparator />
                           )}
                           {!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent && (
                             <DropdownMenuItem
@@ -282,20 +309,46 @@ export function SessionDetailsTab({
                                 onLogAbsenceStudent(data.student.id);
                               }}
                             >
+                              <AlertTriangle className="h-4 w-4 mr-2" />
                               Log Absence
                             </DropdownMenuItem>
                           )}
-                          {(data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession && (
+                          {(data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent && (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
-                                onRemoveStudentFromSession(data.student.id, studentName || 'Student');
+                                onUndoLogAbsenceStudent({
+                                  studentId: data.student.id,
+                                  studentName: studentName || 'Student',
+                                  sessionsStudentsId: data.sessionsStudentsId,
+                                  action: data.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
+                                  rescheduledSessionId: data.rescheduledSessionId,
+                                });
                               }}
-                              className="text-destructive focus:text-destructive"
                             >
-                              Remove from session
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Undo Log Absence
                             </DropdownMenuItem>
+                          )}
+                          {!hasTutorLog &&
+                            !data.hasInvoiceItems &&
+                            (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') &&
+                            onRemoveStudentFromSession && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
+                                  onRemoveStudentFromSession(data.student.id, studentName || 'Student');
+                                }}
+                                className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove from session
+                              </DropdownMenuItem>
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -395,8 +448,13 @@ export function SessionDetailsTab({
                               onMessageStaff(data.staff.id);
                             }}
                           >
+                            <MessageSquare className="h-4 w-4 mr-2" />
                             Message
                           </DropdownMenuItem>
+                          {((!data.plannedAbsence && sessionId && onLogAbsenceStaff) ||
+                            ((data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff)) && (
+                            <DropdownMenuSeparator />
+                          )}
                           {!data.plannedAbsence && sessionId && onLogAbsenceStaff && (
                             <DropdownMenuItem
                               onClick={(e) => {
@@ -404,20 +462,43 @@ export function SessionDetailsTab({
                                 onLogAbsenceStaff(data.staff.id);
                               }}
                             >
+                              <AlertTriangle className="h-4 w-4 mr-2" />
                               Log Absence
                             </DropdownMenuItem>
                           )}
-                          {onRemoveStaffFromSession && (
+                          {(data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff && (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const staffName = `${data.staff.first_name || ''} ${data.staff.last_name || ''}`.trim();
-                                onRemoveStaffFromSession(data.staff.id, staffName || 'Staff');
+                                onUndoLogAbsenceStaff({
+                                  staffId: data.staff.id,
+                                  staffName: staffName || 'Staff',
+                                  sessionsStaffId: data.sessionsStaffId,
+                                  action: data.plannedStatus === 'swapped' ? 'swap' : 'log',
+                                  swappedStaffName: data.swappedStaffName || undefined,
+                                });
                               }}
-                              className="text-destructive focus:text-destructive"
                             >
-                              Remove from session
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Undo Log Absence
                             </DropdownMenuItem>
+                          )}
+                          {!hasTutorLog && onRemoveStaffFromSession && (
+                            <>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const staffName = `${data.staff.first_name || ''} ${data.staff.last_name || ''}`.trim();
+                                  onRemoveStaffFromSession(data.staff.id, staffName || 'Staff');
+                                }}
+                                className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove from session
+                              </DropdownMenuItem>
+                            </>
                           )}
                         </DropdownMenuContent>
                       </DropdownMenu>

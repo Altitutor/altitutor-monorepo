@@ -21,6 +21,8 @@
  */
 
 import {
+  CheckSquare,
+  AlertTriangle,
   GraduationCap,
   UserRound,
   Users,
@@ -194,6 +196,20 @@ export const entityTypes: Record<string, EntityTypeConfig> = {
     id: 'subjects',
     label: 'Subjects',
     icon: Beaker,
+    limit: 8,
+    enabled: true,
+  },
+  tasks: {
+    id: 'tasks',
+    label: 'Tasks',
+    icon: CheckSquare,
+    limit: 8,
+    enabled: true,
+  },
+  issues: {
+    id: 'issues',
+    label: 'Issues',
+    icon: AlertTriangle,
     limit: 8,
     enabled: true,
   },

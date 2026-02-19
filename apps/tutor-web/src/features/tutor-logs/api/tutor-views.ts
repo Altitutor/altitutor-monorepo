@@ -33,6 +33,8 @@ export const tutorViewsApi = {
 
   /**
    * Get all students from vtutor_students view (for search).
+   * Note: This only returns students accessible through tutor's classes/sessions.
+   * For adding TRIAL students not in classes/sessions, use searchStudents API endpoint.
    */
   getAllStudents: async () => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -45,6 +47,27 @@ export const tutorViewsApi = {
       throw error;
     }
     return (data ?? []) as Tables<'students'>[];
+  },
+
+  /**
+   * Search for students (including TRIAL) via API endpoint.
+   * This allows tutors to find and add students not in their classes/sessions.
+   */
+  searchStudents: async (params: { search?: string; limit?: number }): Promise<Tables<'students'>[]> => {
+    const { search = '', limit = 100 } = params || {};
+    const searchParams = new URLSearchParams();
+    if (search) searchParams.set('search', search);
+    searchParams.set('limit', limit.toString());
+    
+    const response = await fetch(`/api/students/search?${searchParams.toString()}`);
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Failed to search students' }));
+      throw new Error(error.error || 'Failed to search students');
+    }
+    
+    const result = await response.json();
+    return result.students || [];
   },
 
   /**

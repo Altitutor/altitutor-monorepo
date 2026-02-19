@@ -1,53 +1,38 @@
 'use client';
 
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import {
   EntityList,
   type EntityListPillColumn,
   type EntityListStatusColumn,
-  type EntityListLeftIcon,
   RichTextEditor,
 } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
-import { User, Check, ChevronDown } from 'lucide-react';
 import { useTasks } from '../api/queries';
 import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useIssues } from '@/features/issues/api/queries';
 import { TextWithTags } from '@/shared/components/TextWithTags';
 import { EditTaskDialog } from './EditTaskDialog';
 import {
   TaskAssigneeEntityPill,
   TaskPriorityEntityPill,
   TaskEstimateEntityPill,
+  TaskIssueEntityPill,
 } from './fields/TaskEntityPills';
 import {
   getStatusLabel,
   getStatusIconColor,
   getPriorityLabel,
-  getPriorityIconColor,
   getEstimateLabel,
-  getUserInitials,
   ESTIMATE_OPTIONS,
 } from '../utils/taskUtils';
 import type { TaskWithAssignee } from '../types';
-import type { TaskStatus, TaskPriority } from '../types';
+import type { TaskStatus, TaskPriority, TaskFilters } from '../types';
 import { cn } from '@/shared/utils';
 import { Clock, Circle, CheckCircle, Eye } from 'lucide-react';
-import { AlertCircle, AlertTriangle, Info } from 'lucide-react';
-import { Gauge } from 'lucide-react';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
   { value: 'backlog', label: 'Backlog' },
@@ -69,14 +54,19 @@ export function TasksList({
   issueId, 
   compact = false,
   hideToolbar = false,
-  noPadding = false,
+  showIssuePill = true,
+  noPadding = true,
 }: { 
   issueId?: string; 
   compact?: boolean;
   hideToolbar?: boolean;
+  showIssuePill?: boolean;
   noPadding?: boolean;
 } = {}) {
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({});
+  // Default filters: show only todo, in_progress, and in_review
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({
+    status: ['todo', 'in_progress', 'in_review'],
+  });
   
   // Use useMemo to combine initial issue filter with active filters
   const effectiveFilters = useMemo(() => ({
@@ -87,10 +77,18 @@ export function TasksList({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   
+  // Default groupBy: status
+  const [groupBy, setGroupBy] = useState<string | null>('status');
+  
+  // Default sortBy: priority ascending
+  const [sortBy, setSortBy] = useState<string>('priority');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
+  
   const { data: currentStaff } = useCurrentStaff();
   const currentStaffId = currentStaff?.id;
 
   const { data: quickFilters = [] } = useQuickFilters('tasks');
+  const { data: issues = [] } = useIssues();
 
   const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
     const resolved = resolveQuickFilterPlaceholders(qf.config as any, currentStaffId);
@@ -108,12 +106,7 @@ export function TasksList({
     setFilters(resolved);
   }, [currentStaffId]);
 
-  const assigneeFilter = (filters.assignee ?? []) as string[];
-  const priorityFilter = (filters.priority ?? []) as TaskPriority[];
-  const estimateFilter = (filters.estimate ?? []) as number[];
-  const statusFilter = (filters.status ?? []) as TaskStatus[];
-
-  const { data: tasks = [], isLoading } = useTasks(effectiveFilters);
+  const { data: tasks = [], isLoading } = useTasks(effectiveFilters as TaskFilters);
 
   const filteredTasks = useMemo(() => {
     // Client-side filtering for fields not handled by server-side query if any
@@ -148,6 +141,12 @@ export function TasksList({
   const handleAssigneeChange = useCallback(
     (task: TaskWithAssignee, staffId: string | null) => {
       updateTask.mutate({ id: task.id, updates: { assigned_to: staffId } });
+    },
+    [updateTask]
+  );
+  const handleIssueChange = useCallback(
+    (task: TaskWithAssignee, nextIssueId: string | null) => {
+      updateTask.mutate({ id: task.id, updates: { issue_id: nextIssueId } });
     },
     [updateTask]
   );
@@ -227,6 +226,14 @@ export function TasksList({
       })),
     [staffList]
   );
+  const issueFilterOptions = useMemo(
+    () =>
+      issues.map((issue) => ({
+        value: issue.id as unknown,
+        label: issue.name || 'Untitled issue',
+      })),
+    [issues]
+  );
 
   const rightPills: EntityListPillColumn<TaskWithAssignee, unknown>[] = useMemo(
     () => [
@@ -252,6 +259,31 @@ export function TasksList({
           />
         ),
       },
+      ...(showIssuePill
+        ? [{
+            key: 'issue_id',
+            label: 'Issue',
+            visibleByDefault: true,
+            getValue: (t: TaskWithAssignee) => t.issue_id ?? null,
+            defaultValue: null,
+            filterOptions: issueFilterOptions,
+            groupable: true,
+            sortable: false,
+            filterable: true,
+            filterSearchable: true,
+            renderPill: (item: TaskWithAssignee, onChange: (value: unknown) => void, collapsed?: boolean) => (
+              <TaskIssueEntityPill
+                issue={item.issue ?? null}
+                issues={issues.map((i) => ({ id: i.id, name: i.name }))}
+                collapsed={collapsed}
+                onChange={(nextIssueId) => {
+                  handleIssueChange(item, nextIssueId);
+                  onChange(nextIssueId);
+                }}
+              />
+            ),
+          } as EntityListPillColumn<TaskWithAssignee, unknown>]
+        : []),
       {
         key: 'estimate',
         label: 'Estimate',
@@ -307,8 +339,12 @@ export function TasksList({
     ],
     [
       staffList,
+      issues,
+      showIssuePill,
       assigneeFilterOptions,
+      issueFilterOptions,
       handleAssigneeChange,
+      handleIssueChange,
       handleEstimateChange,
       handlePriorityChange,
     ]
@@ -327,6 +363,27 @@ export function TasksList({
     { key: 'status', label: 'Status' },
   ];
 
+  // Custom group ordering for status: backlog, todo, in_progress, in_review, done
+  const getGroupOrder = useCallback((columnKey: string, valueKey: string): number => {
+    if (columnKey === 'status') {
+      const statusOrder: Record<string, number> = {
+        'backlog': 0,
+        'todo': 1,
+        'in_progress': 2,
+        'in_review': 3,
+        'done': 4,
+        '__null__': 999,
+      };
+      return statusOrder[valueKey] ?? 999;
+    }
+    return 0; // Default: alphabetical ordering
+  }, []);
+
+  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
+    setSortBy(key);
+    setSortDirection(direction);
+  }, []);
+
   return (
     <>
       <EntityList<TaskWithAssignee>
@@ -337,6 +394,11 @@ export function TasksList({
         rightPills={rightPills}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortChange={handleSortChange}
         onAdd={handleAdd}
         onRowClick={(t) => {
           setSelectedTaskId(t.id);
@@ -349,6 +411,7 @@ export function TasksList({
         onFiltersChange={setFilters}
         quickFilters={quickFilters}
         onApplyQuickFilter={handleApplyQuickFilter}
+        getGroupOrder={getGroupOrder}
         getGroupLabel={(columnKey, valueKey) => {
           if (columnKey === 'assignee') {
             if (valueKey === '__null__') return 'Unassigned';
@@ -367,6 +430,11 @@ export function TasksList({
           if (columnKey === 'priority') {
             if (valueKey === '__null__') return 'No priority';
             return getPriorityLabel(Number(valueKey) as TaskPriority);
+          }
+          if (columnKey === 'issue_id') {
+            if (valueKey === '__null__') return 'No issue';
+            const issue = issues.find((i) => i.id === valueKey);
+            return issue?.name || valueKey;
           }
           return valueKey === '__null__' ? 'No value' : valueKey;
         }}

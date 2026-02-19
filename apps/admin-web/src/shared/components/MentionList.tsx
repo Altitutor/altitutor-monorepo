@@ -19,6 +19,8 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   parent: 'parents',
   class: 'classes',
   subject: 'subjects',
+  task: 'tasks',
+  issue: 'issues',
   topic: 'topics',
   file: 'files',
 };

@@ -2175,6 +2175,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: Json | null
+          due_date: string | null
           id: string
           name: string
           search_vector: unknown
@@ -2185,6 +2186,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: Json | null
+          due_date?: string | null
           id?: string
           name: string
           search_vector?: unknown
@@ -2195,6 +2197,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: Json | null
+          due_date?: string | null
           id?: string
           name?: string
           search_vector?: unknown
@@ -2446,6 +2449,48 @@ export type Database = {
           {
             foreignKeyName: "notes_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notes_daily: {
+        Row: {
+          content: Json
+          date: string
+          id: string
+          search_vector: unknown
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          content?: Json
+          date: string
+          id?: string
+          search_vector?: unknown
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          content?: Json
+          date?: string
+          id?: string
+          search_vector?: unknown
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_daily_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_daily_updated_by_fkey"
+            columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -7894,7 +7939,14 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
-      user_role: { Args: never; Returns: string }
+      undo_staff_absences: {
+        Args: { logged_by_staff_id: string; operations: Json }
+        Returns: Json
+      }
+      undo_student_absences: {
+        Args: { logged_by_staff_id: string; operations: Json }
+        Returns: Json
+      }
       validate_all_topic_codes: {
         Args: never
         Returns: {

@@ -12,15 +12,16 @@ import { useUpdateIssue } from '../api/mutations';
 import { TextWithTags } from '@/shared/components/TextWithTags';
 import { EditIssueDialog } from './EditIssueDialog';
 import { CreateIssueDialog } from './CreateIssueDialog';
+import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
 import { cn } from '@/shared/utils';
 import { Circle, Clock, CheckCircle } from 'lucide-react';
 import type { IssueWithTags, IssueStatus } from '../types';
+import { formatIssueDueDate, getIssueStatusLabel, getIssueStatusOrder } from '../utils/issueUtils';
 
 const STATUS_OPTIONS: { value: IssueStatus; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'awaiting_response', label: 'Awaiting Response' },
   { value: 'resolved', label: 'Resolved' },
-  { value: 'closed', label: 'Closed' },
 ];
 
 export function IssuesList() {
@@ -28,6 +29,9 @@ export function IssuesList() {
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [groupBy, setGroupBy] = useState<string | null>('status');
+  const [sortBy, setSortBy] = useState<string>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
@@ -73,6 +77,69 @@ export function IssuesList() {
     onStatusChange: handleStatusChange,
   };
 
+  const dueDateFilterOptions = useMemo(
+    () =>
+      Array.from(new Set(issues.map((issue) => issue.due_date).filter((date): date is string => !!date)))
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+        .map((date) => ({ value: date as unknown, label: formatIssueDueDate(date) })),
+    [issues]
+  );
+
+  const rightPills: EntityListPillColumn<IssueWithTags, unknown>[] = useMemo(
+    () => [
+      {
+        key: 'due_date',
+        label: 'Due date',
+        visibleByDefault: true,
+        getValue: (issue) => issue.due_date ?? null,
+        defaultValue: null,
+        filterOptions: dueDateFilterOptions,
+        filterSearchable: true,
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        compare: (a, b) => {
+          const aTime = a ? new Date(String(a)).getTime() : Number.POSITIVE_INFINITY;
+          const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
+          return aTime - bTime;
+        },
+        renderPill: (item, onChange, collapsed) => (
+          <IssueDueDateEntityPill
+            dueDate={item.due_date}
+            collapsed={collapsed}
+            onChange={(nextDate) => {
+              const nextDueDate = nextDate ? new Date(nextDate).toISOString() : null;
+              updateIssue.mutate({ id: item.id, updates: { due_date: nextDueDate } });
+              onChange(nextDueDate);
+            }}
+          />
+        ),
+      },
+    ],
+    [dueDateFilterOptions, updateIssue]
+  );
+
+  const groupByOptions = useMemo(
+    () => [
+      { key: 'status', label: 'Status' },
+      { key: 'due_date', label: 'Due date' },
+    ],
+    []
+  );
+
+  const sortByOptions = useMemo(
+    () => [
+      { key: 'status', label: 'Status' },
+      { key: 'due_date', label: 'Due date' },
+    ],
+    []
+  );
+
+  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
+    setSortBy(key);
+    setSortDirection(direction);
+  }, []);
+
   return (
     <>
       <EntityList<IssueWithTags>
@@ -80,7 +147,31 @@ export function IssuesList() {
         getItemId={(i) => i.id}
         renderName={(i) => <TextWithTags text={i.name} />}
         statusColumn={statusColumn as any}
-        rightPills={[]}
+        rightPills={rightPills}
+        groupByOptions={groupByOptions}
+        sortByOptions={sortByOptions}
+        groupBy={groupBy}
+        onGroupByChange={setGroupBy}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortChange={handleSortChange}
+        getGroupOrder={(columnKey, valueKey) => {
+          if (columnKey === 'status') {
+            return getIssueStatusOrder(valueKey);
+          }
+          return 0;
+        }}
+        getGroupLabel={(columnKey, valueKey) => {
+          if (columnKey === 'status') {
+            if (valueKey === '__null__') return 'No status';
+            return getIssueStatusLabel(valueKey as IssueStatus);
+          }
+          if (columnKey === 'due_date') {
+            if (valueKey === '__null__') return 'No due date';
+            return formatIssueDueDate(valueKey);
+          }
+          return valueKey === '__null__' ? 'No value' : valueKey;
+        }}
         onAdd={handleAdd}
         onRowClick={(i) => {
           setSelectedIssueId(i.id);

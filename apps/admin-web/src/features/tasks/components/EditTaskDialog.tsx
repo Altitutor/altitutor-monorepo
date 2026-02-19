@@ -38,6 +38,7 @@ const formSchema = z.object({
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']),
   priority: z.number().min(0).max(4),
   assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
+  issueId: z.union([z.string().uuid(), z.null()]).default(null),
   estimate: z.preprocess(
     (val) => {
       if (val === null || val === undefined || val === '' || val === 0 || val === 'none') {
@@ -57,6 +58,7 @@ type FormData = {
   status: TaskStatus;
   priority: number;
   assignedTo: string | null;
+  issueId: string | null;
   estimate: number | null;
   dueDate: string | null;
 };
@@ -66,6 +68,7 @@ interface EditTaskDialogProps {
   onClose: () => void;
   taskId: string | null;
   onTaskUpdated?: () => void;
+  issue?: { id: string; name: string | null } | null;
 }
 
 interface AutoSaveManagerProps {
@@ -89,11 +92,12 @@ function AutoSaveManager({ form, taskId, task, isInitialized, isLoading, onSave 
   return null;
 }
 
-export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditTaskDialogProps) {
+export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }: EditTaskDialogProps) {
   const { data: task, isLoading } = useTask(taskId || '', !!taskId && isOpen);
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
+  const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
   const lastResetTaskIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -114,6 +118,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
       status: 'backlog',
       priority: 0,
       assignedTo: null,
+      issueId: null,
       estimate: null,
       dueDate: null,
     },
@@ -137,24 +142,33 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
         status: task.status as TaskStatus,
         priority: task.priority !== null && task.priority !== undefined ? task.priority : 0,
         assignedTo: task.assigned_to || null,
+        issueId: task.issue_id || issue?.id || null,
         estimate: task.estimate !== null && task.estimate !== undefined ? task.estimate : null,
         dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : null,
       };
       
       form.reset(resetData);
+      setSelectedIssue(
+        task.issue
+          ? { id: task.issue.id, name: task.issue.name }
+          : issue?.id
+            ? { id: issue.id, name: issue.name }
+            : null
+      );
       setFormKey(prev => prev + 1);
       lastResetTaskIdRef.current = task.id;
       setIsInitialized(true);
     }
-  }, [task, isOpen, isLoading, form]);
+  }, [task, isOpen, isLoading, form, issue]);
 
   useEffect(() => {
     if (!isOpen) {
       lastResetTaskIdRef.current = null;
       setIsInitialized(false);
       setSelectedAssignee(null);
+      setSelectedIssue(issue ?? null);
     }
-  }, [isOpen]);
+  }, [isOpen, issue]);
 
   const handleAutoSave = useCallback(async (updates: Partial<FormData>) => {
     if (!taskId) return;
@@ -168,6 +182,10 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
       if (updates.dueDate !== undefined) {
         formattedUpdates.due_date = updates.dueDate ? new Date(updates.dueDate).toISOString() : null;
         delete formattedUpdates.dueDate;
+      }
+      if (updates.issueId !== undefined) {
+        formattedUpdates.issue_id = updates.issueId;
+        delete formattedUpdates.issueId;
       }
 
       await updateTask.mutateAsync({
@@ -276,6 +294,8 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated }: EditT
                     form={form as any}
                     selectedAssignee={selectedAssignee}
                     onAssigneeChange={setSelectedAssignee}
+                    selectedIssue={selectedIssue}
+                    onIssueChange={setSelectedIssue}
                     taskStatus={task.status as TaskStatus}
                     enabled={isOpen}
                   />

@@ -37,13 +37,15 @@ import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.any().optional(),
-  status: z.enum(['open', 'awaiting_response', 'resolved', 'closed']),
+  status: z.enum(['open', 'awaiting_response', 'resolved']),
+  dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
 type FormData = {
   name: string;
   description?: JSONContent | null;
   status: IssueStatus;
+  dueDate: string | null;
 };
 
 interface EditIssueDialogProps {
@@ -100,11 +102,12 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
   const notes = (notesData || []) as NoteWithStaff[];
 
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as any,
     defaultValues: {
       name: '',
       description: null,
       status: 'open',
+      dueDate: null,
     },
   });
 
@@ -119,6 +122,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
         name: issue.name,
         description: (issue.description as JSONContent) || null,
         status: issue.status as IssueStatus,
+        dueDate: issue.due_date ? new Date(issue.due_date).toISOString().split('T')[0] : null,
       });
       lastResetIssueIdRef.current = issue.id;
       setIsInitialized(true);
@@ -136,9 +140,15 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
     if (!issueId) return;
 
     try {
+      const formattedUpdates: Record<string, unknown> = { ...updates };
+      if (updates.dueDate !== undefined) {
+        formattedUpdates.due_date = updates.dueDate ? new Date(updates.dueDate).toISOString() : null;
+        delete formattedUpdates.dueDate;
+      }
+
       await updateIssue.mutateAsync({
         id: issueId,
-        updates,
+        updates: formattedUpdates,
       });
       // Removed onIssueUpdated?.() from auto-save to prevent parent re-renders while typing
     } catch (error) {
@@ -151,64 +161,64 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-center justify-between gap-4 w-full">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>{isLoading ? 'Loading...' : 'Edit Issue'}</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Edit the details, description, and status of this issue.
-                </DialogDescription>
+        <Form {...form}>
+          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+            <div className="flex items-center justify-between gap-4 w-full">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <DialogTitle>{isLoading ? 'Loading...' : 'Edit Issue'}</DialogTitle>
+                  <DialogDescription className="sr-only">
+                    Edit the details, description, and status of this issue.
+                  </DialogDescription>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
+                  {updateIssue.isPending ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Saving...</span>
+                    </>
+                  ) : updateIssue.isError ? (
+                    <>
+                      <CloudOff className="h-3 w-3 text-destructive" />
+                      <span className="text-destructive">Changes not saved</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-500" />
+                      <span>Saved</span>
+                    </>
+                  )}
+                </div>
+                <ActionsMenu
+                  type="issue"
+                  entityId={issueId}
+                  onOpenInPage={() => {
+                    // For now, no specific issue detail page implemented
+                  }}
+                  onDelete={() => setIsDeleteDialogOpen(true)}
+                />
               </div>
             </div>
+          </DialogHeader>
 
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
-                {updateIssue.isPending ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                    <span>Saving...</span>
-                  </>
-                ) : updateIssue.isError ? (
-                  <>
-                    <CloudOff className="h-3 w-3 text-destructive" />
-                    <span className="text-destructive">Changes not saved</span>
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-500" />
-                    <span>Saved</span>
-                  </>
-                )}
-              </div>
-              <ActionsMenu
-                type="issue"
-                entityId={issueId}
-                onOpenInPage={() => {
-                  // For now, no specific issue detail page implemented
-                }}
-                onDelete={() => setIsDeleteDialogOpen(true)}
-              />
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-hidden min-h-0 min-w-0">
-          {isLoading ? (
-            <div className="p-6">Loading issue data...</div>
-          ) : !issue ? (
-            <div className="p-6">Issue not found</div>
-          ) : (
-            <div className="h-full flex min-w-0">
-              <Form {...form}>
+          <div className="flex-1 overflow-hidden min-h-0 min-w-0">
+            {isLoading ? (
+              <div className="p-6">Loading issue data...</div>
+            ) : !issue ? (
+              <div className="p-6">Issue not found</div>
+            ) : (
+              <div className="h-full flex min-w-0">
                 <form className="flex-1 flex min-h-0 min-w-0">
                   <AutoSaveManager
                     form={form}
@@ -232,10 +242,10 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
                     tags={liveTags}
                   />
                 </form>
-              </Form>
-            </div>
-          )}
-        </div>
+              </div>
+            )}
+          </div>
+        </Form>
       </DialogContent>
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

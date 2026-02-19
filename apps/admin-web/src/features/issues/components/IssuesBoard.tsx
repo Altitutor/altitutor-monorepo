@@ -4,22 +4,24 @@ import { useState, useMemo, useCallback } from 'react';
 import {
   KanbanBoard,
   type KanbanColumnDef,
+  type EntityListPillColumn,
   type EntityListStatusColumn,
 } from '@altitutor/ui';
 import { useIssues } from '../api/queries';
-import { useUpdateIssue, useCreateIssue } from '../api/mutations';
+import { useUpdateIssue } from '../api/mutations';
 import { IssueCard } from './IssueCard';
 import { EditIssueDialog } from './EditIssueDialog';
 import { CreateIssueDialog } from './CreateIssueDialog';
+import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
 import type { IssueWithTags, IssueStatus } from '../types';
 import { cn } from '@/shared/utils';
 import { Circle, Clock, CheckCircle } from 'lucide-react';
+import { formatIssueDueDate, getIssueStatusLabel } from '../utils/issueUtils';
 
 const STATUS_OPTIONS: { value: IssueStatus; label: string }[] = [
   { value: 'open', label: 'Open' },
   { value: 'awaiting_response', label: 'Awaiting Response' },
   { value: 'resolved', label: 'Resolved' },
-  { value: 'closed', label: 'Closed' },
 ];
 
 export function IssuesBoard() {
@@ -32,7 +34,8 @@ export function IssuesBoard() {
 
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
-  const createIssue = useCreateIssue();
+  const [sortBy, setSortBy] = useState<string>('name');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleUpdate = useCallback(
     (issue: IssueWithTags, updates: any) => {
@@ -58,6 +61,69 @@ export function IssuesBoard() {
       onValueChange: (i, v) => handleUpdate(i, { status: v }),
     }
   ], [handleUpdate]);
+
+  const dueDateFilterOptions = useMemo(
+    () =>
+      Array.from(new Set(issues.map((issue) => issue.due_date).filter((date): date is string => !!date)))
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+        .map((date) => ({ value: date as unknown, label: formatIssueDueDate(date) })),
+    [issues]
+  );
+
+  const rightPills: EntityListPillColumn<IssueWithTags, unknown>[] = useMemo(
+    () => [
+      {
+        key: 'due_date',
+        label: 'Due date',
+        visibleByDefault: true,
+        getValue: (issue) => issue.due_date ?? null,
+        defaultValue: null,
+        filterOptions: dueDateFilterOptions,
+        filterSearchable: true,
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        compare: (a, b) => {
+          const aTime = a ? new Date(String(a)).getTime() : Number.POSITIVE_INFINITY;
+          const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
+          return aTime - bTime;
+        },
+        renderPill: (item, onChange, collapsed) => (
+          <IssueDueDateEntityPill
+            dueDate={item.due_date}
+            collapsed={collapsed}
+            onChange={(nextDate) => {
+              const nextDueDate = nextDate ? new Date(nextDate).toISOString() : null;
+              handleUpdate(item, { due_date: nextDueDate });
+              onChange(nextDueDate);
+            }}
+          />
+        ),
+      },
+    ],
+    [dueDateFilterOptions, handleUpdate]
+  );
+
+  const groupByOptions = useMemo(
+    () => [
+      { key: 'status', label: 'Status' },
+      { key: 'due_date', label: 'Due date' },
+    ],
+    []
+  );
+
+  const sortByOptions = useMemo(
+    () => [
+      { key: 'status', label: 'Status' },
+      { key: 'due_date', label: 'Due date' },
+    ],
+    []
+  );
+
+  const handleSortChange = useCallback((key: string, direction: 'asc' | 'desc') => {
+    setSortBy(key);
+    setSortDirection(direction);
+  }, []);
 
   const statusColumn: EntityListStatusColumn<IssueWithTags, IssueStatus> = {
     key: 'status',
@@ -104,7 +170,23 @@ export function IssuesBoard() {
           />
         )}
         statusColumn={statusColumn as any}
-        rightPills={[]}
+        rightPills={rightPills}
+        groupByOptions={groupByOptions}
+        sortByOptions={sortByOptions}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortChange={handleSortChange}
+        getGroupLabel={(columnKey, valueKey) => {
+          if (columnKey === 'status') {
+            if (valueKey === '__null__') return 'No status';
+            return getIssueStatusLabel(valueKey as IssueStatus);
+          }
+          if (columnKey === 'due_date') {
+            if (valueKey === '__null__') return 'No due date';
+            return formatIssueDueDate(valueKey);
+          }
+          return valueKey === '__null__' ? 'No value' : valueKey;
+        }}
         onAdd={handleAdd}
         isLoading={isLoading}
         emptyMessage="No issues found"
