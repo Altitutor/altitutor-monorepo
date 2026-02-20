@@ -166,8 +166,8 @@ export function NoteTableOfContents({ editor, className, collapsible = false }: 
   }
 
   return (
-    <div className={cn('bg-card rounded-lg p-6 border', className)}>
-      <h3 className="text-sm font-semibold mb-3 text-foreground">Table of Contents</h3>
+    <div className={cn('space-y-3', className)}>
+      <h3 className="text-sm font-semibold text-foreground">Table of Contents</h3>
       {content}
     </div>
   );
