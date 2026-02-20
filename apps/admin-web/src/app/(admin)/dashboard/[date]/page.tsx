@@ -24,7 +24,7 @@ import { IssuesList } from '@/features/issues/components/IssuesList';
 import { NoteEditor } from '@/features/notes/components/NoteEditor';
 import { NoteEditorBottomToolbar } from '@/features/notes/components/NoteEditorBottomToolbar';
 import { useDailyNote, useUpdateDailyNote } from '@/features/notes/api/dailyQueries';
-import { useDebounce } from '@/shared/hooks';
+import { useDebounce, useCurrentStaff } from '@/shared/hooks';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 
 type ViewMode = 'calendar' | 'table';
@@ -43,6 +43,7 @@ function getValidDateString(value: string): string | null {
 function DailyNoteCard({ date }: { date: string }) {
   const { data: note, isLoading } = useDailyNote(date);
   const updateDailyNote = useUpdateDailyNote();
+  const { data: currentStaff } = useCurrentStaff();
   const mentionSuggestions = useMentionSuggestions({ types: NOTE_MENTION_TYPES });
 
   const [content, setContent] = useState<JSONContent | string>('');
@@ -76,8 +77,9 @@ function DailyNoteCard({ date }: { date: string }) {
       date,
       updates: { content },
       silent: true,
+      updatedBy: currentStaff?.id ?? null,
     });
-  }, [content, date, debouncedContentTrigger, isInitialized, note, updateDailyNote]);
+  }, [content, date, debouncedContentTrigger, isInitialized, note, updateDailyNote, currentStaff?.id]);
 
   return (
     <Card>

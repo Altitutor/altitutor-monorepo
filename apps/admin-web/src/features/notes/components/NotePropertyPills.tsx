@@ -11,20 +11,16 @@ import {
 import { Folder } from 'lucide-react';
 import { z } from 'zod';
 
+import type { NoteFormData } from '../types';
+
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   content: z.any(),
   folder_id: z.string().nullable().optional(),
 });
 
-type FormData = {
-  title: string;
-  content: JSONContent | string;
-  folder_id?: string | null;
-};
-
 interface NotePropertyPillsProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<NoteFormData>;
   folders?: Array<{ id: string; name: string }>;
 }
 

@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { LogAbsenceDialog } from '@/features/sessions/components/absences/LogAbsenceDialog';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import {

@@ -17,7 +17,7 @@ import { LogSessionModal } from '@/features/tutor-logs';
 import { ViewInvoiceModal } from '@/features/billing';
 import { SessionModal } from '@/features/sessions';
 import { ViewClassModal } from '@/features/classes';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { reconciliationKeys } from '../api/queryKeys';
 import { ReconciliationHandlersProvider } from './ReconciliationActions';

@@ -10,7 +10,7 @@ import { getUnenrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templat
 import { formatClassName } from '@/shared/utils';
 import { formatSessionDateTime } from '@/shared/utils/schedule';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { calculateLastSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { useParentsForStudent } from '../../hooks/useParentsForStudent';

@@ -19,7 +19,8 @@ import { Alert, AlertDescription } from '@altitutor/ui';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { invitesApi, type ValidateInviteResponse } from '../api/invites';
+import { invitesApi } from '../api/invites';
+import { useValidateInviteQuery } from '../hooks/useValidateInviteQuery';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 
 const acceptInviteSchema = z.object({
@@ -45,11 +46,16 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
   const router = useRouter();
   const supabase = useSupabaseClient();
   const [loading, setLoading] = useState(false);
-  const [validating, setValidating] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [inviteData, setInviteData] = useState<ValidateInviteResponse | null>(null);
   const { resolvedTheme } = useTheme();
+
+  const { data: validateResult, isPending: validating } = useValidateInviteQuery(token);
+  const inviteData = validateResult?.valid ? validateResult : null;
+  const validateError =
+    !validating && validateResult && !validateResult.valid
+      ? validateResult.error ?? 'Invalid or expired invite token'
+      : null;
 
   const form = useForm<AcceptInviteData>({
     resolver: zodResolver(acceptInviteSchema),
@@ -60,34 +66,12 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
     },
   });
 
-  // Validate token on mount
+  // Pre-fill email when validation result has it
   useEffect(() => {
-    const validateToken = async () => {
-      try {
-        setValidating(true);
-        setError(null);
-        const result = await invitesApi.validateInvite(token);
-        
-        if (!result.valid) {
-          setError(result.error || 'Invalid or expired invite token');
-          return;
-        }
-
-        setInviteData(result);
-        // Pre-fill email if available
-        if (result.data?.email) {
-          form.setValue('email', result.data.email);
-        }
-      } catch (err) {
-        console.error('Failed to validate token:', err);
-        setError('Failed to validate invite. Please try again.');
-      } finally {
-        setValidating(false);
-      }
-    };
-
-    validateToken();
-  }, [token, form]);
+    if (inviteData?.data?.email) {
+      form.setValue('email', inviteData.data.email);
+    }
+  }, [inviteData?.data?.email, form]);
 
   const onSubmit = async (data: AcceptInviteData) => {
     setLoading(true);
@@ -175,7 +159,7 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
   }
 
   // Show error if token is invalid
-  if (error && !inviteData) {
+  if ((error || validateError) && !inviteData) {
     return (
       <div className="w-full max-w-md space-y-6 p-6 bg-white dark:bg-brand-dark-card rounded-lg shadow-lg">
         <div className="space-y-2 text-center">
@@ -192,7 +176,7 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
         </div>
 
         <Alert variant="destructive">
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>{error ?? validateError}</AlertDescription>
         </Alert>
 
         <div className="flex flex-col gap-2">

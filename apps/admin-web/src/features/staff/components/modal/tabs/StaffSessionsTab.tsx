@@ -5,7 +5,7 @@ import type { Tables } from '@altitutor/shared';
 import { Tabs, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
 import { SessionsTable, UndoLogAbsenceConfirmDialog, RemoveFromSessionConfirmDialog } from '@/features/sessions/components';
 import { StaffSessionsCalendarView } from './StaffSessionsCalendarView';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useUndoStaffAbsences } from '@/features/sessions/hooks/useStaffAbsences';
 import { useRemoveStaffFromSession } from '@/features/sessions/hooks/useSessionsQuery';
 import { useQueryClient } from '@tanstack/react-query';

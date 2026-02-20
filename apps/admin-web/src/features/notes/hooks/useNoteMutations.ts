@@ -4,7 +4,7 @@ import { notesApi } from '../api/notes';
 import { foldersApi } from '../api/folders';
 import { notesKeys, foldersKeys } from '../api/queryKeys';
 import type { NoteInsert, NoteUpdate, FolderInsert, FolderUpdate } from '../types';
-import { useCurrentStaff } from '@/features/staff/hooks';
+import { useCurrentStaff } from '@/shared/hooks';
 
 /**
  * Create a new note

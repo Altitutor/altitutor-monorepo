@@ -1,28 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
-import { z } from 'zod';
-import type { JSONContent } from '@altitutor/ui';
-
-const formSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  content: z.any(),
-  folder_id: z.string().nullable().optional(),
-});
-
-type FormData = {
-  title: string;
-  content: JSONContent | string;
-  folder_id?: string | null;
-};
+import type { NoteFormData } from '../types';
 
 interface UseNoteAutoSaveOptions {
-  form: UseFormReturn<FormData>;
+  form: UseFormReturn<NoteFormData>;
   noteId: string;
   note: { id: string } | undefined;
   isInitialized: boolean;
   isUpdatingFromServer: boolean | (() => boolean);
-  onSave: (updates: { title?: string; content?: JSONContent | string; folder_id?: string | null }) => void;
+  onSave: (updates: Partial<NoteFormData>) => void;
 }
 
 /**

@@ -18,7 +18,7 @@ import { AnnouncementsModal } from '@/features/messages/components/announcements
 import { BookSessionModal } from '@/features/bookings/components';
 import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';

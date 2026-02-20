@@ -27,7 +27,7 @@ import { cn } from '@/shared/utils';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
 
 export const dynamic = 'force-dynamic';

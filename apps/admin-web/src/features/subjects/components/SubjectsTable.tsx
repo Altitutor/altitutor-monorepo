@@ -38,7 +38,7 @@ import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 
 interface SubjectsTableProps {
   onRefresh?: number;

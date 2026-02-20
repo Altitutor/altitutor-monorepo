@@ -7,7 +7,7 @@ import { StudentList } from './StudentList';
 import { Button } from '@altitutor/ui';
 import { Play, ArrowLeft } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { ApplyPlanDialog } from './ApplyPlanDialog';
 
 interface PlanEditorProps {

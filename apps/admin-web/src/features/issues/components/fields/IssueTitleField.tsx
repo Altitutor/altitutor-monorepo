@@ -12,9 +12,10 @@ import { MentionAutocomplete } from '@/shared/components/MentionAutocomplete';
 import { useCallback } from 'react';
 import type { EntitySearchResult } from '@/shared/hooks/useEntitySearch';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
+import type { IssueFormData } from '../../types';
 
 interface IssueTitleFieldProps {
-  form: UseFormReturn<{ name: string }>;
+  form: UseFormReturn<IssueFormData>;
   value?: string | null;
   onTagClick?: (type: TagEntityType, id: string) => void;
   onEnter?: () => void;
@@ -38,7 +39,7 @@ export function IssueTitleField({ form, value, onTagClick, onEnter, titleRef }: 
     insertTag,
     closeMention,
   } = useMentionField({
-    form: form as any,
+    form,
     fieldName: 'name',
     value,
     onTagClick: handleTagClick,

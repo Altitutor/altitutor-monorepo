@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger } from '@altitutor/ui'
 import { Gauge } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { ESTIMATE_OPTIONS, getEstimateLabel } from '../../utils/taskUtils';
+import type { TaskFormData } from '../../types';
 
 interface TaskEstimatePillProps {
-  form: UseFormReturn<{ estimate: number | null }>;
+  form: UseFormReturn<TaskFormData>;
 }
 
 export function TaskEstimatePill({ form }: TaskEstimatePillProps) {

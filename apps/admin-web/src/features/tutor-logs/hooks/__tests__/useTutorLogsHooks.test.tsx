@@ -5,14 +5,12 @@
 import React, { ReactNode } from 'react';
 import { renderHook, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import {
-  useSessionForLogging,
-  useUnloggedSessionsForStaff,
-  useTopicsByIds,
-  useStudentsByIds,
-  useTopicsWithSubjects,
-  useTopicFilesByTopicIds,
-} from '../index';
+import { useSessionForLogging } from '../useSessionForLogging';
+import { useUnloggedSessionsForStaff } from '../useUnloggedSessionsForStaff';
+import { useTopicsByIds } from '../useTopicsByIds';
+import { useStudentsByIds } from '../useStudentsByIds';
+import { useTopicsWithSubjects } from '../useTopicsWithSubjects';
+import { useTopicFilesByTopicIds } from '../useTopicFilesByTopicIds';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';

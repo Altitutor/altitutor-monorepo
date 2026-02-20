@@ -1,23 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
-import type { JSONContent } from '@altitutor/ui';
-import type { IssueStatus } from '../types';
-
-type FormData = {
-  name: string;
-  description?: JSONContent | null;
-  status: IssueStatus;
-  dueDate: string | null;
-};
+import type { IssueFormData, IssueStatus } from '../types';
 
 interface UseIssueAutoSaveOptions {
-  form: UseFormReturn<FormData>;
+  form: UseFormReturn<IssueFormData>;
   issueId: string;
   issue: { id: string } | undefined;
   isInitialized: boolean;
   isUpdatingFromServer: boolean;
-  onSave: (updates: { name?: string; description?: JSONContent | null; status?: IssueStatus; dueDate?: string | null }) => Promise<void>;
+  onSave: (updates: Partial<IssueFormData>) => Promise<void>;
 }
 
 /**

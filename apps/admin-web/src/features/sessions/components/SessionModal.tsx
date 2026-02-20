@@ -15,7 +15,7 @@ import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { SessionFiles } from './SessionFiles';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
 import { LogSessionModal } from '@/features/tutor-logs';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
 import { SessionDetailsTab } from './SessionDetailsTab';

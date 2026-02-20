@@ -9,19 +9,8 @@ import {
   TaskEstimateField,
   TaskDueDateField,
 } from '../fields';
-import type { TaskStatus, TaskPriority } from '../../types';
+import type { TaskFormData, TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
-
-type TaskFormData = {
-  title: string;
-  description?: string;
-  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
-  priority: number;
-  assignedTo: string | null;
-  issueId: string | null;
-  estimate: number | null;
-  dueDate: string | null;
-};
 
 interface TaskPropertiesPanelProps {
   form: UseFormReturn<TaskFormData>;
@@ -44,21 +33,21 @@ export function TaskPropertiesPanel({
 }: TaskPropertiesPanelProps) {
   return (
     <div className="hidden md:block w-80 border-l flex-shrink-0 overflow-y-auto p-6 space-y-6">
-      <TaskStatusField form={form as unknown as UseFormReturn<{ status: TaskStatus }>} taskStatus={taskStatus} />
-      <TaskPriorityField form={form as unknown as UseFormReturn<{ priority: TaskPriority }>} />
+      <TaskStatusField form={form} taskStatus={taskStatus} />
+      <TaskPriorityField form={form} />
       <TaskAssigneeField
-        form={form as unknown as UseFormReturn<{ assignedTo: string | null }>}
+        form={form}
         selectedAssignee={selectedAssignee}
         onAssigneeChange={onAssigneeChange}
         enabled={enabled}
       />
       <TaskIssueField
-        form={form as unknown as UseFormReturn<{ issueId: string | null }>}
+        form={form}
         selectedIssue={selectedIssue}
         onIssueChange={onIssueChange}
       />
-      <TaskEstimateField form={form as unknown as UseFormReturn<{ estimate: number | null }>} />
-      <TaskDueDateField form={form as unknown as UseFormReturn<{ dueDate: string | null }>} />
+      <TaskEstimateField form={form} />
+      <TaskDueDateField form={form} />
     </div>
   );
 }

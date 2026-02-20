@@ -39,7 +39,7 @@ import { cn, formatSessionType, getSessionTypeBadgeColor, formatSubjectDisplay }
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { AttendanceCell } from './AttendanceCell';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';

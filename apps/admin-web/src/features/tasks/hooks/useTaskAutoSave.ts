@@ -1,27 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
-import type { JSONContent } from '@altitutor/ui';
-import type { TaskStatus } from '../types';
-
-type FormData = {
-  title: string;
-  description?: JSONContent | null;
-  status: TaskStatus;
-  priority: number;
-  assignedTo: string | null;
-  issueId: string | null;
-  estimate: number | null;
-  dueDate: string | null;
-};
+import type { TaskFormData, TaskStatus } from '../types';
 
 interface UseTaskAutoSaveOptions {
-  form: UseFormReturn<FormData>;
+  form: UseFormReturn<TaskFormData>;
   taskId: string;
   task: { id: string } | undefined;
   isInitialized: boolean;
   isUpdatingFromServer: boolean;
-  onSave: (updates: Partial<FormData>) => Promise<void>;
+  onSave: (updates: Partial<TaskFormData>) => Promise<void>;
 }
 
 /**
@@ -85,7 +73,7 @@ export function useTaskAutoSave({
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
     
-    const updates: Partial<FormData> = {};
+    const updates: Partial<TaskFormData> = {};
     let hasChanges = false;
 
     if (status !== lastSavedValuesRef.current.status) {

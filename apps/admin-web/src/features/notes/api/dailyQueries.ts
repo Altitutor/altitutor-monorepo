@@ -3,7 +3,6 @@ import { useToast } from '@altitutor/ui';
 import { dailyNotesApi } from './dailyNotes';
 import { notesKeys } from './queryKeys';
 import type { DailyNoteUpdate } from '../types';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 export function useDailyNote(date: string, enabled = true) {
   return useQuery({
@@ -15,26 +14,27 @@ export function useDailyNote(date: string, enabled = true) {
   });
 }
 
+export type UpdateDailyNoteVariables = {
+  id: string;
+  date: string;
+  updates: DailyNoteUpdate;
+  silent?: boolean;
+  /** Set by caller from useCurrentStaff(); used for updated_by when not in updates. */
+  updatedBy?: string | null;
+};
+
+/**
+ * Update a daily note. Caller must pass updatedBy (e.g. from useCurrentStaff()) when updates don't include updated_by.
+ */
 export function useUpdateDailyNote() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: currentStaff } = useCurrentStaff();
 
   return useMutation({
-    mutationFn: async ({
-      id,
-      date,
-      updates,
-      silent,
-    }: {
-      id: string;
-      date: string;
-      updates: DailyNoteUpdate;
-      silent?: boolean;
-    }) => {
+    mutationFn: async ({ id, date, updates, silent, updatedBy }: UpdateDailyNoteVariables) => {
       const updatesWithStaff: DailyNoteUpdate = {
         ...updates,
-        updated_by: updates.updated_by ?? currentStaff?.id ?? null,
+        updated_by: updates.updated_by ?? updatedBy ?? null,
       };
       const note = await dailyNotesApi.update(id, updatesWithStaff);
       return { note, date, silent };

@@ -1,9 +1,24 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { JSONContent } from '@altitutor/ui';
 
 /**
  * Task status types
  */
 export type TaskStatus = 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
+
+/**
+ * Form values for create/edit task dialogs (aligned with task form schema).
+ */
+export interface TaskFormData {
+  title: string;
+  description?: JSONContent | null;
+  status: TaskStatus;
+  priority: number;
+  assignedTo: string | null;
+  issueId: string | null;
+  estimate: number | null;
+  dueDate: string | null;
+}
 
 /**
  * Task priority types

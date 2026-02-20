@@ -17,21 +17,11 @@ import { Form } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import { useCreateTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
-import type { TaskStatus } from '../types';
+import type { TaskFormData, TaskStatus } from '../types';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
-import type { UseFormReturn } from 'react-hook-form';
-
-type TaskFormData = {
-  title: string;
-  description?: JSONContent | null;
-  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
-  priority: number;
-  assignedTo: string | null;
-  issueId: string | null;
-  estimate: number | null;
-  dueDate: string | null;
-};
+import type { Resolver } from 'react-hook-form';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -56,8 +46,6 @@ const formSchema = z.object({
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
-type FormData = TaskFormData;
-
 interface CreateTaskDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -76,6 +64,7 @@ export function CreateTaskDialog({
   issue,
 }: CreateTaskDialogProps) {
   const createTask = useCreateTask();
+  const { data: currentStaff } = useCurrentStaff();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
@@ -87,8 +76,8 @@ export function CreateTaskDialog({
   };
   const notes = (notesData || []) as NoteWithStaff[];
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any,
+  const form = useForm<TaskFormData, unknown, TaskFormData>({
+    resolver: zodResolver(formSchema) as Resolver<TaskFormData>,
     defaultValues: {
       title: '',
       description: null,
@@ -120,7 +109,7 @@ export function CreateTaskDialog({
     }
   }, [isOpen, defaultStatus, defaultValues, form, issue]);
 
-  const onSubmit = async (data: FormData): Promise<void> => {
+  const onSubmit = async (data: TaskFormData): Promise<void> => {
     try {
       await createTask.mutateAsync({
         title: data.title,
@@ -131,6 +120,7 @@ export function CreateTaskDialog({
         issue_id: data.issueId || null,
         estimate: data.estimate || null,
         due_date: data.dueDate ? new Date(data.dueDate as string).toISOString() : null,
+        created_by: currentStaff?.id ?? null,
       });
 
       onTaskCreated?.();
@@ -173,7 +163,7 @@ export function CreateTaskDialog({
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
                 <TaskContentPanel
-                  form={form as any}
+                  form={form}
                   taskId={createdTaskId}
                   notes={notes}
                   isOpen={isOpen}
@@ -185,7 +175,7 @@ export function CreateTaskDialog({
                   autoFocusTitle={true}
                 />
                 <TaskPropertiesPanel
-                  form={form as any}
+                  form={form}
                   selectedAssignee={selectedAssignee}
                   onAssigneeChange={setSelectedAssignee}
                   selectedIssue={selectedIssue}

@@ -27,7 +27,7 @@ import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { replaceVariablesForStaff } from '@/features/messages/utils/variableReplacerStaff';
 import { getStaffClasses } from '@/features/messages/api/bulk';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { calculateSMSSegments } from '@/features/messages/utils/smsSegments';
 import { templateContainsLinkVariables } from '@/features/messages/utils/generateLinkTokens';
 import { generateLinkTokensForStaff } from '@/features/messages/utils/generateLinkTokens';

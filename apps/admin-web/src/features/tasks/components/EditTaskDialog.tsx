@@ -26,11 +26,12 @@ import { X, Check, Loader2, CloudOff } from 'lucide-react';
 import { useTask } from '../api/queries';
 import { useUpdateTask, useDeleteTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
-import type { TaskStatus } from '../types';
+import type { TaskFormData, TaskStatus } from '../types';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
 import { useTaskAutoSave } from '../hooks/useTaskAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import type { UseFormReturn, Resolver } from 'react-hook-form';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -52,17 +53,6 @@ const formSchema = z.object({
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
-type FormData = {
-  title: string;
-  description?: JSONContent | null;
-  status: TaskStatus;
-  priority: number;
-  assignedTo: string | null;
-  issueId: string | null;
-  estimate: number | null;
-  dueDate: string | null;
-};
-
 interface EditTaskDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -72,12 +62,12 @@ interface EditTaskDialogProps {
 }
 
 interface AutoSaveManagerProps {
-  form: any;
+  form: UseFormReturn<TaskFormData>;
   taskId: string;
-  task: any;
+  task: Tables<'tasks'> | undefined;
   isInitialized: boolean;
   isLoading: boolean;
-  onSave: (updates: Partial<FormData>) => Promise<void>;
+  onSave: (updates: Partial<TaskFormData>) => Promise<void>;
 }
 
 function AutoSaveManager({ form, taskId, task, isInitialized, isLoading, onSave }: AutoSaveManagerProps) {
@@ -110,8 +100,8 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
   };
   const notes = (notesData || []) as NoteWithStaff[];
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any,
+  const form = useForm<TaskFormData, unknown, TaskFormData>({
+    resolver: zodResolver(formSchema) as Resolver<TaskFormData>,
     defaultValues: {
       title: '',
       description: null,
@@ -136,7 +126,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
         setSelectedAssignee(null);
       }
 
-      const resetData: FormData = {
+      const resetData: TaskFormData = {
         title: task.title,
         description: (task.description as unknown as JSONContent) || null,
         status: task.status as TaskStatus,
@@ -170,7 +160,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
     }
   }, [isOpen, issue]);
 
-  const handleAutoSave = useCallback(async (updates: Partial<FormData>) => {
+  const handleAutoSave = useCallback(async (updates: Partial<TaskFormData>) => {
     if (!taskId) return;
 
     try {
@@ -281,7 +271,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
                     onSave={handleAutoSave}
                   />
                   <TaskContentPanel
-                    form={form as any}
+                    form={form}
                     taskId={taskId}
                     notes={notes}
                     isOpen={isOpen}
@@ -291,7 +281,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
                     enabled={isOpen}
                   />
                   <TaskPropertiesPanel
-                    form={form as any}
+                    form={form}
                     selectedAssignee={selectedAssignee}
                     onAssigneeChange={setSelectedAssignee}
                     selectedIssue={selectedIssue}

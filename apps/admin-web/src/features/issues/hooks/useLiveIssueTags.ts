@@ -2,12 +2,11 @@ import { useMemo } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { parseTags } from '@/shared/utils/tagParsing';
 import { extractMentions } from '@/shared/utils/extractMentions';
-import type { JSONContent } from '@altitutor/ui';
-import type { IssueTagInsert } from '../types';
+import type { IssueFormData, IssueTagInsert } from '../types';
 
 interface UseLiveIssueTagsOptions {
-  form: UseFormReturn<any>;
-  initialTags?: any[];
+  form: UseFormReturn<IssueFormData>;
+  initialTags?: Omit<IssueTagInsert, 'issue_id'>[];
 }
 
 /**

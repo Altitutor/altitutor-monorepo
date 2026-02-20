@@ -17,7 +17,7 @@ import { formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/inde
 import { cn } from '@/shared/utils/index';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useSessionsTable } from '@/features/sessions/hooks/useSessionsTable';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import type { DataTableState } from '@altitutor/shared';

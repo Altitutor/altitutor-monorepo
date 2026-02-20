@@ -11,9 +11,10 @@ import { Gauge } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
 import { ESTIMATE_OPTIONS, getEstimateLabel } from '../../utils/taskUtils';
+import type { TaskFormData } from '../../types';
 
 interface TaskEstimateFieldProps {
-  form: UseFormReturn<{ estimate: number | null }>;
+  form: UseFormReturn<TaskFormData>;
 }
 
 export function TaskEstimateField({ form }: TaskEstimateFieldProps) {

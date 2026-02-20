@@ -12,9 +12,10 @@ import { MentionAutocomplete } from '@/shared/components/MentionAutocomplete';
 import { useCallback } from 'react';
 import type { EntitySearchResult } from '@/shared/hooks/useEntitySearch';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
+import type { TaskFormData } from '../../types';
 
 interface TaskTitleFieldProps {
-  form: UseFormReturn<{ title: string }>;
+  form: UseFormReturn<TaskFormData>;
   value?: string | null;
   onTagClick?: (type: TagEntityType, id: string) => void;
   onEnter?: () => void;

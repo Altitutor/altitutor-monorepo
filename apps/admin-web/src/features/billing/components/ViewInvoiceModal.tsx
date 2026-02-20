@@ -14,15 +14,11 @@ import { useToast } from '@altitutor/ui';
 import { IssuePill } from '@/features/issues';
 import { format } from 'date-fns';
 import { getErrorMessage } from '@/shared/utils';
-import {
-  useInvoiceData,
-  useInvoiceModals,
-  useInvoiceActions,
-  formatInvoiceDate,
-  formatInvoiceAmount,
-  calculateLineItemsSubtotal,
-  formatInvoiceTagText,
-} from '../index';
+import { useInvoiceData } from '../hooks/useInvoiceData';
+import { useInvoiceModals } from '../hooks/useInvoiceModals';
+import { useInvoiceActions } from '../hooks/useInvoiceActions';
+import { formatInvoiceDate, formatInvoiceAmount, calculateLineItemsSubtotal } from '../utils/invoiceFormatters';
+import { formatInvoiceTagText } from '../utils/invoiceTagText';
 import { invoicesKeys } from '../hooks/useInvoicesQuery';
 
 type ViewInvoiceModalProps = {

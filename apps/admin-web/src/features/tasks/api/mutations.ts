@@ -3,25 +3,16 @@ import { tasksApi } from './tasks';
 import { tasksKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { TaskInsert, TaskUpdate } from '../types';
-import { useCurrentStaff } from '@/shared/hooks';
 
 /**
- * Create a new task
+ * Create a new task. Caller must pass created_by (e.g. from useCurrentStaff()).
  */
 export function useCreateTask() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: currentStaff } = useCurrentStaff();
 
   return useMutation({
-    mutationFn: async (task: Omit<TaskInsert, 'created_by'>) => {
-      // Set created_by from current staff
-      const taskWithCreator: TaskInsert = {
-        ...task,
-        created_by: currentStaff?.id ?? null,
-      };
-      return tasksApi.create(taskWithCreator);
-    },
+    mutationFn: async (task: TaskInsert) => tasksApi.create(task),
     onSuccess: () => {
       // Invalidate tasks list
       queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });

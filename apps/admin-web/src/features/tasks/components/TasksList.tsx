@@ -10,7 +10,7 @@ import {
 import { useTasks } from '../api/queries';
 import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useIssues } from '@/features/issues/api/queries';
 import { TextWithTags } from '@/shared/components/TextWithTags';
 import { EditTaskDialog } from './EditTaskDialog';
@@ -161,9 +161,10 @@ export function TasksList({
         priority: data.priority as number | null,
         estimate: data.estimate as number | null,
         issue_id: issueId,
+        created_by: currentStaff?.id ?? null,
       });
     },
-    [createTask, issueId]
+    [createTask, issueId, currentStaff?.id]
   );
 
   const statusColumn: EntityListStatusColumn<TaskWithAssignee, TaskStatus> = {

@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useStudentDetails } from '../hooks/useStudentsQuery';
 import { useQueryClient } from '@tanstack/react-query';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import {

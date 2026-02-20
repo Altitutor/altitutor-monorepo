@@ -11,6 +11,7 @@ import { Button, Input, Popover, PopoverContent, PopoverTrigger, ScrollArea } fr
 import { Check, Link2, Loader2 } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { useIssues } from '@/features/issues/api/queries';
+import type { TaskFormData } from '../../types';
 
 type IssueOption = {
   id: string;
@@ -18,7 +19,7 @@ type IssueOption = {
 };
 
 interface TaskIssueFieldProps {
-  form: UseFormReturn<{ issueId: string | null }>;
+  form: UseFormReturn<TaskFormData>;
   selectedIssue: IssueOption | null;
   onIssueChange: (issue: IssueOption | null) => void;
 }

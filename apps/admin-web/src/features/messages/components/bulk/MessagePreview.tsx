@@ -6,7 +6,7 @@ import { ScrollArea, Badge } from '@altitutor/ui';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { replaceVariablesForParent, type StudentWithClasses } from '../../utils/variableReplacerParent';
 import { useMessagePreviewData } from '../../hooks/useMessagePreviewData';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import type { Sender } from '../../api/queries';
 import type { AttachmentFile } from '../../hooks/useMessageAttachments';

@@ -9,9 +9,10 @@ import { Button } from '@altitutor/ui';
 import { Calendar } from 'lucide-react';
 import { useRef, type MutableRefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
+import type { TaskFormData } from '../../types';
 
 interface TaskDueDatePillProps {
-  form: UseFormReturn<{ dueDate: string | null }>;
+  form: UseFormReturn<TaskFormData>;
 }
 
 export function TaskDueDatePill({ form }: TaskDueDatePillProps) {

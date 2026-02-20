@@ -7,7 +7,7 @@ import { ViewStudentModal } from '@/features/students';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 import { classesApi } from '@/shared/api';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from "@altitutor/ui";
 import { classesKeys } from '../../../hooks/useClassesQuery';
 import { useChatStore } from '@/features/messages/state/chatStore';

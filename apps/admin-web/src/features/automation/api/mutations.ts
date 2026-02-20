@@ -3,24 +3,16 @@ import { automationApi } from './automation';
 import { automationKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { AutomationRuleInsert, AutomationRuleUpdate, AutomationActionInsert, TablesUpdate } from '../types';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 
 /**
- * Create a new automation rule
+ * Create a new automation rule. Caller must pass created_by (e.g. from useCurrentStaff()).
  */
 export function useCreateAutomationRule() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { data: currentStaff } = useCurrentStaff();
 
   return useMutation({
-    mutationFn: async (rule: Omit<AutomationRuleInsert, 'created_by'>) => {
-      const ruleWithCreator: AutomationRuleInsert = {
-        ...rule,
-        created_by: currentStaff?.id ?? null,
-      };
-      return automationApi.createRule(ruleWithCreator);
-    },
+    mutationFn: async (rule: AutomationRuleInsert) => automationApi.createRule(rule),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: automationKeys.rules() });
       toast({

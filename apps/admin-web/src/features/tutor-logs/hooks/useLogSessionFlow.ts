@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../types';
-import { useCreateTutorLog, useSessionForLogging } from './index';
+import { useCreateTutorLog } from './useTutorLogsQuery';
+import { useSessionForLogging } from './useSessionForLogging';
 import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import { sessionsApi } from '@/features/sessions/api/sessions';
 import {

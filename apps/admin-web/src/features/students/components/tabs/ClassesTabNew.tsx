@@ -5,7 +5,7 @@ import { Loader2, Plus, Grid3X3, Calendar } from "lucide-react";
 import { classesApi } from '@/shared/api';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { ViewClassModal } from '@/features/classes';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from "@altitutor/ui";
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 

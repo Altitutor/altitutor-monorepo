@@ -9,7 +9,7 @@ import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { useToast } from "@altitutor/ui";
 import { AssignStaffModal } from '@/features/enrollments';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 
 interface ClassStaffTabProps {
   classData: Tables<'classes'>;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, type UseFormReturn, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -27,7 +27,7 @@ import { useIssue } from '../api/queries';
 import { useUpdateIssue, useDeleteIssue } from '../api/mutations';
 import { useNotes } from '@/shared/hooks/useNotes';
 import type { Tables } from '@altitutor/shared';
-import type { IssueStatus } from '../types';
+import type { IssueFormData, IssueStatus } from '../types';
 import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
 import { useIssueAutoSave } from '../hooks/useIssueAutoSave';
@@ -41,13 +41,6 @@ const formSchema = z.object({
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
-type FormData = {
-  name: string;
-  description?: JSONContent | null;
-  status: IssueStatus;
-  dueDate: string | null;
-};
-
 interface EditIssueDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -56,12 +49,12 @@ interface EditIssueDialogProps {
 }
 
 interface AutoSaveManagerProps {
-  form: any;
+  form: UseFormReturn<IssueFormData>;
   issueId: string;
-  issue: any;
+  issue: Tables<'issues'> | undefined;
   isInitialized: boolean;
   isLoading: boolean;
-  onSave: (updates: any) => Promise<void>;
+  onSave: (updates: Partial<IssueFormData>) => Promise<void>;
 }
 
 function AutoSaveManager({ form, issueId, issue, isInitialized, isLoading, onSave }: AutoSaveManagerProps) {
@@ -101,8 +94,8 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
   };
   const notes = (notesData || []) as NoteWithStaff[];
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any,
+  const form = useForm<IssueFormData, unknown, IssueFormData>({
+    resolver: zodResolver(formSchema) as Resolver<IssueFormData>,
     defaultValues: {
       name: '',
       description: null,
@@ -136,7 +129,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
     }
   }, [isOpen]);
 
-  const handleAutoSave = useCallback(async (updates: Partial<FormData>) => {
+  const handleAutoSave = useCallback(async (updates: Partial<IssueFormData>) => {
     if (!issueId) return;
 
     try {
@@ -229,7 +222,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
                     onSave={handleAutoSave}
                   />
                   <IssuePropertiesPanel
-                    form={form as any}
+                    form={form}
                     issue={issue}
                     notes={notes}
                     isOpen={isOpen}

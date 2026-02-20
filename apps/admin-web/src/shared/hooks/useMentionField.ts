@@ -165,7 +165,7 @@ function escapeHtml(text: string): string {
   return div.innerHTML;
 }
 
-interface UseMentionFieldOptions<T extends Record<string, unknown>> {
+interface UseMentionFieldOptions<T extends object> {
   form: UseFormReturn<T>;
   fieldName: Path<T>;
   value?: string | null | undefined;
@@ -173,7 +173,7 @@ interface UseMentionFieldOptions<T extends Record<string, unknown>> {
   onEnter?: () => void;
 }
 
-export function useMentionField<T extends Record<string, unknown>>({
+export function useMentionField<T extends object>({
   form,
   fieldName,
   value,

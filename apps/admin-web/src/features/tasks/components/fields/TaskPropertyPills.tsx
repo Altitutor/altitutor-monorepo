@@ -6,18 +6,8 @@ import { TaskPriorityPill } from './TaskPriorityPill';
 import { TaskAssigneePill } from './TaskAssigneePill';
 import { TaskEstimatePill } from './TaskEstimatePill';
 import { TaskDueDatePill } from './TaskDueDatePill';
-import type { TaskStatus, TaskPriority } from '../../types';
+import type { TaskFormData, TaskStatus, TaskPriority } from '../../types';
 import type { Tables } from '@altitutor/shared';
-
-type TaskFormData = {
-  title: string;
-  description?: string;
-  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
-  priority: number;
-  assignedTo: string | null;
-  estimate: number | null;
-  dueDate: string | null;
-};
 
 interface TaskPropertyPillsProps {
   form: UseFormReturn<TaskFormData>;
@@ -36,16 +26,16 @@ export function TaskPropertyPills({
 }: TaskPropertyPillsProps) {
   return (
     <div className="flex flex-wrap gap-2 pb-2">
-      <TaskStatusPill form={form as unknown as UseFormReturn<{ status: TaskStatus }>} taskStatus={taskStatus} />
-      <TaskPriorityPill form={form as unknown as UseFormReturn<{ priority: TaskPriority }>} />
+      <TaskStatusPill form={form} taskStatus={taskStatus} />
+      <TaskPriorityPill form={form} />
       <TaskAssigneePill
-        form={form as unknown as UseFormReturn<{ assignedTo: string | null }>}
+        form={form}
         selectedAssignee={selectedAssignee}
         onAssigneeChange={onAssigneeChange}
         enabled={enabled}
       />
-      <TaskEstimatePill form={form as unknown as UseFormReturn<{ estimate: number | null }>} />
-      <TaskDueDatePill form={form as unknown as UseFormReturn<{ dueDate: string | null }>} />
+      <TaskEstimatePill form={form} />
+      <TaskDueDatePill form={form} />
     </div>
   );
 }

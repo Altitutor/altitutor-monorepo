@@ -10,10 +10,10 @@ import { Circle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
 import { getPriorityLabel, getPriorityIconColor } from '../../utils/taskUtils';
-import type { TaskPriority } from '../../types';
+import type { TaskFormData, TaskPriority } from '../../types';
 
 interface TaskPriorityPillProps {
-  form: UseFormReturn<{ priority: TaskPriority }>;
+  form: UseFormReturn<TaskFormData>;
 }
 
 export function TaskPriorityPill({ form }: TaskPriorityPillProps) {
@@ -22,7 +22,7 @@ export function TaskPriorityPill({ form }: TaskPriorityPillProps) {
       control={form.control}
       name="priority"
       render={({ field }) => {
-        const priorityValue = field.value ?? 0;
+        const priorityValue = (field.value ?? 0) as TaskPriority;
         const displayValue = getPriorityLabel(priorityValue);
         const iconColor = getPriorityIconColor(priorityValue);
         const PriorityIcon =

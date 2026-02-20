@@ -10,7 +10,7 @@ import {
 import { useTasks } from '../api/queries';
 import { useUpdateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useIssues } from '@/features/issues/api/queries';
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';

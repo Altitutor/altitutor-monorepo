@@ -19,18 +19,14 @@ import { useContentEditableField } from '@/features/tasks/hooks/useContentEditab
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
 import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import type { NoteFormData } from '../types';
+import type { Resolver } from 'react-hook-form';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   content: z.any(),
   folder_id: z.string().nullable().optional(),
 });
-
-type FormData = {
-  title: string;
-  content: JSONContent | string;
-  folder_id?: string | null;
-};
 
 interface NoteDetailPageProps {
   noteId: string;
@@ -63,8 +59,8 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   // Track last saved title to prevent duplicate saves on blur
   const lastBlurSavedTitleRef = useRef<string | null>(null);
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any,
+  const form = useForm<NoteFormData, unknown, NoteFormData>({
+    resolver: zodResolver(formSchema) as Resolver<NoteFormData>,
     defaultValues: {
       title: '',
       content: '',
@@ -242,7 +238,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
               <div className="flex-1 max-w-3xl mx-auto w-full">
                 <Form {...form}>
                   <FormField
-                    control={form.control as any}
+                    control={form.control}
                     name="title"
                     render={() => (
                       <FormItem>
@@ -271,7 +267,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
             <Form {...form}>
               {/* Property Pills - Mobile Only */}
               <div className="md:hidden pt-4 mb-4">
-                <NotePropertyPills form={form as any} folders={foldersArray} />
+                <NotePropertyPills form={form} folders={foldersArray} />
               </div>
 
               {/* Table of Contents - Mobile Only (Collapsible) */}
@@ -282,7 +278,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
               {/* Editor Container with max-width */}
               <div className="max-w-3xl mx-auto w-full relative flex-1 flex flex-col min-h-0">
                 <FormField
-                  control={form.control as any}
+                  control={form.control}
                   name="content"
                   render={({ field }) => (
                     <FormItem className="flex-1 flex flex-col min-h-0">
@@ -325,7 +321,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         <div className="flex-1 overflow-y-auto m-4 mr-6 space-y-4">
           {/* Properties Panel */}
           <NotePropertiesPanel
-            form={form as any}
+            form={form}
             folders={foldersArray}
             onDelete={handleDelete}
             saveStatus={{

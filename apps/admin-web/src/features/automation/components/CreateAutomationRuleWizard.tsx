@@ -15,7 +15,8 @@ import { Button } from '@altitutor/ui';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCreateAutomationRule } from '../api/mutations';
 import { useMessageTemplates } from '@/features/messages/api/templates';
-import { staffApi } from '@/features/staff/api/staff';
+import { useStaffMinimal } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { Form } from '@altitutor/ui';
 import type { ActivityEntityType, ActivityEventType, AutomationRuleInsert } from '../types';
@@ -52,10 +53,15 @@ export function CreateAutomationRuleWizard({
 }: CreateAutomationRuleWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [createdRuleId, setCreatedRuleId] = useState<string | null>(null);
-  const [staffList, setStaffList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
   const createMutation = useCreateAutomationRule();
   const queryClient = useQueryClient();
   const { data: templates } = useMessageTemplates();
+  const { data: staffData } = useStaffMinimal(
+    { limit: 100, orderBy: 'first_name', ascending: true },
+    { enabled: isOpen }
+  );
+  const staffList = staffData?.staff ?? [];
+  const { data: currentStaff } = useCurrentStaff();
 
   const form = useForm<WizardFormData>({
     resolver: zodResolver(ruleFormSchema),
@@ -69,21 +75,6 @@ export function CreateAutomationRuleWizard({
       conditions: null as AutomationCondition | null,
     },
   });
-
-  // Load staff list
-  useEffect(() => {
-    if (isOpen) {
-      staffApi.listMinimal({ limit: 100, orderBy: 'first_name', ascending: true })
-        .then((result) => {
-          setStaffList(result.staff.map(s => ({
-            id: s.id,
-            first_name: s.first_name,
-            last_name: s.last_name,
-          })));
-        })
-        .catch(console.error);
-    }
-  }, [isOpen]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -123,6 +114,7 @@ export function CreateAutomationRuleWizard({
           enabled: formData.enabled,
           priority: formData.priority,
           conditions: (formData.conditions ?? null) as AutomationRuleInsert['conditions'],
+          created_by: currentStaff?.id ?? null,
         });
         setCreatedRuleId(newRule.id);
         await queryClient.invalidateQueries({ queryKey: ['automation-rules'] });

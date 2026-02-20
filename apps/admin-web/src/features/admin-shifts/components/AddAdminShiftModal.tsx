@@ -13,7 +13,7 @@ import {
   SelectValue,
 } from '@altitutor/ui';
 import { useCreateAdminShift } from '../hooks/useAdminShiftsQuery';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { TablesInsert } from '@altitutor/shared';
 
 interface AddAdminShiftModalProps {
@@ -96,15 +96,16 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
       onAdminShiftAdded();
       resetForm();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to create admin shift';
-      
-      if (err?.message) {
-        errorMessage = err.message;
-      } else if (err?.details) {
-        errorMessage = err.details;
-      } else if (err?.hint) {
-        errorMessage = err.hint;
+      if (err && typeof err === 'object') {
+        if ('message' in err && typeof (err as { message: unknown }).message === 'string') {
+          errorMessage = (err as { message: string }).message;
+        } else if ('details' in err && typeof (err as { details: unknown }).details === 'string') {
+          errorMessage = (err as { details: string }).details;
+        } else if ('hint' in err && typeof (err as { hint: unknown }).hint === 'string') {
+          errorMessage = (err as { hint: string }).hint;
+        }
       } else if (typeof err === 'string') {
         errorMessage = err;
       }

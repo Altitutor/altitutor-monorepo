@@ -6,7 +6,7 @@ import { Button } from '@altitutor/ui';
 import { ActivityFeed } from '@/features/activity/components/ActivityFeed';
 import { useAdminShiftActivity } from '@/features/activity/hooks';
 import { useCreateNote } from '@/shared/hooks/useNotes';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { activityKeys } from '@/features/activity/hooks/useActivityEvents';
 

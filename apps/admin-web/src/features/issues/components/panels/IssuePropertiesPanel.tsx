@@ -11,7 +11,7 @@ import { IssueTitleField } from '@/features/issues/components/fields/IssueTitleF
 import { IssueDescriptionField } from '@/features/issues/components/fields/IssueDescriptionField';
 import { IssueNotes } from '@/features/issues/components/IssueNotes';
 import type { RichTextEditorRef } from '@altitutor/ui';
-import type { IssueWithTags, IssueStatus } from '../../types';
+import type { IssueFormData, IssueWithTags } from '../../types';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
 import type { Tables } from '@altitutor/shared';
 
@@ -20,12 +20,7 @@ type NoteWithStaff = Tables<'notes'> & {
 };
 
 interface IssuePropertiesPanelProps {
-  form: UseFormReturn<{
-    name: string;
-    description?: JSONContent | null;
-    status: IssueStatus;
-    dueDate: string | null;
-  }>;
+  form: UseFormReturn<IssueFormData>;
   issue?: IssueWithTags;
   notes: NoteWithStaff[];
   isOpen: boolean;
@@ -66,12 +61,12 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
             {/* Status and Title */}
             <div className="space-y-4">
               <div className="flex flex-wrap items-center gap-2">
-                <IssueStatusPill form={form as any} />
-                <IssueDueDatePill form={form as any} />
+                <IssueStatusPill form={form} />
+                <IssueDueDatePill form={form} />
               </div>
 
               <IssueTitleField
-                form={form as any}
+                form={form}
                 value={form.getValues('name')}
                 onTagClick={handleTagClick}
                 onEnter={handleTitleEnter}
@@ -82,7 +77,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
             {/* Description */}
             <div className="space-y-2">
               <IssueDescriptionField
-                form={form as any}
+                form={form}
                 value={form.getValues('description')}
                 onTagClick={handleTagClick}
                 descriptionRef={descriptionRef}

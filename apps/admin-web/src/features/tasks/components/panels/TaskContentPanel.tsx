@@ -15,7 +15,7 @@ import { ViewParentModal } from '@/features/students/components/ViewParentModal'
 import { ViewSubjectModal } from '@/features/subjects/components';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics/components';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
-import type { TaskStatus } from '../../types';
+import type { TaskFormData, TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
 
@@ -23,18 +23,8 @@ type NoteWithStaff = Tables<'notes'> & {
   staff?: Tables<'staff'> | null;
 };
 
-type TaskFormData = {
-  title: string;
-  description?: JSONContent | null;
-  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
-  priority: number;
-  assignedTo: string | null;
-  estimate: number | null;
-  dueDate: string | null;
-};
-
 interface TaskContentPanelProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<TaskFormData>;
   taskId: string | null;
   notes: NoteWithStaff[];
   isOpen: boolean;
@@ -170,7 +160,7 @@ export function TaskContentPanel({
         {/* Title */}
         <div className="space-y-2">
           <TaskTitleField
-            form={form as unknown as UseFormReturn<{ title: string }>}
+            form={form}
             value={form.getValues('title')}
             onTagClick={handleTagClick}
             onEnter={handleTitleEnter}
@@ -181,7 +171,7 @@ export function TaskContentPanel({
         {/* Description */}
         <div className="space-y-2">
           <TaskDescriptionField
-            form={form as unknown as UseFormReturn<{ description?: any }>}
+            form={form}
             value={form.getValues('description')}
             onTagClick={handleTagClick as (type: TagEntityType, id: string) => void}
             descriptionRef={descriptionFieldRef}
