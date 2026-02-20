@@ -197,6 +197,7 @@ export const sessionsApi = {
     sessionStaff: Record<string, Array<Tables<'staff'> & {
       planned_absence?: boolean;
       actual_attended?: boolean | null;
+      actual_was_trial?: boolean | null;
       actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
       is_swapped_in?: boolean;
       is_swapped?: boolean;
@@ -206,6 +207,7 @@ export const sessionsApi = {
         last_name: string;
       } | null;
       sessions_staff_id?: string | null;
+      was_trial?: boolean;
     }>>;
     tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
     classesById: Record<string, Tables<'classes'>>;
@@ -343,24 +345,28 @@ export const sessionsApi = {
       });
       
       // Transform sessionStaff - RPC returns full staff objects with additional fields
-      const   sessionStaff: Record<string, Array<Tables<'staff'> & {
-    planned_absence?: boolean;
-    actual_attended?: boolean | null;
-    actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
-    is_swapped_in?: boolean;
-    is_swapped?: boolean;
-    swapped_staff?: {
-      id: string;
-      first_name: string;
-      last_name: string;
-    } | null;
-    sessions_staff_id?: string | null;
-  }>> = {};
+      const sessionStaff: Record<string, Array<Tables<'staff'> & {
+        planned_absence?: boolean;
+        actual_attended?: boolean | null;
+        actual_was_trial?: boolean | null;
+        actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+        is_swapped_in?: boolean;
+        is_swapped?: boolean;
+        swapped_staff?: {
+          id: string;
+          first_name: string;
+          last_name: string;
+        } | null;
+        sessions_staff_id?: string | null;
+        was_trial?: boolean;
+      }>> = {};
       Object.entries(rpcData.sessionStaff || {}).forEach(([sessionId, staff]) => {
         sessionStaff[sessionId] = (staff || []).map((s) => {
           const staffWithExtra = s as typeof s & {
             actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+            actual_was_trial?: boolean | null;
             is_swapped?: boolean;
+            was_trial?: boolean;
             swapped_staff?: {
               id: string;
               first_name: string;
@@ -369,22 +375,25 @@ export const sessionsApi = {
             sessions_staff_id?: string | null;
           };
           return {
-          id: s.id,
-          first_name: s.first_name,
-          last_name: s.last_name,
-          role: s.role,
-          status: s.status,
-          planned_absence: s.planned_absence ?? false,
-          actual_attended: s.actual_attended ?? null,
-          actual_type: staffWithExtra.actual_type ?? null,
-          is_swapped_in: s.is_swapped_in ?? false,
-          is_swapped: staffWithExtra.is_swapped ?? false,
-          swapped_staff: staffWithExtra.swapped_staff ?? null,
-          sessions_staff_id: staffWithExtra.sessions_staff_id ?? null,
-        };
+            id: s.id,
+            first_name: s.first_name,
+            last_name: s.last_name,
+            role: s.role,
+            status: s.status,
+            planned_absence: s.planned_absence ?? false,
+            actual_attended: s.actual_attended ?? null,
+            actual_was_trial: staffWithExtra.actual_was_trial ?? null,
+            actual_type: staffWithExtra.actual_type ?? null,
+            is_swapped_in: s.is_swapped_in ?? false,
+            is_swapped: staffWithExtra.is_swapped ?? false,
+            swapped_staff: staffWithExtra.swapped_staff ?? null,
+            sessions_staff_id: staffWithExtra.sessions_staff_id ?? null,
+            was_trial: staffWithExtra.was_trial ?? false,
+          };
         }) as Array<Tables<'staff'> & {
           planned_absence?: boolean;
           actual_attended?: boolean | null;
+          actual_was_trial?: boolean | null;
           actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
           is_swapped_in?: boolean;
           is_swapped?: boolean;
@@ -394,6 +403,7 @@ export const sessionsApi = {
             last_name: string;
           } | null;
           sessions_staff_id?: string | null;
+          was_trial?: boolean;
         }>;
       });
       

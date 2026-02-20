@@ -46,8 +46,8 @@ type SessionDetailsTabProps = {
     staff: Tables<'staff'>;
     sessionsStaffId: string | null;
     swappedSessionsStaffId: string | null;
-    plannedStatus: 'attending' | 'absent' | 'swapped';
-    actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
+    plannedStatus: 'attending' | 'attending-trial' | 'absent' | 'swapped';
+    actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     staffType?: string;
     swappedStaffName: string;
     swappedStaffId: string;
