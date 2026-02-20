@@ -13,7 +13,7 @@ import {
   PopoverTrigger,
   ScrollArea,
 } from '@altitutor/ui';
-import { Check, ChevronDown, FolderKanban, Link2 } from 'lucide-react';
+import { ArrowUpRight, Check, ChevronDown, FolderKanban, Link2 } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils';
 import { useIssues } from '@/features/issues/api/queries';
@@ -47,6 +47,8 @@ interface TaskLinkFieldProps {
   selectedIssue: { id: string; name: string | null } | null;
   selectedProject: { id: string; name: string | null } | null;
   onLinkChange: (link: LinkSelection) => void;
+  onOpenIssue?: (issueId: string) => void;
+  onOpenProject?: (projectId: string) => void;
 }
 
 export function TaskLinkField({
@@ -54,6 +56,8 @@ export function TaskLinkField({
   selectedIssue,
   selectedProject,
   onLinkChange,
+  onOpenIssue,
+  onOpenProject,
 }: TaskLinkFieldProps) {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -197,6 +201,23 @@ export function TaskLinkField({
               </div>
             </PopoverContent>
           </Popover>
+          {activeLink && (activeLink.type === 'issue' ? onOpenIssue : onOpenProject) && (
+            <Button
+              type="button"
+              variant="link"
+              className="mt-1.5 h-auto p-0 text-xs text-primary hover:underline"
+              onClick={() => {
+                if (activeLink.type === 'issue') {
+                  onOpenIssue?.(activeLink.id);
+                } else {
+                  onOpenProject?.(activeLink.id);
+                }
+              }}
+            >
+              {activeLink.type === 'issue' ? 'Go to issue' : 'Go to project'}
+              <ArrowUpRight className="ml-1 h-3 w-3" />
+            </Button>
+          )}
           <FormMessage />
         </FormItem>
       )}

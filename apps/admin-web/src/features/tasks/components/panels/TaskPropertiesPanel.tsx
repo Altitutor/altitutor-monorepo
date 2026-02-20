@@ -19,6 +19,8 @@ interface TaskPropertiesPanelProps {
   selectedIssue: { id: string; name: string | null } | null;
   selectedProject: { id: string; name: string | null } | null;
   onLinkChange: (link: { type: 'issue' | 'project'; id: string; name: string | null } | null) => void;
+  onOpenIssue?: (issueId: string) => void;
+  onOpenProject?: (projectId: string) => void;
   taskStatus?: TaskStatus;
   enabled?: boolean;
 }
@@ -30,6 +32,8 @@ export function TaskPropertiesPanel({
   selectedIssue,
   selectedProject,
   onLinkChange,
+  onOpenIssue,
+  onOpenProject,
   taskStatus,
   enabled = true,
 }: TaskPropertiesPanelProps) {
@@ -48,6 +52,8 @@ export function TaskPropertiesPanel({
         selectedIssue={selectedIssue}
         selectedProject={selectedProject}
         onLinkChange={onLinkChange}
+        onOpenIssue={onOpenIssue}
+        onOpenProject={onOpenProject}
       />
       <TaskEstimateField form={form} />
       <TaskDueDateField form={form} />
