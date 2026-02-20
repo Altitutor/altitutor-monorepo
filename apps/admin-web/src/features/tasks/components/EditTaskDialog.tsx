@@ -203,6 +203,14 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
         formattedUpdates.project_id = updates.projectId;
         delete formattedUpdates.projectId;
       }
+      // DB allows estimate NULL or > 0; 0 triggers tasks_estimate_check
+      const rawEstimate = updates.estimate;
+      if (
+        rawEstimate !== undefined &&
+        (rawEstimate === null || rawEstimate === 0 || (typeof rawEstimate === 'number' && (rawEstimate < 1 || rawEstimate > 5)))
+      ) {
+        formattedUpdates.estimate = null;
+      }
 
       await updateTask.mutateAsync({
         id: taskId,

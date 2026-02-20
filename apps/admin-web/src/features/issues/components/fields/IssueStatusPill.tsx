@@ -29,7 +29,7 @@ export function IssueStatusPill({ form }: IssueStatusPillProps) {
       render={({ field }) => {
         return (
           <FormItem className="w-fit">
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select onValueChange={field.onChange} value={field.value ?? 'open'}>
               <FormControl>
                 <SelectTrigger className="h-8 w-fit px-3 text-xs border rounded-full">
                   <div className="flex items-center gap-1.5">

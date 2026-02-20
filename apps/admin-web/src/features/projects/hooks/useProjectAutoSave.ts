@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../types';
@@ -40,6 +40,24 @@ export function useProjectAutoSave({
 
   const debouncedNameTrigger = useDebounce(name, 1000);
   const debouncedDescriptionTrigger = useDebounce(description, 1000);
+
+  // Sync lastSavedValuesRef when the dialog opens or entity changes (baseline from server).
+  // Must run first so property effects see the baseline and don't save on open.
+  // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
+  useEffect(() => {
+    if (project && isInitialized) {
+      const values = form.getValues();
+      lastSavedValuesRef.current = {
+        name: values.name,
+        descriptionJson: JSON.stringify(values.description),
+        status: values.status,
+        priority: values.priority,
+        projectLeadId: values.projectLeadId,
+        startDate: values.startDate,
+        targetDate: values.targetDate,
+      };
+    }
+  }, [project, isInitialized, form]);
 
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
@@ -97,20 +115,4 @@ export function useProjectAutoSave({
       onSave({ targetDate });
     }
   }, [targetDate, project, isInitialized, isUpdatingFromServer, onSave]);
-
-  // Sync lastSavedValuesRef in layout effect so it runs before field effects.
-  // This prevents auto-save from firing on first open (treating initial load as a "change").
-  useLayoutEffect(() => {
-    if (project && isInitialized) {
-      lastSavedValuesRef.current = {
-        name,
-        descriptionJson: JSON.stringify(description),
-        status,
-        priority,
-        projectLeadId,
-        startDate,
-        targetDate,
-      };
-    }
-  }, [project, isInitialized, name, description, status, priority, projectLeadId, startDate, targetDate]);
 }

@@ -1,7 +1,13 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
 import type { TaskFormData, TaskStatus } from '../types';
+
+/** DB allows estimate NULL or 1-5; 0 is invalid and triggers tasks_estimate_check. */
+function normalizeEstimate(val: number | null | undefined): number | null {
+  if (val == null || val === 0 || val < 1 || val > 5) return null;
+  return val;
+}
 
 interface UseTaskAutoSaveOptions {
   form: UseFormReturn<TaskFormData>;
@@ -50,6 +56,26 @@ export function useTaskAutoSave({
   // Debounce used only as a trigger; we save the current value when the effect runs (same as description).
   const debouncedTitleTrigger = useDebounce(title, 1000);
   const debouncedDescriptionTrigger = useDebounce(description, 1000);
+
+  // Sync lastSavedValuesRef when the dialog opens or entity changes (baseline from server).
+  // Must run first so property effects see the baseline and don't save on open.
+  // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
+  useEffect(() => {
+    if (task && isInitialized) {
+      const values = form.getValues();
+      lastSavedValuesRef.current = {
+        title: values.title,
+        descriptionJson: JSON.stringify(values.description),
+        status: values.status,
+        priority: values.priority,
+        assignedTo: values.assignedTo,
+        issueId: values.issueId,
+        projectId: values.projectId,
+        estimate: normalizeEstimate(values.estimate),
+        dueDate: values.dueDate,
+      };
+    }
+  }, [task, isInitialized, form]);
 
   // Auto-save for title (same pattern as description: effect runs on every change, saves current value)
   useEffect(() => {
@@ -108,9 +134,10 @@ export function useTaskAutoSave({
       hasChanges = true;
     }
 
-    if (estimate !== lastSavedValuesRef.current.estimate) {
-      updates.estimate = estimate;
-      lastSavedValuesRef.current.estimate = estimate;
+    const validEstimate = normalizeEstimate(estimate);
+    if (validEstimate !== lastSavedValuesRef.current.estimate) {
+      updates.estimate = validEstimate;
+      lastSavedValuesRef.current.estimate = validEstimate;
       hasChanges = true;
     }
 
@@ -124,22 +151,4 @@ export function useTaskAutoSave({
       onSave(updates);
     }
   }, [status, priority, assignedTo, issueId, projectId, estimate, dueDate, task, isInitialized, isUpdatingFromServer, onSave]);
-
-  // Sync lastSavedValuesRef in layout effect so it runs before field effects.
-  // This prevents auto-save from firing on first open (treating initial load as a "change").
-  useLayoutEffect(() => {
-    if (task && isInitialized) {
-      lastSavedValuesRef.current = {
-        title,
-        descriptionJson: JSON.stringify(description),
-        status,
-        priority,
-        assignedTo,
-        issueId,
-        projectId,
-        estimate,
-        dueDate,
-      };
-    }
-  }, [task, isInitialized, title, description, status, priority, assignedTo, issueId, projectId, estimate, dueDate]);
 }
