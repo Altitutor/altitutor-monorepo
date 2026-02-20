@@ -1,15 +1,18 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useLayoutEffect, useRef, useEffect } from 'react';
 import {
   EntityList,
+  EntityListAddRow,
   type EntityListPillColumn,
   type EntityListStatusColumn,
+  type EntityListAddRowRenderProps,
   RichTextEditor,
 } from '@altitutor/ui';
 import { useTasks } from '../api/queries';
 import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
+import { useTaskSearch, type TaskSearchResult } from '../hooks/useTaskSearch';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useIssues } from '@/features/issues/api/queries';
 import { useProjects } from '@/features/projects/api/queries';
@@ -33,7 +36,7 @@ import {
 import type { TaskWithAssignee } from '../types';
 import type { TaskStatus, TaskPriority, TaskFilters } from '../types';
 import { cn } from '@/shared/utils';
-import { Clock, Circle, CheckCircle, Eye } from 'lucide-react';
+import { Clock, Circle, CheckCircle, Eye, CheckSquare, Loader2 } from 'lucide-react';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
 
@@ -52,6 +55,177 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
   { value: 3, label: 'Medium' },
   { value: 4, label: 'Low' },
 ];
+
+/** Autocomplete dropdown for linking an existing task to the current issue/project. Only shown when there are suggestions. */
+function TaskLinkAutocomplete({
+  tasks,
+  isLoading,
+  position,
+  onSelect,
+  onClose,
+  getStatusLabel,
+}: {
+  tasks: TaskSearchResult[];
+  isLoading: boolean;
+  position: { top: number; left: number } | null;
+  onSelect: (taskId: string) => void;
+  onClose: () => void;
+  getStatusLabel: (status: string) => string;
+}) {
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const showDropdown = position !== null && (tasks.length > 0 || isLoading);
+
+  useLayoutEffect(() => {
+    if (tasks.length > 0) setSelectedIndex(0);
+  }, [tasks.length]);
+
+  useEffect(() => {
+    if (!showDropdown || tasks.length === 0) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev < tasks.length - 1 ? prev + 1 : prev));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
+      } else if (e.key === 'Enter' && tasks[selectedIndex]) {
+        e.preventDefault();
+        onSelect(tasks[selectedIndex].id);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showDropdown, tasks, selectedIndex, onSelect, onClose]);
+
+  if (!showDropdown) return null;
+
+  return (
+    <div
+      ref={containerRef}
+      role="listbox"
+      className="fixed z-[200] bg-popover border rounded-lg shadow-lg max-h-[280px] overflow-y-auto min-w-[240px] max-w-[400px]"
+      style={
+        position
+          ? { top: position.top, left: position.left, position: 'fixed' as const }
+          : undefined
+      }
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      {isLoading && (
+        <div className="flex items-center justify-center p-4">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {!isLoading && tasks.length > 0 && (
+        <div className="py-1">
+          <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase flex items-center gap-2">
+            <CheckSquare className="h-3 w-3" />
+            Link existing task
+          </div>
+          {tasks.map((task, idx) => {
+            const isSelected = idx === selectedIndex;
+            return (
+              <button
+                key={task.id}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                className={cn(
+                  'w-full flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-left',
+                  isSelected ? 'bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20' : 'hover:bg-muted'
+                )}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onSelect(task.id);
+                }}
+                onMouseEnter={() => setSelectedIndex(idx)}
+              >
+                <CheckSquare className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0 text-left">
+                  <div className="font-medium text-sm">{task.title || 'Untitled'}</div>
+                  {task.status && (
+                    <div className="text-xs text-muted-foreground">
+                      {getStatusLabel(task.status)}
+                    </div>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Add row that shows task-search autocomplete when typing; on select, links task to issue/project. */
+function TaskListAddRowWithSearch({
+  addRowProps,
+  issueId,
+  projectId,
+  linkedTaskIds,
+  onLinkTask,
+}: {
+  addRowProps: EntityListAddRowRenderProps<TaskWithAssignee>;
+  issueId?: string;
+  projectId?: string;
+  linkedTaskIds: string[];
+  onLinkTask: (taskId: string) => void;
+}) {
+  const { addName, setAddName, inputRef } = addRowProps;
+  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
+
+  const { tasks, isLoading } = useTaskSearch(
+    addName,
+    !!(issueId || projectId)
+  );
+  const suggestions = useMemo(
+    () => tasks.filter((t) => !linkedTaskIds.includes(t.id)),
+    [tasks, linkedTaskIds]
+  );
+
+  const showAutocomplete = addName.trim() !== '' && (suggestions.length > 0 || isLoading);
+
+  useLayoutEffect(() => {
+    if (!showAutocomplete || !inputRef?.current) {
+      setPosition(null);
+      return;
+    }
+    const rect = inputRef.current.getBoundingClientRect();
+    setPosition({
+      top: rect.bottom + 4,
+      left: rect.left,
+    });
+  }, [showAutocomplete, addName, suggestions.length, isLoading]);
+
+  const handleSelect = useCallback(
+    (taskId: string) => {
+      onLinkTask(taskId);
+      setAddName('');
+    },
+    [onLinkTask, setAddName]
+  );
+
+  return (
+    <>
+      <EntityListAddRow {...addRowProps} />
+      <TaskLinkAutocomplete
+        tasks={suggestions}
+        isLoading={isLoading}
+        position={position}
+        onSelect={handleSelect}
+        onClose={() => setAddName('')}
+        getStatusLabel={(s) => getStatusLabel(s as TaskStatus)}
+      />
+    </>
+  );
+}
 
 export function TasksList({
   issueId,
@@ -72,9 +246,7 @@ export function TasksList({
   showLinkPill?: boolean;
   noPadding?: boolean;
 } = {}) {
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({
-    status: ['todo', 'in_progress', 'in_review'],
-  });
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({});
 
   const effectiveFilters = useMemo(() => ({
     ...filters,
@@ -155,6 +327,17 @@ export function TasksList({
       updateTask.mutate({ id: task.id, updates: { project_id: link.id, issue_id: null } });
     }
   }, [updateTask]);
+
+  const handleLinkTaskFromSearch = useCallback(
+    (taskId: string) => {
+      if (issueId) {
+        updateTask.mutate({ id: taskId, updates: { issue_id: issueId, project_id: null } });
+      } else if (projectId) {
+        updateTask.mutate({ id: taskId, updates: { project_id: projectId, issue_id: null } });
+      }
+    },
+    [issueId, projectId, updateTask]
+  );
 
   const handleAdd = useCallback(async (data: { name: string; description?: string } & Record<string, unknown>) => {
     const createdTask = await createTask.mutateAsync({
@@ -497,6 +680,19 @@ export function TasksList({
           ),
           placeholder: 'Add task description...'
         }}
+        renderAddRow={
+          issueId || projectId
+            ? (props) => (
+                <TaskListAddRowWithSearch
+                  addRowProps={props}
+                  issueId={issueId}
+                  projectId={projectId}
+                  linkedTaskIds={filteredTasks.map((t) => t.id)}
+                  onLinkTask={handleLinkTaskFromSearch}
+                />
+              )
+            : undefined
+        }
         hideToolbar={hideToolbar}
         noPadding={noPadding}
         compact={compact}
