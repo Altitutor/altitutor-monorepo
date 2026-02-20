@@ -23,6 +23,7 @@ export type Database = {
           parent_id: string | null
           performed_at: string
           performed_by: string | null
+          project_id: string | null
           session_id: string | null
           staff_id: string | null
           student_id: string | null
@@ -41,6 +42,7 @@ export type Database = {
           parent_id?: string | null
           performed_at?: string
           performed_by?: string | null
+          project_id?: string | null
           session_id?: string | null
           staff_id?: string | null
           student_id?: string | null
@@ -59,6 +61,7 @@ export type Database = {
           parent_id?: string | null
           performed_at?: string
           performed_by?: string | null
+          project_id?: string | null
           session_id?: string | null
           staff_id?: string | null
           student_id?: string | null
@@ -119,6 +122,13 @@ export type Database = {
             columns: ["performed_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -2499,6 +2509,7 @@ export type Database = {
           created_by: string
           folder_id: string | null
           id: string
+          project_id: string | null
           search_vector: unknown
           title: string
           updated_at: string
@@ -2510,6 +2521,7 @@ export type Database = {
           created_by: string
           folder_id?: string | null
           id?: string
+          project_id?: string | null
           search_vector?: unknown
           title: string
           updated_at?: string
@@ -2521,6 +2533,7 @@ export type Database = {
           created_by?: string
           folder_id?: string | null
           id?: string
+          project_id?: string | null
           search_vector?: unknown
           title?: string
           updated_at?: string
@@ -2546,6 +2559,13 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "notes_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -2924,6 +2944,80 @@ export type Database = {
             columns: ["student_id"]
             isOneToOne: false
             referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: Json | null
+          id: string
+          name: string
+          priority: number
+          project_lead_id: string | null
+          search_vector: unknown
+          start_date: string | null
+          status: string
+          target_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: Json | null
+          id?: string
+          name: string
+          priority?: number
+          project_lead_id?: string | null
+          search_vector?: unknown
+          start_date?: string | null
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: Json | null
+          id?: string
+          name?: string
+          priority?: number
+          project_lead_id?: string | null
+          search_vector?: unknown
+          start_date?: string | null
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_project_lead_id_fkey"
+            columns: ["project_lead_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_project_lead_id_fkey"
+            columns: ["project_lead_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -4301,6 +4395,7 @@ export type Database = {
           id: string
           issue_id: string | null
           priority: number | null
+          project_id: string | null
           search_vector: unknown
           source_activity_id: string | null
           source_rule_id: string | null
@@ -4318,6 +4413,7 @@ export type Database = {
           id?: string
           issue_id?: string | null
           priority?: number | null
+          project_id?: string | null
           search_vector?: unknown
           source_activity_id?: string | null
           source_rule_id?: string | null
@@ -4335,6 +4431,7 @@ export type Database = {
           id?: string
           issue_id?: string | null
           priority?: number | null
+          project_id?: string | null
           search_vector?: unknown
           source_activity_id?: string | null
           source_rule_id?: string | null
@@ -4376,6 +4473,13 @@ export type Database = {
             columns: ["issue_id"]
             isOneToOne: false
             referencedRelation: "issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
