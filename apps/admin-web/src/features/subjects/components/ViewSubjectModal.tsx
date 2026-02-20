@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { TopicsHierarchy, AddTopicModal, AddResourceFileModal, ViewTopicModal, DraggableTopicsList } from '@/features/topics';
+import { TopicsHierarchy, AddTopicModal, ViewTopicModal, DraggableTopicsList } from '@/features/topics';
 import { useTopics, useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
 import {
   Sheet,
@@ -81,8 +81,6 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
   // Topics modals state
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
   const [addTopicParentId, setAddTopicParentId] = useState<string | undefined>(undefined);
-  const [isAddResourceModalOpen, setIsAddResourceModalOpen] = useState(false);
-  const [addResourceTopicId, setAddResourceTopicId] = useState<string | undefined>(undefined);
   const [viewTopicId, setViewTopicId] = useState<string | null>(null);
   const [isViewTopicModalOpen, setIsViewTopicModalOpen] = useState(false);
   
@@ -570,7 +568,6 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                   <TopicsHierarchy
                     subjectId={subject.id}
                     showAddTopic={false}
-                    showAddResource={false}
                     onTopicClick={(id) => {
                       setViewTopicId(id);
                       setIsViewTopicModalOpen(true);
@@ -578,10 +575,6 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                     onAddTopicClick={(parentId) => {
                       setAddTopicParentId(parentId);
                       setIsAddTopicModalOpen(true);
-                    }}
-                    onAddResourceClick={(topicId) => {
-                      setAddResourceTopicId(topicId);
-                      setIsAddResourceModalOpen(true);
                     }}
                     allTopics={allTopics}
                   />
@@ -691,18 +684,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         refetchRootTopics();
       }}
     />
-    
-    <AddResourceFileModal
-      isOpen={isAddResourceModalOpen}
-      onClose={() => {
-        setIsAddResourceModalOpen(false);
-        refetchTopics();
-      }}
-      preselectedSubjectId={subjectId || undefined}
-      preselectedTopicId={addResourceTopicId}
-      onResourceAdded={() => refetchTopics()}
-    />
-    
+
     <ViewTopicModal
       isOpen={isViewTopicModalOpen}
       onClose={() => {

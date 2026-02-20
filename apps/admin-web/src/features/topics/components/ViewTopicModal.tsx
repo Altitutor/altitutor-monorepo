@@ -575,7 +575,6 @@ export function ViewTopicModal({
                               allTopics={subjectTopics}
                               level={0}
                               showAddTopic={false}
-                              showAddResource={false}
                               onTopicClick={(id) => {
                                 setViewTopicId(id);
                                 setIsViewTopicModalOpen(true);

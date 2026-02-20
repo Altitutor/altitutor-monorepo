@@ -480,7 +480,6 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                         allTopics={subjectTopics}
                         level={0}
                         showAddTopic={false}
-                        showAddResource={false}
                         onTopicClick={(topicId) => {
                           if (topic?.subject_id) {
                             router.push(`/subjects/${topic.subject_id}/topics/${topicId}`);

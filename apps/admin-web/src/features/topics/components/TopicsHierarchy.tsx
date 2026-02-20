@@ -4,21 +4,15 @@ import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { ChevronRight, ChevronDown, Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { useTopicFilesByTopic } from '../hooks';
 import { buildTopicTree, type TopicTree } from '../utils/codes';
-import { FileCard } from './FileCard';
 
 export interface TopicsHierarchyProps {
   subjectId: string | null;
   searchQuery?: string;
   showAddTopic?: boolean;
-  showAddResource?: boolean;
   onTopicClick?: (topicId: string) => void;
   onAddTopicClick?: (parentId?: string) => void;
-  onAddResourceClick?: (topicId: string) => void;
-  onEditFileClick?: (topicFileId: string, topicId: string, subjectId: string) => void;
-  onDeleteFileClick?: (topicFileId: string) => void;
-  allTopics: Tables<'topics'>[];  // All topics for the subject
+  allTopics: Tables<'topics'>[];
 }
 
 export interface TopicNodeProps {
@@ -26,12 +20,8 @@ export interface TopicNodeProps {
   allTopics: Tables<'topics'>[];
   level: number;
   showAddTopic?: boolean;
-  showAddResource?: boolean;
   onTopicClick?: (topicId: string) => void;
   onAddTopicClick?: (parentId?: string) => void;
-  onAddResourceClick?: (topicId: string) => void;
-  onEditFileClick?: (topicFileId: string, topicId: string, subjectId: string) => void;
-  onDeleteFileClick?: (topicFileId: string) => void;
   searchQuery?: string;
 }
 
@@ -40,68 +30,62 @@ export function TopicNode({
   allTopics,
   level,
   showAddTopic,
-  showAddResource,
   onTopicClick,
   onAddTopicClick,
-  onAddResourceClick,
-  onEditFileClick,
-  onDeleteFileClick,
   searchQuery,
 }: TopicNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  
-  const { data: topicFiles = [] } = useTopicFilesByTopic(isExpanded ? topic.id : null);
 
+  const hasChildren = topic.children.length > 0;
   const paddingLeft = level * 24;
 
-  // Filter based on search query
-  const matchesSearch = !searchQuery || 
+  const matchesSearch =
+    !searchQuery ||
     topic.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     topic.code.toLowerCase().includes(searchQuery.toLowerCase());
 
-  // Check if any descendant matches search
   const hasMatchingDescendant = (node: TopicTree): boolean => {
     if (!searchQuery) return false;
-    
     for (const child of node.children) {
-      if (child.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          child.code.toLowerCase().includes(searchQuery.toLowerCase())) {
+      if (
+        child.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        child.code.toLowerCase().includes(searchQuery.toLowerCase())
+      ) {
         return true;
       }
-      if (hasMatchingDescendant(child)) {
-        return true;
-      }
+      if (hasMatchingDescendant(child)) return true;
     }
     return false;
   };
 
   const shouldShow = matchesSearch || hasMatchingDescendant(topic);
-
-  if (!shouldShow) {
-    return null;
-  }
+  if (!shouldShow) return null;
 
   return (
     <div>
-      {/* Topic Row */}
       <div
         className="flex items-center gap-2 py-2 hover:bg-muted/50 rounded group"
         style={{ paddingLeft }}
       >
-        {/* Expand/Collapse Button - Always show for resource files access */}
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="p-1 hover:bg-muted rounded"
-        >
-          {isExpanded ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
-        </button>
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={() => setIsExpanded(!isExpanded)}
+            className="p-1 hover:bg-muted rounded"
+            aria-expanded={isExpanded}
+          >
+            {isExpanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </button>
+        ) : (
+          <span className="w-6 shrink-0" aria-hidden />
+        )}
 
-        {/* Topic Code and Name */}
         <button
+          type="button"
           onClick={() => onTopicClick?.(topic.id)}
           className="flex-1 text-left hover:underline flex items-center gap-2"
         >
@@ -110,53 +94,8 @@ export function TopicNode({
         </button>
       </div>
 
-      {/* Expanded Content */}
-      {isExpanded && (
+      {isExpanded && hasChildren && (
         <div className="ml-6" style={{ paddingLeft }}>
-          {/* Topic Files */}
-          {topicFiles.length > 0 && (
-            <div className="space-y-2 mb-2">
-              {topicFiles.map((tf) => {
-                const fileCode = tf.code || '';
-                // Get the full topic record to access subject_id
-                const fullTopic = allTopics.find(t => t.id === topic.id);
-                return (
-                  <FileCard
-                    key={tf.id}
-                    fileCode={fileCode}
-                    fileType={tf.type}
-                    filename={tf.file?.filename || 'Unknown file'}
-                    storagePath={tf.file?.storage_path || ''}
-                    mimeType={tf.file?.mimetype}
-                    topicFileId={tf.id}
-                    currentTopicId={topic.id}
-                    currentSubjectId={fullTopic?.subject_id}
-                    onEdit={
-                      onEditFileClick && fullTopic
-                        ? (topicFileId) => onEditFileClick(topicFileId, topic.id, fullTopic.subject_id)
-                        : undefined
-                    }
-                    onDelete={onDeleteFileClick}
-                  />
-                );
-              })}
-            </div>
-          )}
-
-          {/* Add Resource Button */}
-          {showAddResource && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="mb-2"
-              onClick={() => onAddResourceClick?.(topic.id)}
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Add Resource
-            </Button>
-          )}
-
-          {/* Child Topics */}
           {topic.children.map((child) => (
             <TopicNode
               key={child.id}
@@ -164,17 +103,12 @@ export function TopicNode({
               allTopics={allTopics}
               level={level + 1}
               showAddTopic={showAddTopic}
-              showAddResource={showAddResource}
               onTopicClick={onTopicClick}
               onAddTopicClick={onAddTopicClick}
-              onAddResourceClick={onAddResourceClick}
-              onEditFileClick={onEditFileClick}
-              onDeleteFileClick={onDeleteFileClick}
               searchQuery={searchQuery}
             />
           ))}
 
-          {/* Add Child Topic Button */}
           {showAddTopic && (
             <Button
               variant="outline"
@@ -196,12 +130,8 @@ export function TopicsHierarchy({
   subjectId,
   searchQuery,
   showAddTopic = false,
-  showAddResource = false,
   onTopicClick,
   onAddTopicClick,
-  onAddResourceClick,
-  onEditFileClick,
-  onDeleteFileClick,
   allTopics,
 }: TopicsHierarchyProps) {
   if (!subjectId) {
@@ -212,10 +142,7 @@ export function TopicsHierarchy({
     );
   }
 
-  // Filter topics for this subject
-  const subjectTopics = allTopics.filter(t => t.subject_id === subjectId);
-  
-  // Build hierarchical tree
+  const subjectTopics = allTopics.filter((t) => t.subject_id === subjectId);
   const topicTree = buildTopicTree(subjectTopics);
 
   if (topicTree.length === 0) {
@@ -241,24 +168,14 @@ export function TopicsHierarchy({
           allTopics={subjectTopics}
           level={0}
           showAddTopic={showAddTopic}
-          showAddResource={showAddResource}
           onTopicClick={onTopicClick}
           onAddTopicClick={onAddTopicClick}
-          onAddResourceClick={onAddResourceClick}
-          onEditFileClick={onEditFileClick}
-          onDeleteFileClick={onDeleteFileClick}
           searchQuery={searchQuery}
         />
       ))}
-      
-      {/* Add Root Topic Button */}
+
       {showAddTopic && (
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-4"
-          onClick={() => onAddTopicClick?.()}
-        >
+        <Button variant="outline" size="sm" className="mt-4" onClick={() => onAddTopicClick?.()}>
           <Plus className="h-3 w-3 mr-1" />
           Add Root Topic
         </Button>
@@ -266,4 +183,3 @@ export function TopicsHierarchy({
     </div>
   );
 }
-
