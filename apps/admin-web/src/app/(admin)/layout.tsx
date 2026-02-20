@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
@@ -18,6 +18,7 @@ import { AnnouncementsModal } from '@/features/messages/components/announcements
 import { BookSessionModal } from '@/features/bookings/components';
 import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
+import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { Breadcrumb } from '@/shared/components';
@@ -53,6 +54,11 @@ const navItems: NavItem[] = [
     title: 'Issues',
     href: '/issues',
     icon: AlertTriangle,
+  },
+  {
+    title: 'Projects',
+    href: '/projects',
+    icon: FolderKanban,
   },
   {
     title: 'Reconciliation',
@@ -375,6 +381,8 @@ function AdminLayoutContent({
     closeCreateTaskDialog,
     isCreateIssueDialogOpen,
     closeCreateIssueDialog,
+    isCreateProjectDialogOpen,
+    closeCreateProjectDialog,
   } = useQuickActions();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
@@ -445,6 +453,10 @@ function AdminLayoutContent({
               <CreateIssueDialog
                 isOpen={isCreateIssueDialogOpen}
                 onClose={closeCreateIssueDialog}
+              />
+              <CreateProjectDialog
+                isOpen={isCreateProjectDialogOpen}
+                onClose={closeCreateProjectDialog}
               />
             </>
           )}

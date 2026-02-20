@@ -16,6 +16,7 @@ import {
   CheckSquare,
   AlertTriangle,
   Mail,
+  FolderKanban,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -30,7 +31,7 @@ export interface QuickActionConfig {
   // For booking actions, specify the session type
   bookingSessionType?: BookingSessionType;
   // For other actions, specify the action type
-  actionType?: 'tutor-log' | 'log-student-absence' | 'log-staff-absence' | 'create-task' | 'announcement' | 'create-issue';
+  actionType?: 'tutor-log' | 'log-student-absence' | 'log-staff-absence' | 'create-task' | 'announcement' | 'create-issue' | 'create-project';
 }
 
 /**
@@ -79,6 +80,14 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: AlertTriangle,
     keywords: ['issue', 'create', 'new', 'ticket'],
     actionType: 'create-issue',
+  },
+  {
+    id: 'add-project',
+    title: 'Add Project',
+    description: 'Create a new project',
+    icon: FolderKanban,
+    keywords: ['project', 'create', 'new'],
+    actionType: 'create-project',
   },
   {
     id: 'make-announcement',

@@ -18,7 +18,7 @@ type QuickActionsMenuProps = {
 };
 
 export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps) {
-  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog } = useQuickActions();
+  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog, openCreateProjectDialog } = useQuickActions();
   
   const bookingActions = getBookingActions();
   const nonBookingActions = getNonBookingActions();
@@ -73,6 +73,8 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
                 openLogStaffAbsenceDialog();
               } else if (action.actionType === 'create-issue') {
                 openCreateIssueDialog();
+              } else if (action.actionType === 'create-project') {
+                openCreateProjectDialog();
               }
             };
 
@@ -138,6 +140,8 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
                 openLogStaffAbsenceDialog();
               } else if (action.actionType === 'create-issue') {
                 openCreateIssueDialog();
+              } else if (action.actionType === 'create-project') {
+                openCreateProjectDialog();
               }
             };
 
