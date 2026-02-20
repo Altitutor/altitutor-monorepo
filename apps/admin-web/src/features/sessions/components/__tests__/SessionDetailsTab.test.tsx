@@ -81,7 +81,6 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
       onLogAbsenceStaff={jest.fn()}
       onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
       onUndoLogAbsenceStaff={onUndoLogAbsenceStaff}
-      onSendBookingConfirmation={jest.fn()}
       onAddStudentToSession={onAddStudentToSession}
       onAddStaffToSession={onAddStaffToSession}
       onRemoveStudentFromSession={onRemoveStudentFromSession}
@@ -162,7 +161,9 @@ describe('SessionDetailsTab', () => {
     expect(normalRow).not.toBeNull();
     const normalRowButtons = within(normalRow as HTMLElement).getAllByRole('button');
     await user.click(normalRowButtons[normalRowButtons.length - 1]);
-    expect(screen.queryByText('Remove from session')).not.toBeInTheDocument();
+    const removeOption = await screen.findByText('Remove from session');
+    expect(removeOption).toBeInTheDocument();
+    expect(removeOption.closest('[role="menuitem"]')).toHaveClass('text-muted-foreground');
   });
 
   it('does not show remove from session for invoiced extra students', async () => {
@@ -188,7 +189,9 @@ describe('SessionDetailsTab', () => {
     expect(row).not.toBeNull();
     const rowButtons = within(row as HTMLElement).getAllByRole('button');
     await user.click(rowButtons[rowButtons.length - 1]);
-    expect(screen.queryByText('Remove from session')).not.toBeInTheDocument();
+    const removeOption = await screen.findByText('Remove from session');
+    expect(removeOption).toBeInTheDocument();
+    expect(removeOption.closest('[role="menuitem"]')).toHaveClass('text-muted-foreground');
   });
 
   it('shows remove from session for staff', async () => {
@@ -230,7 +233,9 @@ describe('SessionDetailsTab', () => {
     expect(studentRow).not.toBeNull();
     const studentRowButtons = within(studentRow as HTMLElement).getAllByRole('button');
     await user.click(studentRowButtons[studentRowButtons.length - 1]);
-    expect(screen.queryByText('Remove from session')).not.toBeInTheDocument();
+    const removeOption = await screen.findByText('Remove from session');
+    expect(removeOption).toBeInTheDocument();
+    expect(removeOption.closest('[role="menuitem"]')).toHaveClass('text-muted-foreground');
   });
 
   it('does not show remove from session for staff when session has tutor log', async () => {
@@ -260,7 +265,9 @@ describe('SessionDetailsTab', () => {
     expect(staffRow).not.toBeNull();
     const staffRowButtons = within(staffRow as HTMLElement).getAllByRole('button');
     await user.click(staffRowButtons[staffRowButtons.length - 1]);
-    expect(screen.queryByText('Remove from session')).not.toBeInTheDocument();
+    const removeOption = await screen.findByText('Remove from session');
+    expect(removeOption).toBeInTheDocument();
+    expect(removeOption.closest('[role="menuitem"]')).toHaveClass('text-muted-foreground');
   });
 
   it('shows undo log absence for credited students', async () => {
@@ -392,5 +399,6 @@ describe('SessionDetailsTab', () => {
     const rowButtons = within(row as HTMLElement).getAllByRole('button');
     await user.click(rowButtons[rowButtons.length - 1]);
     expect(screen.queryByText('Undo Log Absence')).not.toBeInTheDocument();
+    expect(screen.getByText('Log Absence')).toBeInTheDocument();
   });
 });

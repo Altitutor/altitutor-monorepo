@@ -297,6 +297,8 @@ export function ActionsMenu(props: ActionsMenuProps) {
     const canReschedule = props.canReschedule && props.onReschedule;
     const canEditTutorLog = props.hasTutorLog && props.onEditTutorLog;
     const canLogSession = !props.hasTutorLog && props.onLogSession;
+    const showEditTutorLog = canEditTutorLog;
+    const showLogSession = canLogSession;
     const canSendBookingConfirmation =
       props.sessionType !== 'CLASS' &&
       props.onSendBookingConfirmation &&
@@ -360,32 +362,21 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <CalendarX className="h-4 w-4 mr-2" />
             Reschedule session
           </DropdownMenuItem>
-          <DropdownMenuItem
-            className={!canEditTutorLog ? 'opacity-60 text-muted-foreground' : undefined}
-            onClick={() => {
-              if (canEditTutorLog && props.onEditTutorLog) props.onEditTutorLog();
-              else toast({ description: 'Session has no tutor log to edit.', variant: 'destructive' });
-            }}
-          >
-            <Pencil className="h-4 w-4 mr-2" />
-            Edit tutor log
-          </DropdownMenuItem>
+          {showEditTutorLog ? (
+            <DropdownMenuItem onClick={props.onEditTutorLog}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit tutor log
+            </DropdownMenuItem>
+          ) : showLogSession ? (
+            <DropdownMenuItem onClick={props.onLogSession}>
+              <FileText className="h-4 w-4 mr-2" />
+              Log session
+            </DropdownMenuItem>
+          ) : null}
           {canAddIssue && (
             <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
               Add issue
-            </DropdownMenuItem>
-          )}
-          {props.onLogSession && (
-            <DropdownMenuItem
-              className={!canLogSession ? 'opacity-60 text-muted-foreground' : undefined}
-              onClick={() => {
-                if (canLogSession) props.onLogSession!();
-                else toast({ description: 'Session already has a tutor log.', variant: 'destructive' });
-              }}
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Log session
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>

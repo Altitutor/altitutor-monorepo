@@ -9,6 +9,7 @@ interface UseSessionModalsReturn {
   isClassModalOpen: boolean;
   selectedClassId: string | null;
   isLogSessionModalOpen: boolean;
+  isEditTutorLogModalOpen: boolean;
   isRescheduleModalOpen: boolean;
   selectedStudentForReschedule: string | null;
   isBookingConfirmationDialogOpen: boolean;
@@ -31,6 +32,8 @@ interface UseSessionModalsReturn {
   closeClassModal: () => void;
   openLogSessionModal: () => void;
   closeLogSessionModal: () => void;
+  openEditTutorLogModal: () => void;
+  closeEditTutorLogModal: () => void;
   openRescheduleModal: (studentId: string) => void;
   closeRescheduleModal: () => void;
   openBookingConfirmationDialog: (studentId: string) => void;
@@ -59,6 +62,7 @@ export function useSessionModals(): UseSessionModalsReturn {
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
+  const [isEditTutorLogModalOpen, setIsEditTutorLogModalOpen] = useState(false);
   const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
   const [selectedStudentForReschedule, setSelectedStudentForReschedule] = useState<string | null>(null);
   const [isBookingConfirmationDialogOpen, setIsBookingConfirmationDialogOpen] = useState(false);
@@ -108,6 +112,14 @@ export function useSessionModals(): UseSessionModalsReturn {
 
   const closeLogSessionModal = useCallback(() => {
     setIsLogSessionModalOpen(false);
+  }, []);
+
+  const openEditTutorLogModal = useCallback(() => {
+    setIsEditTutorLogModalOpen(true);
+  }, []);
+
+  const closeEditTutorLogModal = useCallback(() => {
+    setIsEditTutorLogModalOpen(false);
   }, []);
 
   const openRescheduleModal = useCallback((studentId: string) => {
@@ -184,6 +196,7 @@ export function useSessionModals(): UseSessionModalsReturn {
     setIsClassModalOpen(false);
     setSelectedClassId(null);
     setIsLogSessionModalOpen(false);
+    setIsEditTutorLogModalOpen(false);
     setIsRescheduleModalOpen(false);
     setSelectedStudentForReschedule(null);
     setIsBookingConfirmationDialogOpen(false);
@@ -206,6 +219,7 @@ export function useSessionModals(): UseSessionModalsReturn {
     isClassModalOpen,
     selectedClassId,
     isLogSessionModalOpen,
+    isEditTutorLogModalOpen,
     isRescheduleModalOpen,
     selectedStudentForReschedule,
     isBookingConfirmationDialogOpen,
@@ -226,6 +240,8 @@ export function useSessionModals(): UseSessionModalsReturn {
     closeClassModal,
     openLogSessionModal,
     closeLogSessionModal,
+    openEditTutorLogModal,
+    closeEditTutorLogModal,
     openRescheduleModal,
     closeRescheduleModal,
     openBookingConfirmationDialog,

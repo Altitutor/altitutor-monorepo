@@ -1,7 +1,7 @@
 'use client';
 
 import { Badge, Separator, Button } from '@altitutor/ui';
-import { MoreVertical, MessageSquare, Mail, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
+import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
 import { formatSessionDate } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
@@ -83,7 +83,6 @@ type SessionDetailsTabProps = {
     action: 'log' | 'swap';
     swappedStaffName?: string;
   }) => void;
-  onSendBookingConfirmation?: (studentId: string) => void;
   onLogSession?: () => void;
   onAddStudentToSession?: () => void;
   onAddStaffToSession?: () => void;
@@ -112,7 +111,6 @@ export function SessionDetailsTab({
   onLogAbsenceStaff,
   onUndoLogAbsenceStudent,
   onUndoLogAbsenceStaff,
-  onSendBookingConfirmation,
   onLogSession: _onLogSession,
   onAddStudentToSession,
   onAddStaffToSession,
@@ -270,46 +268,11 @@ export function SessionDetailsTab({
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Message
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className={!(sessionId && session.type !== 'CLASS' && onSendBookingConfirmation) ? 'opacity-60 text-muted-foreground' : undefined}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (sessionId && session.type !== 'CLASS' && onSendBookingConfirmation) {
-                                onSendBookingConfirmation(data.student.id);
-                              } else {
-                                toast({
-                                  description: !sessionId ? 'No session selected.' : session.type === 'CLASS' ? 'Not available for class sessions.' : 'Send booking confirmation is not available.',
-                                  variant: 'destructive',
-                                });
-                              }
-                            }}
-                          >
-                            <Mail className="h-4 w-4 mr-2" />
-                            Send Booking Confirmation Link
-                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className={!(!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent) ? 'opacity-60 text-muted-foreground' : undefined}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent) {
-                                onLogAbsenceStudent(data.student.id);
-                              } else {
-                                toast({
-                                  description: data.plannedAbsence ? 'Student already has a logged absence.' : data.hasInvoiceItems ? 'Student has an invoice item for this session.' : !sessionId ? 'No session selected.' : 'Log absence is not available.',
-                                  variant: 'destructive',
-                                });
-                              }
-                            }}
-                          >
-                            <AlertTriangle className="h-4 w-4 mr-2" />
-                            Log Absence
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className={!((data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent) ? 'opacity-60 text-muted-foreground' : undefined}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if ((data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent) {
+                          {((data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent) ? (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
                                 onUndoLogAbsenceStudent({
                                   studentId: data.student.id,
@@ -318,14 +281,22 @@ export function SessionDetailsTab({
                                   action: data.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
                                   rescheduledSessionId: data.rescheduledSessionId,
                                 });
-                              } else {
-                                toast({ description: 'No logged absence to undo for this student.', variant: 'destructive' });
-                              }
-                            }}
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Undo Log Absence
-                          </DropdownMenuItem>
+                              }}
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Undo Log Absence
+                            </DropdownMenuItem>
+                          ) : (!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent) ? (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onLogAbsenceStudent(data.student.id);
+                              }}
+                            >
+                              <AlertTriangle className="h-4 w-4 mr-2" />
+                              Log Absence
+                            </DropdownMenuItem>
+                          ) : null}
                           <DropdownMenuItem
                             className={
                               !(!hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession)
@@ -451,28 +422,10 @@ export function SessionDetailsTab({
                             Message
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className={!(!data.plannedAbsence && sessionId && onLogAbsenceStaff) ? 'opacity-60 text-muted-foreground' : undefined}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (!data.plannedAbsence && sessionId && onLogAbsenceStaff) {
-                                onLogAbsenceStaff(data.staff.id);
-                              } else {
-                                toast({
-                                  description: data.plannedAbsence ? 'Staff already has a logged absence.' : !sessionId ? 'No session selected.' : 'Log absence is not available.',
-                                  variant: 'destructive',
-                                });
-                              }
-                            }}
-                          >
-                            <AlertTriangle className="h-4 w-4 mr-2" />
-                            Log Absence
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className={!((data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff) ? 'opacity-60 text-muted-foreground' : undefined}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if ((data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff) {
+                          {((data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff) ? (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 const staffName = `${data.staff.first_name || ''} ${data.staff.last_name || ''}`.trim();
                                 onUndoLogAbsenceStaff({
                                   staffId: data.staff.id,
@@ -481,14 +434,22 @@ export function SessionDetailsTab({
                                   action: data.plannedStatus === 'swapped' ? 'swap' : 'log',
                                   swappedStaffName: data.swappedStaffName || undefined,
                                 });
-                              } else {
-                                toast({ description: 'No logged absence to undo for this staff.', variant: 'destructive' });
-                              }
-                            }}
-                          >
-                            <RotateCcw className="h-4 w-4 mr-2" />
-                            Undo Log Absence
-                          </DropdownMenuItem>
+                              }}
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Undo Log Absence
+                            </DropdownMenuItem>
+                          ) : (!data.plannedAbsence && sessionId && onLogAbsenceStaff) ? (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onLogAbsenceStaff(data.staff.id);
+                              }}
+                            >
+                              <AlertTriangle className="h-4 w-4 mr-2" />
+                              Log Absence
+                            </DropdownMenuItem>
+                          ) : null}
                           <DropdownMenuItem
                             className={
                               !(!hasTutorLog && onRemoveStaffFromSession)

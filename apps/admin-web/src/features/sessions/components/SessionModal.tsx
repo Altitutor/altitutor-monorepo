@@ -14,7 +14,7 @@ import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { SessionFiles } from './SessionFiles';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
-import { LogSessionModal } from '@/features/tutor-logs';
+import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useCurrentStaff } from '@/shared/hooks';
 import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
@@ -188,6 +188,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       onClose();
     },
     onLogSession: modals.openLogSessionModal,
+    onEditTutorLog: modals.openEditTutorLogModal,
     hasTutorLog: helpers.hasTutorLog,
     onReschedule: () => {
       const studentId = helpers.getFirstStudentIdForReschedule();
@@ -433,6 +434,25 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           adminMode={true}
           initialSessionId={sessionId || undefined}
           initialStaffId={helpers.getFirstStaffForLogging()}
+        />
+      )}
+
+      {/* Edit Tutor Log Modal */}
+      {tutorLog?.id && modals.isEditTutorLogModalOpen && (
+        <EditTutorLogDialog
+          tutorLogId={tutorLog.id}
+          isOpen={modals.isEditTutorLogModalOpen}
+          onClose={async () => {
+            modals.closeEditTutorLogModal();
+            if (sessionId && isOpen) {
+              await sessionData.refresh();
+            }
+          }}
+          onTutorLogUpdated={async () => {
+            if (sessionId && isOpen) {
+              await sessionData.refresh();
+            }
+          }}
         />
       )}
 
