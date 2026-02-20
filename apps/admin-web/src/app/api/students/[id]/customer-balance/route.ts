@@ -129,16 +129,18 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin staff
+    // Check if user is admin staff and get name for audit
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('role, status')
+      .select('role, status, first_name, last_name')
       .eq('user_id', session.user.id)
-      .single<{ role: string; status: string }>();
+      .single<{ role: string; status: string; first_name: string | null; last_name: string | null }>();
 
     if (staffError || !staffData || staffData.role !== 'ADMINSTAFF' || staffData.status !== 'ACTIVE') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
+
+    const staffName = [staffData.first_name, staffData.last_name].filter(Boolean).join(' ').trim() || 'Staff';
 
     if (!supabaseAdmin) {
       return NextResponse.json(
@@ -172,6 +174,10 @@ export async function POST(
 
     const stripe = new Stripe(stripeSecretKey, { apiVersion: '2025-12-15.clover' });
 
+    // Append staff name to description for audit
+    const baseDescription = description || `Balance adjustment for student ${studentId}`;
+    const descriptionWithStaff = `${baseDescription}. Adjustment made by: ${staffName}`;
+
     // Update customer balance in Stripe
     // Stripe uses balance_transactions to adjust customer balance
     // Negative amount = credit (customer owes less), positive = debit (customer owes more)
@@ -180,7 +186,7 @@ export async function POST(
       {
         amount: amount_cents, // Negative for credit, positive for debit
         currency: currency.toLowerCase(),
-        description: description || `Balance adjustment for student ${studentId}`,
+        description: descriptionWithStaff,
       }
     );
 

@@ -18,6 +18,7 @@ import { Label } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { RadioGroup, RadioGroupItem } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import { calculateSessionPrice } from '@/shared/utils/pricing';
 import { fetchStudentSubsidies } from '../api/subsidies';
@@ -98,6 +99,7 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
   const [sessionSelectValue, setSessionSelectValue] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: currentStaff } = useCurrentStaff();
 
   // Fetch student enrolled classes with subjects
   const { data: studentClasses } = useQuery({
@@ -288,6 +290,15 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
     }
     return manualDesc;
   }, [generatedDescription, adjustmentDescription]);
+
+  // Preview description includes staff name (matches what is sent to Stripe)
+  const previewDescription = useMemo(() => {
+    if (!finalDescription) return '';
+    const staffName = currentStaff
+      ? [currentStaff.first_name, currentStaff.last_name].filter(Boolean).join(' ').trim() || 'Staff'
+      : 'Staff';
+    return `${finalDescription}. Adjustment made by: ${staffName}`;
+  }, [finalDescription, currentStaff]);
 
   // Calculate preview balance based on selected adjustment type
   const previewBalance = useMemo(() => {
@@ -811,9 +822,9 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
                         <div className="flex justify-between items-start">
                           <div className="flex-1">
                             <div className="text-muted-foreground">Adjustment</div>
-                            {finalDescription && (
+                            {previewDescription && (
                               <div className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-                                {finalDescription}
+                                {previewDescription}
                               </div>
                             )}
                           </div>
