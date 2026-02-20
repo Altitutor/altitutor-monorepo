@@ -286,6 +286,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                       entityId={sessionId}
                       copyTagDisplayText={sessionTitle || sessionId}
                       {...sessionActions}
+                      sessionType={session.type}
+                      sessionStudents={studentsData.map((d: { student: { id: string; first_name: string; last_name: string } }) => ({
+                        id: d.student.id,
+                        name: `${d.student.first_name} ${d.student.last_name}`,
+                      }))}
+                      onSendBookingConfirmation={modals.openBookingConfirmationDialog}
                     />
                   )}
                 </div>
@@ -348,7 +354,6 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                         swappedStaffName: payload.swappedStaffName,
                       });
                     }}
-                    onSendBookingConfirmation={modals.openBookingConfirmationDialog}
                     onAddStudentToSession={modals.openAddStudentToSessionModal}
                     onAddStaffToSession={modals.openAddStaffToSessionModal}
                     onRemoveStudentFromSession={(studentId, studentName) =>

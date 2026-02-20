@@ -15,6 +15,7 @@ import {
   Megaphone,
   CheckSquare,
   AlertTriangle,
+  Mail,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -133,3 +134,26 @@ export function getNonBookingActions(): QuickActionConfig[] {
 export function getQuickActionById(id: string): QuickActionConfig | undefined {
   return QUICK_ACTIONS.find((action) => action.id === id);
 }
+
+/**
+ * Session-scoped quick actions (shown in session ActionsMenu when conditions are met).
+ * Same conditions as in UI: sessionId present, session type !== 'CLASS'.
+ */
+export interface SessionQuickActionConfig {
+  id: string;
+  title: string;
+  description?: string;
+  icon: LucideIcon;
+  /** Used to wire the action in ActionsMenu */
+  sessionActionType: 'send-booking-confirmation';
+}
+
+export const SESSION_QUICK_ACTIONS: SessionQuickActionConfig[] = [
+  {
+    id: 'send-booking-confirmation',
+    title: 'Send Booking Confirmation Link',
+    description: 'Send the booking confirmation link for this session to a student’s parent(s)',
+    icon: Mail,
+    sessionActionType: 'send-booking-confirmation',
+  },
+];

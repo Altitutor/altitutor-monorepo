@@ -7,10 +7,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard, UserX, Plus, Copy } from 'lucide-react';
+import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 import type { IssueTagInsert } from '@/features/issues/types';
 
@@ -49,6 +53,11 @@ interface SessionActionsMenuProps extends BaseActionsMenuProps {
   onEditTutorLog?: () => void;
   onReschedule?: () => void;
   canReschedule?: boolean;
+  /** Session type; 'CLASS' disables Send Booking Confirmation */
+  sessionType?: string;
+  /** Students in session; used for Send Booking Confirmation (pick recipient) */
+  sessionStudents?: Array<{ id: string; name: string }>;
+  onSendBookingConfirmation?: (studentId: string) => void;
 }
 
 interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
@@ -288,6 +297,14 @@ export function ActionsMenu(props: ActionsMenuProps) {
     const canReschedule = props.canReschedule && props.onReschedule;
     const canEditTutorLog = props.hasTutorLog && props.onEditTutorLog;
     const canLogSession = !props.hasTutorLog && props.onLogSession;
+    const canSendBookingConfirmation =
+      props.sessionType !== 'CLASS' &&
+      props.onSendBookingConfirmation &&
+      props.sessionStudents &&
+      props.sessionStudents.length > 0;
+    const sendBookingAction = SESSION_QUICK_ACTIONS.find((a) => a.sessionActionType === 'send-booking-confirmation');
+    const SendBookingIcon = sendBookingAction?.icon ?? Mail;
+
     return (
       <>
       <DropdownMenu>
@@ -303,6 +320,36 @@ export function ActionsMenu(props: ActionsMenuProps) {
           </DropdownMenuItem>
           {copyMenuItem}
           <DropdownMenuSeparator />
+          {canSendBookingConfirmation && sendBookingAction && props.sessionStudents && (
+            <>
+              {props.sessionStudents.length === 1 ? (
+                <DropdownMenuItem
+                  onClick={() => props.onSendBookingConfirmation!(props.sessionStudents![0].id)}
+                >
+                  <SendBookingIcon className="h-4 w-4 mr-2" />
+                  {sendBookingAction.title}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <SendBookingIcon className="h-4 w-4 mr-2" />
+                    {sendBookingAction.title}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {props.sessionStudents.map((s) => (
+                      <DropdownMenuItem
+                        key={s.id}
+                        onClick={() => props.onSendBookingConfirmation!(s.id)}
+                      >
+                        Send to {s.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem
             className={!canReschedule ? 'opacity-60 text-muted-foreground' : undefined}
             onClick={() => {
