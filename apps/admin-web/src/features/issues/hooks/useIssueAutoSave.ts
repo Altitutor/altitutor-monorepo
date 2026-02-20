@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
 import type { IssueFormData, IssueStatus } from '../types';
@@ -74,8 +74,9 @@ export function useIssueAutoSave({
     }
   }, [dueDate, issue, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Initialize lastSavedValues when issue loads
-  useEffect(() => {
+  // Sync lastSavedValuesRef in layout effect so it runs before field effects.
+  // This prevents auto-save from firing on first open (treating initial load as a "change").
+  useLayoutEffect(() => {
     if (issue && isInitialized) {
       lastSavedValuesRef.current = {
         name: name,

@@ -34,6 +34,15 @@ import { useIssueAutoSave } from '../hooks/useIssueAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 
+const VALID_ISSUE_STATUSES: IssueStatus[] = ['open', 'awaiting_response', 'resolved'];
+
+function normalizeIssueStatus(status: string | null | undefined): IssueStatus {
+  if (status && VALID_ISSUE_STATUSES.includes(status as IssueStatus)) {
+    return status as IssueStatus;
+  }
+  return 'open';
+}
+
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.any().optional(),
@@ -114,7 +123,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
       form.reset({
         name: issue.name,
         description: (issue.description as JSONContent) || null,
-        status: issue.status as IssueStatus,
+        status: normalizeIssueStatus(issue.status),
         dueDate: issue.due_date ? new Date(issue.due_date).toISOString().split('T')[0] : null,
       });
       lastResetIssueIdRef.current = issue.id;
