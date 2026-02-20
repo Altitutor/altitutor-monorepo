@@ -17,7 +17,9 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
+  useToast,
 } from "@altitutor/ui";
 import { 
   ArrowUpDown,
@@ -28,14 +30,15 @@ import {
   ExternalLink,
   Copy,
   Calendar,
+  RotateCcw,
+  Trash2,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
+import { cn, formatSessionType, getSessionTypeBadgeColor, formatSubjectDisplay } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { AttendanceCell } from './AttendanceCell';
-import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useRouter } from 'next/navigation';
@@ -45,6 +48,7 @@ import { getInvoiceStatusBadgeVariant } from '../utils/sessionsTableHelpers';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { LogAbsenceDialog } from './absences';
+import { getShortSessionName } from '../utils/session-helpers';
 
 type SessionsTableProps = {
   studentId?: string;
@@ -67,6 +71,24 @@ type SessionsTableProps = {
   hideStudentsColumn?: boolean; // Hide Students column
   initialStudentFilters?: string[]; // Initial student filters (for external filter control)
   attendanceView?: 'student' | 'staff'; // Specialized attendance table mode for student/staff tabs
+  onUndoLogAbsenceStudent?: (payload: {
+    studentId: string;
+    studentName: string;
+    sessionsStudentsId: string;
+    action: 'credit' | 'reschedule';
+    rescheduledSessionTitle?: string;
+    sessionShortName: string;
+  }) => void;
+  onUndoLogAbsenceStaff?: (payload: {
+    staffId: string;
+    staffName: string;
+    sessionsStaffId: string;
+    action: 'log' | 'swap';
+    swappedStaffName?: string;
+    sessionShortName: string;
+  }) => void;
+  onRemoveStudentFromSession?: (sessionId: string, studentId: string, studentName: string, sessionShortName?: string) => void;
+  onRemoveStaffFromSession?: (sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => void;
 };
 
 type SessionTableStudent = Tables<'students'> & {
@@ -101,6 +123,7 @@ type SessionTableStaff = Tables<'staff'> & {
     first_name: string;
     last_name: string;
   } | null;
+  sessions_staff_id?: string | null;
 };
 
 function getStudentAttendanceStatus(student: SessionTableStudent, hasTutorLog: boolean, plannedStudentIds: Set<string>) {
@@ -194,15 +217,20 @@ export function SessionsTable({
   hideStudentsColumn = false,
   initialStudentFilters = [],
   attendanceView,
+  onUndoLogAbsenceStudent,
+  onUndoLogAbsenceStaff,
+  onRemoveStudentFromSession,
+  onRemoveStaffFromSession,
 }: SessionsTableProps) {
   const isStudentAttendanceView = attendanceView === 'student';
   const isStaffAttendanceView = attendanceView === 'staff';
   const router = useRouter();
+  const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('sessions');
   
   const defaultFilters = useMemo(() => ({}), []);
-  const defaultSort = useMemo(() => ({ field: 'start_at', direction: 'desc' as const }), []);
+  const defaultSort = useMemo(() => ({ field: 'start_at', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => {
     if (isStudentAttendanceView) {
       return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'invoice'];
@@ -227,7 +255,7 @@ export function SessionsTable({
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['type', 'student', 'staff', 'tutor_log', 'from', 'to'],
+    filterKeys: ['type', 'subject', 'student', 'staff', 'tutor_log', 'from', 'to'],
   });
 
   // Modal state (UI-specific, stays in component)
@@ -246,6 +274,7 @@ export function SessionsTable({
   const [isEditTutorLogModalOpen, setIsEditTutorLogModalOpen] = useState(false);
   const [studentFilterSearch, setStudentFilterSearch] = useState('');
   const [staffFilterSearch, setStaffFilterSearch] = useState('');
+  const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
 
   // Session types constant
   const SESSION_TYPES = [
@@ -282,6 +311,7 @@ export function SessionsTable({
     getClassShortDisplayName,
     canReschedule,
     getRescheduleStudentId,
+    subjectsById,
   } = useSessionsTable({
     studentId,
     staffId,
@@ -301,12 +331,35 @@ export function SessionsTable({
   // We'll update the useSessionsTable hook next to use these values
   // For now, we'll manually filter if needed or just let useDataTable handle the URL
 
+  const subjectFilterOptions = useMemo(() => {
+    const list = Object.values(subjectsById);
+    const q = subjectFilterSearch.trim().toLowerCase();
+    const filtered = q
+      ? list.filter((s) => {
+          const longName = (s.long_name ?? '').toLowerCase();
+          const shortName = (s.short_name ?? '').toLowerCase();
+          const name = (s.name ?? '').toLowerCase();
+          return longName.includes(q) || shortName.includes(q) || name.includes(q);
+        })
+      : list;
+    return filtered
+      .sort((a, b) => formatSubjectDisplay(a).localeCompare(formatSubjectDisplay(b)))
+      .map((s) => ({ label: formatSubjectDisplay(s), value: s.id }));
+  }, [subjectsById, subjectFilterSearch]);
+
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     ...(hideTypeFilter ? [] : [{
       key: 'type',
       label: 'Session Type',
       options: SESSION_TYPES.map(t => ({ label: formatSessionType(t), value: t })),
     }]),
+    {
+      key: 'subject',
+      label: 'Subject',
+      options: subjectFilterOptions,
+      searchable: true,
+      searchPlaceholder: 'Search subjects...',
+    },
     ...(hideStudentFilter ? [] : [{
       key: 'student',
       label: 'Student',
@@ -331,7 +384,7 @@ export function SessionsTable({
     }]),
     { key: 'from', label: 'From date', type: 'date' },
     { key: 'to', label: 'To date', type: 'date' },
-  ], [filteredStaff, filteredStudents, hideStudentFilter, hideTutorLogFilter, hideTypeFilter]);
+  ], [filteredStaff, filteredStudents, hideStudentFilter, hideTutorLogFilter, hideTypeFilter, subjectFilterOptions]);
 
   const sortOptions: DataTableSortOption[] = [
     { key: 'start_at', label: 'Date' },
@@ -449,10 +502,12 @@ export function SessionsTable({
             filterSearchValues={{
               student: studentFilterSearch,
               staff: staffFilterSearch,
+              subject: subjectFilterSearch,
             }}
             onFilterSearchChange={(filterKey, value) => {
               if (filterKey === 'student') setStudentFilterSearch(value);
               if (filterKey === 'staff') setStaffFilterSearch(value);
+              if (filterKey === 'subject') setSubjectFilterSearch(value);
             }}
             searchPlaceholder="Search sessions..."
             isLoading={isFetching}
@@ -749,8 +804,60 @@ export function SessionsTable({
                     {isStudentAttendanceView ? (() => {
                       const studentList = (sessionStudents[session.id] || []) as SessionTableStudent[];
                       const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
-                      const canLogAbsence = !!selectedStudent && selectedStudent.invoice_status !== 'paid';
+                      const canLogAbsence =
+                        !!selectedStudent && !selectedStudent.invoice_status;
                       const canOpenAbsenceDialog = !!currentStaff && !!studentId;
+                      const plannedStudentIds = new Set(
+                        studentList
+                          .filter((s) => s.sessions_students_id != null)
+                          .map((s) => s.id)
+                      );
+                      const attendance = selectedStudent
+                        ? getStudentAttendanceStatus(selectedStudent, !!tutorLogs[session.id], plannedStudentIds)
+                        : null;
+                      const canUndoStudent =
+                        onUndoLogAbsenceStudent &&
+                        selectedStudent?.sessions_students_id &&
+                        (attendance?.plannedStatus === 'credited' || attendance?.plannedStatus === 'rescheduled');
+                      const sessionShortName = getShortSessionName({
+                        ...session,
+                        class: session.class_id ? classesById[session.class_id] : undefined,
+                      });
+                      const rescheduledSession =
+                        selectedStudent?.rescheduled_session?.session?.id &&
+                        allSessions.find((s) => s.id === selectedStudent.rescheduled_session?.session?.id);
+                      const rescheduledSessionTitle = rescheduledSession
+                        ? getShortSessionName({
+                            ...rescheduledSession,
+                            class: rescheduledSession.class_id ? classesById[rescheduledSession.class_id] : undefined,
+                          })
+                        : undefined;
+
+                      const canRemoveStudent =
+                              !tutorLogs[session.id] &&
+                              !selectedStudent?.invoice_status &&
+                              (attendance?.plannedStatus === 'attending-extra' || attendance?.plannedStatus === 'attending-extra-trial') &&
+                              !!onRemoveStudentFromSession &&
+                              !!selectedStudent;
+                              const logAbsenceReason = tutorLogs[session.id]
+                                ? 'Session already has a tutor log.'
+                                : selectedStudent?.invoice_status
+                                  ? 'Student has an invoice item for this session.'
+                                  : !canLogAbsence
+                                    ? 'No absence to log for this student.'
+                                    : '';
+                              const undoReason = canUndoStudent && selectedStudent && attendance ? '' : 'No logged absence to undo for this student.';
+                              const removeStudentReason = canRemoveStudent
+                                ? ''
+                                : tutorLogs[session.id]
+                                  ? 'Session has a tutor log; cannot remove student.'
+                                  : selectedStudent?.invoice_status
+                                    ? 'Student has an invoice item for this session.'
+                                    : attendance?.plannedStatus !== 'attending-extra' && attendance?.plannedStatus !== 'attending-extra-trial'
+                                      ? 'Only extra or trial students can be removed from a session.'
+                                      : !onRemoveStudentFromSession
+                                        ? 'Remove from session is not available here.'
+                                        : 'Cannot remove this student from the session.';
 
                       return (
                         <DropdownMenu>
@@ -760,68 +867,207 @@ export function SessionsTable({
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => {
-                              router.push(`/sessions/${session.id}`);
-                            }}>
+                            <DropdownMenuItem onClick={() => router.push(`/sessions/${session.id}`)}>
                               <ExternalLink className="h-4 w-4 mr-2" />
                               Open in page
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={async () => {
-                              await handleCopySessionId(session.id, getClassShortDisplayName(session) || session.id);
-                            }}>
+                            <DropdownMenuItem onClick={async () => { await handleCopySessionId(session.id, getClassShortDisplayName(session) || session.id); }}>
                               <Copy className="h-4 w-4 mr-2" />
                               Copy ID
                             </DropdownMenuItem>
-                            {canLogAbsence && (
-                              <DropdownMenuItem
-                                disabled={!canOpenAbsenceDialog}
-                                onClick={() => {
-                                  if (!canOpenAbsenceDialog) return;
+                            <DropdownMenuItem
+                              className={cn(
+                                !canLogAbsence || !canOpenAbsenceDialog ? 'opacity-60 text-muted-foreground' : undefined
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (canLogAbsence && canOpenAbsenceDialog) {
                                   setStudentAbsenceSessionId(session.id);
                                   setIsLogAbsenceDialogOpen(true);
-                                }}
-                              >
-                                <Calendar className="h-4 w-4 mr-2" />
-                                Log student absence
-                              </DropdownMenuItem>
-                            )}
+                                } else {
+                                  toast({ description: logAbsenceReason || 'Cannot log absence.', variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <Calendar className="h-4 w-4 mr-2" />
+                              Log student absence
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className={cn(
+                                !(canUndoStudent && selectedStudent && attendance) ? 'opacity-60 text-muted-foreground' : undefined
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (canUndoStudent && selectedStudent && attendance) {
+                                  const studentName = `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
+                                  onUndoLogAbsenceStudent({
+                                    studentId: selectedStudent.id,
+                                    studentName,
+                                    sessionsStudentsId: selectedStudent.sessions_students_id!,
+                                    action: attendance.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
+                                    rescheduledSessionTitle,
+                                    sessionShortName,
+                                  });
+                                } else {
+                                  toast({ description: undoReason, variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Undo log absence
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className={cn(
+                                !canRemoveStudent && 'opacity-60 text-muted-foreground',
+                                canRemoveStudent && '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (canRemoveStudent && selectedStudent) {
+                                  const studentName = `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
+                                  onRemoveStudentFromSession!(session.id, selectedStudent.id, studentName, sessionShortName);
+                                } else {
+                                  toast({ description: removeStudentReason, variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove from session
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       );
                     })() : (() => {
                       const sessionCanReschedule = canReschedule(session);
                       const rescheduleStudentId = getRescheduleStudentId(session.id);
-                      
+                      const staffList = (sessionStaff[session.id] || []) as SessionTableStaff[];
+                      const selectedStaff = staffList.find((s) => s.id === staffId) || staffList[0];
+                      const staffAttendance = selectedStaff
+                        ? getStaffAttendanceStatus(selectedStaff, !!tutorLogs[session.id])
+                        : null;
+                      const canUndoStaff =
+                        onUndoLogAbsenceStaff &&
+                        selectedStaff?.sessions_staff_id &&
+                        (staffAttendance?.plannedStatus === 'absent' || staffAttendance?.plannedStatus === 'swapped');
+                      const sessionShortName = getShortSessionName({
+                        ...session,
+                        class: session.class_id ? classesById[session.class_id] : undefined,
+                      });
+                      const hasTutorLog = !!tutorLogs[session.id];
+                      const canRemoveStaff = !hasTutorLog && !!onRemoveStaffFromSession && !!selectedStaff;
+                      const undoStaffReason = canUndoStaff && selectedStaff && staffAttendance ? '' : 'No logged absence to undo for this staff.';
+                      const editTutorLogReason = hasTutorLog ? '' : 'Session has no tutor log to edit.';
+                      const rescheduleReason = sessionCanReschedule && rescheduleStudentId ? '' : 'This session cannot be rescheduled.';
+                      const logSessionReason = !hasTutorLog ? '' : 'Session already has a tutor log.';
+                      const removeStaffReason = canRemoveStaff ? '' : hasTutorLog ? 'Session has a tutor log; cannot remove staff.' : !onRemoveStaffFromSession ? 'Remove from session is not available here.' : 'Cannot remove this staff from the session.';
+
                       return (
-                        <ActionsMenu
-                          type="session"
-                          entityId={session.id}
-                          copyTagDisplayText={getClassShortDisplayName(session) || session.id}
-                          onOpenInPage={() => {
-                            router.push(`/sessions/${session.id}`);
-                          }}
-                          onLogSession={() => {
-                            setActionSessionId(session.id);
-                            setIsLogSessionModalOpen(true);
-                          }}
-                          hasTutorLog={!!tutorLogs[session.id]}
-                          onEditTutorLog={tutorLogs[session.id] ? () => {
-                            setSelectedTutorLogId(tutorLogs[session.id].id);
-                            setIsEditTutorLogModalOpen(true);
-                          } : undefined}
-                          onReschedule={() => {
-                            if (rescheduleStudentId) {
-                              setSelectedStudentForReschedule(rescheduleStudentId);
-                              setSelectedSessionForReschedule(session);
-                              setIsRescheduleModalOpen(true);
-                            } else {
-                              // This shouldn't happen if canReschedule is working correctly,
-                              // but handle gracefully just in case
-                              console.warn('Cannot reschedule: no valid student found for session', session.id);
-                            }
-                          }}
-                          canReschedule={sessionCanReschedule}
-                        />
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="shrink-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem
+                              className={cn(!(canUndoStaff && selectedStaff && staffAttendance) && 'opacity-60 text-muted-foreground')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (canUndoStaff && selectedStaff && staffAttendance) {
+                                  const staffName = `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
+                                  onUndoLogAbsenceStaff!({
+                                    staffId: selectedStaff.id,
+                                    staffName,
+                                    sessionsStaffId: selectedStaff.sessions_staff_id!,
+                                    action: staffAttendance.plannedStatus === 'swapped' ? 'swap' : 'log',
+                                    swappedStaffName: staffAttendance.swappedStaffName || undefined,
+                                    sessionShortName,
+                                  });
+                                } else {
+                                  toast({ description: undoStaffReason, variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <RotateCcw className="h-4 w-4 mr-2" />
+                              Undo log absence
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem onClick={() => router.push(`/sessions/${session.id}`)}>
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Open in page
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={async () => { await handleCopySessionId(session.id, getClassShortDisplayName(session) || session.id); }}>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy ID
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className={cn(hasTutorLog && 'opacity-60 text-muted-foreground')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (!hasTutorLog) {
+                                  setActionSessionId(session.id);
+                                  setIsLogSessionModalOpen(true);
+                                } else {
+                                  toast({ description: logSessionReason, variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <Calendar className="h-4 w-4 mr-2" />
+                              Log session
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className={cn(!hasTutorLog && 'opacity-60 text-muted-foreground')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (hasTutorLog && tutorLogs[session.id]) {
+                                  setSelectedTutorLogId(tutorLogs[session.id].id);
+                                  setIsEditTutorLogModalOpen(true);
+                                } else {
+                                  toast({ description: editTutorLogReason, variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <ExternalLink className="h-4 w-4 mr-2" />
+                              Edit tutor log
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className={cn(!(sessionCanReschedule && rescheduleStudentId) && 'opacity-60 text-muted-foreground')}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (sessionCanReschedule && rescheduleStudentId) {
+                                  setSelectedStudentForReschedule(rescheduleStudentId);
+                                  setSelectedSessionForReschedule(session);
+                                  setIsRescheduleModalOpen(true);
+                                } else {
+                                  toast({ description: rescheduleReason, variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <Calendar className="h-4 w-4 mr-2" />
+                              Reschedule
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className={cn(
+                                !canRemoveStaff && 'opacity-60 text-muted-foreground',
+                                canRemoveStaff && '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+                              )}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (canRemoveStaff && selectedStaff) {
+                                  const staffName = `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
+                                  onRemoveStaffFromSession!(session.id, selectedStaff.id, staffName, sessionShortName);
+                                } else {
+                                  toast({ description: removeStaffReason, variant: 'destructive' });
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Remove from session
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       );
                     })()}
                   </TableCell>

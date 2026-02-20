@@ -9,5 +9,6 @@ export * from './SendBookingConfirmationDialog';
 export * from './StudentAvatar';
 export * from './AttendanceCell';
 export * from './UndoLogAbsenceConfirmDialog';
+export * from './RemoveFromSessionConfirmDialog';
 // Absence components grouped in subfolder
 export * from './absences';

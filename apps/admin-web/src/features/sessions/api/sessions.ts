@@ -205,6 +205,7 @@ export const sessionsApi = {
         first_name: string;
         last_name: string;
       } | null;
+      sessions_staff_id?: string | null;
     }>>;
     tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
     classesById: Record<string, Tables<'classes'>>;
@@ -342,18 +343,19 @@ export const sessionsApi = {
       });
       
       // Transform sessionStaff - RPC returns full staff objects with additional fields
-      const sessionStaff: Record<string, Array<Tables<'staff'> & {
-        planned_absence?: boolean;
-        actual_attended?: boolean | null;
-        actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
-        is_swapped_in?: boolean;
-        is_swapped?: boolean;
-        swapped_staff?: {
-          id: string;
-          first_name: string;
-          last_name: string;
-        } | null;
-      }>> = {};
+      const   sessionStaff: Record<string, Array<Tables<'staff'> & {
+    planned_absence?: boolean;
+    actual_attended?: boolean | null;
+    actual_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | null;
+    is_swapped_in?: boolean;
+    is_swapped?: boolean;
+    swapped_staff?: {
+      id: string;
+      first_name: string;
+      last_name: string;
+    } | null;
+    sessions_staff_id?: string | null;
+  }>> = {};
       Object.entries(rpcData.sessionStaff || {}).forEach(([sessionId, staff]) => {
         sessionStaff[sessionId] = (staff || []).map((s) => {
           const staffWithExtra = s as typeof s & {
@@ -364,6 +366,7 @@ export const sessionsApi = {
               first_name: string;
               last_name: string;
             } | null;
+            sessions_staff_id?: string | null;
           };
           return {
           id: s.id,
@@ -377,6 +380,7 @@ export const sessionsApi = {
           is_swapped_in: s.is_swapped_in ?? false,
           is_swapped: staffWithExtra.is_swapped ?? false,
           swapped_staff: staffWithExtra.swapped_staff ?? null,
+          sessions_staff_id: staffWithExtra.sessions_staff_id ?? null,
         };
         }) as Array<Tables<'staff'> & {
           planned_absence?: boolean;
@@ -389,6 +393,7 @@ export const sessionsApi = {
             first_name: string;
             last_name: string;
           } | null;
+          sessions_staff_id?: string | null;
         }>;
       });
       

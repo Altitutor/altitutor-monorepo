@@ -285,6 +285,9 @@ export function ActionsMenu(props: ActionsMenuProps) {
   }
 
   if (props.type === 'session') {
+    const canReschedule = props.canReschedule && props.onReschedule;
+    const canEditTutorLog = props.hasTutorLog && props.onEditTutorLog;
+    const canLogSession = !props.hasTutorLog && props.onLogSession;
     return (
       <>
       <DropdownMenu>
@@ -299,41 +302,44 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Open in page
           </DropdownMenuItem>
           {copyMenuItem}
-          {props.canReschedule && props.onReschedule && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onReschedule}>
-                <CalendarX className="h-4 w-4 mr-2" />
-                Reschedule session
-              </DropdownMenuItem>
-            </>
-          )}
-          {props.hasTutorLog && props.onEditTutorLog && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onEditTutorLog}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit tutor log
-              </DropdownMenuItem>
-            </>
-          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            className={!canReschedule ? 'opacity-60 text-muted-foreground' : undefined}
+            onClick={() => {
+              if (canReschedule && props.onReschedule) props.onReschedule();
+              else toast({ description: 'This session cannot be rescheduled.', variant: 'destructive' });
+            }}
+          >
+            <CalendarX className="h-4 w-4 mr-2" />
+            Reschedule session
+          </DropdownMenuItem>
+          <DropdownMenuItem
+            className={!canEditTutorLog ? 'opacity-60 text-muted-foreground' : undefined}
+            onClick={() => {
+              if (canEditTutorLog && props.onEditTutorLog) props.onEditTutorLog();
+              else toast({ description: 'Session has no tutor log to edit.', variant: 'destructive' });
+            }}
+          >
+            <Pencil className="h-4 w-4 mr-2" />
+            Edit tutor log
+          </DropdownMenuItem>
           {canAddIssue && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add issue
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add issue
+            </DropdownMenuItem>
           )}
-          {!props.hasTutorLog && props.onLogSession && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onLogSession}>
-                <FileText className="h-4 w-4 mr-2" />
-                Log session
-              </DropdownMenuItem>
-            </>
+          {props.onLogSession && (
+            <DropdownMenuItem
+              className={!canLogSession ? 'opacity-60 text-muted-foreground' : undefined}
+              onClick={() => {
+                if (canLogSession) props.onLogSession!();
+                else toast({ description: 'Session already has a tutor log.', variant: 'destructive' });
+              }}
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              Log session
+            </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>

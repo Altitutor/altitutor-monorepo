@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSessionActions } from '../hooks/useSessionActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { X } from 'lucide-react';
-import { getSessionTitle } from '../utils/session-helpers';
+import { getSessionTitle, getShortSessionName } from '../utils/session-helpers';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewClassModal } from '@/features/classes';
@@ -41,8 +41,8 @@ import {
   processSessionStudents,
   processSessionStaff,
 } from '../utils';
-import { formatTime } from '@/shared/utils/datetime';
 import { IssuePill } from '@/features/issues';
+import { formatTime } from '@/shared/utils/datetime';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -67,25 +67,6 @@ type UndoTarget =
       action: 'log' | 'swap';
       swappedStaffName?: string;
     };
-
-function getShortSessionName(session: any): string {
-  const fromTitle = getSessionTitle(session);
-  if (fromTitle) return fromTitle;
-
-  if (session?.start_at && session?.end_at) {
-    const start = new Date(session.start_at);
-    const end = new Date(session.end_at);
-    const startHHMM = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-    const endHHMM = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
-    return `${start.toLocaleDateString('en-US')} ${formatTime(startHHMM)} - ${formatTime(endHHMM)}`;
-  }
-
-  if (session?.class?.start_time && session?.class?.end_time) {
-    return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
-  }
-
-  return 'this session';
-}
 
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
   const router = useRouter();

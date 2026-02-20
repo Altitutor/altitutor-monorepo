@@ -1,4 +1,5 @@
 import type { Tables } from '@altitutor/shared';
+import { formatTime } from '@/shared/utils/datetime';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -53,6 +54,39 @@ export function getSessionTitle(session: SessionWithDetails): string {
   }
   
   return parts.join(' ');
+}
+
+/**
+ * Minimal session-like shape for short name fallbacks
+ */
+export type SessionShortNameInput = {
+  start_at?: string | null;
+  end_at?: string | null;
+  class?: { start_time?: string | null; end_time?: string | null } | null;
+} & Partial<SessionWithDetails>;
+
+/**
+ * Returns a short display name for a session (e.g. for dialogs).
+ * Prefers getSessionTitle, then date+time from start_at/end_at, then class time.
+ */
+export function getShortSessionName(session: SessionShortNameInput | null | undefined): string {
+  if (!session) return 'this session';
+  const fromTitle = getSessionTitle(session as SessionWithDetails);
+  if (fromTitle) return fromTitle;
+
+  if (session.start_at && session.end_at) {
+    const start = new Date(session.start_at);
+    const end = new Date(session.end_at);
+    const startHHMM = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+    const endHHMM = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+    return `${start.toLocaleDateString('en-US')} ${formatTime(startHHMM)} - ${formatTime(endHHMM)}`;
+  }
+
+  if (session.class?.start_time && session.class?.end_time) {
+    return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
+  }
+
+  return 'this session';
 }
 
 /**
