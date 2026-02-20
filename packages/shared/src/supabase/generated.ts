@@ -3268,6 +3268,7 @@ export type Database = {
           swapped_sessions_staff_id: string | null
           type: string
           updated_at: string
+          was_trial: boolean
         }
         Insert: {
           created_at?: string
@@ -3283,6 +3284,7 @@ export type Database = {
           swapped_sessions_staff_id?: string | null
           type?: string
           updated_at?: string
+          was_trial?: boolean
         }
         Update: {
           created_at?: string
@@ -3298,6 +3300,7 @@ export type Database = {
           swapped_sessions_staff_id?: string | null
           type?: string
           updated_at?: string
+          was_trial?: boolean
         }
         Relationships: [
           {
@@ -4795,6 +4798,7 @@ export type Database = {
           tutor_log_id: string
           type: string
           updated_at: string
+          was_trial: boolean
         }
         Insert: {
           attended?: boolean
@@ -4804,6 +4808,7 @@ export type Database = {
           tutor_log_id: string
           type: string
           updated_at?: string
+          was_trial?: boolean
         }
         Update: {
           attended?: boolean
@@ -4813,6 +4818,7 @@ export type Database = {
           tutor_log_id?: string
           type?: string
           updated_at?: string
+          was_trial?: boolean
         }
         Relationships: [
           {
