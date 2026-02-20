@@ -8,6 +8,7 @@ import { formatTime } from '@/shared/utils/datetime';
 import { useMediaQuery, useCurrentStudentId } from '@/shared/hooks';
 import { cn } from '@/shared/utils';
 import { LogAbsenceDialog } from './LogAbsenceDialog';
+import { formatSessionDate } from '../utils/session-helpers';
 import { CalendarX } from 'lucide-react';
 import type { StudentSession as AbsenceStudentSession } from '../types/absence';
 
@@ -35,18 +36,6 @@ interface SessionHoverTooltipProps {
   children: React.ReactNode;
   /** Callback when user requests to reschedule a drafting session - parent composes BookDraftingSessionModal */
   onRequestRescheduleDrafting?: (sessionId: string, subjectId: string | null) => void;
-}
-
-// Helper to format session date like SessionModal
-function formatSessionDate(date: Date | string): string {
-  const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const dayName = DAY_NAMES[d.getDay()];
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  const year = d.getFullYear();
-  
-  return `${dayName} ${day}/${month}/${year}`;
 }
 
 // Simplified StudentCard component

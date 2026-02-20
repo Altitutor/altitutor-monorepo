@@ -1,4 +1,7 @@
 import type { Tables } from '@altitutor/shared';
+import { formatSessionDate } from '@altitutor/shared';
+
+export { formatSessionDate };
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -146,18 +149,4 @@ export function getSessionTitle(session: SessionWithDetails | FlattenedSessionDe
   
   return parts.join(' ');
 }
-
-/**
- * Formats a date in the format "Friday 24/10/2025"
- */
-export function formatSessionDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const dayName = DAY_NAMES[d.getDay()];
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  const year = d.getFullYear();
-  
-  return `${dayName} ${day}/${month}/${year}`;
-}
-
 

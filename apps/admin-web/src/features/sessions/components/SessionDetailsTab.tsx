@@ -3,12 +3,14 @@
 import { Badge, Separator, Button } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, Mail, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
 import { formatSessionDate } from '../utils/session-helpers';
+import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { formatSubjectDisplay, getSubjectColorStyle, formatClassName } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import {
+  SessionInfoGrid,
   Table,
   TableBody,
   TableCell,
@@ -128,34 +130,15 @@ export function SessionDetailsTab({
       {/* Session Information */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Session Information</h3>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <div className="text-sm font-medium text-muted-foreground">Day:</div>
-          <div className="text-sm">{session.start_at ? formatSessionDate(session.start_at) : '—'}</div>
-          
-          <div className="text-sm font-medium text-muted-foreground">Time:</div>
-          <div className="text-sm">
-            {(() => {
-              if (session.start_at && session.end_at) {
-                const startDate = new Date(session.start_at);
-                const endDate = new Date(session.end_at);
-                const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
-                const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-                return `${formatTime(startTime)} - ${formatTime(endTime)}`;
-              }
-              if (session.class?.start_time && session.class?.end_time) {
-                return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
-              }
-              return '—';
-            })()}
-          </div>
-          
-          <div className="text-sm font-medium text-muted-foreground">Subject:</div>
-          <div className="text-sm">
-            {subject ? (() => {
+        <SessionInfoGrid
+          day={session.start_at ? formatSessionDate(session.start_at) : '—'}
+          time={formatSessionTimeRangeForDisplay(session, formatTime)}
+          subjectNode={
+            subject ? (() => {
               const { style, textColorClass } = getSubjectColorStyle(subject);
               const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
               return (
-                <Badge 
+                <Badge
                   className={defaultClass || textColorClass}
                   style={style.backgroundColor ? style : undefined}
                 >
@@ -164,12 +147,10 @@ export function SessionDetailsTab({
               );
             })() : (
               '—'
-            )}
-          </div>
-          
-          <div className="text-sm font-medium text-muted-foreground">Class:</div>
-          <div className="text-sm">
-            {classData && classId ? (
+            )
+          }
+          classNode={
+            classData && classId ? (
               <button
                 type="button"
                 onClick={() => onOpenClass(classId)}
@@ -179,9 +160,9 @@ export function SessionDetailsTab({
               </button>
             ) : (
               '—'
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
       </div>
 
       <Separator />
