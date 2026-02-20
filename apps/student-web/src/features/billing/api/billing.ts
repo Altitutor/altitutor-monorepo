@@ -1,10 +1,5 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
-
-// Lazy client creation to avoid issues during static generation
-function getSupabaseClient() {
-  return createClientComponentClient<Database>();
-}
 
 export type Invoice = Database['public']['Views']['vstudent_invoices']['Row'];
 export type InvoiceItem = Database['public']['Views']['vstudent_invoice_items']['Row'];
