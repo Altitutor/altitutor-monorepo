@@ -4,7 +4,7 @@
 export const notesKeys = {
   all: ['notes'] as const,
   lists: () => [...notesKeys.all, 'list'] as const,
-  list: (filters?: { folderId?: string | null; search?: string }) =>
+  list: (filters?: { folderId?: string | null; projectId?: string | null; search?: string }) =>
     [...notesKeys.lists(), filters] as const,
   details: () => [...notesKeys.all, 'detail'] as const,
   detail: (id: string) => [...notesKeys.details(), id] as const,

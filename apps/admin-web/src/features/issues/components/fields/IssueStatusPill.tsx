@@ -9,10 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Clock, Circle, CheckCircle } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils';
-import type { IssueStatus } from '../../types';
+import type { IssueFormData } from '../../types';
 
 interface IssueStatusPillProps {
-  form: UseFormReturn<{ status: IssueStatus }>;
+  form: UseFormReturn<IssueFormData>;
 }
 
 const STATUS_OPTIONS = [

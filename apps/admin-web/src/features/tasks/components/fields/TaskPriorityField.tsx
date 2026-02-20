@@ -11,10 +11,10 @@ import { Circle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
 import { getPriorityLabel, getPriorityIconColor } from '../../utils/taskUtils';
-import type { TaskPriority } from '../../types';
+import type { TaskFormData, TaskPriority } from '../../types';
 
 interface TaskPriorityFieldProps {
-  form: UseFormReturn<{ priority: TaskPriority }>;
+  form: UseFormReturn<TaskFormData>;
 }
 
 export function TaskPriorityField({ form }: TaskPriorityFieldProps) {
@@ -23,7 +23,7 @@ export function TaskPriorityField({ form }: TaskPriorityFieldProps) {
       control={form.control}
       name="priority"
       render={({ field }) => {
-        const priorityValue = field.value ?? 0;
+        const priorityValue = (field.value ?? 0) as TaskPriority;
         const displayValue = getPriorityLabel(priorityValue);
         const iconColor = getPriorityIconColor(priorityValue);
         const PriorityIcon =
@@ -38,7 +38,7 @@ export function TaskPriorityField({ form }: TaskPriorityFieldProps) {
         return (
           <FormItem>
             <Select
-              onValueChange={(value) => field.onChange(Number(value) as TaskPriority)}
+              onValueChange={(value) => field.onChange(Number(value) as TaskFormData['priority'])}
               value={String(priorityValue)}
             >
               <FormControl>

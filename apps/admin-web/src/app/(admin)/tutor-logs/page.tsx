@@ -10,7 +10,7 @@ import { Button } from '@altitutor/ui';
 import { LogSessionModal } from '@/features/tutor-logs';
 import { QuickBooksExportModal } from '@/features/tutor-logs/components/QuickBooksExportModal';
 import { Plus, Download } from 'lucide-react';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 
 export default function TutorLogsPage() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);

@@ -85,6 +85,7 @@ export function useSessionsTable({
 
   // Extract specific filters
   const typeFilters = (filters.type as string[]) || [];
+  const subjectFilters = (filters.subject as string[]) || [];
   const studentFilters = (filters.student as string[]) || [];
   const staffFilters = (filters.staff as string[]) || [];
   const tutorLogFilters = (filters.tutor_log as string[]) || [];
@@ -147,11 +148,32 @@ export function useSessionsTable({
   const sessionStaff = useMemo(() => data?.sessionStaff || {}, [data?.sessionStaff]);
   const tutorLogs = useMemo(() => data?.tutorLogs || {}, [data?.tutorLogs]);
 
+  // Helper: get subject_id for a session (session.subject_id or class.subject_id)
+  const getSessionSubjectId = useCallback(
+    (session: Tables<'sessions'>): string | null => {
+      if (session.subject_id) return session.subject_id;
+      if (session.class_id && classesById[session.class_id]?.subject_id) {
+        return classesById[session.class_id].subject_id;
+      }
+      return null;
+    },
+    [classesById]
+  );
+
   // Client-side filtering (for things not handled by the API yet)
   const filteredSessions = useMemo(() => {
     if (!allSessions.length) return [];
 
     let result = [...allSessions];
+
+    // Filter by subject (client-side)
+    if (subjectFilters.length > 0) {
+      const subjectIdSet = new Set(subjectFilters);
+      result = result.filter((session) => {
+        const sid = getSessionSubjectId(session);
+        return sid !== null && subjectIdSet.has(sid);
+      });
+    }
 
     // Filter by multiple student IDs (if more than one selected and API didn't handle it)
     if (activeStudentFilters.length > 1) {
@@ -172,6 +194,8 @@ export function useSessionsTable({
     return result;
   }, [
     allSessions,
+    subjectFilters,
+    getSessionSubjectId,
     activeStudentFilters,
     sessionStudents,
     showLogged,

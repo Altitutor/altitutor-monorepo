@@ -18,6 +18,7 @@ import {
   FileText,
   Beaker,
   Newspaper,
+  FolderKanban,
 } from 'lucide-react';
 import { Input, Button } from '@altitutor/ui';
 import { useCommandPaletteSearch } from '../hooks/useCommandPaletteSearch';
@@ -45,6 +46,7 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   subject: 'subjects',
   task: 'tasks',
   issue: 'issues',
+  project: 'projects',
   topic: 'topics',
   file: 'files',
 };
@@ -53,6 +55,7 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
 const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
   { title: 'Dashboard', href: '/dashboard', icon: Home },
   { title: 'Tasks', href: '/tasks', icon: CheckSquare },
+  { title: 'Projects', href: '/projects', icon: FolderKanban },
   { title: 'Reconciliation', href: '/reconciliation', icon: AlertTriangle },
   { title: 'Messages', href: '/messages', icon: MessageCircle },
   { title: 'Students', href: '/students', icon: GraduationCap },
@@ -119,14 +122,14 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     }
   }, [filteredItems.length]);
 
-  // Focus input when opened
+  // Reset state and focus input when opened (Radix Dialog focuses first focusable, but we ensure input gets it)
   useEffect(() => {
-    if (isOpen && inputRef.current) {
-      inputRef.current.focus();
-      setSearchQuery('');
-      setSelectedIndex(0);
-      setSelectedFilter(null);
-    }
+    if (!isOpen) return;
+    setSearchQuery('');
+    setSelectedIndex(0);
+    setSelectedFilter(null);
+    const t = setTimeout(() => inputRef.current?.focus(), 0);
+    return () => clearTimeout(t);
   }, [isOpen]);
 
   // Handle item selection
@@ -244,6 +247,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
       { type: 'subject', label: 'Subjects' },
       { type: 'task', label: 'Tasks' },
       { type: 'issue', label: 'Issues' },
+      { type: 'project', label: 'Projects' },
       { type: 'topic', label: 'Topics' },
       { type: 'file', label: 'Files' },
     ];
@@ -253,7 +257,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   return (
     <>
-      <div className="fixed inset-0 z-[101] flex items-center justify-center px-4 py-4 pointer-events-none">
+      <div className="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none">
         <div 
           className="w-full max-w-4xl bg-popover border rounded-lg shadow-xl pointer-events-auto flex flex-col h-[calc(100vh-2rem)] max-h-[800px]"
           onClick={(e) => e.stopPropagation()}
@@ -264,7 +268,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             <Input
               ref={inputRef}
               type="text"
-              placeholder="Search commands, pages, students, staff, parents, classes, subjects, tasks, issues, topics, files..."
+              placeholder="Search commands, pages, students, staff, parents, classes, subjects, tasks, issues, projects, topics, files..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}

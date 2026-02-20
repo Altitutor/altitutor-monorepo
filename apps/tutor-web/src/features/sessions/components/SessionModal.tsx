@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from '@altitutor/ui';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, SessionInfoGrid } from '@altitutor/ui';
 import { Separator, Badge } from '@altitutor/ui';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
+import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
 import { StudentCard, StaffCard } from '@/shared/components';
 import { AttendanceCell } from './AttendanceCell';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
@@ -100,35 +101,15 @@ export function SessionModal({
             {/* Session Information */}
             <div>
               <h3 className="text-lg font-semibold mb-4">Session Information</h3>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <div className="text-sm font-medium text-muted-foreground">Day:</div>
-                <div className="text-sm">{session.start_at ? formatSessionDate(session.start_at) : '—'}</div>
-                
-                <div className="text-sm font-medium text-muted-foreground">Time:</div>
-                <div className="text-sm">
-                  {(() => {
-                    if (session.start_at && session.end_at) {
-                      const startDate = new Date(session.start_at);
-                      const endDate = new Date(session.end_at);
-                      const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
-                      const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-                      return `${formatTime(startTime)} - ${formatTime(endTime)}`;
-                    }
-                    // Check for flattened structure (from vtutor_session_detail)
-                    if ('start_time' in session && 'end_time' in session && session.start_time && session.end_time) {
-                      return `${formatTime(session.start_time)} - ${formatTime(session.end_time)}`;
-                    }
-                    return '—';
-                  })()}
-                </div>
-                
-                <div className="text-sm font-medium text-muted-foreground">Subject:</div>
-                <div className="text-sm">
-                  {subject ? (() => {
+              <SessionInfoGrid
+                day={session.start_at ? formatSessionDate(session.start_at) : '—'}
+                time={formatSessionTimeRangeForDisplay(session, formatTime)}
+                subjectNode={
+                  subject ? (() => {
                     const { style, textColorClass } = getSubjectColorStyle(subject);
                     const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                     return (
-                      <Badge 
+                      <Badge
                         className={defaultClass || textColorClass}
                         style={style.backgroundColor ? style : undefined}
                       >
@@ -137,9 +118,9 @@ export function SessionModal({
                     );
                   })() : (
                     '—'
-                  )}
-                </div>
-              </div>
+                  )
+                }
+              />
             </div>
 
             <Separator />

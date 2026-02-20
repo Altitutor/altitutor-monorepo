@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react';
-import { getExistingConversationForRelated } from '@/features/messages/api/queries';
+import { useConversationForRelated } from '@/features/messages/hooks/useConversationForRelated';
 
 interface UseStaffConversationProps {
   staffId: string | null;
@@ -7,33 +6,12 @@ interface UseStaffConversationProps {
 }
 
 /**
- * Hook for fetching conversation ID for a staff member
+ * Hook for fetching conversation ID for a staff member.
+ * Uses React Query for caching and request deduplication.
  */
 export function useStaffConversation({
   staffId,
   enabled = true,
 }: UseStaffConversationProps) {
-  const [conversationId, setConversationId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!enabled || !staffId) {
-      setConversationId(null);
-      return;
-    }
-
-    getExistingConversationForRelated(staffId, 'staff')
-      .then((convId) => {
-        if (process.env.NODE_ENV !== 'production') {
-          // eslint-disable-next-line no-console
-          console.log('[useStaffConversation] Existing conversation ID for staff', staffId, ':', convId);
-        }
-        setConversationId(convId);
-      })
-      .catch((error) => {
-        console.error('Failed to fetch conversation ID:', error);
-        setConversationId(null);
-      });
-  }, [staffId, enabled]);
-
-  return conversationId;
+  return useConversationForRelated(staffId, 'staff', enabled);
 }

@@ -38,7 +38,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { sessionId, studentId, sendEmail: shouldSendEmail, sendSms: shouldSendSms } = body;
+    const {
+      sessionId,
+      studentId,
+      sendEmail: shouldSendEmail,
+      sendSms: shouldSendSms,
+      recipientType,
+      recipientId,
+      customMessage,
+    } = body;
 
     if (!sessionId || !studentId) {
       return NextResponse.json(
@@ -82,7 +90,7 @@ export async function POST(request: NextRequest) {
       .eq('student_id', studentId);
 
     const recipients: Array<{ id: string; first_name: string; last_name: string; email: string | null; phone: string | null }> = [];
-    
+
     if (!parentsError && parentsData) {
       type ParentStudentRow = { parent_id: string; parents: { id: string; first_name: string; last_name: string; email: string | null; phone: string | null } | null };
       const parentList = (parentsData as ParentStudentRow[])
@@ -91,17 +99,15 @@ export async function POST(request: NextRequest) {
       recipients.push(...parentList);
     }
 
-    // Fallback to student if no parents
-    if (recipients.length === 0) {
-      if (student.email || student.phone) {
-        recipients.push({
-          id: student.id,
-          first_name: student.first_name || '',
-          last_name: student.last_name || '',
-          email: student.email || null,
-          phone: student.phone || null,
-        });
-      }
+    // Always include student in recipients when they have email/phone (for single-recipient dialog flow)
+    if (student.email || student.phone) {
+      recipients.push({
+        id: student.id,
+        first_name: student.first_name || '',
+        last_name: student.last_name || '',
+        email: student.email || null,
+        phone: student.phone || null,
+      });
     }
 
     if (recipients.length === 0) {
@@ -109,6 +115,14 @@ export async function POST(request: NextRequest) {
         { error: 'No email or phone found for student or parents' },
         { status: 400 }
       );
+    }
+
+    // Filter to single recipient when specified (for dialog send-to-one flow)
+    let effectiveRecipients = recipients;
+    if (recipientType === 'student') {
+      effectiveRecipients = recipients.filter((r) => r.id === studentId);
+    } else if (recipientType === 'parent' && recipientId) {
+      effectiveRecipients = recipients.filter((r) => r.id === recipientId);
     }
 
     const bookingUrl = getBookingConfirmationUrl(sessionId);
@@ -134,7 +148,7 @@ export async function POST(request: NextRequest) {
 
     // Send emails
     if (shouldSendEmail) {
-      const emailRecipients = recipients.filter(r => r.email);
+      const emailRecipients = effectiveRecipients.filter(r => r.email);
       if (emailRecipients.length === 0) {
         return NextResponse.json(
           { error: 'No email addresses found' },
@@ -146,13 +160,15 @@ export async function POST(request: NextRequest) {
         if (!recipient.email) continue;
 
         try {
-          const emailHtml = getBookingConfirmationEmailTemplate({
-            firstName: recipient.first_name || 'there',
-            lastName: recipient.last_name || '',
-            bookingUrl,
-            sessionDate,
-            sessionTime,
-          });
+          const emailHtml = customMessage
+            ? `<!DOCTYPE html><html><body style="font-family: sans-serif; padding: 20px;"><div style="white-space: pre-wrap;">${customMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div><p style="margin-top: 24px;"><a href="${bookingUrl}" style="display: inline-block; padding: 12px 24px; background-color: #0a2941; color: #fff; text-decoration: none; border-radius: 6px;">View Booking Confirmation</a></p><p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${bookingUrl}</p></body></html>`
+            : getBookingConfirmationEmailTemplate({
+                firstName: recipient.first_name || 'there',
+                lastName: recipient.last_name || '',
+                bookingUrl,
+                sessionDate,
+                sessionTime,
+              });
 
           await sendEmail({
             to: recipient.email,
@@ -171,7 +187,7 @@ export async function POST(request: NextRequest) {
 
     // Send SMS
     if (shouldSendSms) {
-      const smsRecipients = recipients.filter(r => r.phone);
+      const smsRecipients = effectiveRecipients.filter(r => r.phone);
       if (smsRecipients.length === 0) {
         return NextResponse.json(
           { error: 'No phone numbers found' },

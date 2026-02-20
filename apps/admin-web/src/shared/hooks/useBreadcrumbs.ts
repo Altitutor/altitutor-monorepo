@@ -17,6 +17,7 @@ import { formatClassShortName, formatSubjectShortName } from '@/shared/utils';
 const pathLabelMap: Record<string, string> = {
   dashboard: 'Dashboard',
   tasks: 'Tasks',
+  projects: 'Projects',
   students: 'Students',
   staff: 'Staff',
   classes: 'Classes',

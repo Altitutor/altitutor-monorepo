@@ -24,7 +24,7 @@ import {
 import { useToast } from '@altitutor/ui';
 import { useCreateTemplate, useUpdateTemplate } from '../../api/templates';
 import { useSampleStudents, useStudentClassesForTemplate } from '../../hooks/useTemplatePreviewData';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
 

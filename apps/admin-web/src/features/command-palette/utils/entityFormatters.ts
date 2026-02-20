@@ -83,6 +83,13 @@ export function getEntityDisplayText(result: CommandPaletteEntityResult): Entity
     };
   }
 
+  if (result.type === 'project') {
+    return {
+      title: result.data.name || '',
+      subtitle: result.data.status || null,
+    };
+  }
+
   if (result.type === 'topic') {
     return {
       title: result.data.name || '',

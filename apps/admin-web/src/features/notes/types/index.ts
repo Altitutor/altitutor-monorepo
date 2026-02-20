@@ -1,4 +1,15 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { JSONContent } from '@altitutor/ui';
+
+/**
+ * Form values for note detail page (aligned with note form schema).
+ */
+export interface NoteFormData {
+  title: string;
+  content: JSONContent | string;
+  folder_id?: string | null;
+  project_id?: string | null;
+}
 
 /**
  * Note document type from database

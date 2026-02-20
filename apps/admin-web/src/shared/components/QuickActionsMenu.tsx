@@ -1,6 +1,5 @@
 'use client';
 
-import { useChatStore } from '@/features/messages/state/chatStore';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import {
   DropdownMenu,
@@ -19,16 +18,10 @@ type QuickActionsMenuProps = {
 };
 
 export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps) {
-  const minimized = useChatStore(s => s.minimized);
-  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog } = useQuickActions();
+  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog, openCreateProjectDialog } = useQuickActions();
   
   const bookingActions = getBookingActions();
   const nonBookingActions = getNonBookingActions();
-
-  // Hide floating variant when messages are expanded (not minimized)
-  if (variant === 'floating' && !minimized) {
-    return null;
-  }
 
   if (variant === 'inline') {
     return (
@@ -80,6 +73,8 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
                 openLogStaffAbsenceDialog();
               } else if (action.actionType === 'create-issue') {
                 openCreateIssueDialog();
+              } else if (action.actionType === 'create-project') {
+                openCreateProjectDialog();
               }
             };
 
@@ -145,6 +140,8 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
                 openLogStaffAbsenceDialog();
               } else if (action.actionType === 'create-issue') {
                 openCreateIssueDialog();
+              } else if (action.actionType === 'create-project') {
+                openCreateProjectDialog();
               }
             };
 

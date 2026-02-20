@@ -33,7 +33,7 @@ import { useParentsList, useDeleteParent } from '../hooks/useParentsQuery';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 
 interface ParentsTableProps {
   onRefresh?: number;

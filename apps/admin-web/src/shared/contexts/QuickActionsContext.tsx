@@ -9,6 +9,7 @@ interface QuickActionsContextType {
   isAnnouncementsModalOpen: boolean;
   isCreateTaskDialogOpen: boolean;
   isCreateIssueDialogOpen: boolean;
+  isCreateProjectDialogOpen: boolean;
   bookingSessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null;
   isBookingModalOpen: boolean;
   openTutorLogModal: () => void;
@@ -23,6 +24,8 @@ interface QuickActionsContextType {
   closeCreateTaskDialog: () => void;
   openCreateIssueDialog: () => void;
   closeCreateIssueDialog: () => void;
+  openCreateProjectDialog: () => void;
+  closeCreateProjectDialog: () => void;
   openBookingModal: (sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW') => void;
   closeBookingModal: () => void;
 }
@@ -36,6 +39,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [isAnnouncementsModalOpen, setIsAnnouncementsModalOpen] = useState(false);
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [isCreateIssueDialogOpen, setIsCreateIssueDialogOpen] = useState(false);
+  const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
@@ -87,6 +91,14 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsCreateIssueDialogOpen(false);
   }, []);
 
+  const openCreateProjectDialog = useCallback(() => {
+    setIsCreateProjectDialogOpen(true);
+  }, []);
+
+  const closeCreateProjectDialog = useCallback(() => {
+    setIsCreateProjectDialogOpen(false);
+  }, []);
+
   const openBookingModal = useCallback((sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW') => {
     setBookingSessionType(sessionType);
     setIsBookingModalOpen(true);
@@ -106,6 +118,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         isAnnouncementsModalOpen,
         isCreateTaskDialogOpen,
         isCreateIssueDialogOpen,
+        isCreateProjectDialogOpen,
         bookingSessionType,
         isBookingModalOpen,
         openTutorLogModal,
@@ -120,6 +133,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         closeCreateTaskDialog,
         openCreateIssueDialog,
         closeCreateIssueDialog,
+        openCreateProjectDialog,
+        closeCreateProjectDialog,
         openBookingModal,
         closeBookingModal,
       }}

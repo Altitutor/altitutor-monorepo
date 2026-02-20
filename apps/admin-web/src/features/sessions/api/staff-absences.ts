@@ -108,11 +108,11 @@ export const staffAbsencesApi = {
   },
 
   /**
-   * Get a staff member's future sessions with session-staff enrollment details
-   * 
-   * Note: We use direct queries from sessions_staff rather than search_sessions_admin RPC
-   * because we need the sessionsStaffId from sessions_staff table for absence logging.
-   * The RPC returns sessions but doesn't provide the sessions_staff.id we need.
+   * Get a staff member's future sessions with session-staff enrollment details.
+   * Used by Log Staff Absence flow (session picker). We use direct queries from
+   * sessions_staff here (not search_sessions_admin) so we can filter by staff_id
+   * and return sessionsStaffId. The search_sessions_admin RPC now includes
+   * sessions_staff_id in sessionStaff for the sessions table (e.g. Undo in staff tab).
    */
   getStaffFutureSessions: async (
     staffId: string, 

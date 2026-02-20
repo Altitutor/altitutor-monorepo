@@ -22,7 +22,7 @@ import { MoreVertical, Plus, Edit, Copy, Trash2, Play } from 'lucide-react';
 import { useClassPlans, useDeleteClassPlan, useDuplicateClassPlan } from '../hooks/useClassPlansQuery';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from '@altitutor/ui';
 import type { DraftClassPlan } from '../api/classPlans';
 

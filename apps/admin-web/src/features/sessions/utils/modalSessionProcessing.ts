@@ -1,18 +1,31 @@
 import type { Tables } from '@altitutor/shared';
-import { format } from 'date-fns';
+import type {
+  StudentPlannedStatus,
+  StudentActualStatus,
+  StaffPlannedStatus,
+  StaffActualStatus,
+} from '../constants/attendanceStatuses';
+import {
+  deriveStudentAttendanceStatus,
+  deriveStaffAttendanceStatus,
+  type StudentAttendanceInput,
+  type StaffAttendanceInput,
+  type StudentAttendanceContext,
+  type StaffAttendanceContext,
+} from './attendanceDerivation';
 
 export type ProcessedStudentSessionData = {
   session: Tables<'sessions'>;
-  plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned';
-  actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
+  plannedStatus: StudentPlannedStatus;
+  actualStatus: StudentActualStatus;
   rescheduledDate: string;
   invoiceStatus: string | null;
 };
 
 export type ProcessedStaffSessionData = {
   session: Tables<'sessions'>;
-  plannedStatus: 'attending' | 'absent' | 'swapped';
-  actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
+  plannedStatus: StaffPlannedStatus;
+  actualStatus: StaffActualStatus;
   tutorLogSubmitted: boolean;
 };
 
@@ -52,46 +65,35 @@ export function processStudentSessionData(
   const studentData = sessionStudentData.find((s) => s.id === studentId);
   if (!studentData) return null;
 
-  const wasTrialPlanned = studentData.was_trial ?? false;
-  let plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
-  let rescheduledDate = '';
+  // Build input for centralized derivation
+  // Note: For modal processing, we need to infer plannedStudentIds from the data
+  // Since we're processing a single student, we'll use an empty set for plannedStudentIds
+  // This means extra students won't be marked as "attending-extra" in modal context
+  const input: StudentAttendanceInput = {
+    student_id: studentId,
+    sessions_students_id: studentData.sessions_students_id,
+    planned_absence: studentData.planned_absence,
+    is_extra: studentData.is_extra,
+    was_trial: studentData.was_trial,
+    is_rescheduled: studentData.is_rescheduled,
+    is_credited: studentData.is_credited,
+    rescheduled_session: studentData.rescheduled_session,
+    actual_attended: studentData.actual_attended,
+    actual_was_trial: studentData.was_trial_actual ?? studentData.was_trial, // Infer from planned if actual not available
+  };
 
-  const isUnplanned = (studentData.sessions_students_id === null || studentData.sessions_students_id === undefined) && studentData.is_extra;
+  const context: StudentAttendanceContext = {
+    hasTutorLog,
+    plannedStudentIds: new Set(), // Empty set for modal context - extra status won't apply
+  };
 
-  if (studentData.planned_absence && !isUnplanned) {
-    plannedStatus = 'absent';
-    // Check for rescheduled/credited status if available
-    if (studentData.is_rescheduled && studentData.rescheduled_session?.session) {
-      plannedStatus = 'rescheduled';
-      const resSession = studentData.rescheduled_session.session;
-      rescheduledDate = resSession.start_at
-        ? `${format(new Date(resSession.start_at), 'EEE dd/MM')} ${resSession.class?.start_time || ''}`
-        : '';
-    } else if (studentData.is_credited) {
-      plannedStatus = 'credited';
-    }
-  } else if (isUnplanned) {
-    plannedStatus = 'unplanned';
-  } else if (studentData.is_extra) {
-    plannedStatus = wasTrialPlanned ? 'attending-extra-trial' : 'attending-extra';
-  } else {
-    plannedStatus = wasTrialPlanned ? 'attending-trial' : 'attending';
-  }
-
-  // Compute actual status
-  const actualAttended = studentData.actual_attended;
-  const wasTrialActual = studentData.was_trial_actual ?? wasTrialPlanned; // Infer from planned if actual not available
-  const actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend' = !hasTutorLog
-    ? 'not-logged'
-    : actualAttended === true
-    ? (wasTrialActual ? 'attended-trial' : 'attended')
-    : 'did-not-attend';
+  const attendanceStatus = deriveStudentAttendanceStatus(input, context);
 
   return {
     session,
-    plannedStatus,
-    actualStatus,
-    rescheduledDate,
+    plannedStatus: attendanceStatus.plannedStatus,
+    actualStatus: attendanceStatus.actualStatus,
+    rescheduledDate: attendanceStatus.rescheduledDate,
     invoiceStatus: studentData.invoice_status || null,
   };
 }
@@ -105,6 +107,8 @@ export function processStaffSessionData(
     id: string;
     planned_absence?: boolean;
     actual_attended?: boolean | null;
+    actual_was_trial?: boolean | null;
+    was_trial?: boolean;
     is_swapped_in?: boolean;
   }>,
   staffId: string,
@@ -115,30 +119,32 @@ export function processStaffSessionData(
   const staffData = sessionStaffData.find((s) => s.id === staffId);
   if (!staffData) return null;
 
-  let plannedStatus: 'attending' | 'absent' | 'swapped' = 'attending';
+  // Check if there's a swapped-in staff member (someone else is covering)
+  const hasSwappedStaff = sessionStaffData.some(
+    (s) => s.id !== staffId && s.is_swapped_in === true
+  );
 
-  if (staffData.planned_absence) {
-    // Check if there's a swapped-in staff member (someone else is covering)
-    const hasSwappedStaff = sessionStaffData.some(
-      (s) => s.id !== staffId && s.is_swapped_in === true
-    );
-    plannedStatus = hasSwappedStaff ? 'swapped' : 'absent';
-  }
+  const input: StaffAttendanceInput = {
+    planned_absence: staffData.planned_absence,
+    is_swapped: hasSwappedStaff,
+    swapped_staff: null, // Modal context doesn't have swapped_staff details
+    was_trial: staffData.was_trial,
+    actual_attended: staffData.actual_attended,
+    actual_was_trial: staffData.actual_was_trial,
+  };
 
-  // Compute actual status
-  const actualAttended = staffData.actual_attended;
-  const actualStatus: 'not-logged' | 'attended' | 'did-not-attend' = !hasTutorLog
-    ? 'not-logged'
-    : actualAttended === true
-    ? 'attended'
-    : 'did-not-attend';
+  const context: StaffAttendanceContext = {
+    hasTutorLog,
+  };
+
+  const attendanceStatus = deriveStaffAttendanceStatus(input, context);
 
   const tutorLogSubmitted = tutorLogCreatedBy === staffId;
 
   return {
     session,
-    plannedStatus,
-    actualStatus,
+    plannedStatus: attendanceStatus.plannedStatus,
+    actualStatus: attendanceStatus.actualStatus,
     tutorLogSubmitted,
   };
 }

@@ -35,7 +35,7 @@ import { FilePreviewModal } from './FilePreviewModal';
 import { useSubjectSearch } from '@/features/subjects/hooks';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 
 interface TopicsTableProps {
   onRefresh?: number;

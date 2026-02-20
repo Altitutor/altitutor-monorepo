@@ -31,7 +31,7 @@ import { Loader2, X } from 'lucide-react';
 import { useUpdateAutomationRule } from '../api/mutations';
 import { useAutomationRule } from '../api/queries';
 import { useMessageTemplates } from '@/features/messages/api/templates';
-import { staffApi } from '@/features/staff/api/staff';
+import { useStaffMinimal } from '@/features/staff/hooks/useStaffQuery';
 import type { AutomationRuleWithActions, ActivityEntityType, ActivityEventType } from '../types';
 import { AutomationActionsList } from './AutomationActionsList';
 import { AutomationConditionsBuilder } from './AutomationConditionsBuilder';
@@ -62,7 +62,11 @@ export function EditAutomationRuleDialog({
   const updateMutation = useUpdateAutomationRule();
   const { data: existingRule } = useAutomationRule(rule.id, isOpen);
   const { data: templates } = useMessageTemplates();
-  const [staffList, setStaffList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
+  const { data: staffData } = useStaffMinimal(
+    { limit: 100, orderBy: 'first_name', ascending: true },
+    { enabled: isOpen }
+  );
+  const staffList = staffData?.staff ?? [];
   const [activeTab, setActiveTab] = useState<string>('details');
 
   const form = useForm({
@@ -77,21 +81,6 @@ export function EditAutomationRuleDialog({
       conditions: null as AutomationCondition | null,
     },
   });
-
-  // Load staff list
-  useEffect(() => {
-    if (isOpen) {
-      staffApi.listMinimal({ limit: 100, orderBy: 'first_name', ascending: true })
-        .then((result) => {
-          setStaffList(result.staff.map(s => ({
-            id: s.id,
-            first_name: s.first_name,
-            last_name: s.last_name,
-          })));
-        })
-        .catch(console.error);
-    }
-  }, [isOpen]);
 
   // Initialize form when editing
   useEffect(() => {

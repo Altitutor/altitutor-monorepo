@@ -1,12 +1,27 @@
-import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
+import type {
+  StudentPlannedStatus,
+  StudentActualStatus,
+  StaffPlannedStatus,
+  StaffActualStatus,
+} from '../constants/attendanceStatuses';
+import {
+  deriveStudentAttendanceStatus,
+  deriveStaffAttendanceStatus,
+  buildStudentAttendanceMap,
+  buildStaffAttendanceMap,
+  type StudentAttendanceInput,
+  type StaffAttendanceInput,
+  type StudentAttendanceContext,
+  type StaffAttendanceContext,
+} from './attendanceDerivation';
 
 export type ProcessedStudentData = {
   student: Tables<'students'>;
   sessionsStudentsId: string | null;
   rescheduledSessionsStudentsId: string | null;
-  plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' | 'attending-trial' | 'attending-extra-trial';
-  actualStatus: 'not-logged' | 'attended' | 'did-not-attend' | 'attended-trial';
+  plannedStatus: StudentPlannedStatus;
+  actualStatus: StudentActualStatus;
   rescheduledDate: string;
   rescheduledSessionId?: string;
   invoiceStatus: string | null;
@@ -18,8 +33,8 @@ export type ProcessedStaffData = {
   staff: Tables<'staff'>;
   sessionsStaffId: string | null;
   swappedSessionsStaffId: string | null;
-  plannedStatus: 'attending' | 'absent' | 'swapped';
-  actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
+  plannedStatus: StaffPlannedStatus;
+  actualStatus: StaffActualStatus;
   staffType?: string;
   swappedStaffName: string;
   swappedStaffId: string;
@@ -37,6 +52,7 @@ type TutorLogStaffAttendance = {
   staff_id: string;
   attended: boolean;
   type?: string;
+  was_trial?: boolean;
 };
 
 type TutorLogWithAttendance = {
@@ -46,7 +62,7 @@ type TutorLogWithAttendance = {
 
 type SessionStudentItem = {
   student_id: string;
-  student: Tables<'students'>;
+  student: Tables<'students'> | null;
   sessions_students_id?: string | null;
   rescheduled_sessions_students_id?: string | null;
   planned_absence?: boolean;
@@ -58,20 +74,21 @@ type SessionStudentItem = {
   rescheduled_session?: {
     session?: {
       id: string;
-      start_at?: string;
+      start_at?: string | null;
       class?: {
-        start_time?: string;
-      };
-    };
-  };
+        start_time?: string | null;
+      } | null;
+    } | null;
+  } | null;
 };
 
 type SessionStaffItem = {
   id?: string;
   staff_id: string;
-  staff: Tables<'staff'>;
+  staff?: Tables<'staff'> | null;
   planned_absence?: boolean;
   is_swapped?: boolean;
+  was_trial?: boolean;
   swapped_sessions_staff_id?: string | null;
   swapped_staff?: {
     id: string;
@@ -80,37 +97,8 @@ type SessionStaffItem = {
   } | null;
 };
 
-/**
- * Build student attendance map from tutor log
- */
-export function buildStudentAttendanceMap(tutorLog: TutorLogWithAttendance | null | undefined): Record<string, { attended: boolean; was_trial?: boolean }> {
-  const attendance: Record<string, { attended: boolean; was_trial?: boolean }> = {};
-  if (tutorLog?.studentAttendance) {
-    tutorLog.studentAttendance.forEach((att) => {
-      const entry: { attended: boolean; was_trial?: boolean } = {
-        attended: att.attended,
-      };
-      if (att.was_trial !== undefined) {
-        entry.was_trial = att.was_trial;
-      }
-      attendance[att.student_id] = entry;
-    });
-  }
-  return attendance;
-}
-
-/**
- * Build staff attendance map from tutor log
- */
-export function buildStaffAttendanceMap(tutorLog: TutorLogWithAttendance | null | undefined): Record<string, { attended: boolean; type?: string }> {
-  const attendance: Record<string, { attended: boolean; type?: string }> = {};
-  if (tutorLog?.staffAttendance) {
-    tutorLog.staffAttendance.forEach((att) => {
-      attendance[att.staff_id] = { attended: att.attended, type: att.type };
-    });
-  }
-  return attendance;
-}
+// Re-export attendance map builders from centralized module
+export { buildStudentAttendanceMap, buildStaffAttendanceMap };
 
 /**
  * Process session students data
@@ -120,55 +108,46 @@ export function processSessionStudents(
   actualStudentAttendance: Record<string, { attended: boolean; was_trial?: boolean }>,
   hasTutorLog: boolean
 ): ProcessedStudentData[] {
+  // Only process rows with a resolved student (exclude null from API joins)
+  const withStudent = sessionsStudents.filter(
+    (ss): ss is SessionStudentItem & { student: Tables<'students'> } => ss.student != null
+  );
   // Build set of student IDs that are in sessions_students (planned students)
   const plannedStudentIds = new Set(
-    sessionsStudents
+    withStudent
       .filter((ss) => ss.student_id && (ss.sessions_students_id !== null && ss.sessions_students_id !== undefined))
       .map((ss) => ss.student_id)
   );
 
-  return sessionsStudents.map((ss) => {
-    const wasTrialPlanned = ss.was_trial ?? false;
-    let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' | 'attending-trial' | 'attending-extra-trial' = 'attending';
-    let rescheduledDate = '';
+  return withStudent.map((ss) => {
+    const input: StudentAttendanceInput = {
+      student_id: ss.student_id,
+      sessions_students_id: ss.sessions_students_id,
+      planned_absence: ss.planned_absence,
+      is_extra: ss.is_extra,
+      was_trial: ss.was_trial,
+      is_rescheduled: ss.is_rescheduled,
+      is_credited: ss.is_credited,
+      rescheduled_session: ss.rescheduled_session,
+      actual_attended: actualStudentAttendance[ss.student_id]?.attended,
+      actual_was_trial: actualStudentAttendance[ss.student_id]?.was_trial,
+    };
 
-    const isUnplanned = (ss.sessions_students_id === null || ss.sessions_students_id === undefined) && ss.is_extra;
+    const context: StudentAttendanceContext = {
+      hasTutorLog,
+      plannedStudentIds,
+    };
 
-    if (ss.planned_absence && !isUnplanned) {
-      plannedStatus = 'absent';
-      if (ss.is_rescheduled && ss.rescheduled_session?.session) {
-        plannedStatus = 'rescheduled';
-        const resSession = ss.rescheduled_session.session;
-        rescheduledDate = resSession.start_at
-          ? `${format(new Date(resSession.start_at), 'EEE dd/MM')} ${resSession.class?.start_time || ''}`
-          : '';
-      } else if (ss.is_credited) {
-        plannedStatus = 'credited';
-      }
-    } else if (isUnplanned) {
-      plannedStatus = 'unplanned';
-    } else if (ss.is_extra && plannedStudentIds.has(ss.student_id)) {
-      plannedStatus = wasTrialPlanned ? 'attending-extra-trial' : 'attending-extra';
-    } else {
-      plannedStatus = wasTrialPlanned ? 'attending-trial' : 'attending';
-    }
-
-    const actualAttendance = actualStudentAttendance[ss.student_id];
-    const wasTrialActual = actualAttendance?.was_trial ?? false;
-    const actualStatus: 'not-logged' | 'attended' | 'did-not-attend' | 'attended-trial' = !hasTutorLog
-      ? 'not-logged'
-      : actualAttendance?.attended
-      ? (wasTrialActual ? 'attended-trial' : 'attended')
-      : 'did-not-attend';
+    const attendanceStatus = deriveStudentAttendanceStatus(input, context);
 
     return {
       student: ss.student,
       sessionsStudentsId: ss.sessions_students_id ?? null,
       rescheduledSessionsStudentsId: ss.rescheduled_sessions_students_id ?? null,
-      plannedStatus,
-      actualStatus,
-      rescheduledDate,
-      rescheduledSessionId: ss.rescheduled_session?.session?.id,
+      plannedStatus: attendanceStatus.plannedStatus,
+      actualStatus: attendanceStatus.actualStatus,
+      rescheduledDate: attendanceStatus.rescheduledDate,
+      rescheduledSessionId: attendanceStatus.rescheduledSessionId,
       invoiceStatus: ss.invoice_status || null,
       plannedAbsence: ss.planned_absence || false,
       hasInvoiceItems: !!ss.invoice_status,
@@ -181,30 +160,29 @@ export function processSessionStudents(
  */
 export function processSessionStaff(
   sessionsStaff: SessionStaffItem[],
-  actualStaffAttendance: Record<string, { attended: boolean; type?: string }>,
+  actualStaffAttendance: Record<string, { attended: boolean; type?: string; was_trial?: boolean }>,
   hasTutorLog: boolean,
   tutorLogCreatedBy?: string
 ): ProcessedStaffData[] {
-  return sessionsStaff.map((sf) => {
-    let plannedStatus: 'attending' | 'absent' | 'swapped' = 'attending';
-    let swappedStaffName = '';
-    let swappedStaffId = '';
+  // Only process rows with a resolved staff (exclude null from API joins)
+  const withStaff = sessionsStaff.filter(
+    (sf): sf is SessionStaffItem & { staff: Tables<'staff'> } => sf.staff != null
+  );
+  return withStaff.map((sf) => {
+    const input: StaffAttendanceInput = {
+      planned_absence: sf.planned_absence,
+      is_swapped: sf.is_swapped,
+      swapped_staff: sf.swapped_staff,
+      was_trial: sf.was_trial,
+      actual_attended: actualStaffAttendance[sf.staff_id]?.attended,
+      actual_was_trial: actualStaffAttendance[sf.staff_id]?.was_trial,
+    };
 
-    if (sf.planned_absence) {
-      plannedStatus = 'absent';
-      if (sf.is_swapped && sf.swapped_staff) {
-        plannedStatus = 'swapped';
-        swappedStaffName = `${sf.swapped_staff.first_name} ${sf.swapped_staff.last_name}`;
-        swappedStaffId = sf.swapped_staff.id;
-      }
-    }
+    const context: StaffAttendanceContext = {
+      hasTutorLog,
+    };
 
-    const actualAttendance = actualStaffAttendance[sf.staff_id];
-    const actualStatus = !hasTutorLog
-      ? 'not-logged'
-      : actualAttendance?.attended
-      ? 'attended'
-      : 'did-not-attend';
+    const attendanceStatus = deriveStaffAttendanceStatus(input, context);
 
     const submittedTutorLog = tutorLogCreatedBy === sf.staff_id;
 
@@ -212,11 +190,11 @@ export function processSessionStaff(
       staff: sf.staff,
       sessionsStaffId: sf.id ?? null,
       swappedSessionsStaffId: sf.swapped_sessions_staff_id ?? null,
-      plannedStatus,
-      actualStatus,
-      staffType: actualAttendance?.type,
-      swappedStaffName,
-      swappedStaffId,
+      plannedStatus: attendanceStatus.plannedStatus,
+      actualStatus: attendanceStatus.actualStatus,
+      staffType: actualStaffAttendance[sf.staff_id]?.type,
+      swappedStaffName: attendanceStatus.swappedStaffName,
+      swappedStaffId: attendanceStatus.swappedStaffId,
       submittedTutorLog,
       plannedAbsence: sf.planned_absence || false,
     };

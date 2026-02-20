@@ -28,6 +28,7 @@ export type Database = {
           parent_id: string | null
           performed_at: string
           performed_by: string | null
+          project_id: string | null
           session_id: string | null
           staff_id: string | null
           student_id: string | null
@@ -46,6 +47,7 @@ export type Database = {
           parent_id?: string | null
           performed_at?: string
           performed_by?: string | null
+          project_id?: string | null
           session_id?: string | null
           staff_id?: string | null
           student_id?: string | null
@@ -64,6 +66,7 @@ export type Database = {
           parent_id?: string | null
           performed_at?: string
           performed_by?: string | null
+          project_id?: string | null
           session_id?: string | null
           staff_id?: string | null
           student_id?: string | null
@@ -124,6 +127,13 @@ export type Database = {
             columns: ["performed_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_events_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -2504,6 +2514,7 @@ export type Database = {
           created_by: string
           folder_id: string | null
           id: string
+          project_id: string | null
           search_vector: unknown
           title: string
           updated_at: string
@@ -2515,6 +2526,7 @@ export type Database = {
           created_by: string
           folder_id?: string | null
           id?: string
+          project_id?: string | null
           search_vector?: unknown
           title: string
           updated_at?: string
@@ -2526,6 +2538,7 @@ export type Database = {
           created_by?: string
           folder_id?: string | null
           id?: string
+          project_id?: string | null
           search_vector?: unknown
           title?: string
           updated_at?: string
@@ -2551,6 +2564,13 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "notes_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -2933,6 +2953,80 @@ export type Database = {
           },
         ]
       }
+      projects: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: Json | null
+          id: string
+          name: string
+          priority: number
+          project_lead_id: string | null
+          search_vector: unknown
+          start_date: string | null
+          status: string
+          target_date: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: Json | null
+          id?: string
+          name: string
+          priority?: number
+          project_lead_id?: string | null
+          search_vector?: unknown
+          start_date?: string | null
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: Json | null
+          id?: string
+          name?: string
+          priority?: number
+          project_lead_id?: string | null
+          search_vector?: unknown
+          start_date?: string | null
+          status?: string
+          target_date?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_project_lead_id_fkey"
+            columns: ["project_lead_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_project_lead_id_fkey"
+            columns: ["project_lead_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       quick_filters: {
         Row: {
           config: Json
@@ -3174,6 +3268,7 @@ export type Database = {
           swapped_sessions_staff_id: string | null
           type: string
           updated_at: string
+          was_trial: boolean
         }
         Insert: {
           created_at?: string
@@ -3189,6 +3284,7 @@ export type Database = {
           swapped_sessions_staff_id?: string | null
           type?: string
           updated_at?: string
+          was_trial?: boolean
         }
         Update: {
           created_at?: string
@@ -3204,6 +3300,7 @@ export type Database = {
           swapped_sessions_staff_id?: string | null
           type?: string
           updated_at?: string
+          was_trial?: boolean
         }
         Relationships: [
           {
@@ -4063,7 +4160,7 @@ export type Database = {
           curriculum?: string | null
           email?: string | null
           first_name: string
-          id: string
+          id?: string
           invite_token?: string | null
           last_name: string
           phone?: string | null
@@ -4306,6 +4403,7 @@ export type Database = {
           id: string
           issue_id: string | null
           priority: number | null
+          project_id: string | null
           search_vector: unknown
           source_activity_id: string | null
           source_rule_id: string | null
@@ -4323,6 +4421,7 @@ export type Database = {
           id?: string
           issue_id?: string | null
           priority?: number | null
+          project_id?: string | null
           search_vector?: unknown
           source_activity_id?: string | null
           source_rule_id?: string | null
@@ -4340,6 +4439,7 @@ export type Database = {
           id?: string
           issue_id?: string | null
           priority?: number | null
+          project_id?: string | null
           search_vector?: unknown
           source_activity_id?: string | null
           source_rule_id?: string | null
@@ -4381,6 +4481,13 @@ export type Database = {
             columns: ["issue_id"]
             isOneToOne: false
             referencedRelation: "issues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -4691,6 +4798,7 @@ export type Database = {
           tutor_log_id: string
           type: string
           updated_at: string
+          was_trial: boolean
         }
         Insert: {
           attended?: boolean
@@ -4700,6 +4808,7 @@ export type Database = {
           tutor_log_id: string
           type: string
           updated_at?: string
+          was_trial?: boolean
         }
         Update: {
           attended?: boolean
@@ -4709,6 +4818,7 @@ export type Database = {
           tutor_log_id?: string
           type?: string
           updated_at?: string
+          was_trial?: boolean
         }
         Relationships: [
           {
@@ -7337,10 +7447,6 @@ export type Database = {
       }
     }
     Functions: {
-      add_enum_value: {
-        Args: { enum_name: string; new_value: string }
-        Returns: undefined
-      }
       assign_staff_to_booking: {
         Args: {
           p_available_staff_ids: string[]
@@ -7673,9 +7779,7 @@ export type Database = {
         Args: { student_id: string }
         Returns: boolean
       }
-      is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
-      is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       log_activity_event: {
@@ -7706,6 +7810,8 @@ export type Database = {
         Args: { logged_by_student_id: string; operations: Json }
         Returns: Json
       }
+      map_day_to_number: { Args: { day_string: string }; Returns: number }
+      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -7930,6 +8036,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_claim: {
+        Args: { claim: string; uid: string; value: Json }
+        Returns: undefined
+      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -7967,6 +8077,7 @@ export type Database = {
         }[]
       }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
+      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"

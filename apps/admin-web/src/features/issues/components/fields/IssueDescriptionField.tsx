@@ -12,9 +12,10 @@ import {
 import { UseFormReturn } from 'react-hook-form';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import type { IssueFormData } from '../../types';
 
 interface IssueDescriptionFieldProps {
-  form: UseFormReturn<any>;
+  form: UseFormReturn<IssueFormData>;
   value?: JSONContent | null;
   onTagClick?: (type: TagEntityType, id: string) => void;
   descriptionRef?: React.RefObject<RichTextEditorRef>;

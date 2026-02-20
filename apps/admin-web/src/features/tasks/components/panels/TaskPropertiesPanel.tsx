@@ -5,30 +5,20 @@ import {
   TaskStatusField,
   TaskPriorityField,
   TaskAssigneeField,
-  TaskIssueField,
+  TaskLinkField,
   TaskEstimateField,
   TaskDueDateField,
 } from '../fields';
-import type { TaskStatus, TaskPriority } from '../../types';
+import type { TaskFormData, TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
-
-type TaskFormData = {
-  title: string;
-  description?: string;
-  status: 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done';
-  priority: number;
-  assignedTo: string | null;
-  issueId: string | null;
-  estimate: number | null;
-  dueDate: string | null;
-};
 
 interface TaskPropertiesPanelProps {
   form: UseFormReturn<TaskFormData>;
   selectedAssignee: Tables<'staff'> | null;
   onAssigneeChange: (staff: Tables<'staff'> | null) => void;
   selectedIssue: { id: string; name: string | null } | null;
-  onIssueChange: (issue: { id: string; name: string | null } | null) => void;
+  selectedProject: { id: string; name: string | null } | null;
+  onLinkChange: (link: { type: 'issue' | 'project'; id: string; name: string | null } | null) => void;
   taskStatus?: TaskStatus;
   enabled?: boolean;
 }
@@ -38,27 +28,29 @@ export function TaskPropertiesPanel({
   selectedAssignee,
   onAssigneeChange,
   selectedIssue,
-  onIssueChange,
+  selectedProject,
+  onLinkChange,
   taskStatus,
   enabled = true,
 }: TaskPropertiesPanelProps) {
   return (
     <div className="hidden md:block w-80 border-l flex-shrink-0 overflow-y-auto p-6 space-y-6">
-      <TaskStatusField form={form as unknown as UseFormReturn<{ status: TaskStatus }>} taskStatus={taskStatus} />
-      <TaskPriorityField form={form as unknown as UseFormReturn<{ priority: TaskPriority }>} />
+      <TaskStatusField form={form} taskStatus={taskStatus} />
+      <TaskPriorityField form={form} />
       <TaskAssigneeField
-        form={form as unknown as UseFormReturn<{ assignedTo: string | null }>}
+        form={form}
         selectedAssignee={selectedAssignee}
         onAssigneeChange={onAssigneeChange}
         enabled={enabled}
       />
-      <TaskIssueField
-        form={form as unknown as UseFormReturn<{ issueId: string | null }>}
+      <TaskLinkField
+        form={form}
         selectedIssue={selectedIssue}
-        onIssueChange={onIssueChange}
+        selectedProject={selectedProject}
+        onLinkChange={onLinkChange}
       />
-      <TaskEstimateField form={form as unknown as UseFormReturn<{ estimate: number | null }>} />
-      <TaskDueDateField form={form as unknown as UseFormReturn<{ dueDate: string | null }>} />
+      <TaskEstimateField form={form} />
+      <TaskDueDateField form={form} />
     </div>
   );
 }

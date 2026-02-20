@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNotepadStore } from '../state/notepadStore';
-import { useChatStore } from '@/features/messages/state/chatStore';
 import { useNotepad } from '../hooks/useNotepad';
 import { useUpdateNotepad } from '../hooks/useUpdateNotepad';
 import { ClipboardList } from 'lucide-react';
@@ -18,7 +17,6 @@ export function NotepadButton({ variant = 'floating' }: NotepadButtonProps) {
   const content = useNotepadStore((s) => s.content);
   const toggleOpen = useNotepadStore((s) => s.toggleOpen);
   const setOpen = useNotepadStore((s) => s.setOpen);
-  const minimized = useChatStore((s) => s.minimized);
   const { data: notepad } = useNotepad();
   const updateNotepadMutation = useUpdateNotepad();
   const [inlineOpen, setInlineOpen] = useState(false);
@@ -35,11 +33,6 @@ export function NotepadButton({ variant = 'floating' }: NotepadButtonProps) {
       textarea.setSelectionRange(length, length);
     }, 0);
   }, [inlineOpen, variant]);
-
-  // Hide floating variant when chat is expanded (not minimized) - same logic as QuickActionsMenu
-  if (variant === 'floating' && !minimized) {
-    return null;
-  }
 
   const handleClick = async () => {
     if (isOpen) {

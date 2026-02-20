@@ -1,6 +1,6 @@
 'use client';
 
-import { useForm } from 'react-hook-form';
+import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -15,7 +15,7 @@ import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import { useCreateIssue } from '../api/mutations';
-import type { IssueStatus, IssueTagInsert } from '../types';
+import type { IssueFormData, IssueStatus, IssueTagInsert } from '../types';
 import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
 import { useEffect } from 'react';
@@ -64,13 +64,6 @@ const formSchema = z.object({
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
-type FormData = {
-  name: string;
-  description?: JSONContent | null;
-  status: IssueStatus;
-  dueDate: string | null;
-};
-
 interface CreateIssueDialogProps {
   isOpen: boolean;
   onClose: () => void;
@@ -88,8 +81,8 @@ export function CreateIssueDialog({
 }: CreateIssueDialogProps) {
   const createIssue = useCreateIssue();
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any,
+  const form = useForm<IssueFormData, unknown, IssueFormData>({
+    resolver: zodResolver(formSchema) as Resolver<IssueFormData>,
     defaultValues: {
       name: '',
       description: null,
@@ -120,7 +113,7 @@ export function CreateIssueDialog({
     };
   }, [isOpen, initialStatus, initialTags, form]);
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: IssueFormData) => {
     try {
       await createIssue.mutateAsync({
         issue: {
@@ -169,7 +162,7 @@ export function CreateIssueDialog({
             <div className="h-full flex">
               <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
                 <IssuePropertiesPanel
-                  form={form as any}
+                  form={form}
                   notes={[]}
                   isOpen={isOpen}
                   onClose={handleClose}

@@ -5,7 +5,23 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, type JSONContent } from '@altitutor/ui';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  ScrollArea,
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  TabsContent,
+  type JSONContent,
+} from '@altitutor/ui';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
 import { NotePropertyPills } from './NotePropertyPills';
@@ -19,24 +35,22 @@ import { useContentEditableField } from '@/features/tasks/hooks/useContentEditab
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
 import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import type { NoteFormData } from '../types';
+import type { Resolver } from 'react-hook-form';
+import { Check, CloudOff, MoreVertical, Trash2 } from 'lucide-react';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   content: z.any(),
   folder_id: z.string().nullable().optional(),
+  project_id: z.string().nullable().optional(),
 });
-
-type FormData = {
-  title: string;
-  content: JSONContent | string;
-  folder_id?: string | null;
-};
 
 interface NoteDetailPageProps {
   noteId: string;
 }
 
-const NOTE_MENTION_TYPES = ['issues', 'tasks', 'students', 'staff', 'parents', 'classes', 'subjects'] as const;
+const NOTE_MENTION_TYPES = ['issues', 'projects', 'tasks', 'students', 'staff', 'parents', 'classes', 'subjects'] as const;
 
 export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const router = useRouter();
@@ -53,28 +67,24 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const mentionSuggestions = useMentionSuggestions({
     types: NOTE_MENTION_TYPES,
   });
-  
-  // Track initialization state
+
   const currentNoteIdRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialFocusDone, setInitialFocusDone] = useState(false);
-  
-  // Track last saved title to prevent duplicate saves on blur
   const lastBlurSavedTitleRef = useRef<string | null>(null);
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any,
+  const form = useForm<NoteFormData, unknown, NoteFormData>({
+    resolver: zodResolver(formSchema) as Resolver<NoteFormData>,
     defaultValues: {
       title: '',
       content: '',
       folder_id: null,
+      project_id: null,
     },
   });
 
-  // Initialize form data when note loads (only once per noteId)
   useEffect(() => {
-    // Reset initialization if noteId changed (user navigated to different note)
     if (currentNoteIdRef.current !== noteId) {
       setIsInitialized(false);
       setInitialFocusDone(false);
@@ -88,22 +98,18 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         title: note.title,
         content: (note.content as unknown as JSONContent) || '',
         folder_id: note.folder_id,
+        project_id: (note as any).project_id ?? null,
       });
       lastBlurSavedTitleRef.current = note.title;
       setIsInitialized(true);
-      // Reset flag after form values are set
       setTimeout(() => {
         isUpdatingFromServerRef.current = false;
       }, 0);
     } else if (note && isInitialized && note.title !== lastBlurSavedTitleRef.current) {
-      // Update ref when note is updated from server (e.g., after auto-save completes)
       lastBlurSavedTitleRef.current = note.title;
     }
   }, [note, noteId, form, isInitialized]);
 
-  // Auto-focus title field only on initial load (once per noteId).
-  // Without the guard, every auto-save query invalidation would re-trigger
-  // this effect and steal focus from the editor.
   useEffect(() => {
     if (note && titleFieldRef.current && !initialFocusDone) {
       setInitialFocusDone(true);
@@ -112,13 +118,12 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         if (!titleElement) return;
 
         titleElement.focus();
-        // Place cursor at the end
         const selection = window.getSelection();
         if (!selection) return;
 
         const range = document.createRange();
         range.selectNodeContents(titleElement);
-        range.collapse(false); // Collapse to end
+        range.collapse(false);
         selection.removeAllRanges();
         selection.addRange(range);
       }, 100);
@@ -126,7 +131,6 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     }
   }, [note, initialFocusDone]);
 
-  // Auto-save hook
   useNoteAutoSave({
     form,
     noteId,
@@ -137,7 +141,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       updateNote.mutate({
         id: noteId,
         updates: updates as any,
-        silent: true, // Silent auto-save
+        silent: true,
       });
     },
   });
@@ -149,8 +153,8 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     try {
       await deleteNote.mutateAsync(noteId);
       router.push('/notes');
-    } catch (error) {
-      // Error handled by mutation
+    } catch {
+      // no-op
     }
   }, [note, noteId, deleteNote, router]);
 
@@ -160,23 +164,15 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     handleInput: handleTitleInput,
   } = useContentEditableField(form, 'title', form.watch('title'));
 
-  // Wrap blur handler to trigger immediate save on blur
   const handleTitleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
-    // First, update the form value (from useContentEditableField)
     handleTitleBlurBase(e);
-    
-    // Extract title directly from the contentEditable element to ensure we have the latest value
-    const getTextWithLineBreaks = (element: HTMLElement): string => {
-      return element.innerText || '';
-    };
-    const currentTitle = getTextWithLineBreaks(e.currentTarget);
-    
-    // Immediately save the title (bypassing debounce) if it changed
-    // Compare against both note.title and lastBlurSavedTitleRef to prevent duplicate saves
+
+    const currentTitle = e.currentTarget.innerText || '';
+
     if (
-      note && 
-      currentTitle && 
-      currentTitle !== note.title && 
+      note &&
+      currentTitle &&
+      currentTitle !== note.title &&
       currentTitle !== lastBlurSavedTitleRef.current
     ) {
       lastBlurSavedTitleRef.current = currentTitle;
@@ -188,38 +184,32 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     }
   }, [handleTitleBlurBase, note, noteId, updateNote]);
 
-  // Combine refs - memoize to ensure stability
   const combinedTitleRef = useCallback((node: HTMLDivElement | null) => {
     (titleRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
     (titleFieldRef as React.MutableRefObject<HTMLDivElement | null>).current = node;
   }, [titleRef]);
 
-  // Handle Enter key in title - prevent newline and move focus to note editor
   const handleTitleKeyDown = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      // Move focus to note editor and place cursor at the end
       noteEditorRef.current?.focusToEnd();
     }
   }, []);
 
-  // Handle editor ready callback
   const handleEditorReady = useCallback((editor: Editor) => {
     editorInstanceRef.current = editor;
   }, []);
 
-  // Track mobile breakpoint for toolbar positioning
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
-  // Memoize folders array for performance
   const foldersArray = useMemo(() => folders || [], [folders]);
 
   if (isLoading) {
@@ -232,17 +222,14 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
 
   return (
     <div className="flex h-[calc(100vh-var(--navbar-height)-5rem)] relative">
-      {/* Main Content Area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Scrollable Content */}
+      <div className="flex-1 flex flex-col min-w-0 border-r overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          {/* Header */}
           <div className="px-6 pt-6 pb-2">
-            <div className="flex items-center gap-4">
+            <div className="flex items-start gap-4">
               <div className="flex-1 max-w-3xl mx-auto w-full">
                 <Form {...form}>
                   <FormField
-                    control={form.control as any}
+                    control={form.control}
                     name="title"
                     render={() => (
                       <FormItem>
@@ -263,26 +250,55 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                   />
                 </Form>
               </div>
+              <div className="hidden md:flex items-center gap-2">
+                <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
+                  {updateNote.isPending ? (
+                    <>
+                      <CloudOff className="h-3 w-3 animate-pulse" />
+                      <span>Saving...</span>
+                    </>
+                  ) : updateNote.isError ? (
+                    <>
+                      <CloudOff className="h-3 w-3 text-destructive" />
+                      <span className="text-destructive">Changes not saved</span>
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-3 w-3 text-emerald-500" />
+                      <span>Saved</span>
+                    </>
+                  )}
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete note
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </div>
           </div>
 
-          {/* Content Panel */}
           <div className="px-6 flex-1 flex flex-col min-h-0 pb-20">
             <Form {...form}>
-              {/* Property Pills - Mobile Only */}
               <div className="md:hidden pt-4 mb-4">
-                <NotePropertyPills form={form as any} folders={foldersArray} />
+                <NotePropertyPills form={form} folders={foldersArray} />
               </div>
 
-              {/* Table of Contents - Mobile Only (Collapsible) */}
               <div className="md:hidden mb-6">
                 <NoteTableOfContents editor={editorInstanceRef.current} collapsible />
               </div>
 
-              {/* Editor Container with max-width */}
               <div className="max-w-3xl mx-auto w-full relative flex-1 flex flex-col min-h-0">
                 <FormField
-                  control={form.control as any}
+                  control={form.control}
                   name="content"
                   render={({ field }) => (
                     <FormItem className="flex-1 flex flex-col min-h-0">
@@ -304,39 +320,49 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           </div>
         </div>
 
-        {/* Fixed Toolbar at Bottom */}
-        <div 
-          className="fixed bottom-0 z-50 px-6 pb-4 bg-background pointer-events-none" 
-          style={{ 
-            // Mobile: full width minus floating action buttons (right-4 + w-16 = 80px)
-            // Desktop: account for sidebar and properties panel
+        <div
+          className="flex-shrink-0 px-6 pb-4 pt-2 border-t bg-background pointer-events-none"
+          style={{
             left: isMobile ? 0 : `${sidebarWidth}px`,
-            right: isMobile ? '80px' : '320px', // Properties sidebar width (w-80 = 320px)
+            right: isMobile ? '80px' : '320px',
           }}
         >
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto max-w-3xl mx-auto">
             <NoteEditorBottomToolbar editor={editorInstanceRef.current} />
           </div>
         </div>
       </div>
 
-      {/* Properties Sidebar - Desktop Only */}
-      <div className="hidden md:flex flex-col h-[calc(100vh-var(--navbar-height)-5rem)] w-80 flex-shrink-0 sticky top-0">
-        <div className="flex-1 overflow-y-auto m-4 mr-6 space-y-4">
-          {/* Properties Panel */}
-          <NotePropertiesPanel
-            form={form as any}
-            folders={foldersArray}
-            onDelete={handleDelete}
-            saveStatus={{
-              isPending: updateNote.isPending,
-              isError: updateNote.isError,
-            }}
-          />
-          
-          {/* Table of Contents Card */}
-          <NoteTableOfContents editor={editorInstanceRef.current} />
-        </div>
+      <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
+        <Tabs defaultValue="properties" className="flex-1 flex flex-col min-h-0">
+          <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="properties">Properties</TabsTrigger>
+              <TabsTrigger value="outline">Outline</TabsTrigger>
+            </TabsList>
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <TabsContent value="properties" className="h-full min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+              <ScrollArea className="flex-1">
+                <div className="p-6">
+                  <NotePropertiesPanel
+                    form={form}
+                    folders={foldersArray}
+                  />
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            <TabsContent value="outline" className="h-full min-h-0 m-0 overflow-hidden data-[state=active]:flex flex-col">
+              <ScrollArea className="flex-1 min-h-0">
+                <div className="p-6">
+                  <NoteTableOfContents editor={editorInstanceRef.current} />
+                </div>
+              </ScrollArea>
+            </TabsContent>
+          </div>
+        </Tabs>
       </div>
     </div>
   );

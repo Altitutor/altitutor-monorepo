@@ -12,7 +12,7 @@ import {
 } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { MoreVertical, Edit, Trash2 } from 'lucide-react';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useCreateSessionNote, useUpdateNote, useDeleteNote } from '../hooks/useSessionNotes';
 import type { Tables } from '@altitutor/shared';
 

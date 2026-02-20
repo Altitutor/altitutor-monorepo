@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Dialog, DialogContent, DialogOverlay, DialogPortal } from '@altitutor/ui';
 import { CommandPalette } from './CommandPalette';
 import { ViewStudentModal } from '@/features/students/components';
 import { ViewStaffModal } from '@/features/staff/components/modal';
@@ -11,6 +12,7 @@ import { ViewTopicModal } from '@/features/topics/components';
 import { FilePreviewModal } from '@/features/topics/components';
 import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
 import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
+import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -31,6 +33,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const [selectedTopicFileId, setSelectedTopicFileId] = useState<string | null>(null);
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -40,6 +43,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const [isFilePreviewModalOpen, setIsFilePreviewModalOpen] = useState(false);
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
+  const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -64,6 +68,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     setSelectedTopicFileId(null);
     setSelectedIssueId(null);
     setSelectedTaskId(null);
+    setSelectedProjectId(null);
     setIsStudentModalOpen(false);
     setIsStaffModalOpen(false);
     setIsClassModalOpen(false);
@@ -73,6 +78,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     setIsFilePreviewModalOpen(false);
     setIsIssueModalOpen(false);
     setIsTaskModalOpen(false);
+    setIsProjectModalOpen(false);
     
     // Set the appropriate state based on entity type
     if (type === 'student') {
@@ -103,28 +109,28 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     } else if (type === 'task') {
       setSelectedTaskId(id);
       setIsTaskModalOpen(true);
+    } else if (type === 'project') {
+      setSelectedProjectId(id);
+      setIsProjectModalOpen(true);
     }
   };
 
-  if (!isOpen && !selectedStudentId && !selectedStaffId && !selectedClassId && !selectedParentId && !selectedSubjectId && !selectedTopicId && !selectedTopicFileId && !selectedIssueId && !selectedTaskId) {
+  if (!isOpen && !selectedStudentId && !selectedStaffId && !selectedClassId && !selectedParentId && !selectedSubjectId && !selectedTopicId && !selectedTopicFileId && !selectedIssueId && !selectedTaskId && !selectedProjectId) {
     return null;
   }
 
   return (
     <>
-      {/* Backdrop - higher z-index to cover floating buttons (z-50) */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100]"
-          onClick={onClose}
-          aria-hidden="true"
-        />
-      )}
-      
-      {/* Command Palette */}
-      {isOpen && (
-        <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
-      )}
+      {/* Use Radix Dialog so focus is trapped in the palette when open (works even over another dialog) */}
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+        <DialogPortal>
+          <DialogContent
+            className="z-[101] w-full max-w-[calc(100vw-2rem)] md:max-w-4xl h-[calc(100vh-2rem)] max-h-[800px] p-0 gap-0 border rounded-lg shadow-xl bg-popover [&>button]:hidden flex flex-col"
+          >
+            <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
+          </DialogContent>
+        </DialogPortal>
+      </Dialog>
 
       {/* Modals - rendered outside CommandPalette so they persist after palette closes */}
       {selectedStudentId && (
@@ -231,6 +237,17 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
           }}
           taskId={selectedTaskId}
           onTaskUpdated={() => {}}
+        />
+      )}
+
+      {selectedProjectId && (
+        <EditProjectDialog
+          isOpen={isProjectModalOpen}
+          onClose={() => {
+            setIsProjectModalOpen(false);
+            setSelectedProjectId(null);
+          }}
+          projectId={selectedProjectId}
         />
       )}
     </>

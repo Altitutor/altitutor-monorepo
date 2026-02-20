@@ -1,23 +1,15 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
-import type { JSONContent } from '@altitutor/ui';
-import type { IssueStatus } from '../types';
-
-type FormData = {
-  name: string;
-  description?: JSONContent | null;
-  status: IssueStatus;
-  dueDate: string | null;
-};
+import type { IssueFormData, IssueStatus } from '../types';
 
 interface UseIssueAutoSaveOptions {
-  form: UseFormReturn<FormData>;
+  form: UseFormReturn<IssueFormData>;
   issueId: string;
   issue: { id: string } | undefined;
   isInitialized: boolean;
   isUpdatingFromServer: boolean;
-  onSave: (updates: { name?: string; description?: JSONContent | null; status?: IssueStatus; dueDate?: string | null }) => Promise<void>;
+  onSave: (updates: Partial<IssueFormData>) => Promise<void>;
 }
 
 /**
@@ -40,20 +32,20 @@ export function useIssueAutoSave({
   const status = form.watch('status');
   const dueDate = form.watch('dueDate');
 
-  // Debounce name and description (status saves immediately)
-  const debouncedName = useDebounce(name, 1000);
+  // Debounce used only as a trigger; we save the current value when the effect runs (same as description).
+  const debouncedNameTrigger = useDebounce(name, 1000);
   const debouncedDescriptionTrigger = useDebounce(description, 1000);
 
-  // Auto-save for name
+  // Auto-save for name (same pattern as description: effect runs on every change, saves current value)
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
-    if (issue && debouncedName && debouncedName !== lastSavedValuesRef.current.name) {
-      lastSavedValuesRef.current.name = debouncedName;
-      onSave({ name: debouncedName });
+    if (issue && name !== undefined && name !== '' && name !== lastSavedValuesRef.current.name) {
+      lastSavedValuesRef.current.name = name;
+      onSave({ name });
     }
-  }, [debouncedName, issue, isInitialized, isUpdatingFromServer, onSave]);
+  }, [debouncedNameTrigger, name, issue, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Auto-save for description
+  // Auto-save for description (trigger + current value so it saves on every change)
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
     
@@ -82,8 +74,9 @@ export function useIssueAutoSave({
     }
   }, [dueDate, issue, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Initialize lastSavedValues when issue loads
-  useEffect(() => {
+  // Sync lastSavedValuesRef in layout effect so it runs before field effects.
+  // This prevents auto-save from firing on first open (treating initial load as a "change").
+  useLayoutEffect(() => {
     if (issue && isInitialized) {
       lastSavedValuesRef.current = {
         name: name,

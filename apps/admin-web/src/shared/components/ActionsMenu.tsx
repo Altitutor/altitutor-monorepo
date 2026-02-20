@@ -7,10 +7,14 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard, UserX, Plus, Copy } from 'lucide-react';
+import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 import type { IssueTagInsert } from '@/features/issues/types';
 
@@ -49,6 +53,11 @@ interface SessionActionsMenuProps extends BaseActionsMenuProps {
   onEditTutorLog?: () => void;
   onReschedule?: () => void;
   canReschedule?: boolean;
+  /** Session type; 'CLASS' disables Send Booking Confirmation */
+  sessionType?: string;
+  /** Students in session; used for Send Booking Confirmation (pick recipient) */
+  sessionStudents?: Array<{ id: string; name: string }>;
+  onSendBookingConfirmation?: (studentId: string) => void;
 }
 
 interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
@@ -102,7 +111,12 @@ interface TaskActionsMenuProps extends BaseActionsMenuProps {
   onDelete: () => void;
 }
 
-type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps | IssueActionsMenuProps | TaskActionsMenuProps;
+interface ProjectActionsMenuProps extends BaseActionsMenuProps {
+  type: 'project';
+  onDelete: () => void;
+}
+
+type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps | IssueActionsMenuProps | TaskActionsMenuProps | ProjectActionsMenuProps;
 
 const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<Record<ActionsMenuProps['type'], string>> = {
   student: 'student',
@@ -117,6 +131,7 @@ const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<Record<ActionsMenuProps['type'], st
   tutorLog: 'tutorLog',
   issue: 'issue',
   task: 'task',
+  project: 'project',
 };
 
 export function ActionsMenu(props: ActionsMenuProps) {
@@ -285,6 +300,19 @@ export function ActionsMenu(props: ActionsMenuProps) {
   }
 
   if (props.type === 'session') {
+    const canReschedule = props.canReschedule && props.onReschedule;
+    const canEditTutorLog = props.hasTutorLog && props.onEditTutorLog;
+    const canLogSession = !props.hasTutorLog && props.onLogSession;
+    const showEditTutorLog = canEditTutorLog;
+    const showLogSession = canLogSession;
+    const canSendBookingConfirmation =
+      props.sessionType !== 'CLASS' &&
+      props.onSendBookingConfirmation &&
+      props.sessionStudents &&
+      props.sessionStudents.length > 0;
+    const sendBookingAction = SESSION_QUICK_ACTIONS.find((a) => a.sessionActionType === 'send-booking-confirmation');
+    const SendBookingIcon = sendBookingAction?.icon ?? Mail;
+
     return (
       <>
       <DropdownMenu>
@@ -299,41 +327,63 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Open in page
           </DropdownMenuItem>
           {copyMenuItem}
-          {props.canReschedule && props.onReschedule && (
+          <DropdownMenuSeparator />
+          {canSendBookingConfirmation && sendBookingAction && props.sessionStudents && (
             <>
+              {props.sessionStudents.length === 1 ? (
+                <DropdownMenuItem
+                  onClick={() => props.onSendBookingConfirmation!(props.sessionStudents![0].id)}
+                >
+                  <SendBookingIcon className="h-4 w-4 mr-2" />
+                  {sendBookingAction.title}
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>
+                    <SendBookingIcon className="h-4 w-4 mr-2" />
+                    {sendBookingAction.title}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent>
+                    {props.sessionStudents.map((s) => (
+                      <DropdownMenuItem
+                        key={s.id}
+                        onClick={() => props.onSendBookingConfirmation!(s.id)}
+                      >
+                        Send to {s.name}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onReschedule}>
-                <CalendarX className="h-4 w-4 mr-2" />
-                Reschedule session
-              </DropdownMenuItem>
             </>
           )}
-          {props.hasTutorLog && props.onEditTutorLog && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onEditTutorLog}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit tutor log
-              </DropdownMenuItem>
-            </>
-          )}
+          <DropdownMenuItem
+            className={!canReschedule ? 'opacity-60 text-muted-foreground' : undefined}
+            onClick={() => {
+              if (canReschedule && props.onReschedule) props.onReschedule();
+              else toast({ description: 'This session cannot be rescheduled.', variant: 'destructive' });
+            }}
+          >
+            <CalendarX className="h-4 w-4 mr-2" />
+            Reschedule session
+          </DropdownMenuItem>
+          {showEditTutorLog ? (
+            <DropdownMenuItem onClick={props.onEditTutorLog}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit tutor log
+            </DropdownMenuItem>
+          ) : showLogSession ? (
+            <DropdownMenuItem onClick={props.onLogSession}>
+              <FileText className="h-4 w-4 mr-2" />
+              Log session
+            </DropdownMenuItem>
+          ) : null}
           {canAddIssue && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add issue
-              </DropdownMenuItem>
-            </>
-          )}
-          {!props.hasTutorLog && props.onLogSession && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onLogSession}>
-                <FileText className="h-4 w-4 mr-2" />
-                Log session
-              </DropdownMenuItem>
-            </>
+            <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add issue
+            </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
@@ -669,6 +719,33 @@ export function ActionsMenu(props: ActionsMenuProps) {
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Delete task
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'project') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {copyMenuItem}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem 
+            onClick={props.onDelete} 
+            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete project
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

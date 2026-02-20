@@ -61,6 +61,17 @@ export function useSession(sessionId: string) {
   });
 }
 
+// Get single session with tutor log (session modal, issue panel, etc.)
+export function useSessionWithTutorLog(sessionId: string | null, enabled: boolean) {
+  return useQuery({
+    queryKey: [...sessionsKeys.detail(sessionId ?? ''), 'withTutorLog'],
+    queryFn: () => sessionsApi.getSessionWithTutorLog(sessionId!),
+    enabled: enabled && !!sessionId,
+    staleTime: 1000 * 60 * 1, // 1 minute
+    gcTime: 1000 * 60 * 3, // 3 minutes
+  });
+}
+
 // Get sessions for a specific student
 export function useSessionsForStudent(studentId: string, includeInactive: boolean = false) {
   return useQuery({

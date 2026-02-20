@@ -1,14 +1,16 @@
 'use client';
 
 import { Badge, Separator, Button } from '@altitutor/ui';
-import { MoreVertical, MessageSquare, Mail, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
+import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
 import { formatSessionDate } from '../utils/session-helpers';
+import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { formatSubjectDisplay, getSubjectColorStyle, formatClassName } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import {
+  SessionInfoGrid,
   Table,
   TableBody,
   TableCell,
@@ -22,6 +24,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  useToast,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 
@@ -43,8 +46,8 @@ type SessionDetailsTabProps = {
     staff: Tables<'staff'>;
     sessionsStaffId: string | null;
     swappedSessionsStaffId: string | null;
-    plannedStatus: 'attending' | 'absent' | 'swapped';
-    actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
+    plannedStatus: 'attending' | 'attending-trial' | 'absent' | 'swapped';
+    actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     staffType?: string;
     swappedStaffName: string;
     swappedStaffId: string;
@@ -80,7 +83,6 @@ type SessionDetailsTabProps = {
     action: 'log' | 'swap';
     swappedStaffName?: string;
   }) => void;
-  onSendBookingConfirmation?: (studentId: string) => void;
   onLogSession?: () => void;
   onAddStudentToSession?: () => void;
   onAddStaffToSession?: () => void;
@@ -109,13 +111,13 @@ export function SessionDetailsTab({
   onLogAbsenceStaff,
   onUndoLogAbsenceStudent,
   onUndoLogAbsenceStaff,
-  onSendBookingConfirmation,
   onLogSession: _onLogSession,
   onAddStudentToSession,
   onAddStaffToSession,
   onRemoveStudentFromSession,
   onRemoveStaffFromSession,
 }: SessionDetailsTabProps) {
+  const { toast } = useToast();
   const hasTutorLog = !!tutorLog;
   const subject = (session as any).subject || session.class?.subject;
   const classData = session.class;
@@ -126,34 +128,15 @@ export function SessionDetailsTab({
       {/* Session Information */}
       <div>
         <h3 className="text-lg font-semibold mb-4">Session Information</h3>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <div className="text-sm font-medium text-muted-foreground">Day:</div>
-          <div className="text-sm">{session.start_at ? formatSessionDate(session.start_at) : '—'}</div>
-          
-          <div className="text-sm font-medium text-muted-foreground">Time:</div>
-          <div className="text-sm">
-            {(() => {
-              if (session.start_at && session.end_at) {
-                const startDate = new Date(session.start_at);
-                const endDate = new Date(session.end_at);
-                const startTime = `${String(startDate.getHours()).padStart(2, '0')}:${String(startDate.getMinutes()).padStart(2, '0')}`;
-                const endTime = `${String(endDate.getHours()).padStart(2, '0')}:${String(endDate.getMinutes()).padStart(2, '0')}`;
-                return `${formatTime(startTime)} - ${formatTime(endTime)}`;
-              }
-              if (session.class?.start_time && session.class?.end_time) {
-                return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
-              }
-              return '—';
-            })()}
-          </div>
-          
-          <div className="text-sm font-medium text-muted-foreground">Subject:</div>
-          <div className="text-sm">
-            {subject ? (() => {
+        <SessionInfoGrid
+          day={session.start_at ? formatSessionDate(session.start_at) : '—'}
+          time={formatSessionTimeRangeForDisplay(session, formatTime)}
+          subjectNode={
+            subject ? (() => {
               const { style, textColorClass } = getSubjectColorStyle(subject);
               const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
               return (
-                <Badge 
+                <Badge
                   className={defaultClass || textColorClass}
                   style={style.backgroundColor ? style : undefined}
                 >
@@ -162,12 +145,10 @@ export function SessionDetailsTab({
               );
             })() : (
               '—'
-            )}
-          </div>
-          
-          <div className="text-sm font-medium text-muted-foreground">Class:</div>
-          <div className="text-sm">
-            {classData && classId ? (
+            )
+          }
+          classNode={
+            classData && classId ? (
               <button
                 type="button"
                 onClick={() => onOpenClass(classId)}
@@ -177,9 +158,9 @@ export function SessionDetailsTab({
               </button>
             ) : (
               '—'
-            )}
-          </div>
-        </div>
+            )
+          }
+        />
       </div>
 
       <Separator />
@@ -287,33 +268,8 @@ export function SessionDetailsTab({
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Message
                           </DropdownMenuItem>
-                          {sessionId && session.type !== 'CLASS' && onSendBookingConfirmation && (
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onSendBookingConfirmation(data.student.id);
-                              }}
-                            >
-                              <Mail className="h-4 w-4 mr-2" />
-                              Send Booking Confirmation Link
-                            </DropdownMenuItem>
-                          )}
-                          {((!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent) ||
-                            ((data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent)) && (
-                            <DropdownMenuSeparator />
-                          )}
-                          {!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent && (
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onLogAbsenceStudent(data.student.id);
-                              }}
-                            >
-                              <AlertTriangle className="h-4 w-4 mr-2" />
-                              Log Absence
-                            </DropdownMenuItem>
-                          )}
-                          {(data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent && (
+                          <DropdownMenuSeparator />
+                          {((data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent) ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -330,26 +286,40 @@ export function SessionDetailsTab({
                               <RotateCcw className="h-4 w-4 mr-2" />
                               Undo Log Absence
                             </DropdownMenuItem>
-                          )}
-                          {!hasTutorLog &&
-                            !data.hasInvoiceItems &&
-                            (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') &&
-                            onRemoveStudentFromSession && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
-                                  onRemoveStudentFromSession(data.student.id, studentName || 'Student');
-                                }}
-                                className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Remove from session
-                              </DropdownMenuItem>
-                            </>
-                          )}
+                          ) : (!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent) ? (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onLogAbsenceStudent(data.student.id);
+                              }}
+                            >
+                              <AlertTriangle className="h-4 w-4 mr-2" />
+                              Log Absence
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuItem
+                            className={
+                              !(!hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession)
+                                ? 'opacity-60 text-muted-foreground'
+                                : '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const canRemove = !hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession;
+                              if (canRemove) {
+                                const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
+                                onRemoveStudentFromSession(data.student.id, studentName || 'Student');
+                              } else {
+                                toast({
+                                  description: hasTutorLog ? 'Session has a tutor log; cannot remove student.' : data.hasInvoiceItems ? 'Student has an invoice item for this session.' : (data.plannedStatus !== 'attending-extra' && data.plannedStatus !== 'attending-extra-trial') ? 'Only extra or trial students can be removed.' : 'Remove from session is not available.',
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove from session
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -451,22 +421,8 @@ export function SessionDetailsTab({
                             <MessageSquare className="h-4 w-4 mr-2" />
                             Message
                           </DropdownMenuItem>
-                          {((!data.plannedAbsence && sessionId && onLogAbsenceStaff) ||
-                            ((data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff)) && (
-                            <DropdownMenuSeparator />
-                          )}
-                          {!data.plannedAbsence && sessionId && onLogAbsenceStaff && (
-                            <DropdownMenuItem
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onLogAbsenceStaff(data.staff.id);
-                              }}
-                            >
-                              <AlertTriangle className="h-4 w-4 mr-2" />
-                              Log Absence
-                            </DropdownMenuItem>
-                          )}
-                          {(data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff && (
+                          <DropdownMenuSeparator />
+                          {((data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff) ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -483,23 +439,39 @@ export function SessionDetailsTab({
                               <RotateCcw className="h-4 w-4 mr-2" />
                               Undo Log Absence
                             </DropdownMenuItem>
-                          )}
-                          {!hasTutorLog && onRemoveStaffFromSession && (
-                            <>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const staffName = `${data.staff.first_name || ''} ${data.staff.last_name || ''}`.trim();
-                                  onRemoveStaffFromSession(data.staff.id, staffName || 'Staff');
-                                }}
-                                className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Remove from session
-                              </DropdownMenuItem>
-                            </>
-                          )}
+                          ) : (!data.plannedAbsence && sessionId && onLogAbsenceStaff) ? (
+                            <DropdownMenuItem
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onLogAbsenceStaff(data.staff.id);
+                              }}
+                            >
+                              <AlertTriangle className="h-4 w-4 mr-2" />
+                              Log Absence
+                            </DropdownMenuItem>
+                          ) : null}
+                          <DropdownMenuItem
+                            className={
+                              !(!hasTutorLog && onRemoveStaffFromSession)
+                                ? 'opacity-60 text-muted-foreground'
+                                : '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+                            }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (!hasTutorLog && onRemoveStaffFromSession) {
+                                const staffName = `${data.staff.first_name || ''} ${data.staff.last_name || ''}`.trim();
+                                onRemoveStaffFromSession(data.staff.id, staffName || 'Staff');
+                              } else {
+                                toast({
+                                  description: hasTutorLog ? 'Session has a tutor log; cannot remove staff.' : 'Remove from session is not available.',
+                                  variant: 'destructive',
+                                });
+                              }
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Remove from session
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>

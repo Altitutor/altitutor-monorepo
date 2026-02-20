@@ -6,7 +6,7 @@ import { Button, Textarea, ScrollArea, DropdownMenu, DropdownMenuContent, Dropdo
 import { MessageTemplatesPicker } from '../MessageTemplatesPicker';
 import { replaceVariables } from '../../utils/variableReplacer';
 import { useStudentClassesForTemplate } from '../../hooks/useTemplatePreviewData';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import type { Sender } from '../../api/queries';
 import { useMessageAttachments } from '../../hooks/useMessageAttachments';

@@ -8,6 +8,7 @@ import { classesApi } from '@/features/classes/api/classes';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import { tasksApi } from '@/features/tasks/api/tasks';
 import { issuesApi } from '@/features/issues/api/issues';
+import { projectsApi } from '@/features/projects/api/projects';
 import { topicsApi } from '@/features/topics/api/topics';
 import { topicsFilesApi } from '@/features/topics/api/topics-files';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
@@ -34,6 +35,7 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
     'subjects',
     'tasks',
     'issues',
+    'projects',
     'topics',
     'files',
   ];
@@ -107,6 +109,13 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
             searchPromises.push(
               issuesApi.search(trimmedSearch, entityTypes.issues.limit)
                 .then(res => res.map(i => ({ type: 'issue' as const, id: i.id, data: i } as CommandPaletteEntityResult)))
+            );
+          }
+
+          if (enabledTypes.has('projects')) {
+            searchPromises.push(
+              projectsApi.search(trimmedSearch, entityTypes.projects.limit)
+                .then(res => res.map(p => ({ type: 'project' as const, id: p.id, data: p } as CommandPaletteEntityResult)))
             );
           }
 

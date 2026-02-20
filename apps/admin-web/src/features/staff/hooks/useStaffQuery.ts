@@ -68,13 +68,32 @@ export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
   });
 }
 
-// Legacy minimal hook (non-paginated)
-export function useStaffMinimal(params?: { search?: string; role?: string; status?: string; limit?: number; offset?: number }) {
+// Legacy minimal hook (non-paginated). Supports orderBy/ascending for dropdowns/selects.
+export function useStaffMinimal(
+  params?: {
+    search?: string;
+    role?: string;
+    status?: string;
+    limit?: number;
+    offset?: number;
+    orderBy?: keyof Tables<'staff'>;
+    ascending?: boolean;
+  },
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: staffKeys.minimal(params),
-    queryFn: () => staffApi.listMinimal({ ...(params || {}), limit: params?.limit ?? 50, offset: params?.offset ?? 0 }),
+    queryFn: () =>
+      staffApi.listMinimal({
+        ...(params || {}),
+        limit: params?.limit ?? 50,
+        offset: params?.offset ?? 0,
+        orderBy: params?.orderBy,
+        ascending: params?.ascending,
+      }),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
+    enabled: options?.enabled ?? true,
   });
 }
 

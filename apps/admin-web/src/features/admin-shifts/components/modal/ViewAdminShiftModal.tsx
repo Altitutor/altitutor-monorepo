@@ -24,7 +24,7 @@ import { adminShiftsApi } from "../../api";
 import { useAdminShiftDetails, adminShiftsKeys, useDeleteAdminShift } from '../../hooks/useAdminShiftsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useUpdateAdminShift } from '../../hooks/useAdminShiftsQuery';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { TablesUpdate } from '@altitutor/shared';
 import { AdminShiftInfoTab, AdminShiftInfoFormData } from './tabs/AdminShiftInfoTab';
 import { AdminShiftStaffTab } from './tabs/AdminShiftStaffTab';

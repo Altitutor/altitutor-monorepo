@@ -14,7 +14,7 @@ export type CommandPaletteItem =
   | { type: 'page'; id: string; title: string; href: string; icon: LucideIcon }
   | { type: 'entity'; result: CommandPaletteEntityResult };
 
-export type FilterType = 'command' | 'page' | 'student' | 'staff' | 'parent' | 'class' | 'subject' | 'task' | 'issue' | 'topic' | 'file';
+export type FilterType = 'command' | 'page' | 'student' | 'staff' | 'parent' | 'class' | 'subject' | 'task' | 'issue' | 'project' | 'topic' | 'file';
 
 /**
  * Filter and sort commands by search query

@@ -26,11 +26,21 @@ import { X, Check, Loader2, CloudOff } from 'lucide-react';
 import { useTask } from '../api/queries';
 import { useUpdateTask, useDeleteTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
-import type { TaskStatus } from '../types';
+import type { TaskFormData, TaskStatus } from '../types';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
 import { useTaskAutoSave } from '../hooks/useTaskAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import type { UseFormReturn, Resolver } from 'react-hook-form';
+
+const VALID_TASK_STATUSES: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
+
+function normalizeTaskStatus(status: string | null | undefined): TaskStatus {
+  if (status && VALID_TASK_STATUSES.includes(status as TaskStatus)) {
+    return status as TaskStatus;
+  }
+  return 'backlog';
+}
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -39,6 +49,7 @@ const formSchema = z.object({
   priority: z.number().min(0).max(4),
   assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
   issueId: z.union([z.string().uuid(), z.null()]).default(null),
+  projectId: z.union([z.string().uuid(), z.null()]).default(null),
   estimate: z.preprocess(
     (val) => {
       if (val === null || val === undefined || val === '' || val === 0 || val === 'none') {
@@ -52,32 +63,22 @@ const formSchema = z.object({
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
 
-type FormData = {
-  title: string;
-  description?: JSONContent | null;
-  status: TaskStatus;
-  priority: number;
-  assignedTo: string | null;
-  issueId: string | null;
-  estimate: number | null;
-  dueDate: string | null;
-};
-
 interface EditTaskDialogProps {
   isOpen: boolean;
   onClose: () => void;
   taskId: string | null;
   onTaskUpdated?: () => void;
   issue?: { id: string; name: string | null } | null;
+  project?: { id: string; name: string | null } | null;
 }
 
 interface AutoSaveManagerProps {
-  form: any;
+  form: UseFormReturn<TaskFormData>;
   taskId: string;
-  task: any;
+  task: Tables<'tasks'> | undefined;
   isInitialized: boolean;
   isLoading: boolean;
-  onSave: (updates: Partial<FormData>) => Promise<void>;
+  onSave: (updates: Partial<TaskFormData>) => Promise<void>;
 }
 
 function AutoSaveManager({ form, taskId, task, isInitialized, isLoading, onSave }: AutoSaveManagerProps) {
@@ -92,12 +93,13 @@ function AutoSaveManager({ form, taskId, task, isInitialized, isLoading, onSave 
   return null;
 }
 
-export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }: EditTaskDialogProps) {
+export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, project }: EditTaskDialogProps) {
   const { data: task, isLoading } = useTask(taskId || '', !!taskId && isOpen);
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
+  const [selectedProject, setSelectedProject] = useState<{ id: string; name: string | null } | null>(project ?? null);
   const lastResetTaskIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -110,8 +112,8 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
   };
   const notes = (notesData || []) as NoteWithStaff[];
 
-  const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any,
+  const form = useForm<TaskFormData, unknown, TaskFormData>({
+    resolver: zodResolver(formSchema) as Resolver<TaskFormData>,
     defaultValues: {
       title: '',
       description: null,
@@ -119,6 +121,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
       priority: 0,
       assignedTo: null,
       issueId: null,
+      projectId: null,
       estimate: null,
       dueDate: null,
     },
@@ -136,13 +139,14 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
         setSelectedAssignee(null);
       }
 
-      const resetData: FormData = {
+      const resetData: TaskFormData = {
         title: task.title,
         description: (task.description as unknown as JSONContent) || null,
-        status: task.status as TaskStatus,
+        status: normalizeTaskStatus(task.status),
         priority: task.priority !== null && task.priority !== undefined ? task.priority : 0,
         assignedTo: task.assigned_to || null,
         issueId: task.issue_id || issue?.id || null,
+        projectId: task.project_id || project?.id || null,
         estimate: task.estimate !== null && task.estimate !== undefined ? task.estimate : null,
         dueDate: task.due_date ? new Date(task.due_date).toISOString().split('T')[0] : null,
       };
@@ -155,11 +159,18 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
             ? { id: issue.id, name: issue.name }
             : null
       );
+      setSelectedProject(
+        task.project
+          ? { id: task.project.id, name: task.project.name }
+          : project?.id
+            ? { id: project.id, name: project.name }
+            : null
+      );
       setFormKey(prev => prev + 1);
       lastResetTaskIdRef.current = task.id;
       setIsInitialized(true);
     }
-  }, [task, isOpen, isLoading, form, issue]);
+  }, [task, isOpen, isLoading, form, issue, project]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -167,10 +178,11 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
       setIsInitialized(false);
       setSelectedAssignee(null);
       setSelectedIssue(issue ?? null);
+      setSelectedProject(project ?? null);
     }
-  }, [isOpen, issue]);
+  }, [isOpen, issue, project]);
 
-  const handleAutoSave = useCallback(async (updates: Partial<FormData>) => {
+  const handleAutoSave = useCallback(async (updates: Partial<TaskFormData>) => {
     if (!taskId) return;
 
     try {
@@ -186,6 +198,10 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
       if (updates.issueId !== undefined) {
         formattedUpdates.issue_id = updates.issueId;
         delete formattedUpdates.issueId;
+      }
+      if (updates.projectId !== undefined) {
+        formattedUpdates.project_id = updates.projectId;
+        delete formattedUpdates.projectId;
       }
 
       await updateTask.mutateAsync({
@@ -281,7 +297,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
                     onSave={handleAutoSave}
                   />
                   <TaskContentPanel
-                    form={form as any}
+                    form={form}
                     taskId={taskId}
                     notes={notes}
                     isOpen={isOpen}
@@ -291,11 +307,32 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue }
                     enabled={isOpen}
                   />
                   <TaskPropertiesPanel
-                    form={form as any}
+                    form={form}
                     selectedAssignee={selectedAssignee}
                     onAssigneeChange={setSelectedAssignee}
                     selectedIssue={selectedIssue}
-                    onIssueChange={setSelectedIssue}
+                    selectedProject={selectedProject}
+                    onLinkChange={(link) => {
+                      if (!link) {
+                        setSelectedIssue(null);
+                        setSelectedProject(null);
+                        form.setValue('issueId', null, { shouldDirty: true });
+                        form.setValue('projectId', null, { shouldDirty: true });
+                        return;
+                      }
+
+                      if (link.type === 'issue') {
+                        setSelectedIssue({ id: link.id, name: link.name });
+                        setSelectedProject(null);
+                        form.setValue('issueId', link.id, { shouldDirty: true });
+                        form.setValue('projectId', null, { shouldDirty: true });
+                      } else {
+                        setSelectedProject({ id: link.id, name: link.name });
+                        setSelectedIssue(null);
+                        form.setValue('projectId', link.id, { shouldDirty: true });
+                        form.setValue('issueId', null, { shouldDirty: true });
+                      }
+                    }}
                     taskStatus={task.status as TaskStatus}
                     enabled={isOpen}
                   />

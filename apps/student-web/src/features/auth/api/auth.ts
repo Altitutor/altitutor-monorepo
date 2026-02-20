@@ -1,6 +1,4 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import type { Database } from '@altitutor/shared';
 import { LoginRequest, PasswordResetRequest, PasswordResetConfirmRequest, UpdatePasswordRequest } from '../types';
 
 export const authApi = {
@@ -42,9 +40,8 @@ export const authApi = {
       throw new Error('This method must be called from the browser');
     }
     
-    // Use client component client for better auth handling
-    const supabase = createClientComponentClient<Database>();
-    
+    const supabase = getSupabaseClient();
+
     const { error } = await supabase.auth.resetPasswordForEmail(
       data.email,
       {
@@ -66,8 +63,7 @@ export const authApi = {
    */
   confirmPasswordReset: async (data: PasswordResetConfirmRequest) => {
     try {
-      // Use client component client for proper auth context
-      const supabase = createClientComponentClient<Database>();
+      const supabase = getSupabaseClient();
 
       // First, check if we have a valid session from the reset token
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();

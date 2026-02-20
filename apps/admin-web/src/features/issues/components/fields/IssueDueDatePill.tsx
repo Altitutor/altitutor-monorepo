@@ -10,9 +10,10 @@ import { Calendar } from 'lucide-react';
 import { useRef, type MutableRefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { formatIssueDueDate } from '../../utils/issueUtils';
+import type { IssueFormData } from '../../types';
 
 interface IssueDueDatePillProps {
-  form: UseFormReturn<{ dueDate: string | null }>;
+  form: UseFormReturn<IssueFormData>;
 }
 
 export function IssueDueDatePill({ form }: IssueDueDatePillProps) {

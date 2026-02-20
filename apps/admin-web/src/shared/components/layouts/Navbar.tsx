@@ -16,7 +16,7 @@ import {
   DropdownMenuTrigger,
   AnimatedHamburgerIcon,
 } from '@altitutor/ui';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
@@ -26,6 +26,7 @@ import { useNotificationsRealtime } from '@/features/notifications';
 import { NotepadButton } from '@/features/notepad';
 import { QuickActionsMenu } from '@/shared/components/QuickActionsMenu';
 import { DashboardDatePicker } from './DashboardDatePicker';
+import { MessagesDropdown } from '@/features/messages/components/MessagesDropdown';
 
 export function Navbar() {
   const router = useRouter();
@@ -147,6 +148,9 @@ export function Navbar() {
           {user && staffRecord?.id && (
             <NotificationsTray staffId={staffRecord.id} />
           )}
+          
+          {/* Messages Button */}
+          {user && <MessagesDropdown />}
           
           {/* Profile Menu */}
           {user ? (

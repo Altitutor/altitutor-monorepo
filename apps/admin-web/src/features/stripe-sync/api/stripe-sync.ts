@@ -38,7 +38,69 @@ export interface StudentWithStripe {
   }>;
 }
 
+export type StudentForStripeSync = {
+  id: string;
+  name: string;
+  email: string | null;
+};
+
+export type StudentPaymentMethodRow = {
+  id: string;
+  card_last4: string;
+  is_default: boolean;
+};
+
 export const stripeSyncApi = {
+  /**
+   * Fetch student and linked Stripe customer ID for the Stripe sync modal
+   */
+  getStudentForStripeSync: async (
+    studentId: string
+  ): Promise<{ student: StudentForStripeSync; linkedCustomerId: string | null }> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('students')
+      .select('id, first_name, last_name, email, students_billing(stripe_customer_id)')
+      .eq('id', studentId)
+      .maybeSingle();
+
+    if (error || !data) {
+      throw new Error('Failed to load student data');
+    }
+
+    const billing = Array.isArray(data.students_billing)
+      ? data.students_billing[0]
+      : data.students_billing;
+    const linkedCustomerId = billing?.stripe_customer_id ?? null;
+
+    return {
+      student: {
+        id: data.id,
+        name: `${(data.first_name || '').trim()} ${(data.last_name || '').trim()}`.trim() || 'Unknown',
+        email: data.email,
+      },
+      linkedCustomerId,
+    };
+  },
+
+  /**
+   * Fetch student payment methods from DB for Stripe sync modal
+   */
+  getStudentPaymentMethods: async (
+    studentId: string
+  ): Promise<StudentPaymentMethodRow[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('student_payment_methods')
+      .select('id, card_last4, is_default')
+      .eq('student_id', studentId)
+      .order('is_default', { ascending: false })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data ?? []) as StudentPaymentMethodRow[];
+  },
+
   /**
    * Fetch a single Stripe customer by ID with their payment methods
    */
@@ -63,6 +125,32 @@ export const stripeSyncApi = {
     }
     const data = await response.json();
     return data.customers;
+  },
+
+  /**
+   * Find exact Stripe customer matches by student email and name (for sync modal)
+   */
+  getExactMatchesForStudent: async (
+    student: { email: string | null; name: string }
+  ): Promise<StripeCustomer[]> => {
+    const matches: StripeCustomer[] = [];
+    if (student.email) {
+      const emailResults = await stripeSyncApi.searchStripeCustomers(student.email);
+      const exactEmail = emailResults.filter(
+        (c) => c.email?.toLowerCase().trim() === student.email?.toLowerCase().trim()
+      );
+      matches.push(...exactEmail);
+    }
+    if (student.name && student.name !== 'Unknown') {
+      const nameResults = await stripeSyncApi.searchStripeCustomers(student.name);
+      const exactName = nameResults.filter(
+        (c) => c.name?.toLowerCase().trim() === student.name?.toLowerCase().trim()
+      );
+      exactName.forEach((m) => {
+        if (!matches.some((x) => x.id === m.id)) matches.push(m);
+      });
+    }
+    return matches;
   },
 
   /**

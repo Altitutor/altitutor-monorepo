@@ -44,39 +44,46 @@ export function ConversationHeader({
   const issuePillProps = getIssuePillProps();
 
   return (
-    <div className="px-6 py-3 border-b dark:border-brand-dark-border flex items-center justify-between flex-shrink-0">
-      <div className="flex items-center gap-4 flex-wrap">
+    <div className="px-6 py-3 border-b dark:border-brand-dark-border flex flex-col gap-2 flex-shrink-0">
+      {/* Row 1: back | contact name (truncate) | search - always one line */}
+      <div className="flex items-center gap-2 min-w-0 flex-nowrap">
         {showBackButton && onBack && (
-          <Button variant="outline" size="icon" onClick={onBack} className="md:hidden">
+          <Button variant="outline" size="icon" onClick={onBack} className="flex-shrink-0">
             <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
-        <div className="flex items-center gap-2 flex-wrap">
+        <div className="min-w-0 flex-1 flex items-center justify-start">
           {onTitleClick ? (
             <button
               onClick={onTitleClick}
-              className="font-medium hover:underline cursor-pointer"
+              className="font-medium hover:underline cursor-pointer truncate text-left w-full"
+              title={title || 'Conversation'}
             >
               {title || 'Conversation'}
             </button>
           ) : (
-            <div className="font-medium">{title || 'Conversation'}</div>
-          )}
-          {issuePillProps && (
-            <IssuePill
-              entityType={issuePillProps.entityType}
-              entityId={issuePillProps.entityId}
-            />
+            <div className="font-medium truncate" title={title || 'Conversation'}>
+              {title || 'Conversation'}
+            </div>
           )}
         </div>
-      </div>
-      <div className="flex items-center gap-1">
         {onSearchToggle && (
-          <Button variant="outline" size="icon" onClick={onSearchToggle}>
+          <Button variant="outline" size="icon" onClick={onSearchToggle} className="flex-shrink-0">
             <Search className="h-4 w-4" />
           </Button>
         )}
       </div>
+      {/* Row 2: issue pills - inline, max width, truncate with full name on hover */}
+      {issuePillProps && (
+        <div className="flex items-center gap-2 min-w-0 max-w-full">
+          <IssuePill
+            entityType={issuePillProps.entityType}
+            entityId={issuePillProps.entityId}
+            className="min-w-0 max-w-full flex-wrap"
+            truncateWithTitle
+          />
+        </div>
+      )}
     </div>
   );
 }

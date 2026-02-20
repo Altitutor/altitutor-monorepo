@@ -10,10 +10,10 @@ import { Clock, Circle, CheckCircle, Eye } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
 import { getStatusLabel, getStatusIconColor } from '../../utils/taskUtils';
-import type { TaskStatus } from '../../types';
+import type { TaskFormData, TaskStatus } from '../../types';
 
 interface TaskStatusPillProps {
-  form: UseFormReturn<{ status: TaskStatus }>;
+  form: UseFormReturn<TaskFormData>;
   taskStatus?: TaskStatus;
 }
 

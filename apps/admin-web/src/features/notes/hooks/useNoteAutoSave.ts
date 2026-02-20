@@ -1,28 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
-import { z } from 'zod';
-import type { JSONContent } from '@altitutor/ui';
-
-const formSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  content: z.any(),
-  folder_id: z.string().nullable().optional(),
-});
-
-type FormData = {
-  title: string;
-  content: JSONContent | string;
-  folder_id?: string | null;
-};
+import type { NoteFormData } from '../types';
 
 interface UseNoteAutoSaveOptions {
-  form: UseFormReturn<FormData>;
+  form: UseFormReturn<NoteFormData>;
   noteId: string;
   note: { id: string } | undefined;
   isInitialized: boolean;
   isUpdatingFromServer: boolean | (() => boolean);
-  onSave: (updates: { title?: string; content?: JSONContent | string; folder_id?: string | null }) => void;
+  onSave: (updates: Partial<NoteFormData>) => void;
 }
 
 /**
@@ -37,32 +24,31 @@ export function useNoteAutoSave({
   isUpdatingFromServer,
   onSave,
 }: UseNoteAutoSaveOptions): void {
-  const lastSavedValuesRef = useRef<{ title?: string; contentJson?: string; folder_id?: string | null }>({});
+  const lastSavedValuesRef = useRef<{ title?: string; contentJson?: string; folder_id?: string | null; project_id?: string | null }>({});
 
   // Watch form values
   const title = form.watch('title');
   const content = form.watch('content');
   const folderId = form.watch('folder_id');
+  const projectId = form.watch('project_id');
 
-  // Debounce title and content (folder_id saves immediately)
-  const debouncedTitle = useDebounce(title, 1000);
+  // Debounce used only as a trigger; we save the current value when the effect runs (same for title and content).
+  const debouncedTitleTrigger = useDebounce(title, 1000);
   const debouncedContentTrigger = useDebounce(content, 1000);
 
-  // Auto-save for title
+  // Auto-save for title (same pattern as content: effect runs on every change, saves current value)
   useEffect(() => {
     const isUpdating = typeof isUpdatingFromServer === 'function' 
       ? isUpdatingFromServer() 
       : isUpdatingFromServer;
     if (!isInitialized || isUpdating) return;
-    if (note && debouncedTitle && debouncedTitle !== lastSavedValuesRef.current.title) {
-      lastSavedValuesRef.current.title = debouncedTitle;
-      onSave({ title: debouncedTitle });
+    if (note && title !== undefined && title !== '' && title !== lastSavedValuesRef.current.title) {
+      lastSavedValuesRef.current.title = title;
+      onSave({ title });
     }
-  }, [debouncedTitle, note, isInitialized, isUpdatingFromServer, onSave]);
+  }, [debouncedTitleTrigger, title, note, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Auto-save for content
-  // Use debouncedContentTrigger as trigger (fires after debounce), but save current content value
-  // This ensures we save the latest value, not a stale debounced value
+  // Auto-save for content (trigger + current value so it saves on every change)
   useEffect(() => {
     const isUpdating = typeof isUpdatingFromServer === 'function' 
       ? isUpdatingFromServer() 
@@ -71,7 +57,6 @@ export function useNoteAutoSave({
     if (!isInitialized || isUpdating) return;
     
     const contentJson = JSON.stringify(content);
-    // Compare current content (not debounced) against last saved to ensure we save the latest value
     if (note && content !== undefined && contentJson !== lastSavedValuesRef.current.contentJson) {
       lastSavedValuesRef.current.contentJson = contentJson;
       onSave({ content });
@@ -90,6 +75,18 @@ export function useNoteAutoSave({
     }
   }, [folderId, note, isInitialized, isUpdatingFromServer, onSave]);
 
+  // Auto-save for project_id (immediate, no debounce)
+  useEffect(() => {
+    const isUpdating = typeof isUpdatingFromServer === 'function'
+      ? isUpdatingFromServer()
+      : isUpdatingFromServer;
+    if (!isInitialized || isUpdating) return;
+    if (note && projectId !== lastSavedValuesRef.current.project_id) {
+      lastSavedValuesRef.current.project_id = projectId;
+      onSave({ project_id: projectId });
+    }
+  }, [projectId, note, isInitialized, isUpdatingFromServer, onSave]);
+
   // Initialize lastSavedValues when note loads
   useEffect(() => {
     if (note && isInitialized) {
@@ -97,7 +94,8 @@ export function useNoteAutoSave({
         title: title,
         contentJson: JSON.stringify(content),
         folder_id: folderId,
+        project_id: projectId,
       };
     }
-  }, [note, isInitialized, title, content, folderId]);
+  }, [note, isInitialized, title, content, folderId, projectId]);
 }

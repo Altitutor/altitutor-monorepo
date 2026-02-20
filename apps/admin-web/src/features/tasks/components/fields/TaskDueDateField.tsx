@@ -11,9 +11,10 @@ import { Calendar } from 'lucide-react';
 import { useRef, type MutableRefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
+import type { TaskFormData } from '../../types';
 
 interface TaskDueDateFieldProps {
-  form: UseFormReturn<{ dueDate: string | null }>;
+  form: UseFormReturn<TaskFormData>;
 }
 
 export function TaskDueDateField({ form }: TaskDueDateFieldProps) {

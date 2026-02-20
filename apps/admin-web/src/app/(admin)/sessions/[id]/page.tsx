@@ -7,7 +7,7 @@ import { Loader2, ArrowLeft } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useSessionActions } from '@/features/sessions/hooks/useSessionActions';
 import { LogSessionModal } from '@/features/tutor-logs';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
@@ -16,6 +16,7 @@ import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
 import { SessionDetailsTab } from '@/features/sessions/components/SessionDetailsTab';
+import { SendBookingConfirmationDialog } from '@/features/sessions/components/SendBookingConfirmationDialog';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import {
   useSessionData,
@@ -181,6 +182,12 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           entityId={session.id}
           copyTagDisplayText={sessionTitle || session.id}
           {...sessionActions}
+          sessionType={session.type}
+          sessionStudents={studentsData.map((d: { student: { id: string; first_name: string; last_name: string } }) => ({
+            id: d.student.id,
+            name: `${d.student.first_name} ${d.student.last_name}`,
+          }))}
+          onSendBookingConfirmation={modals.openBookingConfirmationDialog}
         />
       </div>
 
@@ -249,6 +256,16 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           adminMode={true}
           initialSessionId={id}
           initialStaffId={helpers.getFirstStaffForLogging()}
+        />
+      )}
+
+      {/* Booking Confirmation Dialog */}
+      {modals.selectedStudentForBookingConfirmation && (
+        <SendBookingConfirmationDialog
+          isOpen={modals.isBookingConfirmationDialogOpen}
+          onClose={modals.closeBookingConfirmationDialog}
+          sessionId={id}
+          studentId={modals.selectedStudentForBookingConfirmation}
         />
       )}
 

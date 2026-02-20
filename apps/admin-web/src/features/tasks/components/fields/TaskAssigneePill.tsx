@@ -14,9 +14,10 @@ import { UseFormReturn } from 'react-hook-form';
 import { useStaffSearch } from '../../hooks/useStaffSearch';
 import { getUserInitials } from '../../utils/taskUtils';
 import type { Tables } from '@altitutor/shared';
+import type { TaskFormData } from '../../types';
 
 interface TaskAssigneePillProps {
-  form: UseFormReturn<{ assignedTo: string | null }>;
+  form: UseFormReturn<TaskFormData>;
   selectedAssignee: Tables<'staff'> | null;
   onAssigneeChange: (staff: Tables<'staff'> | null) => void;
   enabled?: boolean;

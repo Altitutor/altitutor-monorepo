@@ -12,6 +12,10 @@ interface UseSessionActionsProps {
    */
   onLogSession?: () => void;
   /**
+   * Optional callback for edit tutor log action (when session has a tutor log)
+   */
+  onEditTutorLog?: () => void;
+  /**
    * Whether the session has a tutor log
    */
   hasTutorLog: boolean;
@@ -33,6 +37,7 @@ export function useSessionActions({
   sessionId,
   onOpenInPage,
   onLogSession,
+  onEditTutorLog,
   hasTutorLog,
   onReschedule,
   canReschedule,
@@ -50,6 +55,7 @@ export function useSessionActions({
   return {
     onOpenInPage: handleOpenInPage,
     onLogSession: !hasTutorLog ? onLogSession : undefined,
+    onEditTutorLog: hasTutorLog ? onEditTutorLog : undefined,
     hasTutorLog,
     onReschedule: canReschedule ? onReschedule : undefined,
     canReschedule,

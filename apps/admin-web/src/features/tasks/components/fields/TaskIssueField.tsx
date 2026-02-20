@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   FormControl,
   FormField,
@@ -11,6 +11,7 @@ import { Button, Input, Popover, PopoverContent, PopoverTrigger, ScrollArea } fr
 import { Check, Link2, Loader2 } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { useIssues } from '@/features/issues/api/queries';
+import type { TaskFormData } from '../../types';
 
 type IssueOption = {
   id: string;
@@ -18,7 +19,7 @@ type IssueOption = {
 };
 
 interface TaskIssueFieldProps {
-  form: UseFormReturn<{ issueId: string | null }>;
+  form: UseFormReturn<TaskFormData>;
   selectedIssue: IssueOption | null;
   onIssueChange: (issue: IssueOption | null) => void;
 }
@@ -37,15 +38,6 @@ export function TaskIssueField({
     if (!query) return issues;
     return issues.filter((issue) => (issue.name || '').toLowerCase().includes(query));
   }, [issues, issueSearchQuery]);
-
-  useEffect(() => {
-    const currentIssueId = form.getValues('issueId');
-    if (selectedIssue && currentIssueId !== selectedIssue.id) {
-      form.setValue('issueId', selectedIssue.id, { shouldDirty: false });
-    } else if (!selectedIssue && currentIssueId !== null) {
-      form.setValue('issueId', null, { shouldDirty: false });
-    }
-  }, [selectedIssue, form]);
 
   return (
     <FormField
@@ -119,6 +111,8 @@ export function TaskIssueField({
                             onIssueChange({ id: issue.id, name: issue.name });
                             setIsPopoverOpen(false);
                             setIssueSearchQuery('');
+                            // Enforce exclusivity in UI
+                            form.setValue('projectId', null, { shouldDirty: true });
                           }}
                         >
                           <div className="flex items-center gap-2 w-full min-w-0">

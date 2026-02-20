@@ -36,7 +36,7 @@ function setTextWithLineBreaks(element: HTMLElement, text: string): void {
  * Hook to synchronize contentEditable div with react-hook-form field
  * Preserves line breaks when saving and loading
  */
-export function useContentEditableField<T extends Record<string, unknown>>(
+export function useContentEditableField<T extends object>(
   form: UseFormReturn<T>,
   fieldName: Path<T>,
   value?: string | null | undefined

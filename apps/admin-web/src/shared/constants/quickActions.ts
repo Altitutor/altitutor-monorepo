@@ -15,6 +15,8 @@ import {
   Megaphone,
   CheckSquare,
   AlertTriangle,
+  Mail,
+  FolderKanban,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -29,7 +31,7 @@ export interface QuickActionConfig {
   // For booking actions, specify the session type
   bookingSessionType?: BookingSessionType;
   // For other actions, specify the action type
-  actionType?: 'tutor-log' | 'log-student-absence' | 'log-staff-absence' | 'create-task' | 'announcement' | 'create-issue';
+  actionType?: 'tutor-log' | 'log-student-absence' | 'log-staff-absence' | 'create-task' | 'announcement' | 'create-issue' | 'create-project';
 }
 
 /**
@@ -78,6 +80,14 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: AlertTriangle,
     keywords: ['issue', 'create', 'new', 'ticket'],
     actionType: 'create-issue',
+  },
+  {
+    id: 'add-project',
+    title: 'Add Project',
+    description: 'Create a new project',
+    icon: FolderKanban,
+    keywords: ['project', 'create', 'new'],
+    actionType: 'create-project',
   },
   {
     id: 'make-announcement',
@@ -133,3 +143,26 @@ export function getNonBookingActions(): QuickActionConfig[] {
 export function getQuickActionById(id: string): QuickActionConfig | undefined {
   return QUICK_ACTIONS.find((action) => action.id === id);
 }
+
+/**
+ * Session-scoped quick actions (shown in session ActionsMenu when conditions are met).
+ * Same conditions as in UI: sessionId present, session type !== 'CLASS'.
+ */
+export interface SessionQuickActionConfig {
+  id: string;
+  title: string;
+  description?: string;
+  icon: LucideIcon;
+  /** Used to wire the action in ActionsMenu */
+  sessionActionType: 'send-booking-confirmation';
+}
+
+export const SESSION_QUICK_ACTIONS: SessionQuickActionConfig[] = [
+  {
+    id: 'send-booking-confirmation',
+    title: 'Send Booking Confirmation Link',
+    description: 'Send the booking confirmation link for this session to a student’s parent(s)',
+    icon: Mail,
+    sessionActionType: 'send-booking-confirmation',
+  },
+];

@@ -1,14 +1,19 @@
 import type { Tables } from '@altitutor/shared';
+import { formatSessionDate } from '@altitutor/shared';
+import { formatTime } from '@/shared/utils/datetime';
 
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
+export { formatSessionDate };
+
 /**
- * Session with full class and subject details
+ * Session with full class and subject details.
+ * class and class.subject may be null from API/DB joins.
  */
 export type SessionWithDetails = Tables<'sessions'> & {
-  class?: Tables<'classes'> & {
-    subject?: Tables<'subjects'>;
-  };
+  class?: (Tables<'classes'> & {
+    subject?: Tables<'subjects'> | null;
+  }) | null;
 };
 
 /**
@@ -56,16 +61,35 @@ export function getSessionTitle(session: SessionWithDetails): string {
 }
 
 /**
- * Formats a date in the format "Friday 24/10/2025"
+ * Minimal session-like shape for short name fallbacks
  */
-export function formatSessionDate(date: Date | string): string {
-  const d = typeof date === 'string' ? new Date(date) : date;
-  const dayName = DAY_NAMES[d.getDay()];
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  const year = d.getFullYear();
-  
-  return `${dayName} ${day}/${month}/${year}`;
-}
+export type SessionShortNameInput = {
+  start_at?: string | null;
+  end_at?: string | null;
+  class?: { start_time?: string | null; end_time?: string | null } | null;
+} & Partial<SessionWithDetails>;
 
+/**
+ * Returns a short display name for a session (e.g. for dialogs).
+ * Prefers getSessionTitle, then date+time from start_at/end_at, then class time.
+ */
+export function getShortSessionName(session: SessionShortNameInput | null | undefined): string {
+  if (!session) return 'this session';
+  const fromTitle = getSessionTitle(session as SessionWithDetails);
+  if (fromTitle) return fromTitle;
+
+  if (session.start_at && session.end_at) {
+    const start = new Date(session.start_at);
+    const end = new Date(session.end_at);
+    const startHHMM = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
+    const endHHMM = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
+    return `${start.toLocaleDateString('en-US')} ${formatTime(startHHMM)} - ${formatTime(endHHMM)}`;
+  }
+
+  if (session.class?.start_time && session.class?.end_time) {
+    return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
+  }
+
+  return 'this session';
+}
 

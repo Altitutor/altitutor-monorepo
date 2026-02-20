@@ -7,7 +7,7 @@ import { replaceVariables } from '../utils/variableReplacer';
 import { replaceVariablesForParent, type StudentWithClasses } from '../utils/variableReplacerParent';
 import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses, getStaffClasses } from '../api/bulk';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useAvailableSenders, useContactForTemplate } from '../api/queries';
 import { Button } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';

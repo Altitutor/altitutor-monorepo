@@ -1,9 +1,20 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { JSONContent } from '@altitutor/ui';
 
 /**
  * Issue status types
  */
 export type IssueStatus = 'open' | 'awaiting_response' | 'resolved';
+
+/**
+ * Form values for create/edit issue dialogs (aligned with issue form schema).
+ */
+export interface IssueFormData {
+  name: string;
+  description?: JSONContent | null;
+  status: IssueStatus;
+  dueDate: string | null;
+}
 
 /**
  * Issue type from database

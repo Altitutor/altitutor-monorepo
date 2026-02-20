@@ -1,16 +1,23 @@
-import { useState, useEffect, useCallback } from 'react';
-import type { Tables, Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
-import { sessionsApi } from '../api/sessions';
+import { useState, useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import type { Tables } from '@altitutor/shared';
+import { useSessionWithTutorLog } from './useSessionsQuery';
+import { useTopicsBySubject } from '@/features/topics/hooks/useTopicsQuery';
 import { classesApi } from '@/features/classes/api/classes';
+import { sessionsApi } from '../api/sessions';
 
 interface UseSessionDataProps {
   sessionId: string | null;
   enabled?: boolean;
 }
 
+/** Session with tutor log API result shape (session, sessionsStudents, sessionsStaff, tutorLog, notes) */
+type SessionWithTutorLogResult = Awaited<
+  ReturnType<typeof sessionsApi.getSessionWithTutorLog>
+>;
+
 interface UseSessionDataReturn {
-  data: any | null;
+  data: SessionWithTutorLogResult | null;
   isLoading: boolean;
   allTopics: Tables<'topics'>[];
   firstClassStaffId: string | null;
@@ -18,78 +25,78 @@ interface UseSessionDataReturn {
 }
 
 /**
- * Hook for loading session data, topics, and related information
+ * Hook for loading session data, topics, and related information.
+ * Uses React Query for caching and request deduplication.
  */
 export function useSessionData({
   sessionId,
   enabled = true,
 }: UseSessionDataProps): UseSessionDataReturn {
-  const [data, setData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [allTopics, setAllTopics] = useState<Tables<'topics'>[]>([]);
-  const [firstClassStaffId, setFirstClassStaffId] = useState<string | null>(null);
+  const [delayedClear, setDelayedClear] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!sessionId || !enabled) return;
-    setIsLoading(true);
-    try {
-      const result = await sessionsApi.getSessionWithTutorLog(sessionId);
-      setData(result);
+  const sessionQuery = useSessionWithTutorLog(sessionId, enabled);
+  const session = sessionQuery.data?.session as
+    | (SessionWithTutorLogResult['session'] & {
+        subject?: { id: string } | null;
+        class?: { subject?: { id: string } | null } | null;
+      })
+    | undefined;
+  const subjectId = useMemo(
+    () =>
+      session?.subject?.id ?? session?.class?.subject?.id ?? null,
+    [session?.subject?.id, session?.class?.subject?.id]
+  );
+  const classId =
+    session?.type === 'CLASS' && session?.class_id ? session.class_id : null;
 
-      // Fetch all topics for the subject
-      const subjectId = (result.session as any)?.subject?.id || result.session?.class?.subject?.id;
-      if (subjectId) {
-        const supabaseClient = (await import('@/shared/lib/supabase/client')).getSupabaseClient() as SupabaseClient<Database>;
-        const { data: topicsData } = await supabaseClient
-          .from('topics')
-          .select('*')
-          .eq('subject_id', subjectId)
-          .order('index', { ascending: true });
+  const topicsQuery = useTopicsBySubject(subjectId);
+  const allTopics = useMemo(
+    () => (topicsQuery.data ?? []) as Tables<'topics'>[],
+    [topicsQuery.data]
+  );
 
-        setAllTopics(topicsData || []);
-      }
+  const classStaffQuery = useQuery({
+    queryKey: ['classes', classId ?? '', 'staff'],
+    queryFn: () => classesApi.getClassStaff(classId!),
+    enabled: enabled && !!classId,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+  const firstClassStaffId =
+    classStaffQuery.data && classStaffQuery.data.length > 0
+      ? classStaffQuery.data[0].id
+      : null;
 
-      // If session is a CLASS type and has a class_id, get the first staff member from the class
-      if (result.session?.type === 'CLASS' && result.session?.class_id) {
-        try {
-          const classStaff = await classesApi.getClassStaff(result.session.class_id);
-          if (classStaff && classStaff.length > 0) {
-            setFirstClassStaffId(classStaff[0].id);
-          }
-        } catch (error) {
-          console.error('Failed to get class staff:', error);
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load session:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [sessionId, enabled]);
-
+  // Delay clearing display data when modal closes to allow exit animation
   useEffect(() => {
-    if (enabled && sessionId) {
-      load();
-    } else if (!enabled) {
-      // Delay state reset to allow exit animation to complete
-      const timer = setTimeout(() => {
-        setData(null);
-        setAllTopics([]);
-        setFirstClassStaffId(null);
-      }, 300);
-      return () => clearTimeout(timer);
+    if (enabled) {
+      setDelayedClear(false);
+      return;
     }
-  }, [sessionId, enabled, load]);
+    const timer = setTimeout(() => setDelayedClear(true), 300);
+    return () => clearTimeout(timer);
+  }, [enabled]);
+
+  const isLoading =
+    sessionQuery.isLoading ||
+    (!!subjectId && topicsQuery.isLoading) ||
+    (!!classId && classStaffQuery.isLoading);
+
+  const data = !enabled && delayedClear ? null : sessionQuery.data ?? null;
 
   const refresh = async () => {
-    await load();
+    await Promise.all([
+      sessionQuery.refetch(),
+      subjectId ? topicsQuery.refetch() : Promise.resolve(),
+      classId ? classStaffQuery.refetch() : Promise.resolve(),
+    ]);
   };
 
   return {
     data,
-    isLoading,
-    allTopics,
-    firstClassStaffId,
+    isLoading: enabled ? isLoading : false,
+    allTopics: !enabled && delayedClear ? [] : allTopics,
+    firstClassStaffId: !enabled && delayedClear ? null : firstClassStaffId,
     refresh,
   };
 }

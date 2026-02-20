@@ -9,7 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle, Plus, Trash2 } from 'lucide-react';
 import { useCreateClassPlan } from '../hooks/useClassPlansQuery';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 

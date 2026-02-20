@@ -46,7 +46,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
-import { TopicsHierarchy, AddTopicModal, AddResourceFileModal } from '@/features/topics';
+import { TopicsHierarchy, AddTopicModal } from '@/features/topics';
 import { useTopics } from '@/features/topics/hooks';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useSubjectActions } from '@/features/subjects/hooks/useSubjectActions';
@@ -79,8 +79,6 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
   // Topics modals state
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
   const [addTopicParentId, setAddTopicParentId] = useState<string | undefined>(undefined);
-  const [isAddResourceModalOpen, setIsAddResourceModalOpen] = useState(false);
-  const [addResourceTopicId, setAddResourceTopicId] = useState<string | undefined>(undefined);
   
   const { data: allTopics = [], refetch: refetchTopics } = useTopics();
   
@@ -578,17 +576,12 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                 <TopicsHierarchy
                   subjectId={subject.id}
                   showAddTopic={false}
-                  showAddResource={false}
                   onTopicClick={(topicId) => {
                     router.push(`/subjects/${id}/topics/${topicId}`);
                   }}
                   onAddTopicClick={(parentId) => {
                     setAddTopicParentId(parentId);
                     setIsAddTopicModalOpen(true);
-                  }}
-                  onAddResourceClick={(topicId) => {
-                    setAddResourceTopicId(topicId);
-                    setIsAddResourceModalOpen(true);
                   }}
                   allTopics={allTopics}
                 />
@@ -619,17 +612,6 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         preselectedSubjectId={id}
         preselectedParentId={addTopicParentId}
         onTopicAdded={() => refetchTopics()}
-      />
-      
-      <AddResourceFileModal
-        isOpen={isAddResourceModalOpen}
-        onClose={() => {
-          setIsAddResourceModalOpen(false);
-          refetchTopics();
-        }}
-        preselectedSubjectId={id}
-        preselectedTopicId={addResourceTopicId}
-        onResourceAdded={() => refetchTopics()}
       />
     </div>
   );

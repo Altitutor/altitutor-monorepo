@@ -104,7 +104,7 @@ export function AdminShiftInfoTab({
         dayOfWeek: dayValue,
         startTime: adminShiftData.start_time || '',
         endTime: adminShiftData.end_time || '',
-        status: (adminShiftData.status as any) || 'ACTIVE',
+        status: adminShiftData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
         sessionStartDate: adminShiftData.session_start_date || null,
         sessionEndDate: adminShiftData.session_end_date || null,
       }, {

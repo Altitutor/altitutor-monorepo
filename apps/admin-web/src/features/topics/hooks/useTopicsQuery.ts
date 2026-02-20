@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { topicsApi } from '../api';
 import type { TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { useToast } from '@altitutor/ui';
+import { topicsFilesKeys } from './useTopicsFilesQuery';
 
 /**
  * React Query hooks for topics
@@ -226,8 +227,10 @@ export function useUpdateTopicIndices() {
     mutationFn: (updates: Array<{ id: string; index: number }>) =>
       topicsApi.updateTopicIndices(updates),
     onSuccess: () => {
-      // Invalidate all topics queries
+      // Invalidate all topics queries (topic codes may have changed)
       queryClient.invalidateQueries({ queryKey: topicsKeys.all });
+      // Invalidate topic files so file codes (which depend on topic codes) refetch
+      queryClient.invalidateQueries({ queryKey: topicsFilesKeys.all });
       
       toast({
         title: 'Success',

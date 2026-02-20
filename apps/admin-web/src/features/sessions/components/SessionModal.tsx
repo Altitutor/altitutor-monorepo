@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSessionActions } from '../hooks/useSessionActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { X } from 'lucide-react';
-import { getSessionTitle } from '../utils/session-helpers';
+import { getSessionTitle, getShortSessionName } from '../utils/session-helpers';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewClassModal } from '@/features/classes';
@@ -14,8 +14,8 @@ import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { SessionFiles } from './SessionFiles';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
-import { LogSessionModal } from '@/features/tutor-logs';
-import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
+import { useCurrentStaff } from '@/shared/hooks';
 import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
 import { SessionDetailsTab } from './SessionDetailsTab';
@@ -41,8 +41,8 @@ import {
   processSessionStudents,
   processSessionStaff,
 } from '../utils';
-import { formatTime } from '@/shared/utils/datetime';
 import { IssuePill } from '@/features/issues';
+import { formatTime } from '@/shared/utils/datetime';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -67,25 +67,6 @@ type UndoTarget =
       action: 'log' | 'swap';
       swappedStaffName?: string;
     };
-
-function getShortSessionName(session: any): string {
-  const fromTitle = getSessionTitle(session);
-  if (fromTitle) return fromTitle;
-
-  if (session?.start_at && session?.end_at) {
-    const start = new Date(session.start_at);
-    const end = new Date(session.end_at);
-    const startHHMM = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
-    const endHHMM = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
-    return `${start.toLocaleDateString('en-US')} ${formatTime(startHHMM)} - ${formatTime(endHHMM)}`;
-  }
-
-  if (session?.class?.start_time && session?.class?.end_time) {
-    return `${formatTime(session.class.start_time)} - ${formatTime(session.class.end_time)}`;
-  }
-
-  return 'this session';
-}
 
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
   const router = useRouter();
@@ -207,6 +188,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       onClose();
     },
     onLogSession: modals.openLogSessionModal,
+    onEditTutorLog: modals.openEditTutorLogModal,
     hasTutorLog: helpers.hasTutorLog,
     onReschedule: () => {
       const studentId = helpers.getFirstStudentIdForReschedule();
@@ -305,6 +287,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                       entityId={sessionId}
                       copyTagDisplayText={sessionTitle || sessionId}
                       {...sessionActions}
+                      sessionType={session.type}
+                      sessionStudents={studentsData.map((d: { student: { id: string; first_name: string; last_name: string } }) => ({
+                        id: d.student.id,
+                        name: `${d.student.first_name} ${d.student.last_name}`,
+                      }))}
+                      onSendBookingConfirmation={modals.openBookingConfirmationDialog}
                     />
                   )}
                 </div>
@@ -367,7 +355,6 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                         swappedStaffName: payload.swappedStaffName,
                       });
                     }}
-                    onSendBookingConfirmation={modals.openBookingConfirmationDialog}
                     onAddStudentToSession={modals.openAddStudentToSessionModal}
                     onAddStaffToSession={modals.openAddStaffToSessionModal}
                     onRemoveStudentFromSession={(studentId, studentName) =>
@@ -447,6 +434,25 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           adminMode={true}
           initialSessionId={sessionId || undefined}
           initialStaffId={helpers.getFirstStaffForLogging()}
+        />
+      )}
+
+      {/* Edit Tutor Log Modal */}
+      {tutorLog?.id && modals.isEditTutorLogModalOpen && (
+        <EditTutorLogDialog
+          tutorLogId={tutorLog.id}
+          isOpen={modals.isEditTutorLogModalOpen}
+          onClose={async () => {
+            modals.closeEditTutorLogModal();
+            if (sessionId && isOpen) {
+              await sessionData.refresh();
+            }
+          }}
+          onTutorLogUpdated={async () => {
+            if (sessionId && isOpen) {
+              await sessionData.refresh();
+            }
+          }}
         />
       )}
 

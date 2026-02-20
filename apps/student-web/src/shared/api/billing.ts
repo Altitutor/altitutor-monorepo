@@ -1,8 +1,7 @@
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs';
-import type { Database } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 export async function requestCardSetup(studentId: string, email?: string, name?: string) {
-  const supabase = createClientComponentClient<Database>();
+  const supabase = getSupabaseClient();
   const { data, error } = await supabase.functions.invoke('payment-methods', {
     body: {
       action: 'create_setup_intent',
