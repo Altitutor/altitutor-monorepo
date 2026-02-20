@@ -43,9 +43,9 @@ export function DashboardDatePicker() {
       }}
     >
       <PopoverTrigger asChild>
-        <Button variant="outline" className="h-9 gap-2 px-3">
+        <Button variant="outline" className="h-9 gap-2 px-3 md:px-3 px-2">
           <CalendarDays className="h-4 w-4" />
-          <span className="text-sm">{format(activeDate, 'dd/MM/yyyy')}</span>
+          <span className="hidden md:inline text-sm">{format(activeDate, 'dd/MM/yyyy')}</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[420px] p-3">
