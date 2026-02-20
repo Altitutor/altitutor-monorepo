@@ -18,6 +18,8 @@ export const messagesKeys = {
   staffClasses: (staffId: string) => [...messagesKeys.all, 'staff-classes', staffId] as const,
   contactId: (relatedId: string, type: 'student' | 'staff' | 'parent') =>
     [...messagesKeys.all, 'contact-id', relatedId, type] as const,
+  conversationForRelated: (relatedId: string, type: 'student' | 'staff' | 'parent') =>
+    [...messagesKeys.all, 'conversation-for-related', relatedId, type] as const,
 };
 
 
