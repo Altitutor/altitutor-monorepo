@@ -30,6 +30,7 @@ export function DashboardDatePicker() {
   }, [weekAnchor]);
 
   const activeDateStr = format(activeDate, 'yyyy-MM-dd');
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
 
   return (
     <Popover
@@ -71,6 +72,7 @@ export function DashboardDatePicker() {
           {weekDays.map((day) => {
             const dayStr = format(day, 'yyyy-MM-dd');
             const isActive = dayStr === activeDateStr;
+            const isToday = dayStr === todayStr;
             return (
               <button
                 key={dayStr}
@@ -79,12 +81,13 @@ export function DashboardDatePicker() {
                   setIsOpen(false);
                 }}
                 className={cn(
-                  'rounded-md border p-2 text-left transition-colors hover:bg-accent/20',
+                  'rounded-md border px-1 py-2 text-center transition-colors hover:bg-accent/20 min-w-0 h-[68px] flex flex-col items-center justify-center',
+                  isToday && 'border-brand-lightBlue bg-brand-lightBlue/10',
                   isActive && 'bg-accent/30 border-accent'
                 )}
               >
-                <div className="text-xs text-muted-foreground">{format(day, 'EEE')}</div>
-                <div className="text-sm font-medium">{format(day, 'dd/MM')}</div>
+                <div className="text-[11px] leading-tight text-muted-foreground whitespace-nowrap">{format(day, 'EEE')}</div>
+                <div className="text-xs font-semibold leading-tight whitespace-nowrap">{format(day, 'dd/MM')}</div>
               </button>
             );
           })}

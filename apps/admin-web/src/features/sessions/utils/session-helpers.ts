@@ -7,12 +7,13 @@ const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Frid
 export { formatSessionDate };
 
 /**
- * Session with full class and subject details
+ * Session with full class and subject details.
+ * class and class.subject may be null from API/DB joins.
  */
 export type SessionWithDetails = Tables<'sessions'> & {
-  class?: Tables<'classes'> & {
-    subject?: Tables<'subjects'>;
-  };
+  class?: (Tables<'classes'> & {
+    subject?: Tables<'subjects'> | null;
+  }) | null;
 };
 
 /**

@@ -46,7 +46,7 @@ type TutorLogWithAttendance = {
 
 type SessionStudentItem = {
   student_id: string;
-  student: Tables<'students'>;
+  student: Tables<'students'> | null;
   sessions_students_id?: string | null;
   rescheduled_sessions_students_id?: string | null;
   planned_absence?: boolean;
@@ -58,18 +58,18 @@ type SessionStudentItem = {
   rescheduled_session?: {
     session?: {
       id: string;
-      start_at?: string;
+      start_at?: string | null;
       class?: {
-        start_time?: string;
-      };
-    };
-  };
+        start_time?: string | null;
+      } | null;
+    } | null;
+  } | null;
 };
 
 type SessionStaffItem = {
   id?: string;
   staff_id: string;
-  staff: Tables<'staff'>;
+  staff?: Tables<'staff'> | null;
   planned_absence?: boolean;
   is_swapped?: boolean;
   swapped_sessions_staff_id?: string | null;
@@ -120,14 +120,18 @@ export function processSessionStudents(
   actualStudentAttendance: Record<string, { attended: boolean; was_trial?: boolean }>,
   hasTutorLog: boolean
 ): ProcessedStudentData[] {
+  // Only process rows with a resolved student (exclude null from API joins)
+  const withStudent = sessionsStudents.filter(
+    (ss): ss is SessionStudentItem & { student: Tables<'students'> } => ss.student != null
+  );
   // Build set of student IDs that are in sessions_students (planned students)
   const plannedStudentIds = new Set(
-    sessionsStudents
+    withStudent
       .filter((ss) => ss.student_id && (ss.sessions_students_id !== null && ss.sessions_students_id !== undefined))
       .map((ss) => ss.student_id)
   );
 
-  return sessionsStudents.map((ss) => {
+  return withStudent.map((ss) => {
     const wasTrialPlanned = ss.was_trial ?? false;
     let plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' | 'attending-trial' | 'attending-extra-trial' = 'attending';
     let rescheduledDate = '';
@@ -185,7 +189,11 @@ export function processSessionStaff(
   hasTutorLog: boolean,
   tutorLogCreatedBy?: string
 ): ProcessedStaffData[] {
-  return sessionsStaff.map((sf) => {
+  // Only process rows with a resolved staff (exclude null from API joins)
+  const withStaff = sessionsStaff.filter(
+    (sf): sf is SessionStaffItem & { staff: Tables<'staff'> } => sf.staff != null
+  );
+  return withStaff.map((sf) => {
     let plannedStatus: 'attending' | 'absent' | 'swapped' = 'attending';
     let swappedStaffName = '';
     let swappedStaffId = '';

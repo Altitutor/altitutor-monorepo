@@ -14,7 +14,8 @@ import {
 } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
-import type { InvoiceWithItems, InvoiceItem } from '../api';
+import type { InvoiceItem } from '../api';
+import { formatInvoiceDate } from '../utils/invoiceFormatters';
 
 type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
 
@@ -37,19 +38,6 @@ const getStatusVariant = (status: InvoiceStatus): 'default' | 'secondary' | 'des
 const formatAmount = (cents: number | null): string => {
   if (cents === null) return '-';
   return `$${(cents / 100).toFixed(2)}`;
-};
-
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return '-';
-  try {
-    const date = new Date(dateString);
-    const day = String(date.getDate()).padStart(2, '0');
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  } catch (e) {
-    return dateString;
-  }
 };
 
 function getLineItemDisplayName(item: InvoiceItem): string {
