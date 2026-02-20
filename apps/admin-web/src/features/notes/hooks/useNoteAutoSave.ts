@@ -24,12 +24,13 @@ export function useNoteAutoSave({
   isUpdatingFromServer,
   onSave,
 }: UseNoteAutoSaveOptions): void {
-  const lastSavedValuesRef = useRef<{ title?: string; contentJson?: string; folder_id?: string | null }>({});
+  const lastSavedValuesRef = useRef<{ title?: string; contentJson?: string; folder_id?: string | null; project_id?: string | null }>({});
 
   // Watch form values
   const title = form.watch('title');
   const content = form.watch('content');
   const folderId = form.watch('folder_id');
+  const projectId = form.watch('project_id');
 
   // Debounce used only as a trigger; we save the current value when the effect runs (same for title and content).
   const debouncedTitleTrigger = useDebounce(title, 1000);
@@ -74,6 +75,18 @@ export function useNoteAutoSave({
     }
   }, [folderId, note, isInitialized, isUpdatingFromServer, onSave]);
 
+  // Auto-save for project_id (immediate, no debounce)
+  useEffect(() => {
+    const isUpdating = typeof isUpdatingFromServer === 'function'
+      ? isUpdatingFromServer()
+      : isUpdatingFromServer;
+    if (!isInitialized || isUpdating) return;
+    if (note && projectId !== lastSavedValuesRef.current.project_id) {
+      lastSavedValuesRef.current.project_id = projectId;
+      onSave({ project_id: projectId });
+    }
+  }, [projectId, note, isInitialized, isUpdatingFromServer, onSave]);
+
   // Initialize lastSavedValues when note loads
   useEffect(() => {
     if (note && isInitialized) {
@@ -81,7 +94,8 @@ export function useNoteAutoSave({
         title: title,
         contentJson: JSON.stringify(content),
         folder_id: folderId,
+        project_id: projectId,
       };
     }
-  }, [note, isInitialized, title, content, folderId]);
+  }, [note, isInitialized, title, content, folderId, projectId]);
 }

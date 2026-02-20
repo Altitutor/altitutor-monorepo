@@ -5,7 +5,7 @@ import {
   TaskStatusField,
   TaskPriorityField,
   TaskAssigneeField,
-  TaskIssueField,
+  TaskLinkField,
   TaskEstimateField,
   TaskDueDateField,
 } from '../fields';
@@ -17,7 +17,8 @@ interface TaskPropertiesPanelProps {
   selectedAssignee: Tables<'staff'> | null;
   onAssigneeChange: (staff: Tables<'staff'> | null) => void;
   selectedIssue: { id: string; name: string | null } | null;
-  onIssueChange: (issue: { id: string; name: string | null } | null) => void;
+  selectedProject: { id: string; name: string | null } | null;
+  onLinkChange: (link: { type: 'issue' | 'project'; id: string; name: string | null } | null) => void;
   taskStatus?: TaskStatus;
   enabled?: boolean;
 }
@@ -27,7 +28,8 @@ export function TaskPropertiesPanel({
   selectedAssignee,
   onAssigneeChange,
   selectedIssue,
-  onIssueChange,
+  selectedProject,
+  onLinkChange,
   taskStatus,
   enabled = true,
 }: TaskPropertiesPanelProps) {
@@ -41,10 +43,11 @@ export function TaskPropertiesPanel({
         onAssigneeChange={onAssigneeChange}
         enabled={enabled}
       />
-      <TaskIssueField
+      <TaskLinkField
         form={form}
         selectedIssue={selectedIssue}
-        onIssueChange={onIssueChange}
+        selectedProject={selectedProject}
+        onLinkChange={onLinkChange}
       />
       <TaskEstimateField form={form} />
       <TaskDueDateField form={form} />

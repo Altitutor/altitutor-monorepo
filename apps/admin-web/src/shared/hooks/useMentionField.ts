@@ -354,8 +354,8 @@ export function useMentionField<T extends object>({
       return; // Let MentionAutocomplete handle these
     }
 
-    // Handle Enter key for title field - prevent newline and move to description
-    if (e.key === 'Enter' && fieldName === 'title' && onEnter) {
+    // Handle Enter key for single-line title/name fields - prevent newline and move focus
+    if (e.key === 'Enter' && (fieldName === 'title' || fieldName === 'name') && onEnter) {
       e.preventDefault();
       onEnter();
       return;
@@ -514,6 +514,8 @@ export function useMentionField<T extends object>({
     } else if (result.type === 'task') {
       displayText = result.data.title || '';
     } else if (result.type === 'issue') {
+      displayText = result.data.name || '';
+    } else if (result.type === 'project') {
       displayText = result.data.name || '';
     } else if (result.type === 'topic') {
       displayText = result.data.name || '';

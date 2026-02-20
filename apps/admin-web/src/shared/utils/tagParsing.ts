@@ -5,7 +5,7 @@
  * Example: @[student:abc-123:John Doe]
  */
 
-export type TagEntityType = 'student' | 'staff' | 'parent' | 'class' | 'subject' | 'session' | 'topic' | 'file' | 'invoice' | 'task' | 'issue';
+export type TagEntityType = 'student' | 'staff' | 'parent' | 'class' | 'subject' | 'session' | 'topic' | 'file' | 'invoice' | 'task' | 'issue' | 'project';
 
 export interface ParsedTag {
   type: TagEntityType;

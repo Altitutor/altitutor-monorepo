@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
-import { Loader2, GraduationCap, UserRound, Users, Calendar, Beaker, Newspaper, File, CheckSquare, AlertTriangle } from 'lucide-react';
+import { Loader2, GraduationCap, UserRound, Users, Calendar, Beaker, Newspaper, File, CheckSquare, AlertTriangle, FolderKanban } from 'lucide-react';
 import { useEntitySearch, type EntitySearchResult } from '@/shared/hooks/useEntitySearch';
 import { cn } from '@/shared/utils';
 import { getDayShortName } from '@/shared/utils/datetime';
@@ -23,6 +23,7 @@ const entityIcons: Record<string, LucideIcon> = {
   subject: Beaker,
   task: CheckSquare,
   issue: AlertTriangle,
+  project: FolderKanban,
   topic: Newspaper,
   file: File,
 };
@@ -35,6 +36,7 @@ const entityLabels: Record<string, string> = {
   subject: 'Subjects',
   task: 'Tasks',
   issue: 'Issues',
+  project: 'Projects',
   topic: 'Topics',
   file: 'Files',
 };
@@ -102,6 +104,13 @@ function getEntityDisplayText(result: EntitySearchResult): { title: string; subt
   }
 
   if (result.type === 'issue') {
+    return {
+      title: result.data.name || '',
+      subtitle: result.data.status || null,
+    };
+  }
+
+  if (result.type === 'project') {
     return {
       title: result.data.name || '',
       subtitle: result.data.status || null,

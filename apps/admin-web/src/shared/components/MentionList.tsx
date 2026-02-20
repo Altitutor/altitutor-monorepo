@@ -21,6 +21,7 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   subject: 'subjects',
   task: 'tasks',
   issue: 'issues',
+  project: 'projects',
   topic: 'topics',
   file: 'files',
 };

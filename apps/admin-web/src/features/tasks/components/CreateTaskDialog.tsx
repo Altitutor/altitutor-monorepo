@@ -30,6 +30,7 @@ const formSchema = z.object({
   priority: z.number().min(0).max(4),
   assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
   issueId: z.union([z.string().uuid(), z.null()]).default(null),
+  projectId: z.union([z.string().uuid(), z.null()]).default(null),
   estimate: z.preprocess(
     (val) => {
       // Convert falsy or invalid values to null
@@ -53,6 +54,7 @@ interface CreateTaskDialogProps {
   defaultStatus?: TaskStatus;
   defaultValues?: Partial<TaskFormData>;
   issue?: { id: string; name: string | null } | null;
+  project?: { id: string; name: string | null } | null;
 }
 
 export function CreateTaskDialog({
@@ -62,11 +64,13 @@ export function CreateTaskDialog({
   defaultStatus,
   defaultValues,
   issue,
+  project,
 }: CreateTaskDialogProps) {
   const createTask = useCreateTask();
   const { data: currentStaff } = useCurrentStaff();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
+  const [selectedProject, setSelectedProject] = useState<{ id: string; name: string | null } | null>(project ?? null);
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
 
   // Fetch notes for created task
@@ -85,6 +89,7 @@ export function CreateTaskDialog({
       priority: defaultValues?.priority ?? 0,
       assignedTo: defaultValues?.assignedTo || null,
       issueId: defaultValues?.issueId || issue?.id || null,
+      projectId: defaultValues?.projectId || project?.id || null,
       estimate: defaultValues?.estimate || null,
       dueDate: defaultValues?.dueDate || null,
     },
@@ -100,14 +105,16 @@ export function CreateTaskDialog({
         priority: defaultValues?.priority ?? 0,
         assignedTo: defaultValues?.assignedTo || null,
         issueId: defaultValues?.issueId || issue?.id || null,
+        projectId: defaultValues?.projectId || project?.id || null,
         estimate: defaultValues?.estimate || null,
         dueDate: defaultValues?.dueDate || null,
       });
       setSelectedAssignee(null);
       setSelectedIssue(issue ?? null);
+      setSelectedProject(project ?? null);
       setCreatedTaskId(null);
     }
-  }, [isOpen, defaultStatus, defaultValues, form, issue]);
+  }, [isOpen, defaultStatus, defaultValues, form, issue, project]);
 
   const onSubmit = async (data: TaskFormData): Promise<void> => {
     try {
@@ -117,7 +124,8 @@ export function CreateTaskDialog({
         status: data.status,
         priority: data.priority,
         assigned_to: data.assignedTo || null,
-        issue_id: data.issueId || null,
+        issue_id: data.projectId ? null : (data.issueId || null),
+        project_id: data.issueId ? null : (data.projectId || null),
         estimate: data.estimate || null,
         due_date: data.dueDate ? new Date(data.dueDate as string).toISOString() : null,
         created_by: currentStaff?.id ?? null,
@@ -179,7 +187,28 @@ export function CreateTaskDialog({
                   selectedAssignee={selectedAssignee}
                   onAssigneeChange={setSelectedAssignee}
                   selectedIssue={selectedIssue}
-                  onIssueChange={setSelectedIssue}
+                  selectedProject={selectedProject}
+                  onLinkChange={(link) => {
+                    if (!link) {
+                      setSelectedIssue(null);
+                      setSelectedProject(null);
+                      form.setValue('issueId', null, { shouldDirty: true });
+                      form.setValue('projectId', null, { shouldDirty: true });
+                      return;
+                    }
+
+                    if (link.type === 'issue') {
+                      setSelectedIssue({ id: link.id, name: link.name });
+                      setSelectedProject(null);
+                      form.setValue('issueId', link.id, { shouldDirty: true });
+                      form.setValue('projectId', null, { shouldDirty: true });
+                    } else {
+                      setSelectedProject({ id: link.id, name: link.name });
+                      setSelectedIssue(null);
+                      form.setValue('projectId', link.id, { shouldDirty: true });
+                      form.setValue('issueId', null, { shouldDirty: true });
+                    }
+                  }}
                   taskStatus={defaultStatus}
                   enabled={isOpen}
                 />

@@ -9,3 +9,4 @@ export * from './NoteDetailPage';
 export * from './NotePropertiesPanel';
 export * from './NotePropertyPills';
 export * from './NoteTableOfContents';
+export * from './EditDocumentDialog';

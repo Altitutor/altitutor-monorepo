@@ -12,7 +12,7 @@ import {
   Input,
   ScrollArea,
 } from '@altitutor/ui';
-import { User, Check, Circle, Clock, Eye, CheckCircle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown, Link2 } from 'lucide-react';
+import { User, Check, Circle, Clock, Eye, CheckCircle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import {
   getPriorityLabel,
@@ -23,6 +23,28 @@ import {
   PRIORITY_OPTIONS,
 } from '../../utils/taskUtils';
 import type { TaskWithAssignee, TaskPriority } from '../../types';
+
+type LinkType = 'issue' | 'project';
+
+type LinkSelection =
+  | { type: 'issue'; id: string; name: string | null }
+  | { type: 'project'; id: string; name: string | null }
+  | null;
+
+function getMatchScore(name: string | null, rawQuery: string): number {
+  const query = rawQuery.trim().toLowerCase();
+  const text = (name || '').toLowerCase();
+
+  if (!query) return 0;
+  if (!text) return -1;
+
+  if (text === query) return 300;
+  if (text.startsWith(query)) return 200 - Math.max(0, text.length - query.length);
+
+  const index = text.indexOf(query);
+  if (index === -1) return -1;
+  return 100 - index;
+}
 
 export function TaskAssigneeEntityPill({
   task,
@@ -282,6 +304,226 @@ export function TaskIssueEntityPill({
                     <span className="truncate">{i.name || 'Untitled issue'}</span>
                   </button>
                 ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function TaskProjectEntityPill({
+  project,
+  projects,
+  onChange,
+  collapsed,
+}: {
+  project?: { id: string; name: string | null } | null;
+  projects: { id: string; name: string | null }[];
+  onChange: (projectId: string | null) => void;
+  collapsed?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
+            collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <FolderKanban className={cn('h-3 w-3 text-muted-foreground flex-shrink-0', !project && 'opacity-40 group-hover:opacity-100')} />
+          {!collapsed && (
+            <span className={cn('truncate max-w-[120px]', !project && 'text-muted-foreground opacity-40 group-hover:opacity-100')}>
+              {project?.name || 'Project'}
+            </span>
+          )}
+          <ChevronDown className={cn('h-3 w-3 text-muted-foreground', !project && 'opacity-40 group-hover:opacity-100')} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 w-[320px]" align="start" onClick={(e) => e.stopPropagation()}>
+        <div className="p-2">
+          <Input
+            placeholder="Search projects..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 mb-2"
+          />
+          <ScrollArea className="h-[240px]">
+            <div className="space-y-0.5 pr-2">
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-muted text-left"
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+              >
+                {!project && <Check className="h-4 w-4" />}
+                <span>No project</span>
+              </button>
+              {projects
+                .filter((p) => !search.trim() || (p.name || '').toLowerCase().includes(search.toLowerCase()))
+                .map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-muted text-left"
+                    onClick={() => {
+                      onChange(p.id);
+                      setOpen(false);
+                    }}
+                  >
+                    {project?.id === p.id && <Check className="h-4 w-4" />}
+                    <span className="truncate">{p.name || 'Untitled project'}</span>
+                  </button>
+                ))}
+            </div>
+          </ScrollArea>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+export function TaskLinkEntityPill({
+  issue,
+  project,
+  issues,
+  projects,
+  onChange,
+  collapsed,
+}: {
+  issue?: { id: string; name: string | null } | null;
+  project?: { id: string; name: string | null } | null;
+  issues: { id: string; name: string | null }[];
+  projects: { id: string; name: string | null }[];
+  onChange: (link: LinkSelection) => void;
+  collapsed?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const activeLink: LinkSelection = project
+    ? { type: 'project', id: project.id, name: project.name }
+    : issue
+      ? { type: 'issue', id: issue.id, name: issue.name }
+      : null;
+
+  const issueMatches = useMemo(() => {
+    const scored = issues
+      .map((item) => ({ item, score: getMatchScore(item.name, search) }))
+      .filter(({ score }) => score >= 0)
+      .sort((a, b) => b.score - a.score);
+    return scored.map(({ item }) => item);
+  }, [issues, search]);
+
+  const projectMatches = useMemo(() => {
+    const scored = projects
+      .map((item) => ({ item, score: getMatchScore(item.name, search) }))
+      .filter(({ score }) => score >= 0)
+      .sort((a, b) => b.score - a.score);
+    return scored.map(({ item }) => item);
+  }, [projects, search]);
+
+  const issueTopScore = issueMatches.length > 0 ? getMatchScore(issueMatches[0].name, search) : -1;
+  const projectTopScore = projectMatches.length > 0 ? getMatchScore(projectMatches[0].name, search) : -1;
+  const showProjectsFirst = projectTopScore > issueTopScore;
+
+  const orderedGroups: Array<{ type: LinkType; label: string }> = showProjectsFirst
+    ? [
+        { type: 'project', label: 'Projects' },
+        { type: 'issue', label: 'Issues' },
+      ]
+    : [
+        { type: 'issue', label: 'Issues' },
+        { type: 'project', label: 'Projects' },
+      ];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            'inline-flex items-center gap-1.5 h-8 border rounded-full group transition-colors bg-background',
+            collapsed ? 'px-2 w-auto' : 'px-3 text-xs'
+          )}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {activeLink?.type === 'project' ? (
+            <FolderKanban className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+          ) : (
+            <Link2 className={cn('h-3 w-3 text-muted-foreground flex-shrink-0', !activeLink && 'opacity-40 group-hover:opacity-100')} />
+          )}
+          {!collapsed && (
+            <span className={cn('truncate max-w-[150px]', !activeLink && 'text-muted-foreground opacity-40 group-hover:opacity-100')}>
+              {activeLink?.name || 'Link'}
+            </span>
+          )}
+          <ChevronDown className={cn('h-3 w-3 text-muted-foreground', !activeLink && 'opacity-40 group-hover:opacity-100')} />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="p-0 w-[360px]" align="start" onClick={(e) => e.stopPropagation()}>
+        <div className="p-2">
+          <Input
+            placeholder="Search issues and projects..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 mb-2"
+          />
+          <ScrollArea className="h-[260px]">
+            <div className="space-y-2 pr-2">
+              <button
+                type="button"
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-muted text-left"
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+              >
+                {!activeLink && <Check className="h-4 w-4" />}
+                <span>No link</span>
+              </button>
+
+              {orderedGroups.map((group) => {
+                const items = group.type === 'issue' ? issueMatches : projectMatches;
+                if (items.length === 0) return null;
+
+                return (
+                  <div key={group.type} className="space-y-0.5">
+                    <div className="px-2 pt-1 pb-0.5 text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
+                      {group.label}
+                    </div>
+                    {items.map((item) => (
+                      <button
+                        key={`${group.type}-${item.id}`}
+                        type="button"
+                        className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-muted text-left"
+                        onClick={() => {
+                          onChange({ type: group.type, id: item.id, name: item.name });
+                          setOpen(false);
+                        }}
+                      >
+                        {activeLink?.type === group.type && activeLink.id === item.id && (
+                          <Check className="h-4 w-4" />
+                        )}
+                        {group.type === 'issue' ? (
+                          <Link2 className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        ) : (
+                          <FolderKanban className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <span className="truncate">{item.name || `Untitled ${group.type}`}</span>
+                      </button>
+                    ))}
+                  </div>
+                );
+              })}
             </div>
           </ScrollArea>
         </div>

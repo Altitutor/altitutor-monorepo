@@ -8,42 +8,42 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { Button, Input, Popover, PopoverContent, PopoverTrigger, ScrollArea } from '@altitutor/ui';
-import { Check, Link2, Loader2 } from 'lucide-react';
+import { Check, FolderKanban } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
-import { useIssues } from '@/features/issues/api/queries';
+import { useProjects } from '@/features/projects/api/queries';
 import type { TaskFormData } from '../../types';
 
-type IssueOption = {
+type ProjectOption = {
   id: string;
   name: string | null;
 };
 
-interface TaskIssueFieldProps {
+interface TaskProjectFieldProps {
   form: UseFormReturn<TaskFormData>;
-  selectedIssue: IssueOption | null;
-  onIssueChange: (issue: IssueOption | null) => void;
+  selectedProject: ProjectOption | null;
+  onProjectChange: (project: ProjectOption | null) => void;
 }
 
-export function TaskIssueField({
+export function TaskProjectField({
   form,
-  selectedIssue,
-  onIssueChange,
-}: TaskIssueFieldProps) {
+  selectedProject,
+  onProjectChange,
+}: TaskProjectFieldProps) {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [issueSearchQuery, setIssueSearchQuery] = useState('');
-  const { data: issues = [], isLoading } = useIssues();
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
+  const { data: projects = [] } = useProjects();
 
-  const filteredIssues = useMemo(() => {
-    const query = issueSearchQuery.trim().toLowerCase();
-    if (!query) return issues;
-    return issues.filter((issue) => (issue.name || '').toLowerCase().includes(query));
-  }, [issues, issueSearchQuery]);
+  const filteredProjects = useMemo(() => {
+    const query = projectSearchQuery.trim().toLowerCase();
+    if (!query) return projects;
+    return projects.filter((project) => (project.name || '').toLowerCase().includes(query));
+  }, [projects, projectSearchQuery]);
 
   return (
     <FormField
       control={form.control}
-      name="issueId"
-      render={({ field: _field }) => (
+      name="projectId"
+      render={() => (
         <FormItem>
           <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
             <PopoverTrigger asChild>
@@ -57,9 +57,9 @@ export function TaskIssueField({
                   }}
                 >
                   <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <FolderKanban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                     <span className="truncate text-left">
-                      {selectedIssue?.name || 'Link issue'}
+                      {selectedProject?.name || 'Link project'}
                     </span>
                   </div>
                 </Button>
@@ -69,9 +69,9 @@ export function TaskIssueField({
               <div className="p-3">
                 <Input
                   type="text"
-                  placeholder="Search issues..."
-                  value={issueSearchQuery}
-                  onChange={(e) => setIssueSearchQuery(e.target.value)}
+                  placeholder="Search projects..."
+                  value={projectSearchQuery}
+                  onChange={(e) => setProjectSearchQuery(e.target.value)}
                   className="mb-3"
                 />
                 <ScrollArea className="h-[300px]">
@@ -80,47 +80,40 @@ export function TaskIssueField({
                       variant="ghost"
                       className="w-full justify-start h-auto p-3"
                       onClick={() => {
-                        onIssueChange(null);
+                        onProjectChange(null);
                         setIsPopoverOpen(false);
-                        setIssueSearchQuery('');
+                        setProjectSearchQuery('');
                       }}
                     >
                       <div className="flex items-center gap-2 w-full">
-                        {!selectedIssue && <Check className="h-4 w-4" />}
-                        <span className={!selectedIssue ? 'font-medium' : ''}>
-                          No issue
-                        </span>
+                        {!selectedProject && <Check className="h-4 w-4" />}
+                        <span className={!selectedProject ? 'font-medium' : ''}>No project</span>
                       </div>
                     </Button>
-                    {isLoading ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading issues...
-                      </div>
-                    ) : filteredIssues.length === 0 ? (
+                    {filteredProjects.length === 0 ? (
                       <div className="p-3 text-center text-sm text-muted-foreground">
-                        {issueSearchQuery ? 'No issues match your search' : 'No issues found'}
+                        {projectSearchQuery ? 'No projects match your search' : 'No projects found'}
                       </div>
                     ) : (
-                      filteredIssues.map((issue) => (
+                      filteredProjects.map((project) => (
                         <Button
-                          key={issue.id}
+                          key={project.id}
                           variant="ghost"
                           className="w-full justify-start h-auto p-3"
                           onClick={() => {
-                            onIssueChange({ id: issue.id, name: issue.name });
+                            onProjectChange({ id: project.id, name: project.name });
                             setIsPopoverOpen(false);
-                            setIssueSearchQuery('');
+                            setProjectSearchQuery('');
                             // Enforce exclusivity in UI
-                            form.setValue('projectId', null, { shouldDirty: true });
+                            form.setValue('issueId', null, { shouldDirty: true });
                           }}
                         >
                           <div className="flex items-center gap-2 w-full min-w-0">
-                            {selectedIssue?.id === issue.id && (
+                            {selectedProject?.id === project.id && (
                               <Check className="h-4 w-4 flex-shrink-0" />
                             )}
-                            <span className={selectedIssue?.id === issue.id ? 'font-medium truncate' : 'truncate'}>
-                              {issue.name || 'Untitled issue'}
+                            <span className={selectedProject?.id === project.id ? 'font-medium truncate' : 'truncate'}>
+                              {project.name || 'Untitled project'}
                             </span>
                           </div>
                         </Button>

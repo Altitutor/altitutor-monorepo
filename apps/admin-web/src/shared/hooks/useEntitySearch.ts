@@ -9,6 +9,7 @@ import { topicsApi } from '@/features/topics/api/topics';
 import { topicsFilesApi } from '@/features/topics/api/topics-files';
 import { tasksApi } from '@/features/tasks/api/tasks';
 import { issuesApi } from '@/features/issues/api/issues';
+import { projectsApi } from '@/features/projects/api/projects';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
@@ -29,7 +30,7 @@ export function useEntitySearch({
   search, 
   enabled = true, 
   debounceMs = 250,
-  types = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'topics', 'files']
+  types = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files']
 }: UseEntitySearchOptions) {
   const debouncedSearch = useDebounce(search, debounceMs);
   const trimmedSearch = debouncedSearch.trim();
@@ -185,6 +186,20 @@ export function useEntitySearch({
     staleTime: 30000,
   });
 
+  const projectsQuery = useQuery({
+    queryKey: ['entity-search-projects', trimmedSearch],
+    queryFn: async () => {
+      const result = await projectsApi.search(trimmedSearch, entityTypes.projects.limit);
+      return result.map((project) => ({
+        type: 'project' as const,
+        id: project.id,
+        data: project,
+      }));
+    },
+    enabled: shouldSearch && types.includes('projects'),
+    staleTime: 30000,
+  });
+
   const filesQuery = useQuery({
     queryKey: ['entity-search-files', trimmedSearch],
     queryFn: async () => {
@@ -226,6 +241,7 @@ export function useEntitySearch({
     ...(subjectsQuery.data || []),
     ...(tasksQuery.data || []),
     ...(issuesQuery.data || []),
+    ...(projectsQuery.data || []),
     ...(topicsQuery.data || []),
     ...(filesQuery.data || []),
   ];
@@ -238,6 +254,7 @@ export function useEntitySearch({
     subjectsQuery.isLoading ||
     tasksQuery.isLoading ||
     issuesQuery.isLoading ||
+    projectsQuery.isLoading ||
     topicsQuery.isLoading ||
     filesQuery.isLoading;
 
@@ -249,6 +266,7 @@ export function useEntitySearch({
     subjectsQuery.isError ||
     tasksQuery.isError ||
     issuesQuery.isError ||
+    projectsQuery.isError ||
     topicsQuery.isError ||
     filesQuery.isError;
 

@@ -37,6 +37,7 @@ import {
   Link2,
   Zap,
   File,
+  FolderKanban,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { QUICK_ACTIONS } from '@/shared/constants/quickActions';
@@ -210,6 +211,13 @@ export const entityTypes: Record<string, EntityTypeConfig> = {
     id: 'issues',
     label: 'Issues',
     icon: AlertTriangle,
+    limit: 8,
+    enabled: true,
+  },
+  projects: {
+    id: 'projects',
+    label: 'Projects',
+    icon: FolderKanban,
     limit: 8,
     enabled: true,
   },

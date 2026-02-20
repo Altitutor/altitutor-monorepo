@@ -97,6 +97,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
                       compact 
                       hideToolbar 
                       showIssuePill={false}
+                      showLinkPill={false}
                       noPadding 
                     />
                 </div>

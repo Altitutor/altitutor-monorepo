@@ -42,11 +42,10 @@ export function useUpdateTask() {
     mutationFn: async ({ id, updates }: { id: string; updates: TaskUpdate }) =>
       tasksApi.update(id, updates),
     onSuccess: (updatedTask, { id }) => {
-      // Update specific task in cache
-      queryClient.setQueryData(tasksKeys.detail(id), updatedTask);
-      
       // Invalidate tasks list
       queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
+      // Refetch detail to keep joined issue/project relations consistent
+      queryClient.invalidateQueries({ queryKey: tasksKeys.detail(id) });
     },
     onError: (error: Error) => {
       toast({
@@ -88,4 +87,3 @@ export function useDeleteTask() {
     },
   });
 }
-

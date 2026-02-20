@@ -16,6 +16,7 @@ export interface TaskFormData {
   priority: number;
   assignedTo: string | null;
   issueId: string | null;
+  projectId: string | null;
   estimate: number | null;
   dueDate: string | null;
 }
@@ -54,6 +55,7 @@ export interface TaskFilters {
   assignee?: string | string[];   // Support UI key
   assigned_to?: string | string[]; // Support database column name key
   issue_id?: string | string[];
+  project_id?: string | string[];
   priority?: TaskPriority | TaskPriority[]; // Support both single and array for backward compatibility
   search?: string;
   [key: string]: unknown;
@@ -74,6 +76,10 @@ export interface TaskWithAssignee extends Task {
     last_name: string;
   } | null;
   issue?: {
+    id: string;
+    name: string | null;
+  } | null;
+  project?: {
     id: string;
     name: string | null;
   } | null;

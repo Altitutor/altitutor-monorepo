@@ -8,6 +8,7 @@ export interface NoteFormData {
   title: string;
   content: JSONContent | string;
   folder_id?: string | null;
+  project_id?: string | null;
 }
 
 /**

@@ -55,7 +55,8 @@ export const tasksApi = {
         *,
         assignee:staff!tasks_assigned_to_fkey(id, first_name, last_name),
         creator:staff!tasks_created_by_fkey(id, first_name, last_name),
-        issue:issues!tasks_issue_id_fkey(id, name)
+        issue:issues!tasks_issue_id_fkey(id, name),
+        project:projects!tasks_project_id_fkey(id, name)
       `);
 
     // Status filter
@@ -133,7 +134,8 @@ export const tasksApi = {
         *,
         assignee:staff!tasks_assigned_to_fkey(id, first_name, last_name),
         creator:staff!tasks_created_by_fkey(id, first_name, last_name),
-        issue:issues!tasks_issue_id_fkey(id, name)
+        issue:issues!tasks_issue_id_fkey(id, name),
+        project:projects!tasks_project_id_fkey(id, name)
       `)
       .eq('id', taskId)
       .single();

@@ -10,9 +10,9 @@ export const notesApi = {
   /**
    * Get all notes with optional filters
    */
-  list: async (filters?: { folderId?: string | null; search?: string }): Promise<Note[]> => {
+  list: async (filters?: { folderId?: string | null; projectId?: string | null; search?: string }): Promise<Note[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { folderId, search } = filters || {};
+    const { folderId, projectId, search } = filters || {};
 
     let query = supabase.from('notes_documents').select('*');
 
@@ -22,6 +22,12 @@ export const notesApi = {
     } else if (folderId === null) {
       // Explicitly filter for notes without a folder
       query = query.is('folder_id', null);
+    }
+
+    if (projectId !== undefined && projectId !== null) {
+      query = query.eq('project_id', projectId);
+    } else if (projectId === null) {
+      query = query.is('project_id', null);
     }
 
     // Search filter (full-text search)

@@ -6,7 +6,7 @@ import { notesKeys, foldersKeys } from './queryKeys';
 /**
  * Get all notes with optional filters
  */
-export function useNotes(filters?: { folderId?: string | null; search?: string }) {
+export function useNotes(filters?: { folderId?: string | null; projectId?: string | null; search?: string }) {
   return useQuery({
     queryKey: notesKeys.list(filters),
     queryFn: () => notesApi.list(filters),

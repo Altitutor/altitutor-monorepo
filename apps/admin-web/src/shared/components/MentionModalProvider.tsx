@@ -12,6 +12,7 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewInvoiceModal } from '@/features/billing/components/ViewInvoiceModal';
 import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
 import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
+import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 
 /**
  * MentionModalProvider handles opening entity modals when a mention is clicked 
@@ -131,6 +132,14 @@ export function MentionModalProvider({ children }: { children: React.ReactNode }
           onClose={closeModals}
           taskId={selectedEntity.id}
           onTaskUpdated={() => {}}
+        />
+      )}
+
+      {selectedEntity?.type === 'project' && (
+        <EditProjectDialog
+          isOpen={!!selectedEntity}
+          onClose={closeModals}
+          projectId={selectedEntity.id}
         />
       )}
     </>
