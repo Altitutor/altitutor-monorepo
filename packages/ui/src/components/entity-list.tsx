@@ -174,6 +174,31 @@ export interface EntityListProps<TItem> {
   hideToolbar?: boolean;
   noPadding?: boolean;
   compact?: boolean;
+  /** Custom add row (e.g. with task-search autocomplete). Receives same props as default add row plus state/refs. */
+  renderAddRow?: (props: EntityListAddRowRenderProps<TItem>) => React.ReactNode;
+}
+
+export interface EntityListAddRowRenderProps<TItem> {
+  onAdd: (data: { name: string; description?: string } & Record<string, unknown>) => void;
+  statusColumn?: EntityListStatusColumn<TItem, unknown>;
+  rightPills: EntityListPillColumn<TItem, unknown>[];
+  visiblePillKeys: string[];
+  addButtonLabel: string;
+  descriptionConfig?: EntityListProps<TItem>['descriptionConfig'];
+  compact: boolean;
+  addName: string;
+  setAddName: (v: string) => void;
+  addDescription: JSONContent | string;
+  setAddDescription: (v: JSONContent | string) => void;
+  addValues: Record<string, unknown>;
+  setAddValues: (v: Record<string, unknown> | ((prev: Record<string, unknown>) => Record<string, unknown>)) => void;
+  isDescriptionVisible: boolean;
+  setIsDescriptionVisible: (v: boolean) => void;
+  handleAddSubmit: () => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  descriptionRef: React.RefObject<{ focusToEnd?: () => void; getEditor?: () => unknown } | null>;
+  isAddFocused: boolean;
+  setIsAddFocused: (v: boolean) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -243,6 +268,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     hideToolbar = false,
     noPadding = false,
     compact = false,
+    renderAddRow,
   } = props;
 
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
@@ -255,6 +281,51 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
 
   const visiblePillKeys = controlledVisiblePills ?? internalVisiblePills;
   const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
+
+  // Add row state (used when onAdd is set; enables custom renderAddRow with same state)
+  const [addName, setAddName] = React.useState('');
+  const [addDescription, setAddDescription] = React.useState<JSONContent | string>('');
+  const [isDescriptionVisible, setIsDescriptionVisible] = React.useState(false);
+  const [addValues, setAddValues] = React.useState<Record<string, unknown>>(() => {
+    const defaults: Record<string, unknown> = {};
+    if (statusColumn?.defaultValue !== undefined) {
+      defaults[statusColumn.key] = statusColumn.defaultValue;
+    }
+    rightPills.forEach((p) => {
+      if (p.defaultValue !== undefined) {
+        defaults[p.key] = p.defaultValue;
+      }
+    });
+    return defaults;
+  });
+  const [isAddFocused, setIsAddFocused] = React.useState(false);
+  const addRowInputRef = React.useRef<HTMLInputElement>(null);
+  const addRowDescriptionRef = React.useRef<{ focusToEnd?: () => void; getEditor?: () => unknown } | null>(null);
+
+  const handleAddSubmit = React.useCallback(() => {
+    if (!onAdd) return;
+    const name = addName.trim();
+    if (!name) return;
+    onAdd({
+      name,
+      description: addDescription as string,
+      ...addValues,
+    });
+    setAddName('');
+    setAddDescription('');
+    setIsDescriptionVisible(false);
+    const defaults: Record<string, unknown> = {};
+    if (statusColumn?.defaultValue !== undefined) {
+      defaults[statusColumn.key] = statusColumn.defaultValue;
+    }
+    rightPills.forEach((p) => {
+      if (p.defaultValue !== undefined) {
+        defaults[p.key] = p.defaultValue;
+      }
+    });
+    setAddValues(defaults);
+    addRowInputRef.current?.focus();
+  }, [onAdd, addName, addDescription, addValues, statusColumn, rightPills]);
   const groupBy = controlledGroupBy ?? internalGroupBy;
   const setGroupBy = onGroupByChange ?? setInternalGroupBy;
   const sortBy = controlledSortBy ?? internalSortBy;
@@ -664,77 +735,58 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
       </ScrollArea>
 
       {/* Add row */}
-      {onAdd && (
-        <EntityListAddRow
-          onAdd={onAdd}
-          statusColumn={statusColumn}
-          rightPills={rightPills}
-          visiblePillKeys={visiblePillKeys}
-          addButtonLabel={addButtonLabel}
-          descriptionConfig={descriptionConfig}
-          compact={compact}
-        />
-      )}
+      {onAdd && (() => {
+        const addRowProps: EntityListAddRowRenderProps<TItem> = {
+          onAdd,
+          statusColumn,
+          rightPills,
+          visiblePillKeys,
+          addButtonLabel,
+          descriptionConfig,
+          compact,
+          addName,
+          setAddName,
+          addDescription,
+          setAddDescription,
+          addValues,
+          setAddValues,
+          isDescriptionVisible,
+          setIsDescriptionVisible,
+          handleAddSubmit,
+          inputRef: addRowInputRef,
+          descriptionRef: addRowDescriptionRef,
+          isAddFocused,
+          setIsAddFocused,
+        };
+        return renderAddRow ? renderAddRow(addRowProps) : <EntityListAddRow {...addRowProps} />;
+      })()}
     </div>
   );
 }
 
-interface EntityListAddRowProps<TItem> {
-  onAdd: (data: { name: string; description?: string } & Record<string, unknown>) => void;
-  statusColumn?: EntityListStatusColumn<TItem, unknown>;
-  rightPills: EntityListPillColumn<TItem, unknown>[];
-  visiblePillKeys: string[];
-  addButtonLabel: string;
-  descriptionConfig?: EntityListProps<TItem>['descriptionConfig'];
-  compact?: boolean;
-}
-
-function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
-  const { onAdd, statusColumn, rightPills, visiblePillKeys, addButtonLabel, descriptionConfig, compact = false } = props;
-
-  const [addName, setAddName] = React.useState('');
-  const [addDescription, setAddDescription] = React.useState<JSONContent | string>('');
-  const [isDescriptionVisible, setIsDescriptionVisible] = React.useState(false);
-  const [addValues, setAddValues] = React.useState<Record<string, unknown>>(() => {
-    const defaults: Record<string, unknown> = {};
-    if (statusColumn?.defaultValue !== undefined) {
-      defaults[statusColumn.key] = statusColumn.defaultValue;
-    }
-    rightPills.forEach((p) => {
-      if (p.defaultValue !== undefined) {
-        defaults[p.key] = p.defaultValue;
-      }
-    });
-    return defaults;
-  });
-  const [isAddFocused, setIsAddFocused] = React.useState(false);
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const descriptionRef = React.useRef<{ focusToEnd?: () => void; getEditor?: () => unknown }>(null);
-
-  const handleAddSubmit = () => {
-    const name = addName.trim();
-    if (!name) return;
-    onAdd({
-      name,
-      description: addDescription as string, // Cast to string for the generic onAdd interface
-      ...addValues,
-    });
-    setAddName('');
-    setAddDescription('');
-    setIsDescriptionVisible(false);
-    // Reset values to defaults
-    const defaults: Record<string, unknown> = {};
-    if (statusColumn?.defaultValue !== undefined) {
-      defaults[statusColumn.key] = statusColumn.defaultValue;
-    }
-    rightPills.forEach((p) => {
-      if (p.defaultValue !== undefined) {
-        defaults[p.key] = p.defaultValue;
-      }
-    });
-    setAddValues(defaults);
-    inputRef.current?.focus();
-  };
+export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem>) {
+  const {
+    onAdd,
+    statusColumn,
+    rightPills,
+    visiblePillKeys,
+    addButtonLabel,
+    descriptionConfig,
+    compact = false,
+    addName,
+    setAddName,
+    addDescription,
+    setAddDescription,
+    addValues,
+    setAddValues,
+    isDescriptionVisible,
+    setIsDescriptionVisible,
+    handleAddSubmit,
+    inputRef,
+    descriptionRef,
+    isAddFocused,
+    setIsAddFocused,
+  } = props;
 
   return (
     <div
@@ -769,8 +821,8 @@ function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
         )}
 
         <Input
-          ref={inputRef}
-          placeholder={`${addButtonLabel}… (Shift+Enter for description)`}
+          ref={inputRef as React.RefObject<HTMLInputElement>}
+          placeholder={`${addButtonLabel}`}
           value={addName}
           onChange={(e) => setAddName(e.target.value)}
           onKeyDown={(e) => {
@@ -779,9 +831,8 @@ function EntityListAddRow<TItem>(props: EntityListAddRowProps<TItem>) {
               if (e.shiftKey) {
                 if (descriptionConfig?.enabled) {
                   setIsDescriptionVisible(true);
-                  // Focus description editor on next tick
                   setTimeout(() => {
-                    descriptionRef.current?.focusToEnd?.();
+                    descriptionRef?.current?.focusToEnd?.();
                   }, 0);
                 }
               } else {

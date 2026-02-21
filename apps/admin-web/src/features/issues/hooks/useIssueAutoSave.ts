@@ -1,7 +1,13 @@
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
 import type { IssueFormData, IssueStatus } from '../types';
+
+const VALID_ISSUE_STATUSES: IssueStatus[] = ['open', 'awaiting_response', 'resolved'];
+
+function isValidIssueStatus(v: unknown): v is IssueStatus {
+  return typeof v === 'string' && VALID_ISSUE_STATUSES.includes(v as IssueStatus);
+}
 
 interface UseIssueAutoSaveOptions {
   form: UseFormReturn<IssueFormData>;
@@ -36,6 +42,21 @@ export function useIssueAutoSave({
   const debouncedNameTrigger = useDebounce(name, 1000);
   const debouncedDescriptionTrigger = useDebounce(description, 1000);
 
+  // Sync lastSavedValuesRef when the dialog opens or entity changes (baseline from server).
+  // Must run first so property effects see the baseline and don't save on open.
+  // Use useEffect (not useLayoutEffect) so this runs after the parent's useEffect that calls form.reset().
+  useEffect(() => {
+    if (issue && isInitialized) {
+      const values = form.getValues();
+      lastSavedValuesRef.current = {
+        name: values.name,
+        descriptionJson: JSON.stringify(values.description),
+        status: values.status,
+        dueDate: values.dueDate,
+      };
+    }
+  }, [issue, isInitialized, form]);
+
   // Auto-save for name (same pattern as description: effect runs on every change, saves current value)
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
@@ -56,9 +77,10 @@ export function useIssueAutoSave({
     }
   }, [debouncedDescriptionTrigger, description, issue, isInitialized, isUpdatingFromServer, onSave]);
 
-  // Auto-save for status (immediate, no debounce)
+  // Auto-save for status (immediate, no debounce). Only save valid enum values to avoid DB constraint errors.
   useEffect(() => {
     if (!isInitialized || isUpdatingFromServer) return;
+    if (!isValidIssueStatus(status)) return;
     if (issue && status !== lastSavedValuesRef.current.status) {
       lastSavedValuesRef.current.status = status;
       onSave({ status });
@@ -73,17 +95,4 @@ export function useIssueAutoSave({
       onSave({ dueDate });
     }
   }, [dueDate, issue, isInitialized, isUpdatingFromServer, onSave]);
-
-  // Sync lastSavedValuesRef in layout effect so it runs before field effects.
-  // This prevents auto-save from firing on first open (treating initial load as a "change").
-  useLayoutEffect(() => {
-    if (issue && isInitialized) {
-      lastSavedValuesRef.current = {
-        name: name,
-        descriptionJson: JSON.stringify(description),
-        status: status,
-        dueDate: dueDate,
-      };
-    }
-  }, [issue, isInitialized, name, description, status, dueDate]);
 }

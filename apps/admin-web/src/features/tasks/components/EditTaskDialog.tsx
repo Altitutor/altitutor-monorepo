@@ -31,6 +31,8 @@ import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
 import { useTaskAutoSave } from '../hooks/useTaskAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
+import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 import type { UseFormReturn, Resolver } from 'react-hook-form';
 
 const VALID_TASK_STATUSES: TaskStatus[] = ['backlog', 'todo', 'in_progress', 'in_review', 'done'];
@@ -103,6 +105,8 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
   const lastResetTaskIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [openIssueId, setOpenIssueId] = useState<string | null>(null);
+  const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [, setFormKey] = useState(0);
 
   // Fetch notes for task
@@ -202,6 +206,14 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
       if (updates.projectId !== undefined) {
         formattedUpdates.project_id = updates.projectId;
         delete formattedUpdates.projectId;
+      }
+      // DB allows estimate NULL or > 0; 0 triggers tasks_estimate_check
+      const rawEstimate = updates.estimate;
+      if (
+        rawEstimate !== undefined &&
+        (rawEstimate === null || rawEstimate === 0 || (typeof rawEstimate === 'number' && (rawEstimate < 1 || rawEstimate > 5)))
+      ) {
+        formattedUpdates.estimate = null;
       }
 
       await updateTask.mutateAsync({
@@ -333,6 +345,8 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
                         form.setValue('issueId', null, { shouldDirty: true });
                       }
                     }}
+                    onOpenIssue={(id) => setOpenIssueId(id)}
+                    onOpenProject={(id) => setOpenProjectId(id)}
                     taskStatus={task.status as TaskStatus}
                     enabled={isOpen}
                   />
@@ -371,6 +385,21 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {openIssueId && (
+        <EditIssueDialog
+          isOpen={!!openIssueId}
+          onClose={() => setOpenIssueId(null)}
+          issueId={openIssueId}
+        />
+      )}
+      {openProjectId && (
+        <EditProjectDialog
+          isOpen={!!openProjectId}
+          onClose={() => setOpenProjectId(null)}
+          projectId={openProjectId}
+        />
+      )}
     </Dialog>
   );
 }
