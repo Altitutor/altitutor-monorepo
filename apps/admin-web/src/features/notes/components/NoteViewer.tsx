@@ -75,6 +75,7 @@ export function NoteViewer({ content, className }: NoteViewerProps) {
         'prose prose-sm dark:prose-invert max-w-none',
         'prose-headings:font-semibold prose-headings:tracking-tight',
         'prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
+        'prose-h1:mt-7 prose-h1:mb-1.5 prose-h2:mt-6 prose-h2:mb-1 prose-h3:mt-5 prose-h3:mb-1',
         'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
         'prose-li:my-1',
         'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
