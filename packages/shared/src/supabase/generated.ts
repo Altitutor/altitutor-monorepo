@@ -3314,6 +3314,7 @@ export type Database = {
           id: string
           is_private: boolean
           is_student_generated: boolean
+          name: Json | null
           time_limit_seconds: number | null
           updated_at: string | null
           updated_by: string | null
@@ -3325,6 +3326,7 @@ export type Database = {
           id?: string
           is_private?: boolean
           is_student_generated?: boolean
+          name?: Json | null
           time_limit_seconds?: number | null
           updated_at?: string | null
           updated_by?: string | null
@@ -3336,6 +3338,7 @@ export type Database = {
           id?: string
           is_private?: boolean
           is_student_generated?: boolean
+          name?: Json | null
           time_limit_seconds?: number | null
           updated_at?: string | null
           updated_by?: string | null
@@ -3853,6 +3856,138 @@ export type Database = {
           },
         ]
       }
+      question_stems_question_sets: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          index: number
+          question_set_id: string
+          question_stem_id: string
+          updated_at: string | null
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          index: number
+          question_set_id: string
+          question_stem_id: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          index?: number
+          question_set_id?: string
+          question_stem_id?: string
+          updated_at?: string | null
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_stems_question_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "question_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_set_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_set_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_set_id_fkey"
+            columns: ["question_set_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_tags: {
         Row: {
           created_at: string | null
@@ -4018,110 +4153,6 @@ export type Database = {
             columns: ["tag_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_tags"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      questions_sets: {
-        Row: {
-          created_at: string | null
-          created_by: string | null
-          id: string
-          index: number
-          question_id: string
-          question_set_id: string
-          updated_at: string | null
-          updated_by: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          index: number
-          question_id: string
-          question_set_id: string
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string | null
-          id?: string
-          index?: number
-          question_id?: string
-          question_set_id?: string
-          updated_at?: string | null
-          updated_by?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "questions_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_question_id_fkey"
-            columns: ["question_id"]
-            isOneToOne: false
-            referencedRelation: "ucat_questions"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_question_set_id_fkey"
-            columns: ["question_set_id"]
-            isOneToOne: false
-            referencedRelation: "question_sets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_question_set_id_fkey"
-            columns: ["question_set_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_ucat_question_set_detail"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_question_set_id_fkey"
-            columns: ["question_set_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_ucat_question_sets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_question_set_id_fkey"
-            columns: ["question_set_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_question_set_detail"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_question_set_id_fkey"
-            columns: ["question_set_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_ucat_question_sets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "staff"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "questions_sets_updated_by_fkey"
-            columns: ["updated_by"]
-            isOneToOne: false
-            referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -8634,6 +8665,7 @@ export type Database = {
           description: Json | null
           id: string | null
           is_student_generated: boolean | null
+          name: Json | null
           stems: Json | null
           time_limit_seconds: number | null
           updated_at: string | null
@@ -8643,6 +8675,7 @@ export type Database = {
           description?: Json | null
           id?: string | null
           is_student_generated?: boolean | null
+          name?: Json | null
           stems?: never
           time_limit_seconds?: number | null
           updated_at?: string | null
@@ -8652,6 +8685,7 @@ export type Database = {
           description?: Json | null
           id?: string | null
           is_student_generated?: boolean | null
+          name?: Json | null
           stems?: never
           time_limit_seconds?: number | null
           updated_at?: string | null
@@ -8664,6 +8698,7 @@ export type Database = {
           description: Json | null
           id: string | null
           is_student_generated: boolean | null
+          name: Json | null
           time_limit_seconds: number | null
           updated_at: string | null
         }
@@ -8672,6 +8707,7 @@ export type Database = {
           description?: Json | null
           id?: string | null
           is_student_generated?: boolean | null
+          name?: Json | null
           time_limit_seconds?: number | null
           updated_at?: string | null
         }
@@ -8680,6 +8716,7 @@ export type Database = {
           description?: Json | null
           id?: string | null
           is_student_generated?: boolean | null
+          name?: Json | null
           time_limit_seconds?: number | null
           updated_at?: string | null
         }
@@ -10122,6 +10159,7 @@ export type Database = {
           id: string | null
           is_private: boolean | null
           is_student_generated: boolean | null
+          name: Json | null
           stems: Json | null
           time_limit_seconds: number | null
           updated_at: string | null
@@ -10134,6 +10172,7 @@ export type Database = {
           id?: string | null
           is_private?: boolean | null
           is_student_generated?: boolean | null
+          name?: Json | null
           stems?: never
           time_limit_seconds?: number | null
           updated_at?: string | null
@@ -10146,6 +10185,7 @@ export type Database = {
           id?: string | null
           is_private?: boolean | null
           is_student_generated?: boolean | null
+          name?: Json | null
           stems?: never
           time_limit_seconds?: number | null
           updated_at?: string | null
@@ -10192,6 +10232,7 @@ export type Database = {
           id: string | null
           is_private: boolean | null
           is_student_generated: boolean | null
+          name: Json | null
           time_limit_seconds: number | null
           updated_at: string | null
           updated_by: string | null
@@ -11266,6 +11307,10 @@ export type Database = {
         Args: { p_topic_file_id: string }
         Returns: string
       }
+      can_current_tutor_view_ucat_student: {
+        Args: { p_student_id: string }
+        Returns: boolean
+      }
       can_student_access_session_file: {
         Args: { session_id: string }
         Returns: boolean
@@ -11831,6 +11876,70 @@ export type Database = {
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
       student_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
+        Returns: string
+      }
+      tutor_ucat_assign_mock_sessions: {
+        Args: { p_mock_id: string; p_session_ids: Json }
+        Returns: undefined
+      }
+      tutor_ucat_assign_set_sessions: {
+        Args: { p_session_ids: Json; p_set_id: string }
+        Returns: undefined
+      }
+      tutor_ucat_delete_mock: {
+        Args: { p_mock_id: string }
+        Returns: undefined
+      }
+      tutor_ucat_delete_question_set: {
+        Args: { p_set_id: string }
+        Returns: undefined
+      }
+      tutor_ucat_delete_question_stem: {
+        Args: { p_stem_id: string }
+        Returns: undefined
+      }
+      tutor_ucat_upsert_mock: {
+        Args: {
+          p_is_private: boolean
+          p_mock_id: string
+          p_name: string
+          p_set_ids: Json
+        }
+        Returns: string
+      }
+      tutor_ucat_upsert_question_set:
+        | {
+            Args: {
+              p_description: Json
+              p_is_private: boolean
+              p_is_student_generated: boolean
+              p_name: Json
+              p_set_id: string
+              p_stem_ids: Json
+              p_time_limit_seconds: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_description: Json
+              p_is_private: boolean
+              p_is_student_generated: boolean
+              p_question_ids: Json
+              p_set_id: string
+              p_time_limit_seconds: number
+            }
+            Returns: string
+          }
+      tutor_ucat_upsert_question_stem_bundle: {
+        Args: {
+          p_is_private: boolean
+          p_question_stem_category_id: string
+          p_questions: Json
+          p_section_id: string
+          p_stem_id: string
+          p_stem_text: Json
+        }
         Returns: string
       }
       undo_staff_absences: {
