@@ -1,0 +1,27 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+
+export async function POST(request: NextRequest) {
+  const access = await requireUcatTutor()
+  if (!access.ok) return access.response
+
+  try {
+    const body = await request.json()
+    const userClient = access.userClient
+
+    const { data, error } = await (userClient as any).rpc('tutor_ucat_upsert_question_set', {
+      p_set_id: null,
+      p_name: body.name ?? null,
+      p_description: body.description ?? {},
+      p_time_limit_seconds: body.timeLimitSeconds ?? null,
+      p_is_private: !!body.isPrivate,
+      p_is_student_generated: !!body.isStudentGenerated,
+      p_stem_ids: body.stemIds ?? [],
+    })
+
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    return NextResponse.json({ id: data })
+  } catch (error) {
+    return NextResponse.json({ error: 'Invalid request payload', details: String(error) }, { status: 400 })
+  }
+}
