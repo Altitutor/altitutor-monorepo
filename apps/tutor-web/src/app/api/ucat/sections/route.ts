@@ -37,6 +37,9 @@ export async function POST(request: NextRequest) {
         name: body.name,
         display_columns: body.displayColumns,
         description: toRichText(body.description),
+        time_limit_seconds: body.timeLimitSeconds ?? null,
+        number_of_questions: body.numberOfQuestions ?? null,
+        instructions_time_limit_seconds: body.instructionsTimeLimitSeconds ?? null,
         created_by: staffId,
         updated_by: staffId,
       })

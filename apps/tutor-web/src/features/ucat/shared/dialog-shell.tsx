@@ -41,7 +41,7 @@ export function UcatDialogShell({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 overflow-auto min-h-0 p-6">{children}</div>
+        <div className="flex-1 overflow-hidden min-h-0">{children}</div>
 
         <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
           <div className="flex items-center gap-2 w-full justify-end">

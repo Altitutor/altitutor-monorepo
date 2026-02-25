@@ -8,6 +8,9 @@ export type UcatSectionPayload = {
   name: string
   displayColumns: 1 | 2
   description?: string
+  timeLimitSeconds?: number | null
+  numberOfQuestions?: number | null
+  instructionsTimeLimitSeconds?: number | null
 }
 
 export const ucatSectionsApi = {
@@ -46,13 +49,5 @@ export const ucatSectionsApi = {
     }
 
     return response.json() as Promise<{ id: string }>
-  },
-
-  async remove(id: string) {
-    const response = await fetch(`/api/ucat/sections/${id}`, { method: 'DELETE' })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to delete section')
-    }
   },
 }

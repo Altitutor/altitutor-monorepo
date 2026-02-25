@@ -21,11 +21,3 @@ export function useUpdateUcatSection() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.sections() }),
   })
 }
-
-export function useDeleteUcatSection() {
-  const queryClient = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => ucatSectionsApi.remove(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.sections() }),
-  })
-}

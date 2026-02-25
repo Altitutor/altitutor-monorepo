@@ -7,6 +7,7 @@ import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -33,7 +34,6 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
   const [draftDescription, setDraftDescription] = useState('')
   const [draftTimeLimit, setDraftTimeLimit] = useState('')
   const [draftPrivate, setDraftPrivate] = useState(false)
-  const [draftStudentGenerated, setDraftStudentGenerated] = useState(false)
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
 
@@ -46,9 +46,8 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
 
     setDraftName(proseMirrorToPlainText(current.name ?? null))
     setDraftDescription(proseMirrorToPlainText(current.description))
-    setDraftTimeLimit(current.time_limit_seconds ? String(current.time_limit_seconds) : '')
+    setDraftTimeLimit(secondsToTimeString(current.time_limit_seconds))
     setDraftPrivate(!!current.is_private)
-    setDraftStudentGenerated(!!current.is_student_generated)
     setDraftStemIds(stemIds)
     setBaseline(snapshotSetDetail({
       name: proseMirrorToPlainText(current.name ?? null),
@@ -79,13 +78,13 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
     const snapshot = snapshotSetDetail({
       name: draftName,
       description: draftDescription,
-      time: draftTimeLimit ? Number(draftTimeLimit) : null,
+      time: parseTimeToSeconds(draftTimeLimit),
       isPrivate: draftPrivate,
-      isStudentGenerated: draftStudentGenerated,
+      isStudentGenerated: false,
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
-  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftStudentGenerated, draftTimeLimit])
+  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftTimeLimit])
 
   const stemLabelsById = useMemo(() => {
     const current = detail.data
@@ -117,9 +116,9 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
         id: setId,
         name: plainTextToProseMirror(draftName),
         description: draftDescription,
-        timeLimitSeconds: draftTimeLimit ? Number(draftTimeLimit) : null,
+        timeLimitSeconds: parseTimeToSeconds(draftTimeLimit),
         isPrivate: draftPrivate,
-        isStudentGenerated: draftStudentGenerated,
+        isStudentGenerated: false,
         stemIds: draftStemIds,
       },
     })
@@ -132,9 +131,8 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
     setDraftStemIds(stems.map((s) => s.stem_id))
     setDraftName(proseMirrorToPlainText(current.name ?? null))
     setDraftDescription(proseMirrorToPlainText(current.description))
-    setDraftTimeLimit(current.time_limit_seconds ? String(current.time_limit_seconds) : '')
+    setDraftTimeLimit(secondsToTimeString(current.time_limit_seconds))
     setDraftPrivate(!!current.is_private)
-    setDraftStudentGenerated(!!current.is_student_generated)
   }
 
   if (access.isLoading || detail.isLoading) return <UcatPageSkeleton rows={6} />
@@ -156,8 +154,8 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr,320px]">
-        <section className="space-y-3 rounded border p-4">
+      <div className="flex min-h-[70vh]">
+        <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">
           <h2 className="font-semibold">Stems in Set</h2>
           {draftStemIds.map((stemId, index) => (
             <div key={stemId} className="rounded border p-3">
@@ -200,7 +198,7 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
             </div>
           ))}
 
-          <div className="rounded border border-dashed p-3">
+          <div className="pt-2">
             <h3 className="mb-2 text-sm font-medium">Add Stem</h3>
             <input className="mb-2 w-full rounded border p-2" placeholder="Search stems" value={search} onChange={(e) => setSearch(e.target.value)} />
             <div className="max-h-52 space-y-1 overflow-auto">
@@ -218,7 +216,7 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
           </div>
         </section>
 
-        <aside className="space-y-3 rounded border p-4">
+        <aside className="w-80 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
           <h2 className="font-semibold">Set Properties</h2>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Name</span>
@@ -229,16 +227,12 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
             <textarea className="min-h-24 w-full rounded border p-2" value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Time limit (seconds)</span>
-            <input className="w-full rounded border p-2" type="number" value={draftTimeLimit} onChange={(e) => setDraftTimeLimit(e.target.value)} />
+            <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
+            <input className="w-full rounded border p-2" type="text" value={draftTimeLimit} onChange={(e) => setDraftTimeLimit(e.target.value)} placeholder="e.g. 1:30 or 90" />
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <input type="checkbox" checked={draftPrivate} onChange={(e) => setDraftPrivate(e.target.checked)} />
             Private
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={draftStudentGenerated} onChange={(e) => setDraftStudentGenerated(e.target.checked)} />
-            Student generated
           </label>
         </aside>
       </div>

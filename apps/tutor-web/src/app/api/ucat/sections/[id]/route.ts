@@ -37,6 +37,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         name: body.name,
         display_columns: body.displayColumns,
         description: toRichText(body.description),
+        time_limit_seconds: body.timeLimitSeconds ?? null,
+        number_of_questions: body.numberOfQuestions ?? null,
+        instructions_time_limit_seconds: body.instructionsTimeLimitSeconds ?? null,
         updated_by: staffId,
       })
       .eq('id', params.id)
@@ -48,15 +51,4 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   } catch (error) {
     return NextResponse.json({ error: 'Invalid request payload', details: String(error) }, { status: 400 })
   }
-}
-
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
-  const access = await requireUcatTutor()
-  if (!access.ok) return access.response
-
-  const service = getServiceRoleClient()
-  const { error } = await service.from('ucat_sections').delete().eq('id', params.id)
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
-  return NextResponse.json({ ok: true })
 }

@@ -12,12 +12,15 @@ import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { applyBooleanTextFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
+import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
+import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 
 type MockRow = {
   id: string
   name: string
   is_private: boolean
+  set_count: number
   updated_at: string | null
 }
 
@@ -35,13 +38,15 @@ const filterDefinitions: DataTableFilterDefinition[] = [
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
-  { key: 'updated_at', label: 'Updated', visibleByDefault: true },
+  { key: 'set_count', label: 'Sets', visibleByDefault: true },
+  { key: 'updated_at', label: 'Updated', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
 
 const sortOptions: DataTableSortOption[] = [
   { key: 'name', label: 'Name' },
   { key: 'visibility', label: 'Visibility' },
+  { key: 'set_count', label: 'Sets' },
   { key: 'updated_at', label: 'Updated' },
 ]
 
@@ -55,6 +60,8 @@ export function UcatMocksPage() {
 
   const [openCreate, setOpenCreate] = useState(false)
   const [editingMockId, setEditingMockId] = useState<string | null>(null)
+  const [editingSetId, setEditingSetId] = useState<string | null>(null)
+  const [deletingMockId, setDeletingMockId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
 
@@ -63,12 +70,16 @@ export function UcatMocksPage() {
     if (editId) setEditingMockId(editId)
   }, [searchParams])
 
-  const rows: MockRow[] = (mocks.data ?? []).map((m) => ({
-    id: m.id ?? '',
-    name: m.name ?? 'Untitled',
-    is_private: !!m.is_private,
-    updated_at: m.updated_at,
-  }))
+  const rows: MockRow[] = (mocks.data ?? []).map((m) => {
+    const row = m as typeof m & { set_count?: number }
+    return {
+      id: m.id ?? '',
+      name: m.name ?? 'Untitled',
+      is_private: !!m.is_private,
+      set_count: row.set_count ?? 0,
+      updated_at: m.updated_at,
+    }
+  })
 
   const filteredRows = useMemo(() => {
     const search = tableState.state.search.trim().toLowerCase()
@@ -84,6 +95,7 @@ export function UcatMocksPage() {
       applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
         name: (r) => r.name,
         visibility: (r) => (r.is_private ? 'Private' : 'Public'),
+        set_count: (r) => r.set_count,
         updated_at: (r) => r.updated_at ?? '',
       }),
     [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
@@ -100,6 +112,14 @@ export function UcatMocksPage() {
       },
     },
     {
+      key: 'set_count',
+      column: {
+        accessorKey: 'set_count',
+        header: 'Sets',
+        cell: ({ row }) => String(row.original.set_count),
+      },
+    },
+    {
       key: 'updated_at',
       column: {
         accessorKey: 'updated_at',
@@ -111,13 +131,13 @@ export function UcatMocksPage() {
       key: 'actions',
       column: {
         id: 'actions',
-        header: 'Actions',
+        header: '',
         cell: ({ row }) => (
           <div className="flex justify-end">
             <UcatRowActions
               actions={[
                 { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
-                { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => deleteMock.mutate(row.original.id), destructive: true },
+                { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeletingMockId(row.original.id), destructive: true },
               ]}
             />
           </div>
@@ -178,7 +198,7 @@ export function UcatMocksPage() {
         saveDisabled={createMock.isPending}
         isSaving={createMock.isPending}
       >
-        <div className="space-y-4">
+        <div className="p-6 overflow-y-auto h-full space-y-4">
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Name</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
@@ -190,7 +210,21 @@ export function UcatMocksPage() {
         </div>
       </UcatDialogShell>
 
-      <UcatMockEditorDialog open={!!editingMockId} mockId={editingMockId} onClose={() => setEditingMockId(null)} />
+      <UcatMockEditorDialog
+        open={!!editingMockId}
+        mockId={editingMockId}
+        onClose={() => setEditingMockId(null)}
+        onEditSet={(setId) => setEditingSetId(setId)}
+      />
+      <UcatSetEditorDialog open={!!editingSetId} setId={editingSetId} onClose={() => setEditingSetId(null)} />
+      <UcatDeleteConfirmDialog
+        open={!!deletingMockId}
+        onOpenChange={(open) => !open && setDeletingMockId(null)}
+        title="Delete mock?"
+        description="This action cannot be undone."
+        onConfirm={async () => { if (deletingMockId) await deleteMock.mutateAsync(deletingMockId) }}
+        isPending={deleteMock.isPending}
+      />
     </div>
   )
 }

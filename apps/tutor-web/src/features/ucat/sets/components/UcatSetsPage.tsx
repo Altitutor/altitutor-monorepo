@@ -27,9 +27,11 @@ import {
   useVisibleColumns,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
+import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 const DEFAULT_FILTERS: Record<string, unknown[]> = { is_student_generated: ['staff'] }
 
@@ -116,7 +118,8 @@ export function UcatSetsPage() {
 
   const [openCreate, setOpenCreate] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
-  const [form, setForm] = useState({ description: '', timeLimitSeconds: '', isPrivate: false, isStudentGenerated: false })
+  const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
+  const [form, setForm] = useState({ name: '', description: '', timeLimitSeconds: '', isPrivate: false, isStudentGenerated: false })
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -188,7 +191,7 @@ export function UcatSetsPage() {
       column: {
         accessorKey: 'time_limit_seconds',
         header: 'Time Limit',
-        cell: ({ row }) => (row.original.time_limit_seconds ? `${row.original.time_limit_seconds}s` : '-'),
+        cell: ({ row }) => formatSecondsToDuration(row.original.time_limit_seconds),
       },
     },
     {
@@ -250,7 +253,7 @@ export function UcatSetsPage() {
             <UcatRowActions
               actions={[
                 { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingSetId(row.original.id) },
-                { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => deleteSet.mutate(row.original.id), destructive: true },
+                { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeletingSetId(row.original.id), destructive: true },
               ]}
             />
           </div>
@@ -263,15 +266,16 @@ export function UcatSetsPage() {
 
   async function onCreate() {
     const payload: UcatQuestionSetPayload = {
+      name: plainTextToProseMirror(form.name),
       description: form.description,
-      timeLimitSeconds: form.timeLimitSeconds ? Number(form.timeLimitSeconds) : null,
+      timeLimitSeconds: parseTimeToSeconds(form.timeLimitSeconds),
       isPrivate: form.isPrivate,
-      isStudentGenerated: form.isStudentGenerated,
+      isStudentGenerated: false,
       stemIds: [],
     }
     const result = await createSet.mutateAsync(payload)
     setOpenCreate(false)
-    setForm({ description: '', timeLimitSeconds: '', isPrivate: false, isStudentGenerated: false })
+    setForm({ name: '', description: '', timeLimitSeconds: '', isPrivate: false, isStudentGenerated: false })
     if (result.id) setEditingSetId(result.id)
   }
 
@@ -317,27 +321,35 @@ export function UcatSetsPage() {
         saveDisabled={createSet.isPending}
         isSaving={createSet.isPending}
       >
-        <div className="space-y-4">
+        <div className="p-6 overflow-y-auto h-full space-y-4">
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Name</span>
+            <Input value={form.name} onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))} placeholder="Set name" />
+          </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Description</span>
             <Textarea className="min-h-20" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Time limit (seconds)</span>
-            <Input type="number" value={form.timeLimitSeconds} onChange={(e) => setForm((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))} />
+            <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
+            <Input type="text" value={form.timeLimitSeconds} onChange={(e) => setForm((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))} placeholder="e.g. 1:30 or 90" />
           </label>
           <label className="inline-flex items-center gap-2 text-sm">
             <Checkbox checked={form.isPrivate} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isPrivate: checked === true }))} />
             Private set
           </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <Checkbox checked={form.isStudentGenerated} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isStudentGenerated: checked === true }))} />
-            Student-generated set
-          </label>
         </div>
       </UcatDialogShell>
 
       <UcatSetEditorDialog open={!!editingSetId} setId={editingSetId} onClose={() => setEditingSetId(null)} />
+      <UcatDeleteConfirmDialog
+        open={!!deletingSetId}
+        onOpenChange={(open) => !open && setDeletingSetId(null)}
+        title="Delete set?"
+        description="This action cannot be undone. The set will be removed from any mocks that use it."
+        onConfirm={async () => { if (deletingSetId) await deleteSet.mutateAsync(deletingSetId) }}
+        isPending={deleteSet.isPending}
+      />
     </div>
   )
 }

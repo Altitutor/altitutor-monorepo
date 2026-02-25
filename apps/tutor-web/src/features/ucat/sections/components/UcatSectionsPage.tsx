@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
@@ -15,14 +16,16 @@ import {
   SelectValue,
   Textarea,
 } from '@altitutor/ui'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { applyRangeFilter, applySingleSelectFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
-import { useCreateUcatSection, useDeleteUcatSection, useUcatSections, useUpdateUcatSection } from '@/features/ucat/sections/hooks/useUcatSections'
+import { useCreateUcatSection, useUcatSections, useUpdateUcatSection } from '@/features/ucat/sections/hooks/useUcatSections'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { formatSecondsToDuration, parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 
 type SectionRow = {
   id: string
@@ -33,6 +36,7 @@ type SectionRow = {
   time_limit_seconds: number | null
   number_of_questions: number | null
   time_per_question: number | null
+  instructions_time_limit_seconds: number | null
 }
 
 type SectionDraft = {
@@ -40,6 +44,9 @@ type SectionDraft = {
   name: string
   displayColumns: '1' | '2'
   description: string
+  timeLimitSeconds: string
+  numberOfQuestions: string
+  instructionsTimeLimitSeconds: string
 }
 
 const filterDefinitions: DataTableFilterDefinition[] = [
@@ -81,6 +88,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'time_limit_seconds', label: 'Time limit', visibleByDefault: true },
   { key: 'number_of_questions', label: 'Number of questions', visibleByDefault: true },
   { key: 'time_per_question', label: 'Time per question', visibleByDefault: true },
+  { key: 'instructions_time_limit_seconds', label: 'Instructions time limit', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
 
@@ -91,6 +99,7 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'time_limit_seconds', label: 'Time limit' },
   { key: 'number_of_questions', label: 'Number of questions' },
   { key: 'time_per_question', label: 'Time per question' },
+  { key: 'instructions_time_limit_seconds', label: 'Instructions time limit' },
 ]
 
 const emptyDraft: SectionDraft = {
@@ -98,14 +107,17 @@ const emptyDraft: SectionDraft = {
   name: '',
   displayColumns: '2',
   description: '',
+  timeLimitSeconds: '',
+  numberOfQuestions: '',
+  instructionsTimeLimitSeconds: '',
 }
 
 export function UcatSectionsPage() {
   const access = useUcatAccess()
+  const queryClient = useQueryClient()
   const sections = useUcatSections()
   const createSection = useCreateUcatSection()
   const updateSection = useUpdateUcatSection()
-  const deleteSection = useDeleteUcatSection()
   const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
 
   const [createOpen, setCreateOpen] = useState(false)
@@ -117,6 +129,7 @@ export function UcatSectionsPage() {
       time_limit_seconds?: number | null
       number_of_questions?: number | null
       time_per_question?: number | null
+      instructions_time_limit_seconds?: number | null
     }
     return {
       id: r.id ?? '',
@@ -127,6 +140,7 @@ export function UcatSectionsPage() {
       time_limit_seconds: r.time_limit_seconds ?? null,
       number_of_questions: r.number_of_questions ?? null,
       time_per_question: r.time_per_question ?? null,
+      instructions_time_limit_seconds: r.instructions_time_limit_seconds ?? null,
     }
   })
 
@@ -170,6 +184,7 @@ export function UcatSectionsPage() {
         time_limit_seconds: (r) => r.time_limit_seconds ?? -1,
         number_of_questions: (r) => r.number_of_questions ?? -1,
         time_per_question: (r) => r.time_per_question ?? -1,
+        instructions_time_limit_seconds: (r) => r.instructions_time_limit_seconds ?? -1,
       }),
     [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
   )
@@ -190,8 +205,7 @@ export function UcatSectionsPage() {
       column: {
         accessorKey: 'time_limit_seconds',
         header: 'Time limit',
-        cell: ({ row }) =>
-          row.original.time_limit_seconds != null ? `${row.original.time_limit_seconds}s` : '-',
+        cell: ({ row }) => formatSecondsToDuration(row.original.time_limit_seconds),
       },
     },
     {
@@ -209,8 +223,16 @@ export function UcatSectionsPage() {
         header: 'Time per question',
         cell: ({ row }) =>
           row.original.time_per_question != null
-            ? `${Number(row.original.time_per_question).toFixed(1)}s`
+            ? formatSecondsToDuration(Math.round(Number(row.original.time_per_question)))
             : '-',
+      },
+    },
+    {
+      key: 'instructions_time_limit_seconds',
+      column: {
+        accessorKey: 'instructions_time_limit_seconds',
+        header: 'Instructions time limit',
+        cell: ({ row }) => formatSecondsToDuration(row.original.instructions_time_limit_seconds),
       },
     },
     {
@@ -232,14 +254,11 @@ export function UcatSectionsPage() {
                       name: row.original.name,
                       displayColumns: String(row.original.display_columns) as '1' | '2',
                       description: row.original.description,
+                      timeLimitSeconds: secondsToTimeString(row.original.time_limit_seconds) || '',
+                      numberOfQuestions: row.original.number_of_questions != null ? String(row.original.number_of_questions) : '',
+                      instructionsTimeLimitSeconds: secondsToTimeString(row.original.instructions_time_limit_seconds) || '',
                     })
                   },
-                },
-                {
-                  label: 'Delete',
-                  icon: <Trash2 className="h-4 w-4" />,
-                  onClick: () => deleteSection.mutate(row.original.id),
-                  destructive: true,
                 },
               ]}
             />
@@ -260,6 +279,9 @@ export function UcatSectionsPage() {
       name: draft.name,
       displayColumns: Number(draft.displayColumns) as 1 | 2,
       description: draft.description,
+      timeLimitSeconds: parseTimeToSeconds(draft.timeLimitSeconds),
+      numberOfQuestions: draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions),
+      instructionsTimeLimitSeconds: parseTimeToSeconds(draft.instructionsTimeLimitSeconds),
     })
     setCreateOpen(false)
     setDraft(emptyDraft)
@@ -274,8 +296,12 @@ export function UcatSectionsPage() {
         name: draft.name,
         displayColumns: Number(draft.displayColumns) as 1 | 2,
         description: draft.description,
+        timeLimitSeconds: parseTimeToSeconds(draft.timeLimitSeconds),
+        numberOfQuestions: draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions),
+        instructionsTimeLimitSeconds: parseTimeToSeconds(draft.instructionsTimeLimitSeconds),
       },
     })
+    await queryClient.refetchQueries({ queryKey: ucatKeys.sections() })
     setEditing(null)
     setDraft(emptyDraft)
   }
@@ -322,7 +348,9 @@ export function UcatSectionsPage() {
         saveDisabled={createSection.isPending}
         isSaving={createSection.isPending}
       >
-        <SectionForm draft={draft} setDraft={setDraft} />
+        <div className="p-6 overflow-y-auto h-full">
+          <SectionForm draft={draft} setDraft={setDraft} />
+        </div>
       </UcatDialogShell>
 
       <UcatDialogShell
@@ -337,7 +365,9 @@ export function UcatSectionsPage() {
         saveDisabled={updateSection.isPending}
         isSaving={updateSection.isPending}
       >
-        <SectionForm draft={draft} setDraft={setDraft} />
+        <div className="p-6 overflow-y-auto h-full">
+          <SectionForm draft={draft} setDraft={setDraft} />
+        </div>
       </UcatDialogShell>
     </div>
   )
@@ -378,6 +408,34 @@ function SectionForm({
             <SelectItem value="2">2 Columns</SelectItem>
           </SelectContent>
         </Select>
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
+        <Input
+          type="text"
+          placeholder="e.g. 1:30 or 90"
+          value={draft.timeLimitSeconds}
+          onChange={(e) => setDraft((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))}
+        />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Number of questions</span>
+        <Input
+          type="number"
+          min={0}
+          placeholder="Optional"
+          value={draft.numberOfQuestions}
+          onChange={(e) => setDraft((prev) => ({ ...prev, numberOfQuestions: e.target.value }))}
+        />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Instructions time limit (mm:ss or seconds)</span>
+        <Input
+          type="text"
+          placeholder="e.g. 1:30 or 90"
+          value={draft.instructionsTimeLimitSeconds}
+          onChange={(e) => setDraft((prev) => ({ ...prev, instructionsTimeLimitSeconds: e.target.value }))}
+        />
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Description</span>

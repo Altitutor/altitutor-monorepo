@@ -49,6 +49,7 @@ type QuestionRow = {
   updated_at: string | null
   type_summary: string
   stem_text: string
+  set_names: string
 }
 
 const filterDefinitions: DataTableFilterDefinition[] = [
@@ -77,6 +78,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'category_name', label: 'Category', visibleByDefault: true },
   { key: 'stem_text', label: 'Stem text', visibleByDefault: true },
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
+  { key: 'sets', label: 'Sets', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'type_summary', label: 'Type', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
@@ -86,6 +88,7 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'section_name', label: 'Section' },
   { key: 'category_name', label: 'Category' },
   { key: 'question_count', label: 'Questions' },
+  { key: 'sets', label: 'Sets' },
   { key: 'type_summary', label: 'Type' },
   { key: 'visibility', label: 'Visibility' },
 ]
@@ -153,6 +156,14 @@ export function UcatQuestionsPage() {
 
   const rows: QuestionRow[] = (questions.data ?? []).map((row) => {
     const summary = row.id ? Array.from(stemTypes[row.id] ?? []).join(', ') : ''
+    const setNamesArr = Array.isArray(row.set_names) ? (row.set_names as import('@altitutor/shared').Json[]) : []
+    const setsDisplay =
+      setNamesArr.length > 0
+        ? setNamesArr
+            .map((n) => proseMirrorToPlainText(n))
+            .filter(Boolean)
+            .join(', ') || '—'
+        : '—'
     return {
       id: row.id ?? '',
       section_name: row.section_name ?? '-',
@@ -164,6 +175,7 @@ export function UcatQuestionsPage() {
       updated_at: row.updated_at,
       type_summary: summary || '-',
       stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as import('@altitutor/shared').Json) : '',
+      set_names: setsDisplay,
     }
   })
 
@@ -198,6 +210,7 @@ export function UcatQuestionsPage() {
         category_name: (r) => r.category_name ?? '',
         stem_text: (r) => r.stem_text,
         question_count: (r) => r.question_count,
+        sets: (r) => r.set_names,
         type_summary: (r) => r.type_summary,
         visibility: (r) => (r.is_private ? 'Private' : 'Public'),
       }),
@@ -224,7 +237,8 @@ export function UcatQuestionsPage() {
   }
 
   const showTypeCol = tableState.state.visibleColumns.includes('type_summary')
-  const colCount = 7 + (showTypeCol ? 1 : 0) // expand, section, category, stem, questions, visibility, [type], actions
+  const showSetsCol = tableState.state.visibleColumns.includes('sets')
+  const colCount = 7 + (showTypeCol ? 1 : 0) + (showSetsCol ? 1 : 0) // expand, section, category, stem, questions, [sets], visibility, [type], actions
 
   async function handleCreate(payload: UcatQuestionStemFormValues) {
     const mapped: UcatQuestionStemBundlePayload = {
@@ -332,6 +346,7 @@ export function UcatQuestionsPage() {
               <TableHead>Category</TableHead>
               <TableHead>Stem text</TableHead>
               <TableHead>Questions</TableHead>
+              {showSetsCol && <TableHead>Sets</TableHead>}
               <TableHead>Visibility</TableHead>
               {showTypeCol && <TableHead>Type</TableHead>}
               <TableHead className="w-16 shrink-0" />
@@ -366,6 +381,11 @@ export function UcatQuestionsPage() {
                       {truncate(row.stem_text, 80)}
                     </TableCell>
                     <TableCell>{row.question_count}</TableCell>
+                    {showSetsCol && (
+                      <TableCell className="max-w-[180px]" title={row.set_names}>
+                        {truncate(row.set_names, 50)}
+                      </TableCell>
+                    )}
                     <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
                     {showTypeCol && <TableCell>{row.type_summary}</TableCell>}
                     <TableCell className="w-16 shrink-0">

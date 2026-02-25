@@ -10,7 +10,8 @@ export const ucatQuestionItemSchema = z.object({
   questionText: z.string().min(1, 'Question text is required'),
   questionType: z.enum(['multiple_choice', 'syllogism']),
   difficulty: z.coerce.number().min(0).max(1).nullable().optional(),
-  timeBurdenSeconds: z.coerce.number().int().positive().nullable().optional(),
+  /** Time burden as mm:ss or seconds string; converted to number when submitting */
+  timeBurdenSeconds: z.string().optional().nullable(),
   tagIds: z.array(z.string().uuid()).default([]),
   options: z.array(ucatQuestionOptionSchema).min(1, 'At least one option/statement is required'),
 })
