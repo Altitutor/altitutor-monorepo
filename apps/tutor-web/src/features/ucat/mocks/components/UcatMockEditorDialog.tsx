@@ -8,6 +8,8 @@ import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { Trash2 } from 'lucide-react'
 
 type SetOption = {
   id: string
@@ -39,6 +41,7 @@ export function UcatMockEditorDialog({
   mockId: string | null
   onClose: () => void
   onEditSet?: (setId: string) => void
+  onDelete?: () => void
 }) {
   const sets = useUcatSets()
   const [search, setSearch] = useState('')
@@ -75,10 +78,40 @@ export function UcatMockEditorDialog({
     )
   }, [draftSetIds, search, setCatalog])
 
+  function handleRequestClose() {
+    if (!isDirty || window.confirm('Changes made will be lost. Close without saving?')) {
+      onClose()
+    }
+  }
+
+  const headerActions =
+    mockId != null
+      ? (
+          <UcatRowActions
+            actions={[
+              {
+                label: 'Open in page',
+                href: `/ucat/mocks/${mockId}`,
+              },
+              ...(onDelete
+                ? [
+                    {
+                      label: 'Delete',
+                      icon: <Trash2 className="h-4 w-4" />,
+                      onClick: onDelete,
+                      destructive: true,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        )
+      : null
+
   return (
     <UcatDialogShell
       open={open}
-      onClose={onClose}
+      onClose={handleRequestClose}
       title="Edit Mock"
       subtitle="Reorder sets and update mock properties"
       onSave={async () => {
@@ -87,6 +120,8 @@ export function UcatMockEditorDialog({
       }}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
+      headerActions={headerActions}
+      hideCancel
     >
       <div className="h-full flex">
         <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">

@@ -538,13 +538,25 @@ export function UcatQuestionsPage() {
         tags={(tags.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
         initial={detail.data}
         loading={updateMutation.isPending || detail.isLoading}
+        onDelete={
+          editingStemId
+            ? () => {
+                setDeletingStemId(editingStemId)
+              }
+            : undefined
+        }
       />
       <UcatDeleteConfirmDialog
         open={!!deletingStemId}
         onOpenChange={(open) => !open && setDeletingStemId(null)}
         title="Delete question stem?"
         description="The stem and all its questions will be hidden from students. You can restore them later from the deleted list."
-        onConfirm={async () => { if (deletingStemId) await deleteMutation.mutateAsync(deletingStemId) }}
+        onConfirm={async () => {
+          if (deletingStemId) {
+            await deleteMutation.mutateAsync(deletingStemId)
+            setEditingStemId((prev) => (prev === deletingStemId ? null : prev))
+          }
+        }}
         isPending={deleteMutation.isPending}
       />
     </div>

@@ -13,6 +13,8 @@ export function UcatDialogShell({
   saveLabel = 'Save',
   saveDisabled,
   isSaving,
+  hideCancel = false,
+  headerActions,
 }: {
   open: boolean
   onClose: () => void
@@ -23,6 +25,8 @@ export function UcatDialogShell({
   saveLabel?: string
   saveDisabled?: boolean
   isSaving?: boolean
+  hideCancel?: boolean
+  headerActions?: React.ReactNode
 }) {
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
@@ -38,6 +42,7 @@ export function UcatDialogShell({
                 {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
               </div>
             </div>
+            {headerActions ? <div className="flex-shrink-0">{headerActions}</div> : null}
           </div>
         </DialogHeader>
 
@@ -45,7 +50,11 @@ export function UcatDialogShell({
 
         <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
           <div className="flex items-center gap-2 w-full justify-end">
-            <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
+            {!hideCancel ? (
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+            ) : null}
             {onSave ? (
               <Button type="button" onClick={onSave} disabled={saveDisabled || isSaving}>
                 {isSaving ? 'Saving...' : saveLabel}

@@ -270,13 +270,29 @@ export function UcatSetsPage() {
         </div>
       </UcatDialogShell>
 
-      <UcatSetEditorDialog open={!!editingSetId} setId={editingSetId} onClose={() => setEditingSetId(null)} />
+      <UcatSetEditorDialog
+        open={!!editingSetId}
+        setId={editingSetId}
+        onClose={() => setEditingSetId(null)}
+        onDelete={
+          editingSetId
+            ? () => {
+                setDeletingSetId(editingSetId)
+              }
+            : undefined
+        }
+      />
       <UcatDeleteConfirmDialog
         open={!!deletingSetId}
         onOpenChange={(open) => !open && setDeletingSetId(null)}
         title="Delete set?"
         description="The set will be hidden from students. You can restore it later from the deleted list."
-        onConfirm={async () => { if (deletingSetId) await deleteSet.mutateAsync(deletingSetId) }}
+        onConfirm={async () => {
+          if (deletingSetId) {
+            await deleteSet.mutateAsync(deletingSetId)
+            setEditingSetId((prev) => (prev === deletingSetId ? null : prev))
+          }
+        }}
         isPending={deleteSet.isPending}
       />
     </div>
