@@ -28,13 +28,15 @@ import {
   TabsList,
   TabsTrigger,
   Textarea,
+  useToast,
 } from '@altitutor/ui'
-import { Trash2 } from 'lucide-react'
+import { ExternalLink, Trash2 } from 'lucide-react'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 
 /** Trim leading/trailing blank lines and whitespace from plain text. */
 function trimTextParagraphs(text: string): string {
@@ -68,6 +70,7 @@ export function UcatQuestionStemDialog({
   tags,
   initial,
   loading,
+  onDelete,
 }: {
   open: boolean
   title: string
@@ -79,7 +82,9 @@ export function UcatQuestionStemDialog({
   tags: TagOption[]
   initial?: StemDetailRow | null
   loading?: boolean
+  onDelete?: () => void
 }) {
+  const { toast } = useToast()
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {
       return {
@@ -91,6 +96,7 @@ export function UcatQuestionStemDialog({
           {
             questionText: '',
             questionType: 'multiple_choice',
+            answerExplanation: '',
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
@@ -107,6 +113,7 @@ export function UcatQuestionStemDialog({
       isPrivate: initial.is_private,
       questions: (initial.questions ?? []).map((question) => ({
         questionText: proseMirrorToPlainText(question.question_text),
+        answerExplanation: proseMirrorToPlainText(question.answer_explanation),
         questionType: question.question_type,
         difficulty: question.difficulty,
         timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
@@ -143,6 +150,7 @@ export function UcatQuestionStemDialog({
           {
             questionText: '',
             questionType: 'multiple_choice',
+            answerExplanation: '',
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
@@ -162,8 +170,99 @@ export function UcatQuestionStemDialog({
 
   const stemType = form.watch('questions.0.questionType') as 'multiple_choice' | 'syllogism' | undefined
 
+  useEffect(() => {
+    if (stemType !== 'syllogism') return
+
+    const decisionMakingSection = sections.find((section) => section.name === 'Decision Making')
+    if (decisionMakingSection?.id && form.watch('sectionId') !== decisionMakingSection.id) {
+      form.setValue('sectionId', decisionMakingSection.id, { shouldDirty: true })
+    }
+
+    const sectionIdForCategory = decisionMakingSection?.id ?? form.watch('sectionId')
+    if (!sectionIdForCategory) return
+
+    const syllogismsCategory = categories.find(
+      (category) => {
+        const rawName = (category.name ?? '').toLowerCase().trim()
+        const normalizedName = rawName.replace(/\\+$/g, '')
+        return (
+          normalizedName.startsWith('syllogism') &&
+          (category.ucat_section_id ?? null) === sectionIdForCategory
+        )
+      }
+    )
+
+    if (syllogismsCategory?.id && form.watch('categoryId') !== syllogismsCategory.id) {
+      form.setValue('categoryId', syllogismsCategory.id, { shouldDirty: true })
+    }
+  }, [stemType, sections, categories, form])
+
   function setStemType(value: 'multiple_choice' | 'syllogism') {
-    fields.forEach((_, i) => {
+    const currentStemType = stemType ?? 'multiple_choice'
+    if (currentStemType === value) return
+
+    if (value === 'syllogism') {
+      const currentQuestions = form.getValues('questions') ?? []
+      const firstQuestion =
+        currentQuestions[0] ?? {
+          questionText: '',
+          questionType: 'multiple_choice' as const,
+          difficulty: null,
+          timeBurdenSeconds: '',
+          tagIds: [],
+          options: [...DEFAULT_OPTIONS],
+        }
+
+      const hasQuestionText = trimTextParagraphs(firstQuestion.questionText ?? '') !== ''
+      const hasOptionContent = (firstQuestion.options ?? []).some(
+        (opt) =>
+          trimTextParagraphs(opt.answerText ?? '') !== '' ||
+          trimTextParagraphs(opt.answerExplanation ?? '') !== ''
+      )
+
+      const otherQuestionsHaveData = currentQuestions.slice(1).some((question) => {
+        const hasOtherQuestionText = trimTextParagraphs(question.questionText ?? '') !== ''
+        const hasOtherOptionContent = (question.options ?? []).some(
+          (opt) =>
+            trimTextParagraphs(opt.answerText ?? '') !== '' ||
+            trimTextParagraphs(opt.answerExplanation ?? '') !== ''
+        )
+        return hasOtherQuestionText || hasOtherOptionContent
+      })
+
+      const willRemoveData = hasQuestionText || hasOptionContent || otherQuestionsHaveData
+
+      if (willRemoveData) {
+        const confirmed =
+          typeof window !== 'undefined'
+            ? window.confirm(
+                'Switching the type to "Syllogism" will reset questions and statements and remove existing question text and options. Do you want to continue?'
+              )
+            : false
+
+        if (!confirmed) {
+          return
+        }
+      }
+
+      const syllogismTemplateQuestion = {
+        ...firstQuestion,
+        questionType: 'syllogism' as const,
+        questionText:
+          'Place ‘Yes’ if the conclusion does follow. Place ‘No’ if the conclusion does not follow.',
+        options: Array.from({ length: 5 }, () => ({
+          answerText: '',
+          answerExplanation: '',
+          isAnswer: false,
+        })),
+      }
+
+      form.setValue('questions', [syllogismTemplateQuestion], { shouldDirty: true })
+      return
+    }
+
+    const currentQuestions = form.getValues('questions') ?? []
+    currentQuestions.forEach((_, i) => {
       form.setValue(`questions.${i}.questionType`, value, { shouldDirty: true })
     })
   }
@@ -174,11 +273,13 @@ export function UcatQuestionStemDialog({
         ...values,
         stemText: trimTextParagraphs(values.stemText ?? ''),
         questions: values.questions.map((q) => {
+          const answerExplanation = trimTextParagraphs(q.answerExplanation ?? '')
           const filteredOptions = (q.options ?? []).filter((o) => (o.answerText ?? '').trim() !== '')
           const optionsToSend = filteredOptions.length > 0 ? filteredOptions : (q.options ?? []).slice(0, 1)
           return {
             ...q,
             questionText: trimTextParagraphs(q.questionText ?? ''),
+            answerExplanation,
             timeBurdenSeconds: parseTimeToSeconds(q.timeBurdenSeconds ?? '') ?? null,
             options: optionsToSend.length > 0 ? optionsToSend : [{ answerText: '', answerExplanation: '', isAnswer: false }],
           }
@@ -188,16 +289,53 @@ export function UcatQuestionStemDialog({
     })()
   }
 
+  const hasUnsavedChanges = form.formState.isDirty
+
+  const stemId = initial?.id
+
+  const headerActions =
+    stemId != null
+      ? (
+          <UcatRowActions
+            actions={[
+              {
+                label: 'Open in page',
+                icon: <ExternalLink className="h-4 w-4" />,
+                href: `/ucat/questions/${stemId}`,
+              },
+              ...(onDelete
+                ? [
+                    {
+                      label: 'Delete',
+                      icon: <Trash2 className="h-4 w-4" />,
+                      onClick: onDelete,
+                      destructive: true,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        )
+      : null
+
+  function handleRequestClose() {
+    if (!hasUnsavedChanges || window.confirm('Changes made will be lost. Close without saving?')) {
+      onClose()
+    }
+  }
+
   return (
     <UcatDialogShell
       open={open}
-      onClose={onClose}
+      onClose={handleRequestClose}
       title={title}
       subtitle="Create or update nested UCAT question stems"
       onSave={handleSave}
       saveLabel={submitLabel}
       saveDisabled={loading}
       isSaving={loading}
+      headerActions={headerActions}
+      hideCancel
     >
       <div className="h-full overflow-y-auto">
         <form className="flex flex-col" onSubmit={(e) => e.preventDefault()}>
@@ -216,6 +354,13 @@ export function UcatQuestionStemDialog({
                 <Select
                   value={form.watch('sectionId')}
                   onValueChange={(value) => {
+                    if (stemType === 'syllogism') {
+                      toast({
+                        description: 'Section is locked for syllogism stems.',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
                     form.setValue('sectionId', value, { shouldDirty: true })
                     form.setValue('categoryId', null, { shouldDirty: true })
                   }}
@@ -236,7 +381,16 @@ export function UcatQuestionStemDialog({
                 <span className="font-medium">Category</span>
                 <Select
                   value={form.watch('categoryId') ?? 'none'}
-                  onValueChange={(value) => form.setValue('categoryId', value === 'none' ? null : value, { shouldDirty: true })}
+                  onValueChange={(value) => {
+                    if (stemType === 'syllogism') {
+                      toast({
+                        description: 'Category is locked for syllogism stems.',
+                        variant: 'destructive',
+                      })
+                      return
+                    }
+                    form.setValue('categoryId', value === 'none' ? null : value, { shouldDirty: true })
+                  }}
                   disabled={!sectionId}
                 >
                   <SelectTrigger>
@@ -309,12 +463,49 @@ export function UcatQuestionStemDialog({
                   <span className="font-medium">Time burden (mm:ss or seconds)</span>
                   <Input type="text" placeholder="e.g. 1:30 or 90" {...form.register(`questions.${questionIndex}.timeBurdenSeconds`)} />
                 </label>
+                <label className="block space-y-1 text-sm">
+                  <span className="font-medium">Answer explanation</span>
+                  <Textarea
+                    rows={1}
+                    className="resize-y"
+                    {...form.register(`questions.${questionIndex}.answerExplanation`)}
+                  />
+                </label>
                 <Button
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() => remove(questionIndex)}
-                  className="w-full justify-center border-destructive text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    const questions = form.getValues('questions') ?? []
+                    const question = questions[questionIndex]
+
+                    const hasQuestionText =
+                      question && trimTextParagraphs(question.questionText ?? '') !== ''
+                    const hasOptionContent =
+                      question &&
+                      (question.options ?? []).some(
+                        (opt) =>
+                          trimTextParagraphs(opt.answerText ?? '') !== '' ||
+                          trimTextParagraphs(opt.answerExplanation ?? '') !== ''
+                      )
+
+                    if (
+                      !hasQuestionText &&
+                      !hasOptionContent
+                    ) {
+                      remove(questionIndex)
+                      return
+                    }
+
+                    if (
+                      window.confirm(
+                        'This will delete a question with content. Changes will be lost. Do you want to continue?'
+                      )
+                    ) {
+                      remove(questionIndex)
+                    }
+                  }}
+                  className="w-full justify-center border-destructive !text-destructive hover:!text-destructive hover:bg-destructive/10"
                 >
                   <Trash2 className="h-4 w-4 mr-2" />
                   Delete question
@@ -414,6 +605,7 @@ function QuestionOptionsEditor({
   const optionsArray = useFieldArray({ control: form.control, name: `questions.${questionIndex}.options` })
 
   const isMultipleChoice = stemType === 'multiple_choice'
+  const isSyllogism = stemType === 'syllogism'
   const optionsLabel = isMultipleChoice ? 'Answer options' : 'Statements'
 
   const correctIndex = optionsArray.fields.findIndex(
@@ -431,35 +623,68 @@ function QuestionOptionsEditor({
     <div className="rounded border bg-muted/20 p-3 space-y-2">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium">{optionsLabel}</h4>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={() => optionsArray.append({ answerText: '', answerExplanation: '', isAnswer: false })}
-        >
-          Add
-        </Button>
+        {!isSyllogism && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => optionsArray.append({ answerText: '', answerExplanation: '', isAnswer: false })}
+          >
+            Add
+          </Button>
+        )}
       </div>
 
       {isMultipleChoice ? (
         <RadioGroup value={correctValue} onValueChange={(v) => setCorrectIndex(Number(v))}>
           {optionsArray.fields.map((option, optionIndex) => (
-            <div key={option.id} className="grid gap-2 md:grid-cols-[1fr,auto,auto] items-center">
-              <Input
+            <div
+              key={option.id}
+              className="grid gap-2 md:grid-cols-[minmax(0,2fr),auto,minmax(0,2fr),auto] items-start"
+            >
+              <Textarea
+                rows={1}
+                className="resize-y"
                 placeholder="Option text"
                 {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerText`)}
               />
-              <label htmlFor={`q-${questionIndex}-opt-${optionIndex}-correct`} className="flex items-center gap-2 shrink-0 cursor-pointer">
+              <label
+                htmlFor={`q-${questionIndex}-opt-${optionIndex}-correct`}
+                className="flex items-center gap-2 shrink-0 cursor-pointer"
+              >
                 <RadioGroupItem id={`q-${questionIndex}-opt-${optionIndex}-correct`} value={String(optionIndex)} />
                 <span className="text-sm">Correct</span>
               </label>
+              <Textarea
+                rows={1}
+                className="resize-y"
+                placeholder="Explanation (optional)"
+                {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerExplanation`)}
+              />
               {optionsArray.fields.length > 1 && (
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  onClick={() => optionsArray.remove(optionIndex)}
-                  className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  onClick={() => {
+                    const option = form.getValues(
+                      `questions.${questionIndex}.options.${optionIndex}`
+                    )
+                    const hasContent =
+                      option &&
+                      (trimTextParagraphs(option.answerText ?? '') !== '' ||
+                        trimTextParagraphs(option.answerExplanation ?? '') !== '')
+
+                    if (
+                      !hasContent ||
+                      window.confirm(
+                        'This will delete an answer option with content. Changes will be lost. Do you want to continue?'
+                      )
+                    ) {
+                      optionsArray.remove(optionIndex)
+                    }
+                  }}
+                  className="shrink-0 !text-destructive hover:!text-destructive hover:bg-destructive/10 self-center"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -469,29 +694,63 @@ function QuestionOptionsEditor({
         </RadioGroup>
       ) : (
         optionsArray.fields.map((option, optionIndex) => (
-          <div key={option.id} className="grid gap-2 md:grid-cols-[1fr,auto,auto] items-center">
-            <Input
+          <div
+            key={option.id}
+            className="grid gap-2 md:grid-cols-[minmax(0,2fr),auto,minmax(0,2fr),auto] items-start"
+          >
+            <Textarea
+              rows={1}
+              className="resize-y"
               placeholder="Statement"
               {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerText`)}
             />
             <Tabs
               value={form.watch(`questions.${questionIndex}.options.${optionIndex}.isAnswer`) ? 'yes' : 'no'}
               onValueChange={(v) =>
-                form.setValue(`questions.${questionIndex}.options.${optionIndex}.isAnswer`, v === 'yes', { shouldDirty: true })
+                form.setValue(`questions.${questionIndex}.options.${optionIndex}.isAnswer`, v === 'yes', {
+                  shouldDirty: true,
+                })
               }
             >
               <TabsList className="h-9">
-                <TabsTrigger value="yes" className="px-3 text-xs">Yes</TabsTrigger>
-                <TabsTrigger value="no" className="px-3 text-xs">No</TabsTrigger>
+                <TabsTrigger value="yes" className="px-3 text-xs">
+                  Yes
+                </TabsTrigger>
+                <TabsTrigger value="no" className="px-3 text-xs">
+                  No
+                </TabsTrigger>
               </TabsList>
             </Tabs>
-            {optionsArray.fields.length > 1 && (
+            <Textarea
+              rows={1}
+              className="resize-y"
+              placeholder="Explanation (optional)"
+              {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerExplanation`)}
+            />
+            {!isSyllogism && optionsArray.fields.length > 1 && (
               <Button
                 type="button"
                 variant="ghost"
                 size="icon"
-                onClick={() => optionsArray.remove(optionIndex)}
-                className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={() => {
+                  const option = form.getValues(
+                    `questions.${questionIndex}.options.${optionIndex}`
+                  )
+                  const hasContent =
+                    option &&
+                    (trimTextParagraphs(option.answerText ?? '') !== '' ||
+                      trimTextParagraphs(option.answerExplanation ?? '') !== '')
+
+                  if (
+                    !hasContent ||
+                    window.confirm(
+                      'This will delete an answer option with content. Changes will be lost. Do you want to continue?'
+                    )
+                  ) {
+                    optionsArray.remove(optionIndex)
+                  }
+                }}
+                className="shrink-0 !text-destructive hover:!text-destructive hover:bg-destructive/10 self-center"
               >
                 <Trash2 className="h-4 w-4" />
               </Button>
