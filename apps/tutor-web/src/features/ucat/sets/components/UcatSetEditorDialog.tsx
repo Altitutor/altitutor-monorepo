@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@altitutor/ui'
+import { Button, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -11,10 +11,19 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 import {
   useUcatCategories,
+  useUcatQuestionDetail,
   useUcatSections,
   useUcatStemCatalog,
+  useUcatTags,
+  useUpdateUcatQuestionStem,
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -23,10 +32,12 @@ export function UcatSetEditorDialog({
   open,
   setId,
   onClose,
+  onDelete,
 }: {
   open: boolean
   setId: string | null
   onClose: () => void
+  onDelete?: () => void
 }) {
   const detail = useUcatSetDetail(open ? setId : null)
   const updateSet = useUpdateUcatSet()
@@ -35,6 +46,8 @@ export function UcatSetEditorDialog({
   const stemCatalog = stemCatalogQuery.data ?? []
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
+  const tagsQuery = useUcatTags()
+  const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
@@ -68,6 +81,9 @@ export function UcatSetEditorDialog({
   }, [detail.data])
 
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+
+  const stemDetail = useUcatQuestionDetail(editingStemId)
+  const updateStemMutation = useUpdateUcatQuestionStem()
 
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
@@ -165,6 +181,35 @@ export function UcatSetEditorDialog({
     })
   }, [stemCatalog, draftStemIds, search, filters])
 
+  async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
+    if (!editingStemId) return
+
+    const mapped: UcatQuestionStemBundlePayload = {
+      stemId: editingStemId,
+      sectionId: payload.sectionId,
+      categoryId: payload.categoryId || null,
+      stemText: payload.stemText,
+      isPrivate: payload.isPrivate,
+      questions: payload.questions.map((question, index) => ({
+        index: index + 1,
+        questionText: question.questionText,
+        questionType: question.questionType,
+        difficulty: question.difficulty,
+        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
+        tagIds: question.tagIds ?? [],
+        options: question.options.map((option, optionIndex) => ({
+          index: optionIndex + 1,
+          answerText: option.answerText,
+          answerExplanation: option.answerExplanation,
+          isAnswer: option.isAnswer,
+        })),
+      })),
+    }
+
+    await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
+    setEditingStemId(null)
+  }
+
   async function save() {
     if (!setId) return
     await updateSet.mutateAsync({
@@ -182,17 +227,50 @@ export function UcatSetEditorDialog({
     onClose()
   }
 
+  function handleRequestClose() {
+    if (!isDirty || window.confirm('Changes made will be lost. Close without saving?')) {
+      onClose()
+    }
+  }
+
+  const headerActions =
+    setId != null
+      ? (
+          <UcatRowActions
+            actions={[
+              {
+                label: 'Open in page',
+                href: `/ucat/sets/${setId}`,
+              },
+              ...(onDelete
+                ? [
+                    {
+                      label: 'Delete',
+                      icon: <Trash2 className="h-4 w-4" />,
+                      onClick: onDelete,
+                      destructive: true,
+                    },
+                  ]
+                : []),
+            ]}
+          />
+        )
+      : null
+
   return (
-    <UcatDialogShell
-      open={open}
-      onClose={onClose}
-      title="Edit Set"
-      subtitle="Reorder stems and update set properties"
-      onSave={save}
-      saveDisabled={!isDirty || updateSet.isPending}
-      isSaving={updateSet.isPending}
-    >
-      <div className="h-full flex">
+    <>
+      <UcatDialogShell
+        open={open}
+        onClose={handleRequestClose}
+        title="Edit Set"
+        subtitle="Reorder stems and update set properties"
+        onSave={save}
+        saveDisabled={!isDirty || updateSet.isPending}
+        isSaving={updateSet.isPending}
+        headerActions={headerActions}
+        hideCancel
+      >
+        <div className="h-full flex">
         <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">
           <h2 className="font-semibold">Stems in Set</h2>
 
@@ -200,6 +278,7 @@ export function UcatSetEditorDialog({
             ids={draftStemIds}
             onChange={setDraftStemIds}
             onRemove={(id) => setDraftStemIds((prev) => prev.filter((stemId) => stemId !== id))}
+            onEdit={(id) => setEditingStemId(id)}
             renderLabel={(id, index) => {
               const stem = stemCatalog.find((item) => item.id === id)
               return (
@@ -235,26 +314,42 @@ export function UcatSetEditorDialog({
             </div>
             <div className="max-h-52 space-y-1 overflow-auto">
               {filteredCatalog.slice(0, 40).map((stem) => (
-                <button
+                <div
                   key={stem.id}
-                  type="button"
-                  className="block w-full rounded border px-2 py-2 text-left text-sm hover:bg-muted"
-                  onClick={() => setDraftStemIds((prev) => [...prev, stem.id])}
+                  className="flex w-full items-start justify-between gap-2 rounded border px-2 py-2 text-left text-sm hover:bg-muted"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="line-clamp-2 break-words text-xs sm:text-sm">
-                        {stem.text || stem.id}
-                      </div>
-                      <div className="mt-1 text-[11px] text-muted-foreground">
-                        {stem.sectionNumber}. {stem.sectionName}
-                      </div>
+                  <div className="min-w-0">
+                    <div className="line-clamp-2 break-words text-xs sm:text-sm">
+                      {stem.text || stem.id}
                     </div>
-                    <div className="ml-2 shrink-0 text-xs text-muted-foreground">
-                      {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
+                    <div className="mt-1 text-[11px] text-muted-foreground">
+                      {stem.sectionNumber}. {stem.sectionName}
                     </div>
                   </div>
-                </button>
+                  <div className="ml-2 flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => setEditingStemId(stem.id)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => setDraftStemIds((prev) => [...prev, stem.id])}
+                    >
+                      <Plus className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               ))}
             </div>
           </div>
@@ -286,6 +381,22 @@ export function UcatSetEditorDialog({
           </label>
         </aside>
       </div>
-    </UcatDialogShell>
+      </UcatDialogShell>
+
+      <UcatQuestionStemDialog
+        open={!!editingStemId}
+        title="Edit Question Stem"
+        submitLabel="Save"
+        onClose={() => setEditingStemId(null)}
+        onSubmit={handleStemUpdate}
+        sections={(sectionsQuery.data ?? []).map((section) => ({ id: section.id, name: section.name }))}
+        categories={
+          (categoriesQuery.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]
+        }
+        tags={(tagsQuery.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
+        initial={stemDetail.data}
+        loading={updateStemMutation.isPending || stemDetail.isLoading}
+      />
+    </>
   )
 }

@@ -96,6 +96,7 @@ export function useUpdateUcatQuestionStem() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },
   })
 }

@@ -3,7 +3,7 @@
 import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Trash2 } from 'lucide-react'
+import { GripVertical, Minus, Pencil } from 'lucide-react'
 import { Button } from '@altitutor/ui'
 
 export function UcatSortableList({
@@ -11,11 +11,13 @@ export function UcatSortableList({
   renderLabel,
   onChange,
   onRemove,
+  onEdit,
 }: {
   ids: string[]
   renderLabel: (id: string, index: number) => React.ReactNode
   onChange: (ids: string[]) => void
   onRemove: (id: string) => void
+  onEdit?: (id: string) => void
 }) {
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -35,7 +37,13 @@ export function UcatSortableList({
       <SortableContext items={ids} strategy={verticalListSortingStrategy}>
         <div className="space-y-2">
           {ids.map((id, index) => (
-            <SortableRow key={id} id={id} label={renderLabel(id, index)} onRemove={() => onRemove(id)} />
+            <SortableRow
+              key={id}
+              id={id}
+              label={renderLabel(id, index)}
+              onRemove={() => onRemove(id)}
+              onEdit={onEdit ? () => onEdit(id) : undefined}
+            />
           ))}
         </div>
       </SortableContext>
@@ -43,7 +51,17 @@ export function UcatSortableList({
   )
 }
 
-function SortableRow({ id, label, onRemove }: { id: string; label: React.ReactNode; onRemove: () => void }) {
+function SortableRow({
+  id,
+  label,
+  onRemove,
+  onEdit,
+}: {
+  id: string
+  label: React.ReactNode
+  onRemove: () => void
+  onEdit?: () => void
+}) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -63,10 +81,28 @@ function SortableRow({ id, label, onRemove }: { id: string; label: React.ReactNo
           </button>
           <div className="text-sm">{label}</div>
         </div>
-        <Button type="button" variant="outline" size="sm" className="h-8 px-2" onClick={onRemove}>
-          <Trash2 className="h-4 w-4 mr-1" />
-          <span className="text-xs">Remove</span>
-        </Button>
+        <div className="flex items-center gap-1">
+          {onEdit && (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              className="text-muted-foreground hover:text-foreground"
+              onClick={onEdit}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="!text-destructive border-destructive hover:!text-destructive hover:bg-destructive/10"
+            onClick={onRemove}
+          >
+            <Minus className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     </div>
   )
