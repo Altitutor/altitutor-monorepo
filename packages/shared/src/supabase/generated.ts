@@ -11584,6 +11584,10 @@ export type Database = {
         }
         Returns: string
       }
+      extract_image_file_ids_from_doc: {
+        Args: { p_doc: Json }
+        Returns: string[]
+      }
       extract_text_from_prosemirror_json: {
         Args: { json_content: Json }
         Returns: string
@@ -12037,6 +12041,10 @@ export type Database = {
       tutor_ucat_assign_set_sessions: {
         Args: { p_session_ids: Json; p_set_id: string }
         Returns: undefined
+      }
+      tutor_ucat_bulk_upsert_question_stem_bundles: {
+        Args: { p_section_id: string; p_stems: Json }
+        Returns: string[]
       }
       tutor_ucat_delete_mock: {
         Args: { p_mock_id: string }
