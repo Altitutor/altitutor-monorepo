@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { Button, Checkbox, DataTable, DataTableToolbar, Input } from '@altitutor/ui'
 import { Pencil, Trash2 } from 'lucide-react'
 import { useCreateUcatMock, useDeleteUcatMock, useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { applyBooleanTextFilter, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyBooleanTextFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -37,6 +37,12 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'updated_at', label: 'Updated', visibleByDefault: true },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
+]
+
+const sortOptions: DataTableSortOption[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'visibility', label: 'Visibility' },
+  { key: 'updated_at', label: 'Updated' },
 ]
 
 export function UcatMocksPage() {
@@ -72,6 +78,16 @@ export function UcatMocksPage() {
       return searchHit && visibilityHit
     })
   }, [rows, tableState.state])
+
+  const sortedRows = useMemo(
+    () =>
+      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
+        name: (r) => r.name,
+        visibility: (r) => (r.is_private ? 'Private' : 'Public'),
+        updated_at: (r) => r.updated_at ?? '',
+      }),
+    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
+  )
 
   const allColumns: Array<{ key: string; column: ColumnDef<MockRow> }> = [
     { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
@@ -144,11 +160,12 @@ export function UcatMocksPage() {
         onReset={tableState.actions.onReset}
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
+        sortOptions={sortOptions}
         searchPlaceholder="Search mocks"
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={filteredRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
       </div>
 
       <UcatDialogShell

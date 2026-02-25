@@ -2,13 +2,13 @@
 
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { DataTable, DataTableToolbar } from '@altitutor/ui'
 import { Eye } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatClassStudentIds, useUcatClasses, useUcatStudentProgress } from '@/features/ucat/students/hooks/useUcatStudents'
-import { useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 
 type StudentRow = {
@@ -29,6 +29,15 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'avg_scaled_score', label: 'Avg Scaled', visibleByDefault: true },
   { key: 'last_attempted_at', label: 'Last Attempted', visibleByDefault: true },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
+]
+
+const sortOptions: DataTableSortOption[] = [
+  { key: 'student_name', label: 'Student' },
+  { key: 'total_sets_attempted', label: 'Sets' },
+  { key: 'total_mocks_attempted', label: 'Mocks' },
+  { key: 'avg_score_points', label: 'Avg Score' },
+  { key: 'avg_scaled_score', label: 'Avg Scaled' },
+  { key: 'last_attempted_at', label: 'Last Attempted' },
 ]
 
 export function UcatStudentsPage() {
@@ -60,6 +69,19 @@ export function UcatStudentsPage() {
       return searchHit && classHit
     })
   }, [rows, tableState.state.search, classStudents.data, classFilter])
+
+  const sortedRows = useMemo(
+    () =>
+      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
+        student_name: (r) => r.student_name,
+        total_sets_attempted: (r) => r.total_sets_attempted,
+        total_mocks_attempted: (r) => r.total_mocks_attempted,
+        avg_score_points: (r) => r.avg_score_points ?? -1,
+        avg_scaled_score: (r) => r.avg_scaled_score ?? -1,
+        last_attempted_at: (r) => r.last_attempted_at ?? '',
+      }),
+    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
+  )
 
   const allColumns: Array<{ key: string; column: ColumnDef<StudentRow> }> = [
     { key: 'student_name', column: { accessorKey: 'student_name', header: 'Student' } },
@@ -144,11 +166,12 @@ export function UcatStudentsPage() {
         onReset={tableState.actions.onReset}
         filterDefinitions={classFilters}
         columnDefinitions={columnDefinitions}
+        sortOptions={sortOptions}
         searchPlaceholder="Search students"
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={filteredRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
       </div>
     </div>
   )

@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
   Badge,
   Button,
@@ -21,6 +21,7 @@ import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import {
   applyBooleanTextFilter,
   applyRangeFilter,
+  applySort,
   applySingleSelectFilter,
   useUcatTableState,
   useVisibleColumns,
@@ -94,6 +95,15 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
 
+const sortOptions: DataTableSortOption[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'time_limit_seconds', label: 'Time Limit' },
+  { key: 'stem_count', label: 'Question stems' },
+  { key: 'question_count', label: 'Questions' },
+  { key: 'visibility', label: 'Visibility' },
+  { key: 'created_by', label: 'Created by' },
+]
+
 export function UcatSetsPage() {
   const searchParams = useSearchParams()
   const access = useUcatAccess()
@@ -156,6 +166,20 @@ export function UcatSetsPage() {
       return searchHit && visibilityHit && originHit && timeLimitHit && stemCountHit && questionCountHit
     })
   }, [rows, tableState.state])
+
+  const sortedRows = useMemo(
+    () =>
+      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
+        name: (r) => r.name,
+        time_limit_seconds: (r) => r.time_limit_seconds ?? -1,
+        stem_count: (r) => r.stem_count,
+        question_count: (r) => r.question_count,
+        visibility: (r) => (r.is_private ? 'Private' : 'Public'),
+        created_by: (r) =>
+          r.is_student_generated ? 'Student' : [r.created_by_first_name, r.created_by_last_name].filter(Boolean).join(' ') || '',
+      }),
+    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
+  )
 
   const allColumns: Array<{ key: string; column: ColumnDef<SetRow> }> = [
     { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
@@ -275,11 +299,12 @@ export function UcatSetsPage() {
         onReset={tableState.actions.onReset}
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
+        sortOptions={sortOptions}
         searchPlaceholder="Search sets"
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={filteredRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
       </div>
 
       <UcatDialogShell

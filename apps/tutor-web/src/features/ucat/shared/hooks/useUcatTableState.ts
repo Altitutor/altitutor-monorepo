@@ -109,3 +109,28 @@ export function applyRangeFilter(
   if (max != null && value > max) return false
   return true
 }
+
+function compareSortValues(a: unknown, b: unknown, direction: 'asc' | 'desc'): number {
+  const na = a == null ? NaN : Number(a)
+  const nb = b == null ? NaN : Number(b)
+  if (Number.isFinite(na) && Number.isFinite(nb)) {
+    const cmp = na - nb
+    return direction === 'asc' ? cmp : -cmp
+  }
+  const sa = a == null ? '' : String(a)
+  const sb = b == null ? '' : String(b)
+  const cmp = sa.localeCompare(sb, undefined, { numeric: true })
+  return direction === 'asc' ? cmp : -cmp
+}
+
+/** Sort rows by sortBy key using accessors; returns new array. No-op if sortBy is null. */
+export function applySort<T>(
+  rows: T[],
+  sortBy: string | null,
+  sortDirection: 'asc' | 'desc',
+  accessors: Record<string, (row: T) => unknown>
+): T[] {
+  if (!sortBy || !accessors[sortBy]) return rows
+  const getVal = accessors[sortBy]
+  return [...rows].sort((a, b) => compareSortValues(getVal(a), getVal(b), sortDirection))
+}

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
   Button,
   DataTable,
@@ -18,7 +18,7 @@ import {
 import { Pencil, Trash2 } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { applySingleSelectFilter, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyRangeFilter, applySingleSelectFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { useCreateUcatSection, useDeleteUcatSection, useUcatSections, useUpdateUcatSection } from '@/features/ucat/sections/hooks/useUcatSections'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
@@ -30,7 +30,9 @@ type SectionRow = {
   name: string
   display_columns: number
   description: string
-  updated_at: string | null
+  time_limit_seconds: number | null
+  number_of_questions: number | null
+  time_per_question: number | null
 }
 
 type SectionDraft = {
@@ -49,14 +51,46 @@ const filterDefinitions: DataTableFilterDefinition[] = [
       { label: '2 Columns', value: '2' },
     ],
   },
+  {
+    type: 'number-range',
+    key: 'time_limit_seconds',
+    label: 'Time limit',
+    minKey: 'time_limit_seconds_min',
+    maxKey: 'time_limit_seconds_max',
+  },
+  {
+    type: 'number-range',
+    key: 'number_of_questions',
+    label: 'Number of questions',
+    minKey: 'number_of_questions_min',
+    maxKey: 'number_of_questions_max',
+  },
+  {
+    type: 'number-range',
+    key: 'time_per_question',
+    label: 'Time per question',
+    minKey: 'time_per_question_min',
+    maxKey: 'time_per_question_max',
+  },
 ]
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'section_number', label: 'Section #', visibleByDefault: true },
   { key: 'name', label: 'Name', visibleByDefault: true },
-  { key: 'display_columns', label: 'Display', visibleByDefault: true },
-  { key: 'updated_at', label: 'Updated', visibleByDefault: true },
+  { key: 'display_columns', label: 'Display', visibleByDefault: false },
+  { key: 'time_limit_seconds', label: 'Time limit', visibleByDefault: true },
+  { key: 'number_of_questions', label: 'Number of questions', visibleByDefault: true },
+  { key: 'time_per_question', label: 'Time per question', visibleByDefault: true },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
+]
+
+const sortOptions: DataTableSortOption[] = [
+  { key: 'section_number', label: 'Section #' },
+  { key: 'name', label: 'Name' },
+  { key: 'display_columns', label: 'Display' },
+  { key: 'time_limit_seconds', label: 'Time limit' },
+  { key: 'number_of_questions', label: 'Number of questions' },
+  { key: 'time_per_question', label: 'Time per question' },
 ]
 
 const emptyDraft: SectionDraft = {
@@ -78,14 +112,23 @@ export function UcatSectionsPage() {
   const [editing, setEditing] = useState<SectionRow | null>(null)
   const [draft, setDraft] = useState<SectionDraft>(emptyDraft)
 
-  const rows: SectionRow[] = (sections.data ?? []).map((row) => ({
-    id: row.id ?? '',
-    section_number: row.section_number ?? 0,
-    name: row.name ?? '',
-    display_columns: row.display_columns ?? 2,
-    description: proseMirrorToPlainText(row.description),
-    updated_at: row.updated_at ?? null,
-  }))
+  const rows: SectionRow[] = (sections.data ?? []).map((row) => {
+    const r = row as typeof row & {
+      time_limit_seconds?: number | null
+      number_of_questions?: number | null
+      time_per_question?: number | null
+    }
+    return {
+      id: r.id ?? '',
+      section_number: r.section_number ?? 0,
+      name: r.name ?? '',
+      display_columns: r.display_columns ?? 2,
+      description: proseMirrorToPlainText(r.description),
+      time_limit_seconds: r.time_limit_seconds ?? null,
+      number_of_questions: r.number_of_questions ?? null,
+      time_per_question: r.time_per_question ?? null,
+    }
+  })
 
   const filteredRows = useMemo(() => {
     const search = tableState.state.search.trim().toLowerCase()
@@ -96,9 +139,40 @@ export function UcatSectionsPage() {
         row.name.toLowerCase().includes(search) ||
         String(row.section_number).includes(search)
       const columnsHit = applySingleSelectFilter(tableState.state, 'display_columns', String(row.display_columns))
-      return searchHit && columnsHit
+      const timeLimitHit = applyRangeFilter(
+        tableState.state,
+        'time_limit_seconds_min',
+        'time_limit_seconds_max',
+        row.time_limit_seconds
+      )
+      const numQuestionsHit = applyRangeFilter(
+        tableState.state,
+        'number_of_questions_min',
+        'number_of_questions_max',
+        row.number_of_questions
+      )
+      const timePerQHit = applyRangeFilter(
+        tableState.state,
+        'time_per_question_min',
+        'time_per_question_max',
+        row.time_per_question
+      )
+      return searchHit && columnsHit && timeLimitHit && numQuestionsHit && timePerQHit
     })
   }, [rows, tableState.state])
+
+  const sortedRows = useMemo(
+    () =>
+      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
+        section_number: (r) => r.section_number,
+        name: (r) => r.name,
+        display_columns: (r) => r.display_columns,
+        time_limit_seconds: (r) => r.time_limit_seconds ?? -1,
+        number_of_questions: (r) => r.number_of_questions ?? -1,
+        time_per_question: (r) => r.time_per_question ?? -1,
+      }),
+    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
+  )
 
   const allColumns: Array<{ key: string; column: ColumnDef<SectionRow> }> = [
     { key: 'section_number', column: { accessorKey: 'section_number', header: 'Section #' } },
@@ -112,18 +186,38 @@ export function UcatSectionsPage() {
       },
     },
     {
-      key: 'updated_at',
+      key: 'time_limit_seconds',
       column: {
-        accessorKey: 'updated_at',
-        header: 'Updated',
-        cell: ({ row }) => (row.original.updated_at ? new Date(row.original.updated_at).toLocaleString() : '-'),
+        accessorKey: 'time_limit_seconds',
+        header: 'Time limit',
+        cell: ({ row }) =>
+          row.original.time_limit_seconds != null ? `${row.original.time_limit_seconds}s` : '-',
+      },
+    },
+    {
+      key: 'number_of_questions',
+      column: {
+        accessorKey: 'number_of_questions',
+        header: 'Number of questions',
+        cell: ({ row }) => row.original.number_of_questions ?? '-',
+      },
+    },
+    {
+      key: 'time_per_question',
+      column: {
+        accessorKey: 'time_per_question',
+        header: 'Time per question',
+        cell: ({ row }) =>
+          row.original.time_per_question != null
+            ? `${Number(row.original.time_per_question).toFixed(1)}s`
+            : '-',
       },
     },
     {
       key: 'actions',
       column: {
         id: 'actions',
-        header: 'Actions',
+        header: '',
         cell: ({ row }) => (
           <div className="flex justify-end">
             <UcatRowActions
@@ -207,11 +301,12 @@ export function UcatSectionsPage() {
         onReset={tableState.actions.onReset}
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
+        sortOptions={sortOptions}
         searchPlaceholder="Search sections"
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={filteredRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
       </div>
 
       <UcatDialogShell

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
+import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { Button, DataTable, DataTableToolbar } from '@altitutor/ui'
 import { Pencil, Trash2 } from 'lucide-react'
 import {
@@ -21,7 +21,7 @@ import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@altitutor/shared'
-import { applyBooleanTextFilter, applySingleSelectFilter, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyBooleanTextFilter, applySingleSelectFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 
 type QuestionRow = {
@@ -66,6 +66,15 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'updated_at', label: 'Updated', visibleByDefault: true },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
+]
+
+const sortOptions: DataTableSortOption[] = [
+  { key: 'section_name', label: 'Section' },
+  { key: 'category_name', label: 'Category' },
+  { key: 'question_count', label: 'Questions' },
+  { key: 'type_summary', label: 'Type' },
+  { key: 'visibility', label: 'Visibility' },
+  { key: 'updated_at', label: 'Updated' },
 ]
 
 export function UcatQuestionsPage() {
@@ -146,6 +155,19 @@ export function UcatQuestionsPage() {
       return searchHit && sectionHit && categoryHit && visibilityHit && typeHit
     })
   }, [rows, tableState.state])
+
+  const sortedRows = useMemo(
+    () =>
+      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
+        section_name: (r) => r.section_name,
+        category_name: (r) => r.category_name ?? '',
+        question_count: (r) => r.question_count,
+        type_summary: (r) => r.type_summary,
+        visibility: (r) => (r.is_private ? 'Private' : 'Public'),
+        updated_at: (r) => r.updated_at ?? '',
+      }),
+    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
+  )
 
   const allColumns: Array<{ key: string; column: ColumnDef<QuestionRow> }> = [
     { key: 'section_name', column: { accessorKey: 'section_name', header: 'Section' } },
@@ -285,11 +307,12 @@ export function UcatQuestionsPage() {
         onReset={tableState.actions.onReset}
         filterDefinitions={sectionFilterDefs}
         columnDefinitions={columnDefinitions}
+        sortOptions={sortOptions}
         searchPlaceholder="Search questions"
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={filteredRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
       </div>
 
       <UcatQuestionStemDialog
