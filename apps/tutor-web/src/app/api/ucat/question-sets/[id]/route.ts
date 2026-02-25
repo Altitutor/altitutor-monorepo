@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
@@ -7,9 +7,9 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
   try {
     const body = await request.json()
-    const userClient = access.userClient
+    const client = access.userClient as unknown as UcatTutorSupabaseClient
 
-    const { data, error } = await (userClient as any).rpc('tutor_ucat_upsert_question_set', {
+    const { data, error } = await client.rpc('tutor_ucat_upsert_question_set', {
       p_set_id: params.id,
       p_name: body.name ?? null,
       p_description: body.description ?? {},
@@ -30,8 +30,8 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
 
-  const userClient = access.userClient
-  const { error } = await (userClient as any).rpc('tutor_ucat_delete_question_set', { p_set_id: params.id })
+  const client = access.userClient as unknown as UcatTutorSupabaseClient
+  const { error } = await client.rpc('tutor_ucat_delete_question_set', { p_set_id: params.id })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
   return NextResponse.json({ ok: true })

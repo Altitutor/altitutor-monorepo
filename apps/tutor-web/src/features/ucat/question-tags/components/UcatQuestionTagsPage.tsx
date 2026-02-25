@@ -1,6 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import type { DataTableSortOption } from '@altitutor/shared'
 import {
   Button,
   DataTableToolbar,
@@ -21,13 +22,14 @@ import {
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import {
   useCreateUcatQuestionTag,
   useDeleteUcatQuestionTag,
   useUcatQuestionTags,
   useUpdateUcatQuestionTag,
 } from '@/features/ucat/question-tags/hooks/useUcatQuestionTags'
+import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -52,18 +54,29 @@ const emptyDraft: TagDraft = {
   description: '',
 }
 
+const tagSortOptions: DataTableSortOption[] = [
+  { key: 'name', label: 'Name' },
+  { key: 'question_count', label: 'Number of questions' },
+]
+
 function buildTagTree(
   rows: TagRow[],
   expanded: Set<string>,
   parentId: string | null,
-  level: number
+  level: number,
+  sortBy: string | null,
+  sortDirection: 'asc' | 'desc'
 ): Array<{ row: TagRow; level: number }> {
   const out: Array<{ row: TagRow; level: number }> = []
-  const children = rows.filter((r) => (parentId === null ? !r.parent_id : r.parent_id === parentId))
+  let children = rows.filter((r) => (parentId === null ? !r.parent_id : r.parent_id === parentId))
+  children = applySort(children, sortBy, sortDirection, {
+    name: (r) => r.name,
+    question_count: (r) => r.question_count,
+  })
   for (const row of children) {
     out.push({ row, level })
     if (expanded.has(row.id)) {
-      out.push(...buildTagTree(rows, expanded, row.id, level + 1))
+      out.push(...buildTagTree(rows, expanded, row.id, level + 1, sortBy, sortDirection))
     }
   }
   return out
@@ -79,6 +92,7 @@ export function UcatQuestionTagsPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<TagRow | null>(null)
+  const [deletingTagId, setDeletingTagId] = useState<string | null>(null)
   const [draft, setDraft] = useState<TagDraft>(emptyDraft)
   const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set())
 
@@ -105,8 +119,21 @@ export function UcatQuestionTagsPage() {
   }, [rows, tableState.state.search])
 
   const flatTree = useMemo(
-    () => buildTagTree(filteredRows, expandedTags, null, 0),
-    [filteredRows, expandedTags]
+    () =>
+      buildTagTree(
+        filteredRows,
+        expandedTags,
+        null,
+        0,
+        tableState.state.sortBy,
+        tableState.state.sortDirection
+      ),
+    [filteredRows, expandedTags, tableState.state.sortBy, tableState.state.sortDirection]
+  )
+
+  const parentOptions = useMemo(
+    () => rows.filter((r) => r.id !== editing?.id),
+    [rows, editing?.id]
   )
 
   const toggleExpanded = (id: string) => {
@@ -147,11 +174,6 @@ export function UcatQuestionTagsPage() {
     setDraft(emptyDraft)
   }
 
-  const parentOptions = useMemo(
-    () => rows.filter((r) => r.id !== editing?.id),
-    [rows, editing?.id]
-  )
-
   return (
     <div className="p-6">
       <UcatPageHeader
@@ -176,10 +198,12 @@ export function UcatQuestionTagsPage() {
           { key: 'question_count', label: 'Number of questions', visibleByDefault: true },
           { key: 'actions', label: 'Actions', visibleByDefault: true },
         ]}
+        sortOptions={tagSortOptions}
         searchPlaceholder="Search tags"
       />
 
-      <div className="pt-3 rounded-md border">
+      <div className="pt-3">
+        <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -238,7 +262,7 @@ export function UcatQuestionTagsPage() {
                             {
                               label: 'Delete',
                               icon: <Trash2 className="h-4 w-4" />,
-                              onClick: () => deleteTag.mutate(row.id),
+                              onClick: () => setDeletingTagId(row.id),
                               destructive: true,
                             },
                           ]}
@@ -251,6 +275,7 @@ export function UcatQuestionTagsPage() {
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <UcatDialogShell
@@ -266,7 +291,9 @@ export function UcatQuestionTagsPage() {
         saveDisabled={createTag.isPending}
         isSaving={createTag.isPending}
       >
-        <TagForm draft={draft} setDraft={setDraft} parentOptions={parentOptions} />
+        <div className="p-6 overflow-y-auto h-full">
+          <TagForm draft={draft} setDraft={setDraft} parentOptions={parentOptions} />
+        </div>
       </UcatDialogShell>
 
       <UcatDialogShell
@@ -281,8 +308,18 @@ export function UcatQuestionTagsPage() {
         saveDisabled={updateTag.isPending}
         isSaving={updateTag.isPending}
       >
-        <TagForm draft={draft} setDraft={setDraft} parentOptions={parentOptions} />
+        <div className="p-6 overflow-y-auto h-full">
+          <TagForm draft={draft} setDraft={setDraft} parentOptions={parentOptions} />
+        </div>
       </UcatDialogShell>
+      <UcatDeleteConfirmDialog
+        open={!!deletingTagId}
+        onOpenChange={(open) => !open && setDeletingTagId(null)}
+        title="Delete tag?"
+        description="This action cannot be undone."
+        onConfirm={async () => { if (deletingTagId) await deleteTag.mutateAsync(deletingTagId) }}
+        isPending={deleteTag.isPending}
+      />
     </div>
   )
 }

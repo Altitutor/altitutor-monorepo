@@ -1,12 +1,22 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
+import type { Resolver, UseFormReturn } from 'react-hook-form'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
   Checkbox,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
   Input,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   SelectContent,
   SelectItem,
@@ -17,7 +27,11 @@ import {
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+
+export type CategoryOption = { id: string | null; name: string | null; ucat_section_id?: string | null }
+export type TagOption = { id: string; name: string }
 
 export function UcatQuestionStemDialog({
   open,
@@ -27,6 +41,7 @@ export function UcatQuestionStemDialog({
   onSubmit,
   sections,
   categories,
+  tags,
   initial,
   loading,
 }: {
@@ -36,7 +51,8 @@ export function UcatQuestionStemDialog({
   onClose: () => void
   onSubmit: (values: UcatQuestionStemFormValues) => Promise<void>
   sections: Array<{ id: string | null; name: string | null }>
-  categories: Array<{ id: string | null; name: string | null }>
+  categories: CategoryOption[]
+  tags: TagOption[]
   initial?: StemDetailRow | null
   loading?: boolean
 }) {
@@ -52,7 +68,7 @@ export function UcatQuestionStemDialog({
             questionText: '',
             questionType: 'multiple_choice',
             difficulty: null,
-            timeBurdenSeconds: null,
+            timeBurdenSeconds: '',
             tagIds: [],
             options: [
               { answerText: '', answerExplanation: '', isAnswer: true },
@@ -72,7 +88,7 @@ export function UcatQuestionStemDialog({
         questionText: proseMirrorToPlainText(question.question_text),
         questionType: question.question_type,
         difficulty: question.difficulty,
-        timeBurdenSeconds: question.time_burden_seconds,
+        timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
         tagIds: (question.tags ?? []).map((tag) => tag.id),
         options: (question.answer_options ?? []).map((option) => ({
           answerText: proseMirrorToPlainText(option.answer_text),
@@ -83,16 +99,31 @@ export function UcatQuestionStemDialog({
     }
   }, [initial, sections])
 
-  const form = useForm<any>({
-    resolver: zodResolver(ucatQuestionStemSchema) as any,
+  const form = useForm<UcatQuestionStemFormValues>({
+    resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
     defaultValues,
     values: defaultValues,
   })
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
 
+  const sectionId = form.watch('sectionId')
+  const categoriesFiltered = useMemo(
+    () => (sectionId ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId) : []),
+    [categories, sectionId]
+  )
+
   async function handleSave() {
-    await form.handleSubmit(onSubmit as any)()
+    await form.handleSubmit((values) => {
+      const transformed = {
+        ...values,
+        questions: values.questions.map((q: { timeBurdenSeconds?: string | null }) => ({
+          ...q,
+          timeBurdenSeconds: parseTimeToSeconds(q.timeBurdenSeconds ?? '') ?? null,
+        })),
+      }
+      return onSubmit(transformed as unknown as UcatQuestionStemFormValues)
+    })()
   }
 
   return (
@@ -106,11 +137,18 @@ export function UcatQuestionStemDialog({
       saveDisabled={loading}
       isSaving={loading}
     >
-      <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit as any)}>
+      <div className="p-6 overflow-y-auto h-full">
+      <form className="space-y-4" onSubmit={form.handleSubmit((data) => onSubmit(data))}>
         <div className="grid gap-3 md:grid-cols-2">
           <label className="space-y-1 text-sm">
             <span className="font-medium">Section</span>
-            <Select value={form.watch('sectionId')} onValueChange={(value) => form.setValue('sectionId', value, { shouldDirty: true })}>
+            <Select
+              value={form.watch('sectionId')}
+              onValueChange={(value) => {
+                form.setValue('sectionId', value, { shouldDirty: true })
+                form.setValue('categoryId', null, { shouldDirty: true })
+              }}
+            >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -129,13 +167,14 @@ export function UcatQuestionStemDialog({
             <Select
               value={form.watch('categoryId') ?? 'none'}
               onValueChange={(value) => form.setValue('categoryId', value === 'none' ? null : value, { shouldDirty: true })}
+              disabled={!sectionId}
             >
               <SelectTrigger>
-                <SelectValue />
+                <SelectValue placeholder={!sectionId ? 'Select section first' : undefined} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">No category</SelectItem>
-                {categories.map((category) => (
+                {categoriesFiltered.map((category) => (
                   <SelectItem key={category.id ?? 'none'} value={category.id ?? ''}>
                     {category.name ?? 'Untitled'}
                   </SelectItem>
@@ -174,6 +213,14 @@ export function UcatQuestionStemDialog({
                   <Textarea className="min-h-16" {...form.register(`questions.${questionIndex}.questionText`)} />
                 </label>
 
+                <label className="space-y-1 text-sm">
+                  <span>Tags</span>
+                  <QuestionTagsSelect
+                    questionIndex={questionIndex}
+                    form={form}
+                    tags={tags}
+                  />
+                </label>
                 <div className="space-y-2">
                   <label className="space-y-1 text-sm">
                     <span>Type</span>
@@ -197,8 +244,8 @@ export function UcatQuestionStemDialog({
                     <Input type="number" step="0.01" {...form.register(`questions.${questionIndex}.difficulty`)} />
                   </label>
                   <label className="space-y-1 text-sm">
-                    <span>Time burden (sec)</span>
-                    <Input type="number" {...form.register(`questions.${questionIndex}.timeBurdenSeconds`)} />
+                    <span>Time burden (mm:ss or seconds)</span>
+                    <Input type="text" placeholder="e.g. 1:30 or 90" {...form.register(`questions.${questionIndex}.timeBurdenSeconds`)} />
                   </label>
                 </div>
               </div>
@@ -216,7 +263,7 @@ export function UcatQuestionStemDialog({
               questionText: '',
               questionType: 'multiple_choice',
               difficulty: null,
-              timeBurdenSeconds: null,
+              timeBurdenSeconds: '',
               tagIds: [],
               options: [
                 { answerText: '', answerExplanation: '', isAnswer: true },
@@ -228,7 +275,63 @@ export function UcatQuestionStemDialog({
           Add Question
         </Button>
       </form>
+      </div>
     </UcatDialogShell>
+  )
+}
+
+function QuestionTagsSelect({
+  questionIndex,
+  form,
+  tags,
+}: {
+  questionIndex: number
+  form: UseFormReturn<UcatQuestionStemFormValues>
+  tags: TagOption[]
+}) {
+  const [open, setOpen] = useState(false)
+  const selectedIds = (form.watch(`questions.${questionIndex}.tagIds`) ?? []) as string[]
+  const selectedTags = tags.filter((t) => selectedIds.includes(t.id))
+
+  const toggleTag = (tagId: string) => {
+    const next = selectedIds.includes(tagId)
+      ? selectedIds.filter((id) => id !== tagId)
+      : [...selectedIds, tagId]
+    form.setValue(`questions.${questionIndex}.tagIds`, next, { shouldDirty: true })
+  }
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button type="button" variant="outline" className="w-full justify-start text-left font-normal min-h-9">
+          {selectedTags.length === 0 ? 'Add tags...' : `${selectedTags.length} tag(s) selected`}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[280px] p-0" align="start">
+        <Command>
+          <CommandInput placeholder="Search tags..." />
+          <CommandList>
+            <CommandEmpty>No tags found.</CommandEmpty>
+            <CommandGroup>
+              {tags.map((tag) => {
+                const isSelected = selectedIds.includes(tag.id)
+                return (
+                  <CommandItem
+                    key={tag.id}
+                    value={tag.name}
+                    onSelect={() => toggleTag(tag.id)}
+                    className="flex items-center gap-2"
+                  >
+                    <Checkbox checked={isSelected} />
+                    <span>{tag.name}</span>
+                  </CommandItem>
+                )
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }
 
@@ -236,7 +339,7 @@ function QuestionOptionsEditor({
   form,
   questionIndex,
 }: {
-  form: any
+  form: UseFormReturn<UcatQuestionStemFormValues>
   questionIndex: number
 }) {
   const optionsArray = useFieldArray({ control: form.control, name: `questions.${questionIndex}.options` })

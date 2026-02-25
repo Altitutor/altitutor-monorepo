@@ -1,4 +1,4 @@
-import { useQueries, useQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { topicsFilesApi } from '../api/topics-files';
 import type { Enums } from '@altitutor/shared';
 

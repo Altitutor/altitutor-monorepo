@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
@@ -7,9 +7,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
   try {
     const body = await request.json()
-    const userClient = access.userClient
+    const client = access.userClient as unknown as UcatTutorSupabaseClient
 
-    const { error } = await (userClient as any).rpc('tutor_ucat_assign_set_sessions', {
+    const { error } = await client.rpc('tutor_ucat_assign_set_sessions', {
       p_set_id: params.id,
       p_session_ids: body.sessionIds ?? [],
     })

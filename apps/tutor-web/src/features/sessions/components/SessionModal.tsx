@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, SessionInfoGrid } from '@altitutor/ui';
 import { Separator, Badge } from '@altitutor/ui';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';

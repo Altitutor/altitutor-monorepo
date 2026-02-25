@@ -8,10 +8,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
+import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 
 type StemCatalogItem = { id: string; text: string }
+
+/** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
+type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
 
 export function UcatSetEditorDialog({
   open,
@@ -31,7 +35,6 @@ export function UcatSetEditorDialog({
   const [draftDescription, setDraftDescription] = useState('')
   const [draftTimeLimit, setDraftTimeLimit] = useState('')
   const [draftPrivate, setDraftPrivate] = useState(false)
-  const [draftStudentGenerated, setDraftStudentGenerated] = useState(false)
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
 
@@ -39,14 +42,13 @@ export function UcatSetEditorDialog({
     const current = detail.data
     if (!current) return
 
-    const stems = (current.stems as Array<{ id: string }> | null) ?? []
-    const stemIds = stems.map((stem) => stem.id)
+    const stems = (current.stems as SetDetailStem[] | null) ?? []
+    const stemIds = stems.map((s) => s.stem_id)
 
     setDraftName(proseMirrorToPlainText(current.name ?? null))
     setDraftDescription(proseMirrorToPlainText(current.description))
-    setDraftTimeLimit(current.time_limit_seconds ? String(current.time_limit_seconds) : '')
+    setDraftTimeLimit(secondsToTimeString(current.time_limit_seconds))
     setDraftPrivate(!!current.is_private)
-    setDraftStudentGenerated(!!current.is_student_generated)
     setDraftStemIds(stemIds)
     setBaseline(
       snapshotSetDetail({
@@ -54,7 +56,7 @@ export function UcatSetEditorDialog({
         description: proseMirrorToPlainText(current.description),
         time: current.time_limit_seconds ?? null,
         isPrivate: !!current.is_private,
-        isStudentGenerated: !!current.is_student_generated,
+        isStudentGenerated: false,
         stemIds,
       })
     )
@@ -66,8 +68,8 @@ export function UcatSetEditorDialog({
     const run = async () => {
       const supabase = getSupabaseClient() as SupabaseClient<Database>
       const { data } = await supabase.from('vtutor_ucat_question_stems').select('id,stem_text')
-      const items: StemCatalogItem[] = (data ?? []).map((row: any) => ({
-        id: row.id,
+      const items: StemCatalogItem[] = (data ?? []).map((row) => ({
+        id: row.id ?? '',
         text: proseMirrorToPlainText(row.stem_text),
       }))
       setStemCatalog(items)
@@ -80,13 +82,13 @@ export function UcatSetEditorDialog({
     const snapshot = snapshotSetDetail({
       name: draftName,
       description: draftDescription,
-      time: draftTimeLimit ? Number(draftTimeLimit) : null,
+      time: parseTimeToSeconds(draftTimeLimit),
       isPrivate: draftPrivate,
-      isStudentGenerated: draftStudentGenerated,
+      isStudentGenerated: false,
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
-  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftStudentGenerated, draftTimeLimit])
+  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftTimeLimit])
 
   const filteredCatalog = useMemo(() => {
     return stemCatalog.filter((stem) => {
@@ -104,9 +106,9 @@ export function UcatSetEditorDialog({
         id: setId,
         name: plainTextToProseMirror(draftName),
         description: draftDescription,
-        timeLimitSeconds: draftTimeLimit ? Number(draftTimeLimit) : null,
+        timeLimitSeconds: parseTimeToSeconds(draftTimeLimit),
         isPrivate: draftPrivate,
-        isStudentGenerated: draftStudentGenerated,
+        isStudentGenerated: false,
         stemIds: draftStemIds,
       },
     })
@@ -123,8 +125,8 @@ export function UcatSetEditorDialog({
       saveDisabled={!isDirty || updateSet.isPending}
       isSaving={updateSet.isPending}
     >
-      <div className="grid gap-4 lg:grid-cols-[1fr,320px]">
-        <section className="space-y-3 rounded border p-4">
+      <div className="h-full flex">
+        <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">
           <h2 className="font-semibold">Stems in Set</h2>
 
           <UcatSortableList
@@ -141,7 +143,7 @@ export function UcatSetEditorDialog({
             }}
           />
 
-          <div className="rounded border border-dashed p-3">
+          <div className="pt-2">
             <h3 className="mb-2 text-sm font-medium">Add Stem</h3>
             <Input placeholder="Search stems" value={search} onChange={(e) => setSearch(e.target.value)} className="mb-2" />
             <div className="max-h-52 space-y-1 overflow-auto">
@@ -159,7 +161,7 @@ export function UcatSetEditorDialog({
           </div>
         </section>
 
-        <aside className="space-y-3 rounded border p-4">
+        <aside className="w-80 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
           <h2 className="font-semibold">Set Properties</h2>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Name</span>
@@ -170,8 +172,8 @@ export function UcatSetEditorDialog({
             <Textarea className="min-h-24" value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Time limit (seconds)</span>
-            <Input type="number" value={draftTimeLimit} onChange={(e) => setDraftTimeLimit(e.target.value)} />
+            <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
+            <Input type="text" value={draftTimeLimit} onChange={(e) => setDraftTimeLimit(e.target.value)} placeholder="e.g. 1:30 or 90" />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
@@ -180,16 +182,6 @@ export function UcatSetEditorDialog({
               <SelectContent>
                 <SelectItem value="public">Public</SelectItem>
                 <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Origin</span>
-            <Select value={draftStudentGenerated ? 'student' : 'staff'} onValueChange={(v) => setDraftStudentGenerated(v === 'student')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="staff">Staff</SelectItem>
-                <SelectItem value="student">Student</SelectItem>
               </SelectContent>
             </Select>
           </label>

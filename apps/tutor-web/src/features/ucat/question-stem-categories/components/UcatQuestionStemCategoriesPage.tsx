@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { DataTableFilterDefinition } from '@altitutor/shared'
+import type { DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
   Button,
   DataTableToolbar,
@@ -22,13 +22,14 @@ import {
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { applySingleSelectFilter, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applySingleSelectFilter, applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import {
   useCreateUcatQuestionStemCategory,
   useDeleteUcatQuestionStemCategory,
   useUcatQuestionStemCategories,
   useUpdateUcatQuestionStemCategory,
 } from '@/features/ucat/question-stem-categories/hooks/useUcatQuestionStemCategories'
+import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -58,18 +59,31 @@ const emptyDraft: CategoryDraft = {
   description: '',
 }
 
+const categorySortOptions: DataTableSortOption[] = [
+  { key: 'section_name', label: 'Section' },
+  { key: 'name', label: 'Name' },
+  { key: 'question_stem_count', label: 'Number of stems' },
+]
+
 function buildCategoryTree(
   rows: CategoryRow[],
   expanded: Set<string>,
   parentId: string | null,
-  level: number
+  level: number,
+  sortBy: string | null,
+  sortDirection: 'asc' | 'desc'
 ): Array<{ row: CategoryRow; level: number }> {
   const out: Array<{ row: CategoryRow; level: number }> = []
-  const children = rows.filter((r) => (parentId === null ? !r.parent_id : r.parent_id === parentId))
+  let children = rows.filter((r) => (parentId === null ? !r.parent_id : r.parent_id === parentId))
+  children = applySort(children, sortBy, sortDirection, {
+    section_name: (r) => r.section_name,
+    name: (r) => r.name,
+    question_stem_count: (r) => r.question_stem_count,
+  })
   for (const row of children) {
     out.push({ row, level })
     if (expanded.has(row.id)) {
-      out.push(...buildCategoryTree(rows, expanded, row.id, level + 1))
+      out.push(...buildCategoryTree(rows, expanded, row.id, level + 1, sortBy, sortDirection))
     }
   }
   return out
@@ -86,6 +100,7 @@ export function UcatQuestionStemCategoriesPage() {
 
   const [createOpen, setCreateOpen] = useState(false)
   const [editing, setEditing] = useState<CategoryRow | null>(null)
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
   const [draft, setDraft] = useState<CategoryDraft>(emptyDraft)
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
 
@@ -137,9 +152,22 @@ export function UcatQuestionStemCategoriesPage() {
   }, [rows, tableState.state])
 
   const flatTree = useMemo(
-    () => buildCategoryTree(filteredRows, expandedCategories, null, 0),
-    [filteredRows, expandedCategories]
+    () =>
+      buildCategoryTree(
+        filteredRows,
+        expandedCategories,
+        null,
+        0,
+        tableState.state.sortBy,
+        tableState.state.sortDirection
+      ),
+    [filteredRows, expandedCategories, tableState.state.sortBy, tableState.state.sortDirection]
   )
+
+  const parentOptions = useMemo(() => {
+    if (draft.sectionId === 'none') return []
+    return rows.filter((r) => r.section_id === draft.sectionId && r.id !== editing?.id)
+  }, [rows, draft.sectionId, editing?.id])
 
   const toggleExpanded = (id: string) => {
     setExpandedCategories((prev) => {
@@ -181,11 +209,6 @@ export function UcatQuestionStemCategoriesPage() {
     setDraft(emptyDraft)
   }
 
-  const parentOptions = useMemo(() => {
-    if (draft.sectionId === 'none') return []
-    return rows.filter((r) => r.section_id === draft.sectionId && r.id !== editing?.id)
-  }, [rows, draft.sectionId, editing?.id])
-
   return (
     <div className="p-6">
       <UcatPageHeader
@@ -212,10 +235,12 @@ export function UcatQuestionStemCategoriesPage() {
           { key: 'question_stem_count', label: 'Question stems', visibleByDefault: true },
           { key: 'actions', label: 'Actions', visibleByDefault: true },
         ]}
+        sortOptions={categorySortOptions}
         searchPlaceholder="Search categories"
       />
 
-      <div className="pt-3 rounded-md border">
+      <div className="pt-3">
+        <div className="rounded-md border">
         <Table>
           <TableHeader>
             <TableRow>
@@ -277,7 +302,7 @@ export function UcatQuestionStemCategoriesPage() {
                             {
                               label: 'Delete',
                               icon: <Trash2 className="h-4 w-4" />,
-                              onClick: () => deleteCategory.mutate(row.id),
+                              onClick: () => setDeletingCategoryId(row.id),
                               destructive: true,
                             },
                           ]}
@@ -290,6 +315,7 @@ export function UcatQuestionStemCategoriesPage() {
             )}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       <UcatDialogShell
@@ -305,13 +331,15 @@ export function UcatQuestionStemCategoriesPage() {
         saveDisabled={createCategory.isPending}
         isSaving={createCategory.isPending}
       >
-        <CategoryForm
-          draft={draft}
-          setDraft={setDraft}
-          sections={sections.data ?? []}
-          parentOptions={parentOptions}
-          onSectionChange={() => setDraft((p) => ({ ...p, parentCategoryId: 'none' }))}
-        />
+        <div className="p-6 overflow-y-auto h-full">
+          <CategoryForm
+            draft={draft}
+            setDraft={setDraft}
+            sections={sections.data ?? []}
+            parentOptions={parentOptions}
+            onSectionChange={() => setDraft((p) => ({ ...p, parentCategoryId: 'none' }))}
+          />
+        </div>
       </UcatDialogShell>
 
       <UcatDialogShell
@@ -326,14 +354,24 @@ export function UcatQuestionStemCategoriesPage() {
         saveDisabled={updateCategory.isPending}
         isSaving={updateCategory.isPending}
       >
-        <CategoryForm
-          draft={draft}
-          setDraft={setDraft}
-          sections={sections.data ?? []}
-          parentOptions={parentOptions}
-          onSectionChange={() => setDraft((p) => ({ ...p, parentCategoryId: 'none' }))}
-        />
+        <div className="p-6 overflow-y-auto h-full">
+          <CategoryForm
+            draft={draft}
+            setDraft={setDraft}
+            sections={sections.data ?? []}
+            parentOptions={parentOptions}
+            onSectionChange={() => setDraft((p) => ({ ...p, parentCategoryId: 'none' }))}
+          />
+        </div>
       </UcatDialogShell>
+      <UcatDeleteConfirmDialog
+        open={!!deletingCategoryId}
+        onOpenChange={(open) => !open && setDeletingCategoryId(null)}
+        title="Delete category?"
+        description="This action cannot be undone."
+        onConfirm={async () => { if (deletingCategoryId) await deleteCategory.mutateAsync(deletingCategoryId) }}
+        isPending={deleteCategory.isPending}
+      />
     </div>
   )
 }

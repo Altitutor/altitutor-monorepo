@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import type { ColumnDef } from '@tanstack/react-table'
+import React, { useEffect, useMemo, useState } from 'react'
+import { useQueries } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { Button, DataTable, DataTableToolbar } from '@altitutor/ui'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Button, DataTableToolbar, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui'
+import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import {
   useCreateUcatQuestionStem,
   useDeleteUcatQuestionStem,
@@ -12,17 +12,31 @@ import {
   useUcatQuestionDetail,
   useUcatQuestions,
   useUcatSections,
+  useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
+import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@altitutor/shared'
-import { applyBooleanTextFilter, applySingleSelectFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { applyBooleanTextFilter, applySingleSelectFilter, applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+
+function truncate(text: string, maxLen: number): string {
+  if (!text || text.length <= maxLen) return text ?? ''
+  return text.slice(0, maxLen) + '...'
+}
 
 type QuestionRow = {
   id: string
@@ -61,10 +75,10 @@ const filterDefinitions: DataTableFilterDefinition[] = [
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'section_name', label: 'Section', visibleByDefault: true },
   { key: 'category_name', label: 'Category', visibleByDefault: true },
+  { key: 'stem_text', label: 'Stem text', visibleByDefault: true },
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
-  { key: 'type_summary', label: 'Type', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
-  { key: 'updated_at', label: 'Updated', visibleByDefault: true },
+  { key: 'type_summary', label: 'Type', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
 
@@ -74,20 +88,39 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'question_count', label: 'Questions' },
   { key: 'type_summary', label: 'Type' },
   { key: 'visibility', label: 'Visibility' },
-  { key: 'updated_at', label: 'Updated' },
 ]
 
 export function UcatQuestionsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
+  const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
   const [stemTypes, setStemTypes] = useState<Record<string, Set<'multiple_choice' | 'syllogism'>>>({})
+  const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
+  const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<Set<string>>(new Set())
 
   const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
+
+  const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
+  const detailQueries = useQueries({
+    queries: expandedStemArray.map((stemId) => ({
+      queryKey: [...ucatKeys.question(stemId), 'detail'],
+      queryFn: () => ucatQuestionsApi.getDetail(stemId),
+      enabled: true,
+    })),
+  })
+  const detailsMap = useMemo(() => {
+    const m: Record<string, StemDetailRow | null> = {}
+    detailQueries.forEach((q, i) => {
+      if (expandedStemArray[i]) m[expandedStemArray[i]] = q.data ?? null
+    })
+    return m
+  }, [detailQueries, expandedStemArray])
 
   const access = useUcatAccess()
   const questions = useUcatQuestions()
   const sections = useUcatSections()
   const categories = useUcatCategories()
+  const tags = useUcatTags()
   const detail = useUcatQuestionDetail(editingStemId)
 
   const createMutation = useCreateUcatQuestionStem()
@@ -99,15 +132,17 @@ export function UcatQuestionsPage() {
       const supabase = getSupabaseClient() as SupabaseClient<Database>
       const { data } = await supabase.from('vtutor_ucat_question_stem_detail').select('id,questions')
 
+      type QuestionWithType = { question_type?: string }
       const map: Record<string, Set<'multiple_choice' | 'syllogism'>> = {}
-      ;(data ?? []).forEach((row: any) => {
+      ;(data ?? []).forEach((row) => {
         const types = new Set<'multiple_choice' | 'syllogism'>()
-        ;(row.questions ?? []).forEach((question: any) => {
+        const questions = (row.questions ?? []) as QuestionWithType[]
+        questions.forEach((question) => {
           if (question.question_type === 'multiple_choice' || question.question_type === 'syllogism') {
             types.add(question.question_type)
           }
         })
-        map[row.id] = types
+        map[row.id ?? ''] = types
       })
 
       setStemTypes(map)
@@ -128,7 +163,7 @@ export function UcatQuestionsPage() {
       is_private: !!row.is_private,
       updated_at: row.updated_at,
       type_summary: summary || '-',
-      stem_text: row.stem_text ? JSON.stringify(row.stem_text) : '',
+      stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as import('@altitutor/shared').Json) : '',
     }
   })
 
@@ -161,74 +196,50 @@ export function UcatQuestionsPage() {
       applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
         section_name: (r) => r.section_name,
         category_name: (r) => r.category_name ?? '',
+        stem_text: (r) => r.stem_text,
         question_count: (r) => r.question_count,
         type_summary: (r) => r.type_summary,
         visibility: (r) => (r.is_private ? 'Private' : 'Public'),
-        updated_at: (r) => r.updated_at ?? '',
       }),
     [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
   )
 
-  const allColumns: Array<{ key: string; column: ColumnDef<QuestionRow> }> = [
-    { key: 'section_name', column: { accessorKey: 'section_name', header: 'Section' } },
-    {
-      key: 'category_name',
-      column: { accessorKey: 'category_name', header: 'Category', cell: ({ row }) => row.original.category_name ?? '-' },
-    },
-    { key: 'question_count', column: { accessorKey: 'question_count', header: 'Questions' } },
-    { key: 'type_summary', column: { accessorKey: 'type_summary', header: 'Type' } },
-    {
-      key: 'visibility',
-      column: { accessorKey: 'is_private', header: 'Visibility', cell: ({ row }) => (row.original.is_private ? 'Private' : 'Public') },
-    },
-    {
-      key: 'updated_at',
-      column: {
-        accessorKey: 'updated_at',
-        header: 'Updated',
-        cell: ({ row }) => (row.original.updated_at ? new Date(row.original.updated_at).toLocaleString() : '-'),
-      },
-    },
-    {
-      key: 'actions',
-      column: {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => (
-          <div className="flex justify-end">
-            <UcatRowActions
-              actions={[
-                { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingStemId(row.original.id) },
-                {
-                  label: 'Delete',
-                  icon: <Trash2 className="h-4 w-4" />,
-                  onClick: () => deleteMutation.mutate(row.original.id),
-                  destructive: true,
-                },
-              ]}
-            />
-          </div>
-        ),
-      },
-    },
-  ]
+  const toggleStemExpanded = (stemId: string) => {
+    setExpandedStemIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(stemId)) next.delete(stemId)
+      else next.add(stemId)
+      return next
+    })
+  }
 
-  const visibleColumns = useVisibleColumns(allColumns, tableState.state.visibleColumns)
+  const toggleQuestionExpanded = (stemId: string, questionId: string) => {
+    const key = `${stemId}-${questionId}`
+    setExpandedQuestionKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
 
-  async function handleCreate(payload: any) {
+  const showTypeCol = tableState.state.visibleColumns.includes('type_summary')
+  const colCount = 7 + (showTypeCol ? 1 : 0) // expand, section, category, stem, questions, visibility, [type], actions
+
+  async function handleCreate(payload: UcatQuestionStemFormValues) {
     const mapped: UcatQuestionStemBundlePayload = {
       sectionId: payload.sectionId,
       categoryId: payload.categoryId || null,
       stemText: payload.stemText,
       isPrivate: payload.isPrivate,
-      questions: payload.questions.map((question: any, index: number) => ({
+      questions: payload.questions.map((question, index) => ({
         index: index + 1,
         questionText: question.questionText,
         questionType: question.questionType,
         difficulty: question.difficulty,
-        timeBurdenSeconds: question.timeBurdenSeconds,
+        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
-        options: question.options.map((option: any, optionIndex: number) => ({
+        options: question.options.map((option, optionIndex) => ({
           index: optionIndex + 1,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,
@@ -241,7 +252,7 @@ export function UcatQuestionsPage() {
     setCreateOpen(false)
   }
 
-  async function handleUpdate(payload: any) {
+  async function handleUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return
 
     const mapped: UcatQuestionStemBundlePayload = {
@@ -250,14 +261,14 @@ export function UcatQuestionsPage() {
       categoryId: payload.categoryId || null,
       stemText: payload.stemText,
       isPrivate: payload.isPrivate,
-      questions: payload.questions.map((question: any, index: number) => ({
+      questions: payload.questions.map((question, index) => ({
         index: index + 1,
         questionText: question.questionText,
         questionType: question.questionType,
         difficulty: question.difficulty,
-        timeBurdenSeconds: question.timeBurdenSeconds,
+        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
-        options: question.options.map((option: any, optionIndex: number) => ({
+        options: question.options.map((option, optionIndex) => ({
           index: optionIndex + 1,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,
@@ -312,7 +323,159 @@ export function UcatQuestionsPage() {
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
+        <div className="rounded-md border">
+        <Table className="w-full table-fixed">
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-12" />
+              <TableHead>Section</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Stem text</TableHead>
+              <TableHead>Questions</TableHead>
+              <TableHead>Visibility</TableHead>
+              {showTypeCol && <TableHead>Type</TableHead>}
+              <TableHead className="w-16 shrink-0" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedRows.map((row) => {
+              const isStemExpanded = expandedStemIds.has(row.id)
+              const detail = detailsMap[row.id]
+              const hasQuestions = (row.question_count ?? 0) > 0
+              return (
+                <React.Fragment key={row.id}>
+                  <TableRow>
+                    <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                      {hasQuestions ? (
+                        <button
+                          type="button"
+                          onClick={() => toggleStemExpanded(row.id)}
+                          className="p-1 hover:bg-muted rounded"
+                        >
+                          {isStemExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </button>
+                      ) : null}
+                    </TableCell>
+                    <TableCell>{row.section_name}</TableCell>
+                    <TableCell>{row.category_name ?? '-'}</TableCell>
+                    <TableCell className="max-w-[200px]" title={row.stem_text}>
+                      {truncate(row.stem_text, 80)}
+                    </TableCell>
+                    <TableCell>{row.question_count}</TableCell>
+                    <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
+                    {showTypeCol && <TableCell>{row.type_summary}</TableCell>}
+                    <TableCell className="w-16 shrink-0">
+                      <div className="flex justify-end">
+                        <UcatRowActions
+                          actions={[
+                            { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingStemId(row.id) },
+                            {
+                              label: 'Delete',
+                              icon: <Trash2 className="h-4 w-4" />,
+                              onClick: () => setDeletingStemId(row.id),
+                              destructive: true,
+                            },
+                          ]}
+                        />
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                  {isStemExpanded && detail?.questions && (
+                    <TableRow>
+                      <TableCell colSpan={colCount} className="bg-muted/30 p-0 align-top w-full">
+                        <div className="w-full min-w-0 p-3">
+                          <Table className="w-full table-fixed">
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead className="w-12 shrink-0" />
+                                <TableHead className="w-16 shrink-0">Index</TableHead>
+                                <TableHead className="min-w-0">Question text</TableHead>
+                                <TableHead className="w-24 shrink-0">Difficulty</TableHead>
+                                <TableHead className="w-24 shrink-0">Time burden</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {detail.questions.map((q) => {
+                                const qKey = `${row.id}-${q.id}`
+                                const isQExpanded = expandedQuestionKeys.has(qKey)
+                                const qText = proseMirrorToPlainText(q.question_text)
+                                const hasOptions = (q.answer_options?.length ?? 0) > 0
+                                return (
+                                  <React.Fragment key={q.id}>
+                                    <TableRow>
+                                      <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                                        {hasOptions ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => toggleQuestionExpanded(row.id, q.id)}
+                                            className="p-1 hover:bg-muted rounded"
+                                          >
+                                            {isQExpanded ? (
+                                              <ChevronDown className="h-4 w-4" />
+                                            ) : (
+                                              <ChevronRight className="h-4 w-4" />
+                                            )}
+                                          </button>
+                                        ) : null}
+                                      </TableCell>
+                                      <TableCell>{q.index}</TableCell>
+                                      <TableCell className="max-w-[240px]" title={qText}>
+                                        {truncate(qText, 60)}
+                                      </TableCell>
+                                      <TableCell>{q.difficulty ?? '-'}</TableCell>
+                                      <TableCell>{formatSecondsToDuration(q.time_burden_seconds)}</TableCell>
+                                    </TableRow>
+                                    {isQExpanded && q.answer_options && q.answer_options.length > 0 && (
+                                      <TableRow>
+                                        <TableCell colSpan={5} className="bg-muted/20 p-0 align-top w-full">
+                                          <div className="w-full min-w-0 p-2 pl-14">
+                                            <Table className="w-full table-fixed">
+                                              <TableHeader>
+                                                <TableRow>
+                                                  <TableHead className="w-16 shrink-0">Index</TableHead>
+                                                  <TableHead className="min-w-0">Answer text</TableHead>
+                                                  <TableHead className="min-w-0">Answer explanation</TableHead>
+                                                  <TableHead className="w-28 shrink-0">Correct answer</TableHead>
+                                                </TableRow>
+                                              </TableHeader>
+                                              <TableBody>
+                                                {q.answer_options.map((opt) => (
+                                                  <TableRow key={opt.id}>
+                                                    <TableCell>{opt.index}</TableCell>
+                                                    <TableCell className="max-w-[200px]" title={proseMirrorToPlainText(opt.answer_text)}>
+                                                      {truncate(proseMirrorToPlainText(opt.answer_text), 50)}
+                                                    </TableCell>
+                                                    <TableCell className="max-w-[200px]" title={proseMirrorToPlainText(opt.answer_explanation)}>
+                                                      {truncate(proseMirrorToPlainText(opt.answer_explanation), 50)}
+                                                    </TableCell>
+                                                    <TableCell>{opt.is_answer ? 'Yes' : 'No'}</TableCell>
+                                                  </TableRow>
+                                                ))}
+                                              </TableBody>
+                                            </Table>
+                                          </div>
+                                        </TableCell>
+                                      </TableRow>
+                                    )}
+                                  </React.Fragment>
+                                )
+                              })}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </React.Fragment>
+              )
+            })}
+          </TableBody>
+        </Table>
+        </div>
       </div>
 
       <UcatQuestionStemDialog
@@ -322,7 +485,8 @@ export function UcatQuestionsPage() {
         onClose={() => setCreateOpen(false)}
         onSubmit={handleCreate}
         sections={(sections.data ?? []).map((section) => ({ id: section.id, name: section.name }))}
-        categories={(categories.data ?? []).map((category) => ({ id: category.id, name: category.name }))}
+        categories={(categories.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]}
+        tags={(tags.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
         loading={createMutation.isPending}
       />
 
@@ -333,9 +497,18 @@ export function UcatQuestionsPage() {
         onClose={() => setEditingStemId(null)}
         onSubmit={handleUpdate}
         sections={(sections.data ?? []).map((section) => ({ id: section.id, name: section.name }))}
-        categories={(categories.data ?? []).map((category) => ({ id: category.id, name: category.name }))}
+        categories={(categories.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]}
+        tags={(tags.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
         initial={detail.data}
         loading={updateMutation.isPending || detail.isLoading}
+      />
+      <UcatDeleteConfirmDialog
+        open={!!deletingStemId}
+        onOpenChange={(open) => !open && setDeletingStemId(null)}
+        title="Delete question stem?"
+        description="This action cannot be undone. All questions in this stem will be deleted."
+        onConfirm={async () => { if (deletingStemId) await deleteMutation.mutateAsync(deletingStemId) }}
+        isPending={deleteMutation.isPending}
       />
     </div>
   )

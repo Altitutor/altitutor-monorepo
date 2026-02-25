@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor()
@@ -7,9 +7,9 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const userClient = access.userClient
+    const client = access.userClient as unknown as UcatTutorSupabaseClient
 
-    const { data, error } = await (userClient as any).rpc('tutor_ucat_upsert_question_stem_bundle', {
+    const { data, error } = await client.rpc('tutor_ucat_upsert_question_stem_bundle', {
       p_stem_id: body.stemId ?? null,
       p_section_id: body.sectionId,
       p_question_stem_category_id: body.categoryId ?? null,
