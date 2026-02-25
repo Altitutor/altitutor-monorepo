@@ -6973,6 +6973,7 @@ export type Database = {
           description: Json | null
           display_columns: number
           id: string
+          instructions_time_limit_seconds: number | null
           name: string
           number_of_questions: number | null
           section_number: number
@@ -6987,6 +6988,7 @@ export type Database = {
           description?: Json | null
           display_columns: number
           id?: string
+          instructions_time_limit_seconds?: number | null
           name: string
           number_of_questions?: number | null
           section_number: number
@@ -7001,6 +7003,7 @@ export type Database = {
           description?: Json | null
           display_columns?: number
           id?: string
+          instructions_time_limit_seconds?: number | null
           name?: string
           number_of_questions?: number | null
           section_number?: number
@@ -10463,6 +10466,7 @@ export type Database = {
           id: string | null
           name: string | null
           parent_question_stem_category_id: string | null
+          question_stem_count: number | null
           ucat_section_id: string | null
           updated_at: string | null
           updated_by: string | null
@@ -10474,6 +10478,7 @@ export type Database = {
           id?: string | null
           name?: string | null
           parent_question_stem_category_id?: string | null
+          question_stem_count?: never
           ucat_section_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -10485,6 +10490,7 @@ export type Database = {
           id?: string | null
           name?: string | null
           parent_question_stem_category_id?: string | null
+          question_stem_count?: never
           ucat_section_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
@@ -10754,6 +10760,7 @@ export type Database = {
           id: string | null
           name: string | null
           parent_question_tag_id: string | null
+          question_count: number | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -10764,6 +10771,7 @@ export type Database = {
           id?: string | null
           name?: string | null
           parent_question_tag_id?: string | null
+          question_count?: never
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -10774,6 +10782,7 @@ export type Database = {
           id?: string | null
           name?: string | null
           parent_question_tag_id?: string | null
+          question_count?: never
           updated_at?: string | null
           updated_by?: string | null
         }
