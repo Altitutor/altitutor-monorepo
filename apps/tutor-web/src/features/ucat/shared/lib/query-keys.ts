@@ -12,4 +12,7 @@ export const ucatKeys = {
   mock: (id: string) => [...ucatKeys.mocks(), id] as const,
   students: () => [...ucatKeys.all, 'students'] as const,
   student: (id: string) => [...ucatKeys.students(), id] as const,
+  classes: () => [...ucatKeys.all, 'classes'] as const,
+  classSessions: (classId: string) => [...ucatKeys.classes(), classId, 'sessions'] as const,
+  sessionResources: (sessionId: string) => [...ucatKeys.classes(), 'session', sessionId, 'resources'] as const,
 }

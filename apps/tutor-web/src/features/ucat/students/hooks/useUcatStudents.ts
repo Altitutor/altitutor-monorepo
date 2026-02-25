@@ -41,3 +41,18 @@ export function useUcatClassStudentIds(classId: string | null) {
     enabled: !!classId,
   })
 }
+
+export function useUcatClassesWithDetails() {
+  return useQuery({
+    queryKey: [...ucatKeys.students(), 'classesWithDetails'],
+    queryFn: ucatStudentsApi.listUcatClassesWithDetails,
+  })
+}
+
+export function useUcatStudentQuestionAttempts(studentId: string | null) {
+  return useQuery({
+    queryKey: studentId ? [...ucatKeys.student(studentId), 'questionAttempts'] : [...ucatKeys.students(), 'questionAttempts', 'empty'],
+    queryFn: () => ucatStudentsApi.studentQuestionAttempts(studentId as string),
+    enabled: !!studentId,
+  })
+}
