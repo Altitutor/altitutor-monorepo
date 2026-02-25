@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
   Badge,
@@ -13,39 +12,21 @@ import {
   Input,
   Textarea,
 } from '@altitutor/ui'
-import { Pencil, Trash2 } from 'lucide-react'
-import { useCreateUcatSet, useDeleteUcatSet, useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
+import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
-import {
-  applyBooleanTextFilter,
-  applyRangeFilter,
-  applySort,
-  applySingleSelectFilter,
-  useUcatTableState,
-  useVisibleColumns,
-} from '@/features/ucat/shared/hooks/useUcatTableState'
+import { useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUcatSetsTable'
 
 const DEFAULT_FILTERS: Record<string, unknown[]> = { is_student_generated: ['staff'] }
-
-type SetRow = {
-  id: string
-  name: string
-  time_limit_seconds: number | null
-  is_private: boolean
-  is_student_generated: boolean
-  stem_count: number
-  question_count: number
-  created_by_first_name: string | null
-  created_by_last_name: string | null
-}
 
 const filterDefinitions: DataTableFilterDefinition[] = [
   {
@@ -112,6 +93,8 @@ export function UcatSetsPage() {
   const sets = useUcatSets()
   const createSet = useCreateUcatSet()
   const deleteSet = useDeleteUcatSet()
+  const restoreSet = useRestoreUcatSet()
+  const [showDeleted, setShowDeleted] = useState(false)
   const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
     defaultFilters: DEFAULT_FILTERS,
   })
@@ -126,143 +109,11 @@ export function UcatSetsPage() {
     if (editId) setEditingSetId(editId)
   }, [searchParams])
 
-  const rows: SetRow[] = (sets.data ?? []).map((row) => {
-    const r = row as typeof row & { stem_count?: number; question_count?: number }
-    return {
-      id: row.id ?? '',
-      name: proseMirrorToPlainText(row.name ?? null) || '—',
-      time_limit_seconds: row.time_limit_seconds,
-      is_private: !!row.is_private,
-      is_student_generated: !!row.is_student_generated,
-      stem_count: r.stem_count ?? 0,
-      question_count: r.question_count ?? 0,
-      created_by_first_name: row.created_by_first_name ?? null,
-      created_by_last_name: row.created_by_last_name ?? null,
-    }
+  const { rows, visibleColumns } = useUcatSetsTable({
+    data: sets.data,
+    showDeleted,
+    defaultFilters: DEFAULT_FILTERS,
   })
-
-  const filteredRows = useMemo(() => {
-    const search = tableState.state.search.trim().toLowerCase()
-    return rows.filter((row) => {
-      const searchHit = search.length === 0 || row.name.toLowerCase().includes(search)
-      const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
-      const originValue = row.is_student_generated ? 'student' : 'staff'
-      const originHit = applySingleSelectFilter(tableState.state, 'is_student_generated', originValue)
-      const timeLimitHit = applyRangeFilter(
-        tableState.state,
-        'time_limit_min',
-        'time_limit_max',
-        row.time_limit_seconds
-      )
-      const stemCountHit = applyRangeFilter(
-        tableState.state,
-        'stem_count_min',
-        'stem_count_max',
-        row.stem_count
-      )
-      const questionCountHit = applyRangeFilter(
-        tableState.state,
-        'question_count_min',
-        'question_count_max',
-        row.question_count
-      )
-      return searchHit && visibilityHit && originHit && timeLimitHit && stemCountHit && questionCountHit
-    })
-  }, [rows, tableState.state])
-
-  const sortedRows = useMemo(
-    () =>
-      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
-        name: (r) => r.name,
-        time_limit_seconds: (r) => r.time_limit_seconds ?? -1,
-        stem_count: (r) => r.stem_count,
-        question_count: (r) => r.question_count,
-        visibility: (r) => (r.is_private ? 'Private' : 'Public'),
-        created_by: (r) =>
-          r.is_student_generated ? 'Student' : [r.created_by_first_name, r.created_by_last_name].filter(Boolean).join(' ') || '',
-      }),
-    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
-  )
-
-  const allColumns: Array<{ key: string; column: ColumnDef<SetRow> }> = [
-    { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
-    {
-      key: 'time_limit_seconds',
-      column: {
-        accessorKey: 'time_limit_seconds',
-        header: 'Time Limit',
-        cell: ({ row }) => formatSecondsToDuration(row.original.time_limit_seconds),
-      },
-    },
-    {
-      key: 'stem_count',
-      column: {
-        accessorKey: 'stem_count',
-        header: 'Question stems',
-        cell: ({ row }) => String(row.original.stem_count),
-      },
-    },
-    {
-      key: 'question_count',
-      column: {
-        accessorKey: 'question_count',
-        header: 'Questions',
-        cell: ({ row }) => String(row.original.question_count),
-      },
-    },
-    {
-      key: 'visibility',
-      column: {
-        accessorKey: 'is_private',
-        header: 'Visibility',
-        cell: ({ row }) => (row.original.is_private ? 'Private' : 'Public'),
-      },
-    },
-    {
-      key: 'created_by',
-      column: {
-        id: 'created_by',
-        header: 'Created by',
-        cell: ({ row }) => {
-          const r = row.original
-          if (r.is_student_generated) {
-            return (
-              <span className="inline-flex items-center gap-1.5">
-                <Badge variant="secondary" className="text-xs">Student</Badge>
-                <span className="text-muted-foreground">Student-generated</span>
-              </span>
-            )
-          }
-          const name = [r.created_by_first_name, r.created_by_last_name].filter(Boolean).join(' ') || '—'
-          return (
-            <span className="inline-flex items-center gap-1.5">
-              <Badge variant="secondary" className="text-xs">Staff</Badge>
-              <span>{name}</span>
-            </span>
-          )
-        },
-      },
-    },
-    {
-      key: 'actions',
-      column: {
-        id: 'actions',
-        header: 'Actions',
-        cell: ({ row }) => (
-          <div className="flex justify-end">
-            <UcatRowActions
-              actions={[
-                { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingSetId(row.original.id) },
-                { label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeletingSetId(row.original.id), destructive: true },
-              ]}
-            />
-          </div>
-        ),
-      },
-    },
-  ]
-
-  const visibleColumns = useVisibleColumns(allColumns, tableState.state.visibleColumns)
 
   async function onCreate() {
     const payload: UcatQuestionSetPayload = {
@@ -305,10 +156,88 @@ export function UcatSetsPage() {
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         searchPlaceholder="Search sets"
+        filterFooter={
+          <div className="px-2 py-2 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-center"
+              onClick={() => {
+                setShowDeleted((prev) => {
+                  const next = !prev
+                  if (next) {
+                    tableState.actions.onFiltersChange({})
+                    tableState.actions.onSearchChange('')
+                  }
+                  return next
+                })
+              }}
+            >
+              {showDeleted ? 'Show active only' : 'Show deleted'}
+            </Button>
+          </div>
+        }
+        showDeletedActive={showDeleted}
+        onClearShowDeleted={() => setShowDeleted(false)}
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable
+          columns={[
+            ...visibleColumns,
+            {
+              id: 'created_by',
+              header: 'Created by',
+              cell: ({ row }) => {
+                const r = row.original as SetRow
+                if (r.is_student_generated) {
+                  return (
+                    <span className="inline-flex items-center gap-1.5">
+                      <Badge variant="secondary" className="text-xs">Student</Badge>
+                      <span className="text-muted-foreground">Student-generated</span>
+                    </span>
+                  )
+                }
+                const name = [r.created_by_first_name, r.created_by_last_name].filter(Boolean).join(' ') || '—'
+                return (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Badge variant="secondary" className="text-xs">Staff</Badge>
+                    <span>{name}</span>
+                  </span>
+                )
+              },
+            },
+            {
+              id: 'actions',
+              header: 'Actions',
+              cell: ({ row }) => {
+                const r = row.original as SetRow
+                return (
+                  <div className="flex justify-end">
+                    <UcatRowActions
+                      actions={[
+                        { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingSetId(r.id) },
+                        ...(showDeleted
+                          ? [{ label: 'Restore', icon: <RotateCcw className="h-4 w-4" />, onClick: () => restoreSet.mutate(r.id) }]
+                          : [
+                              {
+                                label: 'Delete',
+                                icon: <Trash2 className="h-4 w-4" />,
+                                onClick: () => setDeletingSetId(r.id),
+                                destructive: true,
+                              },
+                            ]),
+                      ]}
+                    />
+                  </div>
+                )
+              },
+            },
+          ]}
+          data={rows}
+          pageSizeOptions={[10, 20, 50]}
+          getRowClassName={(row) => (row.deleted_at ? 'bg-destructive/10' : '')}
+        />
       </div>
 
       <UcatDialogShell
@@ -346,7 +275,7 @@ export function UcatSetsPage() {
         open={!!deletingSetId}
         onOpenChange={(open) => !open && setDeletingSetId(null)}
         title="Delete set?"
-        description="This action cannot be undone. The set will be removed from any mocks that use it."
+        description="The set will be hidden from students. You can restore it later from the deleted list."
         onConfirm={async () => { if (deletingSetId) await deleteSet.mutateAsync(deletingSetId) }}
         isPending={deleteSet.isPending}
       />

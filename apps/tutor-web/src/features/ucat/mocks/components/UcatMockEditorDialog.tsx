@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
-import { useUcatMockDetail, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
 
 type SetOption = {
   id: string
@@ -40,38 +40,32 @@ export function UcatMockEditorDialog({
   onClose: () => void
   onEditSet?: (setId: string) => void
 }) {
-  const detail = useUcatMockDetail(open ? mockId : null)
   const sets = useUcatSets()
-  const updateMock = useUpdateUcatMock()
-
-  const [name, setName] = useState('')
-  const [isPrivate, setIsPrivate] = useState(false)
-  const [draftSetIds, setDraftSetIds] = useState<string[]>([])
-  const [baseline, setBaseline] = useState('')
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    const current = detail.data
-    if (!current) return
-    const setIds = ((current.sets as Array<{ id: string }> | null) ?? []).map((set) => set.id)
-    setName(current.name ?? '')
-    setIsPrivate(!!current.is_private)
-    setDraftSetIds(setIds)
-    setBaseline(JSON.stringify({ name: current.name ?? '', isPrivate: !!current.is_private, setIds }))
-  }, [detail.data])
-
-  const isDirty = useMemo(() => {
-    return JSON.stringify({ name, isPrivate, setIds: draftSetIds }) !== baseline
-  }, [baseline, draftSetIds, isPrivate, name])
+  const {
+    detail,
+    name,
+    isPrivate,
+    draftSetIds,
+    setName,
+    setIsPrivate,
+    setDraftSetIds,
+    isDirty,
+    save,
+    isSaving,
+  } = useUcatMockDraft({ open, mockId })
 
   const setCatalog = useMemo<SetOption[]>(() => {
-    return (sets.data ?? []).map((set) => ({
-      id: set.id ?? '',
-      name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
-      sectionDisplay: formatSectionsDisplay(set.sections ?? null),
-      question_count: set.question_count ?? null,
-      time_limit_seconds: set.time_limit_seconds ?? null,
-    }))
+    return (sets.data ?? [])
+      .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
+      .map((set) => ({
+        id: set.id ?? '',
+        name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+        sectionDisplay: formatSectionsDisplay(set.sections ?? null),
+        question_count: set.question_count ?? null,
+        time_limit_seconds: set.time_limit_seconds ?? null,
+      }))
   }, [sets.data])
 
   const filtered = useMemo(() => {
@@ -81,21 +75,18 @@ export function UcatMockEditorDialog({
     )
   }, [draftSetIds, search, setCatalog])
 
-  async function save() {
-    if (!mockId) return
-    await updateMock.mutateAsync({ mockId, payload: { id: mockId, name, isPrivate, setIds: draftSetIds } })
-    onClose()
-  }
-
   return (
     <UcatDialogShell
       open={open}
       onClose={onClose}
       title="Edit Mock"
       subtitle="Reorder sets and update mock properties"
-      onSave={save}
-      saveDisabled={!isDirty || updateMock.isPending}
-      isSaving={updateMock.isPending}
+      onSave={async () => {
+        await save()
+        if (isDirty) onClose()
+      }}
+      saveDisabled={!isDirty || isSaving}
+      isSaving={isSaving}
     >
       <div className="h-full flex">
         <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">

@@ -12,7 +12,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, arrayMove, useSortable } from '@dnd-kit/sortable'
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { Button, ListToolbar, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui'
 import { GripVertical, Trash2 } from 'lucide-react'
@@ -21,9 +21,6 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatClassSessions } from '@/features/ucat/classes/hooks/useUcatClassSessions'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
-import { useQueryClient } from '@tanstack/react-query'
-import { ucatClassesApi } from '@/features/ucat/classes/api/classes'
-import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
@@ -34,11 +31,13 @@ import {
 import type { DataTableFilterDefinition, Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatSessionWithResources } from '@/features/ucat/classes/api/classes'
+import {
+  type DraftResource,
+  useUcatClassResourceDrafts,
+} from '@/features/ucat/classes/hooks/useUcatClassResourceDrafts'
 
 /** Stable empty array so useEffect([open, sessions]) does not re-run when query is disabled (data undefined). */
 const EMPTY_SESSIONS: UcatSessionWithResources[] = []
-
-type DraftResource = { type: 'set' | 'mock'; resource_id: string; index: number; draftId: string }
 
 function sessionTitle(startAt: string | null): string {
   if (!startAt) return '—'
@@ -49,22 +48,6 @@ function sessionTitle(startAt: string | null): string {
 function sectionSubtitle(section_index: number, section_name: string): string {
   if (section_name) return `${section_index}. ${section_name}`
   return ''
-}
-
-function buildDraftFromSessions(sessions: UcatSessionWithResources[]): Record<string, DraftResource[]> {
-  const draft: Record<string, DraftResource[]> = {}
-  for (const s of sessions) {
-    draft[s.session_id] = s.resources.map((r, i) => {
-      const resource_id = r.type === 'set' ? r.set_id : r.mock_id
-      return {
-        type: r.type,
-        resource_id,
-        index: i,
-        draftId: r.id || `draft-${s.session_id}-${r.type}-${resource_id}-${i}`,
-      }
-    })
-  }
-  return draft
 }
 
 function DroppableSessionWithDraft({
@@ -229,11 +212,26 @@ export function UcatClassDialog({
   onClose: () => void
   onSaved?: () => void
 }) {
-  const queryClient = useQueryClient()
   const { data: sessionsData, isLoading: sessionsLoading } = useUcatClassSessions(open ? classId : null)
   const sessions = sessionsData ?? EMPTY_SESSIONS
   const { data: setsList = [] } = useUcatSets()
   const { data: mocksList = [] } = useUcatMocks()
+
+  // Only use non-deleted sets/mocks when assigning resources to sessions
+  const activeSetsList = useMemo(
+    () =>
+      (setsList as Array<{ deleted_at?: string | null }>).filter(
+        (row) => row.deleted_at == null
+      ),
+    [setsList]
+  )
+  const activeMocksList = useMemo(
+    () =>
+      (mocksList as Array<{ deleted_at?: string | null }>).filter(
+        (row) => row.deleted_at == null
+      ),
+    [mocksList]
+  )
 
   const [searchSessions, setSearchSessions] = useState('')
   const [searchSets, setSearchSets] = useState('')
@@ -246,9 +244,17 @@ export function UcatClassDialog({
   const [filtersSets, setFiltersSets] = useState<Record<string, unknown[]>>({})
   const [filtersMocks, setFiltersMocks] = useState<Record<string, unknown[]>>({})
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [draftBySession, setDraftBySession] = useState<Record<string, DraftResource[]>>({})
-  const [initialDraftSnapshot, setInitialDraftSnapshot] = useState<string>('')
-  const [isSaving, setIsSaving] = useState(false)
+  const {
+    draftBySession,
+    isDirty,
+    isSaving,
+    initializeFromSessions,
+    reset,
+    removeResource,
+    moveResourceByDraftIds,
+    appendResourceToSession,
+    saveAssignments,
+  } = useUcatClassResourceDrafts(classId)
 
   const sessionFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
@@ -318,18 +324,15 @@ export function UcatClassDialog({
 
   useEffect(() => {
     if (open && sessions.length > 0) {
-      const draft = buildDraftFromSessions(sessions)
-      setDraftBySession(draft)
-      setInitialDraftSnapshot(JSON.stringify(draft))
+      initializeFromSessions(sessions)
     } else if (!open) {
-      setDraftBySession({})
-      setInitialDraftSnapshot('')
+      reset()
     }
-  }, [open, sessions])
+  }, [open, sessions, initializeFromSessions, reset])
 
   const setLookup = useMemo(() => {
     const map = new Map<string, { name: string; section_index: number; section_name: string; question_count: number }>()
-    for (const row of setsList as Array<{
+    for (const row of activeSetsList as Array<{
       id: string | null
       name: unknown
       sections: unknown
@@ -347,15 +350,15 @@ export function UcatClassDialog({
       map.set(row.id, { name, section_index, section_name, question_count: row.question_count ?? 0 })
     }
     return (id: string) => map.get(id) ?? null
-  }, [setsList])
+  }, [activeSetsList])
 
   const mockLookup = useMemo(() => {
     const map = new Map<string, { name: string; set_count: number }>()
-    for (const row of mocksList as Array<{ id: string | null; name: string | null; set_count?: number }>) {
+    for (const row of activeMocksList as Array<{ id: string | null; name: string | null; set_count?: number }>) {
       if (row.id) map.set(row.id, { name: row.name ?? 'Untitled', set_count: row.set_count ?? 0 })
     }
     return (id: string) => map.get(id) ?? null
-  }, [mocksList])
+  }, [activeMocksList])
 
   const filteredSessions = useMemo(() => {
     let list = sessions
@@ -391,7 +394,7 @@ export function UcatClassDialog({
   )
 
   const filteredSets = useMemo(() => {
-    const list = setsList as Array<{
+    const list = activeSetsList as Array<{
       id: string | null
       name: unknown
       sections: unknown
@@ -433,7 +436,7 @@ export function UcatClassDialog({
       )
       return searchHit && visibilityHit && originHit && timeLimitHit && stemCountHit && questionCountHit
     })
-  }, [setsList, searchSets, setsTableState])
+  }, [activeSetsList, searchSets, setsTableState])
 
   const mocksTableState = useMemo(
     () => ({ search: searchMocks, filters: filtersMocks, sortBy: null, sortDirection: 'desc' as const, groupBy: null, page: 1, pageSize: 20, visibleColumns: [] }),
@@ -441,18 +444,13 @@ export function UcatClassDialog({
   )
 
   const filteredMocks = useMemo(() => {
-    const list = mocksList as Array<{ id: string | null; name: string | null; set_count?: number; is_private?: boolean | null }>
+    const list = activeMocksList as Array<{ id: string | null; name: string | null; set_count?: number; is_private?: boolean | null }>
     return list.filter((row) => {
       const searchHit = !searchMocks.trim() || applyCoreStringFilter(row.name ?? '', searchMocks)
       const visibilityHit = applyBooleanTextFilter(mocksTableState, 'visibility', !!row.is_private)
       return searchHit && visibilityHit
     })
-  }, [mocksList, searchMocks, mocksTableState])
-
-  const isDirty = useMemo(() => {
-    const current = JSON.stringify(draftBySession)
-    return current !== initialDraftSnapshot
-  }, [draftBySession, initialDraftSnapshot])
+  }, [activeMocksList, searchMocks, mocksTableState])
 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
@@ -470,17 +468,7 @@ export function UcatClassDialog({
       if (!overStr.startsWith('res-')) return
       const activeDraftId = activeStr.replace('res-', '')
       const overDraftId = overStr.replace('res-', '')
-      if (activeDraftId === overDraftId) return
-      for (const sessionId of Object.keys(draftBySession)) {
-        const list = draftBySession[sessionId]
-        const fromIdx = list.findIndex((r) => r.draftId === activeDraftId)
-        const toIdx = list.findIndex((r) => r.draftId === overDraftId)
-        if (fromIdx >= 0 && toIdx >= 0) {
-          const reordered = arrayMove(list, fromIdx, toIdx).map((r, i) => ({ ...r, index: i }))
-          setDraftBySession((prev) => ({ ...prev, [sessionId]: reordered }))
-          return
-        }
-      }
+      moveResourceByDraftIds(activeDraftId, overDraftId)
       return
     }
 
@@ -488,46 +476,19 @@ export function UcatClassDialog({
       const sessionId = overStr.replace('session-', '')
       const type = activeStr.startsWith('set-') ? 'set' : 'mock'
       const resource_id = activeStr.startsWith('set-') ? activeStr.replace('set-', '') : activeStr.replace('mock-', '')
-      const list = draftBySession[sessionId] ?? []
-      const draftId = `draft-${sessionId}-${type}-${resource_id}-${Date.now()}`
-      const newResource: DraftResource = { type, resource_id, index: list.length, draftId }
-      setDraftBySession((prev) => ({
-        ...prev,
-        [sessionId]: [...list, newResource],
-      }))
+      appendResourceToSession(sessionId, type, resource_id)
     }
   }
 
   const handleRemove = (sessionId: string, draftId: string) => {
-    setDraftBySession((prev) => {
-      const list = (prev[sessionId] ?? []).filter((r) => r.draftId !== draftId).map((r, i) => ({ ...r, index: i }))
-      return { ...prev, [sessionId]: list }
-    })
+    removeResource(sessionId, draftId)
   }
 
   const handleSave = async () => {
-    if (!classId || !isDirty) return
-    setIsSaving(true)
-    try {
-      const assignments = Object.entries(draftBySession).map(([session_id, resources]) => ({
-        session_id,
-        resources: resources.map((r, index) => ({
-          resource_type: r.type,
-          resource_id: r.resource_id,
-          index,
-        })),
-      }))
-      await ucatClassesApi.replaceSessionResources(assignments)
-      queryClient.invalidateQueries({ queryKey: ucatKeys.classes() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
-      onSaved?.()
-      onClose()
-    } catch (_) {
-      // TODO: toast error
-    } finally {
-      setIsSaving(false)
-    }
+    await saveAssignments()
+    if (!isDirty) return
+    onSaved?.()
+    onClose()
   }
 
   return (

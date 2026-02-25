@@ -1,15 +1,17 @@
 'use client'
 
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { Button, DataTableToolbar, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui'
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, ChevronRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import {
   useCreateUcatQuestionStem,
   useDeleteUcatQuestionStem,
+  useRestoreUcatQuestionStem,
   useUcatCategories,
   useUcatQuestionDetail,
+  useUcatQuestionStemTypes,
   useUcatQuestions,
   useUcatSections,
   useUcatTags,
@@ -26,12 +28,10 @@ import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/sha
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import { getSupabaseClient } from '@/shared/lib/supabase/client'
-import type { SupabaseClient } from '@supabase/supabase-js'
-import type { Database } from '@altitutor/shared'
 import { applyBooleanTextFilter, applySingleSelectFilter, applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { cn } from '@/shared/utils'
 
 function truncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text ?? ''
@@ -50,6 +50,7 @@ type QuestionRow = {
   type_summary: string
   stem_text: string
   set_names: string
+  deleted_at: string | null
 }
 
 const filterDefinitions: DataTableFilterDefinition[] = [
@@ -97,10 +98,12 @@ export function UcatQuestionsPage() {
   const [createOpen, setCreateOpen] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
-  const [stemTypes, setStemTypes] = useState<Record<string, Set<'multiple_choice' | 'syllogism'>>>({})
+  const [showDeleted, setShowDeleted] = useState(false)
   const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
   const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<Set<string>>(new Set())
 
+  const stemTypesQuery = useUcatQuestionStemTypes()
+  const stemTypes = stemTypesQuery.data ?? {}
   const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
@@ -129,30 +132,7 @@ export function UcatQuestionsPage() {
   const createMutation = useCreateUcatQuestionStem()
   const updateMutation = useUpdateUcatQuestionStem()
   const deleteMutation = useDeleteUcatQuestionStem()
-
-  useEffect(() => {
-    const run = async () => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>
-      const { data } = await supabase.from('vtutor_ucat_question_stem_detail').select('id,questions')
-
-      type QuestionWithType = { question_type?: string }
-      const map: Record<string, Set<'multiple_choice' | 'syllogism'>> = {}
-      ;(data ?? []).forEach((row) => {
-        const types = new Set<'multiple_choice' | 'syllogism'>()
-        const questions = (row.questions ?? []) as QuestionWithType[]
-        questions.forEach((question) => {
-          if (question.question_type === 'multiple_choice' || question.question_type === 'syllogism') {
-            types.add(question.question_type)
-          }
-        })
-        map[row.id ?? ''] = types
-      })
-
-      setStemTypes(map)
-    }
-
-    void run()
-  }, [])
+  const restoreMutation = useRestoreUcatQuestionStem()
 
   const rows: QuestionRow[] = (questions.data ?? []).map((row) => {
     const summary = row.id ? Array.from(stemTypes[row.id] ?? []).join(', ') : ''
@@ -176,13 +156,17 @@ export function UcatQuestionsPage() {
       type_summary: summary || '-',
       stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as import('@altitutor/shared').Json) : '',
       set_names: setsDisplay,
+      deleted_at: (row as { deleted_at?: string | null }).deleted_at ?? null,
     }
   })
 
   const filteredRows = useMemo(() => {
+    const byDeleted = showDeleted
+      ? rows.filter((row) => row.deleted_at != null)
+      : rows.filter((row) => row.deleted_at == null)
     const search = tableState.state.search.trim().toLowerCase()
 
-    return rows.filter((row) => {
+    return byDeleted.filter((row) => {
       const searchHit =
         search.length === 0 ||
         row.stem_text.toLowerCase().includes(search) ||
@@ -201,7 +185,7 @@ export function UcatQuestionsPage() {
 
       return searchHit && sectionHit && categoryHit && visibilityHit && typeHit
     })
-  }, [rows, tableState.state])
+  }, [rows, tableState.state, showDeleted])
 
   const sortedRows = useMemo(
     () =>
@@ -295,7 +279,7 @@ export function UcatQuestionsPage() {
     setEditingStemId(null)
   }
 
-  if (access.isLoading || questions.isLoading) return <UcatPageSkeleton rows={8} />
+  if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
 
   const sectionFilterDefs: DataTableFilterDefinition[] = [
@@ -334,6 +318,29 @@ export function UcatQuestionsPage() {
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         searchPlaceholder="Search questions"
+        filterFooter={
+          <div className="px-2 py-2 border-t">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full justify-center"
+              onClick={() => {
+                setShowDeleted((prev) => {
+                  const next = !prev
+                  if (next) {
+                    tableState.actions.onFiltersChange({})
+                    tableState.actions.onSearchChange('')
+                  }
+                  return next
+                })
+              }}
+            >
+              {showDeleted ? 'Show active only' : 'Show deleted'}
+            </Button>
+          </div>
+        }
+        showDeletedActive={showDeleted}
+        onClearShowDeleted={() => setShowDeleted(false)}
       />
 
       <div className="pt-3">
@@ -359,7 +366,7 @@ export function UcatQuestionsPage() {
               const hasQuestions = (row.question_count ?? 0) > 0
               return (
                 <React.Fragment key={row.id}>
-                  <TableRow>
+                  <TableRow className={cn(row.deleted_at && 'bg-destructive/10')}>
                     <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
                       {hasQuestions ? (
                         <button
@@ -393,12 +400,22 @@ export function UcatQuestionsPage() {
                         <UcatRowActions
                           actions={[
                             { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingStemId(row.id) },
-                            {
-                              label: 'Delete',
-                              icon: <Trash2 className="h-4 w-4" />,
-                              onClick: () => setDeletingStemId(row.id),
-                              destructive: true,
-                            },
+                            ...(showDeleted
+                              ? [
+                                  {
+                                    label: 'Restore',
+                                    icon: <RotateCcw className="h-4 w-4" />,
+                                    onClick: () => restoreMutation.mutate(row.id),
+                                  },
+                                ]
+                              : [
+                                  {
+                                    label: 'Delete',
+                                    icon: <Trash2 className="h-4 w-4" />,
+                                    onClick: () => setDeletingStemId(row.id),
+                                    destructive: true,
+                                  },
+                                ]),
                           ]}
                         />
                       </div>
@@ -526,7 +543,7 @@ export function UcatQuestionsPage() {
         open={!!deletingStemId}
         onOpenChange={(open) => !open && setDeletingStemId(null)}
         title="Delete question stem?"
-        description="This action cannot be undone. All questions in this stem will be deleted."
+        description="The stem and all its questions will be hidden from students. You can restore them later from the deleted list."
         onConfirm={async () => { if (deletingStemId) await deleteMutation.mutateAsync(deletingStemId) }}
         isPending={deleteMutation.isPending}
       />

@@ -360,54 +360,11 @@ function QuestionTagsSelect({
   const selectedIds = (form.watch(`questions.${questionIndex}.tagIds`) ?? []) as string[]
   const selectedTags = tags.filter((t) => selectedIds.includes(t.id))
 
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Debug-Session-Id': 'fc481b',
-    },
-    body: JSON.stringify({
-      sessionId: 'fc481b',
-      runId: 'pre-fix',
-      hypothesisId: 'H1',
-      location: 'UcatQuestionStemDialog.tsx:QuestionTagsSelect:init',
-      message: 'Tag selector state on render',
-      data: { questionIndex, tagsCount: tags.length, selectedCount: selectedIds.length },
-      timestamp: Date.now(),
-    }),
-  }).catch(() => {})
-  // #endregion
-
   const toggleTag = (tagId: string) => {
     const next = selectedIds.includes(tagId)
       ? selectedIds.filter((id) => id !== tagId)
       : [...selectedIds, tagId]
     form.setValue(`questions.${questionIndex}.tagIds`, next, { shouldDirty: true })
-
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': 'fc481b',
-      },
-      body: JSON.stringify({
-        sessionId: 'fc481b',
-        runId: 'pre-fix',
-        hypothesisId: 'H2',
-        location: 'UcatQuestionStemDialog.tsx:QuestionTagsSelect:toggleTag',
-        message: 'Tag toggled in selector',
-        data: {
-          questionIndex,
-          tagId,
-          wasSelected: selectedIds.includes(tagId),
-          nextSelectedCount: next.length,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
   }
 
   return (
