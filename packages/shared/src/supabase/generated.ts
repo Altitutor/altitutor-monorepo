@@ -3653,6 +3653,67 @@ export type Database = {
           },
         ]
       }
+      question_stems_files: {
+        Row: {
+          file_id: string
+          id: string
+          question_stem_id: string
+        }
+        Insert: {
+          file_id: string
+          id?: string
+          question_stem_id: string
+        }
+        Update: {
+          file_id?: string
+          id?: string
+          question_stem_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_stems_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_files_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_files_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_files_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_files_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_files_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       question_stems_question_sets: {
         Row: {
           created_at: string | null
@@ -11398,6 +11459,10 @@ export type Database = {
         Args: { session_id: string }
         Returns: boolean
       }
+      can_student_access_ucat_image: {
+        Args: { p_stem_id: string }
+        Returns: boolean
+      }
       can_student_read_file: { Args: { file_path: string }; Returns: boolean }
       can_tutor_access_session_file: {
         Args: { session_id: string }
@@ -11689,6 +11754,10 @@ export type Database = {
         }
       }
       get_supabase_url: { Args: never; Returns: string }
+      get_ucat_stem_id_from_image_path: {
+        Args: { file_path: string }
+        Returns: string
+      }
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
