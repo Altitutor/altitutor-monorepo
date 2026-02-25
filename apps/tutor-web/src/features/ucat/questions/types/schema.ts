@@ -1,7 +1,7 @@
 import { z } from 'zod'
 
 export const ucatQuestionOptionSchema = z.object({
-  answerText: z.string().min(1, 'Answer text is required'),
+  answerText: z.string(),
   answerExplanation: z.string().optional(),
   isAnswer: z.boolean(),
 })

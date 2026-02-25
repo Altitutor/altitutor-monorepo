@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Resolver, UseFormReturn } from 'react-hook-form'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -17,21 +17,45 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  RadioGroup,
+  RadioGroupItem,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Textarea,
 } from '@altitutor/ui'
+import { Trash2 } from 'lucide-react'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 
+/** Trim leading/trailing blank lines and whitespace from plain text. */
+function trimTextParagraphs(text: string): string {
+  return text
+    .split(/\n/)
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .replace(/^\s*\n+/, '')
+    .replace(/\n+\s*$/, '')
+    .trim()
+}
+
 export type CategoryOption = { id: string | null; name: string | null; ucat_section_id?: string | null }
 export type TagOption = { id: string; name: string }
+
+const DEFAULT_OPTIONS = [
+  { answerText: '', answerExplanation: '', isAnswer: true },
+  { answerText: '', answerExplanation: '', isAnswer: false },
+  { answerText: '', answerExplanation: '', isAnswer: false },
+  { answerText: '', answerExplanation: '', isAnswer: false },
+]
 
 export function UcatQuestionStemDialog({
   open,
@@ -70,10 +94,7 @@ export function UcatQuestionStemDialog({
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
-            options: [
-              { answerText: '', answerExplanation: '', isAnswer: true },
-              { answerText: '', answerExplanation: '', isAnswer: false },
-            ],
+            options: [...DEFAULT_OPTIONS],
           },
         ],
       }
@@ -90,11 +111,14 @@ export function UcatQuestionStemDialog({
         difficulty: question.difficulty,
         timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
         tagIds: (question.tags ?? []).map((tag) => tag.id),
-        options: (question.answer_options ?? []).map((option) => ({
-          answerText: proseMirrorToPlainText(option.answer_text),
-          answerExplanation: proseMirrorToPlainText(option.answer_explanation),
-          isAnswer: option.is_answer,
-        })),
+        options:
+          (question.answer_options ?? []).length > 0
+            ? (question.answer_options ?? []).map((option) => ({
+                answerText: proseMirrorToPlainText(option.answer_text),
+                answerExplanation: proseMirrorToPlainText(option.answer_explanation),
+                isAnswer: option.is_answer,
+              }))
+            : [...DEFAULT_OPTIONS],
       })),
     }
   }, [initial, sections])
@@ -107,20 +131,58 @@ export function UcatQuestionStemDialog({
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
 
+  // When opening for create (no initial), reset form so previous content is cleared
+  useEffect(() => {
+    if (open && !initial) {
+      const emptyDefaults: UcatQuestionStemFormValues = {
+        sectionId: sections.find((section) => section.id)?.id ?? '',
+        categoryId: null,
+        stemText: '',
+        isPrivate: false,
+        questions: [
+          {
+            questionText: '',
+            questionType: 'multiple_choice',
+            difficulty: null,
+            timeBurdenSeconds: '',
+            tagIds: [],
+            options: [...DEFAULT_OPTIONS],
+          },
+        ],
+      }
+      form.reset(emptyDefaults)
+    }
+  }, [open, initial, sections, form])
+
   const sectionId = form.watch('sectionId')
   const categoriesFiltered = useMemo(
     () => (sectionId ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId) : []),
     [categories, sectionId]
   )
 
+  const stemType = form.watch('questions.0.questionType') as 'multiple_choice' | 'syllogism' | undefined
+
+  function setStemType(value: 'multiple_choice' | 'syllogism') {
+    fields.forEach((_, i) => {
+      form.setValue(`questions.${i}.questionType`, value, { shouldDirty: true })
+    })
+  }
+
   async function handleSave() {
     await form.handleSubmit((values) => {
       const transformed = {
         ...values,
-        questions: values.questions.map((q: { timeBurdenSeconds?: string | null }) => ({
-          ...q,
-          timeBurdenSeconds: parseTimeToSeconds(q.timeBurdenSeconds ?? '') ?? null,
-        })),
+        stemText: trimTextParagraphs(values.stemText ?? ''),
+        questions: values.questions.map((q) => {
+          const filteredOptions = (q.options ?? []).filter((o) => (o.answerText ?? '').trim() !== '')
+          const optionsToSend = filteredOptions.length > 0 ? filteredOptions : (q.options ?? []).slice(0, 1)
+          return {
+            ...q,
+            questionText: trimTextParagraphs(q.questionText ?? ''),
+            timeBurdenSeconds: parseTimeToSeconds(q.timeBurdenSeconds ?? '') ?? null,
+            options: optionsToSend.length > 0 ? optionsToSend : [{ answerText: '', answerExplanation: '', isAnswer: false }],
+          }
+        }),
       }
       return onSubmit(transformed as unknown as UcatQuestionStemFormValues)
     })()
@@ -137,144 +199,149 @@ export function UcatQuestionStemDialog({
       saveDisabled={loading}
       isSaving={loading}
     >
-      <div className="p-6 overflow-y-auto h-full">
-      <form className="space-y-4" onSubmit={form.handleSubmit((data) => onSubmit(data))}>
-        <div className="grid gap-3 md:grid-cols-2">
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Section</span>
-            <Select
-              value={form.watch('sectionId')}
-              onValueChange={(value) => {
-                form.setValue('sectionId', value, { shouldDirty: true })
-                form.setValue('categoryId', null, { shouldDirty: true })
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {sections.map((section) => (
-                  <SelectItem key={section.id ?? 'none'} value={section.id ?? ''}>
-                    {section.name ?? 'Untitled'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
+      <div className="h-full overflow-y-auto">
+        <form className="flex flex-col" onSubmit={(e) => e.preventDefault()}>
+          {/* Row 1: Stem text (left) | Properties (right) */}
+          <div className="flex border-b">
+            <section className="flex-1 min-w-0 p-6">
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Stem text</span>
+                <Textarea className="min-h-48" {...form.register('stemText')} />
+              </label>
+            </section>
+            <aside className="w-80 flex-shrink-0 border-l p-6 space-y-4">
+              <h2 className="font-semibold">Properties</h2>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Section</span>
+                <Select
+                  value={form.watch('sectionId')}
+                  onValueChange={(value) => {
+                    form.setValue('sectionId', value, { shouldDirty: true })
+                    form.setValue('categoryId', null, { shouldDirty: true })
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sections.map((section) => (
+                      <SelectItem key={section.id ?? 'none'} value={section.id ?? ''}>
+                        {section.name ?? 'Untitled'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Category</span>
+                <Select
+                  value={form.watch('categoryId') ?? 'none'}
+                  onValueChange={(value) => form.setValue('categoryId', value === 'none' ? null : value, { shouldDirty: true })}
+                  disabled={!sectionId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={!sectionId ? 'Select section first' : undefined} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No category</SelectItem>
+                    {categoriesFiltered.map((category) => (
+                      <SelectItem key={category.id ?? 'none'} value={category.id ?? ''}>
+                        {category.name ?? 'Untitled'}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Visibility</span>
+                <Select
+                  value={form.watch('isPrivate') ? 'private' : 'public'}
+                  onValueChange={(value) => form.setValue('isPrivate', value === 'private', { shouldDirty: true })}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="public">Public</SelectItem>
+                    <SelectItem value="private">Private</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Type (all questions)</span>
+                <Select
+                  value={stemType ?? 'multiple_choice'}
+                  onValueChange={(value: 'multiple_choice' | 'syllogism') => setStemType(value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                    <SelectItem value="syllogism">Syllogism</SelectItem>
+                  </SelectContent>
+                </Select>
+              </label>
+            </aside>
+          </div>
 
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Category</span>
-            <Select
-              value={form.watch('categoryId') ?? 'none'}
-              onValueChange={(value) => form.setValue('categoryId', value === 'none' ? null : value, { shouldDirty: true })}
-              disabled={!sectionId}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder={!sectionId ? 'Select section first' : undefined} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No category</SelectItem>
-                {categoriesFiltered.map((category) => (
-                  <SelectItem key={category.id ?? 'none'} value={category.id ?? ''}>
-                    {category.name ?? 'Untitled'}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </label>
-        </div>
-
-        <label className="block space-y-1 text-sm">
-          <span className="font-medium">Stem Text</span>
-          <Textarea className="min-h-20" {...form.register('stemText')} />
-        </label>
-
-        <label className="inline-flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={form.watch('isPrivate')}
-            onCheckedChange={(checked) => form.setValue('isPrivate', checked === true, { shouldDirty: true })}
-          />
-          Private question stem
-        </label>
-
-        <div className="space-y-4">
+          {/* Rows 2..n: Question text + options (left) | tags, difficulty, time (right) */}
           {fields.map((field, questionIndex) => (
-            <div key={field.id} className="rounded border p-3">
-              <div className="mb-3 flex items-center justify-between">
+            <div key={field.id} className="flex border-b">
+              <section className="flex-1 min-w-0 p-6 space-y-3">
                 <h3 className="font-medium">Question {questionIndex + 1}</h3>
-                <Button type="button" variant="outline" size="sm" onClick={() => remove(questionIndex)}>
-                  Remove
-                </Button>
-              </div>
-
-              <div className="grid gap-3 md:grid-cols-3">
-                <label className="space-y-1 text-sm md:col-span-2">
+                <label className="block space-y-1 text-sm">
                   <span>Question text</span>
                   <Textarea className="min-h-16" {...form.register(`questions.${questionIndex}.questionText`)} />
                 </label>
-
-                <label className="space-y-1 text-sm">
-                  <span>Tags</span>
-                  <QuestionTagsSelect
-                    questionIndex={questionIndex}
-                    form={form}
-                    tags={tags}
-                  />
+                <QuestionOptionsEditor form={form} questionIndex={questionIndex} stemType={stemType ?? 'multiple_choice'} />
+              </section>
+              <aside className="w-80 flex-shrink-0 border-l p-6 space-y-3">
+                <label className="block space-y-1 text-sm">
+                  <span className="font-medium">Tags</span>
+                  <QuestionTagsSelect questionIndex={questionIndex} form={form} tags={tags} />
                 </label>
-                <div className="space-y-2">
-                  <label className="space-y-1 text-sm">
-                    <span>Type</span>
-                    <Select
-                      value={form.watch(`questions.${questionIndex}.questionType`) as 'multiple_choice' | 'syllogism'}
-                      onValueChange={(value: 'multiple_choice' | 'syllogism') =>
-                        form.setValue(`questions.${questionIndex}.questionType`, value, { shouldDirty: true })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                        <SelectItem value="syllogism">Syllogism</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </label>
-                  <label className="space-y-1 text-sm">
-                    <span>Difficulty (0-1)</span>
-                    <Input type="number" step="0.01" {...form.register(`questions.${questionIndex}.difficulty`)} />
-                  </label>
-                  <label className="space-y-1 text-sm">
-                    <span>Time burden (mm:ss or seconds)</span>
-                    <Input type="text" placeholder="e.g. 1:30 or 90" {...form.register(`questions.${questionIndex}.timeBurdenSeconds`)} />
-                  </label>
-                </div>
-              </div>
-
-              <QuestionOptionsEditor form={form} questionIndex={questionIndex} />
+                <label className="block space-y-1 text-sm">
+                  <span className="font-medium">Difficulty (0–1)</span>
+                  <Input type="number" step="0.01" {...form.register(`questions.${questionIndex}.difficulty`)} />
+                </label>
+                <label className="block space-y-1 text-sm">
+                  <span className="font-medium">Time burden (mm:ss or seconds)</span>
+                  <Input type="text" placeholder="e.g. 1:30 or 90" {...form.register(`questions.${questionIndex}.timeBurdenSeconds`)} />
+                </label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => remove(questionIndex)}
+                  className="w-full justify-center border-destructive text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete question
+                </Button>
+              </aside>
             </div>
           ))}
-        </div>
 
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() =>
-            append({
-              questionText: '',
-              questionType: 'multiple_choice',
-              difficulty: null,
-              timeBurdenSeconds: '',
-              tagIds: [],
-              options: [
-                { answerText: '', answerExplanation: '', isAnswer: true },
-                { answerText: '', answerExplanation: '', isAnswer: false },
-              ],
-            })
-          }
-        >
-          Add Question
-        </Button>
-      </form>
+          <div className="p-6 border-t">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() =>
+                append({
+                  questionText: '',
+                  questionType: stemType ?? 'multiple_choice',
+                  difficulty: null,
+                  timeBurdenSeconds: '',
+                  tagIds: [],
+                  options: [...DEFAULT_OPTIONS],
+                })
+              }
+            >
+              Add Question
+            </Button>
+          </div>
+        </form>
       </div>
     </UcatDialogShell>
   )
@@ -293,11 +360,54 @@ function QuestionTagsSelect({
   const selectedIds = (form.watch(`questions.${questionIndex}.tagIds`) ?? []) as string[]
   const selectedTags = tags.filter((t) => selectedIds.includes(t.id))
 
+  // #region agent log
+  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Debug-Session-Id': 'fc481b',
+    },
+    body: JSON.stringify({
+      sessionId: 'fc481b',
+      runId: 'pre-fix',
+      hypothesisId: 'H1',
+      location: 'UcatQuestionStemDialog.tsx:QuestionTagsSelect:init',
+      message: 'Tag selector state on render',
+      data: { questionIndex, tagsCount: tags.length, selectedCount: selectedIds.length },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {})
+  // #endregion
+
   const toggleTag = (tagId: string) => {
     const next = selectedIds.includes(tagId)
       ? selectedIds.filter((id) => id !== tagId)
       : [...selectedIds, tagId]
     form.setValue(`questions.${questionIndex}.tagIds`, next, { shouldDirty: true })
+
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Debug-Session-Id': 'fc481b',
+      },
+      body: JSON.stringify({
+        sessionId: 'fc481b',
+        runId: 'pre-fix',
+        hypothesisId: 'H2',
+        location: 'UcatQuestionStemDialog.tsx:QuestionTagsSelect:toggleTag',
+        message: 'Tag toggled in selector',
+        data: {
+          questionIndex,
+          tagId,
+          wasSelected: selectedIds.includes(tagId),
+          nextSelectedCount: next.length,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
   }
 
   return (
@@ -318,9 +428,9 @@ function QuestionTagsSelect({
                 return (
                   <CommandItem
                     key={tag.id}
-                    value={tag.name}
+                    value={`${tag.id}-${tag.name}`}
                     onSelect={() => toggleTag(tag.id)}
-                    className="flex items-center gap-2"
+                    className="flex items-center gap-2 text-foreground data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto"
                   >
                     <Checkbox checked={isSelected} />
                     <span>{tag.name}</span>
@@ -338,48 +448,100 @@ function QuestionTagsSelect({
 function QuestionOptionsEditor({
   form,
   questionIndex,
+  stemType,
 }: {
   form: UseFormReturn<UcatQuestionStemFormValues>
   questionIndex: number
+  stemType: 'multiple_choice' | 'syllogism'
 }) {
   const optionsArray = useFieldArray({ control: form.control, name: `questions.${questionIndex}.options` })
 
+  const isMultipleChoice = stemType === 'multiple_choice'
+  const optionsLabel = isMultipleChoice ? 'Answer options' : 'Statements'
+
+  const correctIndex = optionsArray.fields.findIndex(
+    (_, i) => form.watch(`questions.${questionIndex}.options.${i}.isAnswer`)
+  )
+  const correctValue = correctIndex >= 0 ? String(correctIndex) : ''
+
+  const setCorrectIndex = (index: number) => {
+    optionsArray.fields.forEach((_, i) => {
+      form.setValue(`questions.${questionIndex}.options.${i}.isAnswer`, i === index, { shouldDirty: true })
+    })
+  }
+
   return (
-    <div className="mt-3 space-y-2 rounded border bg-muted/20 p-3">
+    <div className="rounded border bg-muted/20 p-3 space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium">Options / Statements</h4>
+        <h4 className="text-sm font-medium">{optionsLabel}</h4>
         <Button
           type="button"
           variant="outline"
           size="sm"
           onClick={() => optionsArray.append({ answerText: '', answerExplanation: '', isAnswer: false })}
         >
-          Add Option
+          Add
         </Button>
       </div>
 
-      {optionsArray.fields.map((option, optionIndex) => (
-        <div key={option.id} className="grid gap-2 md:grid-cols-[1fr,150px,120px]">
-          <Input
-            placeholder="Option / statement"
-            {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerText`)}
-          />
-          <label className="inline-flex items-center gap-2 rounded border px-3 text-sm">
-            <Checkbox
-              checked={form.watch(`questions.${questionIndex}.options.${optionIndex}.isAnswer`) as boolean}
-              onCheckedChange={(checked) =>
-                form.setValue(`questions.${questionIndex}.options.${optionIndex}.isAnswer`, checked === true, {
-                  shouldDirty: true,
-                })
-              }
+      {isMultipleChoice ? (
+        <RadioGroup value={correctValue} onValueChange={(v) => setCorrectIndex(Number(v))}>
+          {optionsArray.fields.map((option, optionIndex) => (
+            <div key={option.id} className="grid gap-2 md:grid-cols-[1fr,auto,auto] items-center">
+              <Input
+                placeholder="Option text"
+                {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerText`)}
+              />
+              <label htmlFor={`q-${questionIndex}-opt-${optionIndex}-correct`} className="flex items-center gap-2 shrink-0 cursor-pointer">
+                <RadioGroupItem id={`q-${questionIndex}-opt-${optionIndex}-correct`} value={String(optionIndex)} />
+                <span className="text-sm">Correct</span>
+              </label>
+              {optionsArray.fields.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => optionsArray.remove(optionIndex)}
+                  className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </RadioGroup>
+      ) : (
+        optionsArray.fields.map((option, optionIndex) => (
+          <div key={option.id} className="grid gap-2 md:grid-cols-[1fr,auto,auto] items-center">
+            <Input
+              placeholder="Statement"
+              {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerText`)}
             />
-            Correct / Yes
-          </label>
-          <Button type="button" variant="outline" size="sm" onClick={() => optionsArray.remove(optionIndex)}>
-            Remove
-          </Button>
-        </div>
-      ))}
+            <Tabs
+              value={form.watch(`questions.${questionIndex}.options.${optionIndex}.isAnswer`) ? 'yes' : 'no'}
+              onValueChange={(v) =>
+                form.setValue(`questions.${questionIndex}.options.${optionIndex}.isAnswer`, v === 'yes', { shouldDirty: true })
+              }
+            >
+              <TabsList className="h-9">
+                <TabsTrigger value="yes" className="px-3 text-xs">Yes</TabsTrigger>
+                <TabsTrigger value="no" className="px-3 text-xs">No</TabsTrigger>
+              </TabsList>
+            </Tabs>
+            {optionsArray.fields.length > 1 && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => optionsArray.remove(optionIndex)}
+                className="shrink-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        ))
+      )}
     </div>
   )
 }
