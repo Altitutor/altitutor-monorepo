@@ -59,6 +59,12 @@ interface DataTableToolbarProps {
   isLoading?: boolean;
   filterSearchValues?: Record<string, string>;
   onFilterSearchChange?: (filterKey: string, value: string) => void;
+  /** Optional content rendered at the bottom of the Filters dropdown (e.g. "Show deleted" toggle) */
+  filterFooter?: React.ReactNode;
+  /** When true, "Show deleted" is considered an active filter: button shows count and X clears it */
+  showDeletedActive?: boolean;
+  /** Called when the user clears the "Show deleted" filter (e.g. via the X button) */
+  onClearShowDeleted?: () => void;
 }
 
 export function DataTableToolbar({
@@ -79,6 +85,9 @@ export function DataTableToolbar({
   isLoading: _isLoading = false,
   filterSearchValues = {},
   onFilterSearchChange,
+  filterFooter,
+  showDeletedActive = false,
+  onClearShowDeleted,
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
@@ -197,6 +206,13 @@ export function DataTableToolbar({
 
   const isRangeFilterBoundKey = (columnKey: string) =>
     rangeFilterDefs.some((d) => d.minKey === columnKey || d.maxKey === columnKey);
+
+  const effectiveActiveFilterCount = activeFilterCount + (showDeletedActive ? 1 : 0);
+
+  const handleClearAllFilters = () => {
+    onClearShowDeleted?.();
+    onFiltersChange({});
+  };
 
   return (
     <div className="flex flex-col gap-2 w-full">
@@ -361,10 +377,10 @@ export function DataTableToolbar({
           <div className="flex items-center">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className={cn("h-9", activeFilterCount > 0 && "rounded-r-none")}>
+                <Button variant="outline" size="sm" className={cn("h-9", effectiveActiveFilterCount > 0 && "rounded-r-none")}>
                   <Filter className="h-4 w-4 mr-2" />
                   <span className="hidden sm:inline">
-                    Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
+                    Filter {effectiveActiveFilterCount > 0 && `(${effectiveActiveFilterCount})`}
                   </span>
                   <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                 </Button>
@@ -394,7 +410,7 @@ export function DataTableToolbar({
                   </>
                 )}
 
-                {activeFilterCount > 0 && (
+                {(effectiveActiveFilterCount > 0 || showDeletedActive) && (
                   <div className="px-2 pb-2 flex flex-wrap items-center gap-1">
                     {rangeFilterDefs.map((def) => {
                       const minVal = def.minKey != null ? (state.filters[def.minKey]?.[0] ?? '') : '';
@@ -484,8 +500,20 @@ export function DataTableToolbar({
                         </div>
                       );
                     })}
+                    {showDeletedActive && (
+                      <div className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-[10px]">
+                        <span className="font-semibold">Deleted</span>
+                        <button
+                          onClick={() => onClearShowDeleted?.()}
+                          className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                          aria-label="Clear Deleted filter"
+                        >
+                          <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                        </button>
+                      </div>
+                    )}
                     <button
-                      onClick={() => onFiltersChange({})}
+                      onClick={handleClearAllFilters}
                       className="inline-flex items-center gap-1 px-2 py-1 bg-muted hover:bg-muted/80 rounded border text-[10px] font-medium transition-colors"
                     >
                       Clear all
@@ -635,14 +663,21 @@ export function DataTableToolbar({
                     );
                   })}
                 </ScrollArea>
+                {filterFooter != null && (
+                  <>
+                    <DropdownMenuSeparator />
+                    {filterFooter}
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
-            {activeFilterCount > 0 && (
+            {effectiveActiveFilterCount > 0 && (
               <Button
                 variant="outline"
                 size="sm"
                 className="h-9 rounded-l-none border-l-0 px-2"
-                onClick={() => onFiltersChange({})}
+                onClick={handleClearAllFilters}
+                aria-label="Clear all filters"
               >
                 <X className="h-4 w-4" />
               </Button>

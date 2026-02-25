@@ -9,6 +9,7 @@ import Typography from '@tiptap/extension-typography';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
+import Image from '@tiptap/extension-image';
 import { TextSelection } from '@tiptap/pm/state';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
@@ -122,6 +123,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         openOnClick: false,
         HTMLAttributes: {
           class: 'text-primary underline cursor-pointer',
+        },
+      }),
+      Image.configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: 'my-3 rounded-md max-w-full h-auto cursor-pointer',
         },
       }),
       ...(mentionSuggestions ? [

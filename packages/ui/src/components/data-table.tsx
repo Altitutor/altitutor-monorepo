@@ -30,6 +30,8 @@ interface DataTableProps<TData, TValue> {
   data: TData[]
   searchKey?: string
   pageSizeOptions?: number[]
+  /** Optional function to compute row className from row data (e.g. for deleted row styling) */
+  getRowClassName?: (data: TData) => string | undefined
 }
 
 export function DataTable<TData, TValue>({
@@ -37,6 +39,7 @@ export function DataTable<TData, TValue>({
   data,
   searchKey,
   pageSizeOptions = [10, 20, 30, 40, 50],
+  getRowClassName,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -101,6 +104,7 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
+                  className={getRowClassName?.(row.original)}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
