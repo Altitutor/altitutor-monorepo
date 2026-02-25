@@ -6670,6 +6670,7 @@ export type Database = {
       }
       ucat_questions: {
         Row: {
+          answer_explanation: Json | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
@@ -6685,6 +6686,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          answer_explanation?: Json | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
@@ -6700,6 +6702,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          answer_explanation?: Json | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
