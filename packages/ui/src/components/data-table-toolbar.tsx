@@ -413,7 +413,7 @@ export function DataTableToolbar({
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
                                 aria-label={`Clear ${label} min`}
                               >
-                                {minVal}
+                                {String(minVal)}
                                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
                               </button>
                               <span>and</span>
@@ -422,7 +422,7 @@ export function DataTableToolbar({
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
                                 aria-label={`Clear ${label} max`}
                               >
-                                {maxVal}
+                                {String(maxVal)}
                                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
                               </button>
                               <span>(inclusive)</span>
@@ -435,7 +435,7 @@ export function DataTableToolbar({
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
                                 aria-label={`Clear ${label} min`}
                               >
-                                {minVal}
+                                {String(minVal)}
                                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
                               </button>
                             </>
@@ -447,7 +447,7 @@ export function DataTableToolbar({
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
                                 aria-label={`Clear ${label} max`}
                               >
-                                {maxVal}
+                                {String(maxVal)}
                                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
                               </button>
                             </>
