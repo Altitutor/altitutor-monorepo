@@ -6,7 +6,7 @@ import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/u
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -29,6 +29,7 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
 
   const [stemCatalog, setStemCatalog] = useState<StemCatalogItem[]>([])
   const [search, setSearch] = useState('')
+  const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
   const [draftTimeLimit, setDraftTimeLimit] = useState('')
   const [draftPrivate, setDraftPrivate] = useState(false)
@@ -43,12 +44,14 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
     const stems = (current.stems as SetDetailStem[] | null) ?? []
     const stemIds = stems.map((s) => s.stem_id)
 
+    setDraftName(proseMirrorToPlainText(current.name ?? null))
     setDraftDescription(proseMirrorToPlainText(current.description))
     setDraftTimeLimit(current.time_limit_seconds ? String(current.time_limit_seconds) : '')
     setDraftPrivate(!!current.is_private)
     setDraftStudentGenerated(!!current.is_student_generated)
     setDraftStemIds(stemIds)
     setBaseline(snapshotSetDetail({
+      name: proseMirrorToPlainText(current.name ?? null),
       description: proseMirrorToPlainText(current.description),
       time: current.time_limit_seconds ?? null,
       isPrivate: !!current.is_private,
@@ -74,6 +77,7 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
 
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
+      name: draftName,
       description: draftDescription,
       time: draftTimeLimit ? Number(draftTimeLimit) : null,
       isPrivate: draftPrivate,
@@ -81,7 +85,7 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
-  }, [baseline, draftDescription, draftPrivate, draftStemIds, draftStudentGenerated, draftTimeLimit])
+  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftStudentGenerated, draftTimeLimit])
 
   const stemLabelsById = useMemo(() => {
     const current = detail.data
@@ -111,6 +115,7 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
       setId,
       payload: {
         id: setId,
+        name: plainTextToProseMirror(draftName),
         description: draftDescription,
         timeLimitSeconds: draftTimeLimit ? Number(draftTimeLimit) : null,
         isPrivate: draftPrivate,
@@ -125,6 +130,7 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
     if (!current) return
     const stems = (current.stems as SetDetailStem[] | null) ?? []
     setDraftStemIds(stems.map((s) => s.stem_id))
+    setDraftName(proseMirrorToPlainText(current.name ?? null))
     setDraftDescription(proseMirrorToPlainText(current.description))
     setDraftTimeLimit(current.time_limit_seconds ? String(current.time_limit_seconds) : '')
     setDraftPrivate(!!current.is_private)
@@ -214,6 +220,10 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
 
         <aside className="space-y-3 rounded border p-4">
           <h2 className="font-semibold">Set Properties</h2>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Name</span>
+            <input className="w-full rounded border p-2" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Set name" />
+          </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Description</span>
             <textarea className="min-h-24 w-full rounded border p-2" value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />

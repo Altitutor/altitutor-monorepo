@@ -1,0 +1,15 @@
+export const ucatKeys = {
+  all: ['ucat'] as const,
+  access: () => [...ucatKeys.all, 'access'] as const,
+  sections: () => [...ucatKeys.all, 'sections'] as const,
+  categories: () => [...ucatKeys.all, 'categories'] as const,
+  tags: () => [...ucatKeys.all, 'tags'] as const,
+  questions: () => [...ucatKeys.all, 'questions'] as const,
+  question: (id: string) => [...ucatKeys.questions(), id] as const,
+  sets: () => [...ucatKeys.all, 'sets'] as const,
+  set: (id: string) => [...ucatKeys.sets(), id] as const,
+  mocks: () => [...ucatKeys.all, 'mocks'] as const,
+  mock: (id: string) => [...ucatKeys.mocks(), id] as const,
+  students: () => [...ucatKeys.all, 'students'] as const,
+  student: (id: string) => [...ucatKeys.students(), id] as const,
+}

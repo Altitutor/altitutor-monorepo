@@ -1,4 +1,5 @@
 export function snapshotSetDetail(value: {
+  name: string
   description: string
   time: number | null
   isPrivate: boolean

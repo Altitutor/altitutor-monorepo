@@ -3,6 +3,7 @@ import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/d
 describe('set detail dirty snapshot', () => {
   it('detects changes in ordered stem ids', () => {
     const baseline = snapshotSetDetail({
+      name: 'Set 1',
       description: 'Set 1',
       time: 1200,
       isPrivate: false,
@@ -11,6 +12,7 @@ describe('set detail dirty snapshot', () => {
     })
 
     const changed = snapshotSetDetail({
+      name: 'Set 1',
       description: 'Set 1',
       time: 1200,
       isPrivate: false,

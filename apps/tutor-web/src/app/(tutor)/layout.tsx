@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, Home, BookOpen, Ban, User } from 'lucide-react';
+import { Calendar, Home, BookOpen, Ban, User, BrainCircuit } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
@@ -34,6 +34,11 @@ const navItems: NavItem[] = [
     title: 'Resources',
     href: '/resources',
     icon: BookOpen,
+  },
+  {
+    title: 'UCAT',
+    href: '/ucat',
+    icon: BrainCircuit,
   },
   {
     title: 'Blockout Dates',
@@ -243,4 +248,3 @@ export default function TutorLayout({
     </>
   );
 }
-

@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
 import {
+  Badge,
   Button,
   Checkbox,
   DataTable,
@@ -17,21 +18,41 @@ import { useCreateUcatSet, useDeleteUcatSet, useUcatSets } from '@/features/ucat
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
-import { applyBooleanTextFilter, applySingleSelectFilter, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
+import {
+  applyBooleanTextFilter,
+  applyRangeFilter,
+  applySingleSelectFilter,
+  useUcatTableState,
+  useVisibleColumns,
+} from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+
+const DEFAULT_FILTERS: Record<string, unknown[]> = { is_student_generated: ['staff'] }
 
 type SetRow = {
   id: string
-  description: string
+  name: string
   time_limit_seconds: number | null
   is_private: boolean
   is_student_generated: boolean
-  updated_at: string | null
+  stem_count: number
+  question_count: number
+  created_by_first_name: string | null
+  created_by_last_name: string | null
 }
 
 const filterDefinitions: DataTableFilterDefinition[] = [
+  {
+    key: 'is_student_generated',
+    label: 'Origin',
+    options: [
+      { label: 'Staff', value: 'staff' },
+      { label: 'Student', value: 'student' },
+    ],
+  },
   {
     key: 'visibility',
     label: 'Visibility',
@@ -41,21 +62,35 @@ const filterDefinitions: DataTableFilterDefinition[] = [
     ],
   },
   {
-    key: 'origin',
-    label: 'Origin',
-    options: [
-      { label: 'Staff', value: 'staff' },
-      { label: 'Student', value: 'student' },
-    ],
+    key: 'time_limit',
+    label: 'Time limit (s)',
+    type: 'number-range',
+    minKey: 'time_limit_min',
+    maxKey: 'time_limit_max',
+  },
+  {
+    key: 'stem_count',
+    label: 'Question stems',
+    type: 'number-range',
+    minKey: 'stem_count_min',
+    maxKey: 'stem_count_max',
+  },
+  {
+    key: 'question_count',
+    label: 'Questions',
+    type: 'number-range',
+    minKey: 'question_count_min',
+    maxKey: 'question_count_max',
   },
 ]
 
 const columnDefinitions: DataTableColumnDefinition[] = [
-  { key: 'description', label: 'Description', visibleByDefault: true },
+  { key: 'name', label: 'Name', visibleByDefault: true },
   { key: 'time_limit_seconds', label: 'Time Limit', visibleByDefault: true },
+  { key: 'stem_count', label: 'Question stems', visibleByDefault: true },
+  { key: 'question_count', label: 'Questions', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
-  { key: 'origin', label: 'Origin', visibleByDefault: true },
-  { key: 'updated_at', label: 'Updated', visibleByDefault: true },
+  { key: 'created_by', label: 'Created by', visibleByDefault: true },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
 
@@ -65,7 +100,9 @@ export function UcatSetsPage() {
   const sets = useUcatSets()
   const createSet = useCreateUcatSet()
   const deleteSet = useDeleteUcatSet()
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
+  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
+    defaultFilters: DEFAULT_FILTERS,
+  })
 
   const [openCreate, setOpenCreate] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
@@ -76,34 +113,74 @@ export function UcatSetsPage() {
     if (editId) setEditingSetId(editId)
   }, [searchParams])
 
-  const rows: SetRow[] = (sets.data ?? []).map((row) => ({
-    id: row.id ?? '',
-    description: JSON.stringify(row.description ?? ''),
-    time_limit_seconds: row.time_limit_seconds,
-    is_private: !!row.is_private,
-    is_student_generated: !!row.is_student_generated,
-    updated_at: row.updated_at,
-  }))
+  const rows: SetRow[] = (sets.data ?? []).map((row) => {
+    const r = row as typeof row & { stem_count?: number; question_count?: number }
+    return {
+      id: row.id ?? '',
+      name: proseMirrorToPlainText(row.name ?? null) || '—',
+      time_limit_seconds: row.time_limit_seconds,
+      is_private: !!row.is_private,
+      is_student_generated: !!row.is_student_generated,
+      stem_count: r.stem_count ?? 0,
+      question_count: r.question_count ?? 0,
+      created_by_first_name: row.created_by_first_name ?? null,
+      created_by_last_name: row.created_by_last_name ?? null,
+    }
+  })
 
   const filteredRows = useMemo(() => {
     const search = tableState.state.search.trim().toLowerCase()
     return rows.filter((row) => {
-      const searchHit = search.length === 0 || row.description.toLowerCase().includes(search)
+      const searchHit = search.length === 0 || row.name.toLowerCase().includes(search)
       const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
       const originValue = row.is_student_generated ? 'student' : 'staff'
-      const originHit = applySingleSelectFilter(tableState.state, 'origin', originValue)
-      return searchHit && visibilityHit && originHit
+      const originHit = applySingleSelectFilter(tableState.state, 'is_student_generated', originValue)
+      const timeLimitHit = applyRangeFilter(
+        tableState.state,
+        'time_limit_min',
+        'time_limit_max',
+        row.time_limit_seconds
+      )
+      const stemCountHit = applyRangeFilter(
+        tableState.state,
+        'stem_count_min',
+        'stem_count_max',
+        row.stem_count
+      )
+      const questionCountHit = applyRangeFilter(
+        tableState.state,
+        'question_count_min',
+        'question_count_max',
+        row.question_count
+      )
+      return searchHit && visibilityHit && originHit && timeLimitHit && stemCountHit && questionCountHit
     })
   }, [rows, tableState.state])
 
   const allColumns: Array<{ key: string; column: ColumnDef<SetRow> }> = [
-    { key: 'description', column: { accessorKey: 'description', header: 'Description' } },
+    { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
     {
       key: 'time_limit_seconds',
       column: {
         accessorKey: 'time_limit_seconds',
         header: 'Time Limit',
         cell: ({ row }) => (row.original.time_limit_seconds ? `${row.original.time_limit_seconds}s` : '-'),
+      },
+    },
+    {
+      key: 'stem_count',
+      column: {
+        accessorKey: 'stem_count',
+        header: 'Question stems',
+        cell: ({ row }) => String(row.original.stem_count),
+      },
+    },
+    {
+      key: 'question_count',
+      column: {
+        accessorKey: 'question_count',
+        header: 'Questions',
+        cell: ({ row }) => String(row.original.question_count),
       },
     },
     {
@@ -115,19 +192,28 @@ export function UcatSetsPage() {
       },
     },
     {
-      key: 'origin',
+      key: 'created_by',
       column: {
-        accessorKey: 'is_student_generated',
-        header: 'Origin',
-        cell: ({ row }) => (row.original.is_student_generated ? 'Student' : 'Staff'),
-      },
-    },
-    {
-      key: 'updated_at',
-      column: {
-        accessorKey: 'updated_at',
-        header: 'Updated',
-        cell: ({ row }) => (row.original.updated_at ? new Date(row.original.updated_at).toLocaleString() : '-'),
+        id: 'created_by',
+        header: 'Created by',
+        cell: ({ row }) => {
+          const r = row.original
+          if (r.is_student_generated) {
+            return (
+              <span className="inline-flex items-center gap-1.5">
+                <Badge variant="secondary" className="text-xs">Student</Badge>
+                <span className="text-muted-foreground">Student-generated</span>
+              </span>
+            )
+          }
+          const name = [r.created_by_first_name, r.created_by_last_name].filter(Boolean).join(' ') || '—'
+          return (
+            <span className="inline-flex items-center gap-1.5">
+              <Badge variant="secondary" className="text-xs">Staff</Badge>
+              <span>{name}</span>
+            </span>
+          )
+        },
       },
     },
     {
