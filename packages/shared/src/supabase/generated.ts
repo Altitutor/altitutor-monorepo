@@ -11978,6 +11978,10 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
+      tutor_ucat_replace_sessions_resources: {
+        Args: { p_assignments: Json }
+        Returns: undefined
+      }
       tutor_ucat_restore_mock: {
         Args: { p_mock_id: string }
         Returns: undefined
