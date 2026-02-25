@@ -18,7 +18,7 @@ export function UcatExamShell({
   children: ReactNode
 }) {
   return (
-    <section className="relative min-h-[calc(100vh-120px)] overflow-hidden rounded-xl border-4 border-black bg-black text-black">
+    <section className="relative min-h-[calc(100vh-120px)] overflow-hidden bg-black text-black">
       <div className="h-full bg-[#dcdcdc] pb-12">
         <header className="border-b-2 border-[#0b6ca2] bg-[#0b6ca2] px-3 py-2 text-2xl font-medium text-white sm:text-[34px]">
           {sectionTitle}
