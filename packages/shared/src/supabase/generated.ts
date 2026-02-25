@@ -3315,6 +3315,9 @@ export type Database = {
           is_private: boolean
           is_student_generated: boolean
           name: Json | null
+          sections: Json | null
+          speed: number | null
+          time_limit_at_exam_speed_seconds: number | null
           time_limit_seconds: number | null
           updated_at: string | null
           updated_by: string | null
@@ -3327,6 +3330,9 @@ export type Database = {
           is_private?: boolean
           is_student_generated?: boolean
           name?: Json | null
+          sections?: Json | null
+          speed?: number | null
+          time_limit_at_exam_speed_seconds?: number | null
           time_limit_seconds?: number | null
           updated_at?: string | null
           updated_by?: string | null
@@ -3339,6 +3345,9 @@ export type Database = {
           is_private?: boolean
           is_student_generated?: boolean
           name?: Json | null
+          sections?: Json | null
+          speed?: number | null
+          time_limit_at_exam_speed_seconds?: number | null
           time_limit_seconds?: number | null
           updated_at?: string | null
           updated_by?: string | null
@@ -5175,6 +5184,7 @@ export type Database = {
           score: number
           student_id: string
           student_question_set_attempt_id: string
+          student_question_speed: number | null
           time_spent_seconds: number | null
         }
         Insert: {
@@ -5188,6 +5198,7 @@ export type Database = {
           score?: number
           student_id: string
           student_question_set_attempt_id: string
+          student_question_speed?: number | null
           time_spent_seconds?: number | null
         }
         Update: {
@@ -5201,6 +5212,7 @@ export type Database = {
           score?: number
           student_id?: string
           student_question_set_attempt_id?: string
+          student_question_speed?: number | null
           time_spent_seconds?: number | null
         }
         Relationships: [
@@ -5284,7 +5296,12 @@ export type Database = {
           question_set_id: string
           scaled_score: number | null
           score_points: number | null
+          set_speed: number | null
+          set_time_limit_at_exam_speed_seconds: number | null
+          set_time_limit_seconds: number | null
+          student_exam_speed: number | null
           student_id: string
+          student_set_speed: number | null
           student_ucat_mock_attempt_id: string | null
           time_taken_seconds: number | null
           total_points: number | null
@@ -5296,7 +5313,12 @@ export type Database = {
           question_set_id: string
           scaled_score?: number | null
           score_points?: number | null
+          set_speed?: number | null
+          set_time_limit_at_exam_speed_seconds?: number | null
+          set_time_limit_seconds?: number | null
+          student_exam_speed?: number | null
           student_id: string
+          student_set_speed?: number | null
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
@@ -5308,7 +5330,12 @@ export type Database = {
           question_set_id?: string
           scaled_score?: number | null
           score_points?: number | null
+          set_speed?: number | null
+          set_time_limit_at_exam_speed_seconds?: number | null
+          set_time_limit_seconds?: number | null
+          student_exam_speed?: number | null
           student_id?: string
+          student_set_speed?: number | null
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
@@ -6947,7 +6974,10 @@ export type Database = {
           display_columns: number
           id: string
           name: string
+          number_of_questions: number | null
           section_number: number
+          time_limit_seconds: number | null
+          time_per_question: number | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -6958,7 +6988,10 @@ export type Database = {
           display_columns: number
           id?: string
           name: string
+          number_of_questions?: number | null
           section_number: number
+          time_limit_seconds?: number | null
+          time_per_question?: number | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -6969,7 +7002,10 @@ export type Database = {
           display_columns?: number
           id?: string
           name?: string
+          number_of_questions?: number | null
           section_number?: number
+          time_limit_seconds?: number | null
+          time_per_question?: number | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -8416,6 +8452,7 @@ export type Database = {
           stem_text: Json | null
           student_id: string | null
           student_question_set_attempt_id: string | null
+          student_question_speed: number | null
           time_burden_seconds: number | null
           time_spent_seconds: number | null
           ucat_section_id: string | null
@@ -8699,6 +8736,9 @@ export type Database = {
           id: string | null
           is_student_generated: boolean | null
           name: Json | null
+          sections: Json | null
+          speed: number | null
+          time_limit_at_exam_speed_seconds: number | null
           time_limit_seconds: number | null
           updated_at: string | null
         }
@@ -8708,6 +8748,9 @@ export type Database = {
           id?: string | null
           is_student_generated?: boolean | null
           name?: Json | null
+          sections?: Json | null
+          speed?: number | null
+          time_limit_at_exam_speed_seconds?: number | null
           time_limit_seconds?: number | null
           updated_at?: string | null
         }
@@ -8717,6 +8760,9 @@ export type Database = {
           id?: string | null
           is_student_generated?: boolean | null
           name?: Json | null
+          sections?: Json | null
+          speed?: number | null
+          time_limit_at_exam_speed_seconds?: number | null
           time_limit_seconds?: number | null
           updated_at?: string | null
         }
@@ -10233,6 +10279,11 @@ export type Database = {
           is_private: boolean | null
           is_student_generated: boolean | null
           name: Json | null
+          question_count: number | null
+          sections: Json | null
+          speed: number | null
+          stem_count: number | null
+          time_limit_at_exam_speed_seconds: number | null
           time_limit_seconds: number | null
           updated_at: string | null
           updated_by: string | null
@@ -11033,6 +11084,7 @@ export type Database = {
           student_id: string | null
           student_last_name: string | null
           student_question_set_attempt_id: string | null
+          student_question_speed: number | null
           time_spent_seconds: number | null
         }
         Relationships: [
@@ -11118,8 +11170,13 @@ export type Database = {
           scaled_score: number | null
           score_points: number | null
           set_description: Json | null
+          set_speed: number | null
+          set_time_limit_at_exam_speed_seconds: number | null
+          set_time_limit_seconds: number | null
+          student_exam_speed: number | null
           student_id: string | null
           student_name: string | null
+          student_set_speed: number | null
           time_taken_seconds: number | null
           total_points: number | null
         }
@@ -11198,8 +11255,13 @@ export type Database = {
           score_points: number | null
           set_id: string | null
           set_name: Json | null
+          set_speed: number | null
+          set_time_limit_at_exam_speed_seconds: number | null
+          set_time_limit_seconds: number | null
+          student_exam_speed: number | null
           student_id: string | null
           student_name: string | null
+          student_set_speed: number | null
           total_points: number | null
         }
         Relationships: [
@@ -11907,30 +11969,18 @@ export type Database = {
         }
         Returns: string
       }
-      tutor_ucat_upsert_question_set:
-        | {
-            Args: {
-              p_description: Json
-              p_is_private: boolean
-              p_is_student_generated: boolean
-              p_name: Json
-              p_set_id: string
-              p_stem_ids: Json
-              p_time_limit_seconds: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_description: Json
-              p_is_private: boolean
-              p_is_student_generated: boolean
-              p_question_ids: Json
-              p_set_id: string
-              p_time_limit_seconds: number
-            }
-            Returns: string
-          }
+      tutor_ucat_upsert_question_set: {
+        Args: {
+          p_description: Json
+          p_is_private: boolean
+          p_is_student_generated: boolean
+          p_name: Json
+          p_set_id: string
+          p_stem_ids: Json
+          p_time_limit_seconds: number
+        }
+        Returns: string
+      }
       tutor_ucat_upsert_question_stem_bundle: {
         Args: {
           p_is_private: boolean
@@ -11941,6 +11991,10 @@ export type Database = {
           p_stem_text: Json
         }
         Returns: string
+      }
+      ucat_recompute_question_set_timing: {
+        Args: { p_question_set_id: string }
+        Returns: undefined
       }
       undo_staff_absences: {
         Args: { logged_by_staff_id: string; operations: Json }

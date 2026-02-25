@@ -111,10 +111,23 @@ export function DataTableToolbar({
     }
   }, [debouncedSearch, onSearchChange, state.search]);
 
-  const activeFilterCount: number = Object.values(state.filters).reduce(
-    (acc, arr) => acc + (Array.isArray(arr) ? arr.length : 0),
-    0
-  );
+  const rangeFilterDefs = filterDefinitions.filter((d) => d.type === 'number-range' && d.minKey && d.maxKey);
+  const activeFilterCount: number = (() => {
+    let count = 0;
+    for (const [key, arr] of Object.entries(state.filters)) {
+      const def = filterDefinitions.find((d) => d.key === key || d.minKey === key || d.maxKey === key);
+      if (def?.type === 'number-range') continue;
+      count += Array.isArray(arr) ? arr.length : 0;
+    }
+    for (const def of rangeFilterDefs) {
+      const minArr = def.minKey ? state.filters[def.minKey] : [];
+      const maxArr = def.maxKey ? state.filters[def.maxKey] : [];
+      const minSet = Array.isArray(minArr) && minArr.length > 0 && minArr[0] != null && minArr[0] !== '';
+      const maxSet = Array.isArray(maxArr) && maxArr.length > 0 && maxArr[0] != null && maxArr[0] !== '';
+      if (minSet || maxSet) count += 1;
+    }
+    return count;
+  })();
 
   const togglePillVisibility = (key: string) => {
     const next = state.visibleColumns.includes(key)
@@ -156,6 +169,34 @@ export function DataTableToolbar({
     }
     onFiltersChange(nextFilters);
   };
+
+  const setRangeFilterValue = (minKey: string, maxKey: string, side: 'min' | 'max', value: string) => {
+    const nextFilters = { ...state.filters };
+    const num = value.trim() === '' ? null : Number(value);
+    const key = side === 'min' ? minKey : maxKey;
+    if (num != null && Number.isFinite(num)) {
+      nextFilters[key] = [num];
+    } else {
+      delete nextFilters[key];
+    }
+    onFiltersChange(nextFilters);
+  };
+
+  const clearRangeFilter = (minKey: string, maxKey: string) => {
+    const nextFilters = { ...state.filters };
+    delete nextFilters[minKey];
+    delete nextFilters[maxKey];
+    onFiltersChange(nextFilters);
+  };
+
+  const clearRangeFilterBound = (key: string) => {
+    const nextFilters = { ...state.filters };
+    delete nextFilters[key];
+    onFiltersChange(nextFilters);
+  };
+
+  const isRangeFilterBoundKey = (columnKey: string) =>
+    rangeFilterDefs.some((d) => d.minKey === columnKey || d.maxKey === columnKey);
 
   return (
     <div className="flex flex-col gap-2 w-full">
@@ -354,10 +395,71 @@ export function DataTableToolbar({
                 )}
 
                 {activeFilterCount > 0 && (
-                  <div className="px-2 pb-2 flex flex-wrap gap-1">
+                  <div className="px-2 pb-2 flex flex-wrap items-center gap-1">
+                    {rangeFilterDefs.map((def) => {
+                      const minVal = def.minKey != null ? (state.filters[def.minKey]?.[0] ?? '') : '';
+                      const maxVal = def.maxKey != null ? (state.filters[def.maxKey]?.[0] ?? '') : '';
+                      const minSet = minVal !== '' && minVal != null && String(minVal).trim() !== '';
+                      const maxSet = maxVal !== '' && maxVal != null && String(maxVal).trim() !== '';
+                      if (!minSet && !maxSet) return null;
+                      const label = def.label;
+                      return (
+                        <div key={def.key} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-[10px]">
+                          {minSet && maxSet ? (
+                            <>
+                              <span>{label} is between</span>
+                              <button
+                                onClick={() => def.minKey && clearRangeFilterBound(def.minKey)}
+                                className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
+                                aria-label={`Clear ${label} min`}
+                              >
+                                {minVal}
+                                <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                              </button>
+                              <span>and</span>
+                              <button
+                                onClick={() => def.maxKey && clearRangeFilterBound(def.maxKey)}
+                                className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
+                                aria-label={`Clear ${label} max`}
+                              >
+                                {maxVal}
+                                <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                              </button>
+                              <span>(inclusive)</span>
+                            </>
+                          ) : minSet ? (
+                            <>
+                              <span>{label} is more than or equal to</span>
+                              <button
+                                onClick={() => def.minKey && clearRangeFilterBound(def.minKey)}
+                                className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
+                                aria-label={`Clear ${label} min`}
+                              >
+                                {minVal}
+                                <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <span>{label} is less than or equal to</span>
+                              <button
+                                onClick={() => def.maxKey && clearRangeFilterBound(def.maxKey)}
+                                className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
+                                aria-label={`Clear ${label} max`}
+                              >
+                                {maxVal}
+                                <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      );
+                    })}
                     {Object.entries(state.filters).map(([columnKey, selected]) => {
-                      if (!selected?.length) return null;
+                      if (isRangeFilterBoundKey(columnKey)) return null;
                       const def = filterDefinitions.find((d) => d.key === columnKey);
+                      if (def?.type === 'number-range') return null;
+                      if (!selected?.length) return null;
                       const label = def?.label ?? columnKey;
 
                       return (
@@ -417,6 +519,42 @@ export function DataTableToolbar({
 
                 <ScrollArea className="flex-1 overflow-y-auto">
                   {filterDefinitions.filter((def) => def.type !== 'date').map((def) => {
+                    if (def.type === 'number-range' && def.minKey && def.maxKey) {
+                      const minKey = def.minKey;
+                      const maxKey = def.maxKey;
+                      const minVal = String((state.filters[minKey] ?? [])[0] ?? '');
+                      const maxVal = String((state.filters[maxKey] ?? [])[0] ?? '');
+                      return (
+                        <DropdownMenuSub key={def.key}>
+                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[220px]">
+                            <div className="p-2 flex items-center gap-2">
+                              <div className="flex-1 min-w-0">
+                                <label className="text-xs font-medium text-muted-foreground">Min</label>
+                                <Input
+                                  type="number"
+                                  placeholder="Min"
+                                  value={minVal}
+                                  onChange={(e) => setRangeFilterValue(minKey, maxKey, 'min', e.target.value)}
+                                  className="h-8 w-full mt-1"
+                                />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <label className="text-xs font-medium text-muted-foreground">Max</label>
+                                <Input
+                                  type="number"
+                                  placeholder="Max"
+                                  value={maxVal}
+                                  onChange={(e) => setRangeFilterValue(minKey, maxKey, 'max', e.target.value)}
+                                  className="h-8 w-full mt-1"
+                                />
+                              </div>
+                            </div>
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    }
+
                     const isSearchable = def.searchable && !!onFilterSearchChange;
                     const filterSearchValue = filterSearchValues[def.key] ?? '';
 
