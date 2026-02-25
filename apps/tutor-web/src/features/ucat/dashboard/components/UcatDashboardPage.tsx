@@ -1,45 +1,63 @@
 'use client'
 
 import Link from 'next/link'
-import { Button, Skeleton } from '@altitutor/ui'
+import { Skeleton } from '@altitutor/ui'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader } from '@/features/ucat/shared/components'
+import { cn } from '@/shared/utils'
 
-const cards = [
+type Card = { title: string; description: string; href: string }
+
+const sections: { heading: string; cards: Card[] }[] = [
   {
-    title: 'Sections',
-    description: 'Manage UCAT section metadata and display layout',
-    href: '/ucat/sections',
+    heading: 'Questions',
+    cards: [
+      {
+        title: 'Questions',
+        description: 'Manage question stems, multiple-choice questions, and syllogisms',
+        href: '/ucat/questions',
+      },
+      {
+        title: 'Sets',
+        description: 'Build and sequence UCAT question sets',
+        href: '/ucat/sets',
+      },
+      {
+        title: 'Mocks',
+        description: 'Assemble full mock exams from ordered sets',
+        href: '/ucat/mocks',
+      },
+    ],
   },
   {
-    title: 'Question Categories',
-    description: 'Organize question stems with section-scoped categories',
-    href: '/ucat/question-stem-categories',
+    heading: 'Students',
+    cards: [
+      {
+        title: 'Students',
+        description: 'Track student progress and attempt history',
+        href: '/ucat/students',
+      },
+    ],
   },
   {
-    title: 'Question Tags',
-    description: 'Create reusable tags for question-level classification',
-    href: '/ucat/question-tags',
-  },
-  {
-    title: 'Questions',
-    description: 'Manage question stems, multiple-choice questions, and syllogisms',
-    href: '/ucat/questions',
-  },
-  {
-    title: 'Sets',
-    description: 'Build and sequence UCAT question sets',
-    href: '/ucat/sets',
-  },
-  {
-    title: 'Mocks',
-    description: 'Assemble full mock exams from ordered sets',
-    href: '/ucat/mocks',
-  },
-  {
-    title: 'Students',
-    description: 'Track student progress and attempt history',
-    href: '/ucat/students',
+    heading: 'Settings',
+    cards: [
+      {
+        title: 'Question Categories',
+        description: 'Organize question stems with section-scoped categories',
+        href: '/ucat/question-stem-categories',
+      },
+      {
+        title: 'Question Tags',
+        description: 'Create reusable tags for question-level classification',
+        href: '/ucat/question-tags',
+      },
+      {
+        title: 'Sections',
+        description: 'Manage UCAT section metadata and display layout',
+        href: '/ucat/sections',
+      },
+    ],
   },
 ]
 
@@ -48,18 +66,22 @@ export function UcatDashboardPage() {
 
   if (access.isLoading) {
     return (
-      <div className="p-6 space-y-4">
+      <div className="p-6 space-y-8">
         <Skeleton className="h-8 w-36" />
         <Skeleton className="h-4 w-72" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, index) => (
-            <div key={index} className="rounded-lg bg-muted/50 p-5">
-              <Skeleton className="h-6 w-36" />
-              <Skeleton className="mt-2 h-4 w-full" />
-              <Skeleton className="mt-6 h-9 w-32" />
+        {[3, 1, 3].map((count, sectionIndex) => (
+          <div key={sectionIndex} className="space-y-4">
+            <Skeleton className="h-4 w-24" />
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {Array.from({ length: count }).map((_, index) => (
+                <div key={index} className="rounded-lg bg-muted/50 p-5">
+                  <Skeleton className="h-6 w-36" />
+                  <Skeleton className="mt-2 h-4 w-full" />
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          </div>
+        ))}
       </div>
     )
   }
@@ -74,17 +96,28 @@ export function UcatDashboardPage() {
         breadcrumbs={[{ label: 'UCAT' }]}
       />
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
-          <article key={card.href} className="rounded-lg bg-muted/50 p-5 shadow-sm">
-            <h2 className="text-lg font-semibold">{card.title}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">{card.description}</p>
-            <div className="mt-4">
-              <Button asChild>
-                <Link href={card.href}>Open {card.title}</Link>
-              </Button>
+      <div className="space-y-8">
+        {sections.map((section) => (
+          <section key={section.heading}>
+            <h2 className="mb-4 text-sm font-medium uppercase tracking-wide text-muted-foreground">
+              {section.heading}
+            </h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {section.cards.map((card) => (
+                <Link
+                  key={card.href}
+                  href={card.href}
+                  className={cn(
+                    'block rounded-lg bg-muted/50 p-5 shadow-sm transition-colors',
+                    'hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                  )}
+                >
+                  <h3 className="text-lg font-semibold">{card.title}</h3>
+                  <p className="mt-1 text-sm text-muted-foreground">{card.description}</p>
+                </Link>
+              ))}
             </div>
-          </article>
+          </section>
         ))}
       </div>
     </div>
