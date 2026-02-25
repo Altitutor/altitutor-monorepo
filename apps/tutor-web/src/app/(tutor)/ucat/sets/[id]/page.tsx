@@ -1,6 +1,10 @@
-import { redirect } from 'next/navigation'
+import { UcatSetDetailPage } from '@/features/ucat/sets/components/UcatSetDetailPage'
 
-export default async function UcatSetDetailRoute({ params }: { params: Promise<{ id: string }> }) {
+export default async function UcatSetDetailRoute({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const { id } = await params
-  redirect(`/ucat/sets?edit=${id}`)
+  return <UcatSetDetailPage setId={id} />
 }

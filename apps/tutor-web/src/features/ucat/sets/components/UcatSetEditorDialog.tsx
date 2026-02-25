@@ -1,14 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Button, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@altitutor/ui'
+import { Button } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { UcatSortableList } from '@/features/ucat/shared/drag-list'
 import {
   useUcatCategories,
   useUcatQuestionDetail,
@@ -22,8 +21,9 @@ import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/Uca
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { Trash2 } from 'lucide-react'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -270,117 +270,25 @@ export function UcatSetEditorDialog({
         headerActions={headerActions}
         hideCancel
       >
-        <div className="h-full flex">
-        <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">
-          <h2 className="font-semibold">Stems in Set</h2>
-
-          <UcatSortableList
-            ids={draftStemIds}
-            onChange={setDraftStemIds}
-            onRemove={(id) => setDraftStemIds((prev) => prev.filter((stemId) => stemId !== id))}
-            onEdit={(id) => setEditingStemId(id)}
-            renderLabel={(id, index) => {
-              const stem = stemCatalog.find((item) => item.id === id)
-              return (
-                <div className="flex items-start gap-2">
-                  <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
-                  <div className="min-w-0">
-                    <div className="line-clamp-2 break-words text-xs sm:text-sm">
-                      {stem?.text || id}
-                    </div>
-                    {stem && (
-                      <div className="mt-1 text-[11px] text-muted-foreground">
-                        {stem.sectionNumber}. {stem.sectionName} · {stem.questionsCount}{' '}
-                        {stem.questionsCount === 1 ? 'question' : 'questions'}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            }}
-          />
-
-          <div className="pt-2">
-            <h3 className="mb-2 text-sm font-medium">Add Stem</h3>
-            <div className="mb-2">
-              <ListToolbar
-                search={search}
-                onSearchChange={setSearch}
-                searchPlaceholder="Search stems"
-                filterDefinitions={filterDefinitions}
-                filters={filters}
-                onFiltersChange={setFilters}
-              />
-            </div>
-            <div className="max-h-52 space-y-1 overflow-auto">
-              {filteredCatalog.slice(0, 40).map((stem) => (
-                <div
-                  key={stem.id}
-                  className="flex w-full items-start justify-between gap-2 rounded border px-2 py-2 text-left text-sm hover:bg-muted"
-                >
-                  <div className="min-w-0">
-                    <div className="line-clamp-2 break-words text-xs sm:text-sm">
-                      {stem.text || stem.id}
-                    </div>
-                    <div className="mt-1 text-[11px] text-muted-foreground">
-                      {stem.sectionNumber}. {stem.sectionName}
-                    </div>
-                  </div>
-                  <div className="ml-2 flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-                    <span>
-                      {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
-                    </span>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => setEditingStemId(stem.id)}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="icon"
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
-                      onClick={() => setDraftStemIds((prev) => [...prev, stem.id])}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <aside className="w-80 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
-          <h2 className="font-semibold">Set Properties</h2>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Name</span>
-            <Input value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Set name" />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Description</span>
-            <Textarea className="min-h-24" value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
-            <Input type="text" value={draftTimeLimit} onChange={(e) => setDraftTimeLimit(e.target.value)} placeholder="e.g. 1:30 or 90" />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Visibility</span>
-            <Select value={draftPrivate ? 'private' : 'public'} onValueChange={(v) => setDraftPrivate(v === 'private')}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
-          </label>
-        </aside>
-      </div>
+        <UcatSetEditorContent
+          draftName={draftName}
+          draftDescription={draftDescription}
+          draftTimeLimit={draftTimeLimit}
+          draftPrivate={draftPrivate}
+          draftStemIds={draftStemIds}
+          setDraftStemIds={setDraftStemIds}
+          stemCatalog={stemCatalog as UcatStemCatalogItem[]}
+          search={search}
+          setSearch={setSearch}
+          filters={filters}
+          setFilters={setFilters}
+          filterDefinitions={filterDefinitions}
+          onEditStem={(id) => setEditingStemId(id)}
+          onChangeName={setDraftName}
+          onChangeDescription={setDraftDescription}
+          onChangeTimeLimit={setDraftTimeLimit}
+          onChangePrivate={(value) => setDraftPrivate(value)}
+        />
       </UcatDialogShell>
 
       <UcatQuestionStemDialog

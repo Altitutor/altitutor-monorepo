@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { Json } from '@altitutor/shared'
 import type { Resolver, UseFormReturn } from 'react-hook-form'
 import { useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -33,10 +34,11 @@ import {
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 
 /** Trim leading/trailing blank lines and whitespace from plain text. */
 function trimTextParagraphs(text: string): string {
@@ -52,11 +54,13 @@ function trimTextParagraphs(text: string): string {
 export type CategoryOption = { id: string | null; name: string | null; ucat_section_id?: string | null }
 export type TagOption = { id: string; name: string }
 
-const DEFAULT_OPTIONS = [
-  { answerText: '', answerExplanation: '', isAnswer: true },
-  { answerText: '', answerExplanation: '', isAnswer: false },
-  { answerText: '', answerExplanation: '', isAnswer: false },
-  { answerText: '', answerExplanation: '', isAnswer: false },
+export const EMPTY_DOC: Json = plainTextToProseMirror('')
+
+export const DEFAULT_OPTIONS = [
+  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: true },
+  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: false },
+  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: false },
+  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: false },
 ]
 
 export function UcatQuestionStemDialog({
@@ -85,18 +89,19 @@ export function UcatQuestionStemDialog({
   onDelete?: () => void
 }) {
   const { toast } = useToast()
+  const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {
       return {
         sectionId: sections.find((section) => section.id)?.id ?? '',
         categoryId: null,
-        stemText: '',
+        stemText: EMPTY_DOC,
         isPrivate: false,
         questions: [
           {
-            questionText: '',
+            questionText: EMPTY_DOC,
             questionType: 'multiple_choice',
-            answerExplanation: '',
+            answerExplanation: null,
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
@@ -109,11 +114,11 @@ export function UcatQuestionStemDialog({
     return {
       sectionId: initial.section_id,
       categoryId: initial.question_stem_category_id,
-      stemText: proseMirrorToPlainText(initial.stem_text),
+      stemText: (initial.stem_text ?? EMPTY_DOC) as Json,
       isPrivate: initial.is_private,
       questions: (initial.questions ?? []).map((question) => ({
-        questionText: proseMirrorToPlainText(question.question_text),
-        answerExplanation: proseMirrorToPlainText(question.answer_explanation),
+        questionText: (question.question_text ?? EMPTY_DOC) as Json,
+        answerExplanation: (question.answer_explanation ?? null) as Json | null,
         questionType: question.question_type,
         difficulty: question.difficulty,
         timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
@@ -121,22 +126,23 @@ export function UcatQuestionStemDialog({
         options:
           (question.answer_options ?? []).length > 0
             ? (question.answer_options ?? []).map((option) => ({
-                answerText: proseMirrorToPlainText(option.answer_text),
-                answerExplanation: proseMirrorToPlainText(option.answer_explanation),
+                answerText: (option.answer_text ?? EMPTY_DOC) as Json,
+                answerExplanation: (option.answer_explanation ?? null) as Json | null,
                 isAnswer: option.is_answer,
+                imageFileId: option.image_file_id ?? null,
               }))
             : [...DEFAULT_OPTIONS],
       })),
     }
   }, [initial, sections])
 
+  // Type instantiation for this large nested form can be deep; the schema
+  // already validates the shape at runtime.
+  // @ts-expect-error Type instantiation is deep but safe for this validated form.
   const form = useForm<UcatQuestionStemFormValues>({
     resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
     defaultValues,
-    values: defaultValues,
   })
-
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
 
   // When opening for create (no initial), reset form so previous content is cleared
   useEffect(() => {
@@ -144,13 +150,13 @@ export function UcatQuestionStemDialog({
       const emptyDefaults: UcatQuestionStemFormValues = {
         sectionId: sections.find((section) => section.id)?.id ?? '',
         categoryId: null,
-        stemText: '',
+        stemText: EMPTY_DOC,
         isPrivate: false,
         questions: [
           {
-            questionText: '',
+            questionText: EMPTY_DOC,
             questionType: 'multiple_choice',
-            answerExplanation: '',
+            answerExplanation: null,
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
@@ -162,130 +168,11 @@ export function UcatQuestionStemDialog({
     }
   }, [open, initial, sections, form])
 
-  const sectionId = form.watch('sectionId')
-  const categoriesFiltered = useMemo(
-    () => (sectionId ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId) : []),
-    [categories, sectionId]
-  )
-
-  const stemType = form.watch('questions.0.questionType') as 'multiple_choice' | 'syllogism' | undefined
-
-  useEffect(() => {
-    if (stemType !== 'syllogism') return
-
-    const decisionMakingSection = sections.find((section) => section.name === 'Decision Making')
-    if (decisionMakingSection?.id && form.watch('sectionId') !== decisionMakingSection.id) {
-      form.setValue('sectionId', decisionMakingSection.id, { shouldDirty: true })
-    }
-
-    const sectionIdForCategory = decisionMakingSection?.id ?? form.watch('sectionId')
-    if (!sectionIdForCategory) return
-
-    const syllogismsCategory = categories.find(
-      (category) => {
-        const rawName = (category.name ?? '').toLowerCase().trim()
-        const normalizedName = rawName.replace(/\\+$/g, '')
-        return (
-          normalizedName.startsWith('syllogism') &&
-          (category.ucat_section_id ?? null) === sectionIdForCategory
-        )
-      }
-    )
-
-    if (syllogismsCategory?.id && form.watch('categoryId') !== syllogismsCategory.id) {
-      form.setValue('categoryId', syllogismsCategory.id, { shouldDirty: true })
-    }
-  }, [stemType, sections, categories, form])
-
-  function setStemType(value: 'multiple_choice' | 'syllogism') {
-    const currentStemType = stemType ?? 'multiple_choice'
-    if (currentStemType === value) return
-
-    if (value === 'syllogism') {
-      const currentQuestions = form.getValues('questions') ?? []
-      const firstQuestion =
-        currentQuestions[0] ?? {
-          questionText: '',
-          questionType: 'multiple_choice' as const,
-          difficulty: null,
-          timeBurdenSeconds: '',
-          tagIds: [],
-          options: [...DEFAULT_OPTIONS],
-        }
-
-      const hasQuestionText = trimTextParagraphs(firstQuestion.questionText ?? '') !== ''
-      const hasOptionContent = (firstQuestion.options ?? []).some(
-        (opt) =>
-          trimTextParagraphs(opt.answerText ?? '') !== '' ||
-          trimTextParagraphs(opt.answerExplanation ?? '') !== ''
-      )
-
-      const otherQuestionsHaveData = currentQuestions.slice(1).some((question) => {
-        const hasOtherQuestionText = trimTextParagraphs(question.questionText ?? '') !== ''
-        const hasOtherOptionContent = (question.options ?? []).some(
-          (opt) =>
-            trimTextParagraphs(opt.answerText ?? '') !== '' ||
-            trimTextParagraphs(opt.answerExplanation ?? '') !== ''
-        )
-        return hasOtherQuestionText || hasOtherOptionContent
-      })
-
-      const willRemoveData = hasQuestionText || hasOptionContent || otherQuestionsHaveData
-
-      if (willRemoveData) {
-        const confirmed =
-          typeof window !== 'undefined'
-            ? window.confirm(
-                'Switching the type to "Syllogism" will reset questions and statements and remove existing question text and options. Do you want to continue?'
-              )
-            : false
-
-        if (!confirmed) {
-          return
-        }
-      }
-
-      const syllogismTemplateQuestion = {
-        ...firstQuestion,
-        questionType: 'syllogism' as const,
-        questionText:
-          'Place ‘Yes’ if the conclusion does follow. Place ‘No’ if the conclusion does not follow.',
-        options: Array.from({ length: 5 }, () => ({
-          answerText: '',
-          answerExplanation: '',
-          isAnswer: false,
-        })),
-      }
-
-      form.setValue('questions', [syllogismTemplateQuestion], { shouldDirty: true })
-      return
-    }
-
-    const currentQuestions = form.getValues('questions') ?? []
-    currentQuestions.forEach((_, i) => {
-      form.setValue(`questions.${i}.questionType`, value, { shouldDirty: true })
-    })
-  }
 
   async function handleSave() {
-    await form.handleSubmit((values) => {
-      const transformed = {
-        ...values,
-        stemText: trimTextParagraphs(values.stemText ?? ''),
-        questions: values.questions.map((q) => {
-          const answerExplanation = trimTextParagraphs(q.answerExplanation ?? '')
-          const filteredOptions = (q.options ?? []).filter((o) => (o.answerText ?? '').trim() !== '')
-          const optionsToSend = filteredOptions.length > 0 ? filteredOptions : (q.options ?? []).slice(0, 1)
-          return {
-            ...q,
-            questionText: trimTextParagraphs(q.questionText ?? ''),
-            answerExplanation,
-            timeBurdenSeconds: parseTimeToSeconds(q.timeBurdenSeconds ?? '') ?? null,
-            options: optionsToSend.length > 0 ? optionsToSend : [{ answerText: '', answerExplanation: '', isAnswer: false }],
-          }
-        }),
-      }
-      return onSubmit(transformed as unknown as UcatQuestionStemFormValues)
+    await form.handleSubmit(async (values) => {
+      await onSubmit(values)
+      setNewImageFileIds(new Set())
     })()
   }
 
@@ -320,6 +207,17 @@ export function UcatQuestionStemDialog({
 
   function handleRequestClose() {
     if (!hasUnsavedChanges || window.confirm('Changes made will be lost. Close without saving?')) {
+      if (newImageFileIds.size > 0 && typeof window !== 'undefined') {
+        const fileIds = Array.from(newImageFileIds)
+        setNewImageFileIds(new Set())
+        void fetch('/api/ucat/images/cleanup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fileIds }),
+        }).catch((error) => {
+          console.error('Failed to schedule UCAT image cleanup on cancel:', error)
+        })
+      }
       onClose()
     }
   }
@@ -337,208 +235,26 @@ export function UcatQuestionStemDialog({
       headerActions={headerActions}
       hideCancel
     >
-      <div className="h-full overflow-y-auto">
-        <form className="flex flex-col" onSubmit={(e) => e.preventDefault()}>
-          {/* Row 1: Stem text (left) | Properties (right) */}
-          <div className="flex border-b">
-            <section className="flex-1 min-w-0 p-6">
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Stem text</span>
-                <Textarea className="min-h-48" {...form.register('stemText')} />
-              </label>
-            </section>
-            <aside className="w-80 flex-shrink-0 border-l p-6 space-y-4">
-              <h2 className="font-semibold">Properties</h2>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Section</span>
-                <Select
-                  value={form.watch('sectionId')}
-                  onValueChange={(value) => {
-                    if (stemType === 'syllogism') {
-                      toast({
-                        description: 'Section is locked for syllogism stems.',
-                        variant: 'destructive',
-                      })
-                      return
-                    }
-                    form.setValue('sectionId', value, { shouldDirty: true })
-                    form.setValue('categoryId', null, { shouldDirty: true })
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sections.map((section) => (
-                      <SelectItem key={section.id ?? 'none'} value={section.id ?? ''}>
-                        {section.name ?? 'Untitled'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Category</span>
-                <Select
-                  value={form.watch('categoryId') ?? 'none'}
-                  onValueChange={(value) => {
-                    if (stemType === 'syllogism') {
-                      toast({
-                        description: 'Category is locked for syllogism stems.',
-                        variant: 'destructive',
-                      })
-                      return
-                    }
-                    form.setValue('categoryId', value === 'none' ? null : value, { shouldDirty: true })
-                  }}
-                  disabled={!sectionId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder={!sectionId ? 'Select section first' : undefined} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No category</SelectItem>
-                    {categoriesFiltered.map((category) => (
-                      <SelectItem key={category.id ?? 'none'} value={category.id ?? ''}>
-                        {category.name ?? 'Untitled'}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Visibility</span>
-                <Select
-                  value={form.watch('isPrivate') ? 'private' : 'public'}
-                  onValueChange={(value) => form.setValue('isPrivate', value === 'private', { shouldDirty: true })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                  </SelectContent>
-                </Select>
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Type (all questions)</span>
-                <Select
-                  value={stemType ?? 'multiple_choice'}
-                  onValueChange={(value: 'multiple_choice' | 'syllogism') => setStemType(value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                    <SelectItem value="syllogism">Syllogism</SelectItem>
-                  </SelectContent>
-                </Select>
-              </label>
-            </aside>
-          </div>
-
-          {/* Rows 2..n: Question text + options (left) | tags, difficulty, time (right) */}
-          {fields.map((field, questionIndex) => (
-            <div key={field.id} className="flex border-b">
-              <section className="flex-1 min-w-0 p-6 space-y-3">
-                <h3 className="font-medium">Question {questionIndex + 1}</h3>
-                <label className="block space-y-1 text-sm">
-                  <span>Question text</span>
-                  <Textarea className="min-h-16" {...form.register(`questions.${questionIndex}.questionText`)} />
-                </label>
-                <QuestionOptionsEditor form={form} questionIndex={questionIndex} stemType={stemType ?? 'multiple_choice'} />
-              </section>
-              <aside className="w-80 flex-shrink-0 border-l p-6 space-y-3">
-                <label className="block space-y-1 text-sm">
-                  <span className="font-medium">Tags</span>
-                  <QuestionTagsSelect questionIndex={questionIndex} form={form} tags={tags} />
-                </label>
-                <label className="block space-y-1 text-sm">
-                  <span className="font-medium">Difficulty (0–1)</span>
-                  <Input type="number" step="0.01" {...form.register(`questions.${questionIndex}.difficulty`)} />
-                </label>
-                <label className="block space-y-1 text-sm">
-                  <span className="font-medium">Time burden (mm:ss or seconds)</span>
-                  <Input type="text" placeholder="e.g. 1:30 or 90" {...form.register(`questions.${questionIndex}.timeBurdenSeconds`)} />
-                </label>
-                <label className="block space-y-1 text-sm">
-                  <span className="font-medium">Answer explanation</span>
-                  <Textarea
-                    rows={1}
-                    className="resize-y"
-                    {...form.register(`questions.${questionIndex}.answerExplanation`)}
-                  />
-                </label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const questions = form.getValues('questions') ?? []
-                    const question = questions[questionIndex]
-
-                    const hasQuestionText =
-                      question && trimTextParagraphs(question.questionText ?? '') !== ''
-                    const hasOptionContent =
-                      question &&
-                      (question.options ?? []).some(
-                        (opt) =>
-                          trimTextParagraphs(opt.answerText ?? '') !== '' ||
-                          trimTextParagraphs(opt.answerExplanation ?? '') !== ''
-                      )
-
-                    if (
-                      !hasQuestionText &&
-                      !hasOptionContent
-                    ) {
-                      remove(questionIndex)
-                      return
-                    }
-
-                    if (
-                      window.confirm(
-                        'This will delete a question with content. Changes will be lost. Do you want to continue?'
-                      )
-                    ) {
-                      remove(questionIndex)
-                    }
-                  }}
-                  className="w-full justify-center border-destructive !text-destructive hover:!text-destructive hover:bg-destructive/10"
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete question
-                </Button>
-              </aside>
-            </div>
-          ))}
-
-          <div className="p-6 border-t">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() =>
-                append({
-                  questionText: '',
-                  questionType: stemType ?? 'multiple_choice',
-                  difficulty: null,
-                  timeBurdenSeconds: '',
-                  tagIds: [],
-                  options: [...DEFAULT_OPTIONS],
-                })
-              }
-            >
-              Add Question
-            </Button>
-          </div>
-        </form>
-      </div>
+      <UcatQuestionStemFormContent
+        form={form}
+        sections={sections}
+        categories={categories}
+        tags={tags}
+        stemId={stemId ?? null}
+        enableImages
+        onNewImageFileIds={(fileIds) =>
+          setNewImageFileIds((prev) => {
+            const next = new Set(prev)
+            fileIds.forEach((id) => next.add(id))
+            return next
+          })
+        }
+      />
     </UcatDialogShell>
   )
 }
 
-function QuestionTagsSelect({
+export function QuestionTagsSelect({
   questionIndex,
   form,
   tags,
@@ -593,14 +309,18 @@ function QuestionTagsSelect({
   )
 }
 
-function QuestionOptionsEditor({
+export function QuestionOptionsEditor({
   form,
   questionIndex,
   stemType,
+  stemId,
+  onNewImageFileIds,
 }: {
   form: UseFormReturn<UcatQuestionStemFormValues>
   questionIndex: number
   stemType: 'multiple_choice' | 'syllogism'
+  stemId?: string | null
+  onNewImageFileIds: (fileIds: string[]) => void
 }) {
   const optionsArray = useFieldArray({ control: form.control, name: `questions.${questionIndex}.options` })
 
@@ -642,11 +362,28 @@ function QuestionOptionsEditor({
               key={option.id}
               className="grid gap-2 md:grid-cols-[minmax(0,2fr),auto,minmax(0,2fr),auto] items-start"
             >
-              <Textarea
-                rows={1}
-                className="resize-y"
-                placeholder="Option text"
-                {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerText`)}
+              <UcatRichTextEditor
+                value={form.watch(
+                  `questions.${questionIndex}.options.${optionIndex}.answerText`
+                ) as Json}
+                onChange={(val) =>
+                  form.setValue(
+                    `questions.${questionIndex}.options.${optionIndex}.answerText`,
+                    val,
+                    { shouldDirty: true }
+                  )
+                }
+                minHeight="3rem"
+                stemId={stemId ?? null}
+                maxImagesPerDocument={1}
+                onImageFileIdsChange={(fileIds) => {
+                  form.setValue(
+                    `questions.${questionIndex}.options.${optionIndex}.imageFileId`,
+                    fileIds[0] ?? null,
+                    { shouldDirty: true }
+                  )
+                  onNewImageFileIds(fileIds)
+                }}
               />
               <label
                 htmlFor={`q-${questionIndex}-opt-${optionIndex}-correct`}
@@ -655,11 +392,20 @@ function QuestionOptionsEditor({
                 <RadioGroupItem id={`q-${questionIndex}-opt-${optionIndex}-correct`} value={String(optionIndex)} />
                 <span className="text-sm">Correct</span>
               </label>
-              <Textarea
-                rows={1}
-                className="resize-y"
-                placeholder="Explanation (optional)"
-                {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerExplanation`)}
+              <UcatRichTextEditor
+                value={form.watch(
+                  `questions.${questionIndex}.options.${optionIndex}.answerExplanation`
+                ) as Json | null | undefined}
+                onChange={(val) =>
+                  form.setValue(
+                    `questions.${questionIndex}.options.${optionIndex}.answerExplanation`,
+                    val,
+                    { shouldDirty: true }
+                  )
+                }
+                minHeight="3rem"
+                stemId={stemId ?? null}
+                enableImages={false}
               />
               {optionsArray.fields.length > 1 && (
                 <Button
@@ -672,8 +418,11 @@ function QuestionOptionsEditor({
                     )
                     const hasContent =
                       option &&
-                      (trimTextParagraphs(option.answerText ?? '') !== '' ||
-                        trimTextParagraphs(option.answerExplanation ?? '') !== '')
+                      (trimTextParagraphs(proseMirrorToPlainText(option.answerText as Json) ?? '') !== '' ||
+                        (option.answerExplanation &&
+                          trimTextParagraphs(
+                            proseMirrorToPlainText(option.answerExplanation as Json) ?? ''
+                          ) !== ''))
 
                     if (
                       !hasContent ||
@@ -698,11 +447,28 @@ function QuestionOptionsEditor({
             key={option.id}
             className="grid gap-2 md:grid-cols-[minmax(0,2fr),auto,minmax(0,2fr),auto] items-start"
           >
-            <Textarea
-              rows={1}
-              className="resize-y"
-              placeholder="Statement"
-              {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerText`)}
+            <UcatRichTextEditor
+              value={form.watch(
+                `questions.${questionIndex}.options.${optionIndex}.answerText`
+              ) as Json}
+              onChange={(val) =>
+                form.setValue(
+                  `questions.${questionIndex}.options.${optionIndex}.answerText`,
+                  val,
+                  { shouldDirty: true }
+                )
+              }
+              minHeight="3rem"
+              stemId={stemId ?? null}
+              maxImagesPerDocument={1}
+              onImageFileIdsChange={(fileIds) => {
+                form.setValue(
+                  `questions.${questionIndex}.options.${optionIndex}.imageFileId`,
+                  fileIds[0] ?? null,
+                  { shouldDirty: true }
+                )
+                onNewImageFileIds(fileIds)
+              }}
             />
             <Tabs
               value={form.watch(`questions.${questionIndex}.options.${optionIndex}.isAnswer`) ? 'yes' : 'no'}
@@ -721,11 +487,20 @@ function QuestionOptionsEditor({
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <Textarea
-              rows={1}
-              className="resize-y"
-              placeholder="Explanation (optional)"
-              {...form.register(`questions.${questionIndex}.options.${optionIndex}.answerExplanation`)}
+            <UcatRichTextEditor
+              value={form.watch(
+                `questions.${questionIndex}.options.${optionIndex}.answerExplanation`
+              ) as Json | null | undefined}
+              onChange={(val) =>
+                form.setValue(
+                  `questions.${questionIndex}.options.${optionIndex}.answerExplanation`,
+                  val,
+                  { shouldDirty: true }
+                )
+              }
+              minHeight="3rem"
+              stemId={stemId ?? null}
+              enableImages={false}
             />
             {!isSyllogism && optionsArray.fields.length > 1 && (
               <Button
@@ -738,8 +513,11 @@ function QuestionOptionsEditor({
                   )
                   const hasContent =
                     option &&
-                    (trimTextParagraphs(option.answerText ?? '') !== '' ||
-                      trimTextParagraphs(option.answerExplanation ?? '') !== '')
+                    (trimTextParagraphs(proseMirrorToPlainText(option.answerText as Json) ?? '') !== '' ||
+                      (option.answerExplanation &&
+                        trimTextParagraphs(
+                          proseMirrorToPlainText(option.answerExplanation as Json) ?? ''
+                        ) !== ''))
 
                   if (
                     !hasContent ||
@@ -758,6 +536,377 @@ function QuestionOptionsEditor({
           </div>
         ))
       )}
+    </div>
+  )
+}
+
+export type UcatQuestionStemFormContentProps = {
+  form: UseFormReturn<UcatQuestionStemFormValues>
+  sections: Array<{ id: string | null; name: string | null }>
+  categories: CategoryOption[]
+  tags: TagOption[]
+  stemId?: string | null
+  enableImages?: boolean
+  onNewImageFileIds?: (fileIds: string[]) => void
+}
+
+export function UcatQuestionStemFormContent({
+  form,
+  sections,
+  categories,
+  tags,
+  stemId,
+  enableImages = true,
+  onNewImageFileIds,
+}: UcatQuestionStemFormContentProps) {
+  const { toast } = useToast()
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
+
+  const sectionId = form.watch('sectionId')
+  const categoriesFiltered = useMemo(
+    () => (sectionId ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId) : []),
+    [categories, sectionId]
+  )
+
+  const stemType = form.watch('questions.0.questionType') as 'multiple_choice' | 'syllogism' | undefined
+
+  useEffect(() => {
+    if (stemType !== 'syllogism') return
+
+    const decisionMakingSection = sections.find((section) => section.name === 'Decision Making')
+    if (decisionMakingSection?.id && form.watch('sectionId') !== decisionMakingSection.id) {
+      form.setValue('sectionId', decisionMakingSection.id, { shouldDirty: true })
+    }
+
+    const sectionIdForCategory = decisionMakingSection?.id ?? form.watch('sectionId')
+    if (!sectionIdForCategory) return
+
+    const syllogismsCategory = categories.find((category) => {
+      const rawName = (category.name ?? '').toLowerCase().trim()
+      const normalizedName = rawName.replace(/\\+$/g, '')
+      return normalizedName.startsWith('syllogism') && (category.ucat_section_id ?? null) === sectionIdForCategory
+    })
+
+    if (syllogismsCategory?.id && form.watch('categoryId') !== syllogismsCategory.id) {
+      form.setValue('categoryId', syllogismsCategory.id, { shouldDirty: true })
+    }
+  }, [stemType, sections, categories, form])
+
+  function setStemType(value: 'multiple_choice' | 'syllogism') {
+    const currentStemType = stemType ?? 'multiple_choice'
+    if (currentStemType === value) return
+
+    if (value === 'syllogism') {
+      const currentQuestions = form.getValues('questions') ?? []
+      const firstQuestion =
+        currentQuestions[0] ?? {
+          questionText: EMPTY_DOC,
+          questionType: 'multiple_choice' as const,
+          difficulty: null,
+          timeBurdenSeconds: '',
+          tagIds: [],
+          options: [...DEFAULT_OPTIONS],
+        }
+
+      const hasQuestionText =
+        trimTextParagraphs(proseMirrorToPlainText(firstQuestion.questionText as Json) ?? '') !== ''
+      const hasOptionContent = (firstQuestion.options ?? []).some(
+        (opt) =>
+          trimTextParagraphs(proseMirrorToPlainText(opt.answerText as Json) ?? '') !== '' ||
+          trimTextParagraphs(
+            opt.answerExplanation ? proseMirrorToPlainText(opt.answerExplanation as Json) ?? '' : ''
+          ) !== ''
+      )
+
+      const otherQuestionsHaveData = currentQuestions.slice(1).some((question) => {
+        const hasOtherQuestionText =
+          trimTextParagraphs(proseMirrorToPlainText(question.questionText as Json) ?? '') !== ''
+        const hasOtherOptionContent = (question.options ?? []).some(
+          (opt) =>
+            trimTextParagraphs(proseMirrorToPlainText(opt.answerText as Json) ?? '') !== '' ||
+            trimTextParagraphs(
+              opt.answerExplanation ? proseMirrorToPlainText(opt.answerExplanation as Json) ?? '' : ''
+            ) !== ''
+        )
+        return hasOtherQuestionText || hasOtherOptionContent
+      })
+
+      const willRemoveData = hasQuestionText || hasOptionContent || otherQuestionsHaveData
+
+      if (willRemoveData) {
+        const confirmed =
+          typeof window !== 'undefined'
+            ? window.confirm(
+                'Switching the type to "Syllogism" will reset questions and statements and remove existing question text and options. Do you want to continue?'
+              )
+            : false
+
+        if (!confirmed) {
+          return
+        }
+      }
+
+      const syllogismTemplateQuestion = {
+        ...firstQuestion,
+        questionType: 'syllogism' as const,
+        questionText: plainTextToProseMirror(
+          'Place ‘Yes’ if the conclusion does follow. Place ‘No’ if the conclusion does not follow.'
+        ) as Json,
+        options: Array.from({ length: 5 }, () => ({
+          answerText: EMPTY_DOC,
+          answerExplanation: null,
+          isAnswer: false,
+        })),
+      }
+
+      form.setValue('questions', [syllogismTemplateQuestion], { shouldDirty: true })
+      return
+    }
+
+    const currentQuestions = form.getValues('questions') ?? []
+    currentQuestions.forEach((_, i) => {
+      form.setValue(`questions.${i}.questionType`, value, { shouldDirty: true })
+    })
+  }
+
+  const handleNewImageFileIds = (fileIds: string[]) => {
+    if (!onNewImageFileIds || !enableImages || fileIds.length === 0) return
+    onNewImageFileIds(fileIds)
+  }
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <form className="flex flex-col" onSubmit={(e) => e.preventDefault()}>
+        {/* Row 1: Stem text (left) | Properties (right) */}
+        <div className="flex border-b">
+          <section className="flex-1 min-w-0 p-6">
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium">Stem text</span>
+              <UcatRichTextEditor
+                value={form.watch('stemText') as Json}
+                onChange={(val) => form.setValue('stemText', val, { shouldDirty: true })}
+                minHeight="12rem"
+                stemId={enableImages ? stemId ?? null : null}
+                enableImages={enableImages}
+                onImageFileIdsChange={handleNewImageFileIds}
+              />
+            </label>
+          </section>
+          <aside className="w-80 flex-shrink-0 border-l p-6 space-y-4">
+            <h2 className="font-semibold">Properties</h2>
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium">Section</span>
+              <Select
+                value={form.watch('sectionId')}
+                onValueChange={(value) => {
+                  if (stemType === 'syllogism') {
+                    toast({
+                      description: 'Section is locked for syllogism stems.',
+                      variant: 'destructive',
+                    })
+                    return
+                  }
+                  form.setValue('sectionId', value, { shouldDirty: true })
+                  form.setValue('categoryId', null, { shouldDirty: true })
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sections.map((section) => (
+                    <SelectItem key={section.id ?? 'none'} value={section.id ?? ''}>
+                      {section.name ?? 'Untitled'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium">Category</span>
+              <Select
+                value={form.watch('categoryId') ?? 'none'}
+                onValueChange={(value) => {
+                  if (stemType === 'syllogism') {
+                    toast({
+                      description: 'Category is locked for syllogism stems.',
+                      variant: 'destructive',
+                    })
+                    return
+                  }
+                  form.setValue('categoryId', value === 'none' ? null : value, { shouldDirty: true })
+                }}
+                disabled={!sectionId}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={!sectionId ? 'Select section first' : undefined} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No category</SelectItem>
+                  {categoriesFiltered.map((category) => (
+                    <SelectItem key={category.id ?? 'none'} value={category.id ?? ''}>
+                      {category.name ?? 'Untitled'}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium">Visibility</span>
+              <Select
+                value={form.watch('isPrivate') ? 'private' : 'public'}
+                onValueChange={(value) => form.setValue('isPrivate', value === 'private', { shouldDirty: true })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="public">Public</SelectItem>
+                  <SelectItem value="private">Private</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+            <label className="block space-y-1 text-sm">
+              <span className="font-medium">Type (all questions)</span>
+              <Select
+                value={stemType ?? 'multiple_choice'}
+                onValueChange={(value: 'multiple_choice' | 'syllogism') => setStemType(value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
+                  <SelectItem value="syllogism">Syllogism</SelectItem>
+                </SelectContent>
+              </Select>
+            </label>
+          </aside>
+        </div>
+
+        {/* Rows 2..n: Question text + options (left) | tags, difficulty, time (right) */}
+        {fields.map((field, questionIndex) => (
+          <div key={field.id} className="flex border-b">
+            <section className="flex-1 min-w-0 p-6 space-y-3">
+              <h3 className="font-medium">Question {questionIndex + 1}</h3>
+              <label className="block space-y-1 text-sm">
+                <span>Question text</span>
+                <UcatRichTextEditor
+                  value={form.watch(`questions.${questionIndex}.questionText`) as Json}
+                  onChange={(val) =>
+                    form.setValue(`questions.${questionIndex}.questionText`, val, { shouldDirty: true })
+                  }
+                  minHeight="4rem"
+                  stemId={enableImages ? stemId ?? null : null}
+                  enableImages={enableImages}
+                  onImageFileIdsChange={handleNewImageFileIds}
+                />
+              </label>
+              <QuestionOptionsEditor
+                form={form}
+                questionIndex={questionIndex}
+                stemType={stemType ?? 'multiple_choice'}
+                stemId={enableImages ? stemId : null}
+                onNewImageFileIds={handleNewImageFileIds}
+              />
+            </section>
+            <aside className="w-80 flex-shrink-0 border-l p-6 space-y-3">
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Tags</span>
+                <QuestionTagsSelect questionIndex={questionIndex} form={form} tags={tags} />
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Difficulty (0–1)</span>
+                <Input type="number" step="0.01" {...form.register(`questions.${questionIndex}.difficulty`)} />
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Time burden (mm:ss or seconds)</span>
+                <Input
+                  type="text"
+                  placeholder="e.g. 1:30 or 90"
+                  {...form.register(`questions.${questionIndex}.timeBurdenSeconds`)}
+                />
+              </label>
+              <label className="block space-y-1 text-sm">
+                <span className="font-medium">Answer explanation</span>
+                <UcatRichTextEditor
+                  value={form.watch(`questions.${questionIndex}.answerExplanation`) as Json | null | undefined}
+                  onChange={(val) =>
+                    form.setValue(`questions.${questionIndex}.answerExplanation`, val, { shouldDirty: true })
+                  }
+                  minHeight="3rem"
+                  stemId={enableImages ? stemId ?? null : null}
+                  enableImages={false}
+                />
+              </label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  const questions = form.getValues('questions') ?? []
+                  const question = questions[questionIndex]
+
+                  const hasQuestionText =
+                    question &&
+                    trimTextParagraphs(
+                      proseMirrorToPlainText((question.questionText as Json) ?? EMPTY_DOC) ?? ''
+                    ) !== ''
+                  const hasOptionContent =
+                    question &&
+                    (question.options ?? []).some((opt) => {
+                      const answerText = trimTextParagraphs(
+                        proseMirrorToPlainText((opt.answerText as Json) ?? EMPTY_DOC) ?? ''
+                      )
+                      const answerExplanation = opt.answerExplanation
+                        ? trimTextParagraphs(
+                            proseMirrorToPlainText((opt.answerExplanation as Json) ?? EMPTY_DOC) ?? ''
+                          )
+                        : ''
+                      return answerText !== '' || answerExplanation !== ''
+                    })
+
+                  if (!hasQuestionText && !hasOptionContent) {
+                    remove(questionIndex)
+                    return
+                  }
+
+                  if (
+                    window.confirm(
+                      'This will delete a question with content. Changes will be lost. Do you want to continue?'
+                    )
+                  ) {
+                    remove(questionIndex)
+                  }
+                }}
+                className="w-full justify-center border-destructive !text-destructive hover:!text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete question
+              </Button>
+            </aside>
+          </div>
+        ))}
+
+        <div className="p-6 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() =>
+              append({
+                questionText: EMPTY_DOC,
+                questionType: stemType ?? 'multiple_choice',
+                difficulty: null,
+                timeBurdenSeconds: '',
+                tagIds: [],
+                options: [...DEFAULT_OPTIONS],
+              })
+            }
+          >
+            Add Question
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }

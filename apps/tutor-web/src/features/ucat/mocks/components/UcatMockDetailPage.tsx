@@ -1,158 +1,110 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Button } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
+import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { useUcatMockDetail, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
 
 type SetOption = {
   id: string
-  label: string
+  name: string
+  sectionDisplay: string
+  question_count: number | null
+  time_limit_seconds: number | null
 }
 
-export function UcatMockDetailPage({ mockId }: { mockId: string }) {
-  const access = useUcatAccess()
-  const detail = useUcatMockDetail(mockId)
-  const sets = useUcatSets()
-  const updateMock = useUpdateUcatMock()
+function formatSectionsDisplay(sections: unknown): string {
+  if (!Array.isArray(sections)) return ''
+  return sections
+    .map((s: { section_number?: number; name?: string }) => {
+      if (s?.section_number != null && s?.name != null) return `Section ${s.section_number}: ${s.name}`
+      if (s?.name) return String(s.name)
+      return ''
+    })
+    .filter(Boolean)
+    .join(' · ')
+}
 
-  const [name, setName] = useState('')
-  const [isPrivate, setIsPrivate] = useState(false)
-  const [draftSetIds, setDraftSetIds] = useState<string[]>([])
-  const [baseline, setBaseline] = useState('')
+type UcatMockDetailPageProps = {
+  mockId: string
+}
+
+export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
+  const access = useUcatAccess()
+  const sets = useUcatSets()
   const [search, setSearch] = useState('')
 
-  useEffect(() => {
-    const current = detail.data
-    if (!current) return
-    const setIds = ((current.sets as Array<{ id: string }> | null) ?? []).map((set) => set.id)
-    setName(current.name ?? '')
-    setIsPrivate(!!current.is_private)
-    setDraftSetIds(setIds)
-    setBaseline(JSON.stringify({ name: current.name ?? '', isPrivate: !!current.is_private, setIds }))
-  }, [detail.data])
-
-  const isDirty = useMemo(() => {
-    return JSON.stringify({ name, isPrivate, setIds: draftSetIds }) !== baseline
-  }, [baseline, draftSetIds, isPrivate, name])
+  const {
+    detail,
+    name,
+    isPrivate,
+    draftSetIds,
+    setName,
+    setIsPrivate,
+    setDraftSetIds,
+    isDirty,
+    save,
+    isSaving,
+  } = useUcatMockDraft({ open: true, mockId })
 
   const setCatalog = useMemo<SetOption[]>(() => {
-    return (sets.data ?? []).map((set) => ({ id: set.id ?? '', label: JSON.stringify(set.description ?? '') }))
+    return (sets.data ?? [])
+      .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
+      .map((set) => ({
+        id: set.id ?? '',
+        name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+        sectionDisplay: formatSectionsDisplay(set.sections ?? null),
+        question_count: set.question_count ?? null,
+        time_limit_seconds: set.time_limit_seconds ?? null,
+      }))
   }, [sets.data])
 
-  const filtered = useMemo(() => {
-    return setCatalog.filter((set) => !draftSetIds.includes(set.id) && set.label.toLowerCase().includes(search.toLowerCase()))
-  }, [draftSetIds, search, setCatalog])
+  const isLoading = access.isLoading || sets.isLoading || detail.isLoading
 
-  async function save() {
-    await updateMock.mutateAsync({ mockId, payload: { id: mockId, name, isPrivate, setIds: draftSetIds } })
-  }
-
-  function reset() {
-    const current = detail.data
-    if (!current) return
-    const setIds = ((current.sets as Array<{ id: string }> | null) ?? []).map((set) => set.id)
-    setName(current.name ?? '')
-    setIsPrivate(!!current.is_private)
-    setDraftSetIds(setIds)
-  }
-
-  if (access.isLoading || detail.isLoading || sets.isLoading) return <UcatPageSkeleton rows={6} />
-
+  if (isLoading) return <UcatPageSkeleton rows={6} />
   if (!access.data) return <UcatAccessDenied />
-  if (!detail.data) return <div className="p-6">Mock not found.</div>
 
   return (
     <div className="p-6">
       <UcatPageHeader
-        title="Mock Detail"
+        title="Edit UCAT Mock"
+        description={detail.data?.name ? detail.data.name : 'Edit mock exam'}
         backHref="/ucat/mocks"
-        breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks', href: '/ucat/mocks' }, { label: 'Detail' }]}
+        breadcrumbs={[
+          { label: 'UCAT', href: '/ucat' },
+          { label: 'Mocks', href: '/ucat/mocks' },
+          { label: detail.data?.name ?? 'Mock' },
+        ]}
         actions={
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={reset} disabled={!isDirty}>Cancel</Button>
-            <Button onClick={save} disabled={!isDirty || updateMock.isPending}>{updateMock.isPending ? 'Saving...' : 'Save'}</Button>
-          </div>
+          <Button
+            onClick={async () => {
+              await save()
+            }}
+            disabled={!isDirty || isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save changes'}
+          </Button>
         }
       />
 
-      <div className="grid gap-4 lg:grid-cols-[1fr,320px]">
-        <section className="space-y-3 rounded border p-4">
-          <h2 className="font-semibold">Sets in Mock</h2>
-          {draftSetIds.map((setId, index) => {
-            const set = setCatalog.find((item) => item.id === setId)
-            return (
-              <div key={setId} className="flex items-center justify-between rounded border p-2">
-                <p className="text-sm"><span className="font-medium">{index + 1}.</span> {set?.label || setId}</p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (index === 0) return
-                      setDraftSetIds((prev) => {
-                        const next = [...prev]
-                        ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
-                        return next
-                      })
-                    }}
-                  >
-                    Up
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (index === draftSetIds.length - 1) return
-                      setDraftSetIds((prev) => {
-                        const next = [...prev]
-                        ;[next[index + 1], next[index]] = [next[index], next[index + 1]]
-                        return next
-                      })
-                    }}
-                  >
-                    Down
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setDraftSetIds((prev) => prev.filter((id) => id !== setId))}>
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            )
-          })}
-
-          <div className="rounded border border-dashed p-3">
-            <h3 className="mb-2 text-sm font-medium">Add Set</h3>
-            <input className="mb-2 w-full rounded border p-2" placeholder="Search sets" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <div className="max-h-52 space-y-1 overflow-auto">
-              {filtered.slice(0, 30).map((set) => (
-                <button
-                  key={set.id}
-                  type="button"
-                  className="block w-full rounded border px-2 py-1 text-left text-sm hover:bg-muted"
-                  onClick={() => setDraftSetIds((prev) => [...prev, set.id])}
-                >
-                  {set.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <aside className="space-y-3 rounded border p-4">
-          <h2 className="font-semibold">Mock Properties</h2>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Name</span>
-            <input className="w-full rounded border p-2" value={name} onChange={(e) => setName(e.target.value)} />
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
-            Private
-          </label>
-        </aside>
+      <div className="mt-4 h-[70vh] rounded-md border overflow-hidden">
+        <UcatMockEditorContent
+          name={name}
+          isPrivate={isPrivate}
+          setName={setName}
+          setIsPrivate={(value) => setIsPrivate(value)}
+          draftSetIds={draftSetIds}
+          setDraftSetIds={setDraftSetIds}
+          search={search}
+          setSearch={setSearch}
+          setCatalog={setCatalog}
+        />
       </div>
     </div>
   )
 }
+

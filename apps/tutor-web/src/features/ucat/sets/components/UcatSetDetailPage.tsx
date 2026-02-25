@@ -2,33 +2,46 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@altitutor/ui'
+import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
-import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
-import { getSupabaseClient } from '@/shared/lib/supabase/client'
-import type { Database, Json } from '@altitutor/shared'
-import type { SupabaseClient } from '@supabase/supabase-js'
+import {
+  useUcatCategories,
+  useUcatQuestionDetail,
+  useUcatSections,
+  useUcatStemCatalog,
+  useUcatTags,
+  useUpdateUcatQuestionStem,
+  type UcatStemCatalogItem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
+import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
+import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 
-type StemCatalogItem = {
-  id: string
-  label: string
+/** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
+type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
+
+type UcatSetDetailPageProps = {
+  setId: string
 }
 
-type SetDetailStem = {
-  stem_id: string
-  stem_text: unknown
-  questions_meta?: Array<{ id: string; index: number }>
-}
-
-export function UcatSetDetailPage({ setId }: { setId: string }) {
+export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const access = useUcatAccess()
   const detail = useUcatSetDetail(setId)
   const updateSet = useUpdateUcatSet()
 
-  const [stemCatalog, setStemCatalog] = useState<StemCatalogItem[]>([])
+  const stemCatalogQuery = useUcatStemCatalog(true)
+  const stemCatalog = stemCatalogQuery.data ?? []
+  const sectionsQuery = useUcatSections()
+  const categoriesQuery = useUcatCategories()
+  const tagsQuery = useUcatTags()
+  const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
@@ -49,30 +62,22 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
     setDraftTimeLimit(secondsToTimeString(current.time_limit_seconds))
     setDraftPrivate(!!current.is_private)
     setDraftStemIds(stemIds)
-    setBaseline(snapshotSetDetail({
-      name: proseMirrorToPlainText(current.name ?? null),
-      description: proseMirrorToPlainText(current.description),
-      time: current.time_limit_seconds ?? null,
-      isPrivate: !!current.is_private,
-      isStudentGenerated: !!current.is_student_generated,
-      stemIds,
-    }))
+    setBaseline(
+      snapshotSetDetail({
+        name: proseMirrorToPlainText(current.name ?? null),
+        description: proseMirrorToPlainText(current.description),
+        time: current.time_limit_seconds ?? null,
+        isPrivate: !!current.is_private,
+        isStudentGenerated: false,
+        stemIds,
+      })
+    )
   }, [detail.data])
 
-  useEffect(() => {
-    const run = async () => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>
-      const { data } = await supabase.from('vtutor_ucat_question_stems').select('id,section_name,category_name,stem_text')
-      const items: StemCatalogItem[] = (data ?? [])
-        .filter((row): row is { id: string; section_name: string | null; category_name: string | null; stem_text: Json } => row.id != null)
-        .map((row) => ({
-          id: row.id,
-          label: [row.section_name, row.category_name].filter(Boolean).join(' · ') + ' — ' + (proseMirrorToPlainText(row.stem_text) || row.id.slice(0, 8)),
-        }))
-      setStemCatalog(items)
-    }
-    void run()
-  }, [])
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+
+  const stemDetail = useUcatQuestionDetail(editingStemId)
+  const updateStemMutation = useUpdateUcatQuestionStem()
 
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
@@ -86,28 +91,118 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
     return isSnapshotDirty(snapshot, baseline)
   }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftTimeLimit])
 
-  const stemLabelsById = useMemo(() => {
-    const current = detail.data
-    const stems = (current?.stems as SetDetailStem[] | null) ?? []
-    const map = new Map<string, string>()
-    stems.forEach((s) => {
-      const snippet = proseMirrorToPlainText(s.stem_text as Json) || s.stem_id.slice(0, 8)
-      const qCount = (s.questions_meta ?? []).length
-      map.set(s.stem_id, `${snippet.slice(0, 60)}${snippet.length > 60 ? '…' : ''} (${qCount} Q${qCount === 1 ? '' : 's'})`)
-    })
-    stemCatalog.forEach((item) => {
-      if (!map.has(item.id)) map.set(item.id, item.label)
-    })
-    return map
-  }, [detail.data, stemCatalog])
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => {
+    const base: DataTableFilterDefinition[] = [
+      { key: 'section_id', label: 'Section' },
+      { key: 'question_stem_category_id', label: 'Category' },
+      {
+        key: 'visibility',
+        label: 'Visibility',
+        options: [
+          { label: 'Public', value: 'public' },
+          { label: 'Private', value: 'private' },
+        ],
+      },
+      {
+        key: 'question_type',
+        label: 'Type',
+        options: [
+          { label: 'Multiple Choice', value: 'multiple_choice' },
+          { label: 'Syllogism', value: 'syllogism' },
+        ],
+      },
+    ]
+
+    const sections = sectionsQuery.data ?? []
+    const categories = categoriesQuery.data ?? []
+
+    return [
+      {
+        ...base[0],
+        options: sections.map((s) => ({
+          label: s.name ?? 'Untitled',
+          // Use section_number for filtering to avoid any ID mismatch issues
+          value: s.section_number ?? 0,
+        })),
+      },
+      {
+        ...base[1],
+        options: categories.map((c) => ({ label: c.name ?? 'Untitled', value: c.id ?? '' })),
+      },
+      base[2],
+      base[3],
+    ]
+  }, [sectionsQuery.data, categoriesQuery.data])
 
   const filteredCatalog = useMemo(() => {
+    const searchTrimmed = search.trim().toLowerCase()
+    const sectionFilterRaw = (filters.section_id?.[0] as unknown) ?? ''
+    const categoryFilter = (filters.question_stem_category_id?.[0] as string | undefined) || ''
+    const visibilityFilter = (filters.visibility?.[0] as string | undefined) || ''
+    const questionTypeFilter = (filters.question_type?.[0] as string | undefined) || ''
+
     return stemCatalog.filter((stem) => {
       if (draftStemIds.includes(stem.id)) return false
-      if (search.trim().length === 0) return true
-      return stem.label.toLowerCase().includes(search.toLowerCase())
+
+      const searchHit =
+        !searchTrimmed ||
+        stem.text.toLowerCase().includes(searchTrimmed) ||
+        stem.sectionName.toLowerCase().includes(searchTrimmed) ||
+        (stem.categoryName ?? '').toLowerCase().includes(searchTrimmed)
+
+      if (!searchHit) return false
+
+      // Section filter: compare by section number to match the options above
+      if (sectionFilterRaw !== '' && sectionFilterRaw != null) {
+        const sectionFilterNumber = Number(sectionFilterRaw)
+        if (Number.isFinite(sectionFilterNumber) && stem.sectionNumber !== sectionFilterNumber) {
+          return false
+        }
+      }
+      if (categoryFilter && stem.categoryId !== categoryFilter) return false
+
+      if (visibilityFilter === 'public' && stem.isPrivate) return false
+      if (visibilityFilter === 'private' && !stem.isPrivate) return false
+
+      if (
+        questionTypeFilter &&
+        !stem.questionTypes.includes(questionTypeFilter as 'multiple_choice' | 'syllogism')
+      ) {
+        return false
+      }
+
+      return true
     })
-  }, [stemCatalog, draftStemIds, search])
+  }, [stemCatalog, draftStemIds, search, filters])
+
+  async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
+    if (!editingStemId) return
+
+    const mapped: UcatQuestionStemBundlePayload = {
+      stemId: editingStemId,
+      sectionId: payload.sectionId,
+      categoryId: payload.categoryId || null,
+      stemText: payload.stemText,
+      isPrivate: payload.isPrivate,
+      questions: payload.questions.map((question, index) => ({
+        index: index + 1,
+        questionText: question.questionText,
+        questionType: question.questionType,
+        difficulty: question.difficulty,
+        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
+        tagIds: question.tagIds ?? [],
+        options: question.options.map((option, optionIndex) => ({
+          index: optionIndex + 1,
+          answerText: option.answerText,
+          answerExplanation: option.answerExplanation,
+          isAnswer: option.isAnswer,
+        })),
+      })),
+    }
+
+    await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
+    setEditingStemId(null)
+  }
 
   async function save() {
     await updateSet.mutateAsync({
@@ -124,118 +219,74 @@ export function UcatSetDetailPage({ setId }: { setId: string }) {
     })
   }
 
-  function reset() {
-    const current = detail.data
-    if (!current) return
-    const stems = (current.stems as SetDetailStem[] | null) ?? []
-    setDraftStemIds(stems.map((s) => s.stem_id))
-    setDraftName(proseMirrorToPlainText(current.name ?? null))
-    setDraftDescription(proseMirrorToPlainText(current.description))
-    setDraftTimeLimit(secondsToTimeString(current.time_limit_seconds))
-    setDraftPrivate(!!current.is_private)
-  }
+  const isLoading =
+    access.isLoading ||
+    detail.isLoading ||
+    sectionsQuery.isLoading ||
+    categoriesQuery.isLoading ||
+    tagsQuery.isLoading ||
+    stemCatalogQuery.isLoading
 
-  if (access.isLoading || detail.isLoading) return <UcatPageSkeleton rows={6} />
-
+  if (isLoading) return <UcatPageSkeleton rows={6} />
   if (!access.data) return <UcatAccessDenied />
-  if (!detail.data) return <div className="p-6">Set not found.</div>
 
   return (
     <div className="p-6">
       <UcatPageHeader
-        title="Set Detail"
+        title="Edit UCAT Set"
+        description={detail.data?.name ? proseMirrorToPlainText(detail.data.name) : 'Edit question set'}
         backHref="/ucat/sets"
-        breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Sets', href: '/ucat/sets' }, { label: 'Detail' }]}
+        breadcrumbs={[
+          { label: 'UCAT', href: '/ucat' },
+          { label: 'Sets', href: '/ucat/sets' },
+          {
+            label: detail.data?.name ? proseMirrorToPlainText(detail.data.name) || 'Set' : 'Set',
+          },
+        ]}
         actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={reset} disabled={!isDirty}>Cancel</Button>
-            <Button onClick={save} disabled={!isDirty || updateSet.isPending}>{updateSet.isPending ? 'Saving...' : 'Save'}</Button>
-          </div>
+          <Button onClick={save} disabled={!isDirty || updateSet.isPending}>
+            {updateSet.isPending ? 'Saving...' : 'Save changes'}
+          </Button>
         }
       />
 
-      <div className="flex min-h-[70vh]">
-        <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">
-          <h2 className="font-semibold">Stems in Set</h2>
-          {draftStemIds.map((stemId, index) => (
-            <div key={stemId} className="rounded border p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-sm"><span className="font-medium">{index + 1}.</span> {stemLabelsById.get(stemId) ?? stemId.slice(0, 8)}</p>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (index === 0) return
-                      setDraftStemIds((prev) => {
-                        const next = [...prev]
-                        ;[next[index - 1], next[index]] = [next[index], next[index - 1]]
-                        return next
-                      })
-                    }}
-                  >
-                    Up
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      if (index === draftStemIds.length - 1) return
-                      setDraftStemIds((prev) => {
-                        const next = [...prev]
-                        ;[next[index + 1], next[index]] = [next[index], next[index + 1]]
-                        return next
-                      })
-                    }}
-                  >
-                    Down
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setDraftStemIds((prev) => prev.filter((id) => id !== stemId))}>
-                    Remove
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
-
-          <div className="pt-2">
-            <h3 className="mb-2 text-sm font-medium">Add Stem</h3>
-            <input className="mb-2 w-full rounded border p-2" placeholder="Search stems" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <div className="max-h-52 space-y-1 overflow-auto">
-              {filteredCatalog.slice(0, 40).map((stem) => (
-                <button
-                  key={stem.id}
-                  type="button"
-                  className="block w-full rounded border px-2 py-1 text-left text-sm hover:bg-muted"
-                  onClick={() => setDraftStemIds((prev) => [...prev, stem.id])}
-                >
-                  {stem.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        <aside className="w-80 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
-          <h2 className="font-semibold">Set Properties</h2>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Name</span>
-            <input className="w-full rounded border p-2" value={draftName} onChange={(e) => setDraftName(e.target.value)} placeholder="Set name" />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Description</span>
-            <textarea className="min-h-24 w-full rounded border p-2" value={draftDescription} onChange={(e) => setDraftDescription(e.target.value)} />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
-            <input className="w-full rounded border p-2" type="text" value={draftTimeLimit} onChange={(e) => setDraftTimeLimit(e.target.value)} placeholder="e.g. 1:30 or 90" />
-          </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={draftPrivate} onChange={(e) => setDraftPrivate(e.target.checked)} />
-            Private
-          </label>
-        </aside>
+      <div className="mt-4 h-[70vh] rounded-md border overflow-hidden">
+        <UcatSetEditorContent
+          draftName={draftName}
+          draftDescription={draftDescription}
+          draftTimeLimit={draftTimeLimit}
+          draftPrivate={draftPrivate}
+          draftStemIds={draftStemIds}
+          setDraftStemIds={setDraftStemIds}
+          stemCatalog={stemCatalog as unknown as UcatStemCatalogItem[]}
+          search={search}
+          setSearch={setSearch}
+          filters={filters}
+          setFilters={setFilters}
+          filterDefinitions={filterDefinitions}
+          onEditStem={(id) => setEditingStemId(id)}
+          onChangeName={setDraftName}
+          onChangeDescription={setDraftDescription}
+          onChangeTimeLimit={setDraftTimeLimit}
+          onChangePrivate={(value) => setDraftPrivate(value)}
+        />
       </div>
+
+      <UcatQuestionStemDialog
+        open={!!editingStemId}
+        title="Edit Question Stem"
+        submitLabel="Save"
+        onClose={() => setEditingStemId(null)}
+        onSubmit={handleStemUpdate}
+        sections={(sectionsQuery.data ?? []).map((section) => ({ id: section.id, name: section.name }))}
+        categories={
+          (categoriesQuery.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]
+        }
+        tags={(tagsQuery.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
+        initial={stemDetail.data}
+        loading={updateStemMutation.isPending || stemDetail.isLoading}
+      />
     </div>
   )
 }
+

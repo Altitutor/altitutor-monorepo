@@ -1,7 +1,11 @@
-import { redirect } from 'next/navigation'
+import { UcatQuestionStemDetailPage } from '@/features/ucat/questions/components/UcatQuestionStemDetailPage'
 
-export default async function UcatQuestionStemDetailRoute({ params }: { params: Promise<{ id: string }> }) {
+export default async function UcatQuestionStemDetailRoute({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const { id } = await params
-  redirect(`/ucat/questions?edit=${id}`)
+  return <UcatQuestionStemDetailPage stemId={id} />
 }
 

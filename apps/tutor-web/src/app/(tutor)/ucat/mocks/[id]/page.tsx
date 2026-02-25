@@ -1,6 +1,10 @@
-import { redirect } from 'next/navigation'
+import { UcatMockDetailPage } from '@/features/ucat/mocks/components/UcatMockDetailPage'
 
-export default async function UcatMockDetailRoute({ params }: { params: Promise<{ id: string }> }) {
+export default async function UcatMockDetailRoute({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
   const { id } = await params
-  redirect(`/ucat/mocks?edit=${id}`)
+  return <UcatMockDetailPage mockId={id} />
 }
