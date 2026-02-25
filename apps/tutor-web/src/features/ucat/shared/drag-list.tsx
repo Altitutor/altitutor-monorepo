@@ -56,15 +56,16 @@ function SortableRow({ id, label, onRemove }: { id: string; label: React.ReactNo
       style={style}
       className={`rounded border p-3 ${isDragging ? 'opacity-60' : ''}`}
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
             <GripVertical className="h-4 w-4" />
           </button>
           <div className="text-sm">{label}</div>
         </div>
-        <Button type="button" variant="outline" size="icon" onClick={onRemove}>
-          <Trash2 className="h-4 w-4" />
+        <Button type="button" variant="outline" size="sm" className="h-8 px-2" onClick={onRemove}>
+          <Trash2 className="h-4 w-4 mr-1" />
+          <span className="text-xs">Remove</span>
         </Button>
       </div>
     </div>

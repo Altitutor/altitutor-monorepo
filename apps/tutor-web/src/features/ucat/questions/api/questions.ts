@@ -80,6 +80,84 @@ export const ucatQuestionsApi = {
     return (data ?? null) as StemDetailRow | null
   },
 
+  async getStemTypes() {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_question_stem_detail')
+      .select('id,questions')
+
+    if (error) throw error
+
+    type QuestionWithType = { question_type?: string | null }
+    const rows = (data ?? []) as Array<{ id: string | null; questions: unknown }>
+    const map: Record<string, Set<'multiple_choice' | 'syllogism'>> = {}
+
+    for (const row of rows) {
+      if (!row.id) continue
+      const types = new Set<'multiple_choice' | 'syllogism'>()
+      const questions = Array.isArray(row.questions) ? (row.questions as QuestionWithType[]) : []
+      for (const question of questions) {
+        if (question.question_type === 'multiple_choice' || question.question_type === 'syllogism') {
+          types.add(question.question_type)
+        }
+      }
+      map[row.id] = types
+    }
+
+    return map
+  },
+
+  async getStemCatalog() {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_question_stem_detail')
+      .select(
+        'id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,is_private,deleted_at'
+      )
+      .is('deleted_at', null)
+
+    if (error) throw error
+
+    return (data ?? []) as Array<{
+      id: string | null
+      stem_text: Json | null
+      questions: unknown
+      section_name: string | null
+      section_number: number | null
+      section_id: string | null
+      question_stem_category_id: string | null
+      category_name: string | null
+      is_private: boolean | null
+    }>
+  },
+
+  async getStemTypes() {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_question_stem_detail')
+      .select('id,questions')
+
+    if (error) throw error
+
+    type QuestionWithType = { question_type?: string | null }
+    const rows = (data ?? []) as Array<{ id: string | null; questions: unknown }>
+    const map: Record<string, Set<'multiple_choice' | 'syllogism'>> = {}
+
+    for (const row of rows) {
+      if (!row.id) continue
+      const types = new Set<'multiple_choice' | 'syllogism'>()
+      const questions = Array.isArray(row.questions) ? (row.questions as QuestionWithType[]) : []
+      for (const question of questions) {
+        if (question.question_type === 'multiple_choice' || question.question_type === 'syllogism') {
+          types.add(question.question_type)
+        }
+      }
+      map[row.id] = types
+    }
+
+    return map
+  },
+
   async create(payload: UcatQuestionStemBundlePayload) {
     const response = await fetch('/api/ucat/question-stems', {
       method: 'POST',
@@ -115,6 +193,14 @@ export const ucatQuestionsApi = {
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
       throw new Error(body.error ?? 'Failed to delete question stem')
+    }
+  },
+
+  async restore(stemId: string) {
+    const response = await fetch(`/api/ucat/question-stems/${stemId}/restore`, { method: 'POST' })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to restore question stem')
     }
   },
 }
