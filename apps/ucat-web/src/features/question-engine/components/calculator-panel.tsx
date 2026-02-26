@@ -1,5 +1,5 @@
 import { Calculator, Sigma } from 'lucide-react'
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { UcatFloatingPanel } from '@altitutor/ui'
 import { useUcatCalculator } from '@/features/question-engine/hooks/use-ucat-calculator'
 import { useDraggablePanel } from '@/features/question-engine/hooks/use-draggable-panel'
@@ -40,7 +40,8 @@ function CalcButton({
 
 export function CalculatorPanel({ onClose }: { onClose: () => void }) {
   const { display, onKey } = useUcatCalculator()
-  const { position, handleMouseDown } = useDraggablePanel()
+  const { position, handleMouseDown, setPosition } = useDraggablePanel()
+  const panelRef = useRef<HTMLDivElement | null>(null)
 
   // Allow typing directly into the calculator when it is open
   useEffect(() => {
@@ -95,8 +96,41 @@ export function CalculatorPanel({ onClose }: { onClose: () => void }) {
     }
   }, [onKey])
 
+  // Keep calculator panel fully within the UCAT exam shell
+  useEffect(() => {
+    const shell = document.querySelector('[data-ucat-shell-root="true"]') as HTMLElement | null
+    const panel = panelRef.current
+    if (!shell || !panel) return
+
+    const shellRect = shell.getBoundingClientRect()
+    const panelRect = panel.getBoundingClientRect()
+
+    let dx = 0
+    let dy = 0
+
+    if (panelRect.left < shellRect.left) {
+      dx = shellRect.left - panelRect.left
+    } else if (panelRect.right > shellRect.right) {
+      dx = shellRect.right - panelRect.right
+    }
+
+    if (panelRect.top < shellRect.top) {
+      dy = shellRect.top - panelRect.top
+    } else if (panelRect.bottom > shellRect.bottom) {
+      dy = shellRect.bottom - panelRect.bottom
+    }
+
+    if (dx !== 0 || dy !== 0) {
+      setPosition((current) => ({
+        x: current.x + dx,
+        y: current.y + dy,
+      }))
+    }
+  }, [position.x, position.y, setPosition])
+
   return (
     <div
+      ref={panelRef}
       className="pointer-events-auto fixed right-4 top-24 z-40"
       style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
     >
