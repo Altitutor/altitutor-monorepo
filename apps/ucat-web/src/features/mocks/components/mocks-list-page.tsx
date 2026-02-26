@@ -40,7 +40,7 @@ export function MocksListPage() {
         {mocks.map((mock) => (
           <li key={mock.id}>
             <Link
-              href={`/mocks?mockId=${encodeURIComponent(mock.id)}`}
+              href={`/mocks/${encodeURIComponent(mock.id)}`}
               className="flex items-center gap-3 rounded-xl bg-card text-card-foreground p-4 shadow-sm transition-colors hover:bg-muted border border-border"
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
