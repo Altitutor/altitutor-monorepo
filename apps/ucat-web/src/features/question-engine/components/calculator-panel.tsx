@@ -1,62 +1,170 @@
-import { Calculator, Sigma, X } from 'lucide-react'
+import { Calculator, Sigma } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { UcatFloatingPanel } from '@altitutor/ui'
 import { useUcatCalculator } from '@/features/question-engine/hooks/use-ucat-calculator'
+import { useDraggablePanel } from '@/features/question-engine/hooks/use-draggable-panel'
 
-const calculatorKeys = [
+const ROWS_1_4: string[][] = [
   ['+/-', 'sqrt', '%', '÷'],
   ['MRC', 'M-', 'M+', '×'],
   ['7', '8', '9', '-'],
   ['4', '5', '6', '+'],
-  ['1', '2', '3', '='],
-  ['ON/C', '0', '.'],
 ]
+const ROW_5_LEFT = ['1', '2', '3']
+const ROW_6_LEFT = ['ON/C', '0', '.']
+
+const BUTTON_BASE =
+  'flex min-h-[36px] w-full items-center justify-center rounded-[4px] border border-[#414042] text-center font-semibold shadow-[0_1px_0_rgba(0,0,0,0.4)]'
+
+function CalcButton({
+  label,
+  onKey,
+}: {
+  label: string
+  onKey: (label: string) => void
+}) {
+  const isNumberOrDot = /^[0-9.]$/.test(label)
+  const variant = isNumberOrDot
+    ? 'bg-[#F5F5F5] text-black text-[12pt]'
+    : 'bg-[#DE1F2A] text-white text-[10pt]'
+  return (
+    <button
+      type="button"
+      onClick={() => onKey(label)}
+      className={`${BUTTON_BASE} ${variant}`}
+    >
+      {label === 'sqrt' ? '√' : label}
+    </button>
+  )
+}
 
 export function CalculatorPanel({ onClose }: { onClose: () => void }) {
   const { display, onKey } = useUcatCalculator()
+  const { position, handleMouseDown } = useDraggablePanel()
+  const panelRef = useRef<HTMLDivElement | null>(null)
+  const [panelSize, setPanelSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
+  const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
+
+  // Allow typing directly into the calculator when it is open
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.altKey || event.metaKey || event.ctrlKey) {
+        return
+      }
+
+      let label: string | null = null
+
+      if (/^[0-9]$/.test(event.key)) {
+        label = event.key
+      } else {
+        switch (event.key) {
+          case '.':
+            label = '.'
+            break
+          case '+':
+            label = '+'
+            break
+          case '-':
+            label = '-'
+            break
+          case '*':
+          case 'x':
+          case 'X':
+            label = '×'
+            break
+          case '/':
+            label = '÷'
+            break
+          case 'Enter':
+          case '=':
+            label = '='
+            break
+          default:
+            break
+        }
+      }
+
+      if (!label) {
+        return
+      }
+
+      event.preventDefault()
+      onKey(label)
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onKey])
+
+  useEffect(() => {
+    const updateSizes = () => {
+      setViewportSize({
+        width: window.innerWidth,
+        height: window.innerHeight,
+      })
+      if (panelRef.current) {
+        const rect = panelRef.current.getBoundingClientRect()
+        setPanelSize({ width: rect.width, height: rect.height })
+      }
+    }
+    updateSizes()
+    window.addEventListener('resize', updateSizes)
+    return () => window.removeEventListener('resize', updateSizes)
+  }, [])
+
+  const effectiveWidth = panelSize.width || 280
+  const effectiveHeight = panelSize.height || 320
+  const maxX = Math.max(0, viewportSize.width - effectiveWidth)
+  const maxY = Math.max(0, viewportSize.height - effectiveHeight)
+  const clampedX = Math.min(Math.max(position.x, 0), maxX)
+  const clampedY = Math.min(Math.max(position.y, 0), maxY)
 
   return (
-    <UcatFloatingPanel
-      title="Calculator"
-      titleIcon={<Calculator className="h-5 w-5" />}
-      onClose={onClose}
-      className="w-full max-w-sm"
+    <div
+      ref={panelRef}
+      className="pointer-events-auto fixed left-0 top-0 z-40"
+      style={{ transform: `translate3d(${clampedX}px, ${clampedY}px, 0)` }}
     >
-      <div className="space-y-3 rounded border-2 border-[#2b4d78] bg-[#5a84bf] p-3">
-        <div className="rounded border border-[#5d6c82] bg-[#efefef] p-3 text-right font-mono text-2xl text-black">{display}</div>
-        <div className="flex items-center justify-center gap-2 text-lg text-white">
-          <Sigma className="h-4 w-4" />
-          <span>Texas Instruments TI-108</span>
+      <UcatFloatingPanel
+        title="Calculator"
+        titleIcon={<Calculator className="h-5 w-5" />}
+        onClose={onClose}
+        onDragMouseDown={handleMouseDown}
+        className="w-[280px]"
+      >
+        <div className="rounded-[12px] border border-black/60 bg-[#507ABD] px-3 pb-4 pt-5 shadow-[0_2px_4px_rgba(0,0,0,0.6)]">
+          <div className="mb-3 rounded-[3px] border border-[#E4E5E6] bg-[#C5CEBD] px-2 pt-1 text-right font-mono text-[20px] leading-none text-black shadow-inner">
+            {display}
+          </div>
+          <div className="mb-3 flex items-center justify-center gap-1 text-[9px] font-semibold tracking-wide text-white">
+            <Sigma className="h-3 w-3" />
+            <span>Texas Instruments TI-108</span>
+          </div>
+          <div
+            className="grid grid-cols-4 gap-1.5 text-[12pt]"
+            style={{ gridAutoRows: 'minmax(36px, 1fr)' }}
+          >
+            {ROWS_1_4.flat().map((label) => (
+              <CalcButton key={label} label={label} onKey={onKey} />
+            ))}
+            {ROW_5_LEFT.map((label) => (
+              <CalcButton key={label} label={label} onKey={onKey} />
+            ))}
+            <button
+              type="button"
+              onClick={() => onKey('=')}
+              className={`col-start-4 row-start-5 row-span-2 min-h-0 ${BUTTON_BASE} bg-[#DE1F2A] text-[10pt] font-semibold text-white shadow-[0_1px_0_rgba(0,0,0,0.4)]`}
+            >
+              =
+            </button>
+            {ROW_6_LEFT.map((label) => (
+              <CalcButton key={label} label={label} onKey={onKey} />
+            ))}
+          </div>
         </div>
-        <div className="space-y-2">
-          {calculatorKeys.map((row) => (
-            <div key={row.join('-')} className="grid grid-cols-4 gap-2">
-              {row.map((label) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={() => onKey(label)}
-                  className={
-                    label.match(/^[0-9.]$/)
-                      ? 'rounded bg-[#ececec] px-2 py-2 text-lg text-black'
-                      : 'rounded bg-[#e31f2f] px-2 py-2 text-lg text-white'
-                  }
-                >
-                  {label === 'sqrt' ? '√' : label}
-                </button>
-              ))}
-              {row.length === 3 ? (
-                <button
-                  type="button"
-                  className="rounded border border-[#1e3d64] bg-[#3a6ca8] px-2 py-2 text-lg text-white"
-                  onClick={onClose}
-                >
-                  <X className="mx-auto h-5 w-5" />
-                </button>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
-    </UcatFloatingPanel>
+      </UcatFloatingPanel>
+    </div>
   )
 }

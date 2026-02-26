@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/features/auth'
 import { AppSidebar } from '@/features/layout/components/app-sidebar'
 import { FloatingAppActions } from '@/features/layout/components/floating-app-actions'
+import { UcatFloatingToolbar } from '@/features/layout/components/ucat-floating-toolbar'
 import { useMediaQuery } from '@/shared/hooks/use-media-query'
 import { cn } from '@/lib/utils'
 
@@ -16,6 +17,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const prevIsMobileRef = useRef<boolean | null>(null)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const isExamRoute = pathname.startsWith('/exam')
+
+  // For exam routes, start with sidebar collapsed (full-screen content) but allow toggling via floating menu.
+  // This effect must be declared before any conditional returns to keep hook order stable.
+  useEffect(() => {
+    if (isExamRoute) {
+      setCollapsed(true)
+    }
+  }, [isExamRoute])
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -58,8 +69,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="min-h-screen bg-background">
-      <FloatingAppActions onToggleNav={handleToggleNav} isMenuOpen={sidebarExpanded} />
-      <div className="mx-auto flex max-w-[1400px]">
+      {isExamRoute ? (
+        <UcatFloatingToolbar />
+      ) : (
+        <FloatingAppActions onToggleNav={handleToggleNav} isMenuOpen={sidebarExpanded} />
+      )}
+      <div className={cn('flex', isExamRoute ? 'w-screen' : 'mx-auto max-w-[1400px]')}>
         <AppSidebar
           collapsed={collapsed}
           mobileOpen={mobileOpen}
@@ -67,7 +82,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         />
         <main
           className={cn(
-            'min-h-screen flex-1 p-6 pt-16 transition-[margin] duration-200',
+            'flex-1 min-h-0 transition-[margin] duration-200',
+            isExamRoute ? 'h-screen min-h-0 overflow-hidden p-0' : 'min-h-screen pt-16 p-6',
             sidebarExpanded ? 'md:ml-[240px]' : 'ml-0'
           )}
         >
@@ -77,3 +93,4 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
+
