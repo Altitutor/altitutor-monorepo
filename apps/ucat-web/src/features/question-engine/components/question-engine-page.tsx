@@ -12,18 +12,21 @@ import { EndExamDialog } from '@/features/question-engine/components/end-exam-di
 import { EngineIntroDialog } from '@/features/question-engine/components/engine-intro-dialog'
 import { NavigatorPanel } from '@/features/question-engine/components/navigator-panel'
 import { QuestionContent } from '@/features/question-engine/components/question-content'
-import type { QuestionEngineMode, QuestionStemWithQuestions } from '@/features/question-engine/model/types'
-import { mapQuestionStemsToItems } from '@/features/question-engine/model/types'
+import type { QuestionEngineMode, QuestionEngineQuestion, QuestionStemWithQuestions } from '@/features/question-engine/model/types'
+import { mapQuestionStemsToItems, mapQuestionsToItems } from '@/features/question-engine/model/types'
 import { QUESTION_ENGINE_SHORTCUT_MAP } from '@/features/question-engine/model/shortcuts'
+import { useQuestionEnginePersistence } from '@/features/question-engine/hooks/use-question-engine-persistence'
 
 export function QuestionEnginePage({
   mode,
   sourceId,
   questionStems,
+  standaloneQuestions,
 }: {
   mode: QuestionEngineMode
   sourceId?: string
   questionStems?: QuestionStemWithQuestions[]
+  standaloneQuestions?: QuestionEngineQuestion[]
 }) {
   const query = useQuestionEngineData({
     mode,
@@ -39,7 +42,14 @@ export function QuestionEnginePage({
           title: 'Question Stems',
           questions: mapQuestionStemsToItems(questionStems),
         }
-      : query.data
+      : mode === 'questions'
+        ? standaloneQuestions && {
+            sourceType: mode,
+            sourceId: sourceId ?? 'questions',
+            title: 'Questions',
+            questions: mapQuestionsToItems(standaloneQuestions),
+          }
+        : query.data
 
   const {
     state,
@@ -55,6 +65,12 @@ export function QuestionEnginePage({
     setAnswer,
   } = useQuestionEngineState(exam)
   const router = useRouter()
+
+  const { recordAnswer, handleExamCompleted } = useQuestionEnginePersistence({
+    mode,
+    exam,
+    state,
+  })
 
   // Warn before leaving the UCAT exam page (tab close, reload, or navigation)
   useEffect(() => {
@@ -207,11 +223,11 @@ export function QuestionEnginePage({
     }
   }, [state.phase, state.showEndExamDialog, state.showNavigator, setState, goNext, goPrevious, toggleFlagCurrent, router])
 
-  if (mode !== 'questionStem' && query.isLoading) {
+  if ((mode === 'set' || mode === 'mock') && query.isLoading) {
     return <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-muted-foreground">Loading exam...</div>
   }
 
-  if ((mode !== 'questionStem' && query.error) || !exam || exam.questions.length === 0) {
+  if (((mode === 'set' || mode === 'mock') && query.error) || !exam || exam.questions.length === 0) {
     return (
       <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-red-600 dark:text-red-400">
         Unable to load questions for this {mode}. Ensure student has access via UCAT views and the selected source contains questions.
@@ -240,14 +256,15 @@ export function QuestionEnginePage({
       {state.showEndExamDialog ? (
         <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
           <EndExamDialog
-            onConfirm={() =>
+            onConfirm={() => {
+              handleExamCompleted()
               setState((current) => ({
                 ...current,
                 phase: 'intro',
                 currentIndex: 0,
                 showEndExamDialog: false,
               }))
-            }
+            }}
             onCancel={() => setState((current) => ({ ...current, showEndExamDialog: false }))}
           />
         </div>
@@ -342,7 +359,10 @@ export function QuestionEnginePage({
           <QuestionContent
             question={currentQuestion}
             selectedOptionId={state.selectedAnswers[currentQuestion.id]}
-            onSelectOption={setAnswer}
+            onSelectOption={(optionId) => {
+              setAnswer(optionId)
+              recordAnswer(currentQuestion.id, optionId)
+            }}
           />
         ) : null}
       </UcatExamShell>

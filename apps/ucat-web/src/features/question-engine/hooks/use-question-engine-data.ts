@@ -13,8 +13,17 @@ export function useQuestionEngineData({
   setId?: string
   mockId?: string
 }) {
+  const isDbMode = mode === 'set' || mode === 'mock'
+
   return useQuery({
     queryKey: ['question-engine', mode, setId ?? null, mockId ?? null],
-    queryFn: () => getQuestionEngineExam({ mode, setId, mockId }),
+    queryFn: () => {
+      if (!isDbMode) {
+        throw new Error('getQuestionEngineExam is only supported for set and mock modes')
+      }
+
+      return getQuestionEngineExam({ mode, setId, mockId })
+    },
+    enabled: isDbMode,
   })
 }

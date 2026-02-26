@@ -38,9 +38,12 @@ type StemDetailQuestion = {
 type StemDetailRow = {
   id: string
   section_name: string
+  display_columns: number | null
   stem_text: unknown
   questions: StemDetailQuestion[]
 }
+
+type DbQuestionEngineMode = Extract<QuestionEngineMode, 'set' | 'mock'>
 
 function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): QuestionItem[] {
   const stemMap = new Map(stemDetails.map((stem) => [stem.id, stem]))
@@ -63,8 +66,10 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
       questions.push({
         id: question.id,
         index: questionMeta.index,
+        questionSetId: set.id,
         stemId: stem.id,
         sectionName: stem.section_name,
+        sectionDisplayColumns: (stem.display_columns ?? 1) === 2 ? 2 : 1,
         stemText: extractTextFromRichJson(stem.stem_text as JsonLike),
         questionText: extractTextFromRichJson(question.question_text as JsonLike),
         questionType: question.question_type,
@@ -121,7 +126,7 @@ async function loadStemDetails(stemIds: string[]): Promise<StemDetailRow[]> {
 
   const { data, error } = await supabase
     .from('vstudent_ucat_question_stem_detail')
-    .select('id,section_name,stem_text,questions')
+    .select('id,section_name,display_columns,stem_text,questions')
     .in('id', stemIds)
 
   if (error || !data) {
@@ -129,42 +134,6 @@ async function loadStemDetails(stemIds: string[]): Promise<StemDetailRow[]> {
   }
 
   return data
-}
-
-async function loadFirstSetId(): Promise<string> {
-  const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        limit: (value: number) => Promise<{ data: Array<{ id: string }> | null; error: { message: string } | null }>
-      }
-    }
-  }
-
-  const { data, error } = await supabase.from('vstudent_ucat_question_sets').select('id').limit(1)
-
-  if (error || !data || data.length === 0) {
-    throw new Error(error?.message ?? 'No question sets available for student')
-  }
-
-  return data[0].id
-}
-
-async function loadFirstMockId(): Promise<string> {
-  const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        limit: (value: number) => Promise<{ data: Array<{ id: string }> | null; error: { message: string } | null }>
-      }
-    }
-  }
-
-  const { data, error } = await supabase.from('vstudent_ucat_mocks').select('id').limit(1)
-
-  if (error || !data || data.length === 0) {
-    throw new Error(error?.message ?? 'No mocks available for student')
-  }
-
-  return data[0].id
 }
 
 async function loadMockDetail(mockId: string): Promise<MockDetailRow> {
@@ -229,15 +198,20 @@ async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
 }
 
 export async function getQuestionEngineExam(params: {
-  mode: QuestionEngineMode
+  mode: DbQuestionEngineMode
   setId?: string
   mockId?: string
 }): Promise<QuestionEngineExam> {
   if (params.mode === 'set') {
-    const setId = params.setId ?? (await loadFirstSetId())
-    return buildSetExam(setId)
+    if (!params.setId) {
+      throw new Error('setId is required for set mode')
+    }
+    return buildSetExam(params.setId)
   }
 
-  const mockId = params.mockId ?? (await loadFirstMockId())
-  return buildMockExam(mockId)
+  if (!params.mockId) {
+    throw new Error('mockId is required for mock mode')
+  }
+
+  return buildMockExam(params.mockId)
 }
