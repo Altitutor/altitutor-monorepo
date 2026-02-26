@@ -1,5 +1,5 @@
 import { Calculator, Sigma } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect } from 'react'
 import { UcatFloatingPanel } from '@altitutor/ui'
 import { useUcatCalculator } from '@/features/question-engine/hooks/use-ucat-calculator'
 import { useDraggablePanel } from '@/features/question-engine/hooks/use-draggable-panel'
@@ -41,9 +41,6 @@ function CalcButton({
 export function CalculatorPanel({ onClose }: { onClose: () => void }) {
   const { display, onKey } = useUcatCalculator()
   const { position, handleMouseDown } = useDraggablePanel()
-  const panelRef = useRef<HTMLDivElement | null>(null)
-  const [panelSize, setPanelSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
-  const [viewportSize, setViewportSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 })
 
   // Allow typing directly into the calculator when it is open
   useEffect(() => {
@@ -98,34 +95,10 @@ export function CalculatorPanel({ onClose }: { onClose: () => void }) {
     }
   }, [onKey])
 
-  useEffect(() => {
-    const updateSizes = () => {
-      setViewportSize({
-        width: window.innerWidth,
-        height: window.innerHeight,
-      })
-      if (panelRef.current) {
-        const rect = panelRef.current.getBoundingClientRect()
-        setPanelSize({ width: rect.width, height: rect.height })
-      }
-    }
-    updateSizes()
-    window.addEventListener('resize', updateSizes)
-    return () => window.removeEventListener('resize', updateSizes)
-  }, [])
-
-  const effectiveWidth = panelSize.width || 280
-  const effectiveHeight = panelSize.height || 320
-  const maxX = Math.max(0, viewportSize.width - effectiveWidth)
-  const maxY = Math.max(0, viewportSize.height - effectiveHeight)
-  const clampedX = Math.min(Math.max(position.x, 0), maxX)
-  const clampedY = Math.min(Math.max(position.y, 0), maxY)
-
   return (
     <div
-      ref={panelRef}
-      className="pointer-events-auto fixed left-0 top-0 z-40"
-      style={{ transform: `translate3d(${clampedX}px, ${clampedY}px, 0)` }}
+      className="pointer-events-auto fixed right-4 top-24 z-40"
+      style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
     >
       <UcatFloatingPanel
         title="Calculator"
