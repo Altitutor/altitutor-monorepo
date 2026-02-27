@@ -130,6 +130,8 @@ export function UcatRichTextEditor({
         }
       }
 
+      const placeholderText = '[Uploading image…]'
+
       for (const file of files) {
         try {
           const { fileId, signedUrl } = await uploadUcatImage({ file, stemId })
@@ -150,17 +152,45 @@ export function UcatRichTextEditor({
             }
           }
 
-          // Move the selection to the computed insertion position (snapped to
-          // the nearest paragraph boundary) so the image is inserted on its own
-          // line between paragraphs.
+          // Insert a temporary placeholder at the snapped insertion position so
+          // the user sees immediate feedback while the image is uploading.
+          let placeholderFrom = insertPos
+          let placeholderTo = insertPos
           {
             const { state: currentState, dispatch } = editor.view
             const docSize = currentState.doc.content.size
             const safePos = Math.max(0, Math.min(insertPos, docSize))
-            const $resolved = currentState.doc.resolve(safePos)
-            const tr = currentState.tr.setSelection(
-              TextSelection.near($resolved)
-            )
+            let tr = currentState.tr.insertText(placeholderText, safePos)
+            dispatch(tr)
+            placeholderFrom = safePos
+            placeholderTo = safePos + placeholderText.length
+          }
+
+          // Replace the placeholder with the final image node. We look for the
+          // placeholder text again in case the document has shifted slightly.
+          {
+            const { state: currentState, dispatch } = editor.view
+            let from = placeholderFrom
+            let to = placeholderTo
+
+            currentState.doc.descendants((node, pos) => {
+              if (node.isText && node.text === placeholderText) {
+                from = pos
+                to = pos + node.nodeSize
+                return false
+              }
+              return true
+            })
+
+            let tr = currentState.tr
+            if (to > from) {
+              tr = tr.delete(from, to)
+            }
+
+            const docSizeAfterDelete = tr.doc.content.size
+            const safePos = Math.max(0, Math.min(from, docSizeAfterDelete))
+            const $resolved = tr.doc.resolve(safePos)
+            tr = tr.setSelection(TextSelection.near($resolved))
             dispatch(tr)
           }
 
