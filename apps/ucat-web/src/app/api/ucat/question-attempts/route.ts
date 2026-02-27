@@ -48,10 +48,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No student profile found' }, { status: 404 })
   }
 
-  let query = supabase
+  let query = supabaseAdmin
     .from('student_question_attempts')
     .select('id')
-    .eq('student_id', user.id)
+    .eq('student_id', student.id)
     .eq('question_id', body.questionId)
 
   if (body.studentQuestionSetAttemptId === null) {
