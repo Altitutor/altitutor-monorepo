@@ -21,6 +21,8 @@ type UpsertQuestionAttemptInput = {
   studentQuestionSetAttemptId: string | null
   questionId: string
   questionAnswerOptionId: string | null
+  timeSpentSeconds?: number | null
+  isFlagged?: boolean
 }
 
 type CompleteSetAttemptInput = {
@@ -155,7 +157,7 @@ export function useQuestionEnginePersistence({
     if (mode === 'set') {
       if (!examSourceSetId) return
       const existingSetAttemptId = attemptStateRef.current.setAttemptIdsBySetId.get(examSourceSetId)
-      if (existingSetAttemptId) return
+      if (existingSetAttemptId || createSetAttempt.isPending) return
 
       createSetAttempt.mutate(
         { questionSetId: examSourceSetId, mockAttemptId: null },
@@ -170,7 +172,7 @@ export function useQuestionEnginePersistence({
 
     if (mode === 'mock') {
       if (!exam.sourceId) return
-      if (attemptStateRef.current.mockAttemptId) return
+      if (attemptStateRef.current.mockAttemptId || createMockAttempt.isPending) return
 
       createMockAttempt.mutate(
         { mockId: exam.sourceId },
@@ -235,7 +237,7 @@ export function useQuestionEnginePersistence({
     return null
   }
 
-  function recordAnswer(questionId: string, questionAnswerOptionId: string) {
+  function recordAnswer(questionId: string, questionAnswerOptionId: string, isFlagged: boolean) {
     if (!isStudentEngine) return
     if (!exam) return
 
@@ -244,6 +246,7 @@ export function useQuestionEnginePersistence({
         studentQuestionSetAttemptId: null,
         questionId,
         questionAnswerOptionId,
+        isFlagged,
       })
       return
     }
@@ -259,8 +262,67 @@ export function useQuestionEnginePersistence({
       studentQuestionSetAttemptId: setAttemptId,
       questionId,
       questionAnswerOptionId,
+      isFlagged,
     })
   }
+
+  const questionTimingRef = useRef<{
+    currentQuestionId: string | null
+    startedAt: number | null
+    accumulatedSecondsByQuestionId: Map<string, number>
+  }>({
+    currentQuestionId: null,
+    startedAt: null,
+    accumulatedSecondsByQuestionId: new Map(),
+  })
+
+  useEffect(() => {
+    if (!isStudentEngine) return
+    if (!exam) return
+    if (state.phase !== 'question') return
+
+    const questions = exam.questions
+    if (!questions.length) return
+
+    const currentQuestion = questions[state.currentIndex]
+    if (!currentQuestion) return
+
+    const timing = questionTimingRef.current
+    const now = Date.now()
+
+    if (timing.currentQuestionId && timing.startedAt != null && timing.currentQuestionId !== currentQuestion.id) {
+      const elapsedSeconds = Math.max(0, Math.round((now - timing.startedAt) / 1000))
+      const prevTotal = timing.accumulatedSecondsByQuestionId.get(timing.currentQuestionId) ?? 0
+      const newTotal = prevTotal + elapsedSeconds
+      timing.accumulatedSecondsByQuestionId.set(timing.currentQuestionId, newTotal)
+
+          const prevAnswerOptionId = state.selectedAnswers[timing.currentQuestionId]
+          const isFlagged = state.flaggedIds.includes(timing.currentQuestionId)
+      if (prevAnswerOptionId) {
+        const question = findQuestion(exam, timing.currentQuestionId)
+        if (question) {
+          const setAttemptIdExisting = attemptStateRef.current.setAttemptIdsBySetId.get(question.questionSetId)
+          const setAttemptId = setAttemptIdExisting ?? ensureSetAttemptForQuestion(question)
+          if (setAttemptId) {
+            upsertQuestionAttempt.mutate({
+              studentQuestionSetAttemptId: setAttemptId,
+              questionId: timing.currentQuestionId,
+              questionAnswerOptionId: prevAnswerOptionId,
+              timeSpentSeconds: newTotal,
+              isFlagged,
+            })
+          }
+        }
+      }
+    }
+
+    if (timing.currentQuestionId !== currentQuestion.id) {
+      timing.currentQuestionId = currentQuestion.id
+      timing.startedAt = now
+    } else if (timing.startedAt == null) {
+      timing.startedAt = now
+    }
+  }, [state.currentIndex, state.phase, exam, isStudentEngine, state.selectedAnswers, ensureSetAttemptForQuestion, upsertQuestionAttempt])
 
   function handleExamCompleted() {
     if (!isStudentEngine) return
