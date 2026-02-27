@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import type { Resolver } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Input } from '@altitutor/ui'
@@ -74,6 +74,7 @@ export function Step3EditQuestionStems({
       />
 
       <BulkImportStemEditor
+        key={current.id}
         stem={current}
         sections={sections}
         categories={categories}
@@ -99,14 +100,17 @@ function BulkImportStemEditor({
   tags,
   updateStemForm,
 }: BulkImportStemEditorProps) {
-  const form = useForm<UcatQuestionStemFormValues>({
-    resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
+  // Type instantiation for this large nested form can be deep; the schema
+  // already validates the shape at runtime.
+  const createForm = useForm as unknown as (props: {
+    resolver: unknown
+    defaultValues: UcatQuestionStemFormValues
+  }) => UseFormReturn<UcatQuestionStemFormValues>
+
+  const form = createForm({
+    resolver: zodResolver(ucatQuestionStemSchema),
     defaultValues: stem.values,
   })
-
-  useEffect(() => {
-    form.reset(stem.values)
-  }, [stem.id, stem.values, form])
 
   useEffect(() => {
     const subscription = form.watch(() => {
