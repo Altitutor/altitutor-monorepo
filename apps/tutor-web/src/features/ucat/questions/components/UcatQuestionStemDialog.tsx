@@ -144,6 +144,13 @@ export function UcatQuestionStemDialog({
     defaultValues,
   })
 
+  // When editing, populate the form once the initial stem detail has loaded.
+  useEffect(() => {
+    if (initial) {
+      form.reset(defaultValues)
+    }
+  }, [initial, defaultValues, form])
+
   // When opening for create (no initial), reset form so previous content is cleared
   useEffect(() => {
     if (open && !initial) {

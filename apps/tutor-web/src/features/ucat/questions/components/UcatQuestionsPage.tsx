@@ -6,6 +6,7 @@ import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSor
 import { Button, DataTableToolbar, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui'
 import { ChevronDown, ChevronRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import {
+  useBulkImportUcatQuestionStems,
   useCreateUcatQuestionStem,
   useDeleteUcatQuestionStem,
   useRestoreUcatQuestionStem,
@@ -21,6 +22,7 @@ import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { BulkImportQuestionStemsModal } from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -96,6 +98,7 @@ const sortOptions: DataTableSortOption[] = [
 
 export function UcatQuestionsPage() {
   const [createOpen, setCreateOpen] = useState(false)
+  const [bulkImportOpen, setBulkImportOpen] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
   const [showDeleted, setShowDeleted] = useState(false)
@@ -133,6 +136,7 @@ export function UcatQuestionsPage() {
   const updateMutation = useUpdateUcatQuestionStem()
   const deleteMutation = useDeleteUcatQuestionStem()
   const restoreMutation = useRestoreUcatQuestionStem()
+  const bulkImportMutation = useBulkImportUcatQuestionStems()
 
   const rows: QuestionRow[] = (questions.data ?? []).map((row) => {
     const summary = row.id ? Array.from(stemTypes[row.id] ?? []).join(', ') : ''
@@ -224,8 +228,12 @@ export function UcatQuestionsPage() {
   const showSetsCol = tableState.state.visibleColumns.includes('sets')
   const colCount = 7 + (showTypeCol ? 1 : 0) + (showSetsCol ? 1 : 0) // expand, section, category, stem, questions, [sets], visibility, [type], actions
 
-  async function handleCreate(payload: UcatQuestionStemFormValues) {
-    const mapped: UcatQuestionStemBundlePayload = {
+  function mapFormValuesToBundlePayload(
+    payload: UcatQuestionStemFormValues,
+    stemId?: string | null
+  ): UcatQuestionStemBundlePayload {
+    return {
+      stemId: stemId ?? undefined,
       sectionId: payload.sectionId,
       categoryId: payload.categoryId || null,
       stemText: payload.stemText,
@@ -240,12 +248,16 @@ export function UcatQuestionsPage() {
         options: question.options.map((option, optionIndex) => ({
           index: optionIndex + 1,
           answerText: option.answerText,
-          answerExplanation: option.answerExplanation,
+          answerExplanation: option.answerExplanation ?? null,
           isAnswer: option.isAnswer,
+          imageFileId: option.imageFileId ?? null,
         })),
       })),
     }
+  }
 
+  async function handleCreate(payload: UcatQuestionStemFormValues) {
+    const mapped = mapFormValuesToBundlePayload(payload)
     await createMutation.mutateAsync(mapped)
     setCreateOpen(false)
   }
@@ -253,30 +265,18 @@ export function UcatQuestionsPage() {
   async function handleUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return
 
-    const mapped: UcatQuestionStemBundlePayload = {
-      stemId: editingStemId,
-      sectionId: payload.sectionId,
-      categoryId: payload.categoryId || null,
-      stemText: payload.stemText,
-      isPrivate: payload.isPrivate,
-      questions: payload.questions.map((question, index) => ({
-        index: index + 1,
-        questionText: question.questionText,
-        questionType: question.questionType,
-        difficulty: question.difficulty,
-        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-        tagIds: question.tagIds ?? [],
-        options: question.options.map((option, optionIndex) => ({
-          index: optionIndex + 1,
-          answerText: option.answerText,
-          answerExplanation: option.answerExplanation,
-          isAnswer: option.isAnswer,
-        })),
-      })),
-    }
-
+    const mapped = mapFormValuesToBundlePayload(payload, editingStemId)
     await updateMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
     setEditingStemId(null)
+  }
+
+  async function handleBulkImportSubmit(args: {
+    sectionId: string
+    stems: UcatQuestionStemFormValues[]
+  }) {
+    const stemsPayload = args.stems.map((form) => mapFormValuesToBundlePayload(form))
+    await bulkImportMutation.mutateAsync({ sectionId: args.sectionId, stems: stemsPayload })
+    setBulkImportOpen(false)
   }
 
   if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading) return <UcatPageSkeleton rows={8} />
@@ -302,7 +302,14 @@ export function UcatQuestionsPage() {
         description="Manage question stems and nested questions"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Questions' }]}
-        actions={<Button onClick={() => setCreateOpen(true)}>Add Question Stem</Button>}
+        actions={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+              Bulk Import
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>Add Question Stem</Button>
+          </div>
+        }
       />
 
       <DataTableToolbar
@@ -558,6 +565,12 @@ export function UcatQuestionsPage() {
           }
         }}
         isPending={deleteMutation.isPending}
+      />
+
+      <BulkImportQuestionStemsModal
+        open={bulkImportOpen}
+        onClose={() => setBulkImportOpen(false)}
+        onSubmit={handleBulkImportSubmit}
       />
     </div>
   )

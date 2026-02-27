@@ -10,17 +10,19 @@ export type RichTextJson = Json
 
 export type UcatQuestionFormOption = {
   id?: string
-  answerText: string
-  answerExplanation?: string
+  answerText: RichTextJson
+  answerExplanation?: RichTextJson | null
   index: number
   isAnswer: boolean
+  imageFileId?: string | null
 }
 
 export type UcatQuestionFormItem = {
   id?: string
   index: number
-  questionText: string
+  questionText: RichTextJson
   questionType: 'multiple_choice' | 'syllogism'
+  answerExplanation?: RichTextJson | null
   difficulty?: number | null
   timeBurdenSeconds?: number | null
   options: UcatQuestionFormOption[]
@@ -31,7 +33,7 @@ export type UcatQuestionStemBundlePayload = {
   stemId?: string | null
   sectionId: string
   categoryId?: string | null
-  stemText: string
+  stemText: RichTextJson
   isPrivate: boolean
   questions: UcatQuestionFormItem[]
 }

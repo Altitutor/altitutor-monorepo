@@ -2,11 +2,11 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatQuestionStem, UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
-import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 
 type StemDetailQuestion = {
   id: string
   question_text: Json
+  answer_explanation: Json | null
   index: number
   difficulty: number | null
   time_burden_seconds: number | null
@@ -131,33 +131,6 @@ export const ucatQuestionsApi = {
     }>
   },
 
-  async getStemTypes() {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_question_stem_detail')
-      .select('id,questions')
-
-    if (error) throw error
-
-    type QuestionWithType = { question_type?: string | null }
-    const rows = (data ?? []) as Array<{ id: string | null; questions: unknown }>
-    const map: Record<string, Set<'multiple_choice' | 'syllogism'>> = {}
-
-    for (const row of rows) {
-      if (!row.id) continue
-      const types = new Set<'multiple_choice' | 'syllogism'>()
-      const questions = Array.isArray(row.questions) ? (row.questions as QuestionWithType[]) : []
-      for (const question of questions) {
-        if (question.question_type === 'multiple_choice' || question.question_type === 'syllogism') {
-          types.add(question.question_type)
-        }
-      }
-      map[row.id] = types
-    }
-
-    return map
-  },
-
   async create(payload: UcatQuestionStemBundlePayload) {
     const response = await fetch('/api/ucat/question-stems', {
       method: 'POST',
@@ -203,6 +176,24 @@ export const ucatQuestionsApi = {
       throw new Error(body.error ?? 'Failed to restore question stem')
     }
   },
+
+  async bulkImport(sectionId: string, stems: UcatQuestionStemBundlePayload[]) {
+    const response = await fetch('/api/ucat/question-stems/bulk-import', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sectionId,
+        stems: stems.map((stem) => serializePayload(stem)),
+      }),
+    })
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to bulk import question stems')
+    }
+
+    return response.json() as Promise<{ ids: string[] }>
+  },
 }
 
 function serializePayload(payload: UcatQuestionStemBundlePayload) {
@@ -210,22 +201,22 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
     stemId: payload.stemId ?? null,
     sectionId: payload.sectionId,
     categoryId: payload.categoryId ?? null,
-    stemText: plainTextToProseMirror(payload.stemText),
+    stemText: payload.stemText,
     isPrivate: payload.isPrivate,
     questions: payload.questions.map((question) => ({
       index: question.index,
-      question_text: plainTextToProseMirror(question.questionText),
+      question_text: question.questionText,
+      answer_explanation: question.answerExplanation ?? null,
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
       question_type: question.questionType,
       tag_ids: question.tagIds,
       answer_options: question.options.map((option) => ({
         index: option.index,
-        answer_text: plainTextToProseMirror(option.answerText),
-        answer_explanation: option.answerExplanation
-          ? plainTextToProseMirror(option.answerExplanation)
-          : null,
+        answer_text: option.answerText,
+        answer_explanation: option.answerExplanation ?? null,
         is_answer: option.isAnswer,
+        image_file_id: option.imageFileId ?? null,
       })),
     })),
   }
