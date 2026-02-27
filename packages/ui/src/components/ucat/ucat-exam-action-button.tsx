@@ -26,8 +26,8 @@ export function UcatExamActionButton({
   const base = `inline-flex h-9 items-center justify-center gap-1.5 ${borderClass} px-3 font-[${UCAT_FONTS.message}] text-[12pt] leading-none transition-colors`
   const variantClass =
     variant === 'highlight'
-      ? `border-white text-white hover:border-[${UCAT_COLORS.highlightYellow}] hover:text-[${UCAT_COLORS.highlightYellow}]`
-      : `border-white text-white hover:text-[${UCAT_COLORS.highlightYellow}]`
+      ? 'border-white text-white hover:border-[#fffd6f] hover:text-[#fffd6f]'
+      : 'border-white text-white hover:text-[#fffd6f]'
 
   return (
     <button {...rest} className={`${base} ${variantClass} ${className ?? ''}`}>

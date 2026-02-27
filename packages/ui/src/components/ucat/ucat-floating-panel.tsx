@@ -33,7 +33,7 @@ export function UcatFloatingPanel({
           <button
             type="button"
             onClick={onClose}
-            className="inline-flex items-center justify-center rounded-sm border border-white px-1 py-0 text-white/90 hover:border-[var(--ucat-highlight-yellow)] hover:text-[var(--ucat-highlight-yellow)]"
+            className="inline-flex items-center justify-center rounded-sm border border-white px-1 py-0 text-white/90 hover:border-[#fffd6f] hover:text-[#fffd6f]"
             aria-label="Close panel"
           >
             ×

@@ -311,7 +311,7 @@ export function QuestionEnginePage({
         toolLeft={
           <button
             type="button"
-            className="inline-flex items-center gap-1 hover:text-[var(--ucat-highlight-yellow)]"
+            className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
             onClick={() =>
               void runWithLag(() =>
                 setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
@@ -327,7 +327,7 @@ export function QuestionEnginePage({
         toolRight={
           <button
             type="button"
-            className="inline-flex items-center gap-1 hover:text-[var(--ucat-highlight-yellow)]"
+            className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
             onClick={() =>
               void runWithLag(() => {
                 toggleFlagCurrent()
