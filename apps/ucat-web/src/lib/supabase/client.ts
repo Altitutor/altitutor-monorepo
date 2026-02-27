@@ -1,9 +1,10 @@
 import { createBrowserClient } from '@supabase/ssr'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@altitutor/shared'
 
-let browserClient: ReturnType<typeof createBrowserClient<Database>> | null = null
+let browserClient: SupabaseClient<Database> | null = null
 
-export function getSupabaseBrowserClient() {
+export function getSupabaseBrowserClient(): SupabaseClient<Database> {
   if (browserClient) {
     return browserClient
   }
@@ -20,7 +21,7 @@ export function getSupabaseBrowserClient() {
       name: 'student-auth',
     },
     isSingleton: true,
-  })
+  }) as unknown as SupabaseClient<Database>
 
   return browserClient
 }

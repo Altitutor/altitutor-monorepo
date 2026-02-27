@@ -1,5 +1,11 @@
+import type React from 'react'
 import { AppShell } from '@/features/layout'
 
-export default function AuthenticatedLayout({ children }: { children: React.ReactNode }) {
-  return <AppShell>{children}</AppShell>
+type AuthenticatedLayoutProps = {
+  children?: React.ReactNode
+  detail: React.ReactNode
+}
+
+export default function AuthenticatedLayout({ children, detail }: AuthenticatedLayoutProps) {
+  return <AppShell detail={detail}>{children}</AppShell>
 }

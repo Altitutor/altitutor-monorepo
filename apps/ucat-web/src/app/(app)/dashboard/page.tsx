@@ -1,5 +1,5 @@
 import { DashboardPage } from '@/features/dashboard'
 
-export default function DashboardRoute() {
+export default function Page() {
   return <DashboardPage />
 }

@@ -19,7 +19,7 @@ export function AppSidebar({
   const pathname = usePathname()
   const { resolvedTheme } = useTheme()
   const isVisible = mobileOpen || !collapsed
-  const logoSrc ='/images/logo-banner-dark.svg'
+  const logoSrc = '/images/logo-banner-dark.svg'
 
   return (
     <>
@@ -51,27 +51,36 @@ export function AppSidebar({
             />
           </div>
           <nav className="flex flex-1 flex-col space-y-1 overflow-auto p-3">
-          {appNavigation.map((item) => {
-            const Icon = item.icon
-            const active = pathname === item.href
+            {appNavigation.map((section, sectionIndex) => (
+              <div key={section.title ?? `section-${sectionIndex}`} className="space-y-1">
+                {section.title ? (
+                  <div className="px-3 pt-3 text-[11px] font-semibold tracking-[0.16em] text-sidebar-foreground/60">
+                    {section.title}
+                  </div>
+                ) : null}
+                {section.items.map((item) => {
+                  const Icon = item.icon
+                  const active = pathname === item.href
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                  active
-                    ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
-                    : 'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
-                )}
-                onClick={onCloseMobile}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                <span className="ml-3">{item.label}</span>
-              </Link>
-            )
-          })}
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                        active
+                          ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
+                          : 'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                      )}
+                      onClick={onCloseMobile}
+                    >
+                      <Icon className="h-4 w-4 shrink-0" />
+                      <span className="ml-3">{item.label}</span>
+                    </Link>
+                  )
+                })}
+              </div>
+            ))}
           </nav>
         </div>
       </aside>

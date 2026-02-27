@@ -7,6 +7,7 @@ import { UcatExamActionButton, UcatExamShell } from '@altitutor/ui'
 import { UCAT_COLORS } from '@altitutor/ui/src/components/ucat/ucat-theme'
 import { useQuestionEngineData } from '@/features/question-engine/hooks/use-question-engine-data'
 import { useQuestionEngineState } from '@/features/question-engine/hooks/use-question-engine-state'
+import { useUcatLag } from '@/features/question-engine/context/ucat-lag-context'
 import { CalculatorPanel } from '@/features/question-engine/components/calculator-panel'
 import { EndExamDialog } from '@/features/question-engine/components/end-exam-dialog'
 import { EngineIntroDialog } from '@/features/question-engine/components/engine-intro-dialog'
@@ -65,6 +66,7 @@ export function QuestionEnginePage({
     setAnswer,
   } = useQuestionEngineState(exam)
   const router = useRouter()
+  const { isLagging, runWithLag } = useUcatLag()
 
   const { recordAnswer, handleExamCompleted } = useQuestionEnginePersistence({
     mode,
@@ -188,22 +190,34 @@ export function QuestionEnginePage({
 
       switch (action) {
         case 'toggleCalculator':
-          setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
+          void runWithLag(() =>
+            setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
+          )
           break
         case 'toggleFlagForReview':
-          toggleFlagCurrent()
+          void runWithLag(() => {
+            toggleFlagCurrent()
+          })
           break
         case 'endExam':
-          setState((current) => ({ ...current, showEndExamDialog: true }))
+          void runWithLag(() =>
+            setState((current) => ({ ...current, showEndExamDialog: true }))
+          )
           break
         case 'previousQuestion':
-          goPrevious()
+          void runWithLag(() => {
+            goPrevious()
+          })
           break
         case 'openNavigator':
-          setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
+          void runWithLag(() =>
+            setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
+          )
           break
         case 'nextQuestion':
-          goNext()
+          void runWithLag(() => {
+            goNext()
+          })
           break
       }
     }
@@ -240,39 +254,54 @@ export function QuestionEnginePage({
 
   const overlayActive = state.phase === 'intro' || state.showEndExamDialog
 
-  const overlay = overlayActive ? (
-    <>
-      {state.phase === 'intro' ? (
-        <div className="absolute inset-0 z-30 grid place-items-center p-6">
-          <EngineIntroDialog
-            title={mode === 'mock' ? 'Ready to Begin Exam' : 'Ready to Begin Practice Set'}
-            description="If you are ready to begin the exam, select the Yes button. Otherwise, select the No button to return to the previous screen."
-            onStart={() => setState((current) => ({ ...current, phase: 'question' }))}
-            onCancel={() => setState((current) => ({ ...current, phase: 'intro' }))}
-          />
-        </div>
-      ) : null}
+  const overlay =
+    overlayActive || isLagging ? (
+      <>
+        {state.phase === 'intro' ? (
+          <div className="absolute inset-0 z-30 grid place-items-center p-6">
+            <EngineIntroDialog
+              title={mode === 'mock' ? 'Ready to Begin Exam' : 'Ready to Begin Practice Set'}
+              description="If you are ready to begin the exam, select the Yes button. Otherwise, select the No button to return to the previous screen."
+              onStart={() =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, phase: 'question' }))
+                )
+              }
+              onCancel={() =>
+                void runWithLag(() => setState((current) => ({ ...current, phase: 'intro' })))
+              }
+            />
+          </div>
+        ) : null}
 
-      {state.showEndExamDialog ? (
-        <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
-          <EndExamDialog
-            onConfirm={() => {
-              handleExamCompleted()
-              setState((current) => ({
-                ...current,
-                phase: 'intro',
-                currentIndex: 0,
-                showEndExamDialog: false,
-              }))
-            }}
-            onCancel={() => setState((current) => ({ ...current, showEndExamDialog: false }))}
-          />
-        </div>
-      ) : null}
+        {state.showEndExamDialog ? (
+          <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
+            <EndExamDialog
+              onConfirm={() =>
+                void runWithLag(() => {
+                  handleExamCompleted()
+                  setState((current) => ({
+                    ...current,
+                    phase: 'intro',
+                    currentIndex: 0,
+                    showEndExamDialog: false,
+                  }))
+                })
+              }
+              onCancel={() =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, showEndExamDialog: false }))
+                )
+              }
+            />
+          </div>
+        ) : null}
 
-      {state.showNavigator ? null : null}
-    </>
-  ) : null
+        {isLagging ? (
+          <div className="absolute inset-0 z-50 cursor-wait bg-transparent" aria-hidden="true" />
+        ) : null}
+      </>
+    ) : null
 
   return (
     <>
@@ -283,7 +312,11 @@ export function QuestionEnginePage({
           <button
             type="button"
             className="inline-flex items-center gap-1 hover:text-[var(--ucat-highlight-yellow)]"
-            onClick={() => setState((current) => ({ ...current, showCalculator: !current.showCalculator }))}
+            onClick={() =>
+              void runWithLag(() =>
+                setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
+              )
+            }
           >
             <Calculator className="h-4 w-4" />
             <span className="text-[13pt]">
@@ -295,12 +328,19 @@ export function QuestionEnginePage({
           <button
             type="button"
             className="inline-flex items-center gap-1 hover:text-[var(--ucat-highlight-yellow)]"
-            onClick={toggleFlagCurrent}
+            onClick={() =>
+              void runWithLag(() => {
+                toggleFlagCurrent()
+              })
+            }
           >
             {flaggedCurrent ? (
               <span
                 className="inline-flex items-center rounded-sm px-0.5 py-0.5"
-                style={{ backgroundColor: UCAT_COLORS.highlightYellow, color: UCAT_COLORS.primaryBlueDark }}
+                style={{
+                  backgroundColor: UCAT_COLORS.highlightYellow,
+                  color: UCAT_COLORS.primaryBlueDark,
+                }}
               >
                 <Flag className="h-4 w-4" />
               </span>
@@ -314,7 +354,11 @@ export function QuestionEnginePage({
         }
         footerLeft={
           <UcatExamActionButton
-            onClick={() => setState((current) => ({ ...current, showEndExamDialog: true }))}
+            onClick={() =>
+              void runWithLag(() =>
+                setState((current) => ({ ...current, showEndExamDialog: true }))
+              )
+            }
             icon={<LogOut className="h-4 w-4" />}
           >
             <span className="text-[14pt]">
@@ -324,13 +368,24 @@ export function QuestionEnginePage({
         }
         footerRight={
           <>
-            <UcatExamActionButton onClick={goPrevious} icon={<ArrowLeft className="h-4 w-4" />}>
+            <UcatExamActionButton
+              onClick={() =>
+                void runWithLag(() => {
+                  goPrevious()
+                })
+              }
+              icon={<ArrowLeft className="h-4 w-4" />}
+            >
               <span className="text-[14pt]">
                 <span className="underline">P</span>revious
               </span>
             </UcatExamActionButton>
             <UcatExamActionButton
-              onClick={() => setState((current) => ({ ...current, showNavigator: !current.showNavigator }))}
+              onClick={() =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
+                )
+              }
               icon={<Navigation className="h-4 w-4" />}
             >
               <span className="text-[14pt]">
@@ -338,7 +393,11 @@ export function QuestionEnginePage({
               </span>
             </UcatExamActionButton>
             <UcatExamActionButton
-              onClick={goNext}
+              onClick={() =>
+                void runWithLag(() => {
+                  goNext()
+                })
+              }
               variant="highlight"
               icon={<ArrowRight className="h-4 w-4" />}
               iconRight
@@ -361,14 +420,20 @@ export function QuestionEnginePage({
             selectedOptionId={state.selectedAnswers[currentQuestion.id]}
             onSelectOption={(optionId) => {
               setAnswer(optionId)
-              recordAnswer(currentQuestion.id, optionId)
+              recordAnswer(currentQuestion.id, optionId, flaggedCurrent)
             }}
           />
         ) : null}
       </UcatExamShell>
 
       {state.showCalculator ? (
-        <CalculatorPanel onClose={() => setState((current) => ({ ...current, showCalculator: false }))} />
+        <CalculatorPanel
+          onClose={() =>
+            void runWithLag(() =>
+              setState((current) => ({ ...current, showCalculator: false }))
+            )
+          }
+        />
       ) : null}
 
       {state.showNavigator ? (
@@ -379,8 +444,16 @@ export function QuestionEnginePage({
               currentIndex={state.currentIndex}
               flaggedIds={state.flaggedIds}
               selectedAnswers={state.selectedAnswers}
-              onSelect={setQuestionByIndex}
-              onClose={() => setState((current) => ({ ...current, showNavigator: false }))}
+              onSelect={(index: number) =>
+                void runWithLag(() => {
+                  setQuestionByIndex(index)
+                })
+              }
+              onClose={() =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, showNavigator: false }))
+                )
+              }
             />
           </div>
         </div>

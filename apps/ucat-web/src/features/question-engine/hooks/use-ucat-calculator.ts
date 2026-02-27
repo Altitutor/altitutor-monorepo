@@ -204,7 +204,8 @@ function clearTotals(state: CalculatorState): CalculatorState {
 }
 
 function updateDisplayNumber(state: CalculatorState, numberButton: string): CalculatorState {
-  let { textValue, priorTextValue, operationApplied, negative } = state
+  const { priorTextValue } = state
+  let { textValue, operationApplied, negative } = state
 
   let displayLength = textValue.split('').filter((char) => isDigitChar(char)).length
 
@@ -296,7 +297,7 @@ function updateCalculations(
 
 function calculateTotal(state: CalculatorState, numberValue: number): CalculatorState {
   const calculations: Calculations = [...state.calculations, numberValue]
-  let working = [...calculations]
+  const working = [...calculations]
   let priorCalculations: [number, Operation] | [] = []
 
   const hasOperator = (list: Calculations, ops: Operation[]) =>
@@ -408,7 +409,7 @@ function updateMemory(
   state: CalculatorState,
   mButton: MemoryOperation
 ): CalculatorState {
-  let { memoryValue, memoryButtonClickedOnce } = state
+  let { memoryValue } = state
 
   if (state.textValue === '') {
     return state
@@ -441,7 +442,7 @@ function updateMemory(
   }
 
   // MRC behaviour: first press recalls, second press clears memory
-  if (memoryButtonClickedOnce) {
+  if (state.memoryButtonClickedOnce) {
     return {
       ...state,
       memoryValue: 0,

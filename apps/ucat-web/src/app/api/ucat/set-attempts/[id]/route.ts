@@ -52,7 +52,7 @@ export async function PATCH(
 
   const { data: questionAttempts, error: questionAttemptsError } = await supabase
     .from('student_question_attempts')
-    .select('id, question_id, question_answer_option_id')
+    .select('id, question_id, question_answer_option_id, student_id')
     .eq('student_question_set_attempt_id', attemptId)
     .eq('student_id', user.id)
 
@@ -92,6 +92,8 @@ export async function PATCH(
       }
       return {
         id: qa.id,
+        question_id: qa.question_id,
+        student_id: qa.student_id,
         score: isCorrect ? 1 : 0,
         is_submitted: true,
       }

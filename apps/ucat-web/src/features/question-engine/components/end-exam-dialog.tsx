@@ -20,8 +20,12 @@ export function EndExamDialog({
       }
       actions={
         <>
-          <UcatExamActionButton onClick={onConfirm}>Yes</UcatExamActionButton>
-          <UcatExamActionButton onClick={onCancel}>No</UcatExamActionButton>
+          <UcatExamActionButton borders="all" onClick={onConfirm}>
+            <span><span className="underline">Y</span>es</span>
+          </UcatExamActionButton>
+          <UcatExamActionButton borders="all" onClick={onCancel}>
+            <span><span className="underline">N</span>o</span>
+          </UcatExamActionButton>
         </>
       }
       className="max-w-3xl"

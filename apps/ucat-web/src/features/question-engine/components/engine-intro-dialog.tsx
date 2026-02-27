@@ -19,8 +19,12 @@ export function EngineIntroDialog({
       message={<p>{description}</p>}
       actions={
         <>
-          <UcatExamActionButton onClick={onStart}>Yes</UcatExamActionButton>
-          <UcatExamActionButton onClick={onCancel}>No</UcatExamActionButton>
+          <UcatExamActionButton borders="all" onClick={onStart}>
+            <span><span className="underline">Y</span>es</span>
+          </UcatExamActionButton>
+          <UcatExamActionButton borders="all" onClick={onCancel}>
+            <span><span className="underline">N</span>o</span>
+          </UcatExamActionButton>
         </>
       }
       className="max-w-6xl"
