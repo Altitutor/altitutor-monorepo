@@ -24,8 +24,13 @@ const STATUS_OPTIONS: { value: IssueStatus; label: string }[] = [
   { value: 'resolved', label: 'Resolved' },
 ];
 
-export function IssuesList() {
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({});
+export interface IssuesListProps {
+  /** Initial filter values (e.g. dashboard: open only) */
+  defaultFilters?: Record<string, unknown[]>;
+}
+
+export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
+  const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);

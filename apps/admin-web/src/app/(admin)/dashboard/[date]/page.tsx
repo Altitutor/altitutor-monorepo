@@ -131,14 +131,30 @@ function DailyNoteCard({ date }: { date: string }) {
   );
 }
 
+const DASHBOARD_TASK_DEFAULT_STATUSES = ['backlog', 'todo', 'in_progress'] as const;
+const DASHBOARD_ISSUE_DEFAULT_STATUS = ['open'] as const;
+
 export default function DashboardDatePage({ params }: { params: { date: string } }) {
   const router = useRouter();
+  const { data: currentStaff } = useCurrentStaff();
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
   const [sessionsViewMode, setSessionsViewMode] = useState<ViewMode>('calendar');
 
   const todayDateStr = useMemo(() => format(new Date(), DATE_FORMAT), []);
   const dateStr = useMemo(() => getValidDateString(params.date), [params.date]);
+
+  const dashboardTaskFilters = useMemo(
+    () => ({
+      status: [...DASHBOARD_TASK_DEFAULT_STATUSES],
+      ...(currentStaff?.id ? { assignee: [currentStaff.id] } : {}),
+    }),
+    [currentStaff?.id]
+  );
+  const dashboardIssueFilters = useMemo(
+    () => ({ status: [...DASHBOARD_ISSUE_DEFAULT_STATUS] }),
+    []
+  );
 
   useEffect(() => {
     if (!dateStr) {
@@ -227,7 +243,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
           <CardDescription>Tasks in progress or to do</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <TasksList />
+          <TasksList defaultFilters={dashboardTaskFilters} />
         </CardContent>
       </Card>
 
@@ -237,7 +253,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
           <CardDescription>Track and update active issues</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <IssuesList />
+          <IssuesList defaultFilters={dashboardIssueFilters} />
         </CardContent>
       </Card>
 
