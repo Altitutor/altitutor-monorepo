@@ -3,7 +3,7 @@
 import React, { useMemo, useState } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { Button, DataTableToolbar, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui'
+import { Button, DataTableToolbar, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from '@altitutor/ui'
 import { ChevronDown, ChevronRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import {
   useBulkImportUcatQuestionStems,
@@ -205,6 +205,15 @@ export function UcatQuestionsPage() {
     [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
   )
 
+  const { page, pageSize } = tableState.state
+  const totalRows = sortedRows.length
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
+  const effectivePage = Math.min(page, pageCount)
+  const paginatedRows = useMemo(() => {
+    const start = (effectivePage - 1) * pageSize
+    return sortedRows.slice(start, start + pageSize)
+  }, [sortedRows, effectivePage, pageSize])
+
   const toggleStemExpanded = (stemId: string) => {
     setExpandedStemIds((prev) => {
       const next = new Set(prev)
@@ -367,7 +376,7 @@ export function UcatQuestionsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {sortedRows.map((row) => {
+            {paginatedRows.map((row) => {
               const isStemExpanded = expandedStemIds.has(row.id)
               const detail = detailsMap[row.id]
               const hasQuestions = (row.question_count ?? 0) > 0
@@ -520,6 +529,15 @@ export function UcatQuestionsPage() {
           </TableBody>
         </Table>
         </div>
+        <TablePagination
+          page={effectivePage}
+          pageSize={pageSize}
+          total={totalRows}
+          onPageChange={tableState.actions.onPageChange}
+          onPageSizeChange={tableState.actions.onPageSizeChange}
+          pageSizeOptions={[10, 20, 50]}
+          className="pt-3"
+        />
       </div>
 
       <UcatQuestionStemDialog

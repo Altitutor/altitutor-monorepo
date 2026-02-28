@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { Button, Checkbox, DataTable, DataTableToolbar, Input } from '@altitutor/ui'
+import { Button, Checkbox, DataTable, DataTableToolbar, Input, TablePagination } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
@@ -107,6 +107,12 @@ export function UcatMocksPage() {
       }),
     [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
   )
+
+  const { page, pageSize } = tableState.state
+  const totalRows = sortedRows.length
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
+  const effectivePage = Math.min(page, pageCount)
+  const paginatedRows = sortedRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
   const allColumns: Array<{ key: string; column: ColumnDef<MockRow> }> = [
     { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
@@ -219,9 +225,19 @@ export function UcatMocksPage() {
       <div className="pt-3">
         <DataTable
           columns={visibleColumns}
-          data={sortedRows}
+          data={paginatedRows}
+          pagination="external"
           pageSizeOptions={[10, 20, 50]}
           getRowClassName={(row) => (row.deleted_at ? 'bg-destructive/10' : '')}
+        />
+        <TablePagination
+          page={effectivePage}
+          pageSize={pageSize}
+          total={totalRows}
+          onPageChange={tableState.actions.onPageChange}
+          onPageSizeChange={tableState.actions.onPageSizeChange}
+          pageSizeOptions={[10, 20, 50]}
+          className="pt-3"
         />
       </div>
 

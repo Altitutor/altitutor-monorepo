@@ -10,6 +10,7 @@ import {
   DataTable,
   DataTableToolbar,
   Input,
+  TablePagination,
   Textarea,
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
@@ -114,6 +115,12 @@ export function UcatSetsPage() {
     showDeleted,
     defaultFilters: DEFAULT_FILTERS,
   })
+
+  const { page, pageSize } = tableState.state
+  const totalRows = rows.length
+  const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
+  const effectivePage = Math.min(page, pageCount)
+  const paginatedRows = rows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
   async function onCreate() {
     const payload: UcatQuestionSetPayload = {
@@ -234,9 +241,19 @@ export function UcatSetsPage() {
               },
             },
           ]}
-          data={rows}
+          data={paginatedRows}
+          pagination="external"
           pageSizeOptions={[10, 20, 50]}
           getRowClassName={(row) => (row.deleted_at ? 'bg-destructive/10' : '')}
+        />
+        <TablePagination
+          page={effectivePage}
+          pageSize={pageSize}
+          total={totalRows}
+          onPageChange={tableState.actions.onPageChange}
+          onPageSizeChange={tableState.actions.onPageSizeChange}
+          pageSizeOptions={[10, 20, 50]}
+          className="pt-3"
         />
       </div>
 

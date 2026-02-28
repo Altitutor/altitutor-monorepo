@@ -33,6 +33,8 @@ export function useUcatTableState(
         setState((prev) => ({ ...prev, filters: qf.config as Record<string, unknown[]>, page: 1 })),
       onReset: () =>
         setState((prev) => ({ ...prev, search: '', filters: {}, sortBy: null, sortDirection: 'desc', groupBy: null, page: 1 })),
+      onPageChange: (page: number) => setState((prev) => ({ ...prev, page })),
+      onPageSizeChange: (pageSize: number) => setState((prev) => ({ ...prev, pageSize, page: 1 })),
     },
   }
 }
