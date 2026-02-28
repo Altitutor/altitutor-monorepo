@@ -60,6 +60,8 @@ export function BulkImportQuestionStemsModal({
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
 
+  // Reset wizard and local state when modal closes. Only depend on open so we don't
+  // re-run on every render (wizard is a new object each time from useBulkImportWizard).
   useEffect(() => {
     if (!open) {
       setStep(0)
@@ -70,9 +72,10 @@ export function BulkImportQuestionStemsModal({
       setParseError(null)
       wizard.reset()
     }
-  }, [open, wizard])
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only when open changes; wizard.reset is stable
+  }, [open])
 
-  const sections = sectionsQuery.data ?? []
+  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = categoriesQuery.data ?? []
   const tags = tagsQuery.data ?? []
 
