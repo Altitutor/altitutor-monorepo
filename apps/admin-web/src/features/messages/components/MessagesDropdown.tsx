@@ -16,7 +16,8 @@ import { ViewParentModal } from '@/features/students/components/ViewParentModal'
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useMessageSubscription } from '../hooks/useMessageSubscription';
-import { useConversationsByContact } from '../api/queries';
+import { useConversationsByContact, getContactIdFromConversation } from '../api/queries';
+import { useChatStore } from '../state/chatStore';
 import { cn } from '@/shared/utils';
 
 export function MessagesDropdown() {
@@ -24,6 +25,24 @@ export function MessagesDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<'list' | 'thread'>('list');
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
+
+  // When another part of the app (e.g. reconciliation Message button) calls openWindow(conversationId),
+  // open this dropdown and show that conversation
+  const activeConversationId = useChatStore((s) => s.activeConversationId);
+  const setActiveConversation = useChatStore((s) => s.setActiveConversation);
+  const { data: contactIdFromStore } = useQuery({
+    queryKey: ['contactIdFromConversation', activeConversationId],
+    queryFn: () => getContactIdFromConversation(activeConversationId!),
+    enabled: !!activeConversationId,
+  });
+  useEffect(() => {
+    if (activeConversationId && contactIdFromStore) {
+      setIsOpen(true);
+      setActiveContactId(contactIdFromStore);
+      setView('thread');
+      setActiveConversation(null); // consume intent so we don't re-open on next render
+    }
+  }, [activeConversationId, contactIdFromStore, setActiveConversation]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   
