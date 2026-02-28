@@ -1,6 +1,12 @@
 import { useCallback, useRef } from 'react'
 import type { Json } from '@altitutor/shared'
-import { RichTextEditor, type JSONContent, type RichTextEditorRef } from '@altitutor/ui'
+import {
+  RichTextEditor,
+  type JSONContent,
+  type RichTextEditorRef,
+  PLACEHOLDER_NODE_NAME,
+} from '@altitutor/ui'
+import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
 import type { SetImageOptions } from '@tiptap/extension-image'
 import { uploadUcatImage } from '@/features/ucat/shared/ucatImages'
@@ -130,9 +136,19 @@ export function UcatRichTextEditor({
         }
       }
 
-      const placeholderText = '[Uploading image…]'
-
       for (const file of files) {
+        const placeholderId = crypto.randomUUID()
+
+        // Insert loading placeholder at insert position so the user sees feedback immediately.
+        editor
+          .chain()
+          .focus()
+          .insertContentAt(insertPos, {
+            type: PLACEHOLDER_NODE_NAME,
+            attrs: { id: placeholderId },
+          })
+          .run()
+
         try {
           const { fileId, signedUrl } = await uploadUcatImage({ file, stemId })
           collectedFileIds.push(fileId)
@@ -152,61 +168,71 @@ export function UcatRichTextEditor({
             }
           }
 
-          // Insert a temporary placeholder at the snapped insertion position so
-          // the user sees immediate feedback while the image is uploading.
-          let placeholderFrom = insertPos
-          let placeholderTo = insertPos
-          {
-            const { state: currentState, dispatch } = editor.view
-            const docSize = currentState.doc.content.size
-            const safePos = Math.max(0, Math.min(insertPos, docSize))
-            let tr = currentState.tr.insertText(placeholderText, safePos)
-            dispatch(tr)
-            placeholderFrom = safePos
-            placeholderTo = safePos + placeholderText.length
-          }
-
-          // Replace the placeholder with the final image node. We look for the
-          // placeholder text again in case the document has shifted slightly.
-          {
-            const { state: currentState, dispatch } = editor.view
-            let from = placeholderFrom
-            let to = placeholderTo
-
-            currentState.doc.descendants((node, pos) => {
-              if (node.isText && node.text === placeholderText) {
-                from = pos
-                to = pos + node.nodeSize
-                return false
-              }
-              return true
-            })
-
-            let tr = currentState.tr
-            if (to > from) {
-              tr = tr.delete(from, to)
+          // Find the placeholder node by id and replace it with the image.
+          const state = editor.state
+          const doc = state.doc
+          const schema = state.schema
+          let placeholderPos: number | null = null
+          let placeholderSize = 0
+          doc.descendants((node: ProseMirrorNode, pos: number) => {
+            if (
+              node.type.name === PLACEHOLDER_NODE_NAME &&
+              node.attrs.id === placeholderId
+            ) {
+              placeholderPos = pos
+              placeholderSize = node.nodeSize
+              return false
             }
+            return true
+          })
 
-            const docSizeAfterDelete = tr.doc.content.size
-            const safePos = Math.max(0, Math.min(from, docSizeAfterDelete))
-            const $resolved = tr.doc.resolve(safePos)
-            tr = tr.setSelection(TextSelection.near($resolved))
-            dispatch(tr)
-          }
-
-          editor
-            .chain()
-            .focus()
-            .setImage({
+          if (placeholderPos !== null) {
+            const imageNode = schema.nodes.image.create({
               src: signedUrl,
               alt: file.name,
               title: file.name,
-              // Allow consumer code and ProseMirror schema to store an extra fileId attribute.
               fileId,
-            } as SetImageOptions & { fileId?: string })
-            .run()
+            } as Record<string, unknown>)
+            const tr = state.tr
+              .delete(placeholderPos, placeholderPos + placeholderSize)
+              .insert(placeholderPos, imageNode)
+            editor.view.dispatch(tr)
+            insertPos = placeholderPos + imageNode.nodeSize
+          } else {
+            // Placeholder was removed (e.g. user undid); insert image at current insert position.
+            const docSize = doc.content.size
+            const safePos = Math.max(0, Math.min(insertPos, docSize))
+            const $resolved = doc.resolve(safePos)
+            editor.view.dispatch(
+              state.tr.setSelection(TextSelection.near($resolved))
+            )
+            editor
+              .chain()
+              .focus()
+              .setImage({
+                src: signedUrl,
+                alt: file.name,
+                title: file.name,
+                fileId,
+              } as SetImageOptions & { fileId?: string })
+              .run()
+            insertPos = editor.state.selection.from
+          }
         } catch (error) {
           console.error('Failed to upload UCAT image for rich text editor:', error)
+          // Remove the loading placeholder on error.
+          const state = editor.state
+          state.doc.descendants((node: ProseMirrorNode, pos: number) => {
+            if (
+              node.type.name === PLACEHOLDER_NODE_NAME &&
+              node.attrs.id === placeholderId
+            ) {
+              const tr = state.tr.delete(pos, pos + node.nodeSize)
+              editor.view.dispatch(tr)
+              return false
+            }
+            return true
+          })
         }
       }
       if (collectedFileIds.length > 0 && typeof onImageFileIdsChange === 'function') {

@@ -11,12 +11,14 @@ import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
 import { TextSelection } from '@tiptap/pm/state';
+import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { cn } from '../lib/cn';
 
 export type { JSONContent };
+export { PLACEHOLDER_NODE_NAME } from './rich-text-editor-image-upload-placeholder';
 
 export interface RichTextEditorRef {
   focusToEnd: () => void;
@@ -125,13 +127,26 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           class: 'text-primary underline cursor-pointer',
         },
       }),
-      Image.configure({
+      Image.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            fileId: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-file-id'),
+              renderHTML: (attrs) =>
+                attrs.fileId ? { 'data-file-id': attrs.fileId } : {},
+            },
+          };
+        },
+      }).configure({
         inline: false,
         allowBase64: false,
         HTMLAttributes: {
           class: 'my-3 rounded-md max-w-full h-auto cursor-pointer',
         },
       }),
+      ImageUploadPlaceholderExtension,
       ...(mentionSuggestions ? [
         Mention.configure({
           HTMLAttributes: {
