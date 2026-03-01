@@ -1,12 +1,38 @@
 -- ========================
--- UCAT: Add instructions_text (tiptap/prosemirror JSONB) to ucat_sections and ucat_mocks
+-- UCAT: Add instructions_text (tiptap/prosemirror JSONB) to ucat_sections and ucat_mocks;
+-- drop description from ucat_sections (no longer needed).
 -- ========================
 
--- 1. ucat_sections: instructions_text for section instructions (shown at start of set when timed)
+-- 1. ucat_sections: add instructions_text
 ALTER TABLE public.ucat_sections
   ADD COLUMN IF NOT EXISTS instructions_text JSONB DEFAULT NULL;
 
--- vtutor_ucat_sections / vstudent_ucat_sections use SELECT us.* so the new column is included automatically.
+-- Drop views that depend on ucat_sections so we can drop description
+DROP VIEW IF EXISTS public.vtutor_ucat_sections;
+DROP VIEW IF EXISTS public.vstudent_ucat_sections;
+
+-- Now drop description from ucat_sections
+ALTER TABLE public.ucat_sections
+  DROP COLUMN IF EXISTS description;
+
+-- Recreate section views (SELECT us.* now excludes description, includes instructions_text)
+CREATE VIEW public.vtutor_ucat_sections
+WITH (security_invoker = false)
+AS
+SELECT us.*
+FROM public.ucat_sections us
+WHERE public.is_ucat_tutor();
+
+GRANT SELECT ON public.vtutor_ucat_sections TO authenticated;
+
+CREATE VIEW public.vstudent_ucat_sections
+WITH (security_invoker = false)
+AS
+SELECT us.*
+FROM public.ucat_sections us
+WHERE public.is_ucat_student();
+
+GRANT SELECT ON public.vstudent_ucat_sections TO authenticated;
 
 -- 2. ucat_mocks: instructions_text for mock-level instructions (always shown at start of mock)
 ALTER TABLE public.ucat_mocks
