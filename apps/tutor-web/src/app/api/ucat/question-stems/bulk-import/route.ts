@@ -59,9 +59,28 @@ export async function POST(request: NextRequest) {
 
   const { sectionId, stems } = parsedBody
 
+  // Normalize answer_explanation: never send the string "null" to the DB (use actual null).
+  const normalizedStems = stems.map((stem) => ({
+    ...stem,
+    questions: stem.questions.map((q) => ({
+      ...q,
+      answer_explanation:
+        q.answer_explanation == null || q.answer_explanation === 'null'
+          ? null
+          : q.answer_explanation,
+      answer_options: (q.answer_options ?? []).map((opt) => ({
+        ...opt,
+        answer_explanation:
+          opt.answer_explanation == null || opt.answer_explanation === 'null'
+            ? null
+            : opt.answer_explanation,
+      })),
+    })),
+  }))
+
   const { data, error } = await client.rpc('tutor_ucat_bulk_upsert_question_stem_bundles', {
     p_section_id: sectionId,
-    p_stems: stems,
+    p_stems: normalizedStems,
   })
 
   if (error) {

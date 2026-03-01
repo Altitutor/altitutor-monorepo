@@ -29,6 +29,8 @@ export const ucatQuestionItemSchema = z
   .object({
     questionText: nonEmptyRichTextSchema,
     questionType: z.enum(['multiple_choice', 'syllogism']),
+    /** For syllogism: 'Y'/'N' per option, e.g. 'YYNNY'. Only used in bulk import UI; not persisted to API. */
+    syllogismAnswerPattern: z.string().nullable().optional(),
     answerExplanation: jsonSchema.nullable().optional(),
     difficulty: z.coerce.number().min(0).max(1).nullable().optional(),
     /** Time burden as mm:ss or seconds string; converted to number when submitting */

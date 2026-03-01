@@ -175,6 +175,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   const onMarkdownChangeRef = useRef(onMarkdownChange);
   onMarkdownChangeRef.current = onMarkdownChange;
 
+  // Capture-phase clipboard read: when pasting table (or other content), clipboardData can be
+  // empty in the bubble-phase paste handler. Reading in capture phase gives us the data first.
+  const clipboardCaptureRef = useRef<{ text: string; html: string } | null>(null);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
@@ -352,8 +356,69 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         'data-placeholder': placeholder,
       },
       handlePaste: (view, event) => {
-        const pastedText = event.clipboardData?.getData('text/plain') ?? '';
-        const pastedHtml = event.clipboardData?.getData('text/html') ?? '';
+        let pastedText = event.clipboardData?.getData('text/plain') ?? '';
+        let pastedHtml = event.clipboardData?.getData('text/html') ?? '';
+        if (pastedText === '' && pastedHtml === '' && clipboardCaptureRef.current) {
+          const captured = clipboardCaptureRef.current;
+          clipboardCaptureRef.current = null;
+          pastedText = captured.text;
+          pastedHtml = captured.html;
+          if ((pastedText || pastedHtml) && editor) {
+            event.preventDefault();
+            if (pastedHtml) {
+              editor.chain().deleteSelection().insertContent(pastedHtml).focus().run();
+            } else if (pastePlainTextAsParagraphs && pastedText.includes('\n')) {
+              const lines = pastedText.split(/\r?\n/);
+              const content = lines.map((line) => ({
+                type: 'paragraph',
+                content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+              }));
+              const pos = editor.state.selection.from;
+              editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+            } else {
+              editor.chain().deleteSelection().insertContent(pastedText).focus().run();
+            }
+            return true;
+          }
+        }
+
+        // Fallback when paste event (and capture) had no clipboardData: try async Clipboard API.
+        if (pastedText === '' && pastedHtml === '' && editor && typeof navigator?.clipboard?.read === 'function') {
+          event.preventDefault();
+          navigator.clipboard.read().then((clipboardItems) => {
+            for (const item of clipboardItems) {
+              if (item.types.includes('text/html')) {
+                item.getType('text/html').then((blob) => blob.text()).then((html) => {
+                  if (html && editor && !editor.isDestroyed) {
+                    editor.chain().deleteSelection().insertContent(html).focus().run();
+                  }
+                }).catch(() => {});
+                return;
+              }
+            }
+            for (const item of clipboardItems) {
+              if (item.types.includes('text/plain')) {
+                item.getType('text/plain').then((blob) => blob.text()).then((text) => {
+                  if (text != null && editor && !editor.isDestroyed) {
+                    if (pastePlainTextAsParagraphs && text.includes('\n')) {
+                      const lines = text.split(/\r?\n/);
+                      const content = lines.map((line) => ({
+                        type: 'paragraph',
+                        content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+                      }));
+                      const pos = editor.state.selection.from;
+                      editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+                    } else {
+                      editor.chain().deleteSelection().insertContent(text).focus().run();
+                    }
+                  }
+                }).catch(() => {});
+                return;
+              }
+            }
+          }).catch(() => {});
+          return true;
+        }
 
         // If clipboard contains image files and we have an image paste handler, handle it first.
         const items = event.clipboardData?.items;
@@ -584,6 +649,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       className={cn("relative cursor-text flex flex-col w-full h-full", !editable && "cursor-default")}
       style={{ minHeight }}
       onClick={handleContainerClick}
+      onPasteCapture={(e) => {
+        clipboardCaptureRef.current = {
+          text: e.clipboardData?.getData?.('text/plain') ?? '',
+          html: e.clipboardData?.getData?.('text/html') ?? '',
+        };
+      }}
     >
       <EditorContent editor={editor} className="flex-1" />
     </div>

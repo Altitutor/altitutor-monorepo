@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient, useQueries } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
@@ -189,8 +189,72 @@ export function UcatQuestionsPage() {
   const updateSetMutation = useUpdateUcatSet()
   const detail = useUcatQuestionDetail(editingStemId)
   const setsList = (setsQuery.data ?? []).filter(
-    (s) => !(s as { deleted_at?: string | null }).deleted_at
+    (s) =>
+      !(s as { deleted_at?: string | null }).deleted_at &&
+      !(s as { is_student_generated?: boolean }).is_student_generated
   )
+  const setIdsForDetail = useMemo(
+    () => (addToSetsPopoverOpen && selectedStemIds.size > 0 ? setsList.map((s) => s.id ?? '').filter(Boolean) : []),
+    [addToSetsPopoverOpen, selectedStemIds.size, setsList]
+  )
+  const setDetailQueries = useQueries({
+    queries: setIdsForDetail.map((setId) => ({
+      queryKey: ucatKeys.set(setId),
+      queryFn: () => ucatSetsApi.detail(setId),
+      enabled: true,
+    })),
+  })
+  const setDetailsMap = useMemo(() => {
+    const m: Record<string, { stems: Array<{ stem_id: string }> } | null> = {}
+    setIdsForDetail.forEach((setId, i) => {
+      const data = setDetailQueries[i]?.data
+      const stems = (data?.stems as Array<{ stem_id: string }> | null) ?? null
+      m[setId] = stems ? { stems } : null
+    })
+    return m
+  }, [setIdsForDetail, setDetailQueries])
+  const selectedStemIdsArray = useMemo(() => Array.from(selectedStemIds), [selectedStemIds])
+  const selectedSize = selectedStemIds.size
+  const setInCountMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    setsList.forEach((s) => {
+      const setId = s.id ?? ''
+      const stems = setDetailsMap[setId]?.stems ?? []
+      const stemIdSet = new Set(stems.map((x) => x.stem_id))
+      map[setId] = selectedStemIdsArray.filter((id) => stemIdSet.has(id)).length
+    })
+    return map
+  }, [setsList, setDetailsMap, selectedStemIdsArray])
+  const stemsAlreadyInSelectedSetsCount = useMemo(() => {
+    if (bulkSetIds.length === 0) return 0
+    const inAny = new Set<string>()
+    bulkSetIds.forEach((setId) => {
+      const stems = setDetailsMap[setId]?.stems ?? []
+      stems.forEach((s) => inAny.add(s.stem_id))
+    })
+    return selectedStemIdsArray.filter((id) => inAny.has(id)).length
+  }, [bulkSetIds, setDetailsMap, selectedStemIdsArray])
+  const setDetailsReady =
+    setDetailQueries.length > 0 && setDetailQueries.every((q) => q.isFetched)
+  const addToSetsPreTickedRef = useRef(false)
+  useEffect(() => {
+    if (!addToSetsPopoverOpen) {
+      addToSetsPreTickedRef.current = false
+      return
+    }
+    if (selectedSize === 0 || setIdsForDetail.length === 0 || !setDetailsReady) return
+    if (addToSetsPreTickedRef.current) return
+    addToSetsPreTickedRef.current = true
+    const allInSetIds = setsList
+      .map((s) => s.id ?? '')
+      .filter((setId) => setInCountMap[setId] === selectedSize)
+    if (allInSetIds.length === 0) return
+    setBulkSetIds((prev) => {
+      const next = new Set(prev)
+      allInSetIds.forEach((id) => next.add(id))
+      return Array.from(next)
+    })
+  }, [addToSetsPopoverOpen, selectedSize, setIdsForDetail.length, setDetailsReady, setsList, setInCountMap])
 
   const createMutation = useCreateUcatQuestionStem()
   const updateMutation = useUpdateUcatQuestionStem()
@@ -350,6 +414,12 @@ export function UcatQuestionsPage() {
     }
   }
 
+  function toExplanationNull(value: unknown): import('@altitutor/shared').Json | null {
+    if (value == null) return null
+    if (typeof value === 'string' && value === 'null') return null
+    return value as import('@altitutor/shared').Json
+  }
+
   function mapFormValuesToBundlePayload(
     payload: UcatQuestionStemFormValues,
     stemId?: string | null
@@ -364,13 +434,14 @@ export function UcatQuestionsPage() {
         index: index + 1,
         questionText: question.questionText,
         questionType: question.questionType,
+        answerExplanation: toExplanationNull(question.answerExplanation),
         difficulty: question.difficulty,
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
         options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
           index: optionIndex + 1,
           answerText: option.answerText,
-          answerExplanation: option.answerExplanation ?? null,
+          answerExplanation: toExplanationNull(option.answerExplanation),
           isAnswer: option.isAnswer,
         })),
       })),
@@ -812,6 +883,9 @@ export function UcatQuestionsPage() {
                   {setsList.map((set) => {
                     const setId = set.id ?? ''
                     const isSelected = bulkSetIds.includes(setId)
+                    const inCount = setInCountMap[setId] ?? 0
+                    const checkboxState =
+                      isSelected ? true : inCount === selectedSize ? true : inCount > 0 ? 'indeterminate' : false
                     return (
                       <CommandItem
                         key={setId}
@@ -823,7 +897,7 @@ export function UcatQuestionsPage() {
                         }}
                         className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                       >
-                        <Checkbox checked={isSelected} />
+                        <Checkbox checked={checkboxState} />
                         <span>{proseMirrorToPlainText(set.name ?? null) || 'Untitled'}</span>
                       </CommandItem>
                     )
@@ -887,6 +961,9 @@ export function UcatQuestionsPage() {
             <AlertDialogTitle>Add stems to sets?</AlertDialogTitle>
             <AlertDialogDescription>
               Add {selectedStemIds.size} selected stem(s) to {bulkSetIds.length} set(s)?
+              {stemsAlreadyInSelectedSetsCount > 0 && (
+                <> {stemsAlreadyInSelectedSetsCount} of the stems are already in one or more of the set(s).</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
