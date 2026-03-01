@@ -6891,7 +6891,6 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
-          description: Json | null
           display_columns: number
           id: string
           instructions_text: Json | null
@@ -6907,7 +6906,6 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns: number
           id?: string
           instructions_text?: Json | null
@@ -6923,7 +6921,6 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number
           id?: string
           instructions_text?: Json | null
@@ -8979,9 +8976,9 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
-          description: Json | null
           display_columns: number | null
           id: string | null
+          instructions_text: Json | null
           instructions_time_limit_seconds: number | null
           name: string | null
           number_of_questions: number | null
@@ -8994,9 +8991,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number | null
           id?: string | null
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string | null
           number_of_questions?: number | null
@@ -9009,9 +9006,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number | null
           id?: string | null
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string | null
           number_of_questions?: number | null
@@ -10918,9 +10915,9 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
-          description: Json | null
           display_columns: number | null
           id: string | null
+          instructions_text: Json | null
           instructions_time_limit_seconds: number | null
           name: string | null
           number_of_questions: number | null
@@ -10933,9 +10930,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number | null
           id?: string | null
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string | null
           number_of_questions?: number | null
@@ -10948,9 +10945,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number | null
           id?: string | null
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string | null
           number_of_questions?: number | null
