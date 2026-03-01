@@ -263,9 +263,6 @@ export function UcatRichTextEditor({
               html = html.replace(`__UPLOAD_${i}__`, signedUrls[i])
             }
           }
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'UcatRichTextEditor:pastedHtmlInsert',message:'insert pasted html',data:{signedUrlsLen:signedUrls.length,htmlLen:html.length,insertPos,hasPlaceholder:html.includes('__UPLOAD_')},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           editor
             .chain()
             .focus()

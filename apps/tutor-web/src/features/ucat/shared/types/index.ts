@@ -14,7 +14,6 @@ export type UcatQuestionFormOption = {
   answerExplanation?: RichTextJson | null
   index: number
   isAnswer: boolean
-  imageFileId?: string | null
 }
 
 export type UcatQuestionFormItem = {

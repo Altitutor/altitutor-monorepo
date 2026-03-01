@@ -96,13 +96,10 @@ export function BulkImportQuestionStemsModal({
   const canGoNext = useMemo(() => {
     if (status === 'submitting') return false
     if (step === 0) return !!sectionId
-    if (step === 1 && isVerbalReasoningSection && (pastedContent == null || wizard.state.stems.length === 0)) {
-      // Require successful parsing before moving on for Verbal Reasoning.
-      return false
-    }
+    if (step === 1) return true
     if (step >= totalSteps - 1) return false
     return true
-  }, [step, status, sectionId, totalSteps, isVerbalReasoningSection, pastedContent, wizard.state.stems.length])
+  }, [step, status, sectionId, totalSteps])
 
   const isLoadingMeta =
     sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
@@ -125,39 +122,44 @@ export function BulkImportQuestionStemsModal({
     onClose()
   }
 
-  function handleParseVerbalReasoning() {
-    if (!isVerbalReasoningSection) return
-    if (!sectionId) return
-    try {
-      const parsed = parseVerbalReasoningFromDoc(pastedContent)
-      const forms = mapParsedVerbalReasoningToFormValues(parsed, {
-        sectionId,
-        isPrivate: false,
-        getCategoryIdForStem: (stem) => {
-          const name = getVerbalReasoningStemCategoryName(stem)
-          const category = categories.find(
-            (c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name
-          )
-          return category?.id ?? null
-        },
-      })
+  /** Parse pasted content according to the selected section; used when moving from step 1 to 2. */
+  function parseForCurrentSection(): boolean {
+    if (!sectionId) return false
+    if (isVerbalReasoningSection) {
+      try {
+        const parsed = parseVerbalReasoningFromDoc(pastedContent)
+        const forms = mapParsedVerbalReasoningToFormValues(parsed, {
+          sectionId,
+          isPrivate: false,
+          getCategoryIdForStem: (stem) => {
+            const name = getVerbalReasoningStemCategoryName(stem)
+            const category = categories.find(
+              (c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name
+            )
+            return category?.id ?? null
+          },
+        })
 
-      if (forms.length === 0) {
-        setParseError('No valid stems and questions were detected. Please check the formatting.')
+        if (forms.length === 0) {
+          setParseError('No valid stems and questions were detected. Please check the formatting.')
+          wizard.setStems([])
+          return false
+        }
+
+        wizard.setStems(forms)
+        setParseError(null)
+        return true
+      } catch (error) {
+        setParseError(
+          error instanceof Error
+            ? `Failed to parse Verbal Reasoning passage: ${error.message}`
+            : 'Failed to parse Verbal Reasoning passage.'
+        )
         wizard.setStems([])
-        return
+        return false
       }
-
-      wizard.setStems(forms)
-      setParseError(null)
-    } catch (error) {
-      setParseError(
-        error instanceof Error
-          ? `Failed to parse Verbal Reasoning passage: ${error.message}`
-          : 'Failed to parse Verbal Reasoning passage.'
-      )
-      wizard.setStems([])
     }
+    return true
   }
 
   function getStepTitle(currentStep: number): string {
@@ -177,9 +179,8 @@ export function BulkImportQuestionStemsModal({
 
   function handleNextClick() {
     if (!canGoNext) return
-    if (step === 1 && isVerbalReasoningSection) {
-      // Already parsed via explicit action; if no stems, prevent moving on.
-      if (wizard.state.stems.length === 0) return
+    if (step === 1) {
+      if (!parseForCurrentSection()) return
     }
     setStep((current) => (current < totalSteps - 1 ? current + 1 : current))
   }
@@ -285,22 +286,6 @@ export function BulkImportQuestionStemsModal({
             }}
             onImageFileIdsChange={handleStep2ImageFileIds}
           />
-          {isVerbalReasoningSection && (
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                This parser is optimised for Verbal Reasoning passages with numbered questions and
-                lettered options, like the official UCAT materials.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleParseVerbalReasoning}
-              >
-                Parse Verbal Reasoning
-              </Button>
-            </div>
-          )}
           {parseError && (
             <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
               {parseError}

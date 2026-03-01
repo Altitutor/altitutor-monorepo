@@ -7,7 +7,6 @@ const SerializedAnswerOptionSchema = z.object({
   answer_text: z.any(),
   answer_explanation: z.any().nullable().optional(),
   is_answer: z.boolean(),
-  image_file_id: z.string().uuid().nullable().optional(),
 })
 
 const SerializedQuestionSchema = z.object({

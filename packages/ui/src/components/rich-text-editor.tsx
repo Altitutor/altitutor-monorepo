@@ -32,11 +32,6 @@ async function extractImagesFromPastedHtml(
   const imgSrcRegex =
     /<img[\s\S]*?src\s*=\s*["']((?:data:|blob:)[^"']+)["'][\s\S]*?>/gi;
   const matches = [...html.matchAll(imgSrcRegex)];
-  // #region agent log
-  const hasImgTag = /<img/i.test(html);
-  const srcMatches = html.match(/src\s*=\s*["']?([^"'\s>]+)/gi);
-  if (typeof fetch !== 'undefined') fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'extractImagesFromPastedHtml',message:'img regex',data:{matchesLength:matches.length,hasImgTag,srcPrefixes: (srcMatches ?? []).map((s) => String(s).slice(0, 50))},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (matches.length === 0) {
     return { files, htmlWithPlaceholders: html };
   }
@@ -368,28 +363,17 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
           // No image files: check for HTML with embedded images (e.g. paste from Word/Google Docs).
           const html = event.clipboardData?.getData('text/html');
-          const hasImgDataOrBlob = !!html && /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:pasteHtmlCheck',message:'html paste branch',data:{hasHtml:!!html,htmlLen:html?.length??0,hasImgDataOrBlob},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
-          if (html && hasImgDataOrBlob) {
+          if (html && /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html)) {
             event.preventDefault();
             extractImagesFromPastedHtml(html)
               .then((result) => {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:extractResult',message:'extractImagesFromPastedHtml result',data:{filesLength:result.files.length,htmlPlaceholderLen:result.htmlWithPlaceholders?.length},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
                 if (result.files.length > 0) {
                   onPasteImages(editor, result.files, {
                     pastedHtml: result.htmlWithPlaceholders,
                   });
                 }
               })
-              .catch((err) => {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:extractError',message:'extractImagesFromPastedHtml error',data:{err: String(err)},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
-              });
+              .catch(() => {});
             return true;
           }
         }

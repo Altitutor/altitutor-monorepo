@@ -18,7 +18,8 @@ type StemDetailQuestion = {
     answer_explanation: Json | null
     index: number
     is_answer: boolean
-    image_file_id: string | null
+    option_text_file_ids?: string[]
+    option_explanation_file_ids?: string[]
   }>
 }
 
@@ -251,7 +252,6 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
         answer_text: option.answerText,
         answer_explanation: option.answerExplanation ?? null,
         is_answer: option.isAnswer,
-        image_file_id: option.imageFileId ?? null,
       })),
     })),
   }

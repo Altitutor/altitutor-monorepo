@@ -24,6 +24,7 @@ import {
   DropdownMenuTrigger,
   Input,
   TablePagination,
+  useToast,
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
@@ -259,6 +260,7 @@ export function UcatMocksPage() {
     setSelectedMockIds(new Set())
   }
 
+  const { toast } = useToast()
   async function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedMockIds)
     setBulkDeletePending(true)
@@ -267,6 +269,12 @@ export function UcatMocksPage() {
       await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
       setBulkDeleteOpen(false)
       setSelectedMockIds(new Set())
+    } catch (err) {
+      toast({
+        title: 'Cannot delete',
+        description: err instanceof Error ? err.message : 'Failed to delete mocks.',
+        variant: 'destructive',
+      })
     } finally {
       setBulkDeletePending(false)
     }

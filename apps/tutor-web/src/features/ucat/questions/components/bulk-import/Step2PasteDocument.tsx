@@ -6,9 +6,14 @@ import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 type Step2PasteDocumentProps = {
   value: Json | null
   onChange: (value: Json) => void
+  onImageFileIdsChange?: (fileIds: string[]) => void
 }
 
-export function Step2PasteDocument({ value, onChange }: Step2PasteDocumentProps) {
+export function Step2PasteDocument({
+  value,
+  onChange,
+  onImageFileIdsChange,
+}: Step2PasteDocumentProps) {
   return (
     <div className="space-y-4">
       <div>
@@ -25,7 +30,9 @@ export function Step2PasteDocument({ value, onChange }: Step2PasteDocumentProps)
           onChange={onChange}
           placeholder="Paste your UCAT questions here…"
           minHeight="320px"
-          enableImages={false}
+          stemId={null}
+          enableImages={true}
+          onImageFileIdsChange={onImageFileIdsChange}
         />
       </div>
     </div>

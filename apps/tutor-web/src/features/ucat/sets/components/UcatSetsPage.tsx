@@ -25,6 +25,7 @@ import {
   Input,
   TablePagination,
   Textarea,
+  useToast,
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -195,6 +196,7 @@ export function UcatSetsPage() {
     setSelectedSetIds(new Set())
   }
 
+  const { toast } = useToast()
   async function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedSetIds)
     setBulkDeletePending(true)
@@ -203,6 +205,12 @@ export function UcatSetsPage() {
       await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
       setBulkDeleteOpen(false)
       setSelectedSetIds(new Set())
+    } catch (err) {
+      toast({
+        title: 'Cannot delete',
+        description: err instanceof Error ? err.message : 'Failed to delete sets.',
+        variant: 'destructive',
+      })
     } finally {
       setBulkDeletePending(false)
     }
