@@ -1,0 +1,761 @@
+<html lang="en-GB" class="js flexbox flexboxlegacy canvas canvastext webgl no-touch geolocation postmessage no-websqldatabase indexeddb hashchange history draganddrop websockets rgba hsla multiplebgs backgroundsize borderimage borderradius boxshadow textshadow opacity cssanimations csscolumns cssgradients cssreflections csstransforms csstransforms3d csstransitions fontface generatedcontent video audio localstorage sessionstorage webworkers no-applicationcache svg inlinesvg smil svgclippaths" style="--questiontitle-font-family: sans-serif; --questiontitle-font-size: 12pt; --questiontitle-font-style: normal; --status-font-family: sans-serif; --status-font-size: 12pt; --status-font-style: normal; --tableheader-font-family: sans-serif; --tableheader-font-size: 9pt; --tableheader-font-style: normal; --tabs-font-family: Arial; --tabs-font-size: 12pt; --tabs-font-style: normal; --color: #666666;"><head>
+    <meta http-equiv="Cache-control" content="no-cache">
+    <meta http-equiv="Cache-control" content="no-store">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="expires" content="0">
+    <meta charset="utf-8">
+
+    <meta name="viewport" content="initial-scale=1">
+
+    <link rel="shortcut icon" type="image/ico" href="/st1/driver/resources/branding/favicon.ico?v=1.2602.1.316">
+
+    <title>Pearson VUE test content</title>
+    <!-- Place all other scripts in the body for faster loading times -->
+
+    <link rel="stylesheet" type="text/css" href="/st1/driver/resources/bower/spectrum/spectrum.css?v=1.2602.1.316">
+    <link id="textDecorationStyles" rel="stylesheet" type="text/css" href="/st1/driver/resources/js/src/app/textdecoration/textdecoration.css?v=1.2602.1.316">
+
+
+        <link href="/st1/driver/resources/ticalc/TI-84P/css/ti84p-styles-min.css" media="screen" rel="Stylesheet" type="text/css">
+        <link href="/st1/driver/resources/ticalc/TI-108/css/ti108-styles-min.css" media="screen" rel="Stylesheet" type="text/css">
+        <link href="/st1/driver/resources/ticalc/TI-30MV/css/ti30mv-styles-min.css" media="screen" rel="Stylesheet" type="text/css">
+
+
+    <style>
+        /* Should match #abe-delivery-loading-overlay in base.css */
+        #abe-delivery-loading-overlay {
+            width: 95%;
+            height: 100px;
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            text-align: center;
+
+            margin: auto;
+        }
+
+        #abe-delivery-loading-overlay > h1 {
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 1.75em;
+        }
+    </style>
+
+    <!-- abe-dynamicCss section is used as placeholder for CSS created via javascript.  This is cleared and refreshed every time
+       a frame is rendered (i.e. navigation and so forth).  For example, this is used to allow for override of
+       the Calculator button via the QTI icon attribute.  See FrameData.prototype.renderApplicationIcon()
+    -->
+    <style id="abe-dynamicCss"></style>
+<style type="text/css"></style><style>.rc-fonts-Large {font-family:Tahoma !important;font-size:16pt !important;font-weight:normal !important;}
+.rc-fonts-Normal {font-family:Tahoma !important;font-size:14pt !important;font-weight:normal !important;}
+.rc-fonts-Small {font-family:Tahoma !important;font-size:12pt !important;font-weight:normal !important;}
+.rc-fonts-ToolTip {font-family:Tahoma !important;font-size:10pt !important;font-weight:normal !important;}
+.rc-fonts-Message {font-family:Tahoma !important;font-size:12pt !important;font-weight:normal !important;}
+.rc-fonts-ItemText {font-family:Arial !important;font-size:11pt !important;font-weight:normal !important;}
+.rc-fonts-TextEntry {font-family:Tahoma !important;font-size:12pt !important;font-weight:normal !important;}
+</style><style id="__WebInspectorHideElement__">.__WebInspectorHideElement__ { visibility: hidden !important; }</style></head>
+
+<body dir="ltr" id="abe-examPreview" aria-live="assertive" style="overflow: hidden;">
+
+    <div id="abe-delivery-loading-overlay" style="visibility: hidden;">
+        <h1>Loading, please wait…</h1>
+        <img src="/st1/driver/resources/indeterminate-loading-bar.gif?v=1.2602.1.316">
+    </div>
+
+    <link rel="stylesheet" href="/st1/driver/resources/draganddrop.css?v=1.2602.1.316">
+    <link rel="stylesheet" type="text/css" href="/st1/driver/resources/js/src/app/orderedlist/orderedList.css?v=1.2602.1.316">
+
+    <link rel="stylesheet" href="/st1/driver/resources/jquery-ui-1.13.3.custom/jquery-ui.css?v=1.2602.1.316">
+    <link rel="stylesheet" href="/st1/driver/resources/jquery-ui-1.13.3.custom/jquery-ui.theme.css?v=1.2602.1.316">
+
+    <link href="/st1/driver/resources/js/src/app/spreadsheet/menu.css?v=1.2602.1.316" rel="stylesheet" type="text/css">
+
+    <link rel="stylesheet" href="/st1/driver/resources/base.css?v=1.2602.1.316">
+
+    <link rel="stylesheet" href="/st1/driver/resources/screen.css?v=1.2602.1.316">
+    <link rel="stylesheet" href="/st1/driver/resources/languages/eng/sprites-compiled.css?v=1.2602.1.316">
+
+
+    <link rel="stylesheet" type="text/css" href="/st1/driver/resources/bower/offline/themes/offline-theme-default.css?v=1.2602.1.316">
+
+        <link rel="stylesheet" type="text/css" href="/st1/driver/resources/bower/offline/themes/offline-language-english.css?v=1.2602.1.316">
+
+    <link rel="stylesheet" type="text/css" href="/st1/driver/resources/js/src/app/multimedia/multimedia.css?v=1.2602.1.316">
+    <link rel="stylesheet" type="text/css" href="/st1/driver/resources/js/src/app/multimedia/multimediaLegacy.css?v=1.2602.1.316">
+
+
+    <!--resource container css overrides from non-HtmlStyles properties-->
+    <style type="text/css">
+        
+
+/* Customizable CSS based on Resource Container */
+
+
+/* Primary Section */
+.Primary, .Primary button {
+    color           : #FFFFFF;
+    background-color: #006DAA;
+}
+
+/* Apply Primary theme to the JQueryUI Widgets */
+
+/* For exhibit tab text */
+.TabbedPane.ui-state-default a,
+.TabbedPane.ui-state-default a:link,
+.TabbedPane.ui-state-default a:visited {
+color: #006DAA !important;
+}
+
+.TabbedPane.ui-state-active a,
+.TabbedPane.ui-state-active a:link,
+.TabbedPane.ui-state-active a:visited
+{
+color: #006DAA !important;
+}
+
+
+/* general widget header and content */
+.Primary .ui-widget-header {
+    color           : #FFFFFF;
+    background-color: #006DAA;
+}
+.Primary .ui-dialog-buttonpane,
+.Primary .info-dialog,
+.Primary .question-dialog,
+.Primary .alert-dialog,
+.Primary .error-dialog {
+    color           : #FFFFFF;
+    background-color: #006DAA;
+}
+
+
+.Primary .ui-button {
+    color           : #FFFFFF;
+    background-color: #006DAA;
+}
+
+/* End: **** Refactor this to start using Primary class **** */
+
+
+button.Primary:hover,.Primary button:hover, .Primary button :hover {
+    color           : #FFFF00;
+
+}
+
+.Primary .ui-dialog .ui-button-text:hover, .Primary .ui-dialog .ui-button-text :hover {
+color           : #FFFFFF;
+}
+
+.abe-inline-button-right {
+    border-left: 2px solid #FFFFFF;
+}
+
+.abe-inline-button-left {
+    border-right: 2px solid #FFFFFF;
+}
+
+/* End of Primary Section */
+
+/* Secondary Section */
+.Secondary, .Secondary button, .Secondary a {
+    color           : #FFFFFF !important;
+    background-color: #4678BE !important;
+}
+button.Secondary:hover,.Secondary button:hover, .Secondary button :hover {
+    color           : #FFFF00 !important;
+}
+
+/* highlighter palette picker */
+.sp-replacer.highlighter, .sp-replacer .sp-preview {
+    color           : #FFFFFF !important;
+    border-color    : #FFFFFF !important;
+}
+.sp-replacer.highlighter :hover, .sp-replacer .sp-preview :hover {
+    color           : #FFFF00 !important;
+    border-color    : #FFFF00 !important;
+}
+
+.abe-secondaryRollOverForegroundColor {
+    color           : #FFFF00 !important;
+}
+
+.abe-secondaryForegroundColor {
+    color           : #FFFFFF !important;
+
+}
+
+.ui-dialog .mce-btn button {
+color: black;
+background-color: transparent;
+}
+
+/* End of Secondary Section */
+
+
+
+#abe-TimeRemainingSectionButton.locked {
+color: #FFFF00;
+}
+
+
+/* Navigator Dialog and Review Screen */
+#abe-navigator tbody tr.odd {
+    background-color: #FFFFFF;
+}
+#abe-navigator tbody tr.even {
+    background-color: #F4F4F4;
+}
+#abe-navigator tbody tr.selectedRowColor {
+    background-color: #FFFD6F;
+}
+#abe-navigator tbody tr.navpoint:hover {
+    background-color: #FFFD6F;
+}
+#abe-navigator thead th, #abe-navigator table tbody tr td, .abe-reviewItemEntry {
+    border-color: #C0C0C0;
+}
+#scrollableReviewContent table {
+}
+
+#abe-navigator table tbody tr td.abe-incomplete,
+#abe-navigator table tbody tr td.abe-unseen,
+.abe-reviewItemEntry .abe-reviewItemTitleAndStatus .abe-reviewIncorrect,
+.abe-reviewItemEntry .abe-reviewItemTitleAndStatus .abe-reviewIncomplete,
+.abe-reviewItemEntry .abe-reviewItemTitleAndStatus .abe-reviewUnseen,
+.abe-reviewItemEntry .abe-reviewItemTitleAndStatus .abe-reviewPending
+{
+    color: #D90000;
+}
+
+/* End of Navigator Grid */
+
+/* Symbol Picker Dialog */
+.abe-key.abe-highlight .Content {
+    color           : #FFFFFF;
+    background-color: #006DAA;
+}
+
+/* End of Symbol Picker Dialog */
+
+/* Text Selection Colors */
+::-moz-selection { /* Code for Firefox */
+color: #000000;
+background: #C0C0C0;
+}
+
+::selection {
+color: #000000;
+background: #C0C0C0;
+}
+
+/* End Text Selection Colors */
+
+/* Content Section */
+
+.Content,
+.Content.ui-widget-content,
+.Content .ui-widget-content,
+.Content textarea,
+.Content.ui-tabs .ui-tabs-panel,
+.Content .ui-tabs .ui-tabs-panel,
+.ui-selectmenu-text,
+.ui-selectmenu-menu,
+.Content input.abe-shortResponse,
+.ui-dialog a.hover {
+    color           : #000000;
+}
+
+.Content table_container table,
+.Content table_container thead,
+.Content table_container tbody,
+.Content table_container tr,
+.Content table_container th,
+.Content table_container td {
+    border-color : #000000 !important;
+}
+
+.Content .Block {
+border-color : #000000;
+}
+
+.abe-token-border-hover {
+border-color : #0000FF !important;
+}
+input:focus
+{
+outline:#000000 dotted 1px;
+}
+.abe-reviewItemTitleAndStatus:hover .abe-reviewItemTitle {
+    color : #0000FF;
+}
+#abe-contentPane, #abe-navigatorBody  {
+    background-color: #FFFFFF;
+}
+
+.abe-scrollableReviewContent {
+    background-color: #FFFFFF;
+}
+
+.abe-reviewScreen-2-0 .abe-scrollableReviewContent {
+background-color : transparent !important;
+}
+
+#abe-splitItem, #abe-splitItemReference,
+#abe-splitItemReference.ui-tabs .ui-tabs-panel,
+#abe-splitItemReference.ui-tabs .ui-tabs-nav li.ui-tabs-active a,
+.ui-selectmenu-text,
+.ui-selectmenu-menu,
+input.abe-shortResponse {
+    background-color: #FFFFFF !important;
+}
+
+#abe-splitItem .ui-layout-content, #abe-splitItemReference .ui-layout-content {
+    background-color: #FFFFFF;
+}
+
+.abe-colorSchemeBackgroundColor {
+    color : #FFFFFF !important;
+    background : #4678BE !important;
+}
+
+.abe-colorSchemeDropDownColor {
+    color      : black !important;
+    background : #FFFFFF !important;
+}
+
+
+.abe-colorSchemeDropdownContent ul li a,
+.abe-colorSchemeDropdownContent-right ul li a {
+    background-color: #FFFFFF !important;
+    color: black !important;
+}
+/* End of Content Section */
+
+/* Exhibit button */
+
+.abe-ExhibitButton, .abe-ItemContentButton {
+    border-color    : #006DAA;
+}
+
+/* Applying the default textHalign from default resource container */
+.abe-ExhibitButton .abe-ImageLabelContainer, .abe-ItemContentButton .abe-ImageLabelContainer {
+float: center;
+}
+
+/* Applying text-align to exhibit and itemContent button to override text-align of base-rtl.css */
+.abe-ExhibitButton, .abe-ItemContentButton {
+text-align: center;
+}
+/* End of Exhibit and ItemContent button */
+
+/* JQuery Dialogs */
+
+.ui-dialog.ui-widget-content,
+.ui-dialog-titlebar.ui-widget-header,
+.ui-tabs-nav.ui-widget-header {
+    background-color: #006DAA;
+}
+
+
+.ui-dialog .ui-dialog-buttonpane button {
+    border: 1px solid #FFFFFF;
+}
+
+.ui-tabs .ui-tabs-nav li a,
+.ui-tabs .ui-tabs-nav li.ui-tabs-selected a,
+.ui-tabs .ui-tabs-nav li.ui-tabs-active a,
+.ui-tabs .ui-tabs-nav li.ui-state-disabled a,
+.ui-tabs .ui-tabs-nav li.ui-state-processing a {
+    color: #006DAA;
+}
+
+span.find {
+background-color: #C0C0C0;
+}
+
+span.findCurrent {
+background-color: #FF9632;
+}
+
+
+.abe-colorSchemeDropDown .ui-selectmenu-button {
+background-color: #4678BE;
+border          : 0px;
+width           : 190px !important;
+margin          : -1px;
+}
+
+.abe-colorSchemeDropDown .ui-selectmenu-text {
+    color           : #FFFFFF !important;
+    background-color: #4678BE !important;
+}
+
+.abe-colorSchemeDropDown .abe-colorSchemeDropdownButton {
+    border-color: #000000 !important;
+}
+
+.abe-customColorCode {
+    color: transparent !important;
+}
+
+.abe-customTableBackgroundColorCode {
+    color: transparent !important;
+}
+
+.abe-borderDottedOutline {
+    outline : 1px dotted black;
+}
+
+
+/* End of JQuery Dialogs */
+
+
+/* Customizable CSS ICONS based on Resource Container */
+
+
+
+
+
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+            
+        
+
+          
+    
+        
+    
+            
+        
+            
+        
+        
+    
+      
+
+
+
+
+
+
+
+
+
+
+
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+      
+    
+            
+        
+
+          
+    
+        
+    
+            
+        
+            
+        
+        
+    
+      
+
+
+
+
+
+
+
+    </style>
+
+
+    <!-- HtmlStyles override. Applying this last because the HtmlStyles property takes the highest precedence after item's inline styling-->
+    <style>
+        
+
+/* Apply HTMl Styles from Resource Container to the page */
+
+
+
+    </style>
+
+    <div id="globalEventNotifier"></div>
+
+<div id="abe-titlebar" class="Primary" role="region" aria-labelledby="Title_bar">
+<span id="Title_bar" style="display: none">Title bar</span>
+
+<div id="abe-application-logo">
+    <span class="abe-ApplicationLogoImage">
+
+    </span>
+</div>
+<div id="abe-titlebar-title" class="rc-fonts-Large" tabindex="-1" style="visibility: visible;">
+            <span id="abe-assessment-title">Quantitative Reasoning</span>
+
+</div>
+<div id="abe-titlebar-info" style="visibility: visible;">
+    <div id="abe-timer" role="timer" style="visibility: hidden;">
+        <button id="abe-TimeRemainingSectionButton" class="" aria-labelledby="TimerButtonDescription" role="button" style="display: none;">
+            <span id="abe-timerPlaceholder"></span>
+            <div id="abe-timerContents" class="rc-fonts-Message" aria-hidden="true"></div>
+        </button>
+    </div>
+    <div id="abe-itemCounter" role="heading" aria-level="1" style="">
+        <button id="abe-ItemOrdinalKnownButton" class="" aria-describedby="buttonDescription" role="button" style="">
+            <div class="abe-hidden-shim"></div>
+            <div id="abe-itemCounterWrapper" aria-hidden="true">
+                <span id="abe-ItemOrdinalKnown" class="rc-fonts-Message"><span id="itemOrdinal">5</span> of <span id="itemCardinal">36</span></span>
+                <span id="abe-ReplayItemIdent" class="rc-fonts-Message" style="display: none;"></span>
+            </div>
+        </button>
+        <div id="buttonDescription" style="visibility: hidden;">Hide Screen Counter Screen 5 of 36</div>
+        <div id="TimerButtonDescription" style="visibility: hidden;"></div>
+        <span id="jawsTimerValue" style="display:none;" aria-hidden="true"></span>
+    </div>
+</div>
+</div>
+
+<div id="abe-toolbar" class="Secondary" role="region" aria-labelledby="Tool_bar" style="display: table; height: 30px;">
+<span id="Tool_bar" style="display: none">Tool bar</span>
+<div id="abe-toolbar-tools" style="visibility: visible;">
+    <button id="abe-checkAnswerButton" class="rc-fonts-Small" data-accesskey="K" aria-describedby="UserInterface.Buttons.Button.CheckCorrect.accessibleDescription" style="display: none;">Chec<span class="abe-accesskey">k</span> Answer</button><div id="UserInterface.Buttons.Button.CheckCorrect.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    <button id="abe-showAnswerButton" class="rc-fonts-Small" data-accesskey="O" aria-describedby="UserInterface.Buttons.Button.ShowCorrect.accessibleDescription" style="display: none;">Sh<span class="abe-accesskey">o</span>w Answer</button><div id="UserInterface.Buttons.Button.ShowCorrect.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    <div class="abe-icon-left" style="padding-left: 5px;">
+        <button id="abe-SolutionButton" class="rc-fonts-Small" data-accesskey="X" aria-describedby="UserInterface.Buttons.Button.Solution.accessibleDescription" style="" accesskey="X">E<span class="abe-accesskey">x</span>plain Answer</button><div id="UserInterface.Buttons.Button.Solution.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-CommentButton" class="rc-fonts-Small" data-accesskey="M" aria-describedby="UserInterface.Buttons.Button.Comment.accessibleDescription" style="display: none;">Co<span class="abe-accesskey">m</span>ment</button><div id="UserInterface.Buttons.Button.Comment.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-SymbolPickerButton" class="rc-fonts-Small" data-accesskey="B" aria-describedby="UserInterface.Buttons.Button.SymbolPicker.accessibleDescription" style="display: none;">Sym<span class="abe-accesskey">b</span>ol</button><div id="UserInterface.Buttons.Button.SymbolPicker.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Character Selector</div>
+    </div>
+
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <input id="HighlightColorPicker" style="display: none;">
+        <button id="abe-HighlightButton" class="rc-fonts-Small" data-accesskey="J" style="display: none;">Highlight (<span class="abe-accesskey">J</span>)</button>
+    </div>
+
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-StrikethroughButton" class="rc-fonts-Small" data-accesskey="W" style="display: none;">Strikethrough (<span class="abe-accesskey">W</span>)</button>
+    </div>
+
+<div class="abe-icon-left" style="padding-left: 0px;">
+<button id="abe-calculatorButton" class="application calculator rc-fonts-Small abe-ApplicationImage" data-type="Calculator" aria-describedby="UserInterface.Calculator.Property.AccessibleDescription.value" style="" data-accesskey="C" accesskey="C"><span class="abe-accesskey">C</span>alculator</button>
+</div>
+<div id="abe-appPlaceholder" style="display:none"></div>
+<div id="abe-calculatorButtonHover" style="display:none"></div>
+<div id="abe-calculatorButtonNonHover" style="display:none"></div>
+
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-ScratchPadButton" class="rc-fonts-Small" data-accesskey="D" style="display: none;">Scratch Pa<span class="abe-accesskey">d</span></button>
+    </div>
+
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-ReviewInstructionsButton" class="rc-fonts-Normal" data-accesskey="R" style="display: none;">Inst<span class="abe-accesskey">r</span>uctions</button>
+    </div>
+
+
+</div>
+
+<div id="abe-toolbar-flags">
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-CloseAllButton" class="rc-fonts-Small" data-accesskey="L" aria-describedby="UserInterface.Buttons.Button.CloseAll.accessibleDescription" style="display: none;">C<span class="abe-accesskey">l</span>ose All</button><div id="UserInterface.Buttons.Button.CloseAll.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use space to activate. Close all open windows</div>
+    </div>
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-PauseExamButton" class="rc-fonts-Small" aria-describedby="UserInterface.Buttons.Button.PauseExam.accessibleDescription" style="display: none;">Pause Exam</button><div id="UserInterface.Buttons.Button.PauseExam.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Initiate an exam pause</div>
+    </div>
+    <div class="abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-FlagForReviewCommentButton" class="rc-fonts-Small" data-accesskey="C" aria-describedby="UserInterface.Buttons.Button.FlagForReviewComment.accessibleDescription" style="display: none;">Flag for <span class="abe-accesskey">C</span>omment</button><div id="UserInterface.Buttons.Button.FlagForReviewComment.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to Flag or Unflag.</div>
+        <div id="additionalDescriptionForFlagForComment" class="abe-accessibility-hidden" aria-hidden="true"></div>
+    </div>
+    <div class="abe-icon-left" style="padding-left: 5px;">
+        <button id="abe-FlagForReviewItemButton" class="rc-fonts-Small abe-FlagForReviewItemButtonUnselected" data-accesskey="F" aria-describedby="UserInterface.Buttons.Button.FlagForReviewItem.accessibleDescription additionalDescription" style="" accesskey="F"><span class="abe-accesskey">F</span>lag for Review</button><div id="UserInterface.Buttons.Button.FlagForReviewItem.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to Flag or Unflag.</div>
+        <div id="additionalDescription" class="abe-accessibility-hidden" aria-hidden="true">Flag for Review not checked</div>
+    </div>
+</div>
+
+<div id="abe-textFind" class="Secondary abe-hidden">
+    <input id="abe-findBox" type="text" autocomplete="off" maxlength="255">
+    <div id="abe-textFindOutputBox" style="display: none">
+        <label id="abe-textFindCurrentSearchItem" class="abe-textFindSearchItem">0</label>
+        <label id="abe-textFindSlash" class="abe-textFindSearchItem">/</label>
+        <label id="abe-textFindTotalSearchItems" class="abe-textFindSearchItem">0</label>
+    </div>
+    <label id="abe-textFindVerticalPipe" class="abe-textFindSearchItem">|</label>
+    <button id="abe-textFindPrev" class="abe-textFindButton" style="display: none;" title="Previous">▲</button>
+    <button id="abe-textFindNext" class="abe-textFindButton" style="display: none;" title="Next">▼</button>
+    <button id="abe-textFindClose" class="abe-textFindButton" style="display: none;" title="Close find bar">✕</button>
+</div>
+</div>
+
+
+    <div id="abe-contentPane" class="Content rc-fonts-ItemText" dir="ltr" tabindex="-1" role="main" style="visibility: visible; background-color: rgb(255, 255, 255); overflow: auto; top: 79px; bottom: 33px; height: unset;" data-background-color="rgb(255, 255, 255)">
+        <div id="abe-readMe" class="contentPaneLanguageWrapper dynamicContent heightRoot" dir="ltr" tabindex="0"><div class="abe-tt abe-content-root undef-width abe-block-leading Block abe-noPadding" style=" background-color:#ffffff; "><div class="sub-root undef-width" zfaminwidth="339" style="width: 969px;"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 967px;" zfaminwidth="339" zfawidth="967"><div class=" abe-tt undef-width abe-block-leading abe-verticalPadding Block" style="background-color: rgb(255, 255, 255); width: 965px;" zfaminwidth="339" zfawidth="965"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 963px;" leafdatatype="text" zfaminwidth="339" zfawidth="963"><p><span style="font-family: arial; font-size: 11pt">A study of podcasts of different lengths shows a relationship between podcast length and the length of advertisements during the podcast. The length of the advertisements in a podcast is a percentage of the length of the podcast, as shown in the graph. The podcasts in the study are divided into four categories based on their lengths. The shortest podcast in the study is 12 minutes long and the longest podcast is 75 minutes long.</span></p><p><span style="font-family: arial; font-size: 11pt">&nbsp;</span></p><p><span style="font-family: arial; font-size: 11pt"><img src="/st1/driver/examResource/?resourceIdent=63333963%3A317&amp;sessionUUID=df0da734-fda7-43b3-8676-91d3f30f6a34" style="vertical-align: middle" alt=""></span></p><p><span style="font-family: arial; font-size: 11pt">&nbsp;</span></p><p><span style="font-family: arial; font-size: 11pt">How much longer is the length of advertisement time in a 28-minute podcast than in a 24-minute podcast?</span></p></div></div><div class="abe-tt undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 965px;" zfaminwidth="138" zfawidth="965"><div class=" abe-tt undef-width abe-block-leading abe-verticalPadding Block" style="background-color: rgb(255, 255, 255); width: 963px;" zfaminwidth="138" zfawidth="963"><div class="abe-tt undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 961px;" zfaminwidth="138" zfawidth="961"><div class=" abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="138" zfawidth="959"><div class="abe-tt abe-inline undef-width abe-block-leading abe-input-container abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 48px;" leafdatatype="radio_button" zfaminwidth="48" zfawidth="48"><label class="abe-tt abe-displayAnswerKeyLabel" for="629219_R.A"></label><label class="abe-tt abe-parentLabel" style="display: inline-block"><input type="radio" name="response-629219_R" id="629219_R.A" value="A" role="radio" aria-labelledby="abe-accessible-629219_R.A"></label><label class="abe-tt abe-readerLabel" style="display: inline-block" id="abe-accessible-629219_R.A"><p class="abe-readerText"><p><span style="font-family: arial; font-size: 11pt">A.</span></p><p><span style="font-family: arial; font-size: 11pt">4 seconds</span></p></p></label></div><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); margin-top: 2px; width: 909px;" zfaminwidth="90" zfawidth="909"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 907px;" zfaminwidth="90" zfawidth="907"><div class="abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 905px;" zfaminwidth="90" zfawidth="905"><label class="abe-tt abe-defaultLabel fixed-width abe-noPadding" style="display: inline-block; width: 60px;" for="629219_R.A" aria-hidden="true" zfaminwidth="60" zfawidth="60"><div class="abe-tt abe-inline fixed-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 60px; overflow: auto;" aria-hidden="true" hasoverflowy="1" zfaminwidth="60" zfawidth="60"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 58px;" leafdatatype="text" zfaminwidth="30" zfawidth="58"><p><span style="font-family: arial; font-size: 11pt">A.</span></p></div></div></label><label class="abe-tt abe-defaultLabel undef-width" style="display: inline-block; width: 843px;" for="629219_R.A" aria-hidden="true" zfaminwidth="30" zfawidth="843"><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 841px;" aria-hidden="true" zfaminwidth="30" zfawidth="841"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 839px;" leafdatatype="text" zfaminwidth="30" zfawidth="839"><p><span style="font-family: arial; font-size: 11pt">4 seconds</span></p></div></div></label></div></div></div></div><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="0" zfawidth="959"></div></div></div><div class=" abe-tt undef-width abe-block-leading abe-verticalPadding Block" style="background-color: rgb(255, 255, 255); width: 963px;" zfaminwidth="138" zfawidth="963"><div class="abe-tt undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 961px;" zfaminwidth="138" zfawidth="961"><div class=" abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="138" zfawidth="959"><div class="abe-tt abe-inline undef-width abe-block-leading abe-input-container abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 48px;" leafdatatype="radio_button" zfaminwidth="48" zfawidth="48"><label class="abe-tt abe-displayAnswerKeyLabel" for="629219_R.B"></label><label class="abe-tt abe-parentLabel" style="display: inline-block"><input type="radio" name="response-629219_R" id="629219_R.B" value="B" role="radio" aria-labelledby="abe-accessible-629219_R.B"></label><label class="abe-tt abe-readerLabel" style="display: inline-block" id="abe-accessible-629219_R.B"><p class="abe-readerText"><p><span style="font-family: arial; font-size: 11pt">B.</span></p><p><span style="font-family: arial; font-size: 11pt">24 seconds</span></p></p></label></div><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); margin-top: 2px; width: 909px;" zfaminwidth="90" zfawidth="909"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 907px;" zfaminwidth="90" zfawidth="907"><div class="abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 905px;" zfaminwidth="90" zfawidth="905"><label class="abe-tt abe-defaultLabel fixed-width abe-noPadding" style="display: inline-block; width: 60px;" for="629219_R.B" aria-hidden="true" zfaminwidth="60" zfawidth="60"><div class="abe-tt abe-inline fixed-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 60px; overflow: auto;" aria-hidden="true" hasoverflowy="1" zfaminwidth="60" zfawidth="60"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 58px;" leafdatatype="text" zfaminwidth="30" zfawidth="58"><p><span style="font-family: arial; font-size: 11pt">B.</span></p></div></div></label><label class="abe-tt abe-defaultLabel undef-width" style="display: inline-block; width: 843px;" for="629219_R.B" aria-hidden="true" zfaminwidth="30" zfawidth="843"><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 841px;" aria-hidden="true" zfaminwidth="30" zfawidth="841"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 839px;" leafdatatype="text" zfaminwidth="30" zfawidth="839"><p><span style="font-family: arial; font-size: 11pt">24 seconds</span></p></div></div></label></div></div></div></div><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="0" zfawidth="959"></div></div></div><div class=" abe-tt undef-width abe-block-leading abe-verticalPadding Block" style="background-color: rgb(255, 255, 255); width: 963px;" zfaminwidth="138" zfawidth="963"><div class="abe-tt undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 961px;" zfaminwidth="138" zfawidth="961"><div class=" abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="138" zfawidth="959"><div class="abe-tt abe-inline undef-width abe-block-leading abe-input-container abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 48px;" leafdatatype="radio_button" zfaminwidth="48" zfawidth="48"><label class="abe-tt abe-displayAnswerKeyLabel" for="629219_R.C"></label><label class="abe-tt abe-parentLabel" style="display: inline-block"><input type="radio" name="response-629219_R" id="629219_R.C" value="C" role="radio" aria-labelledby="abe-accessible-629219_R.C"></label><label class="abe-tt abe-readerLabel" style="display: inline-block" id="abe-accessible-629219_R.C"><p class="abe-readerText"><p><span style="font-family: arial; font-size: 11pt">C.</span></p><p><span style="font-family: arial; font-size: 11pt">28 seconds</span></p></p></label></div><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); margin-top: 2px; width: 909px;" zfaminwidth="90" zfawidth="909"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 907px;" zfaminwidth="90" zfawidth="907"><div class="abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 905px;" zfaminwidth="90" zfawidth="905"><label class="abe-tt abe-defaultLabel fixed-width abe-noPadding" style="display: inline-block; width: 60px;" for="629219_R.C" aria-hidden="true" zfaminwidth="60" zfawidth="60"><div class="abe-tt abe-inline fixed-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 60px; overflow: auto;" aria-hidden="true" hasoverflowy="1" zfaminwidth="60" zfawidth="60"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 58px;" leafdatatype="text" zfaminwidth="30" zfawidth="58"><p><span style="font-family: arial; font-size: 11pt">C.</span></p></div></div></label><label class="abe-tt abe-defaultLabel undef-width" style="display: inline-block; width: 843px;" for="629219_R.C" aria-hidden="true" zfaminwidth="30" zfawidth="843"><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 841px;" aria-hidden="true" zfaminwidth="30" zfawidth="841"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 839px;" leafdatatype="text" zfaminwidth="30" zfawidth="839"><p><span style="font-family: arial; font-size: 11pt">28 seconds</span></p></div></div></label></div></div></div></div><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="0" zfawidth="959"></div></div></div><div class=" abe-tt undef-width abe-block-leading abe-verticalPadding Block" style="background-color: rgb(255, 255, 255); width: 963px;" zfaminwidth="138" zfawidth="963"><div class="abe-tt undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 961px;" zfaminwidth="138" zfawidth="961"><div class=" abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="138" zfawidth="959"><div class="abe-tt abe-inline undef-width abe-block-leading abe-input-container abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 48px;" leafdatatype="radio_button" zfaminwidth="48" zfawidth="48"><label class="abe-tt abe-displayAnswerKeyLabel" for="629219_R.D"></label><label class="abe-tt abe-parentLabel" style="display: inline-block"><input type="radio" name="response-629219_R" id="629219_R.D" value="D" role="radio" aria-labelledby="abe-accessible-629219_R.D"></label><label class="abe-tt abe-readerLabel" style="display: inline-block" id="abe-accessible-629219_R.D"><p class="abe-readerText"><p><span style="font-family: arial; font-size: 11pt">D.</span></p><p><span style="font-family: arial; font-size: 11pt">40 seconds</span></p></p></label></div><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); margin-top: 2px; width: 909px;" zfaminwidth="90" zfawidth="909"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 907px;" zfaminwidth="90" zfawidth="907"><div class="abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 905px;" zfaminwidth="90" zfawidth="905"><label class="abe-tt abe-defaultLabel fixed-width abe-noPadding" style="display: inline-block; width: 60px;" for="629219_R.D" aria-hidden="true" zfaminwidth="60" zfawidth="60"><div class="abe-tt abe-inline fixed-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 60px; overflow: auto;" aria-hidden="true" hasoverflowy="1" zfaminwidth="60" zfawidth="60"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 58px;" leafdatatype="text" zfaminwidth="30" zfawidth="58"><p><span style="font-family: arial; font-size: 11pt">D.</span></p></div></div></label><label class="abe-tt abe-defaultLabel undef-width" style="display: inline-block; width: 843px;" for="629219_R.D" aria-hidden="true" zfaminwidth="30" zfawidth="843"><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 841px;" aria-hidden="true" zfaminwidth="30" zfawidth="841"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 839px;" leafdatatype="text" zfaminwidth="30" zfawidth="839"><p><span style="font-family: arial; font-size: 11pt">40 seconds</span></p></div></div></label></div></div></div></div><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="0" zfawidth="959"></div></div></div><div class="abe-tt undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 963px;" zfaminwidth="138" zfawidth="963"><div class="abe-tt undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 961px;" zfaminwidth="138" zfawidth="961"><div class=" abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="138" zfawidth="959"><div class="abe-tt abe-inline undef-width abe-block-leading abe-input-container abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 48px;" leafdatatype="radio_button" zfaminwidth="48" zfawidth="48"><label class="abe-tt abe-displayAnswerKeyLabel" for="629219_R.E"></label><label class="abe-tt abe-parentLabel" style="display: inline-block"><input type="radio" name="response-629219_R" id="629219_R.E" value="E" role="radio" aria-labelledby="abe-accessible-629219_R.E"></label><label class="abe-tt abe-readerLabel" style="display: inline-block" id="abe-accessible-629219_R.E"><p class="abe-readerText"><p><span style="font-family: arial; font-size: 11pt">E.</span></p><p><span style="font-family: arial; font-size: 11pt">56 seconds</span></p></p></label></div><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 909px;" zfaminwidth="90" zfawidth="909"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 907px;" zfaminwidth="90" zfawidth="907"><div class="abe-tt undef-width abe-block-leading abe-noPadding horizontalParent Block" style="background-color: rgb(255, 255, 255); width: 905px;" zfaminwidth="90" zfawidth="905"><label class="abe-tt abe-defaultLabel fixed-width abe-noPadding" style="display: inline-block; width: 60px;" for="629219_R.E" aria-hidden="true" zfaminwidth="60" zfawidth="60"><div class="abe-tt abe-inline fixed-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 60px; overflow: auto;" aria-hidden="true" hasoverflowy="1" zfaminwidth="60" zfawidth="60"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 58px;" leafdatatype="text" zfaminwidth="30" zfawidth="58"><p><span style="font-family: arial; font-size: 11pt">E.</span></p></div></div></label><label class="abe-tt abe-defaultLabel undef-width" style="display: inline-block; width: 843px;" for="629219_R.E" aria-hidden="true" zfaminwidth="30" zfawidth="843"><div class="abe-tt abe-inline undef-width abe-block-leading Block abe-noPadding" style="background-color: rgb(255, 255, 255); width: 841px;" aria-hidden="true" zfaminwidth="30" zfawidth="841"><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 839px;" leafdatatype="text" zfaminwidth="30" zfawidth="839"><p><span style="font-family: arial; font-size: 11pt">56 seconds</span></p></div></div></label></div></div></div></div><div class="abe-tt undef-width abe-block-leading abe-noPadding Block" style="background-color: rgb(255, 255, 255); width: 959px;" zfaminwidth="0" zfawidth="959"></div></div></div></div></div></div></div></div>
+    </div>
+
+    <div id="abe-navigationbar" class="Primary" role="navigation">
+<div id="abe-navigation-help-finish" style="visibility: visible;">
+       <div class="abe-inline-button-left">
+           <button id="abe-HelpButton" class="rc-fonts-Normal" data-accesskey="H" aria-describedby="UserInterface.Buttons.Button.Help.accessibleDescription" style="display: none;"><span class="abe-accesskey">H</span>elp</button><div id="UserInterface.Buttons.Button.Help.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+       </div>
+       <div class="abe-inline-button-left abe-icon-left" style="padding-left: 5px;">
+           <button id="abe-EndExamButton" class="rc-fonts-Normal" data-accesskey="E" aria-describedby="UserInterface.Buttons.Button.EndExam.accessibleDescription" style="display: inline-block;" accesskey="E"><span class="abe-accesskey">E</span>nd Exam</button><div id="UserInterface.Buttons.Button.EndExam.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+       </div>
+       <div class="abe-inline-button-left abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-EndAgreementButton" class="rc-fonts-Normal" data-accesskey="E" style="display: none;"><span class="abe-accesskey">E</span>nd Agreement</button>
+       </div>
+       <div class="abe-inline-button-left abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-EndIntroductionButton" class="rc-fonts-Normal" data-accesskey="E" style="display: none;"><span class="abe-accesskey">E</span>nd Introduction</button>
+       </div>
+       <div class="abe-inline-button-left abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-EndTutorialButton" class="rc-fonts-Normal" data-accesskey="E" style="display: none;"><span class="abe-accesskey">E</span>nd Tutorial</button>
+       </div>
+    <div class="abe-inline-button-left abe-icon-left" style="padding-left: 0px;">
+        <button id="abe-EndExitButton" class="rc-fonts-Normal" data-accesskey="E" style="display: none;"><span class="abe-accesskey">E</span>nd</button>
+    </div>
+       <div class="abe-inline-button-left abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-EndModuleButton" class="rc-fonts-Normal" data-accesskey="E" style="display: none;"><span class="abe-accesskey">E</span>nd Module</button>
+       </div>
+       <div class="abe-inline-button-left abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-EndSurveyButton" class="rc-fonts-Normal" data-accesskey="E" style="display: none;"><span class="abe-accesskey">E</span>nd Survey</button>
+       </div>
+       <div class="abe-inline-button-left abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-ReviewScreenButton" class="rc-fonts-Normal" data-accesskey="S" aria-describedby="UserInterface.Buttons.Button.ReviewScreen.accessibleDescription" style="display: none;">Review <span class="abe-accesskey">S</span>creen</button><div id="UserInterface.Buttons.Button.ReviewScreen.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+       </div>
+       <div class="abe-inline-button-left abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-EndReviewButton" class="rc-fonts-Normal" data-accesskey="E" aria-describedby="UserInterface.Buttons.Button.EndReview.accessibleDescription" style="display: none;"><span class="abe-accesskey">E</span>nd Review</button><div id="UserInterface.Buttons.Button.EndReview.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+       </div>
+   </div>
+
+   <div id="abe-navigation-jump" style="visibility: visible;">
+    <div class="abe-inline-button-right abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-ReviewAllButton" class="rc-fonts-Normal" data-accesskey="A" aria-describedby="UserInterface.Buttons.Button.ReviewAll.accessibleDescription" style="display: none;">Review <span class="abe-accesskey">A</span>ll</button><div id="UserInterface.Buttons.Button.ReviewAll.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+    <div class="abe-inline-button-right abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-ReviewIncompleteButton" class="rc-fonts-Normal" data-accesskey="I" aria-describedby="UserInterface.Buttons.Button.ReviewIncomplete.accessibleDescription" style="display: none;">Review <span class="abe-accesskey">I</span>ncomplete</button><div id="UserInterface.Buttons.Button.ReviewIncomplete.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+    <div class="abe-inline-button-right abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-ReviewIncorrectButton" class="rc-fonts-Normal" data-accesskey="I" aria-describedby="UserInterface.Buttons.Button.ReviewIncorrect.accessibleDescription" style="display: none;">Review <span class="abe-accesskey">I</span>ncorrect</button><div id="UserInterface.Buttons.Button.ReviewIncorrect.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+       </div>
+    <div class="abe-inline-button-right abe-icon-left" style="padding-left: 0px;">
+           <button id="abe-ReviewFlaggedButton" class="rc-fonts-Normal" data-accesskey="V" aria-describedby="UserInterface.Buttons.Button.ReviewFlagged.accessibleDescription" style="display: none;">Re<span class="abe-accesskey">v</span>iew Flagged</button><div id="UserInterface.Buttons.Button.ReviewFlagged.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+       <div class="abe-inline-button-right abe-icon-left" style="padding-left: 5px;">
+           <button id="abe-PreviousButton" class="rc-fonts-Normal" data-accesskey="P" left="" aria-describedby="UserInterface.Buttons.Button.Previous.accessibleDescription" style="" accesskey="P"><span class="abe-accesskey">P</span>revious</button><div id="UserInterface.Buttons.Button.Previous.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+    <div class="abe-inline-button-right">
+           <button id="abe-NavigatorButton" class="rc-fonts-Normal" data-accesskey="V" aria-describedby="UserInterface.Buttons.Button.Navigator.accessibleDescription" style="" accesskey="V">Na<span class="abe-accesskey">v</span>igator</button><div id="UserInterface.Buttons.Button.Navigator.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+    <div class="abe-inline-button-right abe-icon-right">
+           <button id="abe-NextButton" class="rc-fonts-Normal" data-accesskey="N" aria-describedby="UserInterface.Buttons.Button.Next.accessibleDescription" style="display: inline-block;" accesskey="N"><span class="abe-accesskey">N</span>ext</button><div id="UserInterface.Buttons.Button.Next.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+    <div class="abe-inline-button-right abe-icon-right">
+        <button id="abe-ContinueExamButton" class="rc-fonts-Normal" data-accesskey="C" aria-describedby="UserInterface.Buttons.Button.ContinueExam.accessibleDescription" style="display: none;"><span class="abe-accesskey">C</span>ontinue Exam</button><div id="UserInterface.Buttons.Button.ContinueExam.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+    <div class="abe-inline-button-right abe-icon-right">
+           <button id="abe-BeginBreakButton" class="rc-fonts-Normal" data-accesskey="B" aria-describedby="UserInterface.Buttons.Button.BeginBreak.accessibleDescription" style="display: none;"><span class="abe-accesskey">B</span>egin Break</button><div id="UserInterface.Buttons.Button.BeginBreak.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+    <div class="abe-inline-button-right abe-icon-left" style="padding-left: 0px;">
+    <button id="abe-EndBreakButton" class="rc-fonts-Normal" data-accesskey="E" aria-describedby="UserInterface.Buttons.Button.EndBreak.accessibleDescription" style="display: none;"><span class="abe-accesskey">E</span>nd Break</button><div id="UserInterface.Buttons.Button.EndBreak.accessibleDescription" class="abe-accessibility-hidden" aria-hidden="true">Use Space to activate.</div>
+    </div>
+   </div>
+</div>
+
+    <script type="text/javascript" src="/st1/driver/resources/ticalc/TI-84P/js/ti84p-min.js"></script>
+    <script type="text/javascript" src="/st1/driver/resources/ticalc/TI-108/js/ti108-min.js"></script>
+    <script type="text/javascript" src="/st1/driver/resources/ticalc/TI-30MV/js/ti30mv-min.js"></script>
+       
+
+        <script type="text/javascript" src="/st1/driver/resources/bower/jquery/dist/jquery.min.js?v=1.2602.1.316"></script>
+        <script type="text/javascript" src="/st1/driver/resources/jquery-ui-1.13.3.custom/jquery-ui.min.js?v=1.2602.1.316"></script>
+
+        <script type="text/javascript" src="/st1/driver/resources/js/console.js?v=1.2602.1.316"></script>
+
+
+        <script type="text/javascript" src="/st1/driver/resources/js/externs/clientProxy.js?v=1.2602.1.316"></script>
+
+        <script type="text/javascript" src="/st1/driver/resources/js/minimized.js?v=1.2602.1.316"></script>
+
+        <script type="text/javascript" src="/st1/driver/resources/bower/jquery.layout/dist/jquery.layout_and_plugins.min.js?v=1.2602.1.316"></script>
+        <script type="text/javascript" src="/st1/driver/resources/bower/jquery.layout/dist/jquery.layout_customresizer.min.js?v=1.2602.1.316"></script>
+        <script type="text/javascript" src="/st1/driver/resources/bower/waitForImages/dist/jquery.waitforimages.min.js?v=1.2602.1.316">
+        </script>
+        <script type="text/javascript" src="/st1/driver/resources/tinymce_7.7.0/tinymce/js/tinymce/tinymce.min.js?v=1.2602.1.316">
+        </script>
+
+        <script type="text/javascript" src="/st1/driver/resources/bower/offline/offline.min.js?v=1.2602.1.316">
+        </script>
+
+        <script type="text/javascript" src="/st1/driver/resources/bower/lodash/dist/lodash.min.js?v=1.2602.1.316">
+        </script>
+
+    
+    <script id="offline-handler" type="text/javascript" src="/st1/driver/resources/js/widget/offline-handler.js?v=1.2602.1.316"></script>
+
+
+    <script type="text/javascript">
+        var contextPath = "/st1/driver";
+        var examLanguage = "ENG";
+        var rcImageFileNames = [];
+        var accommodationCodes = {};
+
+
+        var whitelistUrls = [ "", "review-websockets.certsite.net", "js-agent.newrelic.com", "bam.nr-data.net", "bam-cell.nr-data.net", "wss://review-websockets.certsite.net", "abe-prd-1.pearsonvue.com", "https://www.ucat.edu.au/ucat-anz/practice-tests/practice-tests-and-question-banks/error", "https://www.ucat.edu.au/ucat-anz/practice-tests/practice-tests-and-question-banks/complete",]
+
+        $(function () {
+            // Perform the following when the document is ready
+            $(document).ready(function () {
+                // Bootstrap angular when the exam transition happens. m$ is reloaded when a new event is loaded, losing its AngularJS parameters.
+                // This is a hack to rebootstrap angular instead of entire page reload.
+                // Initialize m$ function, done only once when the delivery frame page is loaded.
+                m$.serverChallenge = null;
+                m$.serverChallengeResponse = null;
+                m$.errorUrl = "https://www.ucat.edu.au/ucat-anz/practice-tests/practice-tests-and-question-banks/error";
+                // Store in sessionStorage so that it's accessible in attemptResume.jsp
+                sessionStorage.setItem("errorUrl", "https://www.ucat.edu.au/ucat-anz/practice-tests/practice-tests-and-question-banks/error");
+                m$.spellcheckServiceUrl = "https://abe-prd-1.pearsonvue.com/st1/spellcheck";
+                m$.spellcheckServiceApiKey = "9e114895a972407fada13af3de2f5a18";
+
+                m$.isSpellcheckFeatureEnabled = true;
+                m$.tinymce_licenseKey = 'T7LKDB848F26B4F2DB4EE81FAEEB275606DBAFC758CC9348F1ECBCBAF8E14387';
+
+                // Check if it is Sample Test, if it is, do not call accommodations handler
+                
+
+                m$.init("28894390", "df0da734-fda7-43b3-8676-91d3f30f6a34", "1163634QB_QRENG939607264406", "171b0a5b-6f25-4571-bbd3-3f1c259efaf4").displayContent();
+                m$.initHeartbeat(63000, 0);
+                ;
+                ;
+                ;
+
+;
+                background_tasks$.setupJavaScriptMetrics(600000);
+
+            });
+        });
+    </script>
+
+
+<div class="offline-ui offline-ui-up"><div class="offline-ui-content"></div><a href="" class="offline-ui-retry" tabindex="-1"></a></div><div class="abe-accessibility-hidden" aria-hidden="true"><div id="abe-accessibility-global">[object Object][object Object][object Object][object Object]</div><div id="abe-accessibility-hidden-local"></div></div></body></html>

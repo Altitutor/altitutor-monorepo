@@ -2,7 +2,7 @@
 
 import React, { useMemo } from 'react'
 import type { Json } from '@altitutor/shared'
-import type { Resolver } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Button } from '@altitutor/ui'
@@ -46,7 +46,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
     tagsQuery.isLoading ||
     detailQuery.isLoading
 
-  const sections = sectionsQuery.data ?? []
+  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = categoriesQuery.data ?? []
   const tags = tagsQuery.data ?? []
 
@@ -98,8 +98,13 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
     }
   }, [initial, sections])
 
-  const form = useForm<UcatQuestionStemFormValues>({
-    resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
+  const createForm = useForm as unknown as (props: {
+    resolver: unknown
+    defaultValues: UcatQuestionStemFormValues
+  }) => UseFormReturn<UcatQuestionStemFormValues>
+
+  const form = createForm({
+    resolver: zodResolver(ucatQuestionStemSchema),
     defaultValues,
   })
   async function onSubmit(values: UcatQuestionStemFormValues) {

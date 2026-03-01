@@ -37,7 +37,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const updateSet = useUpdateUcatSet()
 
   const stemCatalogQuery = useUcatStemCatalog(true)
-  const stemCatalog = stemCatalogQuery.data ?? []
+  const stemCatalog = useMemo(() => stemCatalogQuery.data ?? [], [stemCatalogQuery.data])
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
@@ -133,47 +133,6 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       base[3],
     ]
   }, [sectionsQuery.data, categoriesQuery.data])
-
-  const filteredCatalog = useMemo(() => {
-    const searchTrimmed = search.trim().toLowerCase()
-    const sectionFilterRaw = (filters.section_id?.[0] as unknown) ?? ''
-    const categoryFilter = (filters.question_stem_category_id?.[0] as string | undefined) || ''
-    const visibilityFilter = (filters.visibility?.[0] as string | undefined) || ''
-    const questionTypeFilter = (filters.question_type?.[0] as string | undefined) || ''
-
-    return stemCatalog.filter((stem) => {
-      if (draftStemIds.includes(stem.id)) return false
-
-      const searchHit =
-        !searchTrimmed ||
-        stem.text.toLowerCase().includes(searchTrimmed) ||
-        stem.sectionName.toLowerCase().includes(searchTrimmed) ||
-        (stem.categoryName ?? '').toLowerCase().includes(searchTrimmed)
-
-      if (!searchHit) return false
-
-      // Section filter: compare by section number to match the options above
-      if (sectionFilterRaw !== '' && sectionFilterRaw != null) {
-        const sectionFilterNumber = Number(sectionFilterRaw)
-        if (Number.isFinite(sectionFilterNumber) && stem.sectionNumber !== sectionFilterNumber) {
-          return false
-        }
-      }
-      if (categoryFilter && stem.categoryId !== categoryFilter) return false
-
-      if (visibilityFilter === 'public' && stem.isPrivate) return false
-      if (visibilityFilter === 'private' && !stem.isPrivate) return false
-
-      if (
-        questionTypeFilter &&
-        !stem.questionTypes.includes(questionTypeFilter as 'multiple_choice' | 'syllogism')
-      ) {
-        return false
-      }
-
-      return true
-    })
-  }, [stemCatalog, draftStemIds, search, filters])
 
   async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return

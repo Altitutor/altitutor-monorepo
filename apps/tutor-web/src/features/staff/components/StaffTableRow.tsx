@@ -29,10 +29,10 @@ export const StaffTableRow = memo(function StaffTableRow({
       onClick={handleClick}
     >
       <TableCell>
-        <StaffStatusBadge value={staff.status as any} />
+        <StaffStatusBadge value={staff.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | null} />
       </TableCell>
       <TableCell>
-        <StaffRoleBadge value={staff.role as any} />
+        <StaffRoleBadge value={staff.role as 'ADMIN' | 'TUTOR' | 'ADMINSTAFF' | null} />
       </TableCell>
       <TableCell className="font-medium">
         {staff.first_name || '-'}

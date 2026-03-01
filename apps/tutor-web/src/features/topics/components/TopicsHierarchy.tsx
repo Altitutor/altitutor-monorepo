@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { ChevronRight, ChevronDown, Plus } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Enums, Tables } from '@altitutor/shared';
 import { useTopicFilesByTopic } from '../hooks';
 import { buildTopicTree, type TopicTree } from '../utils/codes';
 import { FileCard } from './FileCard';
@@ -113,7 +113,7 @@ export function TopicNode({
           {/* Topic Files */}
           {topicFiles.length > 0 && (
             <div className="space-y-2 mb-2">
-              {topicFiles.map((tf: any) => {
+              {topicFiles.map((tf: { id: string; code?: string | null; type: string; file?: { filename?: string; storage_path?: string; mimetype?: string } | null }) => {
                 const fileCode = tf.code || '';
                 // Get the full topic record to access subject_id
                 const fullTopic = allTopics.find(t => t.id === topic.id);
@@ -121,7 +121,7 @@ export function TopicNode({
                   <FileCard
                     key={tf.id}
                     fileCode={fileCode}
-                    fileType={tf.type}
+                    fileType={tf.type as Enums<'resource_type'>}
                     filename={tf.file?.filename || 'Unknown file'}
                     storagePath={tf.file?.storage_path || ''}
                     mimeType={tf.file?.mimetype}

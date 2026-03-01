@@ -59,10 +59,11 @@ export const ucatClassesApi = {
     if (setIds.length > 0) {
       const { data: setsData } = await supabase
         .from('vtutor_ucat_question_sets')
-        .select('id, name, sections, question_count')
+        .select('id, name, sections, question_count, deleted_at')
         .in('id', setIds)
       for (const row of setsData ?? []) {
-        const r = row as { id: string; name: unknown; sections: unknown; question_count: number }
+        const r = row as { id: string; name: unknown; sections: unknown; question_count: number; deleted_at?: string | null }
+        if (r.deleted_at != null) continue
         if (r.id) setsMap[r.id] = { name: r.name, sections: r.sections, question_count: r.question_count ?? 0 }
       }
     }
@@ -70,10 +71,11 @@ export const ucatClassesApi = {
     if (mockIds.length > 0) {
       const { data: mocksData } = await supabase
         .from('vtutor_ucat_mock_detail')
-        .select('id, name, sets')
+        .select('id, name, sets, deleted_at')
         .in('id', mockIds)
       for (const row of mocksData ?? []) {
-        const r = row as { id: string; name: string | null; sets: unknown }
+        const r = row as { id: string; name: string | null; sets: unknown; deleted_at?: string | null }
+        if (r.deleted_at != null) continue
         if (r.id) mocksMap[r.id] = { name: r.name, sets: r.sets }
       }
     }

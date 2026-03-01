@@ -7,6 +7,7 @@ import { Checkbox } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import { Loader2, Pencil, X } from "lucide-react";
+import type { Resolver } from "react-hook-form";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -75,7 +76,7 @@ export function StaffDetailsTab({
   addSubjectButton
 }: StaffDetailsTabProps) {
   const form = useForm<FormData>({
-    resolver: zodResolver(formSchema) as any, // Type mismatch between react-hook-form versions
+    resolver: zodResolver(formSchema) as Resolver<FormData>,
     defaultValues: {
       firstName: staffMember.first_name || '',
       lastName: staffMember.last_name || '',
@@ -101,7 +102,7 @@ export function StaffDetailsTab({
     <>
       {/* Edit Mode with Sticky Footer */}
       <div className="flex-1 overflow-y-auto px-1">
-        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit as any)} className="space-y-6 pb-6">
+        <form id="staff-edit-form" onSubmit={form.handleSubmit(onSubmit as (data: FormData) => void)} className="space-y-6 pb-6">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>

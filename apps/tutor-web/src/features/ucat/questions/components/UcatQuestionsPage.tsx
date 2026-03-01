@@ -1,9 +1,41 @@
 'use client'
 
 import React, { useMemo, useState } from 'react'
-import { useQueries } from '@tanstack/react-query'
+import { useQueryClient, useQueries } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { Button, DataTableToolbar, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TablePagination } from '@altitutor/ui'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  Checkbox,
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  DataTableToolbar,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  TablePagination,
+} from '@altitutor/ui'
 import { ChevronDown, ChevronRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import {
   useBulkImportUcatQuestionStems,
@@ -18,14 +50,16 @@ import {
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { BulkImportQuestionStemsModal } from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -33,6 +67,7 @@ import type { CategoryOption, TagOption } from '@/features/ucat/questions/compon
 import { applyBooleanTextFilter, applySingleSelectFilter, applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { cn } from '@/shared/utils'
 
 function truncate(text: string, maxLen: number): string {
@@ -104,6 +139,20 @@ export function UcatQuestionsPage() {
   const [showDeleted, setShowDeleted] = useState(false)
   const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
   const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<Set<string>>(new Set())
+  const [selectedStemIds, setSelectedStemIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false)
+  const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
+  const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
+  const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
+  const [bulkSetsOpen, setBulkSetsOpen] = useState(false)
+  const [bulkSetIds, setBulkSetIds] = useState<string[]>([])
+  const [addToSetsPopoverOpen, setAddToSetsPopoverOpen] = useState(false)
+  const [bulkCategoryPending, setBulkCategoryPending] = useState(false)
+  const [bulkVisibilityPending, setBulkVisibilityPending] = useState(false)
+  const [bulkSetsPending, setBulkSetsPending] = useState(false)
+  const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const selectionMode = selectedStemIds.size > 0
 
   const stemTypesQuery = useUcatQuestionStemTypes()
   const stemTypes = stemTypesQuery.data ?? {}
@@ -130,7 +179,13 @@ export function UcatQuestionsPage() {
   const sections = useUcatSections()
   const categories = useUcatCategories()
   const tags = useUcatTags()
+  const queryClient = useQueryClient()
+  const setsQuery = useUcatSets()
+  const updateSetMutation = useUpdateUcatSet()
   const detail = useUcatQuestionDetail(editingStemId)
+  const setsList = (setsQuery.data ?? []).filter(
+    (s) => !(s as { deleted_at?: string | null }).deleted_at
+  )
 
   const createMutation = useCreateUcatQuestionStem()
   const updateMutation = useUpdateUcatQuestionStem()
@@ -235,7 +290,61 @@ export function UcatQuestionsPage() {
 
   const showTypeCol = tableState.state.visibleColumns.includes('type_summary')
   const showSetsCol = tableState.state.visibleColumns.includes('sets')
-  const colCount = 7 + (showTypeCol ? 1 : 0) + (showSetsCol ? 1 : 0) // expand, section, category, stem, questions, [sets], visibility, [type], actions
+  const colCount = 8 + (showTypeCol ? 1 : 0) + (showSetsCol ? 1 : 0) // checkbox, expand, section, category, stem, questions, [sets], visibility, [type], actions
+
+  const allVisibleSelected = paginatedRows.length > 0 && paginatedRows.every((r) => selectedStemIds.has(r.id))
+  const someVisibleSelected = paginatedRows.some((r) => selectedStemIds.has(r.id))
+
+  function toggleStemSelection(id: string) {
+    setSelectedStemIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedStemIds((prev) => {
+        const next = new Set(prev)
+        paginatedRows.forEach((r) => next.delete(r.id))
+        return next
+      })
+    } else {
+      setSelectedStemIds((prev) => new Set([...prev, ...paginatedRows.map((r) => r.id)]))
+    }
+  }
+
+  function stemDetailToBundlePayload(
+    detail: StemDetailRow,
+    overrides: { categoryId?: string | null; isPrivate?: boolean }
+  ): UcatQuestionStemBundlePayload {
+    const EMPTY_DOC = plainTextToProseMirror('')
+    const questions: UcatQuestionStemBundlePayload['questions'] = (detail.questions ?? []).map((q) => ({
+      index: q.index,
+      questionText: (q.question_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
+      questionType: q.question_type,
+      answerExplanation: (q.answer_explanation ?? null) as import('@altitutor/shared').Json | null,
+      difficulty: q.difficulty,
+      timeBurdenSeconds: q.time_burden_seconds ?? null,
+      tagIds: (q.tags ?? []).map((t) => t.id),
+      options: (q.answer_options ?? []).map((opt, i) => ({
+        index: i + 1,
+        answerText: (opt.answer_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
+        answerExplanation: (opt.answer_explanation ?? null) as import('@altitutor/shared').Json | null,
+        isAnswer: opt.is_answer,
+        imageFileId: opt.image_file_id ?? null,
+      })),
+    }))
+    return {
+      sectionId: detail.section_id,
+      categoryId: overrides.categoryId ?? detail.question_stem_category_id ?? null,
+      stemText: (detail.stem_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
+      isPrivate: overrides.isPrivate ?? detail.is_private,
+      questions,
+    }
+  }
 
   function mapFormValuesToBundlePayload(
     payload: UcatQuestionStemFormValues,
@@ -286,6 +395,82 @@ export function UcatQuestionsPage() {
     const stemsPayload = args.stems.map((form) => mapFormValuesToBundlePayload(form))
     await bulkImportMutation.mutateAsync({ sectionId: args.sectionId, stems: stemsPayload })
     setBulkImportOpen(false)
+  }
+
+  async function handleBulkCategoryConfirm() {
+    if (bulkCategoryId == null) return
+    setBulkCategoryPending(true)
+    try {
+      await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), { categoryId: bulkCategoryId })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      setBulkCategoryOpen(false)
+      setBulkCategoryId(null)
+      setSelectedStemIds(new Set())
+    } finally {
+      setBulkCategoryPending(false)
+    }
+  }
+
+  async function handleBulkVisibilityConfirm() {
+    if (bulkVisibilityPrivate == null) return
+    setBulkVisibilityPending(true)
+    try {
+      await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), { isPrivate: bulkVisibilityPrivate })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      setBulkVisibilityOpen(false)
+      setBulkVisibilityPrivate(null)
+      setSelectedStemIds(new Set())
+    } finally {
+      setBulkVisibilityPending(false)
+    }
+  }
+
+  async function handleBulkSetsConfirm() {
+    if (bulkSetIds.length === 0) return
+    setBulkSetsPending(true)
+    try {
+      const stemIds = Array.from(selectedStemIds)
+      await Promise.all(
+        bulkSetIds.map(async (setId) => {
+          const setDetail = await ucatSetsApi.detail(setId)
+          if (!setDetail) return
+          const stems = (setDetail.stems as Array<{ stem_id: string }> | null) ?? []
+          const currentIds = stems.map((s) => s.stem_id)
+          const newStemIds = Array.from(new Set([...currentIds, ...stemIds]))
+          await updateSetMutation.mutateAsync({
+            setId,
+            payload: {
+              name: setDetail.name ?? plainTextToProseMirror(''),
+              description: proseMirrorToPlainText(setDetail.description ?? null) ?? '',
+              timeLimitSeconds: setDetail.time_limit_seconds ?? null,
+              isPrivate: !!setDetail.is_private,
+              isStudentGenerated: !!(setDetail as { is_student_generated?: boolean }).is_student_generated,
+              stemIds: newStemIds,
+            },
+          })
+        })
+      )
+      setBulkSetsOpen(false)
+      setBulkSetIds([])
+      setSelectedStemIds(new Set())
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+    } finally {
+      setBulkSetsPending(false)
+    }
+  }
+
+  async function handleBulkDeleteConfirm() {
+    const ids = Array.from(selectedStemIds)
+    setBulkDeletePending(true)
+    try {
+      await ucatQuestionsApi.bulkRemove(ids)
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      setBulkDeleteOpen(false)
+      setSelectedStemIds(new Set())
+    } finally {
+      setBulkDeletePending(false)
+    }
   }
 
   if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading) return <UcatPageSkeleton rows={8} />
@@ -359,11 +544,18 @@ export function UcatQuestionsPage() {
         onClearShowDeleted={() => setShowDeleted(false)}
       />
 
-      <div className="pt-3">
+      <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <div className="rounded-md border">
         <Table className="w-full table-fixed">
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>
+                <Checkbox
+                  checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
+                  onCheckedChange={toggleSelectAllVisible}
+                  aria-label="Select all visible rows"
+                />
+              </TableHead>
               <TableHead className="w-12" />
               <TableHead>Section</TableHead>
               <TableHead>Category</TableHead>
@@ -382,7 +574,20 @@ export function UcatQuestionsPage() {
               const hasQuestions = (row.question_count ?? 0) > 0
               return (
                 <React.Fragment key={row.id}>
-                  <TableRow className={cn(row.deleted_at && 'bg-destructive/10')}>
+                  <TableRow
+                    className={cn(
+                      row.deleted_at && 'bg-destructive/10',
+                      selectedStemIds.has(row.id) && 'bg-muted/50'
+                    )}
+                    onClick={() => selectionMode && toggleStemSelection(row.id)}
+                  >
+                    <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedStemIds.has(row.id)}
+                        onCheckedChange={() => toggleStemSelection(row.id)}
+                        aria-label={`Select ${row.id}`}
+                      />
+                    </TableCell>
                     <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
                       {hasQuestions ? (
                         <button
@@ -411,7 +616,7 @@ export function UcatQuestionsPage() {
                     )}
                     <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
                     {showTypeCol && <TableCell>{row.type_summary}</TableCell>}
-                    <TableCell className="w-16 shrink-0">
+                    <TableCell className="w-16 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end">
                         <UcatRowActions
                           actions={[
@@ -539,6 +744,158 @@ export function UcatQuestionsPage() {
           className="pt-3"
         />
       </div>
+
+      <UcatSelectionToolbar
+        selectedCount={selectedStemIds.size}
+        onCancel={() => setSelectedStemIds(new Set())}
+        onDelete={() => setBulkDeleteOpen(true)}
+        deletePending={deleteMutation.isPending}
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              Category
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top" className="max-h-[300px] overflow-y-auto">
+            {(categories.data ?? []).map((c) => (
+              <DropdownMenuItem
+                key={c.id ?? ''}
+                onClick={() => {
+                  setBulkCategoryId(c.id ?? null)
+                  setBulkCategoryOpen(true)
+                }}
+              >
+                {c.name ?? 'Untitled'}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              Visibility
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top">
+            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(false); setBulkVisibilityOpen(true) }}>
+              Public
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(true); setBulkVisibilityOpen(true) }}>
+              Private
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+        <Popover open={addToSetsPopoverOpen} onOpenChange={setAddToSetsPopoverOpen}>
+          <PopoverTrigger
+            type="button"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          >
+            Add to sets
+          </PopoverTrigger>
+          <PopoverContent className="w-[280px] p-0" align="start" side="top">
+            <Command>
+              <CommandInput placeholder="Search sets..." />
+              <CommandList>
+                <CommandEmpty>No sets found.</CommandEmpty>
+                <CommandGroup>
+                  {setsList.map((set) => {
+                    const setId = set.id ?? ''
+                    const isSelected = bulkSetIds.includes(setId)
+                    return (
+                      <CommandItem
+                        key={setId}
+                        value={`${setId}-${proseMirrorToPlainText(set.name ?? null)}`}
+                        onSelect={() => {
+                          setBulkSetIds((prev) =>
+                            isSelected ? prev.filter((id) => id !== setId) : [...prev, setId]
+                          )
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="flex items-center gap-2 cursor-pointer"
+                      >
+                        <Checkbox checked={isSelected} />
+                        <span>{proseMirrorToPlainText(set.name ?? null) || 'Untitled'}</span>
+                      </CommandItem>
+                    )
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+            <div className="border-t p-2">
+              <Button
+                type="button"
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  setAddToSetsPopoverOpen(false)
+                  setBulkSetsOpen(true)
+                }}
+                disabled={bulkSetIds.length === 0}
+              >
+                Add to {bulkSetIds.length} set(s)
+              </Button>
+            </div>
+          </PopoverContent>
+        </Popover>
+      </UcatSelectionToolbar>
+
+      <AlertDialog open={bulkCategoryOpen} onOpenChange={setBulkCategoryOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set category for {selectedStemIds.size} stem(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Category will be set to &quot;{(categories.data ?? []).find((c) => c.id === bulkCategoryId)?.name ?? ''}&quot; for all selected stems.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkCategoryPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkCategoryConfirm()} disabled={bulkCategoryPending}>
+              {bulkCategoryPending ? 'Updating...' : 'Yes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={bulkVisibilityOpen} onOpenChange={setBulkVisibilityOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set visibility for {selectedStemIds.size} stem(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Visibility will be set to {bulkVisibilityPrivate ? 'Private' : 'Public'} for all selected stems.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkVisibilityPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkVisibilityConfirm()} disabled={bulkVisibilityPending}>
+              {bulkVisibilityPending ? 'Updating...' : 'Yes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={bulkSetsOpen} onOpenChange={setBulkSetsOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Add stems to sets?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Add {selectedStemIds.size} selected stem(s) to {bulkSetIds.length} set(s)?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={bulkSetsPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkSetsConfirm()} disabled={bulkSetsPending}>
+              {bulkSetsPending ? 'Updating...' : 'Yes'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <UcatDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => !open && setBulkDeleteOpen(false)}
+        title={`Delete ${selectedStemIds.size} question stem(s)?`}
+        description="The selected stems will be hidden from students. You can restore them later from the deleted list."
+        onConfirm={handleBulkDeleteConfirm}
+        isPending={bulkDeletePending}
+      />
 
       <UcatQuestionStemDialog
         open={createOpen}

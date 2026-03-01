@@ -28,14 +28,13 @@ import {
   Tabs,
   TabsList,
   TabsTrigger,
-  Textarea,
   useToast,
 } from '@altitutor/ui'
 import { ExternalLink, Trash2 } from 'lucide-react'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
+import { secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
@@ -88,7 +87,7 @@ export function UcatQuestionStemDialog({
   loading?: boolean
   onDelete?: () => void
 }) {
-  const { toast } = useToast()
+  useToast()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {

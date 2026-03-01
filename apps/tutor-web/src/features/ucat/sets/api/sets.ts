@@ -57,6 +57,27 @@ export const ucatSetsApi = {
     }
   },
 
+  async bulkRemove(setIds: string[]) {
+    const response = await fetch('/api/ucat/question-sets/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ setIds }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to bulk delete sets')
+    }
+    return response.json() as Promise<{ ok: true }>
+  },
+
+  async restore(setId: string) {
+    const response = await fetch(`/api/ucat/question-sets/${setId}/restore`, { method: 'POST' })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to restore set')
+    }
+  },
+
   async assignSessions(setId: string, sessionIds: string[]) {
     const response = await fetch(`/api/ucat/question-sets/${setId}/sessions`, {
       method: 'PUT',

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
-import type { TablesInsert } from '@altitutor/shared';
+import type { Tables, TablesInsert } from '@altitutor/shared';
 
 /**
  * POST /api/topics
@@ -116,11 +116,12 @@ export async function POST(request: NextRequest) {
     
     // Calculate next index
     const parentId = body.parent_id === 'none' ? null : (body.parent_id || null);
-    const siblingsData = (existing || []).filter((t: any) => 
+    type TopicRow = Tables<'topics'>;
+    const siblingsData = (existing || []).filter((t: TopicRow) =>
       (t.parent_id === parentId || (t.parent_id === null && parentId === null))
     );
     const maxIndex = siblingsData.length > 0
-      ? Math.max(...siblingsData.map((t: any) => t.index))
+      ? Math.max(...siblingsData.map((t: TopicRow) => t.index))
       : 0;
     const index = maxIndex + 1;
     

@@ -1,13 +1,13 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { Button } from '@altitutor/ui'
+import { useMemo, useState } from 'react'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export type SetOption = {
   id: string
@@ -33,7 +33,7 @@ export function UcatMockEditorDialog({
   open,
   mockId,
   onClose,
-  onEditSet,
+  onEditSet: _onEditSet,
   onDelete,
 }: {
   open: boolean
@@ -46,7 +46,6 @@ export function UcatMockEditorDialog({
   const [search, setSearch] = useState('')
 
   const {
-    detail,
     name,
     isPrivate,
     draftSetIds,

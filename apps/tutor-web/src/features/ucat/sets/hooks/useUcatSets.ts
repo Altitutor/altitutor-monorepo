@@ -42,3 +42,11 @@ export function useDeleteUcatSet() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.sets() }),
   })
 }
+
+export function useRestoreUcatSet() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (setId: string) => ucatSetsApi.restore(setId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.sets() }),
+  })
+}

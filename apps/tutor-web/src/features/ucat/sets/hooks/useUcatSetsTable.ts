@@ -1,6 +1,5 @@
 import { useMemo } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
-import type { DataTableSortOption } from '@altitutor/shared'
 import {
   applyBooleanTextFilter,
   applyRangeFilter,
@@ -10,6 +9,7 @@ import {
   useVisibleColumns,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
+import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 type SetRow = {
@@ -31,7 +31,20 @@ type UseUcatSetsTableParams<T> = {
   defaultFilters: Record<string, unknown[]>
 }
 
-export function useUcatSetsTable<T extends { [key: string]: any }>({
+type SetRowInput = {
+  id?: string | null
+  name?: unknown
+  time_limit_seconds?: number | null
+  is_private?: boolean | null
+  is_student_generated?: boolean | null
+  created_by_first_name?: string | null
+  created_by_last_name?: string | null
+  stem_count?: number | null
+  question_count?: number | null
+  deleted_at?: string | null
+}
+
+export function useUcatSetsTable<T extends SetRowInput>({
   data,
   showDeleted,
   defaultFilters,
@@ -57,15 +70,15 @@ export function useUcatSetsTable<T extends { [key: string]: any }>({
       (data ?? []).map((row) => {
         const r = row as T & { stem_count?: number; question_count?: number; deleted_at?: string | null }
         return {
-          id: (row as any).id ?? '',
-          name: proseMirrorToPlainText((row as any).name ?? null) || '—',
-          time_limit_seconds: (row as any).time_limit_seconds,
-          is_private: !!(row as any).is_private,
-          is_student_generated: !!(row as any).is_student_generated,
+          id: row.id ?? '',
+          name: proseMirrorToPlainText((row.name ?? null) as Json | null) || '—',
+          time_limit_seconds: row.time_limit_seconds ?? null,
+          is_private: !!row.is_private,
+          is_student_generated: !!row.is_student_generated,
           stem_count: r.stem_count ?? 0,
           question_count: r.question_count ?? 0,
-          created_by_first_name: (row as any).created_by_first_name ?? null,
-          created_by_last_name: (row as any).created_by_last_name ?? null,
+          created_by_first_name: row.created_by_first_name ?? null,
+          created_by_last_name: row.created_by_last_name ?? null,
           deleted_at: r.deleted_at ?? null,
         }
       }),
@@ -91,15 +104,6 @@ export function useUcatSetsTable<T extends { [key: string]: any }>({
       return searchHit && visibilityHit && originHit && timeLimitHit && stemCountHit && questionCountHit
     })
   }, [rows, showDeleted, tableState.state])
-
-  const sortOptions: DataTableSortOption[] = [
-    { key: 'name', label: 'Name' },
-    { key: 'time_limit_seconds', label: 'Time Limit' },
-    { key: 'stem_count', label: 'Question stems' },
-    { key: 'question_count', label: 'Questions' },
-    { key: 'visibility', label: 'Visibility' },
-    { key: 'created_by', label: 'Created by' },
-  ]
 
   const sortedRows = useMemo(
     () =>

@@ -8,6 +8,7 @@ import {
 } from '@altitutor/ui'
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model'
 import { TextSelection } from '@tiptap/pm/state'
+import type { Editor } from '@tiptap/react'
 import type { SetImageOptions } from '@tiptap/extension-image'
 import { uploadUcatImage } from '@/features/ucat/shared/ucatImages'
 
@@ -59,87 +60,13 @@ export function UcatRichTextEditor({
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
 
-  const handleDrop = useCallback(
-    async (event: React.DragEvent<HTMLDivElement>) => {
-      if (!editable) return
-
-      // If images are disabled for this editor, let the event bubble through.
-      if (enableImages === false) {
-        return
-      }
-
-      event.preventDefault()
-      event.stopPropagation()
-
-      const native = event.nativeEvent
-      const dataTransfer = native.dataTransfer
-      if (!dataTransfer || !dataTransfer.files || dataTransfer.files.length === 0) return
-
-      const files: File[] = Array.from(dataTransfer.files).filter((file) =>
-        file.type.startsWith('image/')
-      )
-
-      if (files.length === 0) return
-
-      const editor = editorRef.current?.getEditor()
-      if (!editor) return
-
+  /** Shared logic: insert placeholders, upload, replace (or remove on error) at a given position. */
+  const processImagesAtPosition = useCallback(
+    async (editor: Editor, files: File[], insertPos: number) => {
       const collectedFileIds: string[] = []
-
-      // Compute a base insertion position that snaps to the nearest paragraph
-      // boundary relative to the drop coordinates.
-      const view = editor.view
-      const state = view.state
-      let insertPos = state.selection.from
-      const coords = view.posAtCoords({
-        left: event.clientX,
-        top: event.clientY,
-      })
-
-      if (coords) {
-        const doc = state.doc
-        let $pos = doc.resolve(coords.pos)
-
-        // Special handling when the position resolves at the top-level doc
-        // between block nodes (common when dropping in the gap between
-        // paragraphs). In that case, snap to the nearest block boundary,
-        // not to the very start/end of the whole document.
-        if ($pos.parent === doc) {
-          const before = doc.childBefore(coords.pos)
-          const after = doc.childAfter(coords.pos)
-
-          if (!before.node && after.node) {
-            // At the very top: snap before the first block
-            insertPos = after.offset
-          } else if (before.node && !after.node) {
-            // At the very bottom: snap after the last block
-            insertPos = before.offset + before.node.nodeSize
-          } else if (before.node && after.node) {
-            const beforeEnd = before.offset + before.node.nodeSize
-            const distToBefore = coords.pos - beforeEnd
-            const distToAfter = after.offset - coords.pos
-            // Snap to whichever block boundary is closer
-            insertPos = distToBefore <= distToAfter ? beforeEnd : after.offset
-          }
-        } else {
-          // Inside some nested structure: walk up to the nearest block node
-          // (typically a paragraph) and snap before/after that block based on
-          // the drop vertical position.
-          while ($pos.depth > 0 && !$pos.parent.isBlock) {
-            $pos = doc.resolve($pos.before())
-          }
-          const blockStart = $pos.start()
-          const blockEnd = $pos.end()
-          const mid = (blockStart + blockEnd) / 2
-          // If dropped in the top half, insert before the paragraph; otherwise after.
-          insertPos = coords.pos < mid ? blockStart : blockEnd
-        }
-      }
-
       for (const file of files) {
         const placeholderId = crypto.randomUUID()
 
-        // Insert loading placeholder at insert position so the user sees feedback immediately.
         editor
           .chain()
           .focus()
@@ -153,7 +80,6 @@ export function UcatRichTextEditor({
           const { fileId, signedUrl } = await uploadUcatImage({ file, stemId })
           collectedFileIds.push(fileId)
 
-          // Optionally enforce max images per document (e.g. answer options)
           if (maxImagesPerDocument === 1) {
             const { state: currentState, dispatch } = editor.view
             let tr = currentState.tr
@@ -168,7 +94,6 @@ export function UcatRichTextEditor({
             }
           }
 
-          // Find the placeholder node by id and replace it with the image.
           const state = editor.state
           const doc = state.doc
           const schema = state.schema
@@ -199,7 +124,6 @@ export function UcatRichTextEditor({
             editor.view.dispatch(tr)
             insertPos = placeholderPos + imageNode.nodeSize
           } else {
-            // Placeholder was removed (e.g. user undid); insert image at current insert position.
             const docSize = doc.content.size
             const safePos = Math.max(0, Math.min(insertPos, docSize))
             const $resolved = doc.resolve(safePos)
@@ -220,7 +144,6 @@ export function UcatRichTextEditor({
           }
         } catch (error) {
           console.error('Failed to upload UCAT image for rich text editor:', error)
-          // Remove the loading placeholder on error.
           const state = editor.state
           state.doc.descendants((node: ProseMirrorNode, pos: number) => {
             if (
@@ -243,8 +166,137 @@ export function UcatRichTextEditor({
         onImageFileIdsChange(limited)
       }
     },
-    [editable, stemId, maxImagesPerDocument, enableImages, onImageFileIdsChange]
+    [stemId, maxImagesPerDocument, onImageFileIdsChange]
   )
+
+  const handleDrop = useCallback(
+    async (event: React.DragEvent<HTMLDivElement>) => {
+      if (!editable) return
+      if (enableImages === false) return
+
+      event.preventDefault()
+      event.stopPropagation()
+
+      const dataTransfer = event.nativeEvent.dataTransfer
+      if (!dataTransfer?.files?.length) return
+
+      const files: File[] = Array.from(dataTransfer.files).filter((file) =>
+        file.type.startsWith('image/')
+      )
+      if (files.length === 0) return
+
+      const editor = editorRef.current?.getEditor()
+      if (!editor) return
+
+      const view = editor.view
+      const state = view.state
+      let insertPos = state.selection.from
+      const coords = view.posAtCoords({
+        left: event.clientX,
+        top: event.clientY,
+      })
+
+      if (coords) {
+        const doc = state.doc
+        let $pos = doc.resolve(coords.pos)
+        if ($pos.parent === doc) {
+          const before = doc.childBefore(coords.pos)
+          const after = doc.childAfter(coords.pos)
+          if (!before.node && after.node) {
+            insertPos = after.offset
+          } else if (before.node && !after.node) {
+            insertPos = before.offset + before.node.nodeSize
+          } else if (before.node && after.node) {
+            const beforeEnd = before.offset + before.node.nodeSize
+            const distToBefore = coords.pos - beforeEnd
+            const distToAfter = after.offset - coords.pos
+            insertPos = distToBefore <= distToAfter ? beforeEnd : after.offset
+          }
+        } else {
+          while ($pos.depth > 0 && !$pos.parent.isBlock) {
+            $pos = doc.resolve($pos.before())
+          }
+          const blockStart = $pos.start()
+          const blockEnd = $pos.end()
+          const mid = (blockStart + blockEnd) / 2
+          insertPos = coords.pos < mid ? blockStart : blockEnd
+        }
+      }
+
+      await processImagesAtPosition(editor, files, insertPos)
+    },
+    [editable, enableImages, processImagesAtPosition]
+  )
+
+  const handlePasteImages = useCallback(
+    (
+      editor: Editor,
+      files: File[],
+      options?: { pastedHtml?: string }
+    ) => {
+      const insertPos = editor.state.selection.from
+
+      if (options?.pastedHtml) {
+        const pastedHtml: string = options.pastedHtml
+        void (async () => {
+          const signedUrls: string[] = []
+          const collectedFileIds: string[] = []
+          for (const file of files) {
+            try {
+              const { fileId, signedUrl } = await uploadUcatImage({
+                file,
+                stemId,
+              })
+              collectedFileIds.push(fileId)
+              signedUrls.push(signedUrl)
+            } catch (error) {
+              console.error(
+                'Failed to upload UCAT image from pasted HTML:',
+                error
+              )
+              signedUrls.push('')
+            }
+          }
+          let html: string = pastedHtml
+          for (let i = 0; i < signedUrls.length; i += 1) {
+            if (signedUrls[i]) {
+              html = html.replace(`__UPLOAD_${i}__`, signedUrls[i])
+            }
+          }
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'UcatRichTextEditor:pastedHtmlInsert',message:'insert pasted html',data:{signedUrlsLen:signedUrls.length,htmlLen:html.length,insertPos,hasPlaceholder:html.includes('__UPLOAD_')},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+          editor
+            .chain()
+            .focus()
+            .insertContentAt(insertPos, html as unknown as Parameters<Editor['commands']['insertContentAt']>[1])
+            .run()
+          if (
+            collectedFileIds.length > 0 &&
+            typeof onImageFileIdsChange === 'function'
+          ) {
+            const limited =
+              typeof maxImagesPerDocument === 'number' && maxImagesPerDocument > 0
+                ? collectedFileIds.slice(-maxImagesPerDocument)
+                : collectedFileIds
+            onImageFileIdsChange(limited)
+          }
+        })()
+        return
+      }
+
+      void processImagesAtPosition(editor, files, insertPos)
+    },
+    [
+      stemId,
+      maxImagesPerDocument,
+      onImageFileIdsChange,
+      processImagesAtPosition,
+    ]
+  )
+
+  const pasteImagesProp =
+    enableImages !== false ? { onPasteImages: handlePasteImages } : {}
 
   return (
     <div
@@ -264,6 +316,7 @@ export function UcatRichTextEditor({
         autoFocus={autoFocus}
         editable={editable}
         minHeight={minHeight}
+        {...pasteImagesProp}
       />
     </div>
   )

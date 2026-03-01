@@ -169,12 +169,47 @@ export const ucatQuestionsApi = {
     }
   },
 
+  async bulkRemove(stemIds: string[]) {
+    const response = await fetch('/api/ucat/question-stems/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stemIds }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to bulk delete question stems')
+    }
+    return response.json() as Promise<{ ok: true }>
+  },
+
   async restore(stemId: string) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}/restore`, { method: 'POST' })
     if (!response.ok) {
       const body = await response.json().catch(() => ({}))
       throw new Error(body.error ?? 'Failed to restore question stem')
     }
+  },
+
+  async bulkUpdateMetadata(
+    stemIds: string[],
+    updates: { categoryId?: string | null; isPrivate?: boolean }
+  ) {
+    const response = await fetch('/api/ucat/question-stems/bulk-update', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        stemIds,
+        categoryId: updates.categoryId ?? null,
+        isPrivate: updates.isPrivate ?? null,
+      }),
+    })
+
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to bulk update question stems')
+    }
+
+    return response.json() as Promise<{ ok: true }>
   },
 
   async bulkImport(sectionId: string, stems: UcatQuestionStemBundlePayload[]) {

@@ -116,3 +116,15 @@ export function useRestoreUcatQuestionStem() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.questions() }),
   })
 }
+
+export function useBulkImportUcatQuestionStems() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (args: { sectionId: string; stems: UcatQuestionStemBundlePayload[] }) =>
+      ucatQuestionsApi.bulkImport(args.sectionId, args.stems),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
+    },
+  })
+}

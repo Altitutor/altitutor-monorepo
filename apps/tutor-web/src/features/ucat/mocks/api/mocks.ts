@@ -52,6 +52,27 @@ export const ucatMocksApi = {
     }
   },
 
+  async bulkRemove(mockIds: string[]) {
+    const response = await fetch('/api/ucat/mocks/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mockIds }),
+    })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to bulk delete mocks')
+    }
+    return response.json() as Promise<{ ok: true }>
+  },
+
+  async restore(mockId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/restore`, { method: 'POST' })
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to restore mock')
+    }
+  },
+
   async assignSessions(mockId: string, sessionIds: string[]) {
     const response = await fetch(`/api/ucat/mocks/${mockId}/sessions`, {
       method: 'PUT',

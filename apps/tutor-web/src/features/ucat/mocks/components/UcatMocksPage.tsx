@@ -2,11 +2,31 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import { Button, Checkbox, DataTable, DataTableToolbar, Input, TablePagination } from '@altitutor/ui'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  Checkbox,
+  DataTable,
+  DataTableToolbar,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  TablePagination,
+} from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
-import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { applyBooleanTextFilter, applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
@@ -15,6 +35,10 @@ import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockE
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
+import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { cn } from '@/shared/utils'
 
 type MockRow = {
   id: string
@@ -67,6 +91,14 @@ export function UcatMocksPage() {
   const [deletingMockId, setDeletingMockId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
+  const [selectedMockIds, setSelectedMockIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
+  const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
+  const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const selectionMode = selectedMockIds.size > 0
+  const queryClient = useQueryClient()
+  const updateMockMutation = useUpdateUcatMock()
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -114,6 +146,26 @@ export function UcatMocksPage() {
   const effectivePage = Math.min(page, pageCount)
   const paginatedRows = sortedRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
+  const selectColumn: ColumnDef<MockRow> = {
+    id: 'select',
+    header: () => (
+      <Checkbox
+        checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
+        onCheckedChange={toggleSelectAllVisible}
+        aria-label="Select all visible rows"
+      />
+    ),
+    cell: ({ row }) => (
+      <div onClick={(e) => e.stopPropagation()}>
+        <Checkbox
+          checked={selectedMockIds.has(row.original.id)}
+          onCheckedChange={() => toggleMockSelection(row.original.id)}
+          aria-label={`Select mock ${row.original.id}`}
+        />
+      </div>
+    ),
+  }
+
   const allColumns: Array<{ key: string; column: ColumnDef<MockRow> }> = [
     { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
     {
@@ -146,7 +198,7 @@ export function UcatMocksPage() {
         id: 'actions',
         header: '',
         cell: ({ row }) => (
-          <div className="flex justify-end">
+          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
             <UcatRowActions
               actions={[
                 { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
@@ -162,6 +214,63 @@ export function UcatMocksPage() {
   ]
 
   const visibleColumns = useVisibleColumns(allColumns, tableState.state.visibleColumns)
+
+  function toggleMockSelection(id: string) {
+    setSelectedMockIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const allVisibleSelected = paginatedRows.length > 0 && paginatedRows.every((r) => selectedMockIds.has(r.id))
+  const someVisibleSelected = paginatedRows.some((r) => selectedMockIds.has(r.id))
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedMockIds((prev) => {
+        const next = new Set(prev)
+        paginatedRows.forEach((r) => next.delete(r.id))
+        return next
+      })
+    } else {
+      setSelectedMockIds((prev) => new Set([...prev, ...paginatedRows.map((r) => r.id)]))
+    }
+  }
+
+  async function handleBulkVisibilityConfirm() {
+    if (bulkVisibilityPrivate == null) return
+    const ids = Array.from(selectedMockIds)
+    for (const mockId of ids) {
+      const detail = await ucatMocksApi.detail(mockId)
+      if (!detail) continue
+      const setIds = (detail.sets as Array<{ id: string }> | null)?.map((s) => s.id) ?? []
+      await updateMockMutation.mutateAsync({
+        mockId,
+        payload: {
+          name: detail.name ?? 'Untitled',
+          isPrivate: bulkVisibilityPrivate,
+          setIds,
+        },
+      })
+    }
+    setBulkVisibilityOpen(false)
+    setBulkVisibilityPrivate(null)
+    setSelectedMockIds(new Set())
+  }
+
+  async function handleBulkDeleteConfirm() {
+    const ids = Array.from(selectedMockIds)
+    setBulkDeletePending(true)
+    try {
+      await ucatMocksApi.bulkRemove(ids)
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+      setBulkDeleteOpen(false)
+      setSelectedMockIds(new Set())
+    } finally {
+      setBulkDeletePending(false)
+    }
+  }
 
   async function onCreate() {
     const result = await createMock.mutateAsync({ name, isPrivate, setIds: [] })
@@ -222,13 +331,14 @@ export function UcatMocksPage() {
         onClearShowDeleted={() => setShowDeleted(false)}
       />
 
-      <div className="pt-3">
+      <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <DataTable
-          columns={visibleColumns}
+          columns={[selectColumn, ...visibleColumns]}
           data={paginatedRows}
           pagination="external"
           pageSizeOptions={[10, 20, 50]}
-          getRowClassName={(row) => (row.deleted_at ? 'bg-destructive/10' : '')}
+          getRowClassName={(row) => cn(row.deleted_at ? 'bg-destructive/10' : '', selectedMockIds.has(row.id) && 'bg-muted/50')}
+          onRowClick={selectionMode ? (row) => toggleMockSelection(row.id) : undefined}
         />
         <TablePagination
           page={effectivePage}
@@ -240,6 +350,54 @@ export function UcatMocksPage() {
           className="pt-3"
         />
       </div>
+
+      <UcatSelectionToolbar
+        selectedCount={selectedMockIds.size}
+        onCancel={() => setSelectedMockIds(new Set())}
+        onDelete={() => setBulkDeleteOpen(true)}
+        deletePending={bulkDeletePending}
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              Visibility
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top">
+            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(false); setBulkVisibilityOpen(true) }}>
+              Public
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(true); setBulkVisibilityOpen(true) }}>
+              Private
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </UcatSelectionToolbar>
+
+      <AlertDialog open={bulkVisibilityOpen} onOpenChange={setBulkVisibilityOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set visibility for {selectedMockIds.size} mock(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Visibility will be set to {bulkVisibilityPrivate ? 'Private' : 'Public'} for all selected mocks.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkVisibilityConfirm()}>
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <UcatDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => !open && setBulkDeleteOpen(false)}
+        title={`Delete ${selectedMockIds.size} mock(s)?`}
+        description="The selected mocks will be hidden from students. You can restore them later from the deleted list."
+        onConfirm={handleBulkDeleteConfirm}
+        isPending={bulkDeletePending}
+      />
 
       <UcatDialogShell
         open={openCreate}

@@ -132,7 +132,8 @@ export const ucatStudentsApi = {
 
     if (error) throw error
 
-    const students = ((data as any)?.students ?? []) as Array<{ id: string }>
+    const raw = (data as Pick<VtutorClassDetailRow, 'students'> | null)?.students
+    const students = Array.isArray(raw) ? (raw as Array<{ id: string }>) : []
     return students.map((student) => student.id)
   },
 }

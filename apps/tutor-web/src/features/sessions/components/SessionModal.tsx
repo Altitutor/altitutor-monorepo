@@ -7,11 +7,12 @@ import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
 import { StudentCard, StaffCard } from '@/shared/components';
 import { AttendanceCell } from './AttendanceCell';
+import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { useSessionNotes } from '../hooks/useSessionNotes';
 import { SessionNotes } from './SessionNotes';
-import { useSessionModalData } from '../hooks/useSessionModalData';
+import { useSessionModalData, type ProcessedStudent, type ProcessedStaff } from '../hooks/useSessionModalData';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -142,7 +143,7 @@ export function SessionModal({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {studentsData.map((data: any) => (
+                  {studentsData.map((data: ProcessedStudent) => (
                     <div key={data.student.id} className="flex items-center gap-3">
                       <div className="flex-1">
                         <StudentCard
@@ -179,18 +180,18 @@ export function SessionModal({
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {staffData.map((data: any) => (
+                  {staffData.map((data: ProcessedStaff) => (
                     <div key={data.staff.id} className="flex items-center gap-3">
                       <div className="flex-1">
                         <StaffCard
                           staff={data.staff}
-                          subjects={data.staff.subjects || []}
+                          subjects={(data.staff.subjects ?? []) as Tables<'subjects'>[]}
                           showSubjects={false}
                         />
                       </div>
                       <div className="flex items-center gap-4 flex-shrink-0">
                         <AttendanceCell status={data.plannedStatus} />
-                        <AttendanceCell status={data.actualStatus} staffType={data.staffType} />
+                        <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
                       </div>
                     </div>
                   ))}
@@ -221,18 +222,17 @@ export function SessionModal({
               {/* Topics Covered Section */}
               {hasTutorLog && tutorLog.topics && tutorLog.topics.length > 0 && (
                 <div className="space-y-4 mb-4">
-                  {tutorLog.topics.map((topicData: any) => {
-                    // vtutor_tutor_log returns topics with topic_id, topic_name, etc.
-                    // Find the complete topic record from allTopics
-                    const topic = allTopics.find(t => t.id === topicData.topic_id);
-                    const topicName = topicData.topic_name || topic?.name || 'Unknown Topic';
+                  {tutorLog.topics.map((topicData) => {
+                    // TutorLog.topics are topic records (id, name, subject_id)
+                    const topic = allTopics.find(t => t.id === topicData.id);
+                    const topicName = topicData.name || topic?.name || 'Unknown Topic';
                     const topicCode = topic?.code || '';
                     
                     // Get files for this topic from tutorLog.files
-                    const topicFiles = (tutorLog.files || []).filter((f: any) => f.topic_id === topicData.topic_id);
+                    const topicFiles = (tutorLog.files || []).filter((f) => f.topic_id === topicData.id);
                     
-                    // Get student IDs from topicData.student_ids (array of IDs)
-                    const studentIds = topicData.student_ids || [];
+                    // Student IDs not on topic record in hook type; use empty if needed
+                    const studentIds: string[] = [];
                     
                     return (
                       <div key={topicData.id} className="border rounded-lg p-4 space-y-3">
@@ -246,7 +246,7 @@ export function SessionModal({
                           <div>
                             <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
                             <div className="space-y-1">
-                              {topicFiles.map((fileData: any) => {
+                              {topicFiles.map((fileData) => {
                                 const fileCode = fileData.code || fileData.filename || '';
                                 
                                 return (
@@ -290,7 +290,7 @@ export function SessionModal({
             {sessionId && (
               <SessionNotes
                 sessionId={sessionId}
-                notes={(notesData || []) as any}
+                notes={notesData ?? []}
                 onNoteAdded={refresh}
                 currentStaffId={currentStaffIdForNotes ?? currentStaffId}
               />

@@ -39,7 +39,7 @@ export function useBulkImportWizard(): BulkImportWizardApi {
   }, [])
 
   const selectStem = useCallback((index: number) => {
-    setActiveIndex((current) => {
+    setActiveIndex(() => {
       if (stems.length === 0) return 0
       if (index < 0) return 0
       if (index >= stems.length) return stems.length - 1
@@ -48,18 +48,18 @@ export function useBulkImportWizard(): BulkImportWizardApi {
   }, [stems.length])
 
   const goToNextStem = useCallback(() => {
-    setActiveIndex((current) => {
+    setActiveIndex((prev) => {
       if (stems.length === 0) return 0
-      return Math.min(current + 1, stems.length - 1)
+      return Math.min(prev + 1, stems.length - 1)
     })
   }, [stems.length])
 
   const goToPreviousStem = useCallback(() => {
-    setActiveIndex((current) => {
+    setActiveIndex((prev) => {
       if (stems.length === 0) return 0
-      return Math.max(current - 1, 0)
+      return Math.max(prev - 1, 0)
     })
-  }, [])
+  }, [stems.length])
 
   const updateStemForm = useCallback((stemId: string, values: UcatQuestionStemFormValues) => {
     setStemsInternal((prev) =>

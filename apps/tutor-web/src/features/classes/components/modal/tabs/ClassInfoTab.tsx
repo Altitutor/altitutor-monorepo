@@ -52,7 +52,7 @@ export function ClassInfoTab({
       dayOfWeek: classData.day_of_week || 1,
       startTime: classData.start_time || '',
       endTime: classData.end_time || '',
-      status: (classData.status as any) || 'ACTIVE',
+      status: (classData.status as 'ACTIVE' | 'INACTIVE' | 'FULL') || 'ACTIVE',
       subjectId: classData.subject_id || '',
       room: classData.room || '',
     },
@@ -260,7 +260,7 @@ export function ClassInfoTab({
             
             <div className="text-sm font-medium">Status:</div>
             <div className="min-w-0">
-              <ClassStatusBadge value={classData.status as any} />
+              <ClassStatusBadge value={classData.status as 'ACTIVE' | 'INACTIVE' | 'FULL' | null} />
             </div>
             
             <div className="text-sm font-medium">Subject:</div>

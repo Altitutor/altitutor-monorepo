@@ -185,7 +185,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
   // Note: Students and staff are not available in list view
   // They're only available when viewing individual class details via vtutor_class_detail
   
-  const handleClassClick = (cls: any) => {
+  const handleClassClick = (cls: Tables<'classes'>) => {
     setSelectedClass(cls);
     setIsDetailModalOpen(true);
   };

@@ -15,7 +15,9 @@ import { cn } from '@/shared/utils';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { Loader2 } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Database, Tables } from '@altitutor/shared';
+
+type TutorClassRow = Database['public']['Views']['vtutor_classes']['Row'];
 
 interface TutorClassesTableProps {
 }
@@ -51,7 +53,7 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
   }
 
   // Filter classes by search term
-  const filteredClasses = (classes as any[]).filter((c) => {
+  const filteredClasses = (classes ?? []).filter((c: TutorClassRow) => {
     const searchLower = searchTerm.toLowerCase();
     return (
       c.subject_name?.toLowerCase().includes(searchLower) ||
@@ -61,7 +63,7 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
   });
 
   // Sort classes: first by day (ascending), then by time (ascending)
-  const sortedClasses = [...filteredClasses].sort((a: any, b: any) => {
+  const sortedClasses = [...filteredClasses].sort((a: TutorClassRow, b: TutorClassRow) => {
     // First sort by day_of_week (1-7, Monday-Sunday)
     const dayA = a.day_of_week ?? 999; // Put null days at the end
     const dayB = b.day_of_week ?? 999;
@@ -87,7 +89,7 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {sortedClasses.map((classItem: any) => {
+          {sortedClasses.map((classItem: TutorClassRow) => {
             // Format subject as {curriculum} {year_level} {name} {level}
             const subjectParts: string[] = [];
             if (classItem.subject_curriculum) {
@@ -99,8 +101,8 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
             if (classItem.subject_name) {
               subjectParts.push(classItem.subject_name);
             }
-            if (classItem.class_level) {
-              subjectParts.push(classItem.class_level);
+            if (classItem.subject_level ?? classItem.level) {
+              subjectParts.push(classItem.subject_level ?? classItem.level ?? '');
             }
             const subjectDisplay = subjectParts.join(' ') || '-';
 

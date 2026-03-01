@@ -243,7 +243,7 @@ export function UcatClassDialog({
   const [sortSessionDirection, setSortSessionDirection] = useState<'asc' | 'desc'>('asc')
   const [filtersSets, setFiltersSets] = useState<Record<string, unknown[]>>({})
   const [filtersMocks, setFiltersMocks] = useState<Record<string, unknown[]>>({})
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [, setActiveId] = useState<string | null>(null)
   const {
     draftBySession,
     isDirty,

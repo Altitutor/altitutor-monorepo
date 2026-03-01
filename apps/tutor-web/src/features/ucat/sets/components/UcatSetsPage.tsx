@@ -2,19 +2,32 @@
 
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Badge,
   Button,
   Checkbox,
   DataTable,
   DataTableToolbar,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
   Input,
   TablePagination,
   Textarea,
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
-import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
+import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
@@ -24,8 +37,12 @@ import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUcatSetsTable'
+import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { cn } from '@/shared/utils'
 
 const DEFAULT_FILTERS: Record<string, unknown[]> = { is_student_generated: ['staff'] }
 
@@ -90,6 +107,7 @@ const sortOptions: DataTableSortOption[] = [
 
 export function UcatSetsPage() {
   const searchParams = useSearchParams()
+  const queryClient = useQueryClient()
   const access = useUcatAccess()
   const sets = useUcatSets()
   const createSet = useCreateUcatSet()
@@ -104,6 +122,13 @@ export function UcatSetsPage() {
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
   const [form, setForm] = useState({ name: '', description: '', timeLimitSeconds: '', isPrivate: false, isStudentGenerated: false })
+  const [selectedSetIds, setSelectedSetIds] = useState<Set<string>>(new Set())
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
+  const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
+  const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
+  const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const selectionMode = selectedSetIds.size > 0
+  const updateSetMutation = useUpdateUcatSet()
 
   useEffect(() => {
     const editId = searchParams.get('edit')
@@ -121,6 +146,67 @@ export function UcatSetsPage() {
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
   const effectivePage = Math.min(page, pageCount)
   const paginatedRows = rows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
+
+  function toggleSetSelection(id: string) {
+    setSelectedSetIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const allVisibleSelected = paginatedRows.length > 0 && paginatedRows.every((r) => selectedSetIds.has(r.id))
+  const someVisibleSelected = paginatedRows.some((r) => selectedSetIds.has(r.id))
+  function toggleSelectAllVisible() {
+    if (allVisibleSelected) {
+      setSelectedSetIds((prev) => {
+        const next = new Set(prev)
+        paginatedRows.forEach((r) => next.delete(r.id))
+        return next
+      })
+    } else {
+      setSelectedSetIds((prev) => new Set([...prev, ...paginatedRows.map((r) => r.id)]))
+    }
+  }
+
+  async function handleBulkVisibilityConfirm() {
+    if (bulkVisibilityPrivate == null) return
+    const ids = Array.from(selectedSetIds)
+    for (const setId of ids) {
+      const detail = await ucatSetsApi.detail(setId)
+      if (!detail) continue
+      const stems = (detail.stems as Array<{ stem_id: string }> | null) ?? []
+      const stemIds = stems.map((s) => s.stem_id)
+      await updateSetMutation.mutateAsync({
+        setId,
+        payload: {
+          name: detail.name ?? plainTextToProseMirror(''),
+          description: proseMirrorToPlainText(detail.description ?? null) ?? '',
+          timeLimitSeconds: detail.time_limit_seconds ?? null,
+          isPrivate: bulkVisibilityPrivate,
+          isStudentGenerated: !!(detail as { is_student_generated?: boolean }).is_student_generated,
+          stemIds,
+        },
+      })
+    }
+    setBulkVisibilityOpen(false)
+    setBulkVisibilityPrivate(null)
+    setSelectedSetIds(new Set())
+  }
+
+  async function handleBulkDeleteConfirm() {
+    const ids = Array.from(selectedSetIds)
+    setBulkDeletePending(true)
+    try {
+      await ucatSetsApi.bulkRemove(ids)
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+      setBulkDeleteOpen(false)
+      setSelectedSetIds(new Set())
+    } finally {
+      setBulkDeletePending(false)
+    }
+  }
 
   async function onCreate() {
     const payload: UcatQuestionSetPayload = {
@@ -188,9 +274,31 @@ export function UcatSetsPage() {
         onClearShowDeleted={() => setShowDeleted(false)}
       />
 
-      <div className="pt-3">
+      <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <DataTable
           columns={[
+            {
+              id: 'select',
+              header: () => (
+                <Checkbox
+                  checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
+                  onCheckedChange={toggleSelectAllVisible}
+                  aria-label="Select all visible rows"
+                />
+              ),
+              cell: ({ row }) => {
+                const r = row.original as SetRow
+                return (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      checked={selectedSetIds.has(r.id)}
+                      onCheckedChange={() => toggleSetSelection(r.id)}
+                      aria-label={`Select set ${r.id}`}
+                    />
+                  </div>
+                )
+              },
+            },
             ...visibleColumns,
             {
               id: 'created_by',
@@ -220,7 +328,7 @@ export function UcatSetsPage() {
               cell: ({ row }) => {
                 const r = row.original as SetRow
                 return (
-                  <div className="flex justify-end">
+                  <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
                     <UcatRowActions
                       actions={[
                         { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingSetId(r.id) },
@@ -244,7 +352,8 @@ export function UcatSetsPage() {
           data={paginatedRows}
           pagination="external"
           pageSizeOptions={[10, 20, 50]}
-          getRowClassName={(row) => (row.deleted_at ? 'bg-destructive/10' : '')}
+          getRowClassName={(row) => cn(row.deleted_at ? 'bg-destructive/10' : '', selectedSetIds.has(row.id) && 'bg-muted/50')}
+          onRowClick={selectionMode ? (row) => toggleSetSelection(row.id) : undefined}
         />
         <TablePagination
           page={effectivePage}
@@ -256,6 +365,54 @@ export function UcatSetsPage() {
           className="pt-3"
         />
       </div>
+
+      <UcatSelectionToolbar
+        selectedCount={selectedSetIds.size}
+        onCancel={() => setSelectedSetIds(new Set())}
+        onDelete={() => setBulkDeleteOpen(true)}
+        deletePending={bulkDeletePending}
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm">
+              Visibility
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" side="top">
+            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(false); setBulkVisibilityOpen(true) }}>
+              Public
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(true); setBulkVisibilityOpen(true) }}>
+              Private
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </UcatSelectionToolbar>
+
+      <AlertDialog open={bulkVisibilityOpen} onOpenChange={setBulkVisibilityOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Set visibility for {selectedSetIds.size} set(s)?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Visibility will be set to {bulkVisibilityPrivate ? 'Private' : 'Public'} for all selected sets.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void handleBulkVisibilityConfirm()}>
+              Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <UcatDeleteConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(open) => !open && setBulkDeleteOpen(false)}
+        title={`Delete ${selectedSetIds.size} set(s)?`}
+        description="The selected sets will be hidden from students. You can restore them later from the deleted list."
+        onConfirm={handleBulkDeleteConfirm}
+        isPending={bulkDeletePending}
+      />
 
       <UcatDialogShell
         open={openCreate}

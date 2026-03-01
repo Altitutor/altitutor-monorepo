@@ -37,6 +37,11 @@ const sections: { heading: string; cards: Card[] }[] = [
         description: 'Track student progress and attempt history',
         href: '/ucat/students',
       },
+      {
+        title: 'Classes',
+        description: 'View UCAT classes and assign sets and mocks to sessions',
+        href: '/ucat/classes',
+      },
     ],
   },
   {
@@ -69,7 +74,7 @@ export function UcatDashboardPage() {
       <div className="p-6 space-y-8">
         <Skeleton className="h-8 w-36" />
         <Skeleton className="h-4 w-72" />
-        {[3, 1, 3].map((count, sectionIndex) => (
+        {[3, 1, 1, 3].map((count, sectionIndex) => (
           <div key={sectionIndex} className="space-y-4">
             <Skeleton className="h-4 w-24" />
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">

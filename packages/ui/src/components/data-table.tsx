@@ -34,6 +34,8 @@ interface DataTableProps<TData, TValue> {
   pagination?: "internal" | "external"
   /** Optional function to compute row className from row data (e.g. for deleted row styling) */
   getRowClassName?: (data: TData) => string | undefined
+  /** Optional row click handler (e.g. for selection mode). Use stopPropagation in cell content to prevent. */
+  onRowClick?: (data: TData) => void
 }
 
 export function DataTable<TData, TValue>({
@@ -43,6 +45,7 @@ export function DataTable<TData, TValue>({
   pageSizeOptions = [10, 20, 30, 40, 50],
   pagination = "internal",
   getRowClassName,
+  onRowClick,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -109,6 +112,7 @@ export function DataTable<TData, TValue>({
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
                   className={getRowClassName?.(row.original)}
+                  onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>

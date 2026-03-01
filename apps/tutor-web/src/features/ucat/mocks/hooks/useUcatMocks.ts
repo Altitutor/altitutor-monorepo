@@ -42,3 +42,11 @@ export function useDeleteUcatMock() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() }),
   })
 }
+
+export function useRestoreUcatMock() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (mockId: string) => ucatMocksApi.restore(mockId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() }),
+  })
+}
