@@ -360,6 +360,19 @@ export function UcatClassDialog({
     return (id: string) => map.get(id) ?? null
   }, [activeMocksList])
 
+  /** Session list (left): only show resources that reference non-deleted sets/mocks. */
+  const visibleDraftBySession = useMemo(() => {
+    const out: Record<string, DraftResource[]> = {}
+    for (const [sessionId, resources] of Object.entries(draftBySession)) {
+      out[sessionId] = resources.filter(
+        (r) =>
+          (r.type === 'set' && setLookup(r.resource_id) !== null) ||
+          (r.type === 'mock' && mockLookup(r.resource_id) !== null)
+      )
+    }
+    return out
+  }, [draftBySession, setLookup, mockLookup])
+
   const filteredSessions = useMemo(() => {
     let list = sessions
     const fromVal = (filtersSessions.from as string[])?.[0]
@@ -535,7 +548,7 @@ export function UcatClassDialog({
                   <DroppableSessionWithDraft
                     key={session.session_id}
                     session={session}
-                    draftResources={draftBySession[session.session_id] ?? []}
+                    draftResources={visibleDraftBySession[session.session_id] ?? []}
                     setLookup={setLookup}
                     mockLookup={mockLookup}
                     onRemove={handleRemove}
