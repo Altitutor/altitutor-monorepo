@@ -139,6 +139,11 @@ export interface RichTextEditorProps {
     files: File[],
     options?: { pastedHtml?: string }
   ) => void;
+  /**
+   * When true, pasting plain text that contains newlines inserts one paragraph per line
+   * instead of a single paragraph. Use for content where line breaks must be preserved (e.g. bulk import).
+   */
+  pastePlainTextAsParagraphs?: boolean;
 }
 
 /**
@@ -158,6 +163,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   editable = true,
   mentionSuggestions,
   onPasteImages,
+  pastePlainTextAsParagraphs = false,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -346,6 +352,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         'data-placeholder': placeholder,
       },
       handlePaste: (view, event) => {
+        const pastedText = event.clipboardData?.getData('text/plain') ?? '';
+        const pastedHtml = event.clipboardData?.getData('text/html') ?? '';
+
         // If clipboard contains image files and we have an image paste handler, handle it first.
         const items = event.clipboardData?.items;
         if (items && onPasteImages && editor) {
@@ -378,9 +387,21 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           }
         }
 
+        // When enabled, paste plain text with newlines as one paragraph per line.
+        if (pastePlainTextAsParagraphs && pastedText.includes('\n') && editor) {
+          event.preventDefault();
+          const lines = pastedText.split(/\r?\n/);
+          const content = lines.map((line) => ({
+            type: 'paragraph',
+            content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+          }));
+          const pos = editor.state.selection.from;
+          editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+          return true;
+        }
+
         if (!mentionSuggestions) return false;
 
-        const pastedText = event.clipboardData?.getData('text/plain') || '';
         if (!pastedText) return false;
 
         const mentionType = view.state.schema.nodes.mention;

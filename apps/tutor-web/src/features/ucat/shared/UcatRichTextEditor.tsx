@@ -29,6 +29,8 @@ export interface UcatRichTextEditorProps {
   enableImages?: boolean
   /** Optional callback with the set of image file IDs present after a drop operation. */
   onImageFileIdsChange?: (fileIds: string[]) => void
+  /** When true, pasting plain text with newlines inserts one paragraph per line (e.g. for bulk import). */
+  pastePlainTextAsParagraphs?: boolean
 }
 
 function toJsonContent(value: UcatRichTextValue): JSONContent | null {
@@ -57,6 +59,7 @@ export function UcatRichTextEditor({
   maxImagesPerDocument,
   enableImages,
   onImageFileIdsChange,
+  pastePlainTextAsParagraphs,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
 
@@ -313,6 +316,7 @@ export function UcatRichTextEditor({
         autoFocus={autoFocus}
         editable={editable}
         minHeight={minHeight}
+        pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
         {...pasteImagesProp}
       />
     </div>

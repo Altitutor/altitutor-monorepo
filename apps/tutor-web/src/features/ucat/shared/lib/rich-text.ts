@@ -19,6 +19,22 @@ export function plainTextToProseMirror(text: string): Json {
   }
 }
 
+/**
+ * Convert plain text with newlines to ProseMirror JSON with one paragraph per line.
+ * Use for content where line breaks should be preserved (e.g. question stem passages).
+ */
+export function plainTextToProseMirrorWithLineBreaks(text: string): Json {
+  if (!text || typeof text !== 'string') {
+    return { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+  }
+  const lines = text.split('\n')
+  const content = lines.map((line) => ({
+    type: 'paragraph',
+    content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+  }))
+  return { type: 'doc', content }
+}
+
 export function proseMirrorToPlainText(value: Json | null | undefined): string {
   if (!value || typeof value !== 'object') return ''
 

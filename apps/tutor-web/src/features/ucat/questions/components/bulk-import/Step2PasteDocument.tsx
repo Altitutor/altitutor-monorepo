@@ -33,6 +33,7 @@ export function Step2PasteDocument({
           stemId={null}
           enableImages={true}
           onImageFileIdsChange={onImageFileIdsChange}
+          pastePlainTextAsParagraphs={true}
         />
       </div>
     </div>

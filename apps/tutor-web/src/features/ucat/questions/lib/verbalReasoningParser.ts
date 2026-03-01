@@ -1,5 +1,8 @@
 import type { Json } from '@altitutor/shared'
-import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import {
+  plainTextToProseMirror,
+  plainTextToProseMirrorWithLineBreaks,
+} from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 
 type OptionLabel = string
@@ -182,38 +185,14 @@ function parseVerbalReasoningFromLines(
   }
 
   const finaliseStem = (): void => {
-    const stemText = normaliseTextBlock(stemLines, config)
+    let stemText = normaliseTextBlock(stemLines, config)
+    // Collapse multiple line breaks to a single line break
+    stemText = stemText.replace(/\n{2,}/g, '\n').trim()
     if (stemText === '' && questions.length === 0) return
     stems.push({ stemText, questions: [...questions] })
     stemLines = []
     questions = []
   }
-
-  // #region agent log
-  try {
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '7499e0',
-      },
-      body: JSON.stringify({
-        sessionId: '7499e0',
-        runId: 'pre-fix',
-        hypothesisId: 'H2',
-        location: 'verbalReasoningParser.ts:parseVerbalReasoningFromLines',
-        message: 'Initial logical lines snapshot',
-        data: {
-          lineCount: rawLines.length,
-          firstLines: rawLines.slice(0, 30),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-  } catch {
-    // ignore logging errors
-  }
-  // #endregion agent log
 
   for (let idx = 0; idx < rawLines.length; idx += 1) {
     const line = rawLines[idx] ?? ''
@@ -302,36 +281,6 @@ function parseVerbalReasoningFromLines(
   // Final flush at EOF
   flushCurrentQuestion()
   finaliseStem()
-
-  // #region agent log
-  try {
-    fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Debug-Session-Id': '7499e0',
-      },
-      body: JSON.stringify({
-        sessionId: '7499e0',
-        runId: 'pre-fix',
-        hypothesisId: 'H3',
-        location: 'verbalReasoningParser.ts:parseVerbalReasoningFromLines',
-        message: 'Parsed stems summary',
-        data: {
-          stemCount: stems.length,
-          stems: stems.slice(0, 3).map((stem) => ({
-            stemPreview: stem.stemText.slice(0, 120),
-            questionCount: stem.questions.length,
-            optionCounts: stem.questions.map((q) => q.options.length),
-          })),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-  } catch {
-    // ignore logging errors
-  }
-  // #endregion agent log
 
   return stems
 }
@@ -461,7 +410,7 @@ export function mapParsedVerbalReasoningToFormValues(
       const values: UcatQuestionStemFormValues = {
         sectionId,
         categoryId: resolvedCategoryId ?? null,
-        stemText: toRichText(stem.stemText),
+        stemText: plainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
         isPrivate,
         questions,
       }
