@@ -3,15 +3,9 @@ export type SectionKey = 'verbal_reasoning' | 'decision_making' | 'quantitative_
 export type TimeMode = 'off' | 'exam' | 'custom'
 
 export type SetGeneratorInput = {
-  sections: SectionKey[]
+  section: SectionKey
   unansweredOnly: boolean
   incorrectOnly: boolean
-  /**
-   * Difficulty range as a numeric band between 0 and 1 (inclusive).
-   * These values are interpreted as UCAT question difficulty scores.
-   */
-  difficultyMin: number
-  difficultyMax: number
   /**
    * Optional category IDs (question_stem_categories.id) to filter stems by.
    * When empty, all categories for the selected sections are included.

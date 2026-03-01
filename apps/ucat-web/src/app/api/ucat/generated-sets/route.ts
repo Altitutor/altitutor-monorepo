@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { sectionLabels } from '@/features/set-generator/model/mock-data'
 import type { SetGeneratorInput, TimeMode } from '@/features/set-generator/model/types'
 
 type SectionRow = {
@@ -18,7 +19,6 @@ type StemListRow = {
 
 type StemDetailQuestion = {
   id: string
-  difficulty: number | null
 }
 
 type StemDetailRow = {
@@ -157,20 +157,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const body = (await request.json()) as { input: SetGeneratorInput }
+  let body: { input?: SetGeneratorInput }
+  try {
+    body = (await request.json()) as { input?: SetGeneratorInput }
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+  }
+
   const input = body.input
 
-  if (!input || !Array.isArray(input.sections) || input.sections.length === 0) {
-    return NextResponse.json({ error: 'At least one section must be selected.' }, { status: 400 })
+  if (!input?.section) {
+    return NextResponse.json({ error: 'A section must be selected.' }, { status: 400 })
   }
 
-  const sectionNumbers = input.sections
-    .map((key) => SECTION_KEY_TO_NUMBER[key])
-    .filter((value): value is number => typeof value === 'number')
-
-  if (sectionNumbers.length === 0) {
-    return NextResponse.json({ error: 'Invalid sections selection.' }, { status: 400 })
+  const sectionNumber = SECTION_KEY_TO_NUMBER[input.section]
+  if (typeof sectionNumber !== 'number') {
+    return NextResponse.json({ error: 'Invalid section selection.' }, { status: 400 })
   }
+
+  const sectionNumbers = [sectionNumber]
 
   // 1) Load section timing metadata (student-safe view)
   const { data: sections, error: sectionsError } = await supabase
@@ -267,10 +272,7 @@ export async function POST(request: NextRequest) {
     }, new Map<string, QuestionAttemptRow[]>())
   }
 
-  // 5) Apply filters at question level, then aggregate per stem
-  const difficultyMin = Math.max(0, Math.min(1, input.difficultyMin))
-  const difficultyMax = Math.max(0, Math.min(1, input.difficultyMax))
-
+  // 5) Apply filters at question level (performance only; no difficulty filter), then aggregate per stem
   type StemAggregate = {
     stem: StemDetailRow
     allQuestionsCount: number
@@ -286,11 +288,6 @@ export async function POST(request: NextRequest) {
 
     for (const q of questions) {
       allCount += 1
-
-      const difficulty = q.difficulty
-      if (difficulty == null || difficulty < difficultyMin || difficulty > difficultyMax) {
-        continue
-      }
 
       let performanceOk = true
       if (input.unansweredOnly || input.incorrectOnly) {
@@ -365,9 +362,9 @@ export async function POST(request: NextRequest) {
   )
 
   // 7) Persist the generated set using the admin client
-  const sectionNames = input.sections.join(', ')
-  const title = `Practice set (${sectionNames})`
-  const description = 'Generated from filters on sections, difficulty, and your past attempts.'
+  const sectionName = sectionLabels[input.section] ?? input.section
+  const title = `Practice set (${sectionName})`
+  const description = 'Generated from filters on sections and your past attempts.'
 
   const { data: insertedSet, error: insertSetError } = await supabaseAdmin
     .from('question_sets')
