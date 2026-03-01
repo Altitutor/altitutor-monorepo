@@ -23,6 +23,14 @@ module.exports = {
         'popover-foreground': 'hsl(var(--popover-foreground))',
         sidebar: 'hsl(var(--sidebar))',
         'sidebar-foreground': 'hsl(var(--sidebar-foreground))',
+        primary: {
+          DEFAULT: 'hsl(var(--primary))',
+          foreground: 'hsl(var(--primary-foreground))',
+        },
+        accent: {
+          DEFAULT: 'hsl(var(--accent))',
+          foreground: 'hsl(var(--accent-foreground))',
+        },
         secondary: 'hsl(var(--secondary))',
         'secondary-foreground': 'hsl(var(--secondary-foreground))',
       },
