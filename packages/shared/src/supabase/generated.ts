@@ -347,6 +347,42 @@ export type Database = {
           },
         ]
       }
+      answer_option_files: {
+        Row: {
+          answer_option_id: string
+          file_id: string
+          id: string
+          usage: string
+        }
+        Insert: {
+          answer_option_id: string
+          file_id: string
+          id?: string
+          usage: string
+        }
+        Update: {
+          answer_option_id?: string
+          file_id?: string
+          id?: string
+          usage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answer_option_files_answer_option_id_fkey"
+            columns: ["answer_option_id"]
+            isOneToOne: false
+            referencedRelation: "question_answer_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answer_option_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       automation_actions: {
         Row: {
           action_config: Json
@@ -3094,7 +3130,6 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string
-          image_file_id: string | null
           index: number
           is_answer: boolean
           question_id: string
@@ -3109,7 +3144,6 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
-          image_file_id?: string | null
           index: number
           is_answer?: boolean
           question_id: string
@@ -3124,7 +3158,6 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
-          image_file_id?: string | null
           index?: number
           is_answer?: boolean
           question_id?: string
@@ -3158,13 +3191,6 @@ export type Database = {
             columns: ["deleted_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "question_answer_options_image_file_id_fkey"
-            columns: ["image_file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
             referencedColumns: ["id"]
           },
           {
