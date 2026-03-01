@@ -12186,6 +12186,18 @@ export type Database = {
         Args: { p_session_ids: Json; p_set_id: string }
         Returns: undefined
       }
+      tutor_ucat_bulk_delete_mocks: {
+        Args: { p_mock_ids: string[] }
+        Returns: undefined
+      }
+      tutor_ucat_bulk_delete_question_sets: {
+        Args: { p_set_ids: string[] }
+        Returns: undefined
+      }
+      tutor_ucat_bulk_delete_question_stems: {
+        Args: { p_stem_ids: string[] }
+        Returns: undefined
+      }
       tutor_ucat_bulk_update_question_stem_metadata: {
         Args: {
           p_is_private?: boolean
