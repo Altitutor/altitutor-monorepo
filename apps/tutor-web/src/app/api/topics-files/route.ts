@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
-import type { TablesInsert } from '@altitutor/shared';
+import type { Tables, TablesInsert } from '@altitutor/shared';
 
 /**
  * POST /api/topics-files
@@ -83,8 +83,10 @@ export async function POST(request: NextRequest) {
       .eq('type', body.type)
       .eq('is_solutions', body.is_solutions || false);
     
-    const maxIndex = existing && existing.length > 0
-      ? Math.max(...existing.map((t: any) => t.index))
+    type TopicsFileRow = Tables<'topics_files'>;
+    const existingRows = (existing ?? []) as TopicsFileRow[];
+    const maxIndex = existingRows.length > 0
+      ? Math.max(...existingRows.map((t) => t.index))
       : 0;
     const index = maxIndex + 1;
     

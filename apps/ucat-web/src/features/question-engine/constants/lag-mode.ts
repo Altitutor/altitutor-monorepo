@@ -1,0 +1,5 @@
+export const UCAT_LAG_MODE_DEFAULT_ENABLED = false
+
+export const UCAT_LAG_MODE_MIN_DELAY_MS = 200
+export const UCAT_LAG_MODE_MAX_DELAY_MS = 800
+

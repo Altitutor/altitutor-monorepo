@@ -7,7 +7,10 @@ export interface DataTableFilterDefinition<TValue = unknown> {
   key: string;
   label: string;
   options?: DataTableFilterOption<TValue>[];
-  type?: 'multi-select' | 'date';
+  type?: 'multi-select' | 'date' | 'number-range';
+  /** When type is 'number-range', state keys for min and max values */
+  minKey?: string;
+  maxKey?: string;
   searchable?: boolean;
   searchPlaceholder?: string;
   filterable?: boolean;

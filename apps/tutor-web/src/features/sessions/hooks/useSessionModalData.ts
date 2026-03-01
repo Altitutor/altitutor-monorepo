@@ -15,7 +15,7 @@ export interface ProcessedStudent {
 }
 
 export interface ProcessedStaff {
-  staff: Tables<'staff'>;
+  staff: Tables<'staff'> & { subjects?: Array<{ id: string; name: string }> };
   plannedStatus: 'attending';
   actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
   staffType?: string;

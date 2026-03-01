@@ -71,7 +71,7 @@ export async function PATCH(
     }
     
     // Double-check staff_id matches (should be redundant since view filters, but extra safety)
-    const notificationStaffId = (existingNotification as any).staff_id;
+    const notificationStaffId = (existingNotification as { id: string; staff_id: string | null }).staff_id;
     if (!notificationStaffId || notificationStaffId !== tutorId) {
       return NextResponse.json(
         { error: 'Unauthorized: You can only mark your own notifications as read' },

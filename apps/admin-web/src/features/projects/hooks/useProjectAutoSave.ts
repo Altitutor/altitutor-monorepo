@@ -3,6 +3,12 @@ import { UseFormReturn } from 'react-hook-form';
 import { useDebounce } from '@/shared/hooks';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../types';
 
+const VALID_PROJECT_STATUSES: ProjectStatus[] = ['backlog', 'planned', 'in_progress', 'completed'];
+
+function isValidProjectStatus(v: unknown): v is ProjectStatus {
+  return typeof v === 'string' && VALID_PROJECT_STATUSES.includes(v as ProjectStatus);
+}
+
 interface UseProjectAutoSaveOptions {
   form: UseFormReturn<ProjectFormData>;
   projectId: string;
@@ -29,6 +35,7 @@ export function useProjectAutoSave({
     startDate?: string | null;
     targetDate?: string | null;
   }>({});
+  const baselineSyncedRef = useRef(false);
 
   const name = form.watch('name');
   const description = form.watch('description');
@@ -56,11 +63,14 @@ export function useProjectAutoSave({
         startDate: values.startDate,
         targetDate: values.targetDate,
       };
+      baselineSyncedRef.current = true;
+    } else {
+      baselineSyncedRef.current = false;
     }
   }, [project, isInitialized, form]);
 
   useEffect(() => {
-    if (!isInitialized || isUpdatingFromServer) return;
+    if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
     if (project && name !== undefined && name !== '' && name !== lastSavedValuesRef.current.name) {
       lastSavedValuesRef.current.name = name;
       onSave({ name });
@@ -68,7 +78,7 @@ export function useProjectAutoSave({
   }, [debouncedNameTrigger, name, project, isInitialized, isUpdatingFromServer, onSave]);
 
   useEffect(() => {
-    if (!isInitialized || isUpdatingFromServer) return;
+    if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
     const descriptionJson = JSON.stringify(description);
     if (project && description !== undefined && descriptionJson !== lastSavedValuesRef.current.descriptionJson) {
       lastSavedValuesRef.current.descriptionJson = descriptionJson;
@@ -77,7 +87,8 @@ export function useProjectAutoSave({
   }, [debouncedDescriptionTrigger, description, project, isInitialized, isUpdatingFromServer, onSave]);
 
   useEffect(() => {
-    if (!isInitialized || isUpdatingFromServer) return;
+    if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
+    if (!isValidProjectStatus(status)) return;
     if (project && status !== lastSavedValuesRef.current.status) {
       lastSavedValuesRef.current.status = status;
       onSave({ status });
@@ -85,7 +96,7 @@ export function useProjectAutoSave({
   }, [status, project, isInitialized, isUpdatingFromServer, onSave]);
 
   useEffect(() => {
-    if (!isInitialized || isUpdatingFromServer) return;
+    if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
     if (project && priority !== lastSavedValuesRef.current.priority) {
       lastSavedValuesRef.current.priority = priority;
       onSave({ priority });
@@ -93,7 +104,7 @@ export function useProjectAutoSave({
   }, [priority, project, isInitialized, isUpdatingFromServer, onSave]);
 
   useEffect(() => {
-    if (!isInitialized || isUpdatingFromServer) return;
+    if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
     if (project && projectLeadId !== lastSavedValuesRef.current.projectLeadId) {
       lastSavedValuesRef.current.projectLeadId = projectLeadId;
       onSave({ projectLeadId });
@@ -101,7 +112,7 @@ export function useProjectAutoSave({
   }, [projectLeadId, project, isInitialized, isUpdatingFromServer, onSave]);
 
   useEffect(() => {
-    if (!isInitialized || isUpdatingFromServer) return;
+    if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
     if (project && startDate !== lastSavedValuesRef.current.startDate) {
       lastSavedValuesRef.current.startDate = startDate;
       onSave({ startDate });
@@ -109,7 +120,7 @@ export function useProjectAutoSave({
   }, [startDate, project, isInitialized, isUpdatingFromServer, onSave]);
 
   useEffect(() => {
-    if (!isInitialized || isUpdatingFromServer) return;
+    if (!isInitialized || isUpdatingFromServer || !baselineSyncedRef.current) return;
     if (project && targetDate !== lastSavedValuesRef.current.targetDate) {
       lastSavedValuesRef.current.targetDate = targetDate;
       onSave({ targetDate });

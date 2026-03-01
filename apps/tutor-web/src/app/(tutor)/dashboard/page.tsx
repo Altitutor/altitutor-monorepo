@@ -2,6 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { UcatPagePlaceholder } from '@altitutor/ui';
 
 // Mark this page as dynamic to prevent static generation
 // This page requires Supabase client which needs environment variables
@@ -31,9 +32,13 @@ export default function DashboardPage() {
         </p>
       </div>
 
+      <UcatPagePlaceholder
+        title="UCAT System"
+        description="Shared ALTI-318 UI components are available for tutor-web and ucat-web."
+      />
+
       {/* Future: Add more dashboard cards for sessions, attendance, etc. */}
     </div>
   );
 }
-
 

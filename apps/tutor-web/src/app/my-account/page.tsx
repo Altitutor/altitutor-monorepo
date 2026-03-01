@@ -84,8 +84,8 @@ export default function MyAccountPage() {
             
             <div className="flex items-center justify-between">
               <span className="text-sm text-gray-600">Role</span>
-              <Badge variant={(staffRecord as any)?.role === 'ADMINSTAFF' || (staffRecord as any)?.role === 'ADMIN' ? 'default' : 'secondary'}>
-                {(staffRecord as any)?.role || 'Loading...'}
+              <Badge variant={staffRecord?.role === 'ADMINSTAFF' || staffRecord?.role === 'ADMIN' ? 'default' : 'secondary'}>
+                {staffRecord?.role || 'Loading...'}
               </Badge>
             </div>
             

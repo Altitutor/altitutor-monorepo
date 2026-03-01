@@ -224,33 +224,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     <div className="flex h-[calc(100vh-var(--navbar-height)-5rem)] relative">
       <div className="flex-1 flex flex-col min-w-0 border-r overflow-hidden">
         <div className="flex-1 overflow-y-auto">
-          <div className="px-6 pt-6 pb-2">
-            <div className="flex items-start gap-4">
-              <div className="flex-1 max-w-3xl mx-auto w-full">
-                <Form {...form}>
-                  <FormField
-                    control={form.control}
-                    name="title"
-                    render={() => (
-                      <FormItem>
-                        <FormControl>
-                          <div
-                            ref={combinedTitleRef}
-                            contentEditable
-                            onBlur={handleTitleBlur}
-                            onInput={handleTitleInput}
-                            onKeyDown={handleTitleKeyDown}
-                            data-placeholder="Untitled"
-                            className="text-4xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground whitespace-nowrap overflow-hidden"
-                            suppressContentEditableWarning
-                          />
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </Form>
-              </div>
-              <div className="hidden md:flex items-center gap-2">
+          <div className="px-6 pt-6">
+            <div className="max-w-3xl mx-auto w-full relative">
+              <div className="hidden md:flex items-center gap-2 absolute top-0 right-0">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium">
                   {updateNote.isPending ? (
                     <>
@@ -283,10 +259,32 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
+              <Form {...form}>
+                <FormField
+                  control={form.control}
+                  name="title"
+                  render={() => (
+                    <FormItem>
+                      <FormControl>
+                        <div
+                          ref={combinedTitleRef}
+                          contentEditable
+                          onBlur={handleTitleBlur}
+                          onInput={handleTitleInput}
+                          onKeyDown={handleTitleKeyDown}
+                          data-placeholder="Untitled"
+                          className="text-4xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground whitespace-nowrap overflow-hidden"
+                          suppressContentEditableWarning
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </Form>
             </div>
           </div>
 
-          <div className="px-6 flex-1 flex flex-col min-h-0 pb-20">
+          <div className="px-6 pt-8 flex-1 flex flex-col min-h-0 pb-20">
             <Form {...form}>
               <div className="md:hidden pt-4 mb-4">
                 <NotePropertyPills form={form} folders={foldersArray} />

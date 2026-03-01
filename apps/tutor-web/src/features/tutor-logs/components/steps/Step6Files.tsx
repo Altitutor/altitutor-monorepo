@@ -1,7 +1,6 @@
 'use client';
 
 import { Checkbox } from '@altitutor/ui';
-import type { Tables } from '@altitutor/shared';
 import { useTutorLogStep6Data } from '../../hooks/useTutorLogStep6Data';
 
 type TopicItem = {

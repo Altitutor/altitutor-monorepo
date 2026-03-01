@@ -9,13 +9,89 @@ import Typography from '@tiptap/extension-typography';
 import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
+import Image from '@tiptap/extension-image';
 import { TextSelection } from '@tiptap/pm/state';
+import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { cn } from '../lib/cn';
 
+const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
+const UPLOAD_PLACEHOLDER_SUFFIX = '__';
+
+/**
+ * Extracts image files from pasted HTML (data: and blob: URLs) and returns
+ * files in order plus HTML with those srcs replaced by __UPLOAD_0__, __UPLOAD_1__, etc.
+ */
+async function extractImagesFromPastedHtml(
+  html: string
+): Promise<{ files: File[]; htmlWithPlaceholders: string }> {
+  const files: File[] = [];
+  // Match img src="data:..." or src="blob:..." or src='...' (single/double quote, non-greedy).
+  const imgSrcRegex =
+    /<img[\s\S]*?src\s*=\s*["']((?:data:|blob:)[^"']+)["'][\s\S]*?>/gi;
+  const matches = [...html.matchAll(imgSrcRegex)];
+  // #region agent log
+  const hasImgTag = /<img/i.test(html);
+  const srcMatches = html.match(/src\s*=\s*["']?([^"'\s>]+)/gi);
+  if (typeof fetch !== 'undefined') fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'extractImagesFromPastedHtml',message:'img regex',data:{matchesLength:matches.length,hasImgTag,srcPrefixes: (srcMatches ?? []).map((s) => String(s).slice(0, 50))},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
+  if (matches.length === 0) {
+    return { files, htmlWithPlaceholders: html };
+  }
+
+  let htmlWithPlaceholders = html;
+  for (let i = 0; i < matches.length; i += 1) {
+    const fullMatch = matches[i][0];
+    const src = matches[i][1];
+    const placeholder = `${UPLOAD_PLACEHOLDER_PREFIX}${i}${UPLOAD_PLACEHOLDER_SUFFIX}`;
+    let file: File | null = null;
+
+    if (src.startsWith('data:')) {
+      const commaIdx = src.indexOf(',');
+      if (commaIdx === -1) continue;
+      const header = src.slice(0, commaIdx);
+      const base64 = src.slice(commaIdx + 1);
+      const mimeMatch = header.match(/data:([^;]+)/);
+      const mime = mimeMatch ? mimeMatch[1].trim() : 'image/png';
+      try {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let j = 0; j < binary.length; j += 1) bytes[j] = binary.charCodeAt(j);
+        const blob = new Blob([bytes], { type: mime });
+        file = new File([blob], `pasted-${i}.${mime.split('/')[1] || 'png'}`, {
+          type: mime,
+        });
+      } catch {
+        continue;
+      }
+    } else if (src.startsWith('blob:')) {
+      try {
+        const res = await fetch(src);
+        const blob = await res.blob();
+        const mime = blob.type || 'image/png';
+        file = new File([blob], `pasted-${i}.${mime.split('/')[1] || 'png'}`, {
+          type: mime,
+        });
+      } catch {
+        continue;
+      }
+    }
+
+    if (file) {
+      files.push(file);
+      htmlWithPlaceholders = htmlWithPlaceholders.replace(fullMatch, (tag) =>
+        tag.replace(src, placeholder)
+      );
+    }
+  }
+
+  return { files, htmlWithPlaceholders };
+}
+
 export type { JSONContent };
+export { PLACEHOLDER_NODE_NAME } from './rich-text-editor-image-upload-placeholder';
 
 export interface RichTextEditorRef {
   focusToEnd: () => void;
@@ -56,6 +132,18 @@ export interface RichTextEditorProps {
    * If provided, typing @ will trigger the mention suggestions.
    */
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
+  /**
+   * Optional callback when image file(s) are pasted from the clipboard.
+   * When set, paste events that contain image files (or HTML with embedded data/blob images) call this.
+   * Use for uploading and inserting images at the cursor (e.g. from Google Docs, Word, PDF).
+   * When pasted HTML contains embedded images, `options.pastedHtml` is the HTML with image srcs
+   * replaced by placeholders __UPLOAD_0__, __UPLOAD_1__, etc.; replace with uploaded URLs in order.
+   */
+  onPasteImages?: (
+    editor: Editor,
+    files: File[],
+    options?: { pastedHtml?: string }
+  ) => void;
 }
 
 /**
@@ -74,6 +162,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   minHeight = '200px',
   editable = true,
   mentionSuggestions,
+  onPasteImages,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -124,6 +213,26 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           class: 'text-primary underline cursor-pointer',
         },
       }),
+      Image.extend({
+        addAttributes() {
+          return {
+            ...this.parent?.(),
+            fileId: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-file-id'),
+              renderHTML: (attrs) =>
+                attrs.fileId ? { 'data-file-id': attrs.fileId } : {},
+            },
+          };
+        },
+      }).configure({
+        inline: false,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: 'my-3 rounded-md max-w-full h-auto cursor-pointer',
+        },
+      }),
+      ImageUploadPlaceholderExtension,
       ...(mentionSuggestions ? [
         Mention.configure({
           HTMLAttributes: {
@@ -219,6 +328,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
           'prose-headings:font-semibold prose-headings:tracking-tight',
           'prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
+          'prose-h1:mt-7 prose-h1:mb-1.5 prose-h2:mt-6 prose-h2:mb-1 prose-h3:mt-5 prose-h3:mb-1',
           'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
           'prose-li:my-1',
           'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
@@ -241,6 +351,49 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         'data-placeholder': placeholder,
       },
       handlePaste: (view, event) => {
+        // If clipboard contains image files and we have an image paste handler, handle it first.
+        const items = event.clipboardData?.items;
+        if (items && onPasteImages && editor) {
+          const files: File[] = [];
+          for (const item of Array.from(items)) {
+            if (item.kind === 'file' && item.type.startsWith('image/')) {
+              const file = item.getAsFile();
+              if (file) files.push(file);
+            }
+          }
+          if (files.length > 0) {
+            onPasteImages(editor, files);
+            return true;
+          }
+
+          // No image files: check for HTML with embedded images (e.g. paste from Word/Google Docs).
+          const html = event.clipboardData?.getData('text/html');
+          const hasImgDataOrBlob = !!html && /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html);
+          // #region agent log
+          fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:pasteHtmlCheck',message:'html paste branch',data:{hasHtml:!!html,htmlLen:html?.length??0,hasImgDataOrBlob},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+          if (html && hasImgDataOrBlob) {
+            event.preventDefault();
+            extractImagesFromPastedHtml(html)
+              .then((result) => {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:extractResult',message:'extractImagesFromPastedHtml result',data:{filesLength:result.files.length,htmlPlaceholderLen:result.htmlWithPlaceholders?.length},timestamp:Date.now()})}).catch(()=>{});
+                // #endregion
+                if (result.files.length > 0) {
+                  onPasteImages(editor, result.files, {
+                    pastedHtml: result.htmlWithPlaceholders,
+                  });
+                }
+              })
+              .catch((err) => {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:extractError',message:'extractImagesFromPastedHtml error',data:{err: String(err)},timestamp:Date.now()})}).catch(()=>{});
+                // #endregion
+              });
+            return true;
+          }
+        }
+
         if (!mentionSuggestions) return false;
 
         const pastedText = event.clipboardData?.getData('text/plain') || '';

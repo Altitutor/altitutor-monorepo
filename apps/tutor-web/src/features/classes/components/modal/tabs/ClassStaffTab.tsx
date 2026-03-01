@@ -123,8 +123,8 @@ export function ClassStaffTab({
                           <div className="flex flex-col items-start">
                             <div className="font-medium">{staff.first_name} {staff.last_name}</div>
                             <div className="flex items-center gap-2 mt-1">
-                              <StaffRoleBadge value={staff.role as any} />
-                              <StaffStatusBadge value={staff.status as any} />
+                              <StaffRoleBadge value={staff.role as 'ADMIN' | 'TUTOR' | 'ADMINSTAFF' | null} />
+                              <StaffStatusBadge value={staff.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | null} />
                             </div>
                             {staff.email && (
                               <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
@@ -186,8 +186,8 @@ export function ClassStaffTab({
                             <div className="flex flex-col items-start">
                             <div className="font-medium">{staff.first_name} {staff.last_name}</div>
                             <div className="flex items-center gap-2 mt-1">
-                              <StaffRoleBadge value={staff.role as any} />
-                              <StaffStatusBadge value={staff.status as any} />
+                              <StaffRoleBadge value={staff.role as 'ADMIN' | 'TUTOR' | 'ADMINSTAFF' | null} />
+                              <StaffStatusBadge value={staff.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | null} />
                             </div>
                               {staff.email && (
                                 <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
@@ -249,8 +249,8 @@ export function ClassStaffTab({
                     {staff.first_name} {staff.last_name}
                   </div>
                   <div className="flex items-center gap-2 mt-1">
-                    <StaffRoleBadge value={staff.role as any} />
-                    <StaffStatusBadge value={staff.status as any} />
+                    <StaffRoleBadge value={staff.role as 'ADMIN' | 'TUTOR' | 'ADMINSTAFF' | null} />
+                    <StaffStatusBadge value={staff.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | null} />
                   </div>
                   {staff.email && (
                     <div className="text-sm text-muted-foreground mt-1">{staff.email}</div>

@@ -56,22 +56,6 @@ export default function QuickFiltersSettingsPage() {
           </p>
         </div>
       </div>
-      
-      <div className="space-y-6">
-        <div className="rounded-md bg-muted/50 p-4 border border-dashed text-sm">
-          <h3 className="font-semibold mb-2">Instructions</h3>
-          <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-            <li><strong>Global filters</strong> are visible to all staff members.</li>
-            <li><strong>Personal filters</strong> are only visible to you.</li>
-            <li>Use <strong>$ME$</strong> in the JSON config to automatically filter by the logged-in user's ID.</li>
-            <li>Use <strong>$TODAY$, $TOMORROW$, $YESTERDAY$</strong> for daily date ranges.</li>
-            <li>Use <strong>$FUTURE$, $PAST$</strong> for open-ended date ranges from/to now.</li>
-            <li>Use <strong>$THIS_WEEK$</strong> for the current week (Mon-Sun).</li>
-          </ul>
-        </div>
-
-        <QuickFiltersTable filters={filters} onUpdate={loadData} />
-      </div>
     </div>
   );
 }

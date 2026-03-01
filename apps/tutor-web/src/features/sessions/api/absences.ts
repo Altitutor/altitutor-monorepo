@@ -72,8 +72,24 @@ export const absencesApi = {
       if (error) throw error;
 
       // Transform, filter by date range, and sort the data client-side
+      type SessionStudentRow = Database['public']['Views']['vtutor_sessions_students']['Row'] & {
+        id?: string | null
+        session_created_at?: string | null
+        session_updated_at?: string | null
+        class_day_of_week?: number | null
+        class_start_time?: string | null
+        class_end_time?: string | null
+        class_room?: string | null
+        class_level?: string | null
+        class_status?: string | null
+        subject_name?: string | null
+        subject_curriculum?: string | null
+        subject_discipline?: string | null
+        subject_level?: string | null
+        subject_color?: string | null
+      }
       const sessions: StudentSession[] = (data || [])
-        .map((row: any) => {
+        .map((row: SessionStudentRow) => {
           return {
             id: row.session_id,
             type: row.session_type,
@@ -196,9 +212,10 @@ export const absencesApi = {
       );
 
       // Filter out sessions where student is already enrolled
+      type VtutorSessionRow = Database['public']['Views']['vtutor_sessions']['Row']
       const availableSessions: RescheduleSession[] = (sessions || [])
-        .filter((session: any) => !enrolledSessionIds.has(session.session_id))
-        .map((session: any) => {
+        .filter((session: VtutorSessionRow) => !enrolledSessionIds.has(session.session_id ?? ''))
+        .map((session: VtutorSessionRow) => {
           return {
             id: session.session_id,
             type: session.session_type,

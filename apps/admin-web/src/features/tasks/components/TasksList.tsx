@@ -236,6 +236,7 @@ export function TasksList({
   showProjectPill = true,
   showLinkPill = true,
   noPadding = true,
+  defaultFilters,
 }: {
   issueId?: string;
   projectId?: string;
@@ -245,8 +246,10 @@ export function TasksList({
   showProjectPill?: boolean;
   showLinkPill?: boolean;
   noPadding?: boolean;
+  /** Initial filter values (e.g. dashboard: my tasks + backlog/todo/in progress) */
+  defaultFilters?: Record<string, unknown[]>;
 } = {}) {
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({});
+  const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
 
   const effectiveFilters = useMemo(() => ({
     ...filters,

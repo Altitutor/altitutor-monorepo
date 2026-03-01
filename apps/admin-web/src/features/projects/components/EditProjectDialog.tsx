@@ -173,19 +173,24 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
     if (!projectId) return;
 
     try {
-      const formattedUpdates: Record<string, unknown> = { ...updates };
+      const formattedUpdates: Record<string, unknown> = {};
+      if (updates.name !== undefined) formattedUpdates.name = updates.name;
+      if (updates.description !== undefined) formattedUpdates.description = updates.description;
+      if (updates.priority !== undefined) formattedUpdates.priority = updates.priority;
       if (updates.projectLeadId !== undefined) {
         formattedUpdates.project_lead_id = updates.projectLeadId;
-        delete formattedUpdates.projectLeadId;
       }
       if (updates.startDate !== undefined) {
         formattedUpdates.start_date = updates.startDate ? new Date(updates.startDate).toISOString() : null;
-        delete formattedUpdates.startDate;
       }
       if (updates.targetDate !== undefined) {
         formattedUpdates.target_date = updates.targetDate ? new Date(updates.targetDate).toISOString() : null;
-        delete formattedUpdates.targetDate;
       }
+      if (updates.status !== undefined) {
+        formattedUpdates.status = normalizeProjectStatus(updates.status);
+      }
+
+      if (Object.keys(formattedUpdates).length === 0) return;
 
       await updateProject.mutateAsync({
         id: projectId,

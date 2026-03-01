@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react';
 import { X } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
 import { useTutorLogStep7Data } from '../../hooks/useTutorLogStep7Data';
 
 type TopicItem = {

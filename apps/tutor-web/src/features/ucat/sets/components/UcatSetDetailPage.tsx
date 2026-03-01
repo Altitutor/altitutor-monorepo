@@ -1,0 +1,251 @@
+'use client'
+
+import { useEffect, useMemo, useState } from 'react'
+import { Button } from '@altitutor/ui'
+import type { DataTableFilterDefinition } from '@altitutor/shared'
+import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
+import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
+import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
+import {
+  useUcatCategories,
+  useUcatQuestionDetail,
+  useUcatSections,
+  useUcatStemCatalog,
+  useUcatTags,
+  useUpdateUcatQuestionStem,
+  type UcatStemCatalogItem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
+import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
+import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
+
+/** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
+type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
+
+type UcatSetDetailPageProps = {
+  setId: string
+}
+
+export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
+  const access = useUcatAccess()
+  const detail = useUcatSetDetail(setId)
+  const updateSet = useUpdateUcatSet()
+
+  const stemCatalogQuery = useUcatStemCatalog(true)
+  const stemCatalog = useMemo(() => stemCatalogQuery.data ?? [], [stemCatalogQuery.data])
+  const sectionsQuery = useUcatSections()
+  const categoriesQuery = useUcatCategories()
+  const tagsQuery = useUcatTags()
+  const [editingStemId, setEditingStemId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [draftName, setDraftName] = useState('')
+  const [draftDescription, setDraftDescription] = useState('')
+  const [draftTimeLimit, setDraftTimeLimit] = useState('')
+  const [draftPrivate, setDraftPrivate] = useState(false)
+  const [draftStemIds, setDraftStemIds] = useState<string[]>([])
+  const [baseline, setBaseline] = useState<string>('')
+
+  useEffect(() => {
+    const current = detail.data
+    if (!current) return
+
+    const stems = (current.stems as SetDetailStem[] | null) ?? []
+    const stemIds = stems.map((s) => s.stem_id)
+
+    setDraftName(proseMirrorToPlainText(current.name ?? null))
+    setDraftDescription(proseMirrorToPlainText(current.description))
+    setDraftTimeLimit(secondsToTimeString(current.time_limit_seconds))
+    setDraftPrivate(!!current.is_private)
+    setDraftStemIds(stemIds)
+    setBaseline(
+      snapshotSetDetail({
+        name: proseMirrorToPlainText(current.name ?? null),
+        description: proseMirrorToPlainText(current.description),
+        time: current.time_limit_seconds ?? null,
+        isPrivate: !!current.is_private,
+        isStudentGenerated: false,
+        stemIds,
+      })
+    )
+  }, [detail.data])
+
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+
+  const stemDetail = useUcatQuestionDetail(editingStemId)
+  const updateStemMutation = useUpdateUcatQuestionStem()
+
+  const isDirty = useMemo(() => {
+    const snapshot = snapshotSetDetail({
+      name: draftName,
+      description: draftDescription,
+      time: parseTimeToSeconds(draftTimeLimit),
+      isPrivate: draftPrivate,
+      isStudentGenerated: false,
+      stemIds: draftStemIds,
+    })
+    return isSnapshotDirty(snapshot, baseline)
+  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftTimeLimit])
+
+  const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => {
+    const base: DataTableFilterDefinition[] = [
+      { key: 'section_id', label: 'Section' },
+      { key: 'question_stem_category_id', label: 'Category' },
+      {
+        key: 'visibility',
+        label: 'Visibility',
+        options: [
+          { label: 'Public', value: 'public' },
+          { label: 'Private', value: 'private' },
+        ],
+      },
+      {
+        key: 'question_type',
+        label: 'Type',
+        options: [
+          { label: 'Multiple Choice', value: 'multiple_choice' },
+          { label: 'Syllogism', value: 'syllogism' },
+        ],
+      },
+    ]
+
+    const sections = sectionsQuery.data ?? []
+    const categories = categoriesQuery.data ?? []
+
+    return [
+      {
+        ...base[0],
+        options: sections.map((s) => ({
+          label: s.name ?? 'Untitled',
+          // Use section_number for filtering to avoid any ID mismatch issues
+          value: s.section_number ?? 0,
+        })),
+      },
+      {
+        ...base[1],
+        options: categories.map((c) => ({ label: c.name ?? 'Untitled', value: c.id ?? '' })),
+      },
+      base[2],
+      base[3],
+    ]
+  }, [sectionsQuery.data, categoriesQuery.data])
+
+  async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
+    if (!editingStemId) return
+
+    const mapped: UcatQuestionStemBundlePayload = {
+      stemId: editingStemId,
+      sectionId: payload.sectionId,
+      categoryId: payload.categoryId || null,
+      stemText: payload.stemText,
+      isPrivate: payload.isPrivate,
+      questions: payload.questions.map((question, index) => ({
+        index: index + 1,
+        questionText: question.questionText,
+        questionType: question.questionType,
+        difficulty: question.difficulty,
+        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
+        tagIds: question.tagIds ?? [],
+        options: question.options.map((option, optionIndex) => ({
+          index: optionIndex + 1,
+          answerText: option.answerText,
+          answerExplanation: option.answerExplanation,
+          isAnswer: option.isAnswer,
+        })),
+      })),
+    }
+
+    await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
+    setEditingStemId(null)
+  }
+
+  async function save() {
+    await updateSet.mutateAsync({
+      setId,
+      payload: {
+        id: setId,
+        name: plainTextToProseMirror(draftName),
+        description: draftDescription,
+        timeLimitSeconds: parseTimeToSeconds(draftTimeLimit),
+        isPrivate: draftPrivate,
+        isStudentGenerated: false,
+        stemIds: draftStemIds,
+      },
+    })
+  }
+
+  const isLoading =
+    access.isLoading ||
+    detail.isLoading ||
+    sectionsQuery.isLoading ||
+    categoriesQuery.isLoading ||
+    tagsQuery.isLoading ||
+    stemCatalogQuery.isLoading
+
+  if (isLoading) return <UcatPageSkeleton rows={6} />
+  if (!access.data) return <UcatAccessDenied />
+
+  return (
+    <div className="p-6">
+      <UcatPageHeader
+        title="Edit UCAT Set"
+        description={detail.data?.name ? proseMirrorToPlainText(detail.data.name) : 'Edit question set'}
+        backHref="/ucat/sets"
+        breadcrumbs={[
+          { label: 'UCAT', href: '/ucat' },
+          { label: 'Sets', href: '/ucat/sets' },
+          {
+            label: detail.data?.name ? proseMirrorToPlainText(detail.data.name) || 'Set' : 'Set',
+          },
+        ]}
+        actions={
+          <Button onClick={save} disabled={!isDirty || updateSet.isPending}>
+            {updateSet.isPending ? 'Saving...' : 'Save changes'}
+          </Button>
+        }
+      />
+
+      <div className="mt-4 h-[70vh] rounded-md border overflow-hidden">
+        <UcatSetEditorContent
+          draftName={draftName}
+          draftDescription={draftDescription}
+          draftTimeLimit={draftTimeLimit}
+          draftPrivate={draftPrivate}
+          draftStemIds={draftStemIds}
+          setDraftStemIds={setDraftStemIds}
+          stemCatalog={stemCatalog as unknown as UcatStemCatalogItem[]}
+          search={search}
+          setSearch={setSearch}
+          filters={filters}
+          setFilters={setFilters}
+          filterDefinitions={filterDefinitions}
+          onEditStem={(id) => setEditingStemId(id)}
+          onChangeName={setDraftName}
+          onChangeDescription={setDraftDescription}
+          onChangeTimeLimit={setDraftTimeLimit}
+          onChangePrivate={(value) => setDraftPrivate(value)}
+        />
+      </div>
+
+      <UcatQuestionStemDialog
+        open={!!editingStemId}
+        title="Edit Question Stem"
+        submitLabel="Save"
+        onClose={() => setEditingStemId(null)}
+        onSubmit={handleStemUpdate}
+        sections={(sectionsQuery.data ?? []).map((section) => ({ id: section.id, name: section.name }))}
+        categories={
+          (categoriesQuery.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]
+        }
+        tags={(tagsQuery.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
+        initial={stemDetail.data}
+        loading={updateStemMutation.isPending || stemDetail.isLoading}
+      />
+    </div>
+  )
+}
+

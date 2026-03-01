@@ -1,0 +1,4 @@
+{
+  "buildCommand": "cd ../.. && pnpm turbo run build --filter=ucat-web",
+  "devCommand": "cd ../.. && pnpm turbo run dev --filter=ucat-web"
+}
