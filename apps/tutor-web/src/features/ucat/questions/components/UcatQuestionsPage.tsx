@@ -789,7 +789,7 @@ export function UcatQuestionsPage() {
         <Popover open={addToSetsPopoverOpen} onOpenChange={setAddToSetsPopoverOpen}>
           <PopoverTrigger
             type="button"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border h-9 px-3 hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:border-brand-dark-border dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white"
           >
             Add to sets
           </PopoverTrigger>
@@ -811,8 +811,7 @@ export function UcatQuestionsPage() {
                             isSelected ? prev.filter((id) => id !== setId) : [...prev, setId]
                           )
                         }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        className="flex items-center gap-2 cursor-pointer"
+                        className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                       >
                         <Checkbox checked={isSelected} />
                         <span>{proseMirrorToPlainText(set.name ?? null) || 'Untitled'}</span>

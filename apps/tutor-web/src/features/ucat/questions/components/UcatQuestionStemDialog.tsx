@@ -50,6 +50,29 @@ function trimTextParagraphs(text: string): string {
     .trim()
 }
 
+/** Get the first validation error message from react-hook-form errors (supports nested paths). */
+function getFirstValidationMessage(errors: Record<string, unknown>): string {
+  for (const key of Object.keys(errors)) {
+    const value = errors[key]
+    if (value && typeof value === 'object' && 'message' in value && typeof (value as { message: unknown }).message === 'string') {
+      return (value as { message: string }).message
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const nested = getFirstValidationMessage(value as Record<string, unknown>)
+      if (nested) return nested
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === 'object') {
+          const nested = getFirstValidationMessage(item as Record<string, unknown>)
+          if (nested) return nested
+        }
+      }
+    }
+  }
+  return 'Please fix the errors in the form.'
+}
+
 export type CategoryOption = { id: string | null; name: string | null; ucat_section_id?: string | null }
 export type TagOption = { id: string; name: string }
 
@@ -87,7 +110,7 @@ export function UcatQuestionStemDialog({
   loading?: boolean
   onDelete?: () => void
 }) {
-  useToast()
+  const { toast } = useToast()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {
@@ -176,10 +199,22 @@ export function UcatQuestionStemDialog({
 
 
   async function handleSave() {
-    await form.handleSubmit(async (values) => {
-      await onSubmit(values)
-      setNewImageFileIds(new Set())
-    })()
+    // Second arg (onInvalid) triggers deep type instantiation; errors are surfaced via toast.
+    // @ts-expect-error -- Form type is deep; runtime behavior is correct.
+    form.handleSubmit(
+      async (values) => {
+        await onSubmit(values)
+        setNewImageFileIds(new Set())
+      },
+      (errs: Record<string, unknown>) => {
+        const firstMessage = getFirstValidationMessage(errs)
+        toast({
+          title: 'Validation failed',
+          description: firstMessage,
+          variant: 'destructive',
+        })
+      }
+    )()
   }
 
   const hasUnsavedChanges = form.formState.isDirty
@@ -300,7 +335,7 @@ export function QuestionTagsSelect({
                     key={tag.id}
                     value={`${tag.id}-${tag.name}`}
                     onSelect={() => toggleTag(tag.id)}
-                    className="flex items-center gap-2 text-foreground data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto"
+                    className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                   >
                     <Checkbox checked={isSelected} />
                     <span>{tag.name}</span>
