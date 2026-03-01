@@ -367,11 +367,52 @@ function toRichText(text: string): Json {
   return plainTextToProseMirror(text) as Json
 }
 
+/** All apostrophe-like characters (straight, curly, prime) so "Can't" normalises to "cant". */
+const APOSTROPHE_LIKE_RE = /[\u0027\u2018\u2019\u201A\u201B\u2032\u2035]/g
+
+/** Normalise option text for category detection: lowercase, no punctuation, single spaces. */
+function normaliseOptionTextForCategory(text: string): string {
+  return text
+    .trim()
+    .toLowerCase()
+    .replace(APOSTROPHE_LIKE_RE, '')
+    .replace(/[^\w\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/**
+ * For Verbal Reasoning: if any question in the stem has answer options exactly
+ * "True", "False", and "Can't Tell" (ignoring case, spaces, punctuation, order),
+ * return "True, False, Can't Tell"; otherwise "Reading Comprehension".
+ */
+export function getVerbalReasoningStemCategoryName(
+  stem: ParsedStem
+): 'True, False, Can\'t Tell' | 'Reading Comprehension' {
+  for (const q of stem.questions) {
+    const optionSet = new Set(q.options.map((opt) => normaliseOptionTextForCategory(opt.text)))
+    if (
+      optionSet.size === 3 &&
+      optionSet.has('true') &&
+      optionSet.has('false') &&
+      optionSet.has('cant tell')
+    ) {
+      return 'True, False, Can\'t Tell'
+    }
+  }
+  return 'Reading Comprehension'
+}
+
 export type VerbalReasoningToFormOptions = {
   /** UCAT section ID (Verbal Reasoning) that all stems belong to. */
   sectionId: string
   /** Optional category ID to assign to all stems. */
   categoryId?: string | null
+  /**
+   * Optional per-stem category resolver (e.g. from getVerbalReasoningStemCategoryName).
+   * When provided, overrides categoryId for each stem.
+   */
+  getCategoryIdForStem?: (stem: ParsedStem) => string | null
   /** Whether newly created stems should be private. Defaults to false (public). */
   isPrivate?: boolean
 }
@@ -388,7 +429,7 @@ export function mapParsedVerbalReasoningToFormValues(
   stems: ParsedStem[],
   options: VerbalReasoningToFormOptions
 ): UcatQuestionStemFormValues[] {
-  const { sectionId, categoryId = null, isPrivate = false } = options
+  const { sectionId, categoryId = null, getCategoryIdForStem, isPrivate = false } = options
 
   return stems
     .filter((stem) => stem.stemText.trim().length > 0 && stem.questions.length > 0)
@@ -406,7 +447,6 @@ export function mapParsedVerbalReasoningToFormValues(
             answerText: toRichText(opt.text),
             answerExplanation: null,
             isAnswer: false,
-            imageFileId: null,
           })),
         }))
 
@@ -415,9 +455,12 @@ export function mapParsedVerbalReasoningToFormValues(
         return null
       }
 
+      const resolvedCategoryId =
+        getCategoryIdForStem != null ? getCategoryIdForStem(stem) : categoryId
+
       const values: UcatQuestionStemFormValues = {
         sectionId,
-        categoryId,
+        categoryId: resolvedCategoryId ?? null,
         stemText: toRichText(stem.stemText),
         isPrivate,
         questions,

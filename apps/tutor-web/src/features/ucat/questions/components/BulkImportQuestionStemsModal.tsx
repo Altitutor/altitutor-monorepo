@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Json } from '@altitutor/shared'
 import {
   Button,
@@ -33,6 +33,7 @@ import {
 import {
   parseVerbalReasoningFromDoc,
   mapParsedVerbalReasoningToFormValues,
+  getVerbalReasoningStemCategoryName,
 } from '@/features/ucat/questions/lib/verbalReasoningParser'
 
 type BulkImportQuestionStemsModalProps = {
@@ -59,9 +60,9 @@ export function BulkImportQuestionStemsModal({
   const [sectionId, setSectionId] = useState<string | null>(null)
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
+  const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
 
-  // Reset wizard and local state when modal closes. Only depend on open so we don't
-  // re-run on every render (wizard is a new object each time from useBulkImportWizard).
+  // Reset wizard and local state when modal closes.
   useEffect(() => {
     if (!open) {
       setStep(0)
@@ -70,10 +71,15 @@ export function BulkImportQuestionStemsModal({
       setSectionId(null)
       setPastedContent(null)
       setParseError(null)
+      step2NewImageFileIdsRef.current = new Set()
       wizard.reset()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only when open changes; wizard.reset is stable
   }, [open])
+
+  const handleStep2ImageFileIds = useCallback((fileIds: string[]) => {
+    fileIds.forEach((id) => step2NewImageFileIdsRef.current.add(id))
+  }, [])
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = categoriesQuery.data ?? []
@@ -106,6 +112,16 @@ export function BulkImportQuestionStemsModal({
 
   function handleRequestClose() {
     if (status === 'submitting') return
+    const ids = Array.from(step2NewImageFileIdsRef.current)
+    if (ids.length > 0 && status !== 'success') {
+      void fetch('/api/ucat/images/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileIds: ids }),
+      }).catch((error) => {
+        console.error('Failed to cleanup UCAT images from bulk import step 2:', error)
+      })
+    }
     onClose()
   }
 
@@ -116,8 +132,14 @@ export function BulkImportQuestionStemsModal({
       const parsed = parseVerbalReasoningFromDoc(pastedContent)
       const forms = mapParsedVerbalReasoningToFormValues(parsed, {
         sectionId,
-        categoryId: null,
         isPrivate: false,
+        getCategoryIdForStem: (stem) => {
+          const name = getVerbalReasoningStemCategoryName(stem)
+          const category = categories.find(
+            (c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name
+          )
+          return category?.id ?? null
+        },
       })
 
       if (forms.length === 0) {
@@ -261,6 +283,7 @@ export function BulkImportQuestionStemsModal({
               setPastedContent(value)
               setParseError(null)
             }}
+            onImageFileIdsChange={handleStep2ImageFileIds}
           />
           {isVerbalReasoningSection && (
             <div className="mt-4 flex items-center justify-between gap-3">
