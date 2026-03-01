@@ -35,6 +35,7 @@ fi
 VERCEL_ADMIN_PROJECT="altitutor-admin-web"
 VERCEL_STUDENT_PROJECT="altitutor-student-web"
 VERCEL_TUTOR_PROJECT="altitutor-tutor-web"
+VERCEL_UCAT_PROJECT="altitutor-ucat-web"
 
 # Get team ID from Vercel CLI or set manually
 # Run: vercel teams list
@@ -182,11 +183,13 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "preview"
     # Deploy server-side secrets needed for API routes
     elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "preview"
     fi
 done < <({
     parse_env_file "$SECRETS_DIR/.env.development"
@@ -210,11 +213,13 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "production"
     # Deploy server-side secrets needed for API routes
     elif [[ "$key" == "SUPABASE_SERVICE_ROLE_KEY" ]] || [[ "$key" == "SUPABASE_SECRET_KEY" ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
+        deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "production"
     fi
 done < <({
     parse_env_file "$SECRETS_DIR/.env.production"
