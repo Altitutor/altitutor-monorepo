@@ -47,3 +47,16 @@ export function proseMirrorToPlainText(value: Json | null | undefined): string {
 
   return chunks.join('\n')
 }
+
+/** Returns true if the ProseMirror value has non-empty plain text. */
+export function hasRichTextContent(value: Json | null | undefined): boolean {
+  return (proseMirrorToPlainText(value)?.trim().length ?? 0) > 0
+}
+
+/**
+ * Filters an array of options to those with non-empty answerText.
+ * Use when building API payloads so empty answer options are not submitted.
+ */
+export function filterOptionsWithContent<T extends { answerText: Json }>(options: T[]): T[] {
+  return options.filter((opt) => hasRichTextContent(opt.answerText))
+}

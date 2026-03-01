@@ -35,6 +35,7 @@ import {
   TableHeader,
   TableRow,
   TablePagination,
+  useToast,
 } from '@altitutor/ui'
 import { ChevronDown, ChevronRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import {
@@ -59,7 +60,11 @@ import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/Uca
 import { BulkImportQuestionStemsModal } from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  filterOptionsWithContent,
+  plainTextToProseMirror,
+  proseMirrorToPlainText,
+} from '@/features/ucat/shared/lib/rich-text'
 import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -334,7 +339,6 @@ export function UcatQuestionsPage() {
         answerText: (opt.answer_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
         answerExplanation: (opt.answer_explanation ?? null) as import('@altitutor/shared').Json | null,
         isAnswer: opt.is_answer,
-        imageFileId: opt.image_file_id ?? null,
       })),
     }))
     return {
@@ -363,12 +367,11 @@ export function UcatQuestionsPage() {
         difficulty: question.difficulty,
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
-        options: question.options.map((option, optionIndex) => ({
+        options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
           index: optionIndex + 1,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation ?? null,
           isAnswer: option.isAnswer,
-          imageFileId: option.imageFileId ?? null,
         })),
       })),
     }
@@ -460,6 +463,7 @@ export function UcatQuestionsPage() {
     }
   }
 
+  const { toast } = useToast()
   async function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedStemIds)
     setBulkDeletePending(true)
@@ -468,6 +472,12 @@ export function UcatQuestionsPage() {
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
       setBulkDeleteOpen(false)
       setSelectedStemIds(new Set())
+    } catch (err) {
+      toast({
+        title: 'Cannot delete',
+        description: err instanceof Error ? err.message : 'Failed to delete question stems.',
+        variant: 'destructive',
+      })
     } finally {
       setBulkDeletePending(false)
     }

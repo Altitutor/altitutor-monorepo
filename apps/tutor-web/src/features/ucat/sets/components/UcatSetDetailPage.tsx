@@ -4,7 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import { Button } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
-import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  filterOptionsWithContent,
+  plainTextToProseMirror,
+  proseMirrorToPlainText,
+} from '@/features/ucat/shared/lib/rich-text'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import {
@@ -150,7 +154,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         difficulty: question.difficulty,
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
-        options: question.options.map((option, optionIndex) => ({
+        options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
           index: optionIndex + 1,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,

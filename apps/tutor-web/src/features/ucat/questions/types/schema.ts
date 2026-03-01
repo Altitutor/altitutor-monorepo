@@ -18,23 +18,31 @@ const nonEmptyRichTextSchema: z.ZodType<Json> = jsonSchema.refine(
   'Text is required'
 )
 
+/** Option answer/statement text; may be empty (only at least one option needs content). */
 export const ucatQuestionOptionSchema = z.object({
-  answerText: nonEmptyRichTextSchema,
+  answerText: jsonSchema,
   answerExplanation: jsonSchema.nullable().optional(),
   isAnswer: z.boolean(),
-  imageFileId: z.string().uuid().nullable().optional(),
 })
 
-export const ucatQuestionItemSchema = z.object({
-  questionText: nonEmptyRichTextSchema,
-  questionType: z.enum(['multiple_choice', 'syllogism']),
-  answerExplanation: jsonSchema.nullable().optional(),
-  difficulty: z.coerce.number().min(0).max(1).nullable().optional(),
-  /** Time burden as mm:ss or seconds string; converted to number when submitting */
-  timeBurdenSeconds: z.string().optional().nullable(),
-  tagIds: z.array(z.string().uuid()).default([]),
-  options: z.array(ucatQuestionOptionSchema).min(1, 'At least one option/statement is required'),
-})
+export const ucatQuestionItemSchema = z
+  .object({
+    questionText: nonEmptyRichTextSchema,
+    questionType: z.enum(['multiple_choice', 'syllogism']),
+    answerExplanation: jsonSchema.nullable().optional(),
+    difficulty: z.coerce.number().min(0).max(1).nullable().optional(),
+    /** Time burden as mm:ss or seconds string; converted to number when submitting */
+    timeBurdenSeconds: z.string().optional().nullable(),
+    tagIds: z.array(z.string().uuid()).default([]),
+    options: z.array(ucatQuestionOptionSchema).min(1, 'At least one option/statement is required'),
+  })
+  .refine(
+    (data) => {
+      const hasContent = (text: Json) => proseMirrorToPlainText(text)?.trim().length > 0
+      return data.options.some((opt) => hasContent(opt.answerText))
+    },
+    { message: 'At least one answer option must have text.', path: ['options'] }
+  )
 
 export const ucatQuestionStemSchema = z.object({
   sectionId: z.string().uuid('Section is required'),
