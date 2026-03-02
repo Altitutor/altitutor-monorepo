@@ -8,6 +8,7 @@ export function UcatFloatingPanel({
   onDragMouseDown,
   children,
   className,
+  contentClassName,
 }: {
   title: string
   titleIcon?: ReactNode
@@ -15,6 +16,8 @@ export function UcatFloatingPanel({
   onDragMouseDown?: (event: React.MouseEvent<HTMLDivElement>) => void
   children: ReactNode
   className?: string
+  /** Applied to the content wrapper so it can participate in flex layout (e.g. flex-1 min-h-0). */
+  contentClassName?: string
 }) {
   return (
     <section
@@ -40,7 +43,7 @@ export function UcatFloatingPanel({
           </button>
         ) : null}
       </header>
-      <div className="bg-[#5a84bf] p-3">{children}</div>
+      <div className={`bg-[#5a84bf] p-3 ${contentClassName ?? ''}`}>{children}</div>
     </section>
   )
 }

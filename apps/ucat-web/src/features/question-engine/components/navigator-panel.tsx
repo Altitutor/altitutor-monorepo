@@ -134,14 +134,16 @@ export function NavigatorPanel({
         title="Navigator - select a question to go to it"
         titleIcon={<Navigation className="h-5 w-5" />}
         onDragMouseDown={handleMouseDown}
-        className="w-full max-w-[640px] resize min-w-[320px] min-h-[240px] overflow-auto"
+        className="w-full max-w-[640px] resize min-w-[320px] min-h-[240px] max-h-[85vh] flex flex-col overflow-hidden"
+        contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div
-          className={`overflow-hidden font-[${UCAT_FONTS.message}] text-[11pt] text-black`}
-          style={{ backgroundColor: 'white' }}
-        >
-          <table className="w-full border-collapse">
-            <thead style={{ backgroundColor: UCAT_COLORS.toolbarBlue }} className="text-white">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div
+            className={`min-h-0 flex-1 overflow-y-auto font-[${UCAT_FONTS.message}] text-[11pt] text-black`}
+            style={{ backgroundColor: 'white' }}
+          >
+            <table className="w-full border-collapse">
+              <thead style={{ backgroundColor: UCAT_COLORS.toolbarBlue }} className="sticky top-0 z-10 text-white">
               <tr>
                 <th
                   className="cursor-pointer border border-[#9ba9bd] px-2 py-1.5 text-left font-normal select-none"
@@ -213,7 +215,7 @@ export function NavigatorPanel({
             </tbody>
           </table>
         </div>
-        <div className="mt-3 flex flex-col gap-15">
+        <div className="mt-3 flex shrink-0 flex-col gap-15">
           <div className="text-left text-[11pt]">
             {unseenOrIncompleteCount} Unseen/Incomplete
           </div>
@@ -224,6 +226,7 @@ export function NavigatorPanel({
               </span>
             </UcatExamActionButton>
           </div>
+        </div>
         </div>
       </UcatFloatingPanel>
     </div>
