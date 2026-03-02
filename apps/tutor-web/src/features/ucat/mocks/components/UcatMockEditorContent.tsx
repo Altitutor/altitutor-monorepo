@@ -302,12 +302,14 @@ export function UcatMockEditorContent({
                 <p className="mb-1 text-muted-foreground text-xs">
                   Shown to students at the start of the mock before set instructions.
                 </p>
-                <UcatRichTextEditor
-                  value={instructionsText}
-                  onChange={(value) => setInstructionsText(value)}
-                  placeholder="Optional mock instructions..."
-                  minHeight="120px"
-                />
+                <div className="rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ring-offset-background px-2">
+                  <UcatRichTextEditor
+                    value={instructionsText}
+                    onChange={(value) => setInstructionsText(value)}
+                    placeholder="Optional mock instructions..."
+                    minHeight="120px"
+                  />
+                </div>
               </label>
             </TabsContent>
             <TabsContent value="add-sets" className="mt-3 m-0 pt-4 space-y-2">
