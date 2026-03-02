@@ -51,16 +51,18 @@ export function UcatSortableList({
   )
 }
 
-function SortableRow({
+export function SortableRow({
   id,
   label,
   onRemove,
   onEdit,
+  removeButtonVariant = 'outline',
 }: {
   id: string
   label: React.ReactNode
   onRemove: () => void
   onEdit?: () => void
+  removeButtonVariant?: 'outline' | 'destructive'
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const style = {
@@ -95,9 +97,9 @@ function SortableRow({
           )}
           <Button
             type="button"
-            variant="outline"
+            variant={removeButtonVariant === 'destructive' ? 'destructive' : 'outline'}
             size="icon"
-            className="!text-destructive border-destructive hover:!text-destructive hover:bg-destructive/10"
+            className={removeButtonVariant === 'outline' ? '!text-destructive border-destructive hover:!text-destructive hover:bg-destructive/10' : undefined}
             onClick={onRemove}
           >
             <Minus className="h-4 w-4" />
