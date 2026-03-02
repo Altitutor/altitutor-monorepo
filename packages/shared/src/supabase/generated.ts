@@ -8864,6 +8864,7 @@ export type Database = {
           questions: Json | null
           section_id: string | null
           section_instructions_text: Json | null
+          section_instructions_time_limit_seconds: number | null
           section_name: string | null
           section_number: number | null
           section_time_limit_seconds: number | null
