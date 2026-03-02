@@ -17,6 +17,17 @@ export function parseTimeToSeconds(input: string): number | null {
 }
 
 /**
+ * Convert separate minutes and seconds (string inputs) to total seconds.
+ * Empty strings are treated as 0. Returns null only when both are empty.
+ */
+export function minutesSecondsToTotal(minutes: string, seconds: string): number | null {
+  const m = minutes.trim()
+  const s = seconds.trim()
+  if (m === '' && s === '') return null
+  return (parseInt(m, 10) || 0) * 60 + (parseInt(s, 10) || 0)
+}
+
+/**
  * Format seconds as mm:ss for display in time inputs.
  */
 export function secondsToTimeString(seconds: number | null | undefined): string {

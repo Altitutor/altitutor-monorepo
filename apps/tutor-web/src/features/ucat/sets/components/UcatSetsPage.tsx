@@ -23,6 +23,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   TablePagination,
   Textarea,
   useToast,
@@ -34,7 +39,7 @@ import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -122,7 +127,14 @@ export function UcatSetsPage() {
   const [openCreate, setOpenCreate] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
-  const [form, setForm] = useState({ name: '', description: '', timeLimitSeconds: '', isPrivate: false, isStudentGenerated: false })
+  const [form, setForm] = useState({
+    name: '',
+    description: '',
+    timeLimitMinutes: '',
+    timeLimitSeconds: '',
+    isPrivate: false,
+    isStudentGenerated: false,
+  })
   const [selectedSetIds, setSelectedSetIds] = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
@@ -220,14 +232,21 @@ export function UcatSetsPage() {
     const payload: UcatQuestionSetPayload = {
       name: plainTextToProseMirror(form.name),
       description: form.description,
-      timeLimitSeconds: parseTimeToSeconds(form.timeLimitSeconds),
+      timeLimitSeconds: minutesSecondsToTotal(form.timeLimitMinutes, form.timeLimitSeconds),
       isPrivate: form.isPrivate,
       isStudentGenerated: false,
       stemIds: [],
     }
     const result = await createSet.mutateAsync(payload)
     setOpenCreate(false)
-    setForm({ name: '', description: '', timeLimitSeconds: '', isPrivate: false, isStudentGenerated: false })
+    setForm({
+      name: '',
+      description: '',
+      timeLimitMinutes: '',
+      timeLimitSeconds: '',
+      isPrivate: false,
+      isStudentGenerated: false,
+    })
     if (result.id) setEditingSetId(result.id)
   }
 
@@ -442,12 +461,40 @@ export function UcatSetsPage() {
             <Textarea className="min-h-20" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
-            <Input type="text" value={form.timeLimitSeconds} onChange={(e) => setForm((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))} placeholder="e.g. 1:30 or 90" />
+            <span className="mb-1 block font-medium">Time limit (mm:ss)</span>
+            <div className="flex items-center gap-2">
+              <Input
+                type="number"
+                min={0}
+                placeholder="0"
+                className="w-20"
+                value={form.timeLimitMinutes}
+                onChange={(e) => setForm((prev) => ({ ...prev, timeLimitMinutes: e.target.value }))}
+              />
+              <span className="text-muted-foreground font-medium">:</span>
+              <Input
+                type="number"
+                min={0}
+                max={59}
+                placeholder="0"
+                className="w-20"
+                value={form.timeLimitSeconds}
+                onChange={(e) => setForm((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))}
+              />
+              <span className="text-muted-foreground text-xs">min : sec</span>
+            </div>
           </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <Checkbox checked={form.isPrivate} onCheckedChange={(checked) => setForm((prev) => ({ ...prev, isPrivate: checked === true }))} />
-            Private set
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Visibility</span>
+            <Select value={form.isPrivate ? 'private' : 'public'} onValueChange={(v) => setForm((prev) => ({ ...prev, isPrivate: v === 'private' }))}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+              </SelectContent>
+            </Select>
           </label>
         </div>
       </UcatDialogShell>

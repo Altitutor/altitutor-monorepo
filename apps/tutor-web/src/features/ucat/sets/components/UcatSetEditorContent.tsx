@@ -26,7 +26,8 @@ const STEMS_DROP_ID = 'stems-in-set-drop'
 type UcatSetEditorContentProps = {
   draftName: string
   draftDescription: string
-  draftTimeLimit: string
+  draftTimeLimitMinutes: string
+  draftTimeLimitSeconds: string
   draftPrivate: boolean
   draftStemIds: string[]
   setDraftStemIds: React.Dispatch<React.SetStateAction<string[]>>
@@ -39,7 +40,8 @@ type UcatSetEditorContentProps = {
   onEditStem: (id: string) => void
   onChangeName: (value: string) => void
   onChangeDescription: (value: string) => void
-  onChangeTimeLimit: (value: string) => void
+  onChangeTimeLimitMinutes: (value: string) => void
+  onChangeTimeLimitSeconds: (value: string) => void
   onChangePrivate: (value: boolean) => void
 }
 
@@ -92,7 +94,8 @@ function DraggableStemItem({
 export function UcatSetEditorContent({
   draftName,
   draftDescription,
-  draftTimeLimit,
+  draftTimeLimitMinutes,
+  draftTimeLimitSeconds,
   draftPrivate,
   draftStemIds,
   setDraftStemIds,
@@ -105,7 +108,8 @@ export function UcatSetEditorContent({
   onEditStem,
   onChangeName,
   onChangeDescription,
-  onChangeTimeLimit,
+  onChangeTimeLimitMinutes,
+  onChangeTimeLimitSeconds,
   onChangePrivate,
 }: UcatSetEditorContentProps) {
   const [activeId, setActiveId] = React.useState<string | null>(null)
@@ -213,13 +217,28 @@ export function UcatSetEditorContent({
                 <Textarea className="min-h-24" value={draftDescription} onChange={(e) => onChangeDescription(e.target.value)} />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
-                <Input
-                  type="text"
-                  value={draftTimeLimit}
-                  onChange={(e) => onChangeTimeLimit(e.target.value)}
-                  placeholder="e.g. 1:30 or 90"
-                />
+                <span className="mb-1 block font-medium">Time limit (mm:ss)</span>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    min={0}
+                    placeholder="0"
+                    className="w-20"
+                    value={draftTimeLimitMinutes}
+                    onChange={(e) => onChangeTimeLimitMinutes(e.target.value)}
+                  />
+                  <span className="text-muted-foreground font-medium">:</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    max={59}
+                    placeholder="0"
+                    className="w-20"
+                    value={draftTimeLimitSeconds}
+                    onChange={(e) => onChangeTimeLimitSeconds(e.target.value)}
+                  />
+                  <span className="text-muted-foreground text-xs">min : sec</span>
+                </div>
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>

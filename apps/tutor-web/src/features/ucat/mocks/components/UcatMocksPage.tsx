@@ -23,6 +23,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   TablePagination,
   useToast,
 } from '@altitutor/ui'
@@ -38,6 +43,8 @@ import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-d
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
+import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import type { RichTextJson } from '@/features/ucat/shared/types'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
 
@@ -92,6 +99,7 @@ export function UcatMocksPage() {
   const [deletingMockId, setDeletingMockId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
+  const [instructionsText, setInstructionsText] = useState<RichTextJson | null>(null)
   const [selectedMockIds, setSelectedMockIds] = useState<Set<string>>(new Set())
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
@@ -281,11 +289,19 @@ export function UcatMocksPage() {
   }
 
   async function onCreate() {
-    const result = await createMock.mutateAsync({ name, isPrivate, setIds: [] })
+    const result = await createMock.mutateAsync({ name, isPrivate, setIds: [], instructionsText: instructionsText ?? undefined })
     setOpenCreate(false)
     setName('')
     setIsPrivate(false)
+    setInstructionsText(null)
     if (result.id) setEditingMockId(result.id)
+  }
+
+  function closeCreateDialog() {
+    setOpenCreate(false)
+    setName('')
+    setIsPrivate(false)
+    setInstructionsText(null)
   }
 
   if (access.isLoading || mocks.isLoading) return <UcatPageSkeleton rows={8} />
@@ -409,7 +425,7 @@ export function UcatMocksPage() {
 
       <UcatDialogShell
         open={openCreate}
-        onClose={() => setOpenCreate(false)}
+        onClose={closeCreateDialog}
         title="Create Mock"
         subtitle="Create a new UCAT mock"
         onSave={onCreate}
@@ -422,9 +438,31 @@ export function UcatMocksPage() {
             <span className="mb-1 block font-medium">Name</span>
             <Input value={name} onChange={(e) => setName(e.target.value)} />
           </label>
-          <label className="inline-flex items-center gap-2 text-sm">
-            <Checkbox checked={isPrivate} onCheckedChange={(checked) => setIsPrivate(checked === true)} />
-            Private mock
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Visibility</span>
+            <Select value={isPrivate ? 'private' : 'public'} onValueChange={(v) => setIsPrivate(v === 'private')}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="public">Public</SelectItem>
+                <SelectItem value="private">Private</SelectItem>
+              </SelectContent>
+            </Select>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Instructions</span>
+            <p className="mb-1 text-muted-foreground text-xs">
+              Shown to students at the start of the mock before set instructions.
+            </p>
+            <div className="rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ring-offset-background">
+              <UcatRichTextEditor
+                value={instructionsText}
+                onChange={(value) => setInstructionsText(value)}
+                placeholder="Optional mock instructions..."
+                minHeight="120px"
+              />
+            </div>
           </label>
         </div>
       </UcatDialogShell>
