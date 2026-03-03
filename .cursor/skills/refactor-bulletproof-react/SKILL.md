@@ -29,7 +29,7 @@ This monorepo follows Bulletproof React principles:
 **1.1 Determine Scope**
 
 Ask user (or infer from context):
-- Entire app (`admin-web`, `student-web`, `tutor-web`)
+- Entire app (`admin-web`, `student-web`, `tutor-web`, `ucat-web`)
 - Specific feature (e.g., `features/students`)
 - Codebase-wide (all apps)
 
@@ -37,12 +37,13 @@ Ask user (or infer from context):
 
 Option A: Run the analysis script for structured output (from repo root):
 ```bash
-bash .cursor/skills/refactor-bulletproof-react/scripts/analyze-refactoring.sh <apps/admin-web|apps/student-web|apps/tutor-web|.>
+bash .cursor/skills/refactor-bulletproof-react/scripts/analyze-refactoring.sh <apps/admin-web|apps/student-web|apps/tutor-web|apps/ucat-web|.>
 ```
 
 Option B: Use grep/codebase_search to find antipatterns manually. For each category, search:
 
 - **Cross-feature imports**: `from '@/features/[other-feature]'` or `from "@/features/` where importing feature ≠ current feature
+- **Circular dependencies**: Run `npx madge --circular src` from each app directory
 - **Large components**: Components with > 200 lines (check `**/components/*.tsx`, `**/components/**/*.tsx`)
 - **useEffect + fetch**: Files with `useEffect` containing fetch/axios/supabase/api calls
 - **Any types**: `: any` or `as any` in TypeScript files
@@ -97,7 +98,8 @@ Order findings by Bulletproof React priority (only when refactoring is warranted
 
 **P0 - Critical (Fix First)**
 - Cross-feature imports
-- Business logic bugs in components
+- Circular dependencies
+- Business logic in components (data transforms, calculations in render)
 - Data fetching causing performance issues (useEffect fetch, no caching)
 - Server state in local state causing stale/incorrect data
 
@@ -154,15 +156,18 @@ If yes, start with P0 or specify which items to tackle.
 Work through the approved list in priority order. For each item:
 
 1. Read the file(s) involved
-2. Plan the refactor (what to extract, where to move, what to create)
-3. Implement the change
-4. Run quality checks: `pnpm lint`, `pnpm typecheck` (and `pnpm test` if tests exist)
-5. Commit: `git add ... && git commit -m "refactor(scope): description"`
-6. Move to next item
+2. **TDD for P0/P1**: If the component/hook has no tests and is critical (forms, data fetching, core flows), add tests before refactoring
+3. Plan the refactor (what to extract, where to move, what to create)
+4. Implement the change
+5. Run quality checks: `pnpm lint`, `pnpm typecheck` (and `pnpm test` if tests exist)
+6. Commit: `git add ... && git commit -m "refactor(scope): description"`
+7. Move to next item
 
 **3.2 Refactoring Patterns**
 
 **Cross-feature import** → Move shared code to `shared/` or `packages/shared/`, or compose at app level
+
+**Circular dependencies** → Break cycle: extract shared code to `shared/` or `packages/shared/`, invert dependency, or compose at app level
 
 **Large component** → Extract to: hook (logic), sub-components (UI), utils (pure functions)
 
@@ -219,7 +224,7 @@ When done (or user requests stop):
 - **Scope unclear**: Ask user to specify app or feature.
 - **Too many findings**: Focus on P0 and P1 first. Offer to stop after those.
 - **User says "no" to confirmation**: Stop. Do not execute.
-- **Circular dependency discovered**: Pause, explain, ask user how to resolve.
+- **Circular dependency discovered**: Treat as P0. Pause, explain the cycle, suggest fix (extract shared code, invert dependency), ask user how to resolve.
 
 ## Repeatability / Idempotency
 
