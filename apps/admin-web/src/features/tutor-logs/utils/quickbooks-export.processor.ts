@@ -72,7 +72,7 @@ export type ProcessTutorLogsResult = {
  * Process tutor logs and generate QuickBooks entries
  * Handles overlapping sessions by reducing units of lower priority sessions
  * Groups entries by type: admin shifts, meetings, class sessions
- * Excludes class sessions with no students attended
+ * Excludes class sessions with no students attended (Homework Help classes are always included)
  */
 export function processTutorLogsForExport(
   tutorLogs: TutorLogExportData[]
@@ -84,9 +84,10 @@ export function processTutorLogsForExport(
     subjectName: string | null;
   }> = [];
 
-  // Filter out class sessions with no students attended
+  // Filter out class sessions with no students attended (except Homework Help)
   const filteredLogs = tutorLogs.filter((log) => {
-    if (isClassType(log.sessionType) && log.attendedStudentCount === 0) {
+    const isHomeworkHelp = log.subjectName === 'Homework Help';
+    if (isClassType(log.sessionType) && log.attendedStudentCount === 0 && !isHomeworkHelp) {
       excludedClasses.push({
         sessionId: log.sessionId,
         sessionType: log.sessionType,
