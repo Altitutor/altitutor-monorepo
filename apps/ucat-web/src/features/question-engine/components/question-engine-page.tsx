@@ -18,7 +18,6 @@ import { useQuestionEngineData } from '@/features/question-engine/hooks/use-ques
 import { useQuestionEngineState } from '@/features/question-engine/hooks/use-question-engine-state'
 import { useUcatLag } from '@/features/question-engine/context/ucat-lag-context'
 import { CalculatorPanel } from '@/features/question-engine/components/calculator-panel'
-import { EndExamDialog } from '@/features/question-engine/components/end-exam-dialog'
 import { EndReviewDialog } from '@/features/question-engine/components/end-review-dialog'
 import { EngineIntroDialog } from '@/features/question-engine/components/engine-intro-dialog'
 import { InstructionsContent } from '@/features/question-engine/components/instructions-content'
@@ -98,6 +97,7 @@ export function QuestionEnginePage({
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
+    clearVisitedSession,
   } = useQuestionEngineState(exam)
   const router = useRouter()
   const { isLagging, runWithLag } = useUcatLag()
@@ -234,7 +234,6 @@ export function QuestionEnginePage({
       const overlayActive =
         state.phase === 'intro' ||
         state.showReadyDialog ||
-        state.showEndExamDialog ||
         state.showTimeExpiredDialog ||
         state.showEndReviewDialog ||
         state.showReviewInstructionsDialog
@@ -272,19 +271,12 @@ export function QuestionEnginePage({
       const shortcutKey = parts.join('+')
 
       // When Ready to Begin dialog is open (on instructions or intro), Alt+Y / Alt+N = Yes / No
-      const readyOrEndOverlay = state.phase === 'intro' || state.showReadyDialog || state.showEndExamDialog
-      if (readyOrEndOverlay && (shortcutKey === 'alt+y' || shortcutKey === 'alt+n')) {
+      const readyOverlay = state.phase === 'intro' || state.showReadyDialog
+      if (readyOverlay && (shortcutKey === 'alt+y' || shortcutKey === 'alt+n')) {
         event.preventDefault()
         if (shortcutKey === 'alt+y') {
           if (state.phase === 'intro' || state.showReadyDialog) {
             setState((current) => ({ ...current, phase: 'question', showReadyDialog: false }))
-          } else if (state.showEndExamDialog) {
-            setState((current) => ({
-              ...current,
-              phase: 'intro',
-              currentIndex: 0,
-              showEndExamDialog: false,
-            }))
           }
         } else {
           if (state.showReadyDialog) {
@@ -299,8 +291,6 @@ export function QuestionEnginePage({
             } else {
               router.back()
             }
-          } else if (state.showEndExamDialog) {
-            setState((current) => ({ ...current, showEndExamDialog: false }))
           }
         }
         return
@@ -332,6 +322,25 @@ export function QuestionEnginePage({
         return
       }
 
+      // On review screen, Alt+A / Alt+I / Alt+V = Review All / Incomplete / Flagged
+      if (state.phase === 'review' && !state.reviewFilter) {
+        if (shortcutKey === 'alt+a') {
+          event.preventDefault()
+          void runWithLag(() => startReviewFilter('all'))
+          return
+        }
+        if (shortcutKey === 'alt+i') {
+          event.preventDefault()
+          void runWithLag(() => startReviewFilter('incomplete'))
+          return
+        }
+        if (shortcutKey === 'alt+v') {
+          event.preventDefault()
+          void runWithLag(() => startReviewFilter('flagged'))
+          return
+        }
+      }
+
       const action = QUESTION_ENGINE_SHORTCUT_MAP[shortcutKey]
 
       if (!action) {
@@ -350,11 +359,6 @@ export function QuestionEnginePage({
           void runWithLag(() => {
             toggleFlagCurrent()
           })
-          break
-        case 'endExam':
-          void runWithLag(() =>
-            setState((current) => ({ ...current, showEndExamDialog: true }))
-          )
           break
         case 'previousQuestion':
           void runWithLag(() => {
@@ -396,7 +400,6 @@ export function QuestionEnginePage({
     state.phase,
     state.instructionsIndex,
     state.showReadyDialog,
-    state.showEndExamDialog,
     state.showNavigator,
     state.reviewFilter,
     state.showTimeExpiredDialog,
@@ -411,6 +414,7 @@ export function QuestionEnginePage({
     goPrevious,
     toggleFlagCurrent,
     goToReviewScreen,
+    startReviewFilter,
     runWithLag,
     router,
     instructionsScreens.length,
@@ -443,7 +447,6 @@ export function QuestionEnginePage({
   const showReadyToBeginDialog = state.phase === 'intro' || state.showReadyDialog
   const overlayActive =
     showReadyToBeginDialog ||
-    state.showEndExamDialog ||
     state.showTimeExpiredDialog ||
     state.showEndReviewDialog ||
     state.showReviewInstructionsDialog
@@ -459,6 +462,7 @@ export function QuestionEnginePage({
     if (exam.sourceType === 'set') {
       void runWithLag(() => {
         handleExamCompleted()
+        clearVisitedSession()
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -473,6 +477,7 @@ export function QuestionEnginePage({
     if (!nextSeg) {
       void runWithLag(() => {
         handleExamCompleted()
+        clearVisitedSession()
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -562,29 +567,6 @@ export function QuestionEnginePage({
           </div>
         ) : null}
 
-        {state.showEndExamDialog ? (
-          <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
-            <EndExamDialog
-              onConfirm={() =>
-                void runWithLag(() => {
-                  handleExamCompleted()
-                  setState((current) => ({
-                    ...current,
-                    phase: 'intro',
-                    currentIndex: 0,
-                    showEndExamDialog: false,
-                  }))
-                })
-              }
-              onCancel={() =>
-                void runWithLag(() =>
-                  setState((current) => ({ ...current, showEndExamDialog: false }))
-                )
-              }
-            />
-          </div>
-        ) : null}
-
         {state.showEndReviewDialog ? (
           <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
             <EndReviewDialog
@@ -592,6 +574,7 @@ export function QuestionEnginePage({
               onConfirm={() =>
                 void runWithLag(() => {
                   handleExamCompleted()
+                  clearVisitedSession()
                   setState((current) => ({
                     ...current,
                     phase: 'intro',
@@ -732,6 +715,7 @@ export function QuestionEnginePage({
                     setState((current) => ({ ...current, showEndReviewDialog: true }))
                   } else {
                     handleExamCompleted()
+                    clearVisitedSession()
                     setState((current) => ({
                       ...current,
                       phase: 'intro',
@@ -758,41 +742,25 @@ export function QuestionEnginePage({
                 Review <span className="underline">S</span>creen
               </span>
             </UcatExamActionButton>
-          ) : isInstructionsPhase ? null : (
-            <UcatExamActionButton
-              onClick={() =>
-                void runWithLag(() =>
-                  setState((current) => ({ ...current, showEndExamDialog: true }))
-                )
-              }
-              icon={<LogOut className="h-4 w-4" />}
-            >
-              <span className="text-[14pt]">
-                <span className="underline">E</span>nd Exam
-              </span>
-            </UcatExamActionButton>
-          )
+          ) : isInstructionsPhase ? null : null
         }
         footerRight={
           isReviewScreen ? (
             <>
               <UcatExamActionButton
                 onClick={() => void runWithLag(() => startReviewFilter('all'))}
-                borders="all"
                 icon={<Search className="h-4 w-4" />}
               >
                 <span className="text-[14pt]">Review <span className="underline">A</span>ll</span>
               </UcatExamActionButton>
               <UcatExamActionButton
                 onClick={() => void runWithLag(() => startReviewFilter('incomplete'))}
-                borders="all"
                 icon={<X className="h-4 w-4" />}
               >
                 <span className="text-[14pt]">Review <span className="underline">I</span>ncomplete</span>
               </UcatExamActionButton>
               <UcatExamActionButton
                 onClick={() => void runWithLag(() => startReviewFilter('flagged'))}
-                borders="all"
                 icon={<Flag className="h-4 w-4" />}
               >
                 <span className="text-[14pt]">Re<span className="underline">v</span>iew Flagged</span>
