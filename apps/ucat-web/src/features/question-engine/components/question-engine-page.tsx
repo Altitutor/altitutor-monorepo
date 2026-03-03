@@ -1,7 +1,7 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -23,6 +23,10 @@ import { EngineIntroDialog } from '@/features/question-engine/components/engine-
 import { InstructionsContent } from '@/features/question-engine/components/instructions-content'
 import { NavigatorPanel } from '@/features/question-engine/components/navigator-panel'
 import { QuestionContent } from '@/features/question-engine/components/question-content'
+import {
+  computeMarkingResult,
+  MarkingBody,
+} from '@/features/question-engine/components/marking-body'
 import { ReviewBody } from '@/features/question-engine/components/review-body'
 import { ReviewInstructionsDialog } from '@/features/question-engine/components/review-instructions-dialog'
 import { TimeExpiredDialog } from '@/features/question-engine/components/time-expired-dialog'
@@ -56,24 +60,27 @@ export function QuestionEnginePage({
     mockId: mode === 'mock' ? sourceId : undefined,
   })
 
-  const exam =
-    mode === 'questionStem'
-      ? questionStems && {
-          sourceType: mode,
-          sourceId: sourceId ?? 'question-stem',
-          title: 'Question Stems',
-          questions: mapQuestionStemsToItems(questionStems),
-          instructionsScreens: [],
-        }
-      : mode === 'questions'
-        ? standaloneQuestions && {
+  const exam = useMemo(
+    () =>
+      mode === 'questionStem'
+        ? questionStems && {
             sourceType: mode,
-            sourceId: sourceId ?? 'questions',
-            title: 'Questions',
-            questions: mapQuestionsToItems(standaloneQuestions),
+            sourceId: sourceId ?? 'question-stem',
+            title: 'Question Stems',
+            questions: mapQuestionStemsToItems(questionStems),
             instructionsScreens: [],
           }
-        : query.data
+        : mode === 'questions'
+          ? standaloneQuestions && {
+              sourceType: mode,
+              sourceId: sourceId ?? 'questions',
+              title: 'Questions',
+              questions: mapQuestionsToItems(standaloneQuestions),
+              instructionsScreens: [],
+            }
+          : query.data,
+    [mode, sourceId, questionStems, standaloneQuestions, query.data]
+  )
 
   const instructionsScreens =
     exam && 'instructionsScreens' in exam ? exam.instructionsScreens : []
@@ -84,7 +91,6 @@ export function QuestionEnginePage({
     currentQuestion,
     questions,
     isLastQuestion,
-    submittedCount,
     effectiveCurrentIndex,
     reviewFilterIndices,
     reviewListRows,
@@ -167,7 +173,7 @@ export function QuestionEnginePage({
       }
       return next
     })
-  }, [isSetOrMock, remainingSeconds, segmentKey, state.phase, exam?.sourceType, setState])
+  }, [isSetOrMock, remainingSeconds, segmentKey, state.phase, exam, setState])
 
   // Warn before leaving the UCAT exam page (tab close, reload, or navigation)
   useEffect(() => {
@@ -349,11 +355,16 @@ export function QuestionEnginePage({
       event.preventDefault()
 
       switch (action) {
-        case 'toggleCalculator':
-          void runWithLag(() =>
-            setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
-          )
+        case 'toggleCalculator': {
+          // Only allow when calculator button is visible (not on review screen)
+          const isReviewScreen = state.phase === 'review' && !state.reviewFilter
+          if (!isReviewScreen) {
+            void runWithLag(() =>
+              setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
+            )
+          }
           break
+        }
         case 'toggleFlagForReview':
           void runWithLag(() => {
             toggleFlagCurrent()
@@ -436,6 +447,7 @@ export function QuestionEnginePage({
     state.phase === 'instructions' && instructionsScreens[state.instructionsIndex]
   const isInstructionsPhase = state.phase === 'instructions'
   const isReviewPhase = state.phase === 'review'
+  const isMarkingPhase = state.phase === 'marking'
   const isReviewScreen = isReviewPhase && !state.reviewFilter
   const isReviewMode = isReviewPhase && state.reviewFilter
   const questionLabel =
@@ -459,29 +471,29 @@ export function QuestionEnginePage({
   function handleTimeExpiredOk() {
     if (!exam || (exam.sourceType !== 'set' && exam.sourceType !== 'mock')) return
     if (exam.sourceType === 'set') {
-      void runWithLag(() => {
-        handleExamCompleted()
+      void runWithLag(async () => {
+        await handleExamCompleted()
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
-          phase: 'intro',
-          currentIndex: 0,
+          phase: 'marking',
+          reviewFilter: null,
+          reviewFilterIndex: 0,
         }))
-        router.back()
       })
       return
     }
     const nextSeg = getNextMockSegment(exam, state)
     if (!nextSeg) {
-      void runWithLag(() => {
-        handleExamCompleted()
+      void runWithLag(async () => {
+        await handleExamCompleted()
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
-          phase: 'intro',
-          currentIndex: 0,
+          phase: 'marking',
+          reviewFilter: null,
+          reviewFilterIndex: 0,
         }))
-        router.back()
       })
       return
     }
@@ -569,17 +581,15 @@ export function QuestionEnginePage({
             <EndReviewDialog
               incompleteCount={incompleteCount}
               onConfirm={() =>
-                void runWithLag(() => {
-                  handleExamCompleted()
+                void runWithLag(async () => {
+                  await handleExamCompleted()
                   setState((current) => ({
                     ...current,
-                    phase: 'intro',
-                    currentIndex: 0,
+                    phase: 'marking',
                     showEndReviewDialog: false,
                     reviewFilter: null,
                     reviewFilterIndex: 0,
                   }))
-                  router.back()
                 })
               }
               onCancel={() =>
@@ -631,7 +641,11 @@ export function QuestionEnginePage({
     <>
       <UcatExamShell
         sectionTitle={
-          isReviewScreen ? exam.title : (currentQuestion?.sectionName ?? exam.title)
+          isMarkingPhase
+            ? `${exam.title} – Results`
+            : isReviewScreen
+              ? exam.title
+              : (currentQuestion?.sectionName ?? exam.title)
         }
         sectionTitleRight={
           isReviewScreen
@@ -703,22 +717,22 @@ export function QuestionEnginePage({
           )
         }
         footerLeft={
-          isReviewScreen ? (
+          isMarkingPhase ? null : isReviewScreen ? (
             <UcatExamActionButton
               onClick={() =>
                 void runWithLag(() => {
                   if (incompleteCount > 0) {
                     setState((current) => ({ ...current, showEndReviewDialog: true }))
                   } else {
-                    handleExamCompleted()
-                    setState((current) => ({
-                      ...current,
-                      phase: 'intro',
-                      currentIndex: 0,
-                      reviewFilter: null,
-                      reviewFilterIndex: 0,
-                    }))
-                    router.back()
+                    void runWithLag(async () => {
+                      await handleExamCompleted()
+                      setState((current) => ({
+                        ...current,
+                        phase: 'marking',
+                        reviewFilter: null,
+                        reviewFilterIndex: 0,
+                      }))
+                    })
                   }
                 })
               }
@@ -740,7 +754,7 @@ export function QuestionEnginePage({
           ) : isInstructionsPhase ? null : null
         }
         footerRight={
-          isReviewScreen ? (
+          isMarkingPhase ? null : isReviewScreen ? (
             <>
               <UcatExamActionButton
                 onClick={() => void runWithLag(() => startReviewFilter('all'))}
@@ -858,6 +872,20 @@ export function QuestionEnginePage({
       >
         {isInstructionsPhase && currentInstructionsScreen ? (
           <InstructionsContent screen={currentInstructionsScreen} />
+        ) : isMarkingPhase ? (
+          <MarkingBody
+            result={computeMarkingResult(questions, state.selectedAnswers)}
+            onNext={() =>
+              void runWithLag(() => {
+                setState((current) => ({
+                  ...current,
+                  phase: 'intro',
+                  currentIndex: 0,
+                }))
+                router.back()
+              })
+            }
+          />
         ) : isReviewScreen ? (
           <ReviewBody
             sectionTitle={exam.title}
