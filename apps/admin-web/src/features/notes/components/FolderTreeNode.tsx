@@ -2,8 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronRight, ChevronDown } from 'lucide-react';
-import { cn } from '@/shared/utils';
 import type { FolderTreeItem } from '../types';
 import { DraggableNote } from './DraggableNote';
 import { DraggableFolder } from './DraggableFolder';

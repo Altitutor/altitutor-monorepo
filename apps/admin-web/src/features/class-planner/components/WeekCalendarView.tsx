@@ -303,7 +303,8 @@ export function WeekCalendarView({ plan, planId, selectedSubjectId, dragSubjectI
                       const { style } = subject
                         ? getSubjectColorStyle(subject)
                         : { style: {} as React.CSSProperties };
-                      const borderColor = (style as any).borderColor || (style as any).backgroundColor || '#e5e7eb';
+                      const styleObj = style as React.CSSProperties;
+                      const borderColor = styleObj.borderColor ?? styleObj.backgroundColor ?? '#e5e7eb';
                       return (
                         <Card
                           key={cls.id}

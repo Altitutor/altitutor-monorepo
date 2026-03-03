@@ -53,8 +53,6 @@ export type QuickBooksEntry = {
   originalStartAt: string; // UTC timestamp (for overlap calculation)
   originalEndAt: string; // UTC timestamp (for overlap calculation)
   priority: number; // Session type priority
-  sessionGroup: 'admin' | 'meeting' | 'class'; // Group for sectioning
-  isAdminOrMeeting: boolean; // True if admin or meeting (grouped together)
 };
 
 /**
@@ -74,7 +72,7 @@ export type ProcessTutorLogsResult = {
  * Process tutor logs and generate QuickBooks entries
  * Handles overlapping sessions by reducing units of lower priority sessions
  * Groups entries by type: admin shifts, meetings, class sessions
- * Excludes class sessions with no students attended
+ * Excludes class sessions with no students attended (Homework Help classes are always included)
  */
 export function processTutorLogsForExport(
   tutorLogs: TutorLogExportData[]
@@ -86,9 +84,10 @@ export function processTutorLogsForExport(
     subjectName: string | null;
   }> = [];
 
-  // Filter out class sessions with no students attended
+  // Filter out class sessions with no students attended (except Homework Help)
   const filteredLogs = tutorLogs.filter((log) => {
-    if (isClassType(log.sessionType) && log.attendedStudentCount === 0) {
+    const isHomeworkHelp = log.subjectName === 'Homework Help';
+    if (isClassType(log.sessionType) && log.attendedStudentCount === 0 && !isHomeworkHelp) {
       excludedClasses.push({
         sessionId: log.sessionId,
         sessionType: log.sessionType,
@@ -118,45 +117,14 @@ export function processTutorLogsForExport(
     allEntries.push(...staffEntries);
   }
   
-  // Group entries by session type category
-  // Admin shifts and meetings are grouped together
-  const adminAndMeetingEntries: QuickBooksEntry[] = [];
-  const classEntries: QuickBooksEntry[] = [];
-
-  for (const entry of allEntries) {
-    // Group entries by sessionGroup (already set in processStaffEntries)
-    const group = entry.sessionGroup;
-    if (group === 'admin' || group === 'meeting') {
-      adminAndMeetingEntries.push(entry);
-    } else {
-      classEntries.push(entry);
-    }
-  }
-
-  // Sort each group: date asc, time asc, staff member asc
-  const sortEntries = (entries: QuickBooksEntry[]) => {
-    return entries.sort((a, b) => {
-      // Sort by date (asc)
-      const dateCompare = a.date.localeCompare(b.date);
-      if (dateCompare !== 0) return dateCompare;
-      
-      // Sort by time (asc)
-      const timeCompare = a.startTime.localeCompare(b.startTime);
-      if (timeCompare !== 0) return timeCompare;
-      
-      // Sort by staff member (asc)
-      return a.employeeExternalId.localeCompare(b.employeeExternalId);
-    });
-  };
-
-  const sortedAdminAndMeetings = sortEntries(adminAndMeetingEntries);
-  const sortedClasses = sortEntries(classEntries);
-
-  // Combine groups in order: admin+meetings, classes
-  const result: QuickBooksEntry[] = [
-    ...sortedAdminAndMeetings,
-    ...sortedClasses,
-  ];
+  // Sort: date asc, employee external id asc, start time asc
+  const result = [...allEntries].sort((a, b) => {
+    const dateCompare = a.date.localeCompare(b.date);
+    if (dateCompare !== 0) return dateCompare;
+    const employeeCompare = a.employeeExternalId.localeCompare(b.employeeExternalId);
+    if (employeeCompare !== 0) return employeeCompare;
+    return a.startTime.localeCompare(b.startTime);
+  });
 
   return {
     entries: result,
@@ -190,10 +158,7 @@ function processStaffEntries(logs: TutorLogExportData[]): QuickBooksEntry[] {
       );
       
       const comments = generateComments(log);
-      
-      const sessionGroup = getSessionGroup(log.sessionType);
-      const isAdminOrMeeting = sessionGroup === 'admin' || sessionGroup === 'meeting';
-      
+
       return {
         date: formatDateAdelaide(log.sessionStartAt),
         startTime: formatTimeAdelaide(log.sessionStartAt),
@@ -205,8 +170,6 @@ function processStaffEntries(logs: TutorLogExportData[]): QuickBooksEntry[] {
         originalStartAt: log.sessionStartAt,
         originalEndAt: log.sessionEndAt,
         priority: getSessionPriority(log.sessionType),
-        sessionGroup,
-        isAdminOrMeeting,
       };
     })
     .filter((e): e is QuickBooksEntry => e !== null);
@@ -318,19 +281,6 @@ function isMeetingType(sessionType: SessionType): boolean {
  */
 function isClassType(sessionType: SessionType): boolean {
   return ['CLASS', 'DRAFTING', 'EXAM_COURSE'].includes(sessionType);
-}
-
-/**
- * Categorize session type into group
- */
-function getSessionGroup(sessionType: SessionType): 'admin' | 'meeting' | 'class' {
-  if (sessionType === 'ADMIN_SHIFT') {
-    return 'admin';
-  }
-  if (isMeetingType(sessionType)) {
-    return 'meeting';
-  }
-  return 'class';
 }
 
 /**

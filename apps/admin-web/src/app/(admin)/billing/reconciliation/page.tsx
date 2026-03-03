@@ -29,9 +29,9 @@ export default function ReconciliationPage() {
         setStuckAttempts(stuck);
       } catch (viewError: unknown) {
         // Views don't exist anymore - Stripe handles reconciliation automatically
-        setMissingObligations([]);
-        setFailedAttempts([]);
-        setStuckAttempts([]);
+        setMissingObligations([] as MissingPaymentObligation[]);
+        setFailedAttempts([] as FailedPaymentAttempt[]);
+        setStuckAttempts([] as StuckPaymentAttempt[]);
       }
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
@@ -62,9 +62,9 @@ export default function ReconciliationPage() {
     return new Date(date).toLocaleString();
   };
 
-  const formatAmount = (cents: number | null, currency: string = 'AUD') => {
+  const formatAmount = (cents: number | null, currency: string | null = 'AUD') => {
     if (cents === null) return '-';
-    return `$${(cents / 100).toFixed(2)} ${currency}`;
+    return `$${(cents / 100).toFixed(2)} ${currency ?? 'AUD'}`;
   };
 
   return (
@@ -130,7 +130,7 @@ export default function ReconciliationPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {missingObligations.map((ob: any) => (
+                      {missingObligations.map((ob: MissingPaymentObligation) => (
                         <TableRow key={ob.sessions_students_id}>
                           <TableCell>{formatDate(ob.session_start_at)}</TableCell>
                           <TableCell>{ob.subject_name || '-'}</TableCell>
@@ -184,7 +184,7 @@ export default function ReconciliationPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {failedAttempts.map((attempt: any) => (
+                      {failedAttempts.map((attempt) => (
                         <TableRow key={attempt.payment_attempt_id}>
                           <TableCell>{formatDate(attempt.session_start_at)}</TableCell>
                           <TableCell>{attempt.subject_name || '-'}</TableCell>
@@ -242,7 +242,7 @@ export default function ReconciliationPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {stuckAttempts.map((attempt: any) => (
+                      {stuckAttempts.map((attempt) => (
                         <TableRow key={attempt.id}>
                           <TableCell>{formatDate(attempt.created_at)}</TableCell>
                           <TableCell>{formatDate(attempt.session_start_at)}</TableCell>

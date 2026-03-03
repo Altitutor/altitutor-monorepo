@@ -69,7 +69,7 @@ export function SendBookingConfirmationDialog({
     isOpen
   );
   const student = data?.student ?? null;
-  const parents = data?.parents ?? [];
+  const parents = useMemo(() => data?.parents ?? [], [data?.parents]);
   const session = data?.session ?? null;
   const bookingUrl = sessionId ? getBookingConfirmationUrl(sessionId) : null;
 
@@ -174,7 +174,7 @@ export function SendBookingConfirmationDialog({
     if (selectedRecipient?.method === 'phone') {
       setComposerDraft('');
     }
-  }, [selectedRecipient?.id, selectedRecipient?.type]);
+  }, [selectedRecipient?.id, selectedRecipient?.type, selectedRecipient?.method]);
 
   useEffect(() => {
     if (!bookingUrl || !selectedRecipient || !student) return;

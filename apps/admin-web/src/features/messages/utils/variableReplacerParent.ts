@@ -1,8 +1,6 @@
 import type { Tables } from '@altitutor/shared';
 import { formatClassName } from '@/shared/utils';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
-import { getStudentClassesWithStartDates } from '../api/bulk';
-import { parseStudentSubVariable } from './variableConfig';
 
 /**
  * Format date as "Wed 11th Feb"

@@ -21,7 +21,7 @@ interface TaskDescriptionFieldProps {
   descriptionRef?: React.RefObject<RichTextEditorRef>;
 }
 
-export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }: TaskDescriptionFieldProps) {
+export function TaskDescriptionField({ form, value: _value, onTagClick: _onTagClick, descriptionRef }: TaskDescriptionFieldProps) {
   const mentionSuggestions = useMentionSuggestions();
 
   return (
@@ -37,7 +37,7 @@ export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }
               onChange={field.onChange}
               placeholder="Add task description..."
               className="min-h-0"
-              mentionSuggestions={mentionSuggestions as any}
+              mentionSuggestions={mentionSuggestions}
             />
           </FormControl>
           <FormMessage />

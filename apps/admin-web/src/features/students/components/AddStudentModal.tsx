@@ -29,11 +29,11 @@ import { useCreateStudent } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { studentsApi } from '../api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { useForm, Controller, SubmitHandler, useFieldArray } from 'react-hook-form';
+import { useForm, Controller, SubmitHandler, useFieldArray, type FieldValues, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, TablesInsert } from '@altitutor/shared';
 import { useCreateParent } from '@/features/parents/hooks/useParentsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -115,8 +115,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     reset,
     formState: { errors } 
   } = useForm<FormData>({
-    // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as Resolver<FormData>,
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -149,14 +148,14 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     setErrorMessage(null);
     
     try {
-      const studentData: any = {
+      const studentData: TablesInsert<'students'> = {
         id: crypto.randomUUID(),
         first_name: formData.firstName,
         last_name: formData.lastName,
-        email: (formData.studentEmail || null) as any,
-        phone: (formData.studentPhone || null) as any,
+        email: formData.studentEmail || null,
+        phone: formData.studentPhone || null,
         school: formData.school || null,
-        curriculum: (formData.curriculum || null) as any,
+        curriculum: formData.curriculum || null,
         year_level: formData.yearLevel ?? null,
         status: formData.status,
         availability_monday: formData.availability_monday,
@@ -207,12 +206,12 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
                 (parentData.email?.trim()) ||
                 (parentData.phone && String(parentData.phone).trim());
               if (hasAnyData) {
-                const parentDataToCreate: any = {
+                const parentDataToCreate: TablesInsert<'parents'> = {
                   id: crypto.randomUUID(),
                   first_name: parentData.first_name || '',
                   last_name: parentData.last_name || '',
-                  email: (parentData.email || null) as any,
-                  phone: (parentData.phone || null) as any,
+                  email: parentData.email || null,
+                  phone: parentData.phone || null,
                   created_at: null,
                   updated_at: null,
                 };
@@ -322,7 +321,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as SubmitHandler<FieldValues>)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>

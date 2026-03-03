@@ -5,20 +5,21 @@
 import { calculateMatchScore } from '../matchScoring';
 import type { CommandPaletteCommand, CommandPalettePage } from '../../config/commandPalette.config';
 import type { CommandPaletteEntityResult } from '../../types';
+import type { Tables } from '@altitutor/shared';
 import { Calendar } from 'lucide-react';
 
 // Mock entity formatters
 jest.mock('../entityFormatters', () => ({
   getEntityDisplayText: jest.fn((result: CommandPaletteEntityResult) => {
     if (result.type === 'student') {
-      const data = result.data as any;
+      const data = result.data as Tables<'students'>;
       return {
         title: `${data.first_name || ''} ${data.last_name || ''}`.trim() || 'Student',
         subtitle: data.school || null,
       };
     }
     if (result.type === 'staff') {
-      const data = result.data as any;
+      const data = result.data as Pick<Tables<'staff'>, 'first_name' | 'last_name' | 'role'>;
       return {
         title: `${data.first_name || ''} ${data.last_name || ''}`.trim(),
         subtitle: data.role || null,
@@ -204,7 +205,7 @@ describe('calculateMatchScore', () => {
           first_name: 'John',
           last_name: 'Doe',
           school: 'Test School',
-        } as any,
+        } as Tables<'students'>,
       };
 
       const score = calculateMatchScore({ type: 'entity', result: entity }, 'John Doe');
@@ -220,7 +221,7 @@ describe('calculateMatchScore', () => {
           first_name: 'John',
           last_name: 'Doe',
           school: 'Test School',
-        } as any,
+        } as Tables<'students'>,
       };
 
       const score = calculateMatchScore({ type: 'entity', result: entity }, 'John');
@@ -236,7 +237,7 @@ describe('calculateMatchScore', () => {
           first_name: 'John',
           last_name: 'Doe',
           school: 'Test School',
-        } as any,
+        } as Tables<'students'>,
       };
 
       const score = calculateMatchScore({ type: 'entity', result: entity }, 'Doe');
@@ -252,7 +253,7 @@ describe('calculateMatchScore', () => {
           first_name: 'John',
           last_name: 'Doe',
           school: 'Test School',
-        } as any,
+        } as Tables<'students'>,
       };
 
       const score = calculateMatchScore({ type: 'entity', result: entity }, 'John Doe Test School');
@@ -268,7 +269,7 @@ describe('calculateMatchScore', () => {
           first_name: 'John',
           last_name: 'Doe',
           school: 'Test School',
-        } as any,
+        } as Tables<'students'>,
       };
 
       const score = calculateMatchScore({ type: 'entity', result: entity }, 'John Doe Test');
@@ -284,7 +285,7 @@ describe('calculateMatchScore', () => {
           first_name: 'John',
           last_name: 'Doe',
           school: 'Test School',
-        } as any,
+        } as Tables<'students'>,
       };
 
       const score = calculateMatchScore({ type: 'entity', result: entity }, 'School');
@@ -345,7 +346,7 @@ describe('calculateMatchScore', () => {
           first_name: 'John',
           last_name: 'Doe',
           school: 'XYZSchool', // School name that doesn't match title
-        } as any,
+        } as Tables<'students'>,
       };
 
       // Query that only matches subtitle (school), not title

@@ -25,7 +25,7 @@ import {
   DataTableToolbar,
   TablePagination,
 } from "@altitutor/ui";
-import { Search, ArrowUpDown, Loader2 } from 'lucide-react';
+import { ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
@@ -239,7 +239,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
               </TableRow>
             ) : (
               parents.map((parent) => {
-                const students = (parent as any).students || [];
+                const students = (parent as Tables<'parents'> & { students?: Tables<'students'>[] }).students ?? [];
                 return (
                   <TableRow
                     key={parent.id}

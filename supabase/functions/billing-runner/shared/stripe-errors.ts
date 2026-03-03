@@ -1,5 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
 import Stripe from 'npm:stripe@16.6.0';
 
 /**
@@ -28,7 +26,7 @@ export function getStripeErrorDetails(error: unknown): {
     typeof error === 'object' &&
     ('statusCode' in error || 'type' in error || 'code' in error)
   ) {
-    const e = error as any;
+    const e = error as { type?: string; code?: string; statusCode?: number; message?: string };
     return {
       type: e.type,
       code: e.code,
@@ -96,7 +94,7 @@ export function shouldRetryStripeError(error: unknown): {
 export function formatStripeErrorMessage(
   error: unknown,
   operation: string,
-  context?: { studentId?: string; sessionId?: string; invoiceId?: string; [key: string]: any }
+  context?: { studentId?: string; sessionId?: string; invoiceId?: string; [key: string]: unknown }
 ): string {
   const details = getStripeErrorDetails(error);
   const contextParts: string[] = [];
@@ -125,14 +123,14 @@ export function formatStripeErrorMessage(
 export function createErrorResponse(
   error: unknown,
   operation: string,
-  context?: { studentId?: string; sessionId?: string; invoiceId?: string; [key: string]: any }
+  context?: { studentId?: string; sessionId?: string; invoiceId?: string; [key: string]: unknown }
 ): {
   error: string;
   code?: string;
   type?: string;
   statusCode?: number;
   message: string;
-  context?: Record<string, any>;
+  context?: Record<string, unknown>;
 } {
   const details = getStripeErrorDetails(error);
   const message = formatStripeErrorMessage(error, operation, context);

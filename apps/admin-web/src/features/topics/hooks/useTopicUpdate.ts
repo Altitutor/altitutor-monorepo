@@ -70,14 +70,14 @@ export function useTopicUpdate() {
    * Helper to call mutation without showing toast (to avoid multiple toasts)
    */
   const mutateSilently = useCallback(
-    <T,>(mutation: any, variables: T): Promise<any> => {
+    <T, R>(mutation: { mutate: (variables: T, options?: { onSuccess?: (data: R) => void; onError?: (error: Error) => void }) => void }, variables: T): Promise<R> => {
       return new Promise((resolve, reject) => {
         mutation.mutate(variables, {
-          onSuccess: (data: any) => {
+          onSuccess: (data: R) => {
             resolve(data);
           },
-          onError: (error: any) => {
-            reject(error);
+          onError: (error: unknown) => {
+            reject(error instanceof Error ? error : new Error(String(error)));
           },
         });
       });

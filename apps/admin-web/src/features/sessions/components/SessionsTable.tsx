@@ -14,7 +14,7 @@ import {
   TablePagination,
 } from '@altitutor/ui';
 import { ArrowUpDown, Search } from 'lucide-react';
-import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
+import type { DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, formatSessionType, formatSubjectDisplay } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -27,6 +27,16 @@ import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { LogAbsenceDialog } from './absences';
 import { SessionsTableRow } from './SessionsTableRow';
+
+const SESSION_TYPES = [
+  'CLASS',
+  'DRAFTING',
+  'EXAM_COURSE',
+  'SUBSIDY_INTERVIEW',
+  'TRIAL_SESSION',
+  'STAFF_INTERVIEW',
+  'TRIAL_SHIFT',
+] as const;
 
 type SessionsTableProps = {
   studentId?: string;
@@ -84,7 +94,7 @@ export function SessionsTable({
   hideStudentFilter = false,
   hideTypeFilter = false,
   hideTutorLogFilter = false,
-  hideSearch = false,
+  hideSearch: _hideSearch = false,
   hideTypeColumn = false,
   hideClassColumn = false,
   hideStudentsColumn = false,
@@ -132,17 +142,6 @@ export function SessionsTable({
     defaultVisibleColumns,
     filterKeys: ['type', 'subject', 'student', 'staff', 'tutor_log', 'from', 'to'],
   });
-
-  // Session types constant
-  const SESSION_TYPES = [
-    'CLASS',
-    'DRAFTING',
-    'EXAM_COURSE',
-    'SUBSIDY_INTERVIEW',
-    'TRIAL_SESSION',
-    'STAFF_INTERVIEW',
-    'TRIAL_SHIFT',
-  ] as const;
 
   // Use the main hook for all business logic
   const {

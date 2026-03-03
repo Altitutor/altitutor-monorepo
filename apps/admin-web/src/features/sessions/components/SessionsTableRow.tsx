@@ -448,7 +448,7 @@ function SessionsTableRowStudentActions({
   sessionShortName,
   getClassShortDisplayName,
   getShortSessionName,
-  onOpenSession,
+  onOpenSession: _onOpenSession,
   onUndoLogAbsenceStudent,
   onRemoveStudentFromSession,
   modals,

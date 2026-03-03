@@ -1,6 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
-
 /**
  * Calculate gross amount with fees
  */
@@ -39,10 +36,25 @@ export function formatSessionDate(startAt: string): string {
 /**
  * Build class long name from session, class, and subject data
  */
+interface SessionLike {
+  class_id?: string | null;
+  subject_id?: string | null;
+}
+
+interface ClassLike {
+  level?: string | number | null;
+}
+
+interface SubjectLike {
+  curriculum?: string | null;
+  year_level?: number | null;
+  name?: string | null;
+}
+
 export function getClassLongName(
-  session: any,
-  classById: Record<string, any>,
-  subjectById: Record<string, any>
+  session: SessionLike,
+  classById: Record<string, ClassLike>,
+  subjectById: Record<string, SubjectLike>
 ): string {
   const cls = session.class_id ? classById[session.class_id] : null;
   const subj = session.subject_id ? subjectById[session.subject_id] : null;
@@ -104,8 +116,14 @@ export function generateInvoiceIdempotencyKey(
 /**
  * Generate idempotency key for invoice item
  */
+interface InvoiceItemLike {
+  sessions_students_id?: string;
+  amount_cents: number;
+  description: string;
+}
+
 export function generateInvoiceItemIdempotencyKey(
-  item: any,
+  item: InvoiceItemLike,
   studentId: string,
   invoiceDate: string,
   timestamp: number

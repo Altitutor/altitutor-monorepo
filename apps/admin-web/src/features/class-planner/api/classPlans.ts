@@ -130,16 +130,18 @@ export const classPlansApi = {
       
       if (staffError) throw staffError;
 
-      // Transform data
-      const classesWithDetails = (classes ?? []).map((cls: any) => {
-        const students = (classStudents ?? [])
-          .filter((cs: any) => cs.draft_class_id === cls.id)
-          .map((cs: any) => cs.student)
+      type ClassStudentRow = { draft_class_id: string | null; student: Tables<'students'> | null };
+      type ClassStaffRow = { draft_class_id: string | null; type: string | null; staff: Tables<'staff'> | null };
+      type DraftClassWithSubject = Tables<'draft_classes'> & { subject?: Tables<'subjects'> | null };
+      const classesWithDetails = (classes ?? []).map((cls: DraftClassWithSubject) => {
+        const students = (classStudents ?? [] as ClassStudentRow[])
+          .filter((cs: ClassStudentRow) => cs.draft_class_id === cls.id && cs.student)
+          .map((cs: ClassStudentRow) => cs.student)
           .filter(Boolean) as Tables<'students'>[];
         
-        const staff = (classStaff ?? [])
-          .filter((cs: any) => cs.draft_class_id === cls.id)
-          .map((cs: any) => cs.staff)
+        const staff = (classStaff ?? [] as ClassStaffRow[])
+          .filter((cs: ClassStaffRow) => cs.draft_class_id === cls.id && cs.staff)
+          .map((cs: ClassStaffRow) => cs.staff)
           .filter(Boolean) as Tables<'staff'>[];
 
         return {
@@ -377,7 +379,7 @@ export const classPlansApi = {
               id: crypto.randomUUID(),
               draft_class_id: newClassId,
               staff_id: staffMember.id,
-              type: (staffAssignment as any)?.type || 'MAIN_TUTOR',
+              type: (staffAssignment as { type?: string } | null)?.type || 'MAIN_TUTOR',
             });
           
           if (staffError) throw staffError;
@@ -418,22 +420,23 @@ export const classPlansApi = {
       if (rpcError) throw rpcError;
       if (!rpcResult) throw new Error('Failed to fetch classes');
 
+      type RpcClass = Tables<'classes'> & { subject_id?: string; day_of_week?: number; start_time?: string; end_time?: string; room?: string | null };
       const rpcData = rpcResult as {
-        classes: any[];
-        classSubjects: Record<string, any>;
-        classStudents: Record<string, any[]>;
-        classStaff: Record<string, any[]>;
+        classes: RpcClass[];
+        classSubjects: Record<string, Tables<'subjects'>>;
+        classStudents: Record<string, Tables<'students'>[]>;
+        classStaff: Record<string, Tables<'staff'>[]>;
         total: number;
       };
 
-      const classes = rpcData.classes || [];
+      const classes = (rpcData.classes || []) as RpcClass[];
       if (classes.length === 0) {
         throw new Error('No active classes found to copy');
       }
 
       // Extract unique slots from classes
       const slotsMap = new Map<string, { day_of_week: number; start_time: string; end_time: string }>();
-      classes.forEach((cls: any) => {
+      classes.forEach((cls: RpcClass) => {
         const key = `${cls.day_of_week}-${cls.start_time}-${cls.end_time}`;
         if (!slotsMap.has(key)) {
           slotsMap.set(key, {

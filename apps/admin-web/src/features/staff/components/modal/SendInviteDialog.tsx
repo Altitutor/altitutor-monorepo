@@ -186,7 +186,7 @@ export function SendInviteDialog({
     } finally {
       setIsGenerating(false);
     }
-  }, [staffMember.id, staffMember.role, token, toast]);
+  }, [staffMember.id, staffMember.role, token, toast, queryClient]);
 
   // Generate token when modal opens ONLY if no existing token
   useEffect(() => {

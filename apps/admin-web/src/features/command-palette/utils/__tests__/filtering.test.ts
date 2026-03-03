@@ -9,13 +9,14 @@ import {
   groupItemsByType,
 } from '../filtering';
 import type { CommandPaletteCommand, CommandPalettePage } from '../../config/commandPalette.config';
+import type { Tables } from '@altitutor/shared';
 import { Calendar, FileText, Home } from 'lucide-react';
 
 // Mock match scoring
 jest.mock('../matchScoring', () => ({
-  calculateMatchScore: jest.fn((item: any, query: string) => {
-    // Simple mock: return score based on title match
-    const title = item.type === 'command' ? item.item.title : item.type === 'page' ? item.item.title : 'Test';
+  calculateMatchScore: jest.fn((item: { type: 'command'; item: { title: string } } | { type: 'page'; item: { title: string } } | { type: 'entity'; result: unknown }, query: string) => {
+    // Simple mock: return score based on title match (MatchScoringItem structure)
+    const title = item.type === 'command' || item.type === 'page' ? item.item.title : 'Test';
     const titleLower = title.toLowerCase();
     const queryLower = query.toLowerCase();
     
@@ -182,7 +183,7 @@ describe('filterItemsByType', () => {
       result: {
         type: 'student' as const,
         id: 'student-1',
-        data: {} as any,
+        data: {} as Tables<'students'>,
       },
     },
     {
@@ -190,7 +191,7 @@ describe('filterItemsByType', () => {
       result: {
         type: 'staff' as const,
         id: 'staff-1',
-        data: {} as any,
+        data: {} as Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'role' | 'status' | 'email' | 'phone_number'>,
       },
     },
   ];
@@ -258,7 +259,7 @@ describe('groupItemsByType', () => {
       result: {
         type: 'student' as const,
         id: 'student-1',
-        data: {} as any,
+        data: {} as Tables<'students'>,
       },
     },
     {
@@ -266,7 +267,7 @@ describe('groupItemsByType', () => {
       result: {
         type: 'staff' as const,
         id: 'staff-1',
-        data: {} as any,
+        data: {} as Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name' | 'role' | 'status' | 'email' | 'phone_number'>,
       },
     },
   ];

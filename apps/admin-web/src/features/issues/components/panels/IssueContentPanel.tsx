@@ -1,10 +1,9 @@
 'use client';
 
 import { useMemo, memo } from 'react';
-import { ScrollArea, ScrollBar, Button, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Skeleton } from '@altitutor/ui';
+import { ScrollArea, ScrollBar, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Skeleton } from '@altitutor/ui';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
-import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { ClassCard } from '@/shared/components/ClassCard';
@@ -15,10 +14,10 @@ import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import { useSessionData } from '@/features/sessions/hooks/useSessionData';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { getContactIdFromConversation, useContactHeader } from '@/features/messages/api/queries';
 import { ParentCard } from '@/shared/components/ParentCard';
 import type { IssueWithTags, IssueTag } from '../../types';
-import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
+import type { Tables } from '@altitutor/shared';
+import { MessageSquare, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
 import { cn, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils';
 import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 
@@ -30,7 +29,7 @@ const handleEntityClick = (type: string, id: string) => {
 
 interface IssueContentPanelProps {
   issue?: IssueWithTags;
-  tags?: any[];
+  tags?: IssueTag[];
   isOpen: boolean;
 }
 
@@ -318,7 +317,7 @@ function StudentCardWrapper({ studentId }: { studentId: string }) {
   const { data: student, isLoading } = useStudent(studentId);
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!student) return null;
-  return <StudentCard student={student as any} onClick={() => handleEntityClick('student', studentId)} />;
+  return <StudentCard student={student} onClick={() => handleEntityClick('student', studentId)} />;
 }
 
 function ParentCardWrapper({ parentId }: { parentId: string }) {
@@ -333,14 +332,14 @@ function ParentCardWrapper({ parentId }: { parentId: string }) {
   });
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!parent) return null;
-  return <ParentCard parent={parent as any} onClick={() => handleEntityClick('parent', parentId)} />;
+  return <ParentCard parent={parent as Tables<'parents'>} onClick={() => handleEntityClick('parent', parentId)} />;
 }
 
 function StaffCardWrapper({ staffId }: { staffId: string }) {
   const { data: staff, isLoading } = useStaffById(staffId);
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!staff) return null;
-  return <StaffCard staff={staff as any} onClick={() => handleEntityClick('staff', staffId)} />;
+  return <StaffCard staff={staff} onClick={() => handleEntityClick('staff', staffId)} />;
 }
 
 function ClassCardWrapper({ classId }: { classId: string }) {
@@ -367,12 +366,14 @@ function ClassCardWrapper({ classId }: { classId: string }) {
     return null;
   }
   
-  const staff = (classData as any).assigned_staff?.map((s: any) => s.staff).filter(Boolean) || [];
+  type ClassWithAssignedStaff = Tables<'classes'> & { assigned_staff?: Array<{ staff: Tables<'staff'> | null }>; subject?: Tables<'subjects'> | null };
+  const classWithStaff = classData as ClassWithAssignedStaff;
+  const staff = classWithStaff.assigned_staff?.map((s) => s.staff).filter((s): s is Tables<'staff'> => s != null) ?? [];
   
   return (
     <ClassCard 
-      class={classData as any} 
-      subject={(classData as any).subject}
+      class={classWithStaff} 
+      subject={classWithStaff.subject ?? undefined}
       staff={staff} 
       onClick={() => handleEntityClick('class', classId)}
     />
@@ -397,8 +398,8 @@ function SubjectPillWrapper({ subjectId }: { subjectId: string }) {
     return null;
   }
   
-  const shortName = formatSubjectShortName(subject as any);
-  const { style, textColorClass } = getSubjectColorStyle(subject as any);
+  const shortName = formatSubjectShortName(subject as Tables<'subjects'>);
+  const { style, textColorClass } = getSubjectColorStyle(subject as Tables<'subjects'>);
   const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
 
   return (
@@ -420,33 +421,31 @@ function SessionCardWrapper({ sessionId }: { sessionId: string }) {
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!data?.session) return null;
 
+  type SessionStudentRow = { student?: Tables<'students'> | null; planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null; id?: string };
+  type SessionStaffRow = { staff?: Tables<'staff'> | null; planned_absence?: boolean; is_swapped_in?: boolean };
   const students = (data.sessionsStudents || [])
-    .map((row: any) => ({
-      ...(row.student || {}),
+    .map((row: SessionStudentRow) => ({
+      ...(row.student ?? {}),
       planned_absence: row.planned_absence,
       is_extra: row.is_extra,
       sessions_students_id: row.sessions_students_id ?? row.id ?? null,
     }))
-    .filter((student: any) => !!student)
-    .filter((student: any, index: number, arr: any[]) =>
-      arr.findIndex((candidate: any) => candidate?.id === student?.id) === index
-    );
+    .filter((student): student is NonNullable<typeof student> => !!student?.id)
+    .filter((student, index, arr) => arr.findIndex((c) => c?.id === student?.id) === index);
 
   const staff = (data.sessionsStaff || [])
-    .map((row: any) => ({
-      ...(row.staff || {}),
+    .map((row: SessionStaffRow) => ({
+      ...(row.staff ?? {}),
       planned_absence: row.planned_absence,
       is_swapped_in: row.is_swapped_in,
     }))
-    .filter((member: any) => !!member)
-    .filter((member: any, index: number, arr: any[]) =>
-      arr.findIndex((candidate: any) => candidate?.id === member?.id) === index
-    );
+    .filter((member): member is NonNullable<typeof member> => !!member?.id)
+    .filter((member, index, arr) => arr.findIndex((c) => c?.id === member?.id) === index);
 
   return (
     <SessionCard
-      session={data.session as any}
-      title={getSessionTitle(data.session as any)}
+      session={data.session as Tables<'sessions'>}
+      title={getSessionTitle(data.session as Parameters<typeof getSessionTitle>[0])}
       students={students}
       staff={staff}
       onClick={() => handleEntityClick('session', sessionId)}
@@ -466,5 +465,5 @@ function InvoiceCardWrapper({ invoiceId }: { invoiceId: string }) {
   });
   if (isLoading) return <div className="h-24 bg-muted animate-pulse rounded-lg" />;
   if (!invoice) return null;
-  return <InvoiceCard invoice={invoice as any} onClick={() => handleEntityClick('invoice', invoiceId)} />;
+  return <InvoiceCard invoice={invoice as Tables<'invoices'>} onClick={() => handleEntityClick('invoice', invoiceId)} />;
 }

@@ -31,9 +31,9 @@ export interface StudentWithStripe {
   stripe_customer_id: string | null;
   db_payment_methods: Array<{
     id: string;
-    stripe_payment_method_id: string;
-    card_last4: string;
-    card_brand: string;
+    stripe_payment_method_id: string | null;
+    card_last4: string | null;
+    card_brand: string | null;
     is_default: boolean;
   }>;
 }
@@ -197,7 +197,7 @@ export const stripeSyncApi = {
         student_name: `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Unknown',
         student_email: student.email,
         stripe_customer_id: billing?.stripe_customer_id || null,
-        db_payment_methods: paymentMethods.map((pm: any) => ({
+        db_payment_methods: paymentMethods.map((pm: { id: string; stripe_payment_method_id: string | null; card_last4: string | null; card_brand: string | null; is_default: boolean }) => ({
           id: pm.id,
           stripe_payment_method_id: pm.stripe_payment_method_id,
           card_last4: pm.card_last4,

@@ -67,7 +67,7 @@ export type MessageRecipientType =
 
 export interface SendMessageActionConfig {
   message_content: string;
-  variables?: Record<string, any>;
+  variables?: Record<string, string | number | boolean>;
   contact_id?: string;  // For single recipient (backward compat)
   student_id?: string;
   parent_id?: string;
@@ -84,7 +84,7 @@ export interface CreateTaskActionConfig {
   priority?: number;
   due_date_offset_days?: number;
   estimate?: number;
-  variables?: Record<string, any>;
+  variables?: Record<string, string | number | boolean>;
 }
 
 export interface CreateNotificationActionConfig {
@@ -97,7 +97,7 @@ export interface CreateNotificationActionConfig {
   recipients?: {
     type: NotificationRecipientType;
   };
-  variables?: Record<string, any>;
+  variables?: Record<string, string | number | boolean>;
 }
 
 export type ActionConfig = 

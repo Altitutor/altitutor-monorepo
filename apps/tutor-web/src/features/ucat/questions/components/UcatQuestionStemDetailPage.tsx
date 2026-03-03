@@ -91,7 +91,6 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
                 answerText: (option.answer_text ?? EMPTY_DOC) as Json,
                 answerExplanation: (option.answer_explanation ?? null) as Json | null,
                 isAnswer: option.is_answer,
-                imageFileId: option.image_file_id ?? null,
               }))
             : [...DEFAULT_OPTIONS],
       })),
@@ -129,7 +128,6 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
             answerText: option.answerText,
             answerExplanation: option.answerExplanation,
             isAnswer: option.isAnswer,
-            imageFileId: (option as { imageFileId?: string | null }).imageFileId ?? null,
           })),
         })),
       },

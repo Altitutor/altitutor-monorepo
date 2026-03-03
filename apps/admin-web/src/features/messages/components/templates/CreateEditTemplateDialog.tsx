@@ -44,20 +44,14 @@ export function CreateEditTemplateDialog({
   const { toast } = useToast();
   const createMutation = useCreateTemplate();
   const updateMutation = useUpdateTemplate();
-  const { data: currentStaff } = useCurrentStaff();
+  useCurrentStaff(); // Reserved for template variable replacement
 
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
 
   const { data: sampleStudents = [], isLoading: isLoadingStudents } = useSampleStudents(isOpen);
-  const { data: studentClassesList, isLoading: isLoadingClasses } =
-    useStudentClassesForTemplate(selectedStudentId || null);
-
-  const studentClasses = useMemo(() => {
-    if (!selectedStudentId || !studentClassesList) return {};
-    return { [selectedStudentId]: studentClassesList };
-  }, [selectedStudentId, studentClassesList]);
+  const { isLoading: isLoadingClasses } = useStudentClassesForTemplate(selectedStudentId || null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -175,16 +169,9 @@ export function CreateEditTemplateDialog({
 
   const previewMessage = useMemo(() => {
     if (!selectedStudent || !content) return content;
-    
-    const senderName = currentStaff 
-      ? `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() 
-      : null;
-    
-    const classes = studentClasses[selectedStudent.id] || [];
-    // Note: This is used in a useMemo, so we need to handle async differently
-    // For now, return the content with placeholders - the actual replacement happens elsewhere
+    // Note: Variable replacement happens elsewhere; return content as-is for now
     return content;
-  }, [content, selectedStudent, studentClasses, currentStaff]);
+  }, [content, selectedStudent]);
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const characterCount = content.length;

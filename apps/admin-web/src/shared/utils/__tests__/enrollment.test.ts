@@ -225,7 +225,7 @@ describe('getEnrollmentConflicts', () => {
       from: jest.fn().mockReturnValue({
         select: mockSelect,
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const result = await getEnrollmentConflicts('student-1', 'class-1', new Date());
 
@@ -275,7 +275,7 @@ describe('getEnrollmentConflicts', () => {
         }
         return { select: jest.fn() };
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const result = await getEnrollmentConflicts('student-1', 'class-1', new Date());
 
@@ -340,7 +340,7 @@ describe('getEnrollmentConflicts', () => {
         }
         return { select: jest.fn() };
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const result = await getEnrollmentConflicts('student-1', 'class-1', new Date());
 
@@ -403,7 +403,7 @@ describe('getEnrollmentConflicts', () => {
         }
         return { select: jest.fn() };
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const result = await getEnrollmentConflicts('student-1', 'class-1', new Date());
 
@@ -468,7 +468,7 @@ describe('getEnrollmentConflicts', () => {
         }
         return { select: jest.fn() };
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const result = await getEnrollmentConflicts('student-1', 'class-1', new Date());
 
@@ -546,7 +546,7 @@ describe('getEnrollmentConflicts', () => {
         }
         return { select: jest.fn() };
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const result = await getEnrollmentConflicts('student-1', 'class-1', new Date());
 
@@ -566,7 +566,7 @@ describe('getEnrollmentConflicts', () => {
       from: jest.fn().mockReturnValue({
         select: mockSelect,
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -636,7 +636,7 @@ describe('getEnrollmentConflicts', () => {
         }
         return { select: jest.fn() };
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const result = await getEnrollmentConflicts('student-1', 'class-1', new Date());
 
@@ -683,7 +683,7 @@ describe('getEnrollmentConflicts', () => {
         }
         return { select: jest.fn() };
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const result = await getEnrollmentConflicts('student-1', 'class-1', new Date());
 

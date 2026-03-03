@@ -24,7 +24,7 @@ interface UseTaskAutoSaveOptions {
  */
 export function useTaskAutoSave({
   form,
-  taskId,
+  taskId: _taskId,
   task,
   isInitialized,
   isUpdatingFromServer,

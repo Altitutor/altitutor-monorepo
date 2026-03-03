@@ -3,13 +3,17 @@ import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AddStudentToSessionModal } from '../AddStudentToSessionModal';
 import { renderWithProviders } from '@/shared/test-utils';
+import type { Tables } from '@altitutor/shared';
 
 beforeAll(() => {
-  (global as any).ResizeObserver = class ResizeObserver {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  };
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    value: class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+    writable: true,
+  });
 });
 
 jest.mock('@/features/students/api/students', () => ({
@@ -34,7 +38,7 @@ describe('AddStudentToSessionModal', () => {
           status: 'ACTIVE',
           curriculum: 'SACE',
           year_level: 11,
-        } as any,
+        } as Tables<'students'>,
       ],
       total: 1,
     });

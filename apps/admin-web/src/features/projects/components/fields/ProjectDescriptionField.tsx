@@ -37,7 +37,7 @@ export function ProjectDescriptionField({ form, descriptionRef }: ProjectDescrip
               onChange={field.onChange}
               placeholder="Add project description..."
               className="min-h-0"
-              mentionSuggestions={mentionSuggestions as any}
+              mentionSuggestions={mentionSuggestions}
             />
           </FormControl>
           <FormMessage />

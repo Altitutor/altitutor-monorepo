@@ -1,5 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import type { StrategyResult, InvoiceReconciliationResult } from '../shared/types.ts';
 import { 
@@ -14,7 +13,7 @@ import {
  */
 export async function reconcileAmountsMismatch(
   stripe: Stripe,
-  supabase: any,
+  supabase: SupabaseClient,
   daysBack: number,
   fixMismatch: boolean = false
 ): Promise<StrategyResult> {
@@ -90,7 +89,7 @@ export async function reconcileAmountsMismatch(
       const dbAmountPaidFromBalance = invoice.amount_paid_from_balance_cents;
       
       // Check for mismatches
-      const changes: { field: string; old_value: any; new_value: any }[] = [];
+      const changes: { field: string; old_value: unknown; new_value: unknown }[] = [];
       
       if (dbSubtotal !== stripeSubtotal) {
         changes.push({ field: 'subtotal_cents', old_value: dbSubtotal, new_value: stripeSubtotal });
@@ -127,7 +126,7 @@ export async function reconcileAmountsMismatch(
       
       // Fix amounts mismatch if requested
       if (fixMismatch) {
-        const updateData: any = {};
+        const updateData: Record<string, unknown> = {};
         changes.forEach(change => {
           updateData[change.field] = change.new_value;
         });
@@ -153,7 +152,7 @@ export async function reconcileAmountsMismatch(
       }
       
       mismatches.push(mismatch);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[amounts-mismatch] Failed to check amounts for invoice ${invoice.stripe_invoice_id}:`, getErrorMessage(err));
       errors.push(`Invoice ${invoice.stripe_invoice_id}: ${getErrorMessage(err)}`);
     }

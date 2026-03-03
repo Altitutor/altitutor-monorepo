@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogOverlay, DialogPortal } from '@altitutor/ui';
+import { Dialog, DialogContent, DialogPortal } from '@altitutor/ui';
 import { CommandPalette } from './CommandPalette';
 import { ViewStudentModal } from '@/features/students/components';
 import { ViewStaffModal } from '@/features/staff/components/modal';

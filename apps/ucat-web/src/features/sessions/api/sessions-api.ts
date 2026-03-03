@@ -3,7 +3,6 @@ import type { Database } from '@altitutor/shared'
 
 type StudentSessionRow = Database['public']['Views']['vstudent_sessions']['Row']
 type StudentSessionResourceRow = Database['public']['Views']['vstudent_ucat_sessions_resources']['Row']
-type StudentClassRow = Database['public']['Tables']['classes']['Row']
 
 export type StudentUcatSession = StudentSessionRow & {
   session_id: string

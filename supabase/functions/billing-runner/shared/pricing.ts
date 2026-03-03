@@ -1,18 +1,41 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
-
 /**
  * Calculate session price based on billing type, subject, and student subsidies
  * Returns { amount_cents, currency }
  */
+interface SessionPricingInput {
+  billing_type?: string | null;
+  subject_id?: string | null;
+  start_at: string;
+  end_at: string;
+}
+
+interface PricingOverrideRow {
+  subject_id: string;
+  billing_type: string;
+  hourly_rate_cents: number;
+  currency: string;
+  effective_from: string;
+  effective_until?: string | null;
+}
+
+interface SubsidyRow {
+  student_id: string;
+  subject_id: string;
+  billing_type: string;
+  price_cents: number;
+  currency?: string | null;
+  effective_from?: string | null;
+  effective_until?: string | null;
+}
+
 export function calculateSessionPrice(
-  session: any,
+  session: SessionPricingInput,
   studentId: string | undefined,
   targetDate: Date,
   pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }>,
-  overridesBySubjectAndBilling: Record<string, Record<string, any>>,
-  pricingOverrides: any[],
-  subsidies: any[]
+  overridesBySubjectAndBilling: Record<string, Record<string, { hourly_rate_cents: number; currency: string; effective_from: string; effective_until?: string | null }>>,
+  pricingOverrides: PricingOverrideRow[],
+  subsidies: SubsidyRow[]
 ): { amount_cents: number; currency: string } {
   if (!session.billing_type) {
     return { amount_cents: 0, currency: 'aud' }; // Non-billable session
@@ -32,7 +55,7 @@ export function calculateSessionPrice(
   if (override) {
     // Validate override is active for targetDate
     const overrideData = pricingOverrides?.find(
-      (o: any) =>
+      (o: PricingOverrideRow) =>
         o.subject_id === session.subject_id && o.billing_type === session.billing_type
     );
     if (overrideData) {
@@ -67,7 +90,7 @@ export function calculateSessionPrice(
   // Student pays the minimum of subsidy rate and default/override rate
   if (studentId && session.subject_id && session.billing_type) {
     const activeSub = (subsidies || []).find(
-      (s: any) =>
+      (s: SubsidyRow) =>
         s.student_id === studentId &&
         s.subject_id === session.subject_id &&
         s.billing_type === session.billing_type &&

@@ -22,8 +22,8 @@ export function MentionModalProvider({ children }: { children: React.ReactNode }
   const [selectedEntity, setSelectedEntity] = useState<{ type: string; id: string } | null>(null);
 
   useEffect(() => {
-    const handleMentionClick = (event: any) => {
-      const { id, type } = event.detail;
+    const handleMentionClick = (event: Event) => {
+      const { id, type } = (event as CustomEvent<{ id: string; type: string }>).detail ?? {};
       if (id && type) {
         setSelectedEntity({ id, type });
       }

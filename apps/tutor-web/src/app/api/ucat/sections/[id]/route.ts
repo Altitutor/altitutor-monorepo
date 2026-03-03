@@ -2,25 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 
-function toRichText(text?: string) {
-  return {
-    type: 'doc',
-    content: [
-      {
-        type: 'paragraph',
-        content: text
-          ? [
-              {
-                type: 'text',
-                text,
-              },
-            ]
-          : [],
-      },
-    ],
-  }
-}
-
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
@@ -36,7 +17,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         section_number: body.sectionNumber,
         name: body.name,
         display_columns: body.displayColumns,
-        description: toRichText(body.description),
+        instructions_text: body.instructionsText ?? null,
         time_limit_seconds: body.timeLimitSeconds ?? null,
         number_of_questions: body.numberOfQuestions ?? null,
         instructions_time_limit_seconds: body.instructionsTimeLimitSeconds ?? null,

@@ -42,24 +42,6 @@ export type ProcessedStaffData = {
   plannedAbsence: boolean;
 };
 
-type TutorLogStudentAttendance = {
-  student_id: string;
-  attended: boolean;
-  was_trial?: boolean;
-};
-
-type TutorLogStaffAttendance = {
-  staff_id: string;
-  attended: boolean;
-  type?: string;
-  was_trial?: boolean;
-};
-
-type TutorLogWithAttendance = {
-  studentAttendance?: TutorLogStudentAttendance[];
-  staffAttendance?: TutorLogStaffAttendance[];
-};
-
 type SessionStudentItem = {
   student_id: string;
   student: Tables<'students'> | null;

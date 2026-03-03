@@ -76,7 +76,7 @@ describe('useStudentSubjects', () => {
       from: jest.fn().mockReturnValue({
         select: mockSelect,
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const { result } = renderHook(() => useStudentSubjects('student-1'), {
       wrapper: createWrapper(),
@@ -120,7 +120,7 @@ describe('useStudentSubjects', () => {
       from: jest.fn().mockReturnValue({
         select: mockSelect,
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const { result } = renderHook(() => useStudentSubjects('student-1'), {
       wrapper: createWrapper(),
@@ -147,7 +147,7 @@ describe('useStudentSubjects', () => {
       from: jest.fn().mockReturnValue({
         select: mockSelect,
       }),
-    } as any);
+    } as unknown as ReturnType<typeof getSupabaseClient>);
 
     const { result } = renderHook(() => useStudentSubjects('student-1'), {
       wrapper: createWrapper(),

@@ -317,7 +317,7 @@ export async function getStudentClassesWithStartDates(studentId: string): Promis
   }
   
   // Sort sessions by start_at ascending (client-side since we can't order by nested relation)
-  const sortedSessions = (sessionsData || []).sort((a: any, b: any) => {
+  const sortedSessions = (sessionsData || []).sort((a, b) => {
     const dateA = a.session?.start_at ? new Date(a.session.start_at).getTime() : 0;
     const dateB = b.session?.start_at ? new Date(b.session.start_at).getTime() : 0;
     return dateA - dateB;
@@ -327,7 +327,7 @@ export async function getStudentClassesWithStartDates(studentId: string): Promis
   const classStartDateMap = new Map<string, Date>();
   const processedClasses = new Set<string>();
   
-  sortedSessions.forEach((item: any) => {
+  sortedSessions.forEach((item) => {
     const session = item.session;
     if (session?.class_id && session?.start_at && !processedClasses.has(session.class_id)) {
       classStartDateMap.set(session.class_id, new Date(session.start_at));
@@ -537,7 +537,7 @@ export async function getStaffClassesWithStartDates(staffId: string): Promise<Ar
   }
   
   // Sort sessions by start_at ascending (client-side)
-  const sortedSessions = (sessionsData || []).sort((a: any, b: any) => {
+  const sortedSessions = (sessionsData || []).sort((a, b) => {
     const dateA = a.session?.start_at ? new Date(a.session.start_at).getTime() : 0;
     const dateB = b.session?.start_at ? new Date(b.session.start_at).getTime() : 0;
     return dateA - dateB;
@@ -547,7 +547,7 @@ export async function getStaffClassesWithStartDates(staffId: string): Promise<Ar
   const classStartDateMap = new Map<string, Date>();
   const processedClasses = new Set<string>();
   
-  sortedSessions.forEach((item: any) => {
+  sortedSessions.forEach((item) => {
     const session = item.session;
     if (session?.class_id && session?.start_at && !processedClasses.has(session.class_id)) {
       classStartDateMap.set(session.class_id, new Date(session.start_at));

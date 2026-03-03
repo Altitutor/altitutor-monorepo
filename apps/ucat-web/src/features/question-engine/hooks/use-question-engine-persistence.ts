@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import type {
   QuestionEngineExam,
@@ -185,22 +185,49 @@ export function useQuestionEnginePersistence({
     }
   }, [exam, examSourceSetId, mode, isStudentEngine, createSetAttempt, createMockAttempt])
 
-  function ensureSetAttemptForQuestion(question: QuestionItem | undefined): string | null {
-    if (!isStudentEngine) return null
-    if (!exam || !question) return null
+  const ensureSetAttemptForQuestion = useCallback(
+    (question: QuestionItem | undefined): string | null => {
+      if (!isStudentEngine) return null
+      if (!exam || !question) return null
 
-    const setId = question.questionSetId
-    const existingId = attemptStateRef.current.setAttemptIdsBySetId.get(setId)
-    if (existingId) return existingId
+      const setId = question.questionSetId
+      const existingId = attemptStateRef.current.setAttemptIdsBySetId.get(setId)
+      if (existingId) return existingId
 
-    if (mode === 'mock') {
-      if (!attemptStateRef.current.mockAttemptId) {
-        if (exam.sourceId && !createMockAttempt.isPending && !attemptStateRef.current.mockAttemptId) {
-          createMockAttempt.mutate(
-            { mockId: exam.sourceId },
+      if (mode === 'mock') {
+        if (!attemptStateRef.current.mockAttemptId) {
+          if (exam.sourceId && !createMockAttempt.isPending && !attemptStateRef.current.mockAttemptId) {
+            createMockAttempt.mutate(
+              { mockId: exam.sourceId },
+              {
+                onSuccess: (data) => {
+                  attemptStateRef.current.mockAttemptId = data.id
+                },
+              }
+            )
+          }
+          return null
+        }
+
+        const mockAttemptId = attemptStateRef.current.mockAttemptId
+        createSetAttempt.mutate(
+          { questionSetId: setId, mockAttemptId },
+          {
+            onSuccess: (data) => {
+              attemptStateRef.current.setAttemptIdsBySetId.set(setId, data.id)
+            },
+          }
+        )
+        return null
+      }
+
+      if (mode === 'set') {
+        if (!createSetAttempt.isPending) {
+          createSetAttempt.mutate(
+            { questionSetId: setId, mockAttemptId: null },
             {
               onSuccess: (data) => {
-                attemptStateRef.current.mockAttemptId = data.id
+                attemptStateRef.current.setAttemptIdsBySetId.set(setId, data.id)
               },
             }
           )
@@ -208,34 +235,10 @@ export function useQuestionEnginePersistence({
         return null
       }
 
-      const mockAttemptId = attemptStateRef.current.mockAttemptId
-      createSetAttempt.mutate(
-        { questionSetId: setId, mockAttemptId },
-        {
-          onSuccess: (data) => {
-            attemptStateRef.current.setAttemptIdsBySetId.set(setId, data.id)
-          },
-        }
-      )
       return null
-    }
-
-    if (mode === 'set') {
-      if (!createSetAttempt.isPending) {
-        createSetAttempt.mutate(
-          { questionSetId: setId, mockAttemptId: null },
-          {
-            onSuccess: (data) => {
-              attemptStateRef.current.setAttemptIdsBySetId.set(setId, data.id)
-            },
-          }
-        )
-      }
-      return null
-    }
-
-    return null
-  }
+    },
+    [exam, isStudentEngine, mode, createSetAttempt, createMockAttempt]
+  )
 
   function recordAnswer(questionId: string, questionAnswerOptionId: string, isFlagged: boolean) {
     if (!isStudentEngine) return
@@ -322,9 +325,9 @@ export function useQuestionEnginePersistence({
     } else if (timing.startedAt == null) {
       timing.startedAt = now
     }
-  }, [state.currentIndex, state.phase, exam, isStudentEngine, state.selectedAnswers, ensureSetAttemptForQuestion, upsertQuestionAttempt])
+  }, [state.currentIndex, state.phase, state.selectedAnswers, state.flaggedIds, exam, isStudentEngine, ensureSetAttemptForQuestion, upsertQuestionAttempt])
 
-  function handleExamCompleted() {
+  async function handleExamCompleted(): Promise<void> {
     if (!isStudentEngine) return
     if (!exam) return
 
@@ -335,15 +338,20 @@ export function useQuestionEnginePersistence({
     const setIds = new Set<string>()
     exam.questions.forEach((q) => setIds.add(q.questionSetId))
 
-    setIds.forEach((setId) => {
-      const setAttemptId = attemptStateRef.current.setAttemptIdsBySetId.get(setId)
-      if (!setAttemptId) return
+    const setAttemptIds = Array.from(setIds)
+      .map((setId) => attemptStateRef.current.setAttemptIdsBySetId.get(setId))
+      .filter((id): id is string => id != null)
 
-      completeSetAttempt.mutate({ studentQuestionSetAttemptId: setAttemptId })
-    })
+    await Promise.all(
+      setAttemptIds.map((id) =>
+        completeSetAttempt.mutateAsync({ studentQuestionSetAttemptId: id })
+      )
+    )
 
     if (mode === 'mock' && attemptStateRef.current.mockAttemptId) {
-      completeMockAttempt.mutate({ studentMockAttemptId: attemptStateRef.current.mockAttemptId })
+      await completeMockAttempt.mutateAsync({
+        studentMockAttemptId: attemptStateRef.current.mockAttemptId,
+      })
     }
   }
 

@@ -19,6 +19,22 @@ export function plainTextToProseMirror(text: string): Json {
   }
 }
 
+/**
+ * Convert plain text with newlines to ProseMirror JSON with one paragraph per line.
+ * Use for content where line breaks should be preserved (e.g. question stem passages).
+ */
+export function plainTextToProseMirrorWithLineBreaks(text: string): Json {
+  if (!text || typeof text !== 'string') {
+    return { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+  }
+  const lines = text.split('\n')
+  const content = lines.map((line) => ({
+    type: 'paragraph',
+    content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+  }))
+  return { type: 'doc', content }
+}
+
 export function proseMirrorToPlainText(value: Json | null | undefined): string {
   if (!value || typeof value !== 'object') return ''
 
@@ -46,4 +62,17 @@ export function proseMirrorToPlainText(value: Json | null | undefined): string {
   }
 
   return chunks.join('\n')
+}
+
+/** Returns true if the ProseMirror value has non-empty plain text. */
+export function hasRichTextContent(value: Json | null | undefined): boolean {
+  return (proseMirrorToPlainText(value)?.trim().length ?? 0) > 0
+}
+
+/**
+ * Filters an array of options to those with non-empty answerText.
+ * Use when building API payloads so empty answer options are not submitted.
+ */
+export function filterOptionsWithContent<T extends { answerText: Json }>(options: T[]): T[] {
+  return options.filter((opt) => hasRichTextContent(opt.answerText))
 }

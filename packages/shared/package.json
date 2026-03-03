@@ -11,6 +11,10 @@
     }
   },
   "sideEffects": false,
+  "devDependencies": {
+    "@swc/jest": "^0.2.37",
+    "jest": "^29.7.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json -w --preserveWatchOutput",

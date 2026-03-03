@@ -103,7 +103,7 @@ describe('fileOperations utilities', () => {
         href: '',
         download: '',
         click: jest.fn(),
-      })) as any;
+      })) as jest.Mock;
       document.body.appendChild = jest.fn();
       document.body.removeChild = jest.fn();
     });
@@ -151,7 +151,7 @@ describe('fileOperations utilities', () => {
       global.window.open = jest.fn(() => ({
         addEventListener: jest.fn(),
         print: jest.fn(),
-      })) as any;
+      })) as jest.Mock;
     });
 
     it('should open PDF in new window and trigger print', () => {
@@ -163,7 +163,7 @@ describe('fileOperations utilities', () => {
     });
 
     it('should handle null window.open return', () => {
-      global.window.open = jest.fn(() => null) as any;
+      global.window.open = jest.fn(() => null) as jest.Mock;
       const previewUrl = 'https://example.com/file.pdf';
 
       expect(() => printPdf(previewUrl)).not.toThrow();

@@ -1,15 +1,27 @@
 import { Flag, Navigation } from 'lucide-react'
 import { UcatExamActionButton, UcatFloatingPanel } from '@altitutor/ui'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { QuestionItem } from '@/features/question-engine/model/types'
+import { getReviewQuestionStatus } from '@/features/question-engine/lib/review'
 import { useDraggablePanel } from '@/features/question-engine/hooks/use-draggable-panel'
+
+const DEFAULT_WIDTH = 520
+const DEFAULT_HEIGHT = 280
+const MIN_WIDTH = 320
+const MIN_HEIGHT = 240
+
+function getShellRect(): DOMRect | null {
+  const shell = document.querySelector('[data-ucat-shell-root="true"]') as HTMLElement | null
+  return shell ? shell.getBoundingClientRect() : null
+}
 
 export function NavigatorPanel({
   questions,
   currentIndex,
   flaggedIds,
   selectedAnswers,
+  visitedQuestionIds,
   onSelect,
   onClose,
 }: {
@@ -17,15 +29,26 @@ export function NavigatorPanel({
   currentIndex: number
   flaggedIds: string[]
   selectedAnswers: Record<string, string>
+  visitedQuestionIds: string[]
   onSelect: (index: number) => void
   onClose: () => void
 }) {
   const { position, handleMouseDown, setPosition } = useDraggablePanel()
   const panelRef = useRef<HTMLDivElement | null>(null)
+  const [size, setSize] = useState({ width: DEFAULT_WIDTH, height: DEFAULT_HEIGHT })
   const [hoveredRowIndex, setHoveredRowIndex] = useState<number | null>(null)
   const [hoveredTextRowIndex, setHoveredTextRowIndex] = useState<number | null>(null)
   const [sortField, setSortField] = useState<'question' | 'status' | 'flagged'>('question')
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc')
+  const resizeState = useRef({
+    isResizing: false,
+    startX: 0,
+    startY: 0,
+    startWidth: 0,
+    startHeight: 0,
+    panelLeft: 0,
+    panelTop: 0,
+  })
 
   const unseenOrIncompleteCount = questions.reduce((count, question) => {
     const answered = Boolean(selectedAnswers[question.id])
@@ -34,11 +57,10 @@ export function NavigatorPanel({
 
   // Keep navigator panel fully within the UCAT exam shell
   useEffect(() => {
-    const shell = document.querySelector('[data-ucat-shell-root="true"]') as HTMLElement | null
+    const shellRect = getShellRect()
     const panel = panelRef.current
-    if (!shell || !panel) return
+    if (!shellRect || !panel) return
 
-    const shellRect = shell.getBoundingClientRect()
     const panelRect = panel.getBoundingClientRect()
 
     let dx = 0
@@ -62,21 +84,79 @@ export function NavigatorPanel({
         y: current.y + dy,
       }))
     }
-  }, [position.x, position.y, setPosition])
+  }, [position.x, position.y, setPosition, size.width, size.height])
+
+  const handleResizeMouseMove = useCallback((event: MouseEvent) => {
+    if (!resizeState.current.isResizing) return
+    const shellRect = getShellRect()
+    const { startX, startY, startWidth, startHeight, panelLeft, panelTop } = resizeState.current
+    let newWidth = startWidth + (event.clientX - startX)
+    let newHeight = startHeight + (event.clientY - startY)
+    if (shellRect) {
+      const maxWidth = shellRect.right - panelLeft
+      const maxHeight = shellRect.bottom - panelTop
+      newWidth = Math.min(newWidth, maxWidth)
+      newHeight = Math.min(newHeight, maxHeight)
+    }
+    newWidth = Math.max(MIN_WIDTH, newWidth)
+    newHeight = Math.max(MIN_HEIGHT, newHeight)
+    setSize({ width: newWidth, height: newHeight })
+  }, [])
+
+  const handleResizeMouseUp = useCallback(() => {
+    if (!resizeState.current.isResizing) return
+    resizeState.current.isResizing = false
+    window.removeEventListener('mousemove', handleResizeMouseMove)
+    window.removeEventListener('mouseup', handleResizeMouseUp)
+  }, [handleResizeMouseMove])
+
+  const handleResizeMouseDown = useCallback(
+    (event: React.MouseEvent) => {
+      if (event.button !== 0) return
+      event.preventDefault()
+      const panel = panelRef.current
+      if (!panel) return
+      const panelRect = panel.getBoundingClientRect()
+      resizeState.current = {
+        isResizing: true,
+        startX: event.clientX,
+        startY: event.clientY,
+        startWidth: size.width,
+        startHeight: size.height,
+        panelLeft: panelRect.left,
+        panelTop: panelRect.top,
+      }
+      window.addEventListener('mousemove', handleResizeMouseMove)
+      window.addEventListener('mouseup', handleResizeMouseUp)
+    },
+    [size.width, size.height, handleResizeMouseMove, handleResizeMouseUp]
+  )
+
+  useEffect(() => {
+    return () => {
+      window.removeEventListener('mousemove', handleResizeMouseMove)
+      window.removeEventListener('mouseup', handleResizeMouseUp)
+    }
+  }, [handleResizeMouseMove, handleResizeMouseUp])
 
   const sortedRows = useMemo(() => {
     const base = questions.map((question, index) => {
       const flagged = flaggedIds.includes(question.id)
-      const answered = Boolean(selectedAnswers[question.id])
-      const statusLabel = answered ? '' : 'Unseen'
-      const statusRank = answered ? 1 : 0
+      const status = getReviewQuestionStatus(
+        question.id,
+        visitedQuestionIds,
+        selectedAnswers
+      )
+      const statusLabel =
+        status === 'complete' ? '' : status === 'incomplete' ? 'Incomplete' : 'Unseen'
+      const statusRank = status === 'complete' ? 1 : status === 'incomplete' ? 0.5 : 0
       const flaggedRank = flagged ? 0 : 1
 
       return {
         question,
         index,
         flagged,
-        answered,
+        answered: status === 'complete',
         statusLabel,
         statusRank,
         flaggedRank,
@@ -104,7 +184,7 @@ export function NavigatorPanel({
       }
       return (a.index - b.index) * directionFactor
     })
-  }, [questions, flaggedIds, selectedAnswers, sortField, sortDirection])
+  }, [questions, flaggedIds, selectedAnswers, visitedQuestionIds, sortField, sortDirection])
 
   const handleHeaderClick = (field: 'question' | 'status' | 'flagged') => {
     if (sortField === field) {
@@ -127,21 +207,27 @@ export function NavigatorPanel({
   return (
     <div
       ref={panelRef}
-      className="pointer-events-auto"
-      style={{ transform: `translate3d(${position.x}px, ${position.y}px, 0)` }}
+      className="pointer-events-auto relative"
+      style={{
+        transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
+        width: size.width,
+        height: size.height,
+      }}
     >
       <UcatFloatingPanel
         title="Navigator - select a question to go to it"
         titleIcon={<Navigation className="h-5 w-5" />}
         onDragMouseDown={handleMouseDown}
-        className="w-full max-w-[640px] resize min-w-[320px] min-h-[240px] overflow-auto"
+        className="h-full w-full min-w-0 min-h-0 max-h-[85vh] flex flex-col overflow-hidden"
+        contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
-        <div
-          className={`overflow-hidden font-[${UCAT_FONTS.message}] text-[11pt] text-black`}
-          style={{ backgroundColor: 'white' }}
-        >
-          <table className="w-full border-collapse">
-            <thead style={{ backgroundColor: UCAT_COLORS.toolbarBlue }} className="text-white">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+          <div
+            className={`min-h-0 flex-1 overflow-y-auto font-[${UCAT_FONTS.message}] text-[11pt] text-black`}
+            style={{ backgroundColor: 'white' }}
+          >
+            <table className="w-full border-collapse">
+              <thead style={{ backgroundColor: UCAT_COLORS.toolbarBlue }} className="sticky top-0 z-10 text-white">
               <tr>
                 <th
                   className="cursor-pointer border border-[#9ba9bd] px-2 py-1.5 text-left font-normal select-none"
@@ -195,7 +281,7 @@ export function NavigatorPanel({
                       </span>
                     </td>
                     <td className="border border-[#9ba9bd] px-2 py-1.5 text-[#d90000]">
-                      {row.answered ? '' : 'Unseen'}
+                      {row.statusLabel}
                     </td>
                     <td className="border border-[#9ba9bd] px-2 py-1.5 text-center align-middle">
                       {row.flagged ? (
@@ -213,7 +299,7 @@ export function NavigatorPanel({
             </tbody>
           </table>
         </div>
-        <div className="mt-3 flex flex-col gap-15">
+        <div className="mt-3 flex shrink-0 flex-col gap-15">
           <div className="text-left text-[11pt]">
             {unseenOrIncompleteCount} Unseen/Incomplete
           </div>
@@ -225,7 +311,19 @@ export function NavigatorPanel({
             </UcatExamActionButton>
           </div>
         </div>
+        </div>
       </UcatFloatingPanel>
+      <div
+        role="separator"
+        aria-label="Resize navigator"
+        className="absolute bottom-0 right-0 z-10 flex cursor-se-resize items-end justify-end rounded-bl-md p-1"
+        style={{ backgroundColor: 'rgba(0,0,0,0.15)' }}
+        onMouseDown={handleResizeMouseDown}
+      >
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-white/80" aria-hidden>
+          <path d="M12 12H8L12 8M6 12H2L12 2M0 12V8L4 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
     </div>
   )
 }

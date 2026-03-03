@@ -36,6 +36,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useProject } from '../api/queries';
 import { useUpdateProject, useDeleteProject } from '../api/mutations';
 import type { ProjectFormData, ProjectStatus } from '../types';
+import type { JSONContent } from '@altitutor/ui';
 
 const VALID_PROJECT_STATUSES: ProjectStatus[] = ['backlog', 'planned', 'in_progress', 'completed'];
 
@@ -63,7 +64,7 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  description: z.any().optional(),
+  description: z.union([z.record(z.unknown()), z.string(), z.null()]).optional(),
   status: z.enum(['backlog', 'planned', 'in_progress', 'completed']),
   priority: z.number().min(0).max(4),
   projectLeadId: z.union([z.string().uuid(), z.null()]).default(null),
@@ -143,9 +144,9 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
     if (project && isOpen && !isLoading && project.id !== lastResetProjectIdRef.current) {
       form.reset({
         name: project.name,
-        description: (project.description as any) || null,
+        description: (project.description as JSONContent | null) ?? null,
         status: normalizeProjectStatus(project.status),
-        priority: (project.priority ?? 0) as any,
+        priority: (project.priority ?? 0) as ProjectFormData['priority'],
         projectLeadId: project.project_lead_id || null,
         startDate: project.start_date ? new Date(project.start_date).toISOString().split('T')[0] : null,
         targetDate: project.target_date ? new Date(project.target_date).toISOString().split('T')[0] : null,
@@ -194,7 +195,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
 
       await updateProject.mutateAsync({
         id: projectId,
-        updates: formattedUpdates as any,
+        updates: formattedUpdates as import('../types').ProjectUpdate,
       });
     } catch (error) {
       console.error('Failed to auto-save project:', error);
@@ -310,7 +311,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                         />
                         <ProjectDescriptionField
                           form={form}
-                          value={form.watch('description') as any}
+                          value={form.watch('description') as JSONContent | null}
                           descriptionRef={descriptionFieldRef}
                         />
 
@@ -334,7 +335,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                         <Separator />
                         <ProjectNotes
                           projectId={projectId}
-                          notes={progressNotesData as any}
+                          notes={progressNotesData}
                           onNoteAdded={() => {}}
                         />
 

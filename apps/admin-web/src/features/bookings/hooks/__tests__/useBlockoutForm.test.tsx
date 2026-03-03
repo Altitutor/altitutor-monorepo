@@ -6,6 +6,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { useBlockoutForm } from '../useBlockoutForm';
 import { blockoutsApi } from '../../api/blockouts';
 import { useToast } from '@altitutor/ui';
+import type { Tables } from '@altitutor/shared';
 
 // Mock dependencies
 jest.mock('../../api/blockouts', () => ({
@@ -35,7 +36,7 @@ describe('useBlockoutForm', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseToast.mockReturnValue({ toast: mockToast } as any);
+    mockUseToast.mockReturnValue({ toast: mockToast } as unknown as ReturnType<typeof useToast>);
   });
 
   describe('initial state', () => {
@@ -119,15 +120,15 @@ describe('useBlockoutForm', () => {
     it('should load blockout data into form', () => {
       const { result } = renderHook(() => useBlockoutForm());
 
-      const blockout = {
+      const blockout: Tables<'booking_staff_unavailability'> = {
         id: 'blockout-1',
         staff_id: 'staff-1',
         start_at: '2024-01-20T00:00:00Z',
         end_at: '2024-01-25T23:59:59Z',
         reason: 'Holiday',
         created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      } as any;
+        created_by: null,
+      };
 
       act(() => {
         result.current.loadBlockout(blockout);
@@ -203,7 +204,7 @@ describe('useBlockoutForm', () => {
         reason: 'Holiday',
       };
 
-      mockBlockoutsApi.createBlockout.mockResolvedValue(mockBlockout as any);
+      mockBlockoutsApi.createBlockout.mockResolvedValue(mockBlockout as Awaited<ReturnType<typeof blockoutsApi.createBlockout>>);
 
       const { result } = renderHook(() => useBlockoutForm());
 
@@ -278,7 +279,7 @@ describe('useBlockoutForm', () => {
 
     it('should call onSuccess callback after successful creation', async () => {
       const onSuccess = jest.fn();
-      mockBlockoutsApi.createBlockout.mockResolvedValue({} as any);
+      mockBlockoutsApi.createBlockout.mockResolvedValue({} as Awaited<ReturnType<typeof blockoutsApi.createBlockout>>);
 
       const { result } = renderHook(() => useBlockoutForm({ onSuccess }));
 
@@ -300,7 +301,7 @@ describe('useBlockoutForm', () => {
 
   describe('updateBlockout', () => {
     it('should update blockout successfully', async () => {
-      mockBlockoutsApi.updateBlockout.mockResolvedValue({} as any);
+      mockBlockoutsApi.updateBlockout.mockResolvedValue({} as Awaited<ReturnType<typeof blockoutsApi.updateBlockout>>);
 
       const { result } = renderHook(() => useBlockoutForm());
 

@@ -81,7 +81,7 @@ async function updateStatus(messageSid: string, status: string, errorCode?: stri
   const dbStatus = map[status?.toLowerCase?.()] || 'SENT';
   const stampField = dbStatus === 'DELIVERED' ? 'delivered_at' : dbStatus === 'FAILED' ? null : null;
 
-  const updates: any = { status: dbStatus, status_updated_at: new Date().toISOString() };
+  const updates: Record<string, unknown> = { status: dbStatus, status_updated_at: new Date().toISOString() };
   if (stampField === 'delivered_at') updates.delivered_at = new Date().toISOString();
   if (errorCode) updates.error_code = Number(errorCode);
   if (errorMessage) updates.error_message = errorMessage;
@@ -119,7 +119,7 @@ Deno.serve(async (req: Request) => {
     await updateStatus(messageSid, messageStatus, errorCode, errorMessage);
     console.log('[twilio-status] updated', { messageSid, to: messageStatus });
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  } catch (e: any) {
+  } catch (e: unknown) {
     return new Response(JSON.stringify({ error: e?.message || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });

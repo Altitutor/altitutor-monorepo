@@ -115,7 +115,7 @@ export function Step2StaffAttendance({
         ascending: true,
       });
       // Filter out staff already in session
-      const existingStaffIds = new Set(sessionStaff.map((ss: any) => ss.staff_id));
+      const existingStaffIds = new Set(sessionStaff.map((ss: { staff_id: string }) => ss.staff_id));
       setAvailableStaff(filterAvailableStaff(result.staff, existingStaffIds));
     } catch (error) {
       console.error('Error searching staff:', error);
@@ -154,7 +154,7 @@ export function Step2StaffAttendance({
         </div>
       ) : (
         <div className="space-y-3">
-          {sessionStaff.map((ss: any) => {
+          {sessionStaff.map((ss) => {
             const staff = ss.staff;
             const attendance = getStaffAttendance(ss.staff_id);
             const isAttended = attendance?.attended ?? !ss.planned_absence;

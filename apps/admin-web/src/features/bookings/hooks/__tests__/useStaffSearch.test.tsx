@@ -58,7 +58,7 @@ describe('useStaffSearch', () => {
     mockStaffApi.listMinimal.mockResolvedValue({
       staff: mockStaff,
       total: 2,
-    } as any);
+    } as Awaited<ReturnType<typeof staffApi.listMinimal>>);
 
     const { result } = renderHook(() => useStaffSearch('john'), {
       wrapper: createWrapper(),
@@ -83,7 +83,7 @@ describe('useStaffSearch', () => {
     mockStaffApi.listMinimal.mockResolvedValue({
       staff: [],
       total: 0,
-    } as any);
+    } as Awaited<ReturnType<typeof staffApi.listMinimal>>);
 
     renderHook(() => useStaffSearch('  john  '), {
       wrapper: createWrapper(),
@@ -102,7 +102,7 @@ describe('useStaffSearch', () => {
     mockStaffApi.listMinimal.mockResolvedValue({
       staff: [],
       total: 0,
-    } as any);
+    } as Awaited<ReturnType<typeof staffApi.listMinimal>>);
 
     renderHook(() => useStaffSearch(''), {
       wrapper: createWrapper(),
@@ -121,7 +121,7 @@ describe('useStaffSearch', () => {
     mockStaffApi.listMinimal.mockResolvedValue({
       staff: [],
       total: 0,
-    } as any);
+    } as Awaited<ReturnType<typeof staffApi.listMinimal>>);
 
     renderHook(() => useStaffSearch('john', { statuses: ['ACTIVE', 'INACTIVE'] }), {
       wrapper: createWrapper(),
@@ -140,7 +140,7 @@ describe('useStaffSearch', () => {
     mockStaffApi.listMinimal.mockResolvedValue({
       staff: [],
       total: 0,
-    } as any);
+    } as Awaited<ReturnType<typeof staffApi.listMinimal>>);
 
     renderHook(() => useStaffSearch('john', { limit: 50 }), {
       wrapper: createWrapper(),
@@ -192,7 +192,7 @@ describe('useStaffSearch', () => {
     mockStaffApi.listMinimal.mockResolvedValue({
       staff: mockStaff,
       total: 1,
-    } as any);
+    } as Awaited<ReturnType<typeof staffApi.listMinimal>>);
 
     const { result } = renderHook(() => useStaffSearch('john'), {
       wrapper: createWrapper(),

@@ -27,7 +27,7 @@ describe('Contact API Functions', () => {
       from: jest.fn(),
     };
 
-    mockGetSupabaseClient.mockReturnValue(mockSupabase as any);
+    mockGetSupabaseClient.mockReturnValue(mockSupabase as unknown as ReturnType<typeof getSupabaseClient>);
   });
 
   describe('getContactIdFromConversation', () => {

@@ -45,8 +45,23 @@ export interface UseSessionsTableReturn {
   paginatedSessions: Tables<'sessions'>[];
   classesById: Record<string, Tables<'classes'>>;
   subjectsById: Record<string, Tables<'subjects'>>;
-  sessionStudents: Record<string, Tables<'students'>[]>;
-  sessionStaff: Record<string, Tables<'staff'>[]>;
+  sessionStudents: Record<string, Array<Tables<'students'> & {
+    planned_absence?: boolean;
+    actual_attended?: boolean | null;
+    sessions_students_id?: string | null;
+    is_extra?: boolean;
+    was_trial?: boolean;
+    is_rescheduled?: boolean;
+    is_credited?: boolean;
+    rescheduled_session?: unknown;
+  }>>;
+  sessionStaff: Record<string, Array<Tables<'staff'> & {
+    planned_absence?: boolean;
+    actual_attended?: boolean | null;
+    actual_was_trial?: boolean | null;
+    was_trial?: boolean;
+    is_swapped_in?: boolean;
+  }>>;
   tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
   isLoading: boolean;
   error: Error | null;
@@ -83,11 +98,17 @@ export function useSessionsTable({
   const pageSize = state?.pageSize || 50;
   const sortDirection = state?.sortDirection || 'desc';
 
-  // Extract specific filters
+  // Extract specific filters (wrapped in useMemo for stable refs in downstream useMemo)
   const typeFilters = (filters.type as string[]) || [];
-  const subjectFilters = (filters.subject as string[]) || [];
+  const subjectFilters = useMemo(
+    () => (filters.subject as string[]) || [],
+    [filters.subject]
+  );
   const studentFilters = (filters.student as string[]) || [];
-  const staffFilters = (filters.staff as string[]) || [];
+  const staffFilters = useMemo(
+    () => (filters.staff as string[]) || [],
+    [filters.staff]
+  );
   const tutorLogFilters = (filters.tutor_log as string[]) || [];
   const fromFilters = (filters.from as string[]) || [];
   const toFilters = (filters.to as string[]) || [];

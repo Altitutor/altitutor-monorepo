@@ -352,10 +352,11 @@ Deno.serve(async (req: Request) => {
         'Cache-Control': 'no-cache',
       },
     });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error('[twilio-voice-inbound] Error', e);
     return new Response(
-      JSON.stringify({ error: e?.message || 'unknown error' }),
+      JSON.stringify({ error: msg || 'unknown error' }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }

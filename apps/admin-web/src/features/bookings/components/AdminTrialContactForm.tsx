@@ -102,15 +102,23 @@ export function AdminTrialContactForm({
     limit: 100,
     offset: 0,
   });
-  const allSubjects = allSubjectsData?.subjects ?? [];
+  const allSubjects = useMemo(
+    () => allSubjectsData?.subjects ?? [],
+    [allSubjectsData?.subjects]
+  );
 
   const { data: searchResultsData, isLoading: isSearchingSubjects } = useSubjectsList({
     search: debouncedSubjectSearch.trim() || undefined,
     limit: 100,
     offset: 0,
   });
-  const subjectSearchResults =
-    debouncedSubjectSearch.trim().length > 0 ? (searchResultsData?.subjects ?? []) : allSubjects;
+  const subjectSearchResults = useMemo(
+    () =>
+      debouncedSubjectSearch.trim().length > 0
+        ? (searchResultsData?.subjects ?? [])
+        : allSubjects,
+    [debouncedSubjectSearch, searchResultsData?.subjects, allSubjects]
+  );
   const isSubjectListLoading =
     subjectSearchQuery.trim().length > 0 ? isSearchingSubjects : isLoadingFiltered;
 

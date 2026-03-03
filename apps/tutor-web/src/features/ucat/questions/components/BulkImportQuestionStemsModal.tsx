@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Json } from '@altitutor/shared'
 import {
   Button,
@@ -22,18 +22,28 @@ import {
   useUcatTags,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { Step1ChooseSection } from '@/features/ucat/questions/components/bulk-import/Step1ChooseSection'
-import { Step2PasteDocument } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
-import { Step3EditQuestionStems } from '@/features/ucat/questions/components/bulk-import/Step3EditQuestionStems'
-import { Step4ReviewAndSubmit } from '@/features/ucat/questions/components/bulk-import/Step4ReviewAndSubmit'
 import {
-  UcatQuestionStemDialog,
-  type CategoryOption,
-  type TagOption,
-} from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+  Step2PasteDocument,
+  type ParsingOptions,
+  type PasteTableBehavior,
+} from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
+import { Step2PasteAnswers } from '@/features/ucat/questions/components/bulk-import/Step2PasteAnswers'
+import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
 import {
   parseVerbalReasoningFromDoc,
   mapParsedVerbalReasoningToFormValues,
-} from '@/features/ucat/questions/lib/verbalReasoningParser'
+  getVerbalReasoningStemCategoryName,
+} from '@/features/ucat/questions/lib/parsers/verbalReasoning'
+import {
+  parseDecisionMakingFromDoc,
+  mapParsedDecisionMakingToFormValues,
+} from '@/features/ucat/questions/lib/parsers/decisionMaking'
+import {
+  parseAnswersTable,
+  letterToOptionIndex,
+  parseDecisionMakingAnswers,
+} from '@/features/ucat/questions/lib/parseAnswersTable'
+import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 
 type BulkImportQuestionStemsModalProps = {
   open: boolean
@@ -53,15 +63,22 @@ export function BulkImportQuestionStemsModal({
   const wizard = useBulkImportWizard()
 
   const [step, setStep] = useState(0)
-  const totalSteps = 4
   const [status, setStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle')
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [sectionId, setSectionId] = useState<string | null>(null)
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
+  const [pastedAnswersText, setPastedAnswersText] = useState('')
   const [parseError, setParseError] = useState<string | null>(null)
+  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_all')
+  const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
+    questionIndicator: 'dot',
+    answerOptionIndicator: 'paren',
+    questionNumberOnOwnLine: false,
+    answerOptionOnOwnLine: false,
+  })
+  const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
 
-  // Reset wizard and local state when modal closes. Only depend on open so we don't
-  // re-run on every render (wizard is a new object each time from useBulkImportWizard).
+  // Reset wizard and local state when modal closes.
   useEffect(() => {
     if (!open) {
       setStep(0)
@@ -69,15 +86,27 @@ export function BulkImportQuestionStemsModal({
       setSubmitError(null)
       setSectionId(null)
       setPastedContent(null)
+      setPastedAnswersText('')
       setParseError(null)
+      setPasteTableBehavior('strip_all')
+      setParsingOptions({
+        questionIndicator: 'dot',
+        answerOptionIndicator: 'paren',
+        questionNumberOnOwnLine: false,
+        answerOptionOnOwnLine: false,
+      })
+      step2NewImageFileIdsRef.current = new Set()
       wizard.reset()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only when open changes; wizard.reset is stable
   }, [open])
 
+  const handleStep2ImageFileIds = useCallback((fileIds: string[]) => {
+    fileIds.forEach((id) => step2NewImageFileIdsRef.current.add(id))
+  }, [])
+
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = categoriesQuery.data ?? []
-  const tags = tagsQuery.data ?? []
 
   const selectedSection = useMemo(
     () => sections.find((s) => s.id === sectionId) ?? null,
@@ -85,18 +114,18 @@ export function BulkImportQuestionStemsModal({
   )
 
   const isVerbalReasoningSection = selectedSection?.name === 'Verbal Reasoning'
+  const isDecisionMakingSection = selectedSection?.name === 'Decision Making'
+  const isBulkParseSection = isVerbalReasoningSection || isDecisionMakingSection
 
   const canGoPrevious = useMemo(() => step > 0 && status !== 'submitting', [step, status])
+  const totalStepsResolved = 4
   const canGoNext = useMemo(() => {
     if (status === 'submitting') return false
     if (step === 0) return !!sectionId
-    if (step === 1 && isVerbalReasoningSection && (pastedContent == null || wizard.state.stems.length === 0)) {
-      // Require successful parsing before moving on for Verbal Reasoning.
-      return false
-    }
-    if (step >= totalSteps - 1) return false
+    if (step === 1) return true
+    if (step >= totalStepsResolved - 1) return false
     return true
-  }, [step, status, sectionId, totalSteps, isVerbalReasoningSection, pastedContent, wizard.state.stems.length])
+  }, [step, status, sectionId, totalStepsResolved])
 
   const isLoadingMeta =
     sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
@@ -106,36 +135,84 @@ export function BulkImportQuestionStemsModal({
 
   function handleRequestClose() {
     if (status === 'submitting') return
+    const ids = Array.from(step2NewImageFileIdsRef.current)
+    if (ids.length > 0 && status !== 'success') {
+      void fetch('/api/ucat/images/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fileIds: ids }),
+      }).catch((error) => {
+        console.error('Failed to cleanup UCAT images from bulk import step 2:', error)
+      })
+    }
     onClose()
   }
 
-  function handleParseVerbalReasoning() {
-    if (!isVerbalReasoningSection) return
-    if (!sectionId) return
-    try {
-      const parsed = parseVerbalReasoningFromDoc(pastedContent)
-      const forms = mapParsedVerbalReasoningToFormValues(parsed, {
-        sectionId,
-        categoryId: null,
-        isPrivate: false,
-      })
+  /** Parse pasted content according to the selected section; used when moving from step 1 to 2. */
+  function parseForCurrentSection(): boolean {
+    if (!sectionId) return false
+    if (isVerbalReasoningSection) {
+      try {
+        const parsed = parseVerbalReasoningFromDoc(pastedContent, parsingOptions)
+        const forms = mapParsedVerbalReasoningToFormValues(parsed, {
+          sectionId,
+          isPrivate: false,
+          getCategoryIdForStem: (stem) => {
+            const name = getVerbalReasoningStemCategoryName(stem)
+            const category = categories.find(
+              (c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name
+            )
+            return category?.id ?? null
+          },
+        })
 
-      if (forms.length === 0) {
-        setParseError('No valid stems and questions were detected. Please check the formatting.')
+        if (forms.length === 0) {
+          setParseError('No valid stems and questions were detected. Please check the formatting.')
+          wizard.setStems([])
+          return false
+        }
+
+        wizard.setStems(forms)
+        setParseError(null)
+        return true
+      } catch (error) {
+        setParseError(
+          error instanceof Error
+            ? `Failed to parse Verbal Reasoning passage: ${error.message}`
+            : 'Failed to parse Verbal Reasoning passage.'
+        )
         wizard.setStems([])
-        return
+        return false
       }
-
-      wizard.setStems(forms)
-      setParseError(null)
-    } catch (error) {
-      setParseError(
-        error instanceof Error
-          ? `Failed to parse Verbal Reasoning passage: ${error.message}`
-          : 'Failed to parse Verbal Reasoning passage.'
-      )
-      wizard.setStems([])
     }
+    if (isDecisionMakingSection) {
+      try {
+        const parsed = parseDecisionMakingFromDoc(pastedContent, parsingOptions)
+        const forms = mapParsedDecisionMakingToFormValues(parsed, {
+          sectionId,
+          isPrivate: false,
+        })
+
+        if (forms.length === 0) {
+          setParseError('No valid stems and questions were detected. Please check the formatting.')
+          wizard.setStems([])
+          return false
+        }
+
+        wizard.setStems(forms)
+        setParseError(null)
+        return true
+      } catch (error) {
+        setParseError(
+          error instanceof Error
+            ? `Failed to parse Decision Making: ${error.message}`
+            : 'Failed to parse Decision Making.'
+        )
+        wizard.setStems([])
+        return false
+      }
+    }
+    return true
   }
 
   function getStepTitle(currentStep: number): string {
@@ -145,21 +222,100 @@ export function BulkImportQuestionStemsModal({
       case 1:
         return 'Paste document'
       case 2:
-        return 'Edit question stems'
+        return 'Paste answers'
       case 3:
-        return 'Review and submit'
+        return 'Review'
       default:
         return 'Bulk import'
     }
   }
 
+  function applyParsedAnswersToStems(): void {
+    const stems = wizard.state.stems
+    const flat: { stemId: string; questionIndex: number }[] = []
+    stems.forEach((stem) => {
+      const questions = stem.values.questions ?? []
+      questions.forEach((_, qIdx) => flat.push({ stemId: stem.id, questionIndex: qIdx }))
+    })
+    if (flat.length === 0) return
+
+    const updatesByStem = new Map<string, UcatQuestionStemFormValues>()
+
+    if (isDecisionMakingSection) {
+      const questionTypes = flat.map(({ stemId, questionIndex }) => {
+        const stem = stems.find((s) => s.id === stemId)
+        const q = stem?.values.questions?.[questionIndex] as { questionType?: string } | undefined
+        return (q?.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice') as
+          | 'syllogism'
+          | 'multiple_choice'
+      })
+      const dmParsed = parseDecisionMakingAnswers(pastedAnswersText, questionTypes)
+      dmParsed.forEach((answer, i) => {
+        if (i >= flat.length) return
+        const { stemId, questionIndex } = flat[i]
+        const stem = stems.find((s) => s.id === stemId)
+        if (!stem) return
+        let nextValues = updatesByStem.get(stemId)
+        if (!nextValues) nextValues = { ...stem.values, questions: [...(stem.values.questions ?? [])] }
+        const questions = [...(nextValues.questions ?? [])]
+        const q = questions[questionIndex]
+        if (!q || !q.options) return
+        const qWithPattern = q as typeof q & { syllogismAnswerPattern?: string | null }
+        if (answer.pattern && qWithPattern.questionType === 'syllogism') {
+          questions[questionIndex] = { ...q, syllogismAnswerPattern: answer.pattern }
+        } else if (answer.letter) {
+          const optionIndex = letterToOptionIndex(answer.letter)
+          const options = q.options.map((opt, j) => ({
+            ...opt,
+            isAnswer: j === optionIndex,
+          }))
+          questions[questionIndex] = { ...q, options }
+        }
+        nextValues = { ...nextValues, questions }
+        updatesByStem.set(stemId, nextValues)
+      })
+    } else {
+      const parsed = parseAnswersTable(pastedAnswersText)
+      if (parsed.length === 0) return
+      parsed.forEach((row, i) => {
+        if (i >= flat.length) return
+        const { stemId, questionIndex } = flat[i]
+        const stem = stems.find((s) => s.id === stemId)
+        if (!stem) return
+        let nextValues = updatesByStem.get(stemId)
+        if (!nextValues) nextValues = { ...stem.values, questions: [...(stem.values.questions ?? [])] }
+        const questions = [...(nextValues.questions ?? [])]
+        const q = questions[questionIndex]
+        if (!q || !q.options) return
+        const optionIndex = letterToOptionIndex(row.letter)
+        const options = q.options.map((opt, j) => ({
+          ...opt,
+          isAnswer: j === optionIndex,
+        }))
+        questions[questionIndex] = {
+          ...q,
+          options,
+          answerExplanation: row.explanation.trim()
+            ? (plainTextToProseMirror(row.explanation) as Json)
+            : null,
+        }
+        nextValues = { ...nextValues, questions }
+        updatesByStem.set(stemId, nextValues)
+      })
+    }
+
+    updatesByStem.forEach((values, stemId) => wizard.updateStemForm(stemId, values))
+  }
+
   function handleNextClick() {
     if (!canGoNext) return
-    if (step === 1 && isVerbalReasoningSection) {
-      // Already parsed via explicit action; if no stems, prevent moving on.
-      if (wizard.state.stems.length === 0) return
+    if (step === 1) {
+      if (!parseForCurrentSection()) return
     }
-    setStep((current) => (current < totalSteps - 1 ? current + 1 : current))
+    if (step === 2) {
+      applyParsedAnswersToStems()
+    }
+    setStep((current) => (current < totalStepsResolved - 1 ? current + 1 : current))
   }
 
   async function handleImportAllVerbalReasoning() {
@@ -261,23 +417,12 @@ export function BulkImportQuestionStemsModal({
               setPastedContent(value)
               setParseError(null)
             }}
+            onImageFileIdsChange={handleStep2ImageFileIds}
+            parsingOptions={parsingOptions}
+            onParsingOptionsChange={setParsingOptions}
+            pasteTableBehavior={pasteTableBehavior}
+            onPasteTableBehaviorChange={setPasteTableBehavior}
           />
-          {isVerbalReasoningSection && (
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <p className="text-xs text-muted-foreground">
-                This parser is optimised for Verbal Reasoning passages with numbered questions and
-                lettered options, like the official UCAT materials.
-              </p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={handleParseVerbalReasoning}
-              >
-                Parse Verbal Reasoning
-              </Button>
-            </div>
-          )}
           {parseError && (
             <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
               {parseError}
@@ -288,96 +433,25 @@ export function BulkImportQuestionStemsModal({
     }
 
     if (step === 2) {
-      if (isVerbalReasoningSection) {
-        const categoryOptions: CategoryOption[] = categories.map((c) => ({
-          id: c.id,
-          name: c.name,
-          ucat_section_id: c.ucat_section_id,
-        }))
-        const tagOptions: TagOption[] = tags.map((t) => ({
-          id: t.id ?? '',
-          name: t.name ?? '',
-        }))
-
-        return (
-          <Step3EditQuestionStems
-            stems={wizard.state.stems}
-            activeIndex={wizard.state.activeIndex}
-            sections={sections}
-            categories={categoryOptions}
-            tags={tagOptions}
-            selectStem={wizard.selectStem}
-            goToNextStem={wizard.goToNextStem}
-            goToPreviousStem={wizard.goToPreviousStem}
-            updateStemForm={wizard.updateStemForm}
-          />
-        )
-      }
-
       return (
-        <div className="space-y-4">
-          <h2 className="text-base font-semibold">Edit question stem</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Use the standard UCAT question stem editor to define the stem, question, and answer
-            options you want to import.
-          </p>
-          <UcatQuestionStemDialog
-            open
-            title="Create Question Stem"
-            submitLabel="Create"
-            onClose={() => {}}
-            onSubmit={async (values) => {
-              try {
-                setStatus('submitting')
-                setSubmitError(null)
-                await onSubmit({ sectionId: values.sectionId, stems: [values] })
-                setStatus('success')
-                setStep(3)
-              } catch (error) {
-                setStatus('error')
-                setSubmitError(
-                  error instanceof Error ? error.message : 'Failed to import question stem'
-                )
-              }
-            }}
-            sections={sections.map((section) => ({ id: section.id, name: section.name }))}
-            categories={categories.map((c) => ({
-              id: c.id,
-              name: c.name,
-              ucat_section_id: c.ucat_section_id,
-            }))}
-            tags={tags.map((t) => ({ id: t.id ?? '', name: t.name ?? '' }))}
-            loading={status === 'submitting'}
-          />
-        </div>
-      )
-    }
-
-    if (isVerbalReasoningSection) {
-      return (
-        <Step4ReviewAndSubmit
-          stems={wizard.state.stems}
-          activeIndex={wizard.state.activeIndex}
-          selectStem={wizard.selectStem}
+        <Step2PasteAnswers
+          value={pastedAnswersText}
+          onChange={setPastedAnswersText}
         />
       )
     }
 
-    return (
-      <div className="space-y-4">
-        <h2 className="text-base font-semibold">Review and finish</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your question stem has been created. You can close this wizard now and see it in the UCAT
-          questions table.
-        </p>
-      </div>
-    )
+    if (step === 3) {
+      return <Step3SetAnswers stems={wizard.state.stems} />
+    }
+
+    return null
   }
 
   const description =
     status === 'success'
       ? 'Review completion details for this import.'
-      : `Step ${step + 1} of ${totalSteps}: ${getStepTitle(step)}`
+      : `Step ${step + 1} of ${totalStepsResolved}: ${getStepTitle(step)}`
 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? handleRequestClose() : undefined)}>
@@ -408,7 +482,7 @@ export function BulkImportQuestionStemsModal({
           {status !== 'success' && (
             <div className="px-6 pb-4">
               <div className="flex items-center gap-2">
-                {Array.from({ length: totalSteps }).map((_, index) => (
+                {Array.from({ length: totalStepsResolved }).map((_, index) => (
                   <div
                     key={index}
                     className={`flex-1 h-2 rounded-full transition-colors ${
@@ -453,13 +527,16 @@ export function BulkImportQuestionStemsModal({
 
             {status === 'success' ? (
               <Button onClick={handleRequestClose}>Close</Button>
-            ) : step < totalSteps - 1 ? (
+            ) : step < totalStepsResolved - 1 ? (
               <Button onClick={handleNextClick} disabled={!canGoNext}>
                 Next
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
-            ) : isVerbalReasoningSection ? (
-              <Button onClick={handleImportAllVerbalReasoning} disabled={status === 'submitting'}>
+            ) : isBulkParseSection ? (
+              <Button
+                onClick={handleImportAllVerbalReasoning}
+                disabled={status === 'submitting' || wizard.state.stems.length === 0}
+              >
                 Import all stems
               </Button>
             ) : (

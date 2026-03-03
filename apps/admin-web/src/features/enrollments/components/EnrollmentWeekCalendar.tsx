@@ -514,12 +514,12 @@ export function EnrollmentWeekCalendar({
                                   }
                                   // For old class, we need to get students from the query if available
                                   // But since these are potential sessions, we'll show empty students or get from query
-                                  const existingStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+                                  const existingStudents = ((data as { sessionStudents?: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>> })?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                                   sessionStudents = existingStudents;
                                 } else if (isClassContext) {
                                   // Class context: get existing students/staff from query, add potential student if after enrollment date
-                                  const existingStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                                  const existingStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                                  const existingStudents = ((data as { sessionStudents?: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>> })?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+                                  const existingStaff = ((data as { sessionStaff?: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>> })?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                                   
                                   // Add potential student if session is after enrollment date
                                   if (isAfterEnrollmentDate && selectedStudent) {
@@ -556,8 +556,8 @@ export function EnrollmentWeekCalendar({
                                 }
                               } else {
                                 // Regular sessions: get from query data
-                                const existingStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                                const existingStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                                const existingStudents = ((data as { sessionStudents?: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>> })?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+                                const existingStaff = ((data as { sessionStaff?: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>> })?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                                 
                                 if (isClassContext) {
                                   // Class context: add potential student if session is after enrollment date

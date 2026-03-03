@@ -87,7 +87,7 @@ function grossUp(
   return Math.round((net + fixedCents) / (1 - percent));
 }
 
-export function CustomerBalanceSection({ studentId, studentName }: CustomerBalanceSectionProps) {
+export function CustomerBalanceSection({ studentId, studentName: _studentName }: CustomerBalanceSectionProps) {
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentDescription, setAdjustmentDescription] = useState('');
@@ -122,12 +122,13 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
         
       if (error) throw error;
       
-      return (data || [])
-        .map((row: any) => row.class)
-        .filter((cls: any) => cls !== null && cls.subject !== null)
-        .map((cls: any) => ({
+      type ClassRow = { class?: { id: string; subject: Tables<'subjects'> | null; start_time: string | null; end_time: string | null } | null };
+      return ((data || []) as ClassRow[])
+        .map((row) => row.class)
+        .filter((cls): cls is NonNullable<ClassRow['class']> & { subject: Tables<'subjects'> } => cls != null && cls.subject != null)
+        .map((cls) => ({
           class_id: cls.id,
-          subject: cls.subject as Tables<'subjects'>,
+          subject: cls.subject,
           start_time: cls.start_time,
           end_time: cls.end_time,
           billing_type: 'CLASS' as const, // Classes always use CLASS billing type
@@ -174,7 +175,7 @@ export function CustomerBalanceSection({ studentId, studentName }: CustomerBalan
       };
     });
 
-    const overridesBySubjectAndBilling: Record<string, Record<string, any>> = {};
+    const overridesBySubjectAndBilling: Record<string, Record<string, { hourly_rate_cents: number; currency: string }>> = {};
     pricingOverrides.forEach((override) => {
       if (!overridesBySubjectAndBilling[override.subject_id]) {
         overridesBySubjectAndBilling[override.subject_id] = {};

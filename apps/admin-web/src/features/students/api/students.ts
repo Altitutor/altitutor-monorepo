@@ -610,7 +610,7 @@ export const studentsApi = {
     // Ensure id exists if the table requires it
     const payload: TablesInsert<'students'> = {
       ...(data as TablesInsert<'students'>),
-      id: (data as any)?.id ?? crypto.randomUUID(),
+      id: (data as TablesInsert<'students'> & { id?: string })?.id ?? crypto.randomUUID(),
     };
 
     const { data: created, error } = await (getSupabaseClient() as SupabaseClient<Database>)
@@ -638,18 +638,18 @@ export const studentsApi = {
           email: data.email ?? undefined,
           phone: data.phone,
           status: data.status,
-          curriculum: (data as any).curriculum,
-          year_level: (data as any).year_level,
-          school: (data as any).school,
-          availability_monday: (data as any).availability_monday,
-          availability_tuesday: (data as any).availability_tuesday,
-          availability_wednesday: (data as any).availability_wednesday,
-          availability_thursday: (data as any).availability_thursday,
-          availability_friday: (data as any).availability_friday,
-          availability_saturday_am: (data as any).availability_saturday_am,
-          availability_saturday_pm: (data as any).availability_saturday_pm,
-          availability_sunday_am: (data as any).availability_sunday_am,
-          availability_sunday_pm: (data as any).availability_sunday_pm,
+          curriculum: data.curriculum,
+          year_level: data.year_level,
+          school: data.school,
+          availability_monday: data.availability_monday,
+          availability_tuesday: data.availability_tuesday,
+          availability_wednesday: data.availability_wednesday,
+          availability_thursday: data.availability_thursday,
+          availability_friday: data.availability_friday,
+          availability_saturday_am: data.availability_saturday_am,
+          availability_saturday_pm: data.availability_saturday_pm,
+          availability_sunday_am: data.availability_sunday_am,
+          availability_sunday_pm: data.availability_sunday_pm,
         }),
       });
 
@@ -915,15 +915,11 @@ export const studentsApi = {
       const sid = row.student_id as string;
       const classWithSubject = row.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
       if (sid && classWithSubject) {
+        const { subject_details, ...classBase } = classWithSubject;
         const cls: ClassWithExpandedSubject = {
-          ...classWithSubject,
-          subject: classWithSubject.subject_details
+          ...classBase,
+          subject: subject_details ?? undefined,
         };
-        delete (cls as any).subject_details;
-        delete (cls as any).subject; // Remove the string subject field
-        if (classWithSubject.subject_details) {
-          (cls as any).subject = classWithSubject.subject_details;
-        }
         studentClasses[sid].push(cls);
         
         // Store subject by class ID for easy lookup

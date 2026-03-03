@@ -248,10 +248,10 @@ export function AddPaymentMethodModal({ isOpen, onClose, studentId }: AddPayment
           setClientSecret(data.client_secret);
           setIsLoading(false);
         },
-        onError: (error: any) => {
+        onError: (error: unknown) => {
           toast({
             title: 'Error',
-            description: error.message || 'Failed to initialize payment method setup',
+            description: error instanceof Error ? error.message : 'Failed to initialize payment method setup',
             variant: 'destructive',
           });
           setIsLoading(false);

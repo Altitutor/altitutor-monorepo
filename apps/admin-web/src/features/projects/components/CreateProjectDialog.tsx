@@ -17,6 +17,7 @@ import {
 import { X } from 'lucide-react';
 import { useCreateProject } from '../api/mutations';
 import type { ProjectFormData, ProjectStatus } from '../types';
+import type { SubmitHandler } from 'react-hook-form';
 import { ProjectTitleField } from './fields/ProjectTitleField';
 import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
 import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
@@ -24,7 +25,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  description: z.any().optional(),
+  description: z.union([z.record(z.unknown()), z.string(), z.null()]).optional(),
   status: z.enum(['backlog', 'planned', 'in_progress', 'completed']),
   priority: z.number().min(0).max(4),
   projectLeadId: z.union([z.string().uuid(), z.null()]).default(null),
@@ -106,7 +107,7 @@ export function CreateProjectDialog({ isOpen, onClose, onProjectCreated, initial
 
           <div className="flex-1 overflow-hidden min-h-0">
             <div className="h-full flex">
-              <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
+              <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)} className="flex-1 flex min-h-0">
                 <div className="flex-1 min-w-0 border-r overflow-y-auto p-6 space-y-6">
                   <ProjectTitleField
                     form={form}
@@ -116,7 +117,6 @@ export function CreateProjectDialog({ isOpen, onClose, onProjectCreated, initial
                   />
                   <ProjectDescriptionField
                     form={form}
-                    value={form.watch('description') as any}
                     descriptionRef={descriptionFieldRef}
                   />
                 </div>
@@ -130,7 +130,7 @@ export function CreateProjectDialog({ isOpen, onClose, onProjectCreated, initial
           <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
             <div className="flex items-center gap-2 w-full justify-end">
               <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-              <Button type="submit" onClick={form.handleSubmit(onSubmit as any)} disabled={createProject.isPending}>
+              <Button type="submit" onClick={form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)} disabled={createProject.isPending}>
                 {createProject.isPending ? 'Creating...' : 'Create Project'}
               </Button>
             </div>

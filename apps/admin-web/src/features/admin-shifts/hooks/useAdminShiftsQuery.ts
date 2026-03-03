@@ -7,7 +7,7 @@ export const adminShiftsKeys = {
   all: ['admin-shifts'] as const,
   lists: () => [...adminShiftsKeys.all, 'list'] as const,
   list: (filters: string) => [...adminShiftsKeys.lists(), { filters }] as const,
-  minimal: (params?: any) => [...adminShiftsKeys.all, 'minimal', params] as const,
+  minimal: (params?: UseAdminShiftsListParams | { dayOfWeek?: number; limit?: number; offset?: number }) => [...adminShiftsKeys.all, 'minimal', params] as const,
   details: () => [...adminShiftsKeys.all, 'detail'] as const,
   detail: (id: string) => [...adminShiftsKeys.details(), id] as const,
   detailFull: (id: string) => [...adminShiftsKeys.detail(id), 'details'] as const,
@@ -121,7 +121,7 @@ export function useUpdateAdminShift() {
       adminShiftsApi.updateAdminShift(id, data),
     onSuccess: (updatedAdminShift, { id }) => {
       // Update specific entity in cache
-      queryClient.setQueryData(adminShiftsKeys.detailFull(id), (old: any) => {
+      queryClient.setQueryData(adminShiftsKeys.detailFull(id), (old: { adminShift: Tables<'admin_shifts'>; staff: Tables<'staff'>[] } | undefined) => {
         if (!old) return old;
         return { ...old, adminShift: updatedAdminShift };
       });

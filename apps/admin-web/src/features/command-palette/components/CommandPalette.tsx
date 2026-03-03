@@ -90,7 +90,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   const commandActions = useCommandPaletteCommandActions(onClose);
 
   // Extract pages from navItems
-  const navPages = useMemo(() => extractPagesFromNavItems(navItems as any), []);
+  const navPages = useMemo(() => extractPagesFromNavItems(navItems), []);
   const allPages = useMemo(() => [...navPages, ...additionalPages], [navPages]);
 
   // Setup commands with actions

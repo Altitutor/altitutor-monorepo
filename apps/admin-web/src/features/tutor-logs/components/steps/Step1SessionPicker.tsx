@@ -1,5 +1,6 @@
 'use client';
 
+import type { Tables } from '@altitutor/shared';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { cn } from '@/shared/utils/index';
 import { useUnloggedSessionsForStaff } from '../../hooks';
@@ -48,12 +49,14 @@ export function Step1SessionPicker({
           const isSelected = session.id === selectedSessionId;
           const classData = session.class_id ? classesById[session.class_id] : undefined;
           const subject = classData?.subject_id ? subjectsById[classData.subject_id] : undefined;
-          const staff = (sessionStaff[session.id] || []).map((sf: any) => ({
-            ...sf.staff || sf,
+          type StaffRow = Tables<'staff'> & { staff?: Tables<'staff'>; planned_absence?: boolean };
+          type StudentRow = Tables<'students'> & { student?: Tables<'students'>; planned_absence?: boolean; is_extra?: boolean };
+          const staff = (sessionStaff[session.id] || []).map((sf: StaffRow) => ({
+            ...(sf.staff ?? sf),
             planned_absence: sf.planned_absence,
           }));
-          const students = (sessionStudents[session.id] || []).map((ss: any) => ({
-            ...ss.student || ss,
+          const students = (sessionStudents[session.id] || []).map((ss: StudentRow) => ({
+            ...(ss.student ?? ss),
             planned_absence: ss.planned_absence,
             is_extra: ss.is_extra,
           }));

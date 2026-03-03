@@ -1,4 +1,4 @@
-import type { Database, QuickFilter } from '@altitutor/shared';
+import type { Database, QuickFilter, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -43,7 +43,7 @@ export const quickFiltersApi = {
     
     const { data, error } = await supabase
       .from('quick_filters')
-      .insert(filter as any)
+      .insert(filter as TablesInsert<'quick_filters'>)
       .select()
       .single();
 
@@ -59,7 +59,7 @@ export const quickFiltersApi = {
     
     const { data, error } = await supabase
       .from('quick_filters')
-      .update(updates as any)
+      .update(updates as TablesUpdate<'quick_filters'>)
       .eq('id', id)
       .select()
       .single();

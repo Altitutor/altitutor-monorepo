@@ -282,7 +282,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                 <StaffTableRow
                   key={staff.id}
                   staff={staff}
-                  classes={((staff as any).classes || []) as (Tables<'classes'> & { subject?: Tables<'subjects'> })[]}
+                  classes={staff.classes ?? []}
                   onStaffClick={handleStaffClick}
                   onClassClick={handleClassClick}
                   onStaffUpdated={handleStaffUpdated}

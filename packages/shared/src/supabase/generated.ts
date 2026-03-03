@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "13.0.5"
+  }
   public: {
     Tables: {
       activity_events: {
@@ -343,6 +348,42 @@ export type Database = {
             columns: ["staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      answer_option_files: {
+        Row: {
+          answer_option_id: string
+          file_id: string
+          id: string
+          usage: string
+        }
+        Insert: {
+          answer_option_id: string
+          file_id: string
+          id?: string
+          usage: string
+        }
+        Update: {
+          answer_option_id?: string
+          file_id?: string
+          id?: string
+          usage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "answer_option_files_answer_option_id_fkey"
+            columns: ["answer_option_id"]
+            isOneToOne: false
+            referencedRelation: "question_answer_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answer_option_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
             referencedColumns: ["id"]
           },
         ]
@@ -3094,7 +3135,6 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string
-          image_file_id: string | null
           index: number
           is_answer: boolean
           question_id: string
@@ -3109,7 +3149,6 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
-          image_file_id?: string | null
           index: number
           is_answer?: boolean
           question_id: string
@@ -3124,7 +3163,6 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
-          image_file_id?: string | null
           index?: number
           is_answer?: boolean
           question_id?: string
@@ -3158,13 +3196,6 @@ export type Database = {
             columns: ["deleted_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "question_answer_options_image_file_id_fkey"
-            columns: ["image_file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
             referencedColumns: ["id"]
           },
           {
@@ -5394,21 +5425,30 @@ export type Database = {
           attempted_at: string
           completed_at: string | null
           id: string
+          scaled_score: number | null
+          score_points: number | null
           student_id: string
+          total_points: number | null
           ucat_mock_id: string
         }
         Insert: {
           attempted_at?: string
           completed_at?: string | null
           id?: string
+          scaled_score?: number | null
+          score_points?: number | null
           student_id: string
+          total_points?: number | null
           ucat_mock_id: string
         }
         Update: {
           attempted_at?: string
           completed_at?: string | null
           id?: string
+          scaled_score?: number | null
+          score_points?: number | null
           student_id?: string
+          total_points?: number | null
           ucat_mock_id?: string
         }
         Relationships: [
@@ -5519,7 +5559,7 @@ export type Database = {
           curriculum?: string | null
           email?: string | null
           first_name: string
-          id: string
+          id?: string
           invite_token?: string | null
           last_name: string
           phone?: string | null
@@ -6657,6 +6697,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string
+          instructions_text: Json | null
           is_private: boolean
           name: string
           updated_at: string | null
@@ -6668,6 +6709,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          instructions_text?: Json | null
           is_private?: boolean
           name: string
           updated_at?: string | null
@@ -6679,6 +6721,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          instructions_text?: Json | null
           is_private?: boolean
           name?: string
           updated_at?: string | null
@@ -6862,9 +6905,9 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
-          description: Json | null
           display_columns: number
           id: string
+          instructions_text: Json | null
           instructions_time_limit_seconds: number | null
           name: string
           number_of_questions: number | null
@@ -6877,9 +6920,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns: number
           id?: string
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name: string
           number_of_questions?: number | null
@@ -6892,9 +6935,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number
           id?: string
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string
           number_of_questions?: number | null
@@ -8342,6 +8385,7 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string | null
+          instructions_text: Json | null
           name: string | null
           sets: Json | null
           updated_at: string | null
@@ -8349,6 +8393,7 @@ export type Database = {
         Insert: {
           created_at?: string | null
           id?: string | null
+          instructions_text?: Json | null
           name?: string | null
           sets?: never
           updated_at?: string | null
@@ -8356,6 +8401,7 @@ export type Database = {
         Update: {
           created_at?: string | null
           id?: string | null
+          instructions_text?: Json | null
           name?: string | null
           sets?: never
           updated_at?: string | null
@@ -8942,9 +8988,9 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
-          description: Json | null
           display_columns: number | null
           id: string | null
+          instructions_text: Json | null
           instructions_time_limit_seconds: number | null
           name: string | null
           number_of_questions: number | null
@@ -8957,9 +9003,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number | null
           id?: string | null
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string | null
           number_of_questions?: number | null
@@ -8972,9 +9018,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number | null
           id?: string | null
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string | null
           number_of_questions?: number | null
@@ -10153,6 +10199,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string | null
+          instructions_text: Json | null
           is_private: boolean | null
           name: string | null
           sets: Json | null
@@ -10165,6 +10212,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string | null
+          instructions_text?: Json | null
           is_private?: boolean | null
           name?: string | null
           sets?: never
@@ -10177,6 +10225,7 @@ export type Database = {
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string | null
+          instructions_text?: Json | null
           is_private?: boolean | null
           name?: string | null
           sets?: never
@@ -10878,9 +10927,9 @@ export type Database = {
         Row: {
           created_at: string | null
           created_by: string | null
-          description: Json | null
           display_columns: number | null
           id: string | null
+          instructions_text: Json | null
           instructions_time_limit_seconds: number | null
           name: string | null
           number_of_questions: number | null
@@ -10893,9 +10942,9 @@ export type Database = {
         Insert: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number | null
           id?: string | null
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string | null
           number_of_questions?: number | null
@@ -10908,9 +10957,9 @@ export type Database = {
         Update: {
           created_at?: string | null
           created_by?: string | null
-          description?: Json | null
           display_columns?: number | null
           id?: string | null
+          instructions_text?: Json | null
           instructions_time_limit_seconds?: number | null
           name?: string | null
           number_of_questions?: number | null
@@ -11553,10 +11602,6 @@ export type Database = {
       }
     }
     Functions: {
-      add_enum_value: {
-        Args: { enum_name: string; new_value: string }
-        Returns: undefined
-      }
       assign_staff_to_booking: {
         Args: {
           p_available_staff_ids: string[]
@@ -11734,29 +11779,29 @@ export type Database = {
       format_class_full_name:
         | {
             Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_end_time: string
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
               p_curriculum: string
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_end_time: string
               p_name: string
@@ -11768,27 +11813,27 @@ export type Database = {
       format_class_short_name:
         | {
             Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
+              p_day_of_week: number
+              p_name: string
+              p_start_time: string
+              p_year_level: number
+            }
+            Returns: string
+          }
+        | {
+            Args: {
               p_curriculum: string
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_name: string
               p_start_time: string
@@ -11905,9 +11950,7 @@ export type Database = {
         Args: { student_id: string }
         Returns: boolean
       }
-      is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
-      is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       is_ucat_student: { Args: never; Returns: boolean }
@@ -11940,6 +11983,8 @@ export type Database = {
         Args: { logged_by_student_id: string; operations: Json }
         Returns: Json
       }
+      map_day_to_number: { Args: { day_string: string }; Returns: number }
+      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -12164,6 +12209,10 @@ export type Database = {
         }
         Returns: Json
       }
+      set_claim: {
+        Args: { claim: string; uid: string; value: Json }
+        Returns: undefined
+      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -12233,15 +12282,26 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
-      tutor_ucat_upsert_mock: {
-        Args: {
-          p_is_private: boolean
-          p_mock_id: string
-          p_name: string
-          p_set_ids: Json
-        }
-        Returns: string
-      }
+      tutor_ucat_upsert_mock:
+        | {
+            Args: {
+              p_is_private: boolean
+              p_mock_id: string
+              p_name: string
+              p_set_ids: Json
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_instructions_text?: Json
+              p_is_private: boolean
+              p_mock_id: string
+              p_name: string
+              p_set_ids: Json
+            }
+            Returns: string
+          }
       tutor_ucat_upsert_question_set: {
         Args: {
           p_description: Json
@@ -12277,7 +12337,6 @@ export type Database = {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
       }
-      user_role: { Args: never; Returns: string }
       validate_all_topic_codes: {
         Args: never
         Returns: {
@@ -12297,6 +12356,7 @@ export type Database = {
         }[]
       }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
+      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
@@ -12490,4 +12550,3 @@ export const Constants = {
     },
   },
 } as const
-

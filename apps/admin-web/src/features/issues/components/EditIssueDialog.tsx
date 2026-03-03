@@ -45,7 +45,7 @@ function normalizeIssueStatus(status: string | null | undefined): IssueStatus {
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  description: z.any().optional(),
+  description: z.union([z.record(z.unknown()), z.string(), z.null()]).optional(),
   status: z.enum(['open', 'awaiting_response', 'resolved']),
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
@@ -78,7 +78,7 @@ function AutoSaveManager({ form, issueId, issue, isInitialized, isLoading, onSav
   return null;
 }
 
-export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: EditIssueDialogProps) {
+export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onIssueUpdated }: EditIssueDialogProps) {
   const { data: issue, isLoading } = useIssue(issueId || '', !!issueId && isOpen);
   const updateIssue = useUpdateIssue();
   const deleteIssue = useDeleteIssue();

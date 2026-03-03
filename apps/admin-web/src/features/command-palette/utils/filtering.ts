@@ -117,7 +117,7 @@ export function groupItemsByType(
     const maxScore =
       commandItems.length > 0
         ? calculateMatchScore(
-            { type: 'command', item: commandItems[0] as any },
+            { type: 'command', item: commandItems[0] },
             query
           )
         : 0;
@@ -129,7 +129,7 @@ export function groupItemsByType(
   if (pageItems.length > 0) {
     const maxScore =
       pageItems.length > 0
-        ? calculateMatchScore({ type: 'page', item: pageItems[0] as any }, query)
+        ? calculateMatchScore({ type: 'page', item: pageItems[0] }, query)
         : 0;
     groups.push({ label: 'Pages', items: pageItems, maxScore });
   }

@@ -1,22 +1,55 @@
- 'use client'
+'use client'
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMutation } from '@tanstack/react-query'
-import { UcatPagePlaceholder } from '@altitutor/ui'
-import { sectionLabels } from '@/features/set-generator/model/mock-data'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import {
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  UcatPagePlaceholder,
+} from '@altitutor/ui'
+import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { sectionLabels, SECTION_KEY_TO_NUMBER } from '@/features/set-generator/model/mock-data'
 import type { SectionKey, SetGeneratorInput, TimeMode } from '@/features/set-generator/model/types'
 
 const DEFAULT_QUESTION_COUNT = 20
 
+type SectionRow = {
+  id: string
+  section_number: number
+  time_per_question: number | null
+  number_of_questions: number | null
+}
+
+async function fetchSection(sectionNumber: number): Promise<SectionRow | null> {
+  const supabase = getSupabaseBrowserClient()
+  const { data, error } = await supabase
+    .from('vstudent_ucat_sections')
+    .select('id,section_number,time_per_question,number_of_questions')
+    .eq('section_number', sectionNumber)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return (data ?? null) as SectionRow | null
+}
+
+/** Exam time in seconds for the selected section and question count. */
+function estimateExamTimeSeconds(
+  section: SectionRow | null,
+  questionCount: number
+): number | null {
+  if (!section?.time_per_question) return null
+  const seconds = questionCount * section.time_per_question
+  return Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds) : null
+}
+
 const initialInput: SetGeneratorInput = {
-  sections: ['verbal_reasoning'],
+  section: 'verbal_reasoning',
   unansweredOnly: true,
   incorrectOnly: false,
-  // Difficulty band between 0 and 1
-  difficultyMin: 0,
-  difficultyMax: 1,
   categoryIds: [],
   timeMode: 'exam',
   customTimeMinutes: null,
@@ -26,6 +59,30 @@ const initialInput: SetGeneratorInput = {
 export function SetGeneratorPage() {
   const [input, setInput] = useState<SetGeneratorInput>(initialInput)
   const router = useRouter()
+
+  const sectionNumber = SECTION_KEY_TO_NUMBER[input.section]
+
+  const { data: selectedSection = null } = useQuery({
+    queryKey: ['ucat', 'sections', sectionNumber],
+    queryFn: () => fetchSection(sectionNumber),
+    enabled: Number.isFinite(sectionNumber),
+  })
+
+  const examTimeEstimateSeconds = useMemo(
+    () => estimateExamTimeSeconds(selectedSection, input.questionCount),
+    [selectedSection, input.questionCount]
+  )
+
+  const examTimeEstimateMinutes =
+    examTimeEstimateSeconds != null ? Math.round(examTimeEstimateSeconds / 60) : null
+
+  const maxQuestionsInSection = selectedSection?.number_of_questions ?? 200
+
+  useEffect(() => {
+    if (maxQuestionsInSection < input.questionCount) {
+      setInput((c) => ({ ...c, questionCount: Math.max(1, maxQuestionsInSection) }))
+    }
+  }, [maxQuestionsInSection, input.questionCount])
 
   const generateMutation = useMutation({
     mutationFn: async (payload: SetGeneratorInput) => {
@@ -55,72 +112,45 @@ export function SetGeneratorPage() {
     },
   })
 
-  const selectedSectionLabels = useMemo(
-    () => input.sections.map((section) => sectionLabels[section]).join(', '),
-    [input.sections]
-  )
+  const selectedSectionLabel = sectionLabels[input.section]
 
-  const handleToggleSection = (section: SectionKey) => {
-    setInput((current) => {
-      const exists = current.sections.includes(section)
-      const sections = exists
-        ? current.sections.filter((s) => s !== section)
-        : [...current.sections, section]
-
-      return {
-        ...current,
-        sections: sections.length > 0 ? sections : ['verbal_reasoning'],
-      }
-    })
+  const handleSectionChange = (section: SectionKey) => {
+    setInput((current) => ({ ...current, section }))
   }
 
-  const handleToggleUnanswered = (checked: boolean) => {
-    setInput((current) => ({
-      ...current,
-      unansweredOnly: checked,
-      incorrectOnly: checked ? false : current.incorrectOnly,
-    }))
-  }
+  type PerformanceFilter = 'any' | 'unanswered' | 'incorrect'
 
-  const handleToggleIncorrect = (checked: boolean) => {
+  const performanceFilter: PerformanceFilter = input.unansweredOnly
+    ? 'unanswered'
+    : input.incorrectOnly
+      ? 'incorrect'
+      : 'any'
+
+  const handlePerformanceFilterChange = (mode: PerformanceFilter) => {
     setInput((current) => ({
       ...current,
-      incorrectOnly: checked,
-      unansweredOnly: checked ? false : current.unansweredOnly,
+      unansweredOnly: mode === 'unanswered',
+      incorrectOnly: mode === 'incorrect',
     }))
   }
 
   const handleTimeModeChange = (mode: TimeMode) => {
-    setInput((current) => ({
-      ...current,
-      timeMode: mode,
-      // Reset custom time when switching away from custom
-      customTimeMinutes: mode === 'custom' ? current.customTimeMinutes ?? 60 : null,
-    }))
-  }
-
-  const handleDifficultyChange = (kind: 'min' | 'max', value: number) => {
     setInput((current) => {
-      const clamped = Math.min(1, Math.max(0, value))
-      if (kind === 'min') {
-        return {
-          ...current,
-          difficultyMin: Math.min(clamped, current.difficultyMax),
-        }
-      }
+      const defaultCustomMinutes =
+        examTimeEstimateMinutes != null && examTimeEstimateMinutes > 0 ? examTimeEstimateMinutes : 60
       return {
         ...current,
-        difficultyMax: Math.max(clamped, current.difficultyMin),
+        timeMode: mode,
+        customTimeMinutes:
+          mode === 'custom' ? (current.customTimeMinutes ?? defaultCustomMinutes) : null,
       }
     })
   }
 
   const handleQuestionCountChange = (value: number) => {
-    const safeValue = Number.isFinite(value) && value > 0 ? Math.round(value) : DEFAULT_QUESTION_COUNT
-    setInput((current) => ({
-      ...current,
-      questionCount: safeValue,
-    }))
+    const raw = Number.isFinite(value) && value > 0 ? Math.round(value) : DEFAULT_QUESTION_COUNT
+    const clamped = Math.min(raw, maxQuestionsInSection)
+    setInput((current) => ({ ...current, questionCount: clamped }))
   }
 
   const handleGenerateClick = () => {
@@ -128,72 +158,82 @@ export function SetGeneratorPage() {
     generateMutation.mutate(input)
   }
 
+  const previewTimeLabel =
+    input.timeMode === 'off'
+      ? 'No time limit'
+      : input.timeMode === 'exam'
+        ? examTimeEstimateMinutes != null
+          ? `${examTimeEstimateMinutes} min`
+          : '—'
+        : input.customTimeMinutes != null
+          ? `${input.customTimeMinutes} min (custom)`
+          : '—'
+
   return (
     <UcatPagePlaceholder
       title="Set Generator"
-      description="Build a targeted practice set from section, timing, difficulty, and performance filters."
+      description="Build a targeted practice set from section, timing, and performance filters."
     >
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="space-y-4 rounded-xl bg-card text-card-foreground p-4 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Filters</h2>
 
-          {/* Sections */}
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Sections</p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {(Object.keys(sectionLabels) as SectionKey[]).map((section) => {
-                const checked = input.sections.includes(section)
-                return (
-                  <button
-                    key={section}
-                    type="button"
-                    onClick={() => handleToggleSection(section)}
-                    className={`rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                      checked ? 'bg-sidebar text-sidebar-foreground' : 'bg-muted hover:bg-muted/80 text-foreground'
-                    }`}
-                  >
-                    {sectionLabels[section]}
-                  </button>
-                )
-              })}
+          {/* Section: dropdown, label + description left, control right */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <Label className="text-sm font-medium">Section</Label>
+              <p className="text-xs text-muted-foreground">
+                UCAT section to include. The set will only contain questions from this section.
+              </p>
             </div>
+            <Select value={input.section} onValueChange={(v) => handleSectionChange(v as SectionKey)}>
+              <SelectTrigger className="w-full sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(sectionLabels) as SectionKey[]).map((section) => (
+                  <SelectItem key={section} value={section}>
+                    {sectionLabels[section]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
-          {/* Time mode */}
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Time</p>
-            <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs">
-              {([
-                { mode: 'off', label: 'Off' },
-                { mode: 'exam', label: 'Exam' },
-                { mode: 'custom', label: 'Custom' },
-              ] as const).map((item) => {
-                const isActive = input.timeMode === item.mode
-                return (
-                  <button
-                    key={item.mode}
-                    type="button"
-                    onClick={() => handleTimeModeChange(item.mode)}
-                    className={`px-3 py-1.5 rounded-md transition-colors ${
-                      isActive
-                        ? 'bg-sidebar text-sidebar-foreground'
-                        : 'text-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                )
-              })}
+          {/* Time: label + description left, toggle right */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <Label className="text-sm font-medium">Time</Label>
+              <p className="text-xs text-muted-foreground">
+                Off: no time limit. Exam: time limit matches UCAT pacing. Custom: set your own limit (defaults to the exam estimate when you switch).
+              </p>
             </div>
-
-            {input.timeMode === 'custom' ? (
-              <div className="space-y-1 text-xs">
-                {/* Exam time hint will be wired once backend preview is implemented */}
-                <p className="text-muted-foreground">
-                  Exam timing estimate will appear here as a guide once generation logic is wired.
-                </p>
+            <div className="flex flex-col items-end gap-2">
+              <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs">
+                {([
+                  { mode: 'off', label: 'Off' },
+                  { mode: 'exam', label: 'Exam' },
+                  { mode: 'custom', label: 'Custom' },
+                ] as const).map((item) => {
+                  const isActive = input.timeMode === item.mode
+                  return (
+                    <button
+                      key={item.mode}
+                      type="button"
+                      onClick={() => handleTimeModeChange(item.mode)}
+                      className={`px-3 py-1.5 rounded-md transition-colors ${
+                        isActive
+                          ? 'bg-sidebar text-sidebar-foreground'
+                          : 'text-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      {item.label}
+                    </button>
+                  )
+                })}
+              </div>
+              {input.timeMode === 'custom' ? (
                 <label className="flex items-center gap-2 text-sm">
-                  <span className="font-medium">Custom time limit</span>
                   <input
                     type="number"
                     min={1}
@@ -209,84 +249,65 @@ export function SetGeneratorPage() {
                   />
                   <span className="text-xs text-muted-foreground">minutes</span>
                 </label>
-              </div>
-            ) : null}
-          </div>
-
-          {/* Difficulty slider */}
-          <div className="space-y-2">
-            <p className="text-sm font-medium">Difficulty</p>
-            <div className="flex items-center gap-3">
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={input.difficultyMin}
-                onChange={(event) => handleDifficultyChange('min', Number(event.target.value))}
-                className="w-full"
-              />
-              <input
-                type="range"
-                min={0}
-                max={1}
-                step={0.05}
-                value={input.difficultyMax}
-                onChange={(event) => handleDifficultyChange('max', Number(event.target.value))}
-                className="w-full"
-              />
+              ) : null}
             </div>
-            <p className="text-xs text-muted-foreground">
-              Selected range: {input.difficultyMin.toFixed(2)} – {input.difficultyMax.toFixed(2)}
-            </p>
           </div>
 
-          {/* Categories (placeholder; will be wired to real data) */}
-          <div className="space-y-1">
-            <p className="text-sm font-medium">Categories</p>
-            <p className="text-xs text-muted-foreground">
-              Category filters will be populated from UCAT stem categories and scoped to the selected sections.
-            </p>
+          {/* Categories: label left, control right */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <Label className="text-sm font-medium">Categories</Label>
+              <p className="text-xs text-muted-foreground">
+                Any: include all questions. Unanswered: only questions you haven’t answered. Incorrect: only questions you’ve got wrong before.
+              </p>
+            </div>
+            <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs">
+              {(
+                [
+                  { mode: 'any' as const, label: 'Any' },
+                  { mode: 'unanswered' as const, label: 'Unanswered' },
+                  { mode: 'incorrect' as const, label: 'Incorrect' },
+                ] as const
+              ).map((item) => {
+                const isActive = performanceFilter === item.mode
+                return (
+                  <button
+                    key={item.mode}
+                    type="button"
+                    onClick={() => handlePerformanceFilterChange(item.mode)}
+                    className={`px-3 py-1.5 rounded-md transition-colors ${
+                      isActive
+                        ? 'bg-sidebar text-sidebar-foreground'
+                        : 'text-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {item.label}
+                  </button>
+                )
+              })}
+            </div>
           </div>
 
-          {/* Performance toggles */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={input.unansweredOnly}
-                onChange={(event) => handleToggleUnanswered(event.target.checked)}
-              />
-              Show only unanswered
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={input.incorrectOnly}
-                onChange={(event) => handleToggleIncorrect(event.target.checked)}
-              />
-              Show only incorrect
-            </label>
-            <p className="text-xs text-muted-foreground">
-              These toggles are mutually exclusive. Turning one on will turn the other off.
-            </p>
-          </div>
-
-          {/* Question count */}
-          <label className="space-y-1 text-sm">
-            <span className="font-medium">Question count</span>
+          {/* Question count: label left, input right; max = section max */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <Label htmlFor="question-count" className="text-sm font-medium">
+                Question count
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Number of questions in the set (max {maxQuestionsInSection} for this section). Actual total may be lower if there aren’t enough matching questions.
+              </p>
+            </div>
             <input
+              id="question-count"
               type="number"
               min={1}
-              max={200}
+              max={maxQuestionsInSection}
               value={input.questionCount}
               onChange={(event) => handleQuestionCountChange(Number(event.target.value))}
-              className="w-full rounded-lg border border-border bg-card px-3 py-2"
+              className="w-24 rounded-lg border border-border bg-card px-3 py-2 text-sm"
             />
-            <span className="block text-xs text-muted-foreground">
-              This will be capped by the total number of questions across your selected sections.
-            </span>
-          </label>
+          </div>
         </section>
 
         {/* Preview + actions */}
@@ -294,40 +315,23 @@ export function SetGeneratorPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Preview</h2>
           <div className="space-y-2 text-sm">
             <p>
-              <span className="font-medium">Sections:</span> {selectedSectionLabels}
+              <span className="font-medium">Section:</span> {selectedSectionLabel}
             </p>
             <p>
-              <span className="font-medium">Questions:</span>{' '}
-              {/* Once wired, replace with "{input.questionCount} / {totalMatchingQuestions}" */}
-              {input.questionCount} / ?
+              <span className="font-medium">Questions:</span> {input.questionCount} / ?
             </p>
             <p>
-              <span className="font-medium">Time:</span>{' '}
-              {input.timeMode === 'off'
-                ? 'No time limit'
-                : input.timeMode === 'exam'
-                  ? 'Exam timing (auto-calculated)'
-                  : input.customTimeMinutes != null
-                    ? `${input.customTimeMinutes} minute${input.customTimeMinutes === 1 ? '' : 's'} (custom)`
-                    : 'Custom (minutes not set)'}
+              <span className="font-medium">Time:</span> {previewTimeLabel}
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={handleGenerateClick}
-              disabled={generateMutation.isPending}
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground disabled:opacity-60"
-            >
-              {generateMutation.isPending ? 'Generating…' : 'Generate set'}
-            </button>
-            <Link
-              href="/mocks"
-              className="inline-flex h-10 items-center justify-center rounded-lg bg-card border border-border px-4 text-sm font-medium hover:bg-muted"
-            >
-              Use set in mock mode
-            </Link>
-          </div>
+          <button
+            type="button"
+            onClick={handleGenerateClick}
+            disabled={generateMutation.isPending}
+            className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground disabled:opacity-60"
+          >
+            {generateMutation.isPending ? 'Generating…' : 'Generate set'}
+          </button>
         </section>
       </div>
     </UcatPagePlaceholder>

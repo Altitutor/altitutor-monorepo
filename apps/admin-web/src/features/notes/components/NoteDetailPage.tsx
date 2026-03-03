@@ -28,6 +28,7 @@ import { NotePropertyPills } from './NotePropertyPills';
 import { NoteTableOfContents } from './NoteTableOfContents';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import type { Editor } from '@tiptap/react';
+import type { NoteUpdate } from '../types';
 import { useNote } from '../api/queries';
 import { useUpdateNote, useDeleteNote } from '../hooks/useNoteMutations';
 import { useFolders } from '../api/queries';
@@ -98,7 +99,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         title: note.title,
         content: (note.content as unknown as JSONContent) || '',
         folder_id: note.folder_id,
-        project_id: (note as any).project_id ?? null,
+        project_id: (note as { project_id?: string | null }).project_id ?? null,
       });
       lastBlurSavedTitleRef.current = note.title;
       setIsInitialized(true);
@@ -140,7 +141,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     onSave: (updates) => {
       updateNote.mutate({
         id: noteId,
-        updates: updates as any,
+        updates: updates as NoteUpdate,
         silent: true,
       });
     },
@@ -307,7 +308,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           onChange={field.onChange}
                           placeholder="Start writing..."
                           onEditorReady={handleEditorReady}
-                          mentionSuggestions={mentionSuggestions as any}
+                          mentionSuggestions={mentionSuggestions}
                         />
                       </FormControl>
                     </FormItem>

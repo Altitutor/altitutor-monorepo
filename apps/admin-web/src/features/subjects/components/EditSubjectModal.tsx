@@ -90,8 +90,8 @@ export function EditSubjectModal({
       form.reset({
         name: subject.name,
         year_level: subject.year_level,
-        curriculum: subject.curriculum as any,
-        discipline: subject.discipline as any,
+        curriculum: subject.curriculum,
+        discipline: subject.discipline,
         level: subject.level,
       });
     }
@@ -123,8 +123,8 @@ export function EditSubjectModal({
       const updatedData: TablesUpdate<'subjects'> = {
         name: values.name,
         year_level: values.year_level,
-        curriculum: values.curriculum as any,
-        discipline: values.discipline as any,
+        curriculum: values.curriculum,
+        discipline: values.discipline,
         level: values.level,
       };
 
@@ -230,7 +230,7 @@ export function EditSubjectModal({
                   <Label htmlFor="curriculum">Curriculum</Label>
                   <Select
                     value={form.watch('curriculum') || ''}
-                    onValueChange={(value) => form.setValue('curriculum', value as any)}
+                    onValueChange={(value) => form.setValue('curriculum', value as FormData['curriculum'])}
                   >
                     <SelectTrigger id="curriculum">
                       <SelectValue placeholder="Select curriculum" />
@@ -250,7 +250,7 @@ export function EditSubjectModal({
                   <Label htmlFor="discipline">Discipline</Label>
                   <Select
                     value={form.watch('discipline') || ''}
-                    onValueChange={(value) => form.setValue('discipline', value as any)}
+                    onValueChange={(value) => form.setValue('discipline', value as FormData['discipline'])}
                   >
                     <SelectTrigger id="discipline">
                       <SelectValue placeholder="Select discipline" />

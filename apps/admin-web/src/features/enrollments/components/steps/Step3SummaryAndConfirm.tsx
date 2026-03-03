@@ -101,7 +101,7 @@ export function Step3SummaryAndConfirm({
     });
 
     // Build overrides lookup
-    const overridesBySubjectAndBilling: Record<string, Record<string, any>> = {};
+    const overridesBySubjectAndBilling: Record<string, Record<string, { hourly_rate_cents: number; currency: string }>> = {};
     pricingOverrides.forEach(override => {
       if (!overridesBySubjectAndBilling[override.subject_id]) {
         overridesBySubjectAndBilling[override.subject_id] = {};

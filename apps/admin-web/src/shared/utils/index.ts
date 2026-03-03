@@ -136,7 +136,7 @@ export function formatClassName(
  * Example: "12MATH Mon 2:00 PM"
  */
 export function formatClassShortName(
-  classData: Tables<'classes'>,
+  classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
   subject?: Tables<'subjects'> | null
 ): string {
   const parts: string[] = [];
@@ -291,6 +291,8 @@ export function getSessionTypeBadgeColor(type: string | null | undefined): strin
       return 'bg-indigo-100 text-indigo-800';
     case 'STAFF_INTERVIEW':
       return 'bg-pink-100 text-pink-800';
+    case 'ADMIN_SHIFT':
+      return 'bg-slate-100 text-slate-800';
     default:
       return 'bg-gray-100 text-gray-800';
   }

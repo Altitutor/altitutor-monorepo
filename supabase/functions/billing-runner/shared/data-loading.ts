@@ -1,11 +1,9 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
  * Load billing settings from database
  */
-export async function loadBillingSettings(supabase: any): Promise<{
+export async function loadBillingSettings(supabase: SupabaseClient): Promise<{
   feePercentDom: number;
   feePercentIntl: number;
   feeFixedCents: number;
@@ -30,7 +28,7 @@ export async function loadBillingSettings(supabase: any): Promise<{
 /**
  * Load billing pricing tables
  */
-export async function loadBillingPricing(supabase: any): Promise<
+export async function loadBillingPricing(supabase: SupabaseClient): Promise<
   Record<string, { hourly_rate_cents: number; currency: string }>
 > {
   const { data: billingPricing, error: bpErr } = await supabase
@@ -54,11 +52,18 @@ export async function loadBillingPricing(supabase: any): Promise<
  * Load subject pricing overrides
  */
 export async function loadPricingOverrides(
-  supabase: any,
+  supabase: SupabaseClient,
   subjectIds: string[]
 ): Promise<{
-  overridesBySubjectAndBilling: Record<string, Record<string, any>>;
-  pricingOverrides: any[];
+  overridesBySubjectAndBilling: Record<string, Record<string, PricingOverrideRecord>>;
+  pricingOverrides: Array<{
+    subject_id: string;
+    billing_type: string;
+    hourly_rate_cents: number;
+    currency: string;
+    effective_from: string;
+    effective_until?: string | null;
+  }>;
 }> {
   if (subjectIds.length === 0) {
     return { overridesBySubjectAndBilling: {}, pricingOverrides: [] };
@@ -70,7 +75,7 @@ export async function loadPricingOverrides(
     .in('subject_id', subjectIds);
   if (poErr) throw poErr;
 
-  const overridesBySubjectAndBilling: Record<string, Record<string, any>> = {};
+  const overridesBySubjectAndBilling: Record<string, Record<string, PricingOverrideRecord>> = {};
   for (const override of pricingOverrides || []) {
     if (!overridesBySubjectAndBilling[override.subject_id]) {
       overridesBySubjectAndBilling[override.subject_id] = {};
@@ -89,7 +94,15 @@ export async function loadPricingOverrides(
 /**
  * Load student subsidies
  */
-export async function loadSubsidies(supabase: any): Promise<any[]> {
+export async function loadSubsidies(supabase: SupabaseClient): Promise<Array<{
+  student_id: string;
+  subject_id: string;
+  billing_type: string;
+  price_cents: number;
+  currency?: string | null;
+  effective_from?: string | null;
+  effective_until?: string | null;
+}>> {
   const { data: subsidies, error: subErr } = await supabase
     .from('student_subsidies')
     .select('student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until');
@@ -101,7 +114,7 @@ export async function loadSubsidies(supabase: any): Promise<any[]> {
 /**
  * Load billing info with default payment methods and billing preferences
  */
-export async function loadBillingInfo(supabase: any): Promise<
+export async function loadBillingInfo(supabase: SupabaseClient): Promise<
   Record<string, {
     student_id: string;
     stripe_customer_id: string | null;
@@ -143,7 +156,14 @@ export async function loadBillingInfo(supabase: any): Promise<
   }
 
   // Combine billing info with payment methods and preferences
-  const billingByStudent: Record<string, any> = {};
+  const billingByStudent: Record<string, {
+    student_id: string;
+    stripe_customer_id: string | null;
+    payment_methods: Array<{ stripe_payment_method_id: string; card_country: string | null }>;
+    auto_bill_enabled: boolean;
+    invoice_email_to_student: boolean;
+    invoice_email_to_parents: boolean;
+  }> = {};
   for (const b of billingRows || []) {
     billingByStudent[b.student_id] = {
       student_id: b.student_id,
@@ -163,7 +183,7 @@ export async function loadBillingInfo(supabase: any): Promise<
  * Load student and parent emails
  * Returns all parent emails for each student (not just the first one)
  */
-export async function loadStudentEmails(supabase: any): Promise<{
+export async function loadStudentEmails(supabase: SupabaseClient): Promise<{
   parentEmailsByStudent: Record<string, string[]>; // All parent emails per student
   studentEmailById: Record<string, string | undefined>;
 }> {
@@ -173,7 +193,8 @@ export async function loadStudentEmails(supabase: any): Promise<{
     .select('student_id, parent:parents(id, email)');
   const parentEmailsByStudent: Record<string, string[]> = {};
   for (const row of parentsJoin || []) {
-    const email = (row as any).parent?.email as string | undefined;
+    const parent = (row as { parent?: { email?: string } | null }).parent;
+    const email = parent?.email;
     if (email) {
       if (!parentEmailsByStudent[row.student_id]) {
         parentEmailsByStudent[row.student_id] = [];
@@ -202,10 +223,17 @@ export async function loadStudentEmails(supabase: any): Promise<{
 /**
  * Load subjects
  */
+interface SubjectRow {
+  id: string;
+  name?: string | null;
+  curriculum?: string | null;
+  year_level?: number | null;
+}
+
 export async function loadSubjects(
-  supabase: any,
+  supabase: SupabaseClient,
   subjectIds: string[]
-): Promise<Record<string, any>> {
+): Promise<Record<string, SubjectRow>> {
   if (subjectIds.length === 0) {
     return {};
   }
@@ -216,7 +244,7 @@ export async function loadSubjects(
     .in('id', subjectIds);
   if (subjErr) throw subjErr;
 
-  const subjectById: Record<string, any> = {};
+  const subjectById: Record<string, SubjectRow> = {};
   for (const sub of subjects || []) {
     subjectById[sub.id] = sub;
   }
@@ -227,10 +255,16 @@ export async function loadSubjects(
 /**
  * Load classes
  */
+interface ClassRow {
+  id: string;
+  level?: string | number | null;
+  subject_id?: string | null;
+}
+
 export async function loadClasses(
-  supabase: any,
+  supabase: SupabaseClient,
   classIds: string[]
-): Promise<Record<string, any>> {
+): Promise<Record<string, ClassRow>> {
   if (classIds.length === 0) {
     return {};
   }
@@ -241,7 +275,7 @@ export async function loadClasses(
     .in('id', classIds);
   if (classErr) throw classErr;
 
-  const classById: Record<string, any> = {};
+  const classById: Record<string, ClassRow> = {};
   for (const cls of classes || []) {
     classById[cls.id] = cls;
   }
@@ -255,7 +289,7 @@ export async function loadClasses(
  * Excludes voided and uncollectible invoices to allow re-invoicing
  */
 export async function getInvoicedSessionsStudentsIds(
-  supabase: any,
+  supabase: SupabaseClient,
   sessionsStudentsIds: string[]
 ): Promise<Set<string>> {
   if (sessionsStudentsIds.length === 0) {
@@ -275,7 +309,7 @@ export async function getInvoicedSessionsStudentsIds(
     return new Set();
   }
 
-  const activeInvoiceIds = (activeInvoices || []).map((inv: any) => inv.id);
+  const activeInvoiceIds = (activeInvoices || []).map((inv: { id: string }) => inv.id);
   
   if (activeInvoiceIds.length === 0) {
     return new Set();

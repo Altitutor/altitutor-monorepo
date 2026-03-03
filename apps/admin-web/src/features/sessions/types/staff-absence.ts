@@ -67,7 +67,7 @@ export interface LogStaffAbsencesResponse {
  */
 export interface UndoStaffAbsencesResponse {
   success: boolean;
-  data?: any;
+  data?: { updated_sessions_staff?: Tables<'sessions_staff'>[] };
   error?: string;
 }
 

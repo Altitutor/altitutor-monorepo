@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
@@ -21,6 +22,13 @@ export async function POST(request: NextRequest) {
 
     if (staffError || !staffData || (staffData.role !== 'ADMIN' && staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
     }
 
     const body = await request.json();
@@ -95,9 +103,8 @@ export async function POST(request: NextRequest) {
       let error;
       
       if (type === 'staff') {
-        const result = await supabase
+        const result = await supabaseAdmin
           .from('staff')
-          // @ts-expect-error - TypeScript inference issue with Supabase client
           .update({ invite_token: token })
           .eq('id', id)
           .select('id')
@@ -105,9 +112,8 @@ export async function POST(request: NextRequest) {
         data = result.data;
         error = result.error;
       } else {
-        const result = await supabase
+        const result = await supabaseAdmin
           .from('students')
-          // @ts-expect-error - TypeScript inference issue with Supabase client
           .update({ invite_token: token })
           .eq('id', id)
           .select('id')

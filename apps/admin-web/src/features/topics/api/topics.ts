@@ -154,7 +154,7 @@ export const topicsApi = {
     
     const { data: created, error } = await supabase
       .from('topics')
-      .insert(topicData as any) // index is calculated by database trigger
+      .insert(topicData as TablesInsert<'topics'>) // index is calculated by database trigger
       .select()
       .single();
     
@@ -220,7 +220,7 @@ export const topicsApi = {
     
     // Use RPC function to update indices atomically
     const { error } = await supabase.rpc('batch_update_topic_indices', {
-      updates: updates as any
+      updates: updates as { id: string; index: number }[]
     });
     
     if (error) {
@@ -262,7 +262,7 @@ export const topicsApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return { topics: [], total: 0 };
 
-    const rpcData = rpcResult as { topics: any[]; total: number };
+    const rpcData = rpcResult as { topics: Array<Tables<'topics'> & { subject: Tables<'subjects'> }>; total: number };
     return {
       topics: (rpcData.topics || []) as Array<Tables<'topics'> & { subject: Tables<'subjects'> }>,
       total: rpcData.total ?? 0,
@@ -298,12 +298,13 @@ export const topicsApi = {
         throw error;
       }
       
-      const topics = (data ?? []) as any[];
+      type TopicRow = Tables<'topics'> & { subjects?: Tables<'subjects'> };
+      const topics = (data ?? []) as TopicRow[];
       const subjectByTopicId: Record<string, Tables<'subjects'>> = {};
-      
-      topics.forEach((t: any) => {
+
+      topics.forEach((t) => {
         if (t.subjects) {
-          subjectByTopicId[t.id] = t.subjects as Tables<'subjects'>;
+          subjectByTopicId[t.id] = t.subjects;
         }
       });
       

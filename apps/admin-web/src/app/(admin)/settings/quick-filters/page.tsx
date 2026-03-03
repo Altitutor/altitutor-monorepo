@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { QuickFiltersTable } from '@/features/quick-filters/components/QuickFiltersTable';
 import { quickFiltersApi } from '@/features/quick-filters/api/quick-filters';
 import { Loader2, ArrowLeft } from 'lucide-react';
 import { Button } from '@altitutor/ui';
@@ -10,7 +9,7 @@ import type { QuickFilter } from '@altitutor/shared';
 
 export default function QuickFiltersSettingsPage() {
   const router = useRouter();
-  const [filters, setFilters] = useState<QuickFilter[]>([]);
+  const [, setFilters] = useState<QuickFilter[]>([]);
   const [loading, setLoading] = useState(true);
 
   const loadData = async () => {

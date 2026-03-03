@@ -45,10 +45,36 @@ export async function PATCH(
 
   const now = new Date()
 
+  const { data: setAttempts, error: setAttemptsError } = await supabase
+    .from('student_question_set_attempts')
+    .select('score_points, total_points, scaled_score')
+    .eq('student_ucat_mock_attempt_id', attemptId)
+    .eq('student_id', user.id)
+
+  if (setAttemptsError) {
+    return NextResponse.json({ error: setAttemptsError.message }, { status: 500 })
+  }
+
+  const scorePoints = (setAttempts ?? []).reduce(
+    (sum, a) => sum + (a.score_points ?? 0),
+    0
+  )
+  const totalPoints = (setAttempts ?? []).reduce(
+    (sum, a) => sum + (a.total_points ?? 0),
+    0
+  )
+  const scaledScore = (setAttempts ?? []).reduce(
+    (sum, a) => sum + (a.scaled_score ?? 0),
+    0
+  )
+
   const { error: updateError } = await supabase
     .from('student_ucat_mock_attempts')
     .update({
       completed_at: now.toISOString(),
+      score_points: totalPoints > 0 ? scorePoints : null,
+      total_points: totalPoints > 0 ? totalPoints : null,
+      scaled_score: totalPoints > 0 ? scaledScore : null,
     })
     .eq('id', attemptId)
     .eq('student_id', user.id)

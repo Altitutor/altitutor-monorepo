@@ -177,9 +177,9 @@ export function useAssignStaffData({
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];
       
-      const rpcData = rpcResult as { staff: any[]; total: number };
+      const rpcData = rpcResult as { staff: Array<Record<string, unknown>>; total: number };
       
-      return (rpcData.staff || []).map((s: any) => ({
+      return (rpcData.staff || []).map((s: Record<string, unknown>) => ({
         id: s.id,
         first_name: s.first_name,
         last_name: s.last_name,

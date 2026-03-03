@@ -18,7 +18,9 @@ describe('useCopyToClipboard', () => {
     
     mockUseToast.mockReturnValue({
       toast: mockToast,
-    } as any);
+      toasts: [],
+      dismiss: jest.fn(),
+    } as unknown as ReturnType<typeof useToast>);
 
     mockWriteText = jest.fn().mockResolvedValue(undefined);
     Object.assign(navigator, {

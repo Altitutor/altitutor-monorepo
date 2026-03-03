@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import type { Database } from '@altitutor/shared';
+import type { PostgrestError } from '@supabase/supabase-js';
 
 export async function middleware(req: NextRequest) {
   const { pathname, origin } = new URL(req.url);
@@ -90,7 +91,7 @@ export async function middleware(req: NextRequest) {
     .from('staff')
     .select('role')
     .eq('user_id', user.id)
-    .maybeSingle()) as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: any };
+    .maybeSingle()) as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: PostgrestError | null };
 
   const role = staff?.role;
 

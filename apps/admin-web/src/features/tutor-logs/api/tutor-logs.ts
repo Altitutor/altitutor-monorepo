@@ -40,7 +40,7 @@ export const tutorLogsApi = {
 
       // Fetch the created tutor log to return it
       const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
-      const tutorLogId = (result.data as any)?.tutor_log_id;
+      const tutorLogId = (result.data as { tutor_log_id?: string })?.tutor_log_id;
       
       if (!tutorLogId) {
         throw new Error('Tutor log ID not returned from RPC function');
@@ -165,7 +165,7 @@ export const tutorLogsApi = {
    * Only returns past/current sessions (start_at <= NOW())
    */
   getUnloggedSessions: async (staffId: string): Promise<Array<Tables<'sessions'> & { 
-    class: Tables<'classes'> & { subject: Tables<'subjects'> } 
+    class?: (Tables<'classes'> & { subject?: Tables<'subjects'> | null }) | null;
   }>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
 
@@ -213,7 +213,7 @@ export const tutorLogsApi = {
 
       const loggedSessionIds = new Set((existingLogs || []).map((log) => log.session_id));
 
-      return (sessions || []).filter((s: any) => !loggedSessionIds.has(s.id)) as any[];
+      return (sessions || []).filter((s: { id: string }) => !loggedSessionIds.has(s.id)) as Array<Tables<'sessions'> & { class?: (Tables<'classes'> & { subject?: Tables<'subjects'> | null }) | null }>;
     } catch (error) {
       throw error;
     }
@@ -336,22 +336,23 @@ export const tutorLogsApi = {
         };
       }
 
-      const rpcData = rpcResult as {
-        tutorLogs: any[];
-        sessions: Record<string, any>;
-        sessionStudents: Record<string, any[]>;
-        sessionStaff: Record<string, any[]>;
-        classesById: Record<string, any>;
-        subjectsById: Record<string, any>;
-        staffAttendance: Record<string, any[]>;
-        studentAttendance: Record<string, any[]>;
-        topics: Record<string, any[]>;
-        topicFiles: Record<string, any[]>;
+      type RpcTutorLogsData = {
+        tutorLogs: Tables<'tutor_logs'>[];
+        sessions: Record<string, Tables<'sessions'>>;
+        sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>;
+        sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>;
+        classesById: Record<string, Tables<'classes'>>;
+        subjectsById: Record<string, Tables<'subjects'>>;
+        staffAttendance: Record<string, Array<{ staff_id: string; first_name: string; last_name: string; role: string; attended: boolean; type: string | null }>>;
+        studentAttendance: Record<string, Array<{ student_id: string; first_name: string; last_name: string; attended: boolean }>>;
+        topics: Record<string, Array<{ topic_id: string; code: string; name: string }>>;
+        topicFiles: Record<string, Array<{ topic_file_id: string; [key: string]: unknown }>>;
         total: number;
       };
+      const rpcData = rpcResult as RpcTutorLogsData;
 
       return {
-        tutorLogs: (rpcData.tutorLogs || []) as any[],
+        tutorLogs: (rpcData.tutorLogs || []) as Tables<'tutor_logs'>[],
         sessions: (rpcData.sessions || {}) as Record<string, Tables<'sessions'>>,
         sessionStudents: (rpcData.sessionStudents || {}) as Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>,
         sessionStaff: (rpcData.sessionStaff || {}) as Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>,
@@ -376,7 +377,7 @@ export const tutorLogsApi = {
           code: string;
           name: string;
         }>>,
-        topicFiles: (rpcData.topicFiles || {}) as Record<string, Array<{
+        topicFiles: (rpcData.topicFiles || {}) as unknown as Record<string, Array<{
           file_id: string;
           code: string;
           file_type: string;

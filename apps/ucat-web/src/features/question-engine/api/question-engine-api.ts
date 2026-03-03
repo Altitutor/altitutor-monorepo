@@ -14,6 +14,7 @@ type SetDetailRow = {
   id: string
   name?: unknown
   description: unknown
+  time_limit_seconds: number | null
   stems: SetDetailStem[]
 }
 
@@ -24,6 +25,7 @@ type MockSetMeta = {
 type MockDetailRow = {
   id: string
   name: string
+  instructions_text: unknown
   sets: MockSetMeta[]
 }
 
@@ -32,15 +34,25 @@ type StemDetailQuestion = {
   question_text: unknown
   index: number
   question_type: 'multiple_choice' | 'syllogism'
-  answer_options: Array<{ id: string; answer_text: unknown; index: number }>
+  answer_options: Array<{ id: string; answer_text: unknown; index: number; is_answer?: boolean }>
 }
 
 type StemDetailRow = {
   id: string
   section_name: string
   display_columns: number | null
+  section_instructions_text: unknown
+  section_instructions_time_limit_seconds: number | null
+  section_time_limit_seconds: number | null
   stem_text: unknown
   questions: StemDetailQuestion[]
+}
+
+function hasInstructionsContent(value: unknown): boolean {
+  if (value == null || typeof value !== 'object') return false
+  const obj = value as Record<string, unknown>
+  const content = obj.content
+  return Array.isArray(content) && content.length > 0
 }
 
 type DbQuestionEngineMode = Extract<QuestionEngineMode, 'set' | 'mock'>
@@ -63,6 +75,15 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
         return
       }
 
+      const options = (question.answer_options || [])
+        .map((option) => ({
+          id: option.id,
+          index: option.index,
+          text: extractTextFromRichJson(option.answer_text as JsonLike),
+          isAnswer: option.is_answer ?? false,
+        }))
+        .sort((a, b) => a.index - b.index)
+      const correctOption = options.find((o) => o.isAnswer)
       questions.push({
         id: question.id,
         index: questionMeta.index,
@@ -73,13 +94,8 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
         stemText: extractTextFromRichJson(stem.stem_text as JsonLike),
         questionText: extractTextFromRichJson(question.question_text as JsonLike),
         questionType: question.question_type,
-        options: (question.answer_options || [])
-          .map((option) => ({
-            id: option.id,
-            index: option.index,
-            text: extractTextFromRichJson(option.answer_text as JsonLike),
-          }))
-          .sort((a, b) => a.index - b.index),
+        options,
+        correctOptionId: correctOption?.id,
       })
     })
   })
@@ -100,7 +116,7 @@ async function loadSetDetail(setId: string): Promise<SetDetailRow> {
 
   const { data, error } = await supabase
     .from('vstudent_ucat_question_set_detail')
-    .select('id,name,description,stems')
+    .select('id,name,description,time_limit_seconds,stems')
     .eq('id', setId)
     .maybeSingle()
 
@@ -126,7 +142,7 @@ async function loadStemDetails(stemIds: string[]): Promise<StemDetailRow[]> {
 
   const { data, error } = await supabase
     .from('vstudent_ucat_question_stem_detail')
-    .select('id,section_name,display_columns,stem_text,questions')
+    .select('id,section_name,display_columns,section_instructions_text,section_instructions_time_limit_seconds,section_time_limit_seconds,stem_text,questions')
     .in('id', stemIds)
 
   if (error || !data) {
@@ -149,7 +165,7 @@ async function loadMockDetail(mockId: string): Promise<MockDetailRow> {
 
   const { data, error } = await supabase
     .from('vstudent_ucat_mock_detail')
-    .select('id,name,sets')
+    .select('id,name,instructions_text,sets')
     .eq('id', mockId)
     .maybeSingle()
 
@@ -169,31 +185,132 @@ async function buildSetExam(setId: string): Promise<QuestionEngineExam> {
     extractTextFromRichJson(setDetail.name as JsonLike) ||
     extractTextFromRichJson(setDetail.description as JsonLike) ||
     'Question Set'
+
+  const questions = mapSetToQuestions(setDetail, stemDetails)
+  const instructionsScreens: QuestionEngineExam['instructionsScreens'] = []
+  const firstStem = stemDetails[0]
+  const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null
+  const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0
+  if (
+    firstStem &&
+    hasInstructionsContent(firstStem.section_instructions_text)
+  ) {
+    instructionsScreens.push({
+      instructionsJson: firstStem.section_instructions_text as Record<string, unknown>,
+    })
+  }
+  const instructionsTimeLimitSeconds =
+    isSetTimed && firstStem
+      ? (firstStem.section_instructions_time_limit_seconds ?? null)
+      : null
+
   return {
     sourceType: 'set',
     sourceId: setId,
     title,
-    questions: mapSetToQuestions(setDetail, stemDetails),
+    questions,
+    instructionsScreens,
+    setModeTiming: {
+      setTimeLimitSeconds,
+      instructionsTimeLimitSeconds,
+    },
   }
+}
+
+type SetPayloadWithTiming = {
+  questions: QuestionItem[]
+  setTimeLimitSeconds: number | null
+  instructionsTimeLimitSeconds: number | null
+  hasInstructions: boolean
+  /** Section instructions JSON when hasInstructions; from first stem. */
+  sectionInstructionsJson: Record<string, unknown> | null
 }
 
 async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
   const mockDetail = await loadMockDetail(mockId)
-  const setIds = (mockDetail.sets || []).map((set) => set.id)
+  const setIds = (mockDetail.sets || []).map((set) => set.id) as string[]
 
-  const setPayloads = await Promise.all(
+  const setPayloadsWithTiming = await Promise.all(
     setIds.map(async (setId) => {
       const setDetail = await loadSetDetail(setId)
-      const stemDetails = await loadStemDetails((setDetail.stems || []).map((stem) => stem.stem_id))
-      return mapSetToQuestions(setDetail, stemDetails)
+      const stemIds = (setDetail.stems || []).map((stem) => stem.stem_id)
+      const stemDetails = await loadStemDetails(stemIds)
+      const questions = mapSetToQuestions(setDetail, stemDetails)
+      const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null
+      const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0
+      const firstStem = stemDetails[0]
+      const hasInstructions = !!(
+        firstStem && hasInstructionsContent(firstStem.section_instructions_text)
+      )
+      const instructionsTimeLimitSeconds =
+        isSetTimed && firstStem
+          ? (firstStem.section_instructions_time_limit_seconds ?? null)
+          : null
+      const sectionInstructionsJson =
+        firstStem && hasInstructionsContent(firstStem.section_instructions_text)
+          ? (firstStem.section_instructions_text as Record<string, unknown>)
+          : null
+      return {
+        questions,
+        setTimeLimitSeconds,
+        instructionsTimeLimitSeconds,
+        hasInstructions,
+        sectionInstructionsJson,
+      } satisfies SetPayloadWithTiming
     })
   )
+
+  const instructionsScreens: QuestionEngineExam['instructionsScreens'] = []
+  const mockTimingSegments: NonNullable<QuestionEngineExam['mockTimingSegments']> = []
+  let instructionsIndex = 0
+  let questionOffset = 0
+
+  if (hasInstructionsContent(mockDetail.instructions_text)) {
+    instructionsScreens.push({
+      instructionsJson: mockDetail.instructions_text as Record<string, unknown>,
+    })
+    mockTimingSegments.push({ type: 'instructions', instructionsIndex: 0, timeLimitSeconds: null })
+    instructionsIndex = 1
+  }
+
+  for (let setIndex = 0; setIndex < setPayloadsWithTiming.length; setIndex++) {
+    const set = setPayloadsWithTiming[setIndex]
+    const setTimeLimitSeconds = set.setTimeLimitSeconds
+    const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0
+
+    if (set.hasInstructions) {
+      instructionsScreens.push({
+        instructionsJson: set.sectionInstructionsJson,
+      })
+      mockTimingSegments.push({
+        type: 'instructions',
+        instructionsIndex,
+        timeLimitSeconds: isSetTimed ? set.instructionsTimeLimitSeconds : null,
+      })
+      instructionsIndex++
+    }
+
+    const start = questionOffset
+    const end = questionOffset + set.questions.length
+    questionOffset = end
+    mockTimingSegments.push({
+      type: 'questions',
+      setIndex,
+      questionStartIndex: start,
+      questionEndIndex: end,
+      timeLimitSeconds: setTimeLimitSeconds,
+    })
+  }
+
+  const questions = setPayloadsWithTiming.flatMap((s) => s.questions)
 
   return {
     sourceType: 'mock',
     sourceId: mockId,
     title: mockDetail.name || 'UCAT Mock',
-    questions: setPayloads.flat(),
+    questions,
+    instructionsScreens,
+    mockTimingSegments,
   }
 }
 

@@ -29,7 +29,7 @@ import {
 import { getFileTypeIcon, getFileTypeLabel } from '@/shared/utils/file-type-icons';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import { FilePreviewModal } from './FilePreviewModal';
-import type { Enums } from '@altitutor/shared';
+import type { Enums, Tables } from '@altitutor/shared';
 
 export interface FileCardProps {
   fileCode?: string;
@@ -63,8 +63,8 @@ export interface FileCardProps {
    * Used by FilePreviewModal to display additional context
    */
   getMetadataFn?: (junctionTableId: string) => Promise<{
-    file: any;
-    metadata?: Record<string, any>;
+    file: Tables<'files'>;
+    metadata?: Record<string, unknown>;
   }>;
 }
 

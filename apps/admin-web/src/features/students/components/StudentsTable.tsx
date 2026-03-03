@@ -26,13 +26,7 @@ import {
   AlertDialogTitle,
   TablePagination,
 } from "@altitutor/ui";
-import { 
-  Search, 
-  ArrowUpDown,
-  Filter,
-  X,
-  Loader2
-} from 'lucide-react';
+import { ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, formatSubjectDisplay, formatClassName, formatClassShortName } from '@/shared/utils/index';
 import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils';
@@ -61,7 +55,7 @@ interface StudentsTableProps {
 
 export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStudentSelect, addModalState: _addModalState }: StudentsTableProps = {}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  useSearchParams(); // Required for URL sync in useDataTable
   const { data: currentStaff } = useCurrentStaff();
   const { data: allSubjects = [] } = useSubjects();
   const { data: quickFilters = [] } = useQuickFilters('students');
@@ -76,7 +70,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     setSearch,
     setSort,
     setFilters,
-    toggleFilter,
     setPage,
     setPageSize,
     setVisibleColumns,
@@ -124,8 +117,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
-  const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
-  const [_hasPasswordResetLinkSent, setHasPasswordResetLinkSent] = useState(false);
+  const [, setLoadingPasswordReset] = useState(false);
+  const [, setHasPasswordResetLinkSent] = useState(false);
   const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
 
@@ -458,7 +451,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   >
                     {state.visibleColumns.includes('status') && (
                       <TableCell>
-                        <Badge className={cn("text-xs", getStudentStatusColor(student.status as any))}>
+                        <Badge className={cn("text-xs", getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'))}>
                           {student.status}
                         </Badge>
                       </TableCell>
@@ -467,7 +460,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                       <TableCell>
                         <div className="flex flex-wrap gap-1 items-center">
                           {student.curriculum ? (
-                            <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as any))}>
+                            <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE'))}>
                               {student.curriculum}
                             </Badge>
                           ) : null}
@@ -561,7 +554,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         }}
                         onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE'
                           ? () => {
-                              setStudentToDiscontinue(student as any);
+                              setStudentToDiscontinue(student);
                             }
                           : undefined}
                         onDelete={() => {
@@ -655,7 +648,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             setInviteDialogOpen(false);
             setActionStudentId(null);
           }}
-          student={filteredStudents.find(s => s.id === actionStudentId)! as any}
+          student={filteredStudents.find(s => s.id === actionStudentId)!}
           linkType={inviteDialogType}
         />
       )}

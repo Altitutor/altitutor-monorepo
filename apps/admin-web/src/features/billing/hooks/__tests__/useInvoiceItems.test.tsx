@@ -28,8 +28,8 @@ describe('useInvoiceItems', () => {
     ];
 
     mockBillingApi.getInvoiceItemsByInvoice
-      .mockResolvedValueOnce(mockItems1 as any)
-      .mockResolvedValueOnce(mockItems2 as any);
+      .mockResolvedValueOnce(mockItems1 as Awaited<ReturnType<typeof billingApi.getInvoiceItemsByInvoice>>)
+      .mockResolvedValueOnce(mockItems2 as Awaited<ReturnType<typeof billingApi.getInvoiceItemsByInvoice>>);
 
     const { result } = renderHookWithQueryClient(() =>
       useInvoiceItems(['invoice-1', 'invoice-2'])
@@ -61,7 +61,7 @@ describe('useInvoiceItems', () => {
       { id: 'item-1', invoice_id: 'invoice-1', amount_cents: 10000 },
     ];
 
-    mockBillingApi.getInvoiceItemsByInvoice.mockResolvedValue(mockItems as any);
+    mockBillingApi.getInvoiceItemsByInvoice.mockResolvedValue(mockItems as Awaited<ReturnType<typeof billingApi.getInvoiceItemsByInvoice>>);
 
     const { result } = renderHookWithQueryClient(() =>
       useInvoiceItems(['invoice-1'])
@@ -77,8 +77,8 @@ describe('useInvoiceItems', () => {
   });
 
   it('should return isLoading true while any query is loading', async () => {
-    let resolve1: (value: any) => void;
-    let resolve2: (value: any) => void;
+    let resolve1: (value: Awaited<ReturnType<typeof billingApi.getInvoiceItemsByInvoice>>) => void;
+    let resolve2: (value: Awaited<ReturnType<typeof billingApi.getInvoiceItemsByInvoice>>) => void;
 
     const promise1 = new Promise((resolve) => {
       resolve1 = resolve;
@@ -88,8 +88,8 @@ describe('useInvoiceItems', () => {
     });
 
     mockBillingApi.getInvoiceItemsByInvoice
-      .mockReturnValueOnce(promise1 as any)
-      .mockReturnValueOnce(promise2 as any);
+      .mockReturnValueOnce(promise1 as ReturnType<typeof mockBillingApi.getInvoiceItemsByInvoice>)
+      .mockReturnValueOnce(promise2 as ReturnType<typeof mockBillingApi.getInvoiceItemsByInvoice>);
 
     const { result } = renderHookWithQueryClient(() =>
       useInvoiceItems(['invoice-1', 'invoice-2'])
@@ -127,7 +127,7 @@ describe('useInvoiceItems', () => {
 
   it('should exclude invoices with no data from the map', async () => {
     mockBillingApi.getInvoiceItemsByInvoice
-      .mockResolvedValueOnce([{ id: 'item-1', invoice_id: 'invoice-1' }] as any)
+      .mockResolvedValueOnce([{ id: 'item-1', invoice_id: 'invoice-1' }] as Awaited<ReturnType<typeof billingApi.getInvoiceItemsByInvoice>>)
       .mockResolvedValueOnce([]);
 
     const { result } = renderHookWithQueryClient(() =>

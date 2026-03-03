@@ -1,7 +1,7 @@
 'use client';
 
 import { UseFormReturn } from 'react-hook-form';
-import { FormControl, FormField, FormItem, type JSONContent } from '@altitutor/ui';
+import { FormControl, FormField, FormItem } from '@altitutor/ui';
 import {
   Select,
   SelectContent,
@@ -9,16 +9,9 @@ import {
   SelectTrigger,
 } from '@altitutor/ui';
 import { Folder, FolderKanban } from 'lucide-react';
-import { z } from 'zod';
 import { useProjects } from '@/features/projects/api/queries';
 
 import type { NoteFormData } from '../types';
-
-const formSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  content: z.any(),
-  folder_id: z.string().nullable().optional(),
-});
 
 interface NotePropertyPillsProps {
   form: UseFormReturn<NoteFormData>;

@@ -26,7 +26,7 @@ import { X, Check, Loader2, CloudOff } from 'lucide-react';
 import { useTask } from '../api/queries';
 import { useUpdateTask, useDeleteTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
-import type { TaskFormData, TaskStatus } from '../types';
+import type { TaskFormData, TaskStatus, TaskUpdate } from '../types';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
 import { useTaskAutoSave } from '../hooks/useTaskAutoSave';
@@ -46,7 +46,7 @@ function normalizeTaskStatus(status: string | null | undefined): TaskStatus {
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  description: z.any().optional(),
+  description: z.union([z.record(z.unknown()), z.string(), z.null()]).optional(),
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']),
   priority: z.number().min(0).max(4),
   assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
@@ -190,7 +190,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
     if (!taskId) return;
 
     try {
-      const formattedUpdates: any = { ...updates };
+      const formattedUpdates: Record<string, unknown> = { ...updates };
       if (updates.assignedTo !== undefined) {
         formattedUpdates.assigned_to = updates.assignedTo;
         delete formattedUpdates.assignedTo;
@@ -218,7 +218,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
 
       await updateTask.mutateAsync({
         id: taskId,
-        updates: formattedUpdates,
+        updates: formattedUpdates as TaskUpdate,
       });
     } catch (error) {
       console.error('Failed to auto-save task:', error);

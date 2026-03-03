@@ -7,6 +7,8 @@ export type SubjectSummary = {
   curriculum: string | null;
   year_level: number | null;
   name: string | null;
+  long_name?: string | null;
+  short_name?: string | null;
   discipline: string | null;
   level: string | null;
   color: string | null;
@@ -109,7 +111,9 @@ export const searchApi = {
     // Note: search_all_admin was dropped in migration 20260118191139
     // This function is deprecated and should be replaced with individual search RPCs
     // For now, return empty results to prevent errors
-    const { data, error } = await (supabase.rpc as any)('search_all_admin', {
+    type RpcFn = (name: string, params: Record<string, unknown>) => Promise<{ data: GlobalSearchResponse | null; error: Error | null }>;
+    const rpc = supabase.rpc as unknown;
+    const { data, error } = await (rpc as RpcFn)('search_all_admin', {
       p_search: search,
       p_limit: limit,
       p_offset: offset,

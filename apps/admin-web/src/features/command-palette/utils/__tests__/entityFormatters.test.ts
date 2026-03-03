@@ -8,11 +8,11 @@ import type { Tables } from '@altitutor/shared';
 
 // Mock the formatClassShortName and formatClassName utilities
 jest.mock('@/shared/utils', () => ({
-  formatClassShortName: jest.fn((classData: any, subject: any) => {
+  formatClassShortName: jest.fn((classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>, subject: Tables<'subjects'> | null | undefined) => {
     const subjectName = subject?.name || '';
     return `Short ${subjectName}`;
   }),
-  formatClassName: jest.fn((classData: any, subject: any) => {
+  formatClassName: jest.fn((classData: Tables<'classes'>, subject: Tables<'subjects'> | null | undefined) => {
     const subjectName = subject?.name || '';
     return `Full ${subjectName}`;
   }),
@@ -220,7 +220,7 @@ describe('getEntityDisplayText', () => {
           subject: {
             name: 'Math',
           },
-        } as any,
+        } as Extract<CommandPaletteEntityResult, { type: 'class' }>['data'],
       };
 
       const display = getEntityDisplayText(result);
@@ -298,7 +298,7 @@ describe('getEntityDisplayText', () => {
             short_name: 'Math',
             name: 'math',
           } as Tables<'subjects'>,
-        } as any,
+        } as Tables<'topics'> & { subject: Tables<'subjects'> },
       };
 
       const display = getEntityDisplayText(result);
@@ -318,7 +318,7 @@ describe('getEntityDisplayText', () => {
             short_name: 'Math',
             name: 'math',
           } as Tables<'subjects'>,
-        } as any,
+        } as Tables<'topics'> & { subject: Tables<'subjects'> },
       };
 
       const display = getEntityDisplayText(result);
@@ -338,7 +338,7 @@ describe('getEntityDisplayText', () => {
             short_name: null,
             name: 'math',
           } as Tables<'subjects'>,
-        } as any,
+        } as Tables<'topics'> & { subject: Tables<'subjects'> },
       };
 
       const display = getEntityDisplayText(result);
@@ -354,7 +354,7 @@ describe('getEntityDisplayText', () => {
           id: 'topic-4',
           name: 'Topic Name',
           subject: null,
-        } as any,
+        } as unknown as Extract<CommandPaletteEntityResult, { type: 'topic' }>['data'],
       };
 
       const display = getEntityDisplayText(result);
@@ -380,7 +380,7 @@ describe('getEntityDisplayText', () => {
           file: {
             filename: 'worksheet.pdf',
           },
-        } as any,
+        } as { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } },
       };
 
       const display = getEntityDisplayText(result);
@@ -404,7 +404,7 @@ describe('getEntityDisplayText', () => {
           file: {
             filename: 'notes.pdf',
           },
-        } as any,
+        } as { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } },
       };
 
       const display = getEntityDisplayText(result);
@@ -428,7 +428,7 @@ describe('getEntityDisplayText', () => {
           file: {
             filename: 'file.pdf',
           },
-        } as any,
+        } as { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } },
       };
 
       const display = getEntityDisplayText(result);

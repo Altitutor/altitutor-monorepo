@@ -55,7 +55,7 @@ describe('Tutor Logs Hooks', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockSupabase = createMockSupabaseClient();
-    mockGetSupabaseClient.mockReturnValue(mockSupabase as any);
+    mockGetSupabaseClient.mockReturnValue(mockSupabase as ReturnType<typeof getSupabaseClient>);
   });
 
   describe('useSessionForLogging', () => {

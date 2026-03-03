@@ -21,7 +21,7 @@ interface IssueDescriptionFieldProps {
   descriptionRef?: React.RefObject<RichTextEditorRef>;
 }
 
-export function IssueDescriptionField({ form, value, onTagClick, descriptionRef }: IssueDescriptionFieldProps) {
+export function IssueDescriptionField({ form, value: _value, onTagClick: _onTagClick, descriptionRef }: IssueDescriptionFieldProps) {
   const mentionSuggestions = useMentionSuggestions();
 
   return (
@@ -37,7 +37,7 @@ export function IssueDescriptionField({ form, value, onTagClick, descriptionRef 
               onChange={field.onChange}
               placeholder="Add issue description..."
               className="min-h-0"
-              mentionSuggestions={mentionSuggestions as any}
+              mentionSuggestions={mentionSuggestions}
             />
           </FormControl>
           <FormMessage />

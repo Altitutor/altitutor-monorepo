@@ -1,6 +1,6 @@
 import { useEntitySearch } from '@/shared/hooks/useEntitySearch';
 import { entityTypes } from '../config/commandPalette.config';
-import type { CommandPaletteEntityResult, UseCommandPaletteSearchOptions } from '../types';
+import type { UseCommandPaletteSearchOptions } from '../types';
 
 // Re-export types for backward compatibility
 export type { CommandPaletteEntityResult, UseCommandPaletteSearchOptions } from '../types';

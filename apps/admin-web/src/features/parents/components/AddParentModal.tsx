@@ -20,7 +20,7 @@ import { useForm, SubmitHandler, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, AlertTriangle, X } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, TablesInsert } from '@altitutor/shared';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { getErrorMessage } from '@/shared/utils';
 import { StudentSearchPopover } from '@/features/students/components/StudentSearchPopover';
@@ -83,14 +83,12 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
     setErrorMessage(null);
     
     try {
-      const parentData: any = {
+      const parentData: TablesInsert<'parents'> = {
         id: crypto.randomUUID(),
         first_name: formData.firstName,
         last_name: formData.lastName,
-        email: (formData.email || null) as any,
-        phone: (formData.phone || null) as any,
-        created_at: null,
-        updated_at: null,
+        email: formData.email || null,
+        phone: formData.phone || null,
       };
 
       const createdParent = await createParentMutation.mutateAsync(parentData);
@@ -161,7 +159,7 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>

@@ -24,19 +24,20 @@ export function UcatSelectionToolbar({
   return (
     <div
       className={cn(
-        'fixed bottom-0 left-0 right-0 z-50 flex items-center gap-3 border-t bg-background px-4 py-3 shadow-lg',
-        'safe-area-pb',
+        'fixed left-1/2 z-50 -translate-x-1/2',
+        'bottom-[max(1.5rem,env(safe-area-inset-bottom))]',
+        'max-w-3xl w-[calc(100%-2rem)]',
+        'flex items-center gap-3 rounded-lg border bg-popover px-4 py-2 shadow-lg',
         className
       )}
-      style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
     >
-      <span className="text-sm font-medium text-muted-foreground">
+      <span className="text-sm font-medium text-muted-foreground shrink-0">
         {selectedCount} selected
       </span>
-      <div className="flex flex-1 flex-wrap items-center gap-2">
+      <div className="flex flex-1 flex-wrap items-center justify-center gap-2 min-w-0">
         {children}
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <Button
           type="button"
           variant="destructive"

@@ -55,7 +55,7 @@ async function resolveClassStudents(
   
   if (!enrollments) return [];
   
-  return enrollments.map((e: any) => ({ student_id: e.student_id }));
+  return enrollments.map((e: { student_id: string }) => ({ student_id: e.student_id }));
 }
 
 /**
@@ -77,7 +77,7 @@ async function resolveClassStaff(
   
   if (!classStaff) return [];
   
-  return classStaff.map((cs: any) => ({ staff_id: cs.staff_id }));
+  return classStaff.map((cs: { staff_id: string }) => ({ staff_id: cs.staff_id }));
 }
 
 /**
@@ -122,7 +122,7 @@ async function resolveSessionStudents(
   
   if (!sessionStudents) return [];
   
-  return sessionStudents.map((ss: any) => ({ student_id: ss.student_id }));
+  return sessionStudents.map((ss: { student_id: string }) => ({ student_id: ss.student_id }));
 }
 
 /**
@@ -143,7 +143,7 @@ async function resolveSessionStaff(
   
   if (!sessionStaff) return [];
   
-  return sessionStaff.map((ss: any) => ({ staff_id: ss.staff_id }));
+  return sessionStaff.map((ss: { staff_id: string }) => ({ staff_id: ss.staff_id }));
 }
 
 /**
@@ -348,7 +348,7 @@ async function resolveTutorLogStaff(
   
   if (!staffAttendance) return [];
   
-  return staffAttendance.map((sa: any) => ({ staff_id: sa.staff_id }));
+  return staffAttendance.map((sa: { staff_id: string }) => ({ staff_id: sa.staff_id }));
 }
 
 /**
@@ -434,7 +434,7 @@ async function getStudentContactIds(
   
   if (!contacts) return [];
   
-  return contacts.map((c: any) => c.id);
+  return contacts.map((c: { id: string }) => c.id);
 }
 
 /**
@@ -455,7 +455,7 @@ async function getParentContactIds(
   
   if (!contacts) return [];
   
-  return contacts.map((c: any) => c.id);
+  return contacts.map((c: { id: string }) => c.id);
 }
 
 /**
@@ -477,7 +477,7 @@ async function resolveMessageClassStudents(
   
   if (!enrollments || enrollments.length === 0) return [];
   
-  const studentIds = enrollments.map((e: any) => e.student_id);
+  const studentIds = enrollments.map((e: { student_id: string }) => e.student_id);
   return getStudentContactIds(supabase, studentIds);
 }
 
@@ -500,7 +500,7 @@ async function resolveMessageClassStudentsAndParents(
   
   if (!enrollments || enrollments.length === 0) return [];
   
-  const studentIds = enrollments.map((e: any) => e.student_id);
+  const studentIds = enrollments.map((e: { student_id: string }) => e.student_id);
   const contactIds: string[] = [];
   
   // Get student contacts
@@ -514,7 +514,7 @@ async function resolveMessageClassStudentsAndParents(
     .in('student_id', studentIds);
   
   if (parentLinks && parentLinks.length > 0) {
-    const parentIds = parentLinks.map((pl: any) => pl.parent_id);
+    const parentIds = parentLinks.map((pl: { parent_id: string }) => pl.parent_id);
     const parentContacts = await getParentContactIds(supabase, parentIds);
     contactIds.push(...parentContacts);
   }
@@ -541,7 +541,7 @@ async function resolveMessageSessionStudents(
   
   if (!sessionStudents || sessionStudents.length === 0) return [];
   
-  const studentIds = sessionStudents.map((ss: any) => ss.student_id);
+  const studentIds = sessionStudents.map((ss: { student_id: string }) => ss.student_id);
   return getStudentContactIds(supabase, studentIds);
 }
 
@@ -563,7 +563,7 @@ async function resolveMessageSessionStudentsAndParents(
   
   if (!sessionStudents || sessionStudents.length === 0) return [];
   
-  const studentIds = sessionStudents.map((ss: any) => ss.student_id);
+  const studentIds = sessionStudents.map((ss: { student_id: string }) => ss.student_id);
   const contactIds: string[] = [];
   
   // Get student contacts
@@ -577,7 +577,7 @@ async function resolveMessageSessionStudentsAndParents(
     .in('student_id', studentIds);
   
   if (parentLinks && parentLinks.length > 0) {
-    const parentIds = parentLinks.map((pl: any) => pl.parent_id);
+    const parentIds = parentLinks.map((pl: { parent_id: string }) => pl.parent_id);
     const parentContacts = await getParentContactIds(supabase, parentIds);
     contactIds.push(...parentContacts);
   }
@@ -611,7 +611,7 @@ async function resolveMessageStudentAndParents(
     .eq('student_id', activityEvent.student_id);
   
   if (parentLinks && parentLinks.length > 0) {
-    const parentIds = parentLinks.map((pl: any) => pl.parent_id);
+    const parentIds = parentLinks.map((pl: { parent_id: string }) => pl.parent_id);
     const parentContacts = await getParentContactIds(supabase, parentIds);
     contactIds.push(...parentContacts);
   }
@@ -639,7 +639,7 @@ async function resolveMessageTutorLogStudents(
   
   if (!studentAttendance || studentAttendance.length === 0) return [];
   
-  const studentIds = studentAttendance.map((sa: any) => sa.student_id);
+  const studentIds = studentAttendance.map((sa: { student_id: string }) => sa.student_id);
   return getStudentContactIds(supabase, studentIds);
 }
 
@@ -662,7 +662,7 @@ async function resolveMessageTutorLogStudentsAndParents(
   
   if (!studentAttendance || studentAttendance.length === 0) return [];
   
-  const studentIds = studentAttendance.map((sa: any) => sa.student_id);
+  const studentIds = studentAttendance.map((sa: { student_id: string }) => sa.student_id);
   const contactIds: string[] = [];
   
   // Get student contacts
@@ -676,7 +676,7 @@ async function resolveMessageTutorLogStudentsAndParents(
     .in('student_id', studentIds);
   
   if (parentLinks && parentLinks.length > 0) {
-    const parentIds = parentLinks.map((pl: any) => pl.parent_id);
+    const parentIds = parentLinks.map((pl: { parent_id: string }) => pl.parent_id);
     const parentContacts = await getParentContactIds(supabase, parentIds);
     contactIds.push(...parentContacts);
   }

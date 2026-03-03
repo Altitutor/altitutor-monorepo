@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       },
     });
 
-    const { data, error } = await supabase.rpc('undo_staff_absences' as any, {
+    const { data, error } = await supabase.rpc('undo_staff_absences', {
       operations: operations as Json,
       logged_by_staff_id: staffId,
     });

@@ -34,7 +34,8 @@ export function useTopicsWithSubjects(topicIds: string[]) {
 
       const subjectsMap = new Map<string, Tables<'subjects'>>();
       if (data) {
-        data.forEach((topic: any) => {
+        type TopicWithSubjects = { id: string; subject_id: string | null; subjects: Tables<'subjects'> | null };
+        data.forEach((topic: TopicWithSubjects) => {
           if (topic.subjects && topic.subject_id) {
             subjectsMap.set(topic.subject_id, topic.subjects);
           }

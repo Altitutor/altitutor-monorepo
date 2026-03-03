@@ -62,7 +62,7 @@ export const subjectsApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return { subjects: [], total: 0 };
 
-    const rpcData = rpcResult as { subjects: any[]; total: number };
+    const rpcData = rpcResult as { subjects: Tables<'subjects'>[]; total: number };
     return { 
       subjects: (rpcData.subjects || []) as Tables<'subjects'>[], 
       total: rpcData.total ?? 0 
@@ -158,7 +158,7 @@ export const subjectsApi = {
         .eq('subject_id', subjectId);
       if (error) throw error;
       const staff = (data ?? [])
-        .map((row: any) => row.staff as Tables<'staff'>)
+        .map((row: { staff: Tables<'staff'> | null }) => row.staff as Tables<'staff'>)
         .filter(Boolean);
       return staff;
     } catch (error) {
@@ -180,7 +180,7 @@ export const subjectsApi = {
         .eq('subject_id', subjectId);
       if (error) throw error;
       const students = (data ?? [])
-        .map((row: any) => row.student as Tables<'students'>)
+        .map((row: { student: Tables<'students'> | null }) => row.student as Tables<'students'>)
         .filter(Boolean);
       return students;
     } catch (error) {

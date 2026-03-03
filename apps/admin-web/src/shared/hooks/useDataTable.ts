@@ -15,11 +15,13 @@ function isEqual(a: unknown, b: unknown): boolean {
   
   for (let i = 0; i < keysA.length; i++) {
     const key = keysA[i];
-    if (keysA[i] !== keysB[i] || !isEqual((a as any)[key], (b as any)[key])) return false;
+    if (keysA[i] !== keysB[i] || !isEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false;
   }
   
   return true;
 }
+
+const MANAGED_PARAM_KEYS = ['search', 'sort', 'order', 'group', 'page', 'pageSize', 'columns'];
 
 interface UseDataTableOptions {
   defaultFilters?: Record<string, unknown[]>;
@@ -43,9 +45,8 @@ export function useDataTable({
   const pathname = usePathname();
   const isInitialLoad = useRef(true);
   const hasSyncedInitialDefaults = useRef(false);
-  const managedParamKeys = ['search', 'sort', 'order', 'group', 'page', 'pageSize', 'columns'];
   const isManagedKey = useCallback((key: string) => {
-    return managedParamKeys.includes(key) || (filterKeys ? filterKeys.includes(key) : !managedParamKeys.includes(key));
+    return MANAGED_PARAM_KEYS.includes(key) || (filterKeys ? filterKeys.includes(key) : !MANAGED_PARAM_KEYS.includes(key));
   }, [filterKeys]);
 
   // Parse filters from URL helper
@@ -53,7 +54,7 @@ export function useDataTable({
     if (skipUrlSync) return {};
     const filters: Record<string, unknown[]> = {};
     searchParams.forEach((value, key) => {
-      const canParseKey = filterKeys ? filterKeys.includes(key) : !managedParamKeys.includes(key);
+      const canParseKey = filterKeys ? filterKeys.includes(key) : !MANAGED_PARAM_KEYS.includes(key);
       if (canParseKey) {
         const values = value.split(',').filter(Boolean);
         filters[key] = values.map(v => {
@@ -220,7 +221,7 @@ export function useDataTable({
       const currentKeys = Array.from(params.keys());
       const keysToClear = filterKeys
         ? currentKeys.filter((key) => filterKeys.includes(key))
-        : currentKeys.filter((key) => !managedParamKeys.includes(key));
+        : currentKeys.filter((key) => !MANAGED_PARAM_KEYS.includes(key));
       keysToClear.forEach((key) => params.delete(key));
       
       if (filterKeys) {
@@ -260,7 +261,7 @@ export function useDataTable({
 
   const toggleFilter = useCallback((key: string, value: unknown) => {
     const current = state.filters[key] ?? [];
-    const next = current.includes(value as any)
+    const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value];
     

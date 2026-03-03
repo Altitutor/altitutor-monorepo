@@ -85,8 +85,14 @@ export function useStripeSyncData({
 
   const student = enabled ? studentData : null;
   const linkedCustomer = enabled ? (linkedCustomerQuery.data ?? null) : null;
-  const exactMatches = enabled ? (exactMatchesQuery.data ?? []) : [];
-  const dbPaymentMethods = enabled ? (paymentMethodsQuery.data ?? []) : [];
+  const exactMatches = useMemo(
+    () => (enabled ? (exactMatchesQuery.data ?? []) : []),
+    [enabled, exactMatchesQuery.data]
+  );
+  const dbPaymentMethods = useMemo(
+    () => (enabled ? (paymentMethodsQuery.data ?? []) : []),
+    [enabled, paymentMethodsQuery.data]
+  );
 
   const invalidateStripeSync = () => {
     queryClient.invalidateQueries({ queryKey: stripeSyncKeys.all });
@@ -94,7 +100,7 @@ export function useStripeSyncData({
 
   const syncMutation = useMutation({
     mutationFn: (customerId: string) => stripeSyncApi.syncStudentToStripe(studentId!, customerId),
-    onSuccess: (result, customerId) => {
+    onSuccess: (result, _customerId) => {
       toast({
         title: 'Success',
         description: `Synced ${result.syncedPaymentMethods.length} payment method(s)`,

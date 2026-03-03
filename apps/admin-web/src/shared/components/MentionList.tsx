@@ -28,7 +28,7 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
 
 export interface MentionListProps {
   items: CommandPaletteEntityResult[];
-  command: (item: any) => void;
+  command: (item: CommandPaletteEntityResult) => void;
   query: string;
 }
 
@@ -81,8 +81,8 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
     const item = flatItems[index];
 
     if (item) {
-      const { title } = getEntityDisplayText(item);
-      props.command({ id: item.id, label: title, type: item.type });
+      getEntityDisplayText(item);
+      props.command(item);
     }
   };
 

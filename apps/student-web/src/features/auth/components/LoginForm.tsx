@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { loginSchema } from '../validations';
 import { useRouter } from 'next/navigation';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { Button } from '@altitutor/ui';
@@ -21,11 +22,6 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-});
 
 type LoginFormData = z.infer<typeof loginSchema>;
 

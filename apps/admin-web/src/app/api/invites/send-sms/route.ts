@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
 
 export async function POST(request: NextRequest) {
@@ -21,6 +22,13 @@ export async function POST(request: NextRequest) {
 
     if (staffError || !staffData || (staffData.role !== 'ADMIN' && staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
     }
 
     const body = await request.json();
@@ -88,7 +96,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get or create contact record for this phone number
-    const { data: contact } = await supabase
+    const { data: contact } = await supabaseAdmin
       .from('contacts')
       .select('id, phone_e164')
       .eq(type === 'staff' ? 'staff_id' : 'student_id', id)
@@ -103,9 +111,8 @@ export async function POST(request: NextRequest) {
         ? { phone_e164: phoneNumber, contact_type: 'STAFF' as const, staff_id: id }
         : { phone_e164: phoneNumber, contact_type: 'STAFF' as const, student_id: id };
       
-      const { data: newContact, error: createContactError } = await supabase
+      const { data: newContact, error: createContactError } = await supabaseAdmin
         .from('contacts')
-        // @ts-expect-error - TypeScript inference issue with Supabase client
         .insert(contactData)
         .select('id')
         .single<{ id: string }>();
@@ -125,7 +132,7 @@ export async function POST(request: NextRequest) {
     let ownedNumber: { id: string; phone_e164: string } | null = null;
     
     if (ownedNumberId) {
-      const { data, error } = await supabase
+      const { data, error } = await supabaseAdmin
         .from('owned_numbers')
         .select('id, phone_e164')
         .eq('id', ownedNumberId)
@@ -141,7 +148,7 @@ export async function POST(request: NextRequest) {
       ownedNumber = data;
     } else {
       // Get default owned number
-      const { data, error: ownedError } = await supabase
+      const { data, error: ownedError } = await supabaseAdmin
         .from('owned_numbers')
         .select('id, phone_e164')
         .order('is_default', { ascending: false })
@@ -160,7 +167,7 @@ export async function POST(request: NextRequest) {
 
     // Get or create conversation
     let conversationId: string;
-    const { data: existingConvo } = await supabase
+    const { data: existingConvo } = await supabaseAdmin
       .from('conversations')
       .select('id')
       .eq('contact_id', contactId)
@@ -170,9 +177,8 @@ export async function POST(request: NextRequest) {
     if (existingConvo) {
       conversationId = existingConvo.id;
     } else {
-      const { data: newConvo, error: convoCreateError } = await supabase
+      const { data: newConvo, error: convoCreateError } = await supabaseAdmin
         .from('conversations')
-        // @ts-expect-error - TypeScript inference issue with Supabase client
         .insert({
           contact_id: contactId,
           owned_number_id: ownedNumber.id,
@@ -226,7 +232,7 @@ export async function POST(request: NextRequest) {
       contact: { phone_e164: string } | null;
     };
     
-    const { data: convData, error: convDataError } = await supabase
+    const { data: convData, error: convDataError } = await supabaseAdmin
       .from('conversations')
       .select('owned_number:owned_numbers(phone_e164), contact:contacts(phone_e164)')
       .eq('id', conversationId)
@@ -250,9 +256,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { data: message, error: messageError } = await supabase
+    const { data: message, error: messageError } = await supabaseAdmin
       .from('messages')
-      // @ts-expect-error - TypeScript inference issue with Supabase client
       .insert({
         conversation_id: conversationId,
         body: messageBody,

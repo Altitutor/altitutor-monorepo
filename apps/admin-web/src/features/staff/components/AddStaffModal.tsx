@@ -24,11 +24,11 @@ import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useAssignSubjectToStaff } from '../hooks/useStaffQuery';
 import { formatSubjectDisplay } from '@/shared/utils';
 // Use string literals for role/status
-import { useForm, Controller, SubmitHandler } from 'react-hook-form';
+import { useForm, Controller, SubmitHandler, type FieldValues, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, TablesInsert } from '@altitutor/shared';
 
 interface AddStaffModalProps {
   isOpen: boolean;
@@ -96,8 +96,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
     reset,
     formState: { errors } 
   } = useForm<FormData>({
-    // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as Resolver<FormData>,
     defaultValues: {
       firstName: '',
       lastName: '',
@@ -127,11 +126,11 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
     setErrorMessage(null);
     
     try {
-      const staffData: any = {
+      const staffData: TablesInsert<'staff'> = {
         id: crypto.randomUUID(),
         first_name: formData.firstName,
         last_name: formData.lastName,
-        email: (formData.email || null) as any,
+        email: formData.email || null,
         phone_number: formData.phoneNumber || null,
         role: formData.role,
         status: formData.status,
@@ -263,7 +262,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
           </div>
         )}
         
-        <form onSubmit={handleSubmit(onSubmit as any)} className="space-y-4">
+        <form onSubmit={handleSubmit(onSubmit as SubmitHandler<FieldValues>)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="firstName">First Name</Label>

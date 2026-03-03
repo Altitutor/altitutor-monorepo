@@ -30,7 +30,7 @@ describe('Payment Methods Authorization', () => {
 
     it('should return false for undefined status', () => {
       expect(
-        isAdminStaff({ role: 'ADMINSTAFF', status: undefined as any })
+        isAdminStaff({ role: 'ADMINSTAFF', status: undefined })
       ).toBe(false);
     });
   });

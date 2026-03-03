@@ -4,16 +4,15 @@ import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/
 
 const SerializedAnswerOptionSchema = z.object({
   index: z.number().int().positive(),
-  answer_text: z.any(),
-  answer_explanation: z.any().nullable().optional(),
+  answer_text: z.union([z.string(), z.number()]),
+  answer_explanation: z.union([z.string(), z.number(), z.null()]).optional(),
   is_answer: z.boolean(),
-  image_file_id: z.string().uuid().nullable().optional(),
 })
 
 const SerializedQuestionSchema = z.object({
   index: z.number().int().positive(),
-  question_text: z.any(),
-  answer_explanation: z.any().nullable().optional(),
+  question_text: z.union([z.string(), z.number()]),
+  answer_explanation: z.union([z.string(), z.number(), z.null()]).optional(),
   difficulty: z.number().nullable().optional(),
   time_burden_seconds: z.number().nullable().optional(),
   question_type: z.enum(['multiple_choice', 'syllogism']),
@@ -25,7 +24,7 @@ const SerializedStemSchema = z.object({
   stemId: z.string().uuid().nullable().optional(),
   sectionId: z.string().uuid(),
   categoryId: z.string().uuid().nullable().optional(),
-  stemText: z.any(),
+  stemText: z.union([z.string(), z.number()]),
   isPrivate: z.boolean(),
   questions: z.array(SerializedQuestionSchema),
 })
@@ -60,9 +59,28 @@ export async function POST(request: NextRequest) {
 
   const { sectionId, stems } = parsedBody
 
+  // Normalize answer_explanation: never send the string "null" to the DB (use actual null).
+  const normalizedStems = stems.map((stem) => ({
+    ...stem,
+    questions: stem.questions.map((q) => ({
+      ...q,
+      answer_explanation:
+        q.answer_explanation == null || q.answer_explanation === 'null'
+          ? null
+          : q.answer_explanation,
+      answer_options: (q.answer_options ?? []).map((opt) => ({
+        ...opt,
+        answer_explanation:
+          opt.answer_explanation == null || opt.answer_explanation === 'null'
+            ? null
+            : opt.answer_explanation,
+      })),
+    })),
+  }))
+
   const { data, error } = await client.rpc('tutor_ucat_bulk_upsert_question_stem_bundles', {
     p_section_id: sectionId,
-    p_stems: stems,
+    p_stems: normalizedStems,
   })
 
   if (error) {

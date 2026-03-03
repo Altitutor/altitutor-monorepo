@@ -32,11 +32,6 @@ async function extractImagesFromPastedHtml(
   const imgSrcRegex =
     /<img[\s\S]*?src\s*=\s*["']((?:data:|blob:)[^"']+)["'][\s\S]*?>/gi;
   const matches = [...html.matchAll(imgSrcRegex)];
-  // #region agent log
-  const hasImgTag = /<img/i.test(html);
-  const srcMatches = html.match(/src\s*=\s*["']?([^"'\s>]+)/gi);
-  if (typeof fetch !== 'undefined') fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'extractImagesFromPastedHtml',message:'img regex',data:{matchesLength:matches.length,hasImgTag,srcPrefixes: (srcMatches ?? []).map((s) => String(s).slice(0, 50))},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   if (matches.length === 0) {
     return { files, htmlWithPlaceholders: html };
   }
@@ -144,6 +139,60 @@ export interface RichTextEditorProps {
     files: File[],
     options?: { pastedHtml?: string }
   ) => void;
+  /**
+   * When true, pasting plain text that contains newlines inserts one paragraph per line
+   * instead of a single paragraph. Use for content where line breaks must be preserved (e.g. bulk import).
+   */
+  pastePlainTextAsParagraphs?: boolean;
+  /**
+   * When set, controls how pasted table content is handled. Overrides pastePlainTextAsParagraphs when both apply.
+   * - strip_all: Convert to plain text, one paragraph per line (tables and formatting removed).
+   * - strip_outside: Flatten top-level tables only; nested tables inside cells are preserved.
+   * - keep: Preserve all HTML including tables.
+   */
+  pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
+}
+
+function htmlToPlainText(html: string): string {
+  if (!html.trim()) return '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.body?.textContent?.replace(/\r\n/g, '\n').replace(/\r/g, '\n') ?? '';
+  } catch {
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+}
+
+/** Replace top-level tables (not nested inside another table) with divs containing each cell's innerHTML; nested tables are preserved. */
+function stripOuterTablesFromHtml(html: string): string {
+  if (!html.trim()) return html;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const body = doc.body;
+    const tables = body.querySelectorAll('table');
+    for (const table of tables) {
+      if ((table.parentElement as Element)?.closest?.('table')) continue;
+      const fragment = doc.createDocumentFragment();
+      const rows = table.querySelectorAll(':scope > tbody > tr, :scope > tr');
+      for (const row of rows) {
+        const cells = row.querySelectorAll(':scope > td, :scope > th');
+        for (const cell of cells) {
+          const content = (cell as HTMLElement).innerHTML.trim();
+          if (content) {
+            const div = doc.createElement('div');
+            div.innerHTML = content;
+            fragment.appendChild(div);
+          }
+        }
+      }
+      table.replaceWith(fragment);
+    }
+    return body.innerHTML;
+  } catch {
+    return html;
+  }
 }
 
 /**
@@ -163,6 +212,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   editable = true,
   mentionSuggestions,
   onPasteImages,
+  pastePlainTextAsParagraphs = false,
+  pasteTableBehavior,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -173,6 +224,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   onChangeRef.current = onChange;
   const onMarkdownChangeRef = useRef(onMarkdownChange);
   onMarkdownChangeRef.current = onMarkdownChange;
+
+  // Capture-phase clipboard read: when pasting table (or other content), clipboardData can be
+  // empty in the bubble-phase paste handler. Reading in capture phase gives us the data first.
+  const clipboardCaptureRef = useRef<{ text: string; html: string } | null>(null);
 
   const editor = useEditor({
     extensions: [
@@ -351,6 +406,79 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         'data-placeholder': placeholder,
       },
       handlePaste: (view, event) => {
+        let pastedText = event.clipboardData?.getData('text/plain') ?? '';
+        let pastedHtml = event.clipboardData?.getData('text/html') ?? '';
+        if (pastedText === '' && pastedHtml === '' && clipboardCaptureRef.current) {
+          const captured = clipboardCaptureRef.current;
+          clipboardCaptureRef.current = null;
+          pastedText = captured.text;
+          pastedHtml = captured.html;
+          if ((pastedText || pastedHtml) && editor) {
+            event.preventDefault();
+            const behavior = pasteTableBehavior ?? (pastePlainTextAsParagraphs ? 'strip_all' : 'keep');
+            const text = pastedHtml ? htmlToPlainText(pastedHtml) : pastedText;
+            const lines = text.split(/\r?\n/);
+            if (behavior === 'strip_all' && (lines.length > 1 || !pastedHtml)) {
+              const content = lines.map((line) => ({
+                type: 'paragraph',
+                content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+              }));
+              const pos = editor.state.selection.from;
+              editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+            } else if (behavior === 'strip_outside' && pastedHtml) {
+              const transformed = stripOuterTablesFromHtml(pastedHtml);
+              editor.chain().deleteSelection().insertContent(transformed).focus().run();
+            } else if (behavior === 'keep' && pastedHtml) {
+              editor.chain().deleteSelection().insertContent(pastedHtml).focus().run();
+            } else if (behavior === 'strip_outside' || behavior === 'keep') {
+              editor.chain().deleteSelection().insertContent(pastedText).focus().run();
+            } else {
+              const content = lines.map((line) => ({
+                type: 'paragraph',
+                content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+              }));
+              const pos = editor.state.selection.from;
+              editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+            }
+            return true;
+          }
+        }
+
+        // Fallback when paste event (and capture) had no clipboardData: try async Clipboard API.
+        if (pastedText === '' && pastedHtml === '' && editor && typeof navigator?.clipboard?.read === 'function') {
+          event.preventDefault();
+          const behavior = pasteTableBehavior ?? (pastePlainTextAsParagraphs ? 'strip_all' : 'keep');
+          navigator.clipboard.read().then((clipboardItems) => {
+            const htmlItem = clipboardItems.find((i) => i.types.includes('text/html'));
+            const textItem = clipboardItems.find((i) => i.types.includes('text/plain'));
+            const getHtml = htmlItem ? htmlItem.getType('text/html').then((b) => b.text()) : Promise.resolve('');
+            const getText = textItem ? textItem.getType('text/plain').then((b) => b.text()) : Promise.resolve('');
+            Promise.all([getHtml, getText]).then(([html, text]) => {
+              if (!editor || editor.isDestroyed) return;
+              const h = html ?? '';
+              const t = text ?? '';
+              const resolvedText = h ? htmlToPlainText(h) : t;
+              const lines = resolvedText.split(/\r?\n/);
+              if (behavior === 'strip_all') {
+                const content = lines.map((line) => ({
+                  type: 'paragraph',
+                  content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+                }));
+                const pos = editor.state.selection.from;
+                editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+              } else if (behavior === 'strip_outside' && h) {
+                const transformed = stripOuterTablesFromHtml(h);
+                editor.chain().deleteSelection().insertContent(transformed).focus().run();
+              } else if (behavior === 'keep' && h) {
+                editor.chain().deleteSelection().insertContent(h).focus().run();
+              } else {
+                editor.chain().deleteSelection().insertContent(t || resolvedText).focus().run();
+              }
+            }).catch(() => {});
+          }).catch(() => {});
+          return true;
+        }
+
         // If clipboard contains image files and we have an image paste handler, handle it first.
         const items = event.clipboardData?.items;
         if (items && onPasteImages && editor) {
@@ -368,35 +496,54 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
           // No image files: check for HTML with embedded images (e.g. paste from Word/Google Docs).
           const html = event.clipboardData?.getData('text/html');
-          const hasImgDataOrBlob = !!html && /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html);
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:pasteHtmlCheck',message:'html paste branch',data:{hasHtml:!!html,htmlLen:html?.length??0,hasImgDataOrBlob},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
-          if (html && hasImgDataOrBlob) {
+          if (html && /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html)) {
             event.preventDefault();
             extractImagesFromPastedHtml(html)
               .then((result) => {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:extractResult',message:'extractImagesFromPastedHtml result',data:{filesLength:result.files.length,htmlPlaceholderLen:result.htmlWithPlaceholders?.length},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
                 if (result.files.length > 0) {
                   onPasteImages(editor, result.files, {
                     pastedHtml: result.htmlWithPlaceholders,
                   });
                 }
               })
-              .catch((err) => {
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'rich-text-editor:extractError',message:'extractImagesFromPastedHtml error',data:{err: String(err)},timestamp:Date.now()})}).catch(()=>{});
-                // #endregion
-              });
+              .catch(() => {});
             return true;
           }
         }
 
+        // Apply pasteTableBehavior or pastePlainTextAsParagraphs when we have data.
+        const behavior = pasteTableBehavior ?? (pastePlainTextAsParagraphs ? 'strip_all' : null);
+        if (behavior && (pastedText || pastedHtml) && editor) {
+          event.preventDefault();
+          const text = pastedHtml ? htmlToPlainText(pastedHtml) : pastedText;
+          const lines = text.split(/\r?\n/);
+          if (behavior === 'strip_all') {
+            const content = lines.map((line) => ({
+              type: 'paragraph',
+              content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+            }));
+            const pos = editor.state.selection.from;
+            editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+          } else if (behavior === 'strip_outside' && pastedHtml) {
+            const transformed = stripOuterTablesFromHtml(pastedHtml);
+            editor.chain().deleteSelection().insertContent(transformed).focus().run();
+          } else if (behavior === 'keep' && pastedHtml) {
+            editor.chain().deleteSelection().insertContent(pastedHtml).focus().run();
+          } else if (behavior === 'strip_outside' || behavior === 'keep') {
+            editor.chain().deleteSelection().insertContent(pastedText).focus().run();
+          } else {
+            const content = lines.map((line) => ({
+              type: 'paragraph',
+              content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+            }));
+            const pos = editor.state.selection.from;
+            editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+          }
+          return true;
+        }
+
         if (!mentionSuggestions) return false;
 
-        const pastedText = event.clipboardData?.getData('text/plain') || '';
         if (!pastedText) return false;
 
         const mentionType = view.state.schema.nodes.mention;
@@ -579,6 +726,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       className={cn("relative cursor-text flex flex-col w-full h-full", !editable && "cursor-default")}
       style={{ minHeight }}
       onClick={handleContainerClick}
+      onPasteCapture={(e) => {
+        clipboardCaptureRef.current = {
+          text: e.clipboardData?.getData?.('text/plain') ?? '',
+          html: e.clipboardData?.getData?.('text/html') ?? '',
+        };
+      }}
     >
       <EditorContent editor={editor} className="flex-1" />
     </div>

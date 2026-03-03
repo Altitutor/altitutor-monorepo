@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient, useQueries } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
@@ -35,6 +35,7 @@ import {
   TableHeader,
   TableRow,
   TablePagination,
+  useToast,
 } from '@altitutor/ui'
 import { ChevronDown, ChevronRight, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import {
@@ -59,7 +60,11 @@ import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/Uca
 import { BulkImportQuestionStemsModal } from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  filterOptionsWithContent,
+  plainTextToProseMirror,
+  proseMirrorToPlainText,
+} from '@/features/ucat/shared/lib/rich-text'
 import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -184,8 +189,72 @@ export function UcatQuestionsPage() {
   const updateSetMutation = useUpdateUcatSet()
   const detail = useUcatQuestionDetail(editingStemId)
   const setsList = (setsQuery.data ?? []).filter(
-    (s) => !(s as { deleted_at?: string | null }).deleted_at
+    (s) =>
+      !(s as { deleted_at?: string | null }).deleted_at &&
+      !(s as { is_student_generated?: boolean }).is_student_generated
   )
+  const setIdsForDetail = useMemo(
+    () => (addToSetsPopoverOpen && selectedStemIds.size > 0 ? setsList.map((s) => s.id ?? '').filter(Boolean) : []),
+    [addToSetsPopoverOpen, selectedStemIds.size, setsList]
+  )
+  const setDetailQueries = useQueries({
+    queries: setIdsForDetail.map((setId) => ({
+      queryKey: ucatKeys.set(setId),
+      queryFn: () => ucatSetsApi.detail(setId),
+      enabled: true,
+    })),
+  })
+  const setDetailsMap = useMemo(() => {
+    const m: Record<string, { stems: Array<{ stem_id: string }> } | null> = {}
+    setIdsForDetail.forEach((setId, i) => {
+      const data = setDetailQueries[i]?.data
+      const stems = (data?.stems as Array<{ stem_id: string }> | null) ?? null
+      m[setId] = stems ? { stems } : null
+    })
+    return m
+  }, [setIdsForDetail, setDetailQueries])
+  const selectedStemIdsArray = useMemo(() => Array.from(selectedStemIds), [selectedStemIds])
+  const selectedSize = selectedStemIds.size
+  const setInCountMap = useMemo(() => {
+    const map: Record<string, number> = {}
+    setsList.forEach((s) => {
+      const setId = s.id ?? ''
+      const stems = setDetailsMap[setId]?.stems ?? []
+      const stemIdSet = new Set(stems.map((x) => x.stem_id))
+      map[setId] = selectedStemIdsArray.filter((id) => stemIdSet.has(id)).length
+    })
+    return map
+  }, [setsList, setDetailsMap, selectedStemIdsArray])
+  const stemsAlreadyInSelectedSetsCount = useMemo(() => {
+    if (bulkSetIds.length === 0) return 0
+    const inAny = new Set<string>()
+    bulkSetIds.forEach((setId) => {
+      const stems = setDetailsMap[setId]?.stems ?? []
+      stems.forEach((s) => inAny.add(s.stem_id))
+    })
+    return selectedStemIdsArray.filter((id) => inAny.has(id)).length
+  }, [bulkSetIds, setDetailsMap, selectedStemIdsArray])
+  const setDetailsReady =
+    setDetailQueries.length > 0 && setDetailQueries.every((q) => q.isFetched)
+  const addToSetsPreTickedRef = useRef(false)
+  useEffect(() => {
+    if (!addToSetsPopoverOpen) {
+      addToSetsPreTickedRef.current = false
+      return
+    }
+    if (selectedSize === 0 || setIdsForDetail.length === 0 || !setDetailsReady) return
+    if (addToSetsPreTickedRef.current) return
+    addToSetsPreTickedRef.current = true
+    const allInSetIds = setsList
+      .map((s) => s.id ?? '')
+      .filter((setId) => setInCountMap[setId] === selectedSize)
+    if (allInSetIds.length === 0) return
+    setBulkSetIds((prev) => {
+      const next = new Set(prev)
+      allInSetIds.forEach((id) => next.add(id))
+      return Array.from(next)
+    })
+  }, [addToSetsPopoverOpen, selectedSize, setIdsForDetail.length, setDetailsReady, setsList, setInCountMap])
 
   const createMutation = useCreateUcatQuestionStem()
   const updateMutation = useUpdateUcatQuestionStem()
@@ -316,34 +385,10 @@ export function UcatQuestionsPage() {
     }
   }
 
-  function stemDetailToBundlePayload(
-    detail: StemDetailRow,
-    overrides: { categoryId?: string | null; isPrivate?: boolean }
-  ): UcatQuestionStemBundlePayload {
-    const EMPTY_DOC = plainTextToProseMirror('')
-    const questions: UcatQuestionStemBundlePayload['questions'] = (detail.questions ?? []).map((q) => ({
-      index: q.index,
-      questionText: (q.question_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
-      questionType: q.question_type,
-      answerExplanation: (q.answer_explanation ?? null) as import('@altitutor/shared').Json | null,
-      difficulty: q.difficulty,
-      timeBurdenSeconds: q.time_burden_seconds ?? null,
-      tagIds: (q.tags ?? []).map((t) => t.id),
-      options: (q.answer_options ?? []).map((opt, i) => ({
-        index: i + 1,
-        answerText: (opt.answer_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
-        answerExplanation: (opt.answer_explanation ?? null) as import('@altitutor/shared').Json | null,
-        isAnswer: opt.is_answer,
-        imageFileId: opt.image_file_id ?? null,
-      })),
-    }))
-    return {
-      sectionId: detail.section_id,
-      categoryId: overrides.categoryId ?? detail.question_stem_category_id ?? null,
-      stemText: (detail.stem_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
-      isPrivate: overrides.isPrivate ?? detail.is_private,
-      questions,
-    }
+  function toExplanationNull(value: unknown): import('@altitutor/shared').Json | null {
+    if (value == null) return null
+    if (typeof value === 'string' && value === 'null') return null
+    return value as import('@altitutor/shared').Json
   }
 
   function mapFormValuesToBundlePayload(
@@ -360,15 +405,15 @@ export function UcatQuestionsPage() {
         index: index + 1,
         questionText: question.questionText,
         questionType: question.questionType,
+        answerExplanation: toExplanationNull(question.answerExplanation),
         difficulty: question.difficulty,
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
-        options: question.options.map((option, optionIndex) => ({
+        options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
           index: optionIndex + 1,
           answerText: option.answerText,
-          answerExplanation: option.answerExplanation ?? null,
+          answerExplanation: toExplanationNull(option.answerExplanation),
           isAnswer: option.isAnswer,
-          imageFileId: option.imageFileId ?? null,
         })),
       })),
     }
@@ -460,6 +505,7 @@ export function UcatQuestionsPage() {
     }
   }
 
+  const { toast } = useToast()
   async function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedStemIds)
     setBulkDeletePending(true)
@@ -468,6 +514,12 @@ export function UcatQuestionsPage() {
       await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
       setBulkDeleteOpen(false)
       setSelectedStemIds(new Set())
+    } catch (err) {
+      toast({
+        title: 'Cannot delete',
+        description: err instanceof Error ? err.message : 'Failed to delete question stems.',
+        variant: 'destructive',
+      })
     } finally {
       setBulkDeletePending(false)
     }
@@ -789,7 +841,7 @@ export function UcatQuestionsPage() {
         <Popover open={addToSetsPopoverOpen} onOpenChange={setAddToSetsPopoverOpen}>
           <PopoverTrigger
             type="button"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium border border-input bg-background hover:bg-accent hover:text-accent-foreground h-9 px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border h-9 px-3 hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:border-brand-dark-border dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white"
           >
             Add to sets
           </PopoverTrigger>
@@ -802,6 +854,9 @@ export function UcatQuestionsPage() {
                   {setsList.map((set) => {
                     const setId = set.id ?? ''
                     const isSelected = bulkSetIds.includes(setId)
+                    const inCount = setInCountMap[setId] ?? 0
+                    const checkboxState =
+                      isSelected ? true : inCount === selectedSize ? true : inCount > 0 ? 'indeterminate' : false
                     return (
                       <CommandItem
                         key={setId}
@@ -811,10 +866,9 @@ export function UcatQuestionsPage() {
                             isSelected ? prev.filter((id) => id !== setId) : [...prev, setId]
                           )
                         }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        className="flex items-center gap-2 cursor-pointer"
+                        className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                       >
-                        <Checkbox checked={isSelected} />
+                        <Checkbox checked={checkboxState} />
                         <span>{proseMirrorToPlainText(set.name ?? null) || 'Untitled'}</span>
                       </CommandItem>
                     )
@@ -878,6 +932,9 @@ export function UcatQuestionsPage() {
             <AlertDialogTitle>Add stems to sets?</AlertDialogTitle>
             <AlertDialogDescription>
               Add {selectedStemIds.size} selected stem(s) to {bulkSetIds.length} set(s)?
+              {stemsAlreadyInSelectedSetsCount > 0 && (
+                <> {stemsAlreadyInSelectedSetsCount} of the stems are already in one or more of the set(s).</>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

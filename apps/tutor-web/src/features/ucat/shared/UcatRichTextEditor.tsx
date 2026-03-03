@@ -29,6 +29,10 @@ export interface UcatRichTextEditorProps {
   enableImages?: boolean
   /** Optional callback with the set of image file IDs present after a drop operation. */
   onImageFileIdsChange?: (fileIds: string[]) => void
+  /** When true, pasting plain text with newlines inserts one paragraph per line (e.g. for bulk import). */
+  pastePlainTextAsParagraphs?: boolean
+  /** When set, controls how pasted table content is handled. See RichTextEditor pasteTableBehavior. */
+  pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep'
 }
 
 function toJsonContent(value: UcatRichTextValue): JSONContent | null {
@@ -57,6 +61,8 @@ export function UcatRichTextEditor({
   maxImagesPerDocument,
   enableImages,
   onImageFileIdsChange,
+  pastePlainTextAsParagraphs,
+  pasteTableBehavior,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
 
@@ -263,9 +269,6 @@ export function UcatRichTextEditor({
               html = html.replace(`__UPLOAD_${i}__`, signedUrls[i])
             }
           }
-          // #region agent log
-          fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'5ab71b'},body:JSON.stringify({sessionId:'5ab71b',location:'UcatRichTextEditor:pastedHtmlInsert',message:'insert pasted html',data:{signedUrlsLen:signedUrls.length,htmlLen:html.length,insertPos,hasPlaceholder:html.includes('__UPLOAD_')},timestamp:Date.now()})}).catch(()=>{});
-          // #endregion
           editor
             .chain()
             .focus()
@@ -316,6 +319,8 @@ export function UcatRichTextEditor({
         autoFocus={autoFocus}
         editable={editable}
         minHeight={minHeight}
+        pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
+        pasteTableBehavior={pasteTableBehavior}
         {...pasteImagesProp}
       />
     </div>

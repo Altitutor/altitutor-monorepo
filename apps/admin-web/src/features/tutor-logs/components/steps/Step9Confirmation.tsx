@@ -2,7 +2,6 @@
 
 import { Separator } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../../types';
 import { formatSessionDate } from '@/features/sessions/utils/session-helpers';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
@@ -132,7 +131,7 @@ export function Step9Confirmation({
           </div>
         ) : (
           <div className="space-y-3">
-            {studentsData.map((data: any) => (
+            {studentsData.map((data) => (
               <div key={data.student.id} className="flex items-center gap-3">
                 <div className="flex-1">
                   <StudentCard
@@ -162,7 +161,7 @@ export function Step9Confirmation({
           </div>
         ) : (
           <div className="space-y-3">
-            {staffData.map((data: any) => (
+            {staffData.map((data) => (
               <div key={data.staff.id} className="flex items-center gap-3">
                 <div className="flex-1">
                   <StaffCard

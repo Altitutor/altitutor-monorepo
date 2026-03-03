@@ -1,12 +1,11 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 export const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-export function json(resp: any, status = 200) {
+export function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), { 
     status, 
     headers: { 
@@ -17,7 +16,20 @@ export function json(resp: any, status = 200) {
 }
 
 // Evaluate rule conditions against activity event
-export function evaluateConditions(conditions: any, activityEvent: any, entityData: any): boolean {
+interface ConditionInput {
+  field?: string;
+  operator?: string;
+  value?: unknown;
+  old_value?: unknown;
+  new_value?: unknown;
+}
+
+interface ActivityEventLike {
+  event_type?: string;
+  changed_fields?: Record<string, { old: unknown; new: unknown }>;
+}
+
+export function evaluateConditions(conditions: ConditionInput | null | undefined, activityEvent: ActivityEventLike, entityData: Record<string, unknown> | null | undefined): boolean {
   if (!conditions || Object.keys(conditions).length === 0) {
     return true; // No conditions = always match
   }
@@ -130,7 +142,7 @@ export function evaluateConditions(conditions: any, activityEvent: any, entityDa
 // Replace template variables with actual values
 // Supports: {first_name}, {last_name}, {classes}, {sender_name}
 // Variables are case-insensitive
-export function replaceTemplateVariables(template: string, variables: Record<string, any>): string {
+export function replaceTemplateVariables(template: string, variables: Record<string, unknown>): string {
   let result = template;
   for (const [key, value] of Object.entries(variables)) {
     // Use single braces {variable} format (case-insensitive)
@@ -188,7 +200,17 @@ export function formatDateTime(timestamp: string): string {
 }
 
 // Format class name for display
-export function formatClassName(classData: any, subject: any): string {
+interface ClassDataLike {
+  day_of_week?: number | null;
+  start_time?: string | null;
+  end_time?: string | null;
+}
+
+interface SubjectLike {
+  long_name?: string | null;
+}
+
+export function formatClassName(classData: ClassDataLike, subject: SubjectLike | null | undefined): string {
   const parts: string[] = [];
   
   if (subject?.long_name) {
@@ -239,10 +261,10 @@ export function formatSessionDateTime(timestamp: string): string {
 
 // Format entity name based on entity type
 export async function formatEntityName(
-  supabase: any,
+  supabase: SupabaseClient,
   entityType: string,
-  entityData: any,
-  activityEvent: any
+  entityData: Record<string, unknown> | null | undefined,
+  activityEvent: ActivityEventLike
 ): Promise<string> {
   if (!entityData) return '';
   
@@ -431,7 +453,7 @@ export function buildStaffInviteUrl(token: string, role: string): string {
 
 // Helper function to generate or retrieve student invite token
 export async function getOrGenerateStudentInviteToken(
-  supabase: any,
+  supabase: SupabaseClient,
   studentId: string
 ): Promise<string | null> {
   // Check if student exists and get invite_token
@@ -475,7 +497,7 @@ export async function getOrGenerateStudentInviteToken(
 
 // Helper function to generate or retrieve student registration token
 export async function getOrGenerateStudentRegistrationToken(
-  supabase: any,
+  supabase: SupabaseClient,
   studentId: string
 ): Promise<string | null> {
   // Check if student exists and get invite_token (used for registration)
@@ -518,7 +540,7 @@ export async function getOrGenerateStudentRegistrationToken(
 
 // Helper function to generate or retrieve staff invite token
 export async function getOrGenerateStaffInviteToken(
-  supabase: any,
+  supabase: SupabaseClient,
   staffId: string
 ): Promise<string | null> {
   // Check if staff exists and get invite_token and role
@@ -562,11 +584,11 @@ export async function getOrGenerateStaffInviteToken(
 
 // Extract template variables from activity event and related entities
 export async function extractTemplateVariables(
-  supabase: any,
-  activityEvent: any,
-  entityData: any
-): Promise<Record<string, any>> {
-  const variables: Record<string, any> = {};
+  supabase: SupabaseClient,
+  activityEvent: ActivityEventLike & { performed_by?: string; student_id?: string; staff_id?: string; class_id?: string; session_id?: string; entity_type?: string },
+  entityData: Record<string, unknown> | null | undefined
+): Promise<Record<string, unknown>> {
+  const variables: Record<string, unknown> = {};
   
   // Load sender name from performed_by staff
   if (activityEvent.performed_by) {
@@ -625,7 +647,7 @@ export async function extractTemplateVariables(
       
       if (enrollments && enrollments.length > 0) {
         const classesList = enrollments
-          .map((e: any) => {
+          .map((e: { classes?: { day_of_week?: number; start_time?: string; end_time?: string; subjects?: { short_name?: string; long_name?: string } } }) => {
             const cls = e.classes;
             const subject = cls?.subjects;
             if (!cls) return null;

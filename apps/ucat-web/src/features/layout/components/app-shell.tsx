@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from '@/features/auth'
 import { AppSidebar } from '@/features/layout/components/app-sidebar'
+import { ComingSoonProvider } from '@/features/layout/context/coming-soon-context'
 import { FloatingAppActions } from '@/features/layout/components/floating-app-actions'
 import { UcatFloatingToolbar } from '@/features/layout/components/ucat-floating-toolbar'
+import { isComingSoon } from '@/features/layout/config/coming-soon'
 import { UcatLagProvider } from '@/features/question-engine/context/ucat-lag-context'
 import { useMediaQuery } from '@/shared/hooks/use-media-query'
 import { cn } from '@/lib/utils'
@@ -72,10 +74,19 @@ export function AppShell({ children, detail }: AppShellProps) {
   }
 
   const sidebarExpanded = isMobile ? mobileOpen : !collapsed
+  const comingSoonPath = isComingSoon(pathname)
+
+  const handleComingSoonConfirm = () => {
+    router.replace('/dashboard')
+  }
 
   return (
-    <div className="min-h-screen bg-background">
-      {isExamRoute ? (
+    <ComingSoonProvider
+      openOnMount={comingSoonPath}
+      onConfirmRedirect={handleComingSoonConfirm}
+    >
+      <div className="min-h-screen bg-background">
+        {isExamRoute ? (
         <UcatLagProvider>
           <UcatFloatingToolbar />
           <div className={cn('flex', 'w-screen')}>
@@ -116,8 +127,9 @@ export function AppShell({ children, detail }: AppShellProps) {
           </div>
         </>
       )}
-      {detail}
-    </div>
+        {detail}
+      </div>
+    </ComingSoonProvider>
   )
 }
 

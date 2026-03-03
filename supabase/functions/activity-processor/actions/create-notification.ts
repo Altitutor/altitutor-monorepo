@@ -1,15 +1,13 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { resolveNotificationRecipients } from '../recipients.ts';
 import { replaceTemplateVariables, extractTemplateVariables } from '../utils.ts';
 
 export async function executeCreateNotification(
-  supabase: SupabaseClient<any>,
-  action: any,
-  activityEvent: any,
-  rule: any,
-  entityData?: any
+  supabase: SupabaseClient,
+  action: { action_config?: unknown },
+  activityEvent: Record<string, unknown>,
+  rule: Record<string, unknown>,
+  entityData?: Record<string, unknown> | null
 ): Promise<void> {
   const config = action.action_config as {
     notification_type: string;
@@ -23,7 +21,7 @@ export async function executeCreateNotification(
             'session_students' | 'session_staff' | 'session_all' | 
             'single' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day';
     };
-    variables?: Record<string, any>;
+    variables?: Record<string, unknown>;
   };
 
   // Extract variables from activity event and entity data
@@ -101,6 +99,6 @@ export async function executeCreateNotification(
 
   console.log('[activity-processor] Notifications created', {
     count: createdNotifications?.length || 0,
-    notificationIds: createdNotifications?.map((n: any) => n.id) || [],
+    notificationIds: createdNotifications?.map((n: { id: string }) => n.id) || [],
   });
 }

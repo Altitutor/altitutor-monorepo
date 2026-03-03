@@ -1,5 +1,5 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
-import { UCAT_COLORS, UCAT_FONTS } from './ucat-theme'
+import { UCAT_FONTS } from './ucat-theme'
 
 type UcatExamActionButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   children: ReactNode

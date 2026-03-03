@@ -159,17 +159,17 @@ export function GlobalSearch() {
     const shortName = formatClassShortName(
       {
         day_of_week: classData.day_of_week ?? 0,
-        start_time: (classData.start_time ?? '00:00') as any,
-      } as any,
-      classData.subject as any
+        start_time: classData.start_time ?? '00:00',
+      } as Parameters<typeof formatClassShortName>[0],
+      classData.subject as Parameters<typeof formatClassShortName>[1]
     );
     const fullName = formatClassName(
       {
         day_of_week: classData.day_of_week ?? 0,
-        start_time: (classData.start_time ?? '00:00') as any,
-        end_time: (classData.end_time ?? classData.start_time ?? '00:00') as any,
-      } as any,
-      classData.subject as any
+        start_time: classData.start_time ?? '00:00',
+        end_time: classData.end_time ?? classData.start_time ?? '00:00',
+      } as Parameters<typeof formatClassName>[0],
+      classData.subject as Parameters<typeof formatClassName>[1]
     );
 
     return { shortName, fullName };
@@ -213,7 +213,7 @@ export function GlobalSearch() {
           if (!cls) return null;
           const { shortName } = buildClassLabels(cls);
           const subject = cls.subject;
-          const { style, textColorClass } = getSubjectColorStyle(subject as any);
+          const { style, textColorClass } = getSubjectColorStyle(subject as Parameters<typeof getSubjectColorStyle>[0]);
           const hasColor = Boolean(style.backgroundColor);
 
           return (

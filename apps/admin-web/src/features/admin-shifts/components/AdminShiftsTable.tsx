@@ -26,7 +26,7 @@ import {
   DataTableToolbar,
   TablePagination,
 } from "@altitutor/ui";
-import { Search, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAdminShiftsMinimalPaginated, useDeleteAdminShift } from '../hooks/useAdminShiftsQuery';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
@@ -82,7 +82,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
     statuses: state.filters.status as string[],
     page: state.page,
     pageSize: state.pageSize,
-    orderBy: state.sortBy as any || 'day_of_week',
+    orderBy: (state.sortBy as keyof Tables<'admin_shifts'>) || 'day_of_week',
     ascending: state.sortDirection === 'asc',
   });
 
@@ -125,7 +125,7 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
 
   const adminShifts: (Tables<'admin_shifts'> & {
     staff?: Tables<'staff'>[];
-  })[] = (data?.adminShifts as any) || [];
+  })[] = (data?.adminShifts ?? []) as (Tables<'admin_shifts'> & { staff?: Tables<'staff'>[] })[];
   const total = data?.total ?? 0;
   
   // Modal states - manage internally and use external state only when provided
@@ -151,8 +151,8 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
 
-  const getAdminShiftStaff = (shift: Tables<'admin_shifts'>): Tables<'staff'>[] => {
-    return ((shift as any).staff || []) as Tables<'staff'>[];
+  const getAdminShiftStaff = (shift: Tables<'admin_shifts'> & { staff?: Tables<'staff'>[] }): Tables<'staff'>[] => {
+    return shift.staff ?? [];
   };
   
   const handleAdminShiftClick = (shift: Tables<'admin_shifts'>) => {

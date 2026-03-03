@@ -33,7 +33,7 @@ import {
   TaskIssueEntityPill,
   TaskProjectEntityPill,
 } from './fields/TaskEntityPills';
-import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
+import type { TaskWithAssignee, TaskStatus, TaskPriority, TaskFilters, TaskUpdate, TaskFormData } from '../types';
 import { cn } from '@/shared/utils';
 import { Circle, Clock, Eye, CheckCircle } from 'lucide-react';
 
@@ -62,7 +62,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createDefaultStatus, setCreateDefaultStatus] = useState<TaskStatus | undefined>(undefined);
-  const [createDefaultValues, setCreateDefaultValues] = useState<any>({});
+  const [createDefaultValues, setCreateDefaultValues] = useState<Partial<TaskFormData>>({});
 
   const [sortBy, setSortBy] = useState<string>('priority');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
@@ -75,7 +75,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
   const { data: projects = [] } = useProjects();
 
   const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
-    const resolved = resolveQuickFilterPlaceholders(qf.config as any, currentStaffId);
+    const resolved = resolveQuickFilterPlaceholders(qf.config, currentStaffId);
     if (resolved.assigned_to && !resolved.assignee) {
       resolved.assignee = resolved.assigned_to;
       delete resolved.assigned_to;
@@ -91,11 +91,11 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     ...filters,
     ...(projectId ? { project_id: [projectId as unknown] } : {}),
     search: initialFilters?.search,
-  } as any);
+  } as TaskFilters);
 
   const updateTask = useUpdateTask();
   const handleUpdate = useCallback((task: TaskWithAssignee, updates: Partial<TaskWithAssignee>) => {
-    updateTask.mutate({ id: task.id, updates: updates as any });
+    updateTask.mutate({ id: task.id, updates: updates as TaskUpdate });
   }, [updateTask]);
 
   const { staff: staffList } = useStaffSearch('', true);
@@ -265,20 +265,20 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     },
   ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate]);
 
-  const columnDefs: KanbanColumnDef<TaskWithAssignee, any>[] = useMemo(() => [
+  const columnDefs: KanbanColumnDef<TaskWithAssignee, unknown>[] = useMemo(() => [
     {
       key: 'status',
       label: 'Status',
       getValue: (t) => t.status,
       options: STATUS_OPTIONS,
-      onValueChange: (t, v) => handleUpdate(t, { status: v }),
+      onValueChange: (t, v) => handleUpdate(t, { status: v as TaskStatus }),
     },
     {
       key: 'priority',
       label: 'Priority',
       getValue: (t) => t.priority ?? 0,
       options: PRIORITY_OPTIONS,
-      onValueChange: (t, v) => handleUpdate(t, { priority: v }),
+      onValueChange: (t, v) => handleUpdate(t, { priority: v as number }),
     },
     {
       key: 'assignee',
@@ -288,7 +288,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         { value: '__null__', label: 'Unassigned' },
         ...staffList.map(s => ({ value: s.id, label: `${s.first_name} ${s.last_name}` })),
       ],
-      onValueChange: (t, v) => handleUpdate(t, { assigned_to: v === '__null__' ? null : v }),
+      onValueChange: (t, v) => handleUpdate(t, { assigned_to: v === '__null__' ? null : (v as string) }),
     }
   ], [handleUpdate, staffList]);
 
@@ -306,8 +306,8 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     { key: 'status', label: 'Status' },
   ];
 
-  const handleAdd = useCallback((columnValue: any) => {
-    const defaults: any = { status: 'todo' as TaskStatus };
+  const handleAdd = useCallback((columnValue: unknown) => {
+    const defaults: Partial<TaskFormData> = { status: 'todo' as TaskStatus };
     if (activeColumnKey === 'status') {
       defaults.status = columnValue as TaskStatus;
     } else if (activeColumnKey === 'priority') {
@@ -387,7 +387,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         onSortChange={handleSortChange}
         filters={filters}
         onFiltersChange={setFilters}
-        quickFilters={quickFilters as any}
+        quickFilters={quickFilters}
         onApplyQuickFilter={handleApplyQuickFilter}
         getGroupLabel={getGroupLabel}
         onAdd={handleAdd}

@@ -1,11 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
+import { Button, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
 import { LayoutGrid, List, Plus } from 'lucide-react';
 import { IssuesBoard } from '@/features/issues/components/IssuesBoard';
 import { IssuesList } from '@/features/issues/components/IssuesList';
-import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 
 export default function IssuesPage() {

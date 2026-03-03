@@ -3,6 +3,7 @@
  * Tests element size tracking with ResizeObserver
  */
 
+import React from 'react';
 import { renderHook, act } from '@testing-library/react';
 import { useElementSize } from '../useElementSize';
 
@@ -20,7 +21,7 @@ class MockResizeObserver {
   unobserve = jest.fn();
 }
 
-global.ResizeObserver = MockResizeObserver as any;
+global.ResizeObserver = MockResizeObserver as unknown as typeof ResizeObserver;
 
 describe('useElementSize', () => {
   beforeEach(() => {
@@ -44,7 +45,7 @@ describe('useElementSize', () => {
 
     // Attach ref to element and force re-render
     act(() => {
-      (result.current[0] as any).current = mockElement;
+      (result.current[0] as React.MutableRefObject<HTMLDivElement | null>).current = mockElement;
       rerender();
     });
 
@@ -61,7 +62,7 @@ describe('useElementSize', () => {
     } as HTMLDivElement;
 
     act(() => {
-      (result.current[0] as any).current = mockElement;
+      (result.current[0] as React.MutableRefObject<HTMLDivElement | null>).current = mockElement;
       rerender();
     });
 
@@ -79,7 +80,7 @@ describe('useElementSize', () => {
     } as HTMLDivElement;
 
     act(() => {
-      (result.current[0] as any).current = mockElement;
+      (result.current[0] as React.MutableRefObject<HTMLDivElement | null>).current = mockElement;
       rerender();
     });
 
@@ -108,7 +109,7 @@ describe('useElementSize', () => {
     const { result, rerender, unmount } = renderHook(() => useElementSize<HTMLDivElement>());
 
     act(() => {
-      (result.current[0] as any).current = mockElement;
+      (result.current[0] as React.MutableRefObject<HTMLDivElement | null>).current = mockElement;
       rerender();
     });
 
@@ -143,7 +144,7 @@ describe('useElementSize', () => {
     } as HTMLDivElement;
 
     act(() => {
-      (result.current[0] as any).current = mockElement;
+      (result.current[0] as React.MutableRefObject<HTMLDivElement | null>).current = mockElement;
       rerender();
     });
 

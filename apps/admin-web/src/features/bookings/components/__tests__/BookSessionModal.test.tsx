@@ -14,7 +14,13 @@ jest.mock('../../hooks/useBookingSettings');
 jest.mock('../../utils/bookingHelpers');
 jest.mock('../../utils/dateTimeHelpers');
 jest.mock('../TimeSlotPicker', () => ({
-  TimeSlotPicker: ({ onSlotSelect, selectedSlot }: any) => (
+  TimeSlotPicker: ({
+    onSlotSelect,
+    selectedSlot,
+  }: {
+    onSlotSelect: (slot: { startAt: string; endAt: string; availableStaffIds: string[] }) => void;
+    selectedSlot: { startAt: string; endAt: string } | null;
+  }) => (
     <div data-testid="time-slot-picker">
       <button onClick={() => onSlotSelect({ startAt: '2024-01-01T10:00:00Z', endAt: '2024-01-01T11:00:00Z', availableStaffIds: ['staff-1'] })}>
         Select Slot
@@ -25,7 +31,15 @@ jest.mock('../TimeSlotPicker', () => ({
 }));
 
 jest.mock('../StaffSelector', () => ({
-  StaffSelector: ({ onSelect, selectedStaffId, availableStaffIds }: any) => (
+  StaffSelector: ({
+    onSelect,
+    selectedStaffId,
+    availableStaffIds,
+  }: {
+    onSelect: (staffId: string) => void;
+    selectedStaffId: string | null;
+    availableStaffIds: string[];
+  }) => (
     <div data-testid="staff-selector">
       {availableStaffIds.map((id: string) => (
         <button key={id} onClick={() => onSelect(id)}>
@@ -38,7 +52,15 @@ jest.mock('../StaffSelector', () => ({
 }));
 
 jest.mock('../AdminTrialContactForm', () => ({
-  AdminTrialContactForm: ({ onSubmit, onFormReady, onValidityChange }: any) => (
+  AdminTrialContactForm: ({
+    onSubmit,
+    onFormReady,
+    onValidityChange,
+  }: {
+    onSubmit: (data: { firstName: string; lastName: string }) => void;
+    onFormReady: (form: { requestSubmit: () => void }) => void;
+    onValidityChange: (valid: boolean) => void;
+  }) => (
     <div data-testid="trial-contact-form">
       <button onClick={() => {
         onFormReady({ requestSubmit: jest.fn() });
@@ -52,9 +74,17 @@ jest.mock('../AdminTrialContactForm', () => ({
 }));
 
 jest.mock('../steps/StudentSelectionStep', () => ({
-  StudentSelectionStep: ({ students, onSelectStudent, selectedStudentId }: any) => (
+  StudentSelectionStep: ({
+    students,
+    onSelectStudent,
+    selectedStudentId,
+  }: {
+    students: Array<{ id: string; first_name: string | null; last_name: string | null }> | undefined;
+    onSelectStudent: (id: string) => void;
+    selectedStudentId: string | null;
+  }) => (
     <div data-testid="student-selection-step">
-      {students?.map((s: any) => (
+      {students?.map((s: { id: string; first_name: string | null; last_name: string | null }) => (
         <button key={s.id} onClick={() => onSelectStudent(s.id)}>
           {s.first_name} {s.last_name}
         </button>
@@ -65,7 +95,13 @@ jest.mock('../steps/StudentSelectionStep', () => ({
 }));
 
 jest.mock('../steps/SubjectSelectionStep', () => ({
-  SubjectSelectionStep: ({ onSelectSubject, selectedSubjectId }: any) => (
+  SubjectSelectionStep: ({
+    onSelectSubject,
+    selectedSubjectId,
+  }: {
+    onSelectSubject: (subjectId: string) => void;
+    selectedSubjectId: string | null;
+  }) => (
     <div data-testid="subject-selection-step">
       <button onClick={() => onSelectSubject('subject-1')}>Select Subject</button>
       {selectedSubjectId && <div>Selected: {selectedSubjectId}</div>}
@@ -153,7 +189,7 @@ describe('BookSessionModal', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockUseSessionDurationMinutes.mockReturnValue({ data: 60 } as any);
+    mockUseSessionDurationMinutes.mockReturnValue({ data: 60 } as ReturnType<typeof useSessionDurationMinutes>);
     mockGetSessionTypeLabel.mockReturnValue('Drafting Session');
     mockFormatSlotDateTime.mockReturnValue('Jan 1, 2024 10:00 AM');
     mockGetCurrentAdelaideTime.mockReturnValue('Jan 1, 2024 9:00 AM');

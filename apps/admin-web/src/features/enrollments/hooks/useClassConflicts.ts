@@ -83,7 +83,7 @@ export function useClassConflicts({
         const enrolledClasses: Array<{ class: Tables<'classes'>; subject?: Tables<'subjects'> | null | undefined }> = [];
         
         for (const enrollment of enrollments || []) {
-          const classData = enrollment.class as any;
+          const classData = enrollment.class as Tables<'classes'> & { subject?: Tables<'subjects'> | null };
           if (classData) {
             enrolledClasses.push({
               class: classData as Tables<'classes'>,

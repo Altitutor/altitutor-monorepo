@@ -14,12 +14,20 @@ import type { Tables } from '@altitutor/shared';
 jest.mock('../../../hooks/useStudentSubjectsForIds');
 jest.mock('@/shared/hooks/useCopyToClipboard');
 jest.mock('@/shared/components/StudentCard', () => ({
-  StudentCard: ({ student, subjects, onClick }: any) => (
+  StudentCard: ({
+    student,
+    subjects,
+    onClick,
+  }: {
+    student: Tables<'students'>;
+    subjects?: Tables<'subjects'>[];
+    onClick?: () => void;
+  }) => (
     <div data-testid={`student-card-${student.id}`} onClick={onClick}>
       {student.first_name} {student.last_name}
       {subjects && subjects.length > 0 && (
         <div data-testid={`subjects-${student.id}`}>
-          {subjects.map((s: any) => s.name).join(', ')}
+          {subjects.map((s: Tables<'subjects'>) => s.name).join(', ')}
         </div>
       )}
     </div>
@@ -132,8 +140,8 @@ describe('ParentDetailsTab', () => {
     
     mockUseStudentSubjectsForIds.mockReturnValue({
       data: {
-        'student-1': [{ id: 'subject-1', name: 'Math' }] as any,
-        'student-2': [{ id: 'subject-2', name: 'English' }] as any,
+        'student-1': [{ id: 'subject-1', name: 'Math' }] as Tables<'subjects'>[],
+        'student-2': [{ id: 'subject-2', name: 'English' }] as Tables<'subjects'>[],
       },
       isLoading: false,
       isError: false,
@@ -141,7 +149,7 @@ describe('ParentDetailsTab', () => {
       isSuccess: true,
       isFetching: false,
       refetch: jest.fn(),
-    } as any);
+    } as unknown as ReturnType<typeof useStudentSubjectsForIds>);
 
     mockUseCopyToClipboard.mockReturnValue({
       copy: jest.fn(),
@@ -190,7 +198,7 @@ describe('ParentDetailsTab', () => {
         isSuccess: false,
         isFetching: true,
         refetch: jest.fn(),
-      } as any);
+      } as unknown as ReturnType<typeof useStudentSubjectsForIds>);
 
       const { container } = render(
         <ParentDetailsTab

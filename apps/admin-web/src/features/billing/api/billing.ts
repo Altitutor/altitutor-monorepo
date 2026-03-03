@@ -50,7 +50,7 @@ export const billingApi = {
     
     if (itemsError) throw itemsError;
     
-    const invoiceIds = Array.from(new Set((items || []).map((item: any) => item.invoice_id)));
+    const invoiceIds = Array.from(new Set((items || []).map((item: { invoice_id: string }) => item.invoice_id)));
     if (invoiceIds.length === 0) return [];
     
     const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
@@ -145,11 +145,11 @@ export const billingApi = {
     return this.getInvoicesByStudent(studentId);
   },
 
-  async getLatestPaymentAttemptsByStudent(studentId: string): Promise<any[]> {
+  async getLatestPaymentAttemptsByStudent(studentId: string): Promise<InvoiceRow[]> {
     return this.getInvoicesByStudent(studentId);
   },
 
-  async getPaymentAttemptsBySession(sessionId: string): Promise<any[]> {
+  async getPaymentAttemptsBySession(sessionId: string): Promise<InvoiceRow[]> {
     return this.getInvoicesBySession(sessionId);
   },
 
@@ -162,7 +162,7 @@ export const billingApi = {
     offset?: number;
     orderBy?: 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents';
     ascending?: boolean;
-  }): Promise<any> {
+  }): Promise<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[]> {
     const result = await this.listInvoices(params);
     // Backward compatibility: return just the invoices array
     return result.invoices;
@@ -171,29 +171,29 @@ export const billingApi = {
   // Reconciliation views
   async getMissingPaymentObligations(): Promise<MissingPaymentObligation[]> {
     const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('vadmin_missing_payment_obligations' as any)
+      .from('vadmin_missing_payment_obligations' as 'vadmin_reconciliation_uninvoiced_sessions')
       .select('*')
       .order('session_start_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as MissingPaymentObligation[];
+    return (data ?? []) as unknown as MissingPaymentObligation[];
   },
 
   async getFailedPaymentAttempts(): Promise<FailedPaymentAttempt[]> {
     const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('vadmin_failed_payment_attempts' as any)
+      .from('vadmin_failed_payment_attempts' as 'vadmin_reconciliation_uninvoiced_sessions')
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as FailedPaymentAttempt[];
+    return (data ?? []) as unknown as FailedPaymentAttempt[];
   },
 
   async getStuckPaymentAttempts(): Promise<StuckPaymentAttempt[]> {
     const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('vadmin_stuck_payment_attempts' as any)
+      .from('vadmin_stuck_payment_attempts' as 'vadmin_reconciliation_uninvoiced_sessions')
       .select('*')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as StuckPaymentAttempt[];
+    return (data ?? []) as unknown as StuckPaymentAttempt[];
   },
 
   // Manual reconciliation trigger (deprecated - Stripe handles reconciliation automatically)

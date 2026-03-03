@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from 'react';
+import { useMemo } from 'react';
 import { useSearchTutorLogs } from './useTutorLogsQuery';
 import { useStaffByIds } from './useStaffByIds';
 import { useStaffSearchForFilter } from './useStaffSearchForFilter';
@@ -12,7 +12,6 @@ import {
 import type { Tables, DataTableState } from '@altitutor/shared';
 
 type SortField = 'session_start_at';
-type SortDirection = 'asc' | 'desc';
 
 type StaffAttendanceItem = {
   staff_id: string;
@@ -74,6 +73,14 @@ export interface UseTutorLogsTableReturn {
   filteredStaff: Tables<'staff'>[];
   filteredStudents: Tables<'students'>[];
   
+  // Filtered count (for pagination total)
+  filteredTutorLogs: Array<{
+    id: string;
+    session_id: string;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string | null;
+  }>;
   // Pagination state
   paginatedTutorLogs: Array<{
     id: string;
@@ -112,9 +119,15 @@ export function useTutorLogsTable({
   const effectiveRangeStart = rangeStart || fromFilters[0];
   const effectiveRangeEnd = rangeEnd || toFilters[0];
 
-  // Extract staff filters
-  const staffFilters = (filters.staff as string[]) || [];
-  const studentFilters = (filters.student as string[]) || [];
+  // Extract staff/student filters (wrapped in useMemo for stable refs in downstream useMemo)
+  const staffFilters = useMemo(
+    () => (filters.staff as string[]) || [],
+    [filters.staff]
+  );
+  const studentFilters = useMemo(
+    () => (filters.student as string[]) || [],
+    [filters.student]
+  );
 
   // Staff search hook (for filter options)
   const { data: staffSearchResults } = useStaffSearchForFilter(staffSearchQuery);
@@ -226,6 +239,7 @@ export function useTutorLogsTable({
 
   return {
     tutorLogs,
+    filteredTutorLogs,
     sessions,
     classesById,
     subjectsById,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   EntityList,
   type EntityListStatusColumn,
@@ -32,14 +32,14 @@ export function ProjectsList() {
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
-  const { data: projects = [], isLoading } = useProjects(filters as any);
+  const { data: projects = [], isLoading } = useProjects(filters as import('../types').ProjectFilters);
   const updateProject = useUpdateProject();
 
   const handleStatusChange = useCallback((project: ProjectWithLead, value: ProjectStatus) => {
     updateProject.mutate({ id: project.id, updates: { status: value } });
   }, [updateProject]);
 
-  const statusColumn: EntityListStatusColumn<ProjectWithLead, ProjectStatus> = {
+  const statusColumn: EntityListStatusColumn<ProjectWithLead, unknown> = {
     key: 'status',
     label: 'Status',
     getValue: (p) => p.status as ProjectStatus,
@@ -49,10 +49,11 @@ export function ProjectsList() {
       ...opt,
       icon: opt.value === 'backlog' ? Circle : opt.value === 'planned' ? Clock3 : opt.value === 'in_progress' ? Flag : CheckCircle2,
     })),
-    renderBubble: (value, collapsed) => {
-      const option = STATUS_OPTIONS.find(o => o.value === value) || STATUS_OPTIONS[0];
-      const Icon = value === 'backlog' ? Circle : value === 'planned' ? Clock3 : value === 'in_progress' ? Flag : CheckCircle2;
-      const color = value === 'backlog' ? 'text-muted-foreground' : value === 'planned' ? 'text-blue-500' : value === 'in_progress' ? 'text-yellow-500' : 'text-green-500';
+    renderBubble: (value: unknown, collapsed) => {
+      const status = value as ProjectStatus;
+      const option = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
+      const Icon = status === 'backlog' ? Circle : status === 'planned' ? Clock3 : status === 'in_progress' ? Flag : CheckCircle2;
+      const color = status === 'backlog' ? 'text-muted-foreground' : status === 'planned' ? 'text-blue-500' : status === 'in_progress' ? 'text-yellow-500' : 'text-green-500';
 
       if (collapsed) return <Icon className={cn('h-3 w-3', color)} />;
 
@@ -63,7 +64,7 @@ export function ProjectsList() {
         </span>
       );
     },
-    onStatusChange: handleStatusChange,
+    onStatusChange: (project, value) => handleStatusChange(project, value as ProjectStatus),
   };
 
   const groupByOptions = useMemo(() => [{ key: 'status', label: 'Status' }], []);
@@ -80,7 +81,7 @@ export function ProjectsList() {
         items={projects}
         getItemId={(p) => p.id}
         renderName={(p) => <TextWithTags text={p.name} />}
-        statusColumn={statusColumn as any}
+        statusColumn={statusColumn}
         rightPills={[]}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}
@@ -114,7 +115,7 @@ export function ProjectsList() {
           enabled: true,
           renderEditor: ({ value, onChange, placeholder, ref }) => (
             <RichTextEditor
-              ref={ref as any}
+              ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
               content={value}
               onChange={onChange}
               placeholder={placeholder}

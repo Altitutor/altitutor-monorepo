@@ -3,9 +3,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
-import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  filterOptionsWithContent,
+  plainTextToProseMirror,
+  proseMirrorToPlainText,
+} from '@/features/ucat/shared/lib/rich-text'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
-import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
+import { minutesSecondsToTotal, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import {
   useUcatCategories,
@@ -50,7 +54,8 @@ export function UcatSetEditorDialog({
   const [search, setSearch] = useState('')
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
-  const [draftTimeLimit, setDraftTimeLimit] = useState('')
+  const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
+  const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
   const [draftPrivate, setDraftPrivate] = useState(false)
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
@@ -64,7 +69,9 @@ export function UcatSetEditorDialog({
 
     setDraftName(proseMirrorToPlainText(current.name ?? null))
     setDraftDescription(proseMirrorToPlainText(current.description))
-    setDraftTimeLimit(secondsToTimeString(current.time_limit_seconds))
+    const sec = current.time_limit_seconds ?? 0
+    setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
+    setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
     setDraftPrivate(!!current.is_private)
     setDraftStemIds(stemIds)
     setBaseline(
@@ -88,13 +95,13 @@ export function UcatSetEditorDialog({
     const snapshot = snapshotSetDetail({
       name: draftName,
       description: draftDescription,
-      time: parseTimeToSeconds(draftTimeLimit),
+      time: minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds),
       isPrivate: draftPrivate,
       isStudentGenerated: false,
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
-  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftTimeLimit])
+  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftTimeLimitMinutes, draftTimeLimitSeconds])
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => {
     const base: DataTableFilterDefinition[] = [
@@ -155,7 +162,7 @@ export function UcatSetEditorDialog({
         difficulty: question.difficulty,
         timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
         tagIds: question.tagIds ?? [],
-        options: question.options.map((option, optionIndex) => ({
+        options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
           index: optionIndex + 1,
           answerText: option.answerText,
           answerExplanation: option.answerExplanation,
@@ -176,7 +183,7 @@ export function UcatSetEditorDialog({
         id: setId,
         name: plainTextToProseMirror(draftName),
         description: draftDescription,
-        timeLimitSeconds: parseTimeToSeconds(draftTimeLimit),
+        timeLimitSeconds: minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds),
         isPrivate: draftPrivate,
         isStudentGenerated: false,
         stemIds: draftStemIds,
@@ -231,7 +238,8 @@ export function UcatSetEditorDialog({
         <UcatSetEditorContent
           draftName={draftName}
           draftDescription={draftDescription}
-          draftTimeLimit={draftTimeLimit}
+          draftTimeLimitMinutes={draftTimeLimitMinutes}
+          draftTimeLimitSeconds={draftTimeLimitSeconds}
           draftPrivate={draftPrivate}
           draftStemIds={draftStemIds}
           setDraftStemIds={setDraftStemIds}
@@ -244,7 +252,8 @@ export function UcatSetEditorDialog({
           onEditStem={(id) => setEditingStemId(id)}
           onChangeName={setDraftName}
           onChangeDescription={setDraftDescription}
-          onChangeTimeLimit={setDraftTimeLimit}
+          onChangeTimeLimitMinutes={setDraftTimeLimitMinutes}
+          onChangeTimeLimitSeconds={setDraftTimeLimitSeconds}
           onChangePrivate={(value) => setDraftPrivate(value)}
         />
       </UcatDialogShell>

@@ -14,7 +14,7 @@ Run these commands in order before committing:
    - Ensure strict type safety
 
 2. **Lint**: `pnpm lint`
-   - Fix all linting errors
+   - Fix all linting errors and warnings (zero warnings policy)
    - Follow ESLint rules
 
 3. **Build**: `pnpm build`

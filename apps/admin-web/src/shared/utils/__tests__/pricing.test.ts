@@ -1,101 +1,65 @@
 /**
  * Tests for pricing calculation logic
- * These tests mirror the logic from supabase/functions/billing-runner/shared/pricing.ts
+ * Tests the actual implementation from @/shared/utils/pricing.ts
+ * Logic mirrors supabase/functions/billing-runner/shared/pricing.ts
  */
 
+import {
+  calculateSessionPrice,
+  formatCurrency,
+} from '../pricing';
+import type { SubjectPricingOverrideRow } from '@/features/billing/api/subject-pricing-overrides';
+import type { StudentSubsidyRow } from '@/features/students/api/subsidies';
+
 describe('calculateSessionPrice', () => {
-  // Mock implementation based on the actual function logic
-  function calculateSessionPrice(
-    session: {
-      billing_type: string | null;
-      subject_id: string;
-      start_at: string;
-      end_at: string;
-    },
-    studentId: string | undefined,
-    targetDate: Date,
-    pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }>,
-    overridesBySubjectAndBilling: Record<string, Record<string, any>>,
-    pricingOverrides: any[],
-    subsidies: any[]
-  ): { amount_cents: number; currency: string } {
-    if (!session.billing_type) {
-      return { amount_cents: 0, currency: 'aud' };
-    }
-
-    const startTime = new Date(session.start_at).getTime();
-    const endTime = new Date(session.end_at).getTime();
-    const durationMs = endTime - startTime;
-    const durationHours = durationMs / (1000 * 60 * 60);
-
-    const override = overridesBySubjectAndBilling[session.subject_id]?.[session.billing_type];
-    let hourlyRateCents = 0;
-    let currency = 'aud';
-
-    if (override) {
-      const overrideData = pricingOverrides?.find(
-        (o: any) =>
-          o.subject_id === session.subject_id && o.billing_type === session.billing_type
-      );
-      if (overrideData) {
-        const effectiveFrom = new Date(overrideData.effective_from);
-        const effectiveUntil = overrideData.effective_until
-          ? new Date(overrideData.effective_until)
-          : null;
-        if (effectiveFrom <= targetDate && (!effectiveUntil || effectiveUntil > targetDate)) {
-          hourlyRateCents = override.hourly_rate_cents;
-          currency = override.currency.toLowerCase();
-        } else {
-          const defaultPricing = pricingByBillingType[session.billing_type];
-          hourlyRateCents = defaultPricing?.hourly_rate_cents || 0;
-          currency = defaultPricing?.currency?.toLowerCase() || 'aud';
-        }
-      } else {
-        const defaultPricing = pricingByBillingType[session.billing_type];
-        hourlyRateCents = defaultPricing?.hourly_rate_cents || 0;
-        currency = defaultPricing?.currency?.toLowerCase() || 'aud';
-      }
-    } else {
-      const defaultPricing = pricingByBillingType[session.billing_type];
-      hourlyRateCents = defaultPricing?.hourly_rate_cents || 0;
-      currency = defaultPricing?.currency?.toLowerCase() || 'aud';
-    }
-
-    if (studentId && session.subject_id && session.billing_type) {
-      const activeSub = (subsidies || []).find(
-        (s: any) =>
-          s.student_id === studentId &&
-          s.subject_id === session.subject_id &&
-          s.billing_type === session.billing_type &&
-          (!s.effective_from || new Date(s.effective_from) <= targetDate) &&
-          (!s.effective_until || new Date(s.effective_until) > targetDate)
-      );
-
-      if (activeSub) {
-        const subsidyHourlyRateCents = activeSub.price_cents;
-        hourlyRateCents = Math.min(hourlyRateCents, subsidyHourlyRateCents);
-        if (activeSub.currency) {
-          currency = activeSub.currency.toLowerCase();
-        }
-      }
-    }
-
+  // Helper to create minimal override row for tests
+  function createOverride(
+    overrides: Partial<SubjectPricingOverrideRow>
+  ): SubjectPricingOverrideRow {
     return {
-      amount_cents: Math.round(hourlyRateCents * durationHours),
-      currency,
-    };
+      subject_id: '',
+      billing_type: 'CLASS',
+      hourly_rate_cents: 0,
+      currency: 'AUD',
+      effective_from: '',
+      effective_until: null,
+      created_at: null,
+      updated_at: null,
+      subject: { id: '', name: '', curriculum: null, year_level: null },
+      ...overrides,
+    } as SubjectPricingOverrideRow;
+  }
+
+  // Helper to create minimal subsidy row for tests
+  function createSubsidy(
+    overrides: Partial<StudentSubsidyRow>
+  ): StudentSubsidyRow {
+    return {
+      student_id: '',
+      subject_id: '',
+      billing_type: 'CLASS',
+      price_cents: 0,
+      currency: null,
+      effective_from: null,
+      effective_until: null,
+      created_at: null,
+      updated_at: null,
+      created_by: null,
+      subject: {} as StudentSubsidyRow['subject'],
+      ...overrides,
+    } as StudentSubsidyRow;
   }
 
   const mockSession = {
-    billing_type: 'DOMESTIC',
+    billing_type: 'CLASS',
     subject_id: 'subject-1',
     start_at: '2024-01-15T10:00:00Z',
     end_at: '2024-01-15T11:00:00Z', // 1 hour
   };
 
   const mockPricingByBillingType = {
-    DOMESTIC: { hourly_rate_cents: 10000, currency: 'AUD' },
-    INTERNATIONAL: { hourly_rate_cents: 15000, currency: 'AUD' },
+    CLASS: { hourly_rate_cents: 10000, currency: 'AUD' },
+    EXAM_COURSE: { hourly_rate_cents: 15000, currency: 'AUD' },
   };
 
   describe('basic pricing', () => {
@@ -157,18 +121,18 @@ describe('calculateSessionPrice', () => {
 
   describe('subject overrides', () => {
     it('should use subject override when active', () => {
-      const override = {
+      const override = createOverride({
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         hourly_rate_cents: 12000,
         currency: 'AUD',
         effective_from: '2024-01-01',
         effective_until: null,
-      };
+      });
 
       const overridesBySubjectAndBilling = {
         'subject-1': {
-          DOMESTIC: { hourly_rate_cents: 12000, currency: 'AUD' },
+          CLASS: { hourly_rate_cents: 12000, currency: 'AUD' },
         },
       };
 
@@ -187,18 +151,18 @@ describe('calculateSessionPrice', () => {
     });
 
     it('should fall back to default when override is not active (future date)', () => {
-      const override = {
+      const override = createOverride({
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         hourly_rate_cents: 12000,
         currency: 'AUD',
         effective_from: '2024-02-01', // Future date
         effective_until: null,
-      };
+      });
 
       const overridesBySubjectAndBilling = {
         'subject-1': {
-          DOMESTIC: { hourly_rate_cents: 12000, currency: 'AUD' },
+          CLASS: { hourly_rate_cents: 12000, currency: 'AUD' },
         },
       };
 
@@ -217,18 +181,18 @@ describe('calculateSessionPrice', () => {
     });
 
     it('should fall back to default when override has expired', () => {
-      const override = {
+      const override = createOverride({
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         hourly_rate_cents: 12000,
         currency: 'AUD',
         effective_from: '2024-01-01',
         effective_until: '2024-01-10', // Expired
-      };
+      });
 
       const overridesBySubjectAndBilling = {
         'subject-1': {
-          DOMESTIC: { hourly_rate_cents: 12000, currency: 'AUD' },
+          CLASS: { hourly_rate_cents: 12000, currency: 'AUD' },
         },
       };
 
@@ -249,15 +213,15 @@ describe('calculateSessionPrice', () => {
 
   describe('student subsidies', () => {
     it('should apply subsidy when student has active subsidy', () => {
-      const subsidy = {
+      const subsidy = createSubsidy({
         student_id: 'student-1',
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         price_cents: 8000, // $80/hour subsidy rate
         currency: 'AUD',
         effective_from: '2024-01-01',
         effective_until: null,
-      };
+      });
 
       const result = calculateSessionPrice(
         mockSession,
@@ -274,28 +238,28 @@ describe('calculateSessionPrice', () => {
     });
 
     it('should use minimum of subsidy and override rate', () => {
-      const override = {
+      const override = createOverride({
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         hourly_rate_cents: 9000,
         currency: 'AUD',
         effective_from: '2024-01-01',
         effective_until: null,
-      };
+      });
 
-      const subsidy = {
+      const subsidy = createSubsidy({
         student_id: 'student-1',
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         price_cents: 8000,
         currency: 'AUD',
         effective_from: '2024-01-01',
         effective_until: null,
-      };
+      });
 
       const overridesBySubjectAndBilling = {
         'subject-1': {
-          DOMESTIC: { hourly_rate_cents: 9000, currency: 'AUD' },
+          CLASS: { hourly_rate_cents: 9000, currency: 'AUD' },
         },
       };
 
@@ -328,15 +292,15 @@ describe('calculateSessionPrice', () => {
     });
 
     it('should not apply subsidy when subsidy is not active (future)', () => {
-      const subsidy = {
+      const subsidy = createSubsidy({
         student_id: 'student-1',
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         price_cents: 8000,
         currency: 'AUD',
         effective_from: '2024-02-01', // Future
         effective_until: null,
-      };
+      });
 
       const result = calculateSessionPrice(
         mockSession,
@@ -352,15 +316,15 @@ describe('calculateSessionPrice', () => {
     });
 
     it('should not apply subsidy when subsidy has expired', () => {
-      const subsidy = {
+      const subsidy = createSubsidy({
         student_id: 'student-1',
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         price_cents: 8000,
         currency: 'AUD',
         effective_from: '2024-01-01',
         effective_until: '2024-01-10', // Expired
-      };
+      });
 
       const result = calculateSessionPrice(
         mockSession,
@@ -378,18 +342,18 @@ describe('calculateSessionPrice', () => {
 
   describe('currency handling', () => {
     it('should handle USD currency', () => {
-      const override = {
+      const override = createOverride({
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         hourly_rate_cents: 12000,
         currency: 'USD',
         effective_from: '2024-01-01',
         effective_until: null,
-      };
+      });
 
       const overridesBySubjectAndBilling = {
         'subject-1': {
-          DOMESTIC: { hourly_rate_cents: 12000, currency: 'USD' },
+          CLASS: { hourly_rate_cents: 12000, currency: 'USD' },
         },
       };
 
@@ -407,15 +371,15 @@ describe('calculateSessionPrice', () => {
     });
 
     it('should use subsidy currency when provided', () => {
-      const subsidy = {
+      const subsidy = createSubsidy({
         student_id: 'student-1',
         subject_id: 'subject-1',
-        billing_type: 'DOMESTIC',
+        billing_type: 'CLASS',
         price_cents: 8000,
         currency: 'USD',
         effective_from: '2024-01-01',
         effective_until: null,
-      };
+      });
 
       const result = calculateSessionPrice(
         mockSession,
@@ -440,7 +404,7 @@ describe('calculateSessionPrice', () => {
       };
 
       const pricing = {
-        DOMESTIC: { hourly_rate_cents: 10000, currency: 'AUD' },
+        CLASS: { hourly_rate_cents: 10000, currency: 'AUD' },
       };
 
       const result = calculateSessionPrice(
@@ -471,5 +435,30 @@ describe('calculateSessionPrice', () => {
       expect(result.amount_cents).toBe(0);
       expect(result.currency).toBe('aud');
     });
+  });
+});
+
+describe('formatCurrency', () => {
+  it('should format AUD amount correctly', () => {
+    expect(formatCurrency(10000, 'aud')).toBe('$100.00');
+  });
+
+  it('should format USD amount correctly', () => {
+    const result = formatCurrency(12345, 'usd');
+    expect(result).toContain('123.45');
+    // Currency symbol/format varies by locale (e.g. $123.45, US$123.45, USD 123.45)
+    expect(result.length).toBeGreaterThan(5);
+  });
+
+  it('should default to AUD when currency not provided', () => {
+    expect(formatCurrency(5000)).toBe('$50.00');
+  });
+
+  it('should handle zero', () => {
+    expect(formatCurrency(0, 'aud')).toBe('$0.00');
+  });
+
+  it('should round cents correctly', () => {
+    expect(formatCurrency(9999, 'aud')).toBe('$99.99');
   });
 });

@@ -3,6 +3,8 @@ import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionDetailsTab } from '../SessionDetailsTab';
 import { renderWithProviders } from '@/shared/test-utils';
+import type { Tables } from '@altitutor/shared';
+import type { SessionDetailsSession } from '../../types';
 
 function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionDetailsTab>> = {}) {
   const onAddStudentToSession = jest.fn();
@@ -14,22 +16,24 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
 
   const result = renderWithProviders(
     <SessionDetailsTab
-      session={{
-        id: 'session-1',
-        start_at: '2026-01-01T00:00:00.000Z',
-        end_at: '2026-01-01T01:00:00.000Z',
-        class_id: 'class-1',
-        class: {
-          id: 'class-1',
-          day_of_week: 1,
-          start_time: '15:00',
-          end_time: '16:00',
-          subject: { id: 'subject-1', name: 'Math', code: 'MATH' },
-        },
-      }}
+      session={
+        {
+          id: 'session-1',
+          start_at: '2026-01-01T00:00:00.000Z',
+          end_at: '2026-01-01T01:00:00.000Z',
+          class_id: 'class-1',
+          class: {
+            id: 'class-1',
+            day_of_week: 1,
+            start_time: '15:00',
+            end_time: '16:00',
+            subject: { id: 'subject-1', name: 'Math', long_name: 'Mathematics', short_name: 'MATH' },
+          },
+        } as SessionDetailsSession
+      }
       studentsData={[
         {
-          student: { id: 'student-extra', first_name: 'Extra', last_name: 'Student' } as any,
+          student: { id: 'student-extra', first_name: 'Extra', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-extra',
           rescheduledSessionsStudentsId: null,
           plannedStatus: 'attending-extra',
@@ -40,7 +44,7 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
           hasInvoiceItems: false,
         },
         {
-          student: { id: 'student-normal', first_name: 'Normal', last_name: 'Student' } as any,
+          student: { id: 'student-normal', first_name: 'Normal', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-normal',
           rescheduledSessionsStudentsId: null,
           plannedStatus: 'attending',
@@ -53,7 +57,7 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
       ]}
       staffData={[
         {
-          staff: { id: 'staff-1', first_name: 'Staff', last_name: 'Member' } as any,
+          staff: { id: 'staff-1', first_name: 'Staff', last_name: 'Member' } as Tables<'staff'>,
           sessionsStaffId: 'sf-1',
           swappedSessionsStaffId: null,
           plannedStatus: 'attending',
@@ -118,7 +122,7 @@ describe('SessionDetailsTab', () => {
       staffData: [],
       studentsData: [
         {
-          student: { id: 'student-extra', first_name: 'Extra', last_name: 'Student' } as any,
+          student: { id: 'student-extra', first_name: 'Extra', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-extra',
           rescheduledSessionsStudentsId: null,
           plannedStatus: 'attending-extra-trial',
@@ -144,7 +148,7 @@ describe('SessionDetailsTab', () => {
       staffData: [],
       studentsData: [
         {
-          student: { id: 'student-normal', first_name: 'Normal', last_name: 'Student' } as any,
+          student: { id: 'student-normal', first_name: 'Normal', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-normal',
           rescheduledSessionsStudentsId: null,
           plannedStatus: 'attending',
@@ -172,7 +176,7 @@ describe('SessionDetailsTab', () => {
       staffData: [],
       studentsData: [
         {
-          student: { id: 'student-invoiced', first_name: 'Invoiced', last_name: 'Student' } as any,
+          student: { id: 'student-invoiced', first_name: 'Invoiced', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-invoiced',
           rescheduledSessionsStudentsId: null,
           plannedStatus: 'attending-extra',
@@ -216,7 +220,7 @@ describe('SessionDetailsTab', () => {
       },
       studentsData: [
         {
-          student: { id: 'student-extra', first_name: 'Extra', last_name: 'Student' } as any,
+          student: { id: 'student-extra', first_name: 'Extra', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-extra',
           plannedStatus: 'attending-extra',
           actualStatus: 'attended',
@@ -225,7 +229,7 @@ describe('SessionDetailsTab', () => {
           plannedAbsence: false,
           hasInvoiceItems: false,
         },
-      ] as any,
+      ] as React.ComponentProps<typeof SessionDetailsTab>['studentsData'],
       staffData: [],
     });
 
@@ -249,7 +253,7 @@ describe('SessionDetailsTab', () => {
       studentsData: [],
       staffData: [
         {
-          staff: { id: 'staff-1', first_name: 'Staff', last_name: 'Member' } as any,
+          staff: { id: 'staff-1', first_name: 'Staff', last_name: 'Member' } as Tables<'staff'>,
           sessionsStaffId: 'sf-1',
           plannedStatus: 'attending',
           actualStatus: 'attended',
@@ -258,7 +262,7 @@ describe('SessionDetailsTab', () => {
           submittedTutorLog: true,
           plannedAbsence: false,
         },
-      ] as any,
+      ] as React.ComponentProps<typeof SessionDetailsTab>['staffData'],
     });
 
     const staffRow = screen.getByText('Staff Member').closest('tr');
@@ -276,7 +280,7 @@ describe('SessionDetailsTab', () => {
       staffData: [],
       studentsData: [
         {
-          student: { id: 'student-credited', first_name: 'Credited', last_name: 'Student' } as any,
+          student: { id: 'student-credited', first_name: 'Credited', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-credited',
           rescheduledSessionsStudentsId: null,
           plannedStatus: 'credited',
@@ -302,7 +306,7 @@ describe('SessionDetailsTab', () => {
       staffData: [],
       studentsData: [
         {
-          student: { id: 'student-rescheduled', first_name: 'Rescheduled', last_name: 'Student' } as any,
+          student: { id: 'student-rescheduled', first_name: 'Rescheduled', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-rescheduled',
           rescheduledSessionsStudentsId: 'ss-target',
           plannedStatus: 'rescheduled',
@@ -329,7 +333,7 @@ describe('SessionDetailsTab', () => {
       studentsData: [],
       staffData: [
         {
-          staff: { id: 'staff-absent', first_name: 'Absent', last_name: 'Tutor' } as any,
+          staff: { id: 'staff-absent', first_name: 'Absent', last_name: 'Tutor' } as Tables<'staff'>,
           sessionsStaffId: 'sf-absent',
           swappedSessionsStaffId: null,
           plannedStatus: 'absent',
@@ -355,7 +359,7 @@ describe('SessionDetailsTab', () => {
       studentsData: [],
       staffData: [
         {
-          staff: { id: 'staff-swapped', first_name: 'Swapped', last_name: 'Tutor' } as any,
+          staff: { id: 'staff-swapped', first_name: 'Swapped', last_name: 'Tutor' } as Tables<'staff'>,
           sessionsStaffId: 'sf-swapped',
           swappedSessionsStaffId: 'sf-replacement',
           plannedStatus: 'swapped',
@@ -381,7 +385,7 @@ describe('SessionDetailsTab', () => {
       staffData: [],
       studentsData: [
         {
-          student: { id: 'student-attending', first_name: 'Attending', last_name: 'Student' } as any,
+          student: { id: 'student-attending', first_name: 'Attending', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-attending',
           rescheduledSessionsStudentsId: null,
           plannedStatus: 'attending',

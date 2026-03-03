@@ -14,7 +14,6 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Textarea,
 } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -24,15 +23,16 @@ import { useCreateUcatSection, useUcatSections, useUpdateUcatSection } from '@/f
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import { formatSecondsToDuration, parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
+import type { Json } from '@altitutor/shared'
+import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 
 type SectionRow = {
   id: string
   section_number: number
   name: string
   display_columns: number
-  description: string
+  instructions_text: Json | null
   time_limit_seconds: number | null
   number_of_questions: number | null
   time_per_question: number | null
@@ -43,9 +43,11 @@ type SectionDraft = {
   sectionNumber: string
   name: string
   displayColumns: '1' | '2'
-  description: string
+  instructionsText: Json | null
+  timeLimitMinutes: string
   timeLimitSeconds: string
   numberOfQuestions: string
+  instructionsTimeLimitMinutes: string
   instructionsTimeLimitSeconds: string
 }
 
@@ -106,9 +108,11 @@ const emptyDraft: SectionDraft = {
   sectionNumber: '',
   name: '',
   displayColumns: '2',
-  description: '',
+  instructionsText: null,
+  timeLimitMinutes: '',
   timeLimitSeconds: '',
   numberOfQuestions: '',
+  instructionsTimeLimitMinutes: '',
   instructionsTimeLimitSeconds: '',
 }
 
@@ -130,13 +134,14 @@ export function UcatSectionsPage() {
       number_of_questions?: number | null
       time_per_question?: number | null
       instructions_time_limit_seconds?: number | null
+      instructions_text?: Json | null
     }
     return {
       id: r.id ?? '',
       section_number: r.section_number ?? 0,
       name: r.name ?? '',
       display_columns: r.display_columns ?? 2,
-      description: proseMirrorToPlainText(r.description),
+      instructions_text: r.instructions_text ?? null,
       time_limit_seconds: r.time_limit_seconds ?? null,
       number_of_questions: r.number_of_questions ?? null,
       time_per_question: r.time_per_question ?? null,
@@ -249,14 +254,18 @@ export function UcatSectionsPage() {
                   icon: <Pencil className="h-4 w-4" />,
                   onClick: () => {
                     setEditing(row.original)
+                    const sec = row.original.time_limit_seconds ?? 0
+                    const instrSec = row.original.instructions_time_limit_seconds ?? 0
                     setDraft({
                       sectionNumber: String(row.original.section_number),
                       name: row.original.name,
                       displayColumns: String(row.original.display_columns) as '1' | '2',
-                      description: row.original.description,
-                      timeLimitSeconds: secondsToTimeString(row.original.time_limit_seconds) || '',
+                      instructionsText: row.original.instructions_text,
+                      timeLimitMinutes: String(Math.floor(sec / 60)),
+                      timeLimitSeconds: String(Math.floor(sec % 60)),
                       numberOfQuestions: row.original.number_of_questions != null ? String(row.original.number_of_questions) : '',
-                      instructionsTimeLimitSeconds: secondsToTimeString(row.original.instructions_time_limit_seconds) || '',
+                      instructionsTimeLimitMinutes: String(Math.floor(instrSec / 60)),
+                      instructionsTimeLimitSeconds: String(Math.floor(instrSec % 60)),
                     })
                   },
                 },
@@ -278,10 +287,10 @@ export function UcatSectionsPage() {
       sectionNumber: Number(draft.sectionNumber),
       name: draft.name,
       displayColumns: Number(draft.displayColumns) as 1 | 2,
-      description: draft.description,
-      timeLimitSeconds: parseTimeToSeconds(draft.timeLimitSeconds),
+      instructionsText: draft.instructionsText,
+      timeLimitSeconds: minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds),
       numberOfQuestions: draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions),
-      instructionsTimeLimitSeconds: parseTimeToSeconds(draft.instructionsTimeLimitSeconds),
+      instructionsTimeLimitSeconds: minutesSecondsToTotal(draft.instructionsTimeLimitMinutes, draft.instructionsTimeLimitSeconds),
     })
     setCreateOpen(false)
     setDraft(emptyDraft)
@@ -295,10 +304,10 @@ export function UcatSectionsPage() {
         sectionNumber: Number(draft.sectionNumber),
         name: draft.name,
         displayColumns: Number(draft.displayColumns) as 1 | 2,
-        description: draft.description,
-        timeLimitSeconds: parseTimeToSeconds(draft.timeLimitSeconds),
+        instructionsText: draft.instructionsText,
+        timeLimitSeconds: minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds),
         numberOfQuestions: draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions),
-        instructionsTimeLimitSeconds: parseTimeToSeconds(draft.instructionsTimeLimitSeconds),
+        instructionsTimeLimitSeconds: minutesSecondsToTotal(draft.instructionsTimeLimitMinutes, draft.instructionsTimeLimitSeconds),
       },
     })
     await queryClient.refetchQueries({ queryKey: ucatKeys.sections() })
@@ -410,13 +419,27 @@ function SectionForm({
         </Select>
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-medium">Time limit (mm:ss or seconds)</span>
-        <Input
-          type="text"
-          placeholder="e.g. 1:30 or 90"
-          value={draft.timeLimitSeconds}
-          onChange={(e) => setDraft((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))}
-        />
+        <span className="mb-1 block font-medium">Time limit (mm:ss)</span>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min={0}
+            placeholder="0"
+            className="w-20"
+            value={draft.timeLimitMinutes}
+            onChange={(e) => setDraft((prev) => ({ ...prev, timeLimitMinutes: e.target.value }))}
+          />
+          <span className="text-muted-foreground font-medium">:</span>
+          <Input
+            type="number"
+            min={0}
+            max={59}
+            placeholder="0"
+            className="w-20"
+            value={draft.timeLimitSeconds}
+            onChange={(e) => setDraft((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))}
+          />
+        </div>
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Number of questions</span>
@@ -429,21 +452,42 @@ function SectionForm({
         />
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-medium">Instructions time limit (mm:ss or seconds)</span>
-        <Input
-          type="text"
-          placeholder="e.g. 1:30 or 90"
-          value={draft.instructionsTimeLimitSeconds}
-          onChange={(e) => setDraft((prev) => ({ ...prev, instructionsTimeLimitSeconds: e.target.value }))}
-        />
+        <span className="mb-1 block font-medium">Instructions time limit (mm:ss)</span>
+        <div className="flex items-center gap-2">
+          <Input
+            type="number"
+            min={0}
+            placeholder="0"
+            className="w-20"
+            value={draft.instructionsTimeLimitMinutes}
+            onChange={(e) => setDraft((prev) => ({ ...prev, instructionsTimeLimitMinutes: e.target.value }))}
+          />
+          <span className="text-muted-foreground font-medium">:</span>
+          <Input
+            type="number"
+            min={0}
+            max={59}
+            placeholder="0"
+            className="w-20"
+            value={draft.instructionsTimeLimitSeconds}
+            onChange={(e) => setDraft((prev) => ({ ...prev, instructionsTimeLimitSeconds: e.target.value }))}
+          />
+          <span className="text-muted-foreground text-xs">min : sec</span>
+        </div>
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-medium">Description</span>
-        <Textarea
-          className="min-h-24"
-          value={draft.description}
-          onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
-        />
+        <span className="mb-1 block font-medium">Section instructions</span>
+        <p className="mb-1 text-muted-foreground text-xs">
+          Shown to students at the start of a timed set. Leave empty to hide.
+        </p>
+        <div className="rounded-md border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 ring-offset-background">
+          <UcatRichTextEditor
+            value={draft.instructionsText}
+            onChange={(value) => setDraft((prev) => ({ ...prev, instructionsText: value }))}
+            placeholder="Optional instructions..."
+            minHeight="120px"
+          />
+        </div>
       </label>
     </div>
   )

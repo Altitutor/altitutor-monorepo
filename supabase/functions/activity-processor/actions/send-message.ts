@@ -1,6 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import { resolveMessageRecipients } from '../recipients.ts';
 import { 
   replaceTemplateVariables, 
@@ -13,15 +11,15 @@ import {
 } from '../utils.ts';
 
 export async function executeSendMessage(
-  supabase: SupabaseClient<any>,
-  action: any,
-  activityEvent: any,
-  rule: any,
-  entityData?: any
+  supabase: SupabaseClient,
+  action: { action_config?: unknown },
+  activityEvent: Record<string, unknown>,
+  rule: Record<string, unknown>,
+  entityData?: Record<string, unknown> | null
 ): Promise<void> {
   const config = action.action_config as {
     message_content: string;
-    variables?: Record<string, any>;
+    variables?: Record<string, unknown>;
     contact_id?: string;
     student_id?: string;
     parent_id?: string;
@@ -222,7 +220,7 @@ export async function executeSendMessage(
             
             if (enrollments && enrollments.length > 0) {
               const classesList = enrollments
-                .map((e: any) => {
+                .map((e: { classes?: { day_of_week?: number; start_time?: string; end_time?: string; subjects?: { short_name?: string; long_name?: string } } }) => {
                   const cls = e.classes;
                   const subject = cls?.subjects;
                   if (!cls) return null;
@@ -357,9 +355,10 @@ export async function executeSendMessage(
       // Invoke send-message function (fire-and-forget)
       supabase.functions
         .invoke('send-message', { body: { messageId: message.id } })
-        .catch((e: any) => console.error('[activity-processor] Failed to invoke send-message:', e));
-    } catch (contactErr: any) {
-      errors.push({ contactId, error: contactErr?.message || 'Unknown error' });
+        .catch((e: unknown) => console.error('[activity-processor] Failed to invoke send-message:', e));
+    } catch (contactErr: unknown) {
+      const msg = contactErr instanceof Error ? contactErr.message : 'Unknown error';
+      errors.push({ contactId, error: msg });
       // Continue with next contact
     }
   }

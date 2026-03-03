@@ -313,7 +313,7 @@ describe('validateField', () => {
       parseAsync: async () => {
         throw new Error('Custom error');
       },
-    } as any;
+    } as unknown as z.ZodType;
 
     const result = await validateField(throwingSchema, 'value');
 

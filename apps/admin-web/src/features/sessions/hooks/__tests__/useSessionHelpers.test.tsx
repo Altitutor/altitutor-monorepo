@@ -4,17 +4,21 @@
  */
 
 import { renderHook } from '@testing-library/react';
+import type { Tables } from '@altitutor/shared';
 import { useSessionHelpers } from '../useSessionHelpers';
 
+type SessionWithSubject = Tables<'sessions'> & { subject?: Tables<'subjects'> | null; class?: { subject?: Tables<'subjects'> | null } | null };
+type SessionsStudentWithInvoice = { student_id?: string; planned_absence?: boolean; invoice_status?: string | null };
+
 describe('useSessionHelpers', () => {
-  const mockSession = {
+  const mockSession: Partial<Tables<'sessions'>> = {
     id: 'session-1',
     start_at: '2024-01-15T10:00:00Z',
     end_at: '2024-01-15T11:00:00Z',
-    type: 'DRAFTING' as const,
+    type: 'DRAFTING',
   };
 
-  const mockTutorLog = {
+  const mockTutorLog: Partial<Tables<'tutor_logs'>> = {
     id: 'log-1',
     session_id: 'session-1',
   };
@@ -23,10 +27,10 @@ describe('useSessionHelpers', () => {
     it('should return true when tutor log exists', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
+          session: mockSession as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
-          tutorLog: mockTutorLog as any,
+          tutorLog: mockTutorLog as Tables<'tutor_logs'>,
           firstClassStaffId: null,
         })
       );
@@ -37,7 +41,7 @@ describe('useSessionHelpers', () => {
     it('should return false when tutor log does not exist', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
+          session: mockSession as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -58,7 +62,7 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: pastSession as any,
+          session: pastSession as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -79,7 +83,7 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: futureSession as any,
+          session: futureSession as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -98,7 +102,7 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: sessionWithoutDate as any,
+          session: sessionWithoutDate as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -114,7 +118,7 @@ describe('useSessionHelpers', () => {
     it('should return true for DRAFTING session', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: { ...mockSession, type: 'DRAFTING' } as any,
+          session: { ...mockSession, type: 'DRAFTING' } as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -128,7 +132,7 @@ describe('useSessionHelpers', () => {
     it('should return true for TRIAL_SESSION', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: { ...mockSession, type: 'TRIAL_SESSION' } as any,
+          session: { ...mockSession, type: 'TRIAL_SESSION' } as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -142,7 +146,7 @@ describe('useSessionHelpers', () => {
     it('should return true for SUBSIDY_INTERVIEW', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: { ...mockSession, type: 'SUBSIDY_INTERVIEW' } as any,
+          session: { ...mockSession, type: 'SUBSIDY_INTERVIEW' } as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -156,7 +160,7 @@ describe('useSessionHelpers', () => {
     it('should return false for CLASS session', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: { ...mockSession, type: 'CLASS' } as any,
+          session: { ...mockSession, type: 'CLASS' } as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -178,7 +182,7 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: sessionWithSubject as any,
+          session: sessionWithSubject as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -198,7 +202,7 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: sessionWithClassSubject as any,
+          session: sessionWithClassSubject as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -212,7 +216,7 @@ describe('useSessionHelpers', () => {
     it('should return null when no subject available', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
+          session: mockSession as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -234,8 +238,8 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
-          sessionsStudents: sessionsStudents as any,
+          session: mockSession as SessionWithSubject,
+          sessionsStudents: sessionsStudents as SessionsStudentWithInvoice[],
           sessionsStaff: [],
           tutorLog: null,
           firstClassStaffId: null,
@@ -253,8 +257,8 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
-          sessionsStudents: sessionsStudents as any,
+          session: mockSession as SessionWithSubject,
+          sessionsStudents: sessionsStudents as SessionsStudentWithInvoice[],
           sessionsStaff: [],
           tutorLog: null,
           firstClassStaffId: null,
@@ -267,7 +271,7 @@ describe('useSessionHelpers', () => {
     it('should return null when sessionsStudents is empty', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
+          session: mockSession as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -288,9 +292,9 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
+          session: mockSession as SessionWithSubject,
           sessionsStudents: [],
-          sessionsStaff: sessionsStaff as any,
+          sessionsStaff: sessionsStaff as Tables<'sessions_staff'>[],
           tutorLog: null,
           firstClassStaffId: null,
         })
@@ -302,7 +306,7 @@ describe('useSessionHelpers', () => {
     it('should return firstClassStaffId when sessionsStaff is empty', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
+          session: mockSession as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -316,7 +320,7 @@ describe('useSessionHelpers', () => {
     it('should return undefined when no staff available', () => {
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
+          session: mockSession as SessionWithSubject,
           sessionsStudents: [],
           sessionsStaff: [],
           tutorLog: null,
@@ -332,9 +336,9 @@ describe('useSessionHelpers', () => {
 
       const { result } = renderHook(() =>
         useSessionHelpers({
-          session: mockSession as any,
+          session: mockSession as SessionWithSubject,
           sessionsStudents: [],
-          sessionsStaff: sessionsStaff as any,
+          sessionsStaff: sessionsStaff as Tables<'sessions_staff'>[],
           tutorLog: null,
           firstClassStaffId: 'class-staff-1',
         })

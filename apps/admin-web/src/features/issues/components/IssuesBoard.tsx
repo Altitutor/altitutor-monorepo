@@ -13,7 +13,7 @@ import { IssueCard } from './IssueCard';
 import { EditIssueDialog } from './EditIssueDialog';
 import { CreateIssueDialog } from './CreateIssueDialog';
 import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
-import type { IssueWithTags, IssueStatus } from '../types';
+import type { IssueWithTags, IssueStatus, IssueUpdate } from '../types';
 import { cn } from '@/shared/utils';
 import { Circle, Clock, CheckCircle } from 'lucide-react';
 import { formatIssueDueDate, getIssueStatusLabel } from '../utils/issueUtils';
@@ -38,27 +38,27 @@ export function IssuesBoard() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleUpdate = useCallback(
-    (issue: IssueWithTags, updates: any) => {
+    (issue: IssueWithTags, updates: Partial<IssueUpdate>) => {
       updateIssue.mutate({ id: issue.id, updates });
     },
     [updateIssue]
   );
 
   const handleAdd = useCallback(
-    (columnValue: any) => {
+    (columnValue: unknown) => {
       setCreateColumnValue(columnValue as IssueStatus);
       setIsCreateDialogOpen(true);
     },
     []
   );
 
-  const columnDefs: KanbanColumnDef<IssueWithTags, any>[] = useMemo(() => [
+  const columnDefs: KanbanColumnDef<IssueWithTags, unknown>[] = useMemo(() => [
     {
       key: 'status',
       label: 'Status',
       getValue: (i) => i.status,
       options: STATUS_OPTIONS,
-      onValueChange: (i, v) => handleUpdate(i, { status: v }),
+      onValueChange: (i, v) => handleUpdate(i, { status: v as IssueStatus }),
     }
   ], [handleUpdate]);
 
@@ -125,7 +125,7 @@ export function IssuesBoard() {
     setSortDirection(direction);
   }, []);
 
-  const statusColumn: EntityListStatusColumn<IssueWithTags, IssueStatus> = {
+  const statusColumn: EntityListStatusColumn<IssueWithTags, unknown> = {
     key: 'status',
     label: 'Status',
     getValue: (i) => i.status as IssueStatus,
@@ -135,10 +135,11 @@ export function IssuesBoard() {
       ...opt,
       icon: opt.value === 'open' ? Circle : opt.value === 'awaiting_response' ? Clock : CheckCircle
     })),
-    renderBubble: (value, collapsed) => {
-      const option = STATUS_OPTIONS.find(o => o.value === value) || STATUS_OPTIONS[0];
-      const Icon = value === 'open' ? Circle : value === 'awaiting_response' ? Clock : CheckCircle;
-      const color = value === 'open' ? 'text-blue-500' : value === 'awaiting_response' ? 'text-yellow-500' : 'text-green-500';
+    renderBubble: (value: unknown, collapsed) => {
+      const status = value as IssueStatus;
+      const option = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
+      const Icon = status === 'open' ? Circle : status === 'awaiting_response' ? Clock : CheckCircle;
+      const color = status === 'open' ? 'text-blue-500' : status === 'awaiting_response' ? 'text-yellow-500' : 'text-green-500';
 
       if (collapsed) return <Icon className={cn("h-3 w-3", color)} />;
 
@@ -149,7 +150,7 @@ export function IssuesBoard() {
         </span>
       );
     },
-    onStatusChange: (issue, value) => handleUpdate(issue, { status: value }),
+    onStatusChange: (issue, value) => handleUpdate(issue, { status: value as IssueStatus }),
   };
 
   return (
@@ -169,7 +170,7 @@ export function IssuesBoard() {
             }} 
           />
         )}
-        statusColumn={statusColumn as any}
+        statusColumn={statusColumn}
         rightPills={rightPills}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}

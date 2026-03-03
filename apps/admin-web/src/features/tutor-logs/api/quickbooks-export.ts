@@ -38,13 +38,17 @@ export async function fetchTutorLogsForExport(params: {
       return [];
     }
     
+    type TutorLogRow = { id: string; session_id: string };
+    type SessionRow = { id: string; start_at?: string; end_at?: string; type?: string; class_id?: string };
+    type StaffAttendanceRow = { staff_id: string; type?: string; attended?: boolean };
+    type StudentAttendanceRow = { student_id: string; attended?: boolean };
     const rpcData = rpcResult as {
-      tutorLogs: any[];
-      sessions: Record<string, any>;
-      staffAttendance: Record<string, any[]>;
-      studentAttendance: Record<string, any[]>;
-      classesById: Record<string, any>;
-      subjectsById: Record<string, any>;
+      tutorLogs: TutorLogRow[];
+      sessions: Record<string, SessionRow>;
+      staffAttendance: Record<string, StaffAttendanceRow[]>;
+      studentAttendance: Record<string, StudentAttendanceRow[]>;
+      classesById: Record<string, { id: string; subject_id?: string }>;
+      subjectsById: Record<string, { id: string; name?: string; long_name?: string }>;
       total: number;
     };
     
@@ -112,7 +116,7 @@ export async function fetchTutorLogsForExport(params: {
         exportData.push({
           tutorLogId: tutorLog.id,
           sessionId: session.id,
-          sessionType: session.type,
+          sessionType: (session.type ?? 'CLASS') as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'STAFF_INTERVIEW' | 'ADMIN_SHIFT',
           sessionStartAt: session.start_at || '',
           sessionEndAt: session.end_at || '',
           staffId: att.staff_id,

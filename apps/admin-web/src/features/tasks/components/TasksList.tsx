@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback, useLayoutEffect, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useLayoutEffect, useRef, useEffect } from 'react';
 import {
   EntityList,
   EntityListAddRow,
@@ -202,7 +202,7 @@ function TaskListAddRowWithSearch({
       top: rect.bottom + 4,
       left: rect.left,
     });
-  }, [showAutocomplete, addName, suggestions.length, isLoading]);
+  }, [showAutocomplete, addName, suggestions.length, isLoading, inputRef]);
 
   const handleSelect = useCallback(
     (taskId: string) => {
@@ -271,7 +271,7 @@ export function TasksList({
   const { data: projects = [] } = useProjects();
 
   const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
-    const resolved = resolveQuickFilterPlaceholders(qf.config as any, currentStaffId);
+    const resolved = resolveQuickFilterPlaceholders(qf.config, currentStaffId);
 
     if (resolved.assigned_to && !resolved.assignee) {
       resolved.assignee = resolved.assigned_to;
@@ -674,7 +674,7 @@ export function TasksList({
           enabled: true,
           renderEditor: ({ value, onChange, placeholder, ref }) => (
             <RichTextEditor
-              ref={ref as any}
+              ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
               content={value}
               onChange={onChange}
               placeholder={placeholder}

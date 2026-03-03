@@ -1,11 +1,16 @@
 import { useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
 
+type SessionWithSubject = Tables<'sessions'> & { subject?: Tables<'subjects'> | null; class?: { subject?: Tables<'subjects'> | null } | null };
+/** Minimal shape for session student - supports both full rows and UnplannedStudent */
+type SessionsStudentWithInvoice = { student_id?: string; planned_absence?: boolean; invoice_status?: string | null };
+type SessionsStaffRow = Tables<'sessions_staff'>;
+
 interface UseSessionHelpersProps {
-  session: any;
-  sessionsStudents: any[];
-  sessionsStaff: any[];
-  tutorLog: any;
+  session: SessionWithSubject | null | undefined;
+  sessionsStudents: SessionsStudentWithInvoice[];
+  sessionsStaff: SessionsStaffRow[];
+  tutorLog: Tables<'tutor_logs'> | null | undefined;
   firstClassStaffId: string | null | undefined;
 }
 
@@ -34,29 +39,27 @@ export function useSessionHelpers({
     return session?.start_at ? new Date(session.start_at) < new Date() : false;
   }, [session?.start_at]);
 
-  const canReschedule = useMemo(() => {
+  const canReschedule = useMemo((): boolean => {
     // Cannot reschedule if session is already logged
     if (hasTutorLog) {
       return false;
     }
     
     // Cannot reschedule if any student has a paid invoice
-    const hasPaidInvoice = sessionsStudents?.some(
-      (ss: any) => ss.invoice_status === 'paid'
-    ) || false;
+    const hasPaidInvoice = Boolean(sessionsStudents?.some(
+      (ss: SessionsStudentWithInvoice) => ss.invoice_status === 'paid'
+    ));
     
     if (hasPaidInvoice) {
       return false;
     }
     
-    return session?.type && ['DRAFTING', 'TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(session.type);
+    return !!(session?.type && ['DRAFTING', 'TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(session.type));
   }, [session?.type, hasTutorLog, sessionsStudents]);
 
   const subject = useMemo(() => {
     // Check nested subject object first (if session data includes it)
-    if ((session as any)?.subject) {
-      return (session as any).subject;
-    }
+    if (session?.subject) return session.subject;
     // Check class.subject
     if (session?.class?.subject) {
       return session.class.subject;
@@ -69,7 +72,7 @@ export function useSessionHelpers({
   const getFirstStudentIdForReschedule = useMemo(() => {
     return () => {
       if (sessionsStudents && sessionsStudents.length > 0) {
-        const firstStudent = sessionsStudents.find((ss: any) => ss.student_id && !ss.planned_absence);
+        const firstStudent = sessionsStudents.find((ss) => ss.student_id && !ss.planned_absence);
         return firstStudent?.student_id || null;
       }
       return null;

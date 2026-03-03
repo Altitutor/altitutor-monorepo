@@ -80,20 +80,22 @@ export async function getEnrollmentConflicts(
     let sameSubjectWarning: string | null = null;
     const timeOverlapWarnings: string[] = [];
     
+    type ClassWithSubject = (Tables<'classes'> & { subject: { name?: string } | null }) | null;
+
     // Check each enrollment for conflicts
     for (const enrollment of enrollments || []) {
-      const enrolledClass = enrollment.class as any;
+      const enrolledClass = enrollment.class as ClassWithSubject;
       if (!enrolledClass) continue;
       
       // Check for same subject
       if (enrolledClass.subject_id === targetClass.subject_id) {
-        const subjectName = (enrolledClass.subject as any)?.name || 'this subject';
+        const subjectName = enrolledClass.subject?.name || 'this subject';
         sameSubjectWarning = `Student is already enrolled in another ${subjectName} class`;
       }
       
       // Check for time overlap
       if (checkTimeOverlap(targetClass, enrolledClass)) {
-        const subjectName = (enrolledClass.subject as any)?.name || 'Unknown';
+        const subjectName = enrolledClass.subject?.name || 'Unknown';
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const dayName = dayNames[enrolledClass.day_of_week];
         timeOverlapWarnings.push(

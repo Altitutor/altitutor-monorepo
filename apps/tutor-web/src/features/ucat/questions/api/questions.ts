@@ -18,7 +18,8 @@ type StemDetailQuestion = {
     answer_explanation: Json | null
     index: number
     is_answer: boolean
-    image_file_id: string | null
+    option_text_file_ids?: string[]
+    option_explanation_file_ids?: string[]
   }>
 }
 
@@ -231,6 +232,13 @@ export const ucatQuestionsApi = {
   },
 }
 
+/** Ensure we send actual null for DB, never the string "null". */
+function toJsonOrNull(value: unknown): Json | null {
+  if (value == null) return null
+  if (typeof value === 'string' && value === 'null') return null
+  return value as Json
+}
+
 function serializePayload(payload: UcatQuestionStemBundlePayload) {
   return {
     stemId: payload.stemId ?? null,
@@ -241,7 +249,7 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
     questions: payload.questions.map((question) => ({
       index: question.index,
       question_text: question.questionText,
-      answer_explanation: question.answerExplanation ?? null,
+      answer_explanation: toJsonOrNull(question.answerExplanation),
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
       question_type: question.questionType,
@@ -249,9 +257,8 @@ function serializePayload(payload: UcatQuestionStemBundlePayload) {
       answer_options: question.options.map((option) => ({
         index: option.index,
         answer_text: option.answerText,
-        answer_explanation: option.answerExplanation ?? null,
+        answer_explanation: toJsonOrNull(option.answerExplanation),
         is_answer: option.isAnswer,
-        image_file_id: option.imageFileId ?? null,
       })),
     })),
   }

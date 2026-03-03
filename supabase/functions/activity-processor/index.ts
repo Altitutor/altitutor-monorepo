@@ -1,5 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import { json, corsHeaders, evaluateConditions } from './utils.ts';
@@ -67,7 +65,7 @@ Deno.serve(async (req: Request) => {
     console.log('[activity-processor] Found matching rules', { count: rules.length });
 
     // Load entity data for condition evaluation
-    let entityData: any = null;
+    let entityData: Record<string, unknown> | null = null;
     try {
       const { data, error } = await supabase
         .from(activityEvent.entity_type)
@@ -138,29 +136,31 @@ Deno.serve(async (req: Request) => {
               default:
                 console.warn('[activity-processor] Unknown action type', { actionType: action.action_type });
             }
-          } catch (actionErr: any) {
+          } catch (actionErr: unknown) {
+            const errMsg = actionErr instanceof Error ? actionErr.message : String(actionErr);
             console.error('[activity-processor] Action execution failed', {
               ruleId: rule.id,
               actionId: action.id,
-              error: actionErr?.message || actionErr,
+              error: errMsg,
             });
             errors.push({
               ruleId: rule.id,
-              error: `Action ${action.id} failed: ${actionErr?.message || actionErr}`,
+              error: `Action ${action.id} failed: ${errMsg}`,
             });
             // Continue with next action (don't fail entire rule)
           }
         }
 
         processedRules.push(rule.id);
-      } catch (ruleErr: any) {
+      } catch (ruleErr: unknown) {
+        const errMsg = ruleErr instanceof Error ? ruleErr.message : String(ruleErr);
         console.error('[activity-processor] Rule processing failed', {
           ruleId: rule.id,
-          error: ruleErr?.message || ruleErr,
+          error: errMsg,
         });
         errors.push({
           ruleId: rule.id,
-          error: ruleErr?.message || ruleErr,
+          error: errMsg,
         });
         // Continue with next rule
       }
@@ -172,8 +172,9 @@ Deno.serve(async (req: Request) => {
       rulesProcessed: processedRules.length,
       errors: errors.length > 0 ? errors : undefined,
     });
-  } catch (e: any) {
-    console.error('[activity-processor] Error', e?.message || e);
-    return json({ error: e?.message || 'Unknown error' }, 500);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : 'Unknown error';
+    console.error('[activity-processor] Error', msg);
+    return json({ error: msg }, 500);
   }
 });

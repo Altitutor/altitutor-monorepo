@@ -10,7 +10,7 @@ export const staffKeys = {
   all: ['staff'] as const,
   lists: () => [...staffKeys.all, 'list'] as const,
   list: (filters: string) => [...staffKeys.lists(), { filters }] as const,
-  minimal: (params: any) => [...staffKeys.all, 'minimal', params] as const,
+  minimal: (params?: Record<string, unknown>) => [...staffKeys.all, 'minimal', params] as const,
   details: () => [...staffKeys.all, 'detail'] as const,
   detail: (id: string) => [...staffKeys.details(), id] as const,
   detailFull: (id: string) => [...staffKeys.detail(id), 'details'] as const,
@@ -193,7 +193,7 @@ export function useUpdateStaff() {
       staffApi.updateStaff(id, data),
     onSuccess: (updatedStaff, { id }) => {
       // Update specific entity in cache
-      queryClient.setQueryData(staffKeys.detailFull(id), (old: any) => {
+      queryClient.setQueryData(staffKeys.detailFull(id), (old: { staff: Tables<'staff'> | null; subjects: Tables<'subjects'>[]; classes: unknown[]; upcomingSessions: Tables<'sessions'>[] } | undefined) => {
         if (!old) return old;
         return { ...old, staff: updatedStaff };
       });

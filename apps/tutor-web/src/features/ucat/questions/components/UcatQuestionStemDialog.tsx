@@ -25,6 +25,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -48,6 +54,29 @@ function trimTextParagraphs(text: string): string {
     .replace(/^\s*\n+/, '')
     .replace(/\n+\s*$/, '')
     .trim()
+}
+
+/** Get the first validation error message from react-hook-form errors (supports nested paths). */
+function getFirstValidationMessage(errors: Record<string, unknown>): string {
+  for (const key of Object.keys(errors)) {
+    const value = errors[key]
+    if (value && typeof value === 'object' && 'message' in value && typeof (value as { message: unknown }).message === 'string') {
+      return (value as { message: string }).message
+    }
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const nested = getFirstValidationMessage(value as Record<string, unknown>)
+      if (nested) return nested
+    }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        if (item && typeof item === 'object') {
+          const nested = getFirstValidationMessage(item as Record<string, unknown>)
+          if (nested) return nested
+        }
+      }
+    }
+  }
+  return 'Please fix the errors in the form.'
 }
 
 export type CategoryOption = { id: string | null; name: string | null; ucat_section_id?: string | null }
@@ -87,7 +116,7 @@ export function UcatQuestionStemDialog({
   loading?: boolean
   onDelete?: () => void
 }) {
-  useToast()
+  const { toast } = useToast()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {
@@ -128,16 +157,14 @@ export function UcatQuestionStemDialog({
                 answerText: (option.answer_text ?? EMPTY_DOC) as Json,
                 answerExplanation: (option.answer_explanation ?? null) as Json | null,
                 isAnswer: option.is_answer,
-                imageFileId: option.image_file_id ?? null,
               }))
             : [...DEFAULT_OPTIONS],
       })),
     }
   }, [initial, sections])
 
-  // Type instantiation for this large nested form can be deep; the schema
-  // already validates the shape at runtime.
-  // @ts-expect-error Type instantiation is deep but safe for this validated form.
+  // Type instantiation is excessively deep due to recursive Json in schema; runtime is validated by Zod.
+  // @ts-expect-error TS2589 - Type instantiation is deep but safe for this validated form.
   const form = useForm<UcatQuestionStemFormValues>({
     resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
     defaultValues,
@@ -176,10 +203,21 @@ export function UcatQuestionStemDialog({
 
 
   async function handleSave() {
-    await form.handleSubmit(async (values) => {
-      await onSubmit(values)
-      setNewImageFileIds(new Set())
-    })()
+    // @ts-expect-error TS2589 - Form type is deep; runtime behavior is correct.
+    form.handleSubmit(
+      async (values) => {
+        await onSubmit(values)
+        setNewImageFileIds(new Set())
+      },
+      (errs: Record<string, unknown>) => {
+        const firstMessage = getFirstValidationMessage(errs)
+        toast({
+          title: 'Validation failed',
+          description: firstMessage,
+          variant: 'destructive',
+        })
+      }
+    )()
   }
 
   const hasUnsavedChanges = form.formState.isDirty
@@ -300,7 +338,7 @@ export function QuestionTagsSelect({
                     key={tag.id}
                     value={`${tag.id}-${tag.name}`}
                     onSelect={() => toggleTag(tag.id)}
-                    className="flex items-center gap-2 text-foreground data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto"
+                    className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                   >
                     <Checkbox checked={isSelected} />
                     <span>{tag.name}</span>
@@ -320,12 +358,14 @@ export function QuestionOptionsEditor({
   questionIndex,
   stemType,
   stemId,
+  enableImages = true,
   onNewImageFileIds,
 }: {
   form: UseFormReturn<UcatQuestionStemFormValues>
   questionIndex: number
   stemType: 'multiple_choice' | 'syllogism'
   stemId?: string | null
+  enableImages?: boolean
   onNewImageFileIds: (fileIds: string[]) => void
 }) {
   const optionsArray = useFieldArray({ control: form.control, name: `questions.${questionIndex}.options` })
@@ -347,113 +387,129 @@ export function QuestionOptionsEditor({
 
   return (
     <div className="rounded border bg-muted/20 p-3 space-y-2">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-medium">{optionsLabel}</h4>
-        {!isSyllogism && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => optionsArray.append({ answerText: '', answerExplanation: '', isAnswer: false })}
-          >
-            Add
-          </Button>
-        )}
-      </div>
-
       {isMultipleChoice ? (
-        <RadioGroup value={correctValue} onValueChange={(v) => setCorrectIndex(Number(v))}>
+        <>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium">{optionsLabel}</h4>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => optionsArray.append({ answerText: '', answerExplanation: '', isAnswer: false })}
+            >
+              Add
+            </Button>
+          </div>
+          <RadioGroup value={correctValue} onValueChange={(v) => setCorrectIndex(Number(v))}>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Answer options</TableHead>
+                  <TableHead className="w-[80px]">Correct</TableHead>
+                  <TableHead>Answer explanation</TableHead>
+                  <TableHead className="w-[60px]" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {optionsArray.fields.map((option, optionIndex) => (
+                  <TableRow key={option.id}>
+                    <TableCell className="align-top">
+                      <UcatRichTextEditor
+                        value={form.watch(
+                          `questions.${questionIndex}.options.${optionIndex}.answerText`
+                        ) as Json}
+                        onChange={(val) =>
+                          form.setValue(
+                            `questions.${questionIndex}.options.${optionIndex}.answerText`,
+                            val,
+                            { shouldDirty: true }
+                          )
+                        }
+                        minHeight="3rem"
+                        stemId={stemId ?? null}
+                        enableImages={enableImages}
+                        onImageFileIdsChange={(fileIds) => onNewImageFileIds(fileIds)}
+                      />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <label
+                        htmlFor={`q-${questionIndex}-opt-${optionIndex}-correct`}
+                        className="flex items-center shrink-0 cursor-pointer"
+                      >
+                        <RadioGroupItem
+                          id={`q-${questionIndex}-opt-${optionIndex}-correct`}
+                          value={String(optionIndex)}
+                        />
+                      </label>
+                    </TableCell>
+                    <TableCell className="align-top">
+                      <UcatRichTextEditor
+                        value={form.watch(
+                          `questions.${questionIndex}.options.${optionIndex}.answerExplanation`
+                        ) as Json | null | undefined}
+                        onChange={(val) =>
+                          form.setValue(
+                            `questions.${questionIndex}.options.${optionIndex}.answerExplanation`,
+                            val,
+                            { shouldDirty: true }
+                          )
+                        }
+                        minHeight="3rem"
+                        stemId={stemId ?? null}
+                        enableImages={enableImages}
+                        onImageFileIdsChange={(fileIds) => onNewImageFileIds(fileIds)}
+                      />
+                    </TableCell>
+                    <TableCell className="align-top">
+                      {optionsArray.fields.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            const optionVal = form.getValues(
+                              `questions.${questionIndex}.options.${optionIndex}`
+                            )
+                            const hasContent =
+                              optionVal &&
+                              (trimTextParagraphs(proseMirrorToPlainText(optionVal.answerText as Json) ?? '') !== '' ||
+                                (optionVal.answerExplanation &&
+                                  trimTextParagraphs(
+                                    proseMirrorToPlainText(optionVal.answerExplanation as Json) ?? ''
+                                  ) !== ''))
+
+                            if (
+                              !hasContent ||
+                              window.confirm(
+                                'This will delete an answer option with content. Changes will be lost. Do you want to continue?'
+                              )
+                            ) {
+                              optionsArray.remove(optionIndex)
+                            }
+                          }}
+                          className="!text-destructive hover:!text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </RadioGroup>
+        </>
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <h4 className="text-sm font-medium">{optionsLabel}</h4>
+          </div>
           {optionsArray.fields.map((option, optionIndex) => (
             <div
               key={option.id}
               className="grid gap-2 md:grid-cols-[minmax(0,2fr),auto,minmax(0,2fr),auto] items-start"
             >
               <UcatRichTextEditor
-                value={form.watch(
-                  `questions.${questionIndex}.options.${optionIndex}.answerText`
-                ) as Json}
-                onChange={(val) =>
-                  form.setValue(
-                    `questions.${questionIndex}.options.${optionIndex}.answerText`,
-                    val,
-                    { shouldDirty: true }
-                  )
-                }
-                minHeight="3rem"
-                stemId={stemId ?? null}
-                maxImagesPerDocument={1}
-                onImageFileIdsChange={(fileIds) => {
-                  form.setValue(
-                    `questions.${questionIndex}.options.${optionIndex}.imageFileId`,
-                    fileIds[0] ?? null,
-                    { shouldDirty: true }
-                  )
-                  onNewImageFileIds(fileIds)
-                }}
-              />
-              <label
-                htmlFor={`q-${questionIndex}-opt-${optionIndex}-correct`}
-                className="flex items-center gap-2 shrink-0 cursor-pointer"
-              >
-                <RadioGroupItem id={`q-${questionIndex}-opt-${optionIndex}-correct`} value={String(optionIndex)} />
-                <span className="text-sm">Correct</span>
-              </label>
-              <UcatRichTextEditor
-                value={form.watch(
-                  `questions.${questionIndex}.options.${optionIndex}.answerExplanation`
-                ) as Json | null | undefined}
-                onChange={(val) =>
-                  form.setValue(
-                    `questions.${questionIndex}.options.${optionIndex}.answerExplanation`,
-                    val,
-                    { shouldDirty: true }
-                  )
-                }
-                minHeight="3rem"
-                stemId={stemId ?? null}
-                enableImages={false}
-              />
-              {optionsArray.fields.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                    const option = form.getValues(
-                      `questions.${questionIndex}.options.${optionIndex}`
-                    )
-                    const hasContent =
-                      option &&
-                      (trimTextParagraphs(proseMirrorToPlainText(option.answerText as Json) ?? '') !== '' ||
-                        (option.answerExplanation &&
-                          trimTextParagraphs(
-                            proseMirrorToPlainText(option.answerExplanation as Json) ?? ''
-                          ) !== ''))
-
-                    if (
-                      !hasContent ||
-                      window.confirm(
-                        'This will delete an answer option with content. Changes will be lost. Do you want to continue?'
-                      )
-                    ) {
-                      optionsArray.remove(optionIndex)
-                    }
-                  }}
-                  className="shrink-0 !text-destructive hover:!text-destructive hover:bg-destructive/10 self-center"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          ))}
-        </RadioGroup>
-      ) : (
-        optionsArray.fields.map((option, optionIndex) => (
-          <div
-            key={option.id}
-            className="grid gap-2 md:grid-cols-[minmax(0,2fr),auto,minmax(0,2fr),auto] items-start"
-          >
-            <UcatRichTextEditor
               value={form.watch(
                 `questions.${questionIndex}.options.${optionIndex}.answerText`
               ) as Json}
@@ -466,15 +522,8 @@ export function QuestionOptionsEditor({
               }
               minHeight="3rem"
               stemId={stemId ?? null}
-              maxImagesPerDocument={1}
-              onImageFileIdsChange={(fileIds) => {
-                form.setValue(
-                  `questions.${questionIndex}.options.${optionIndex}.imageFileId`,
-                  fileIds[0] ?? null,
-                  { shouldDirty: true }
-                )
-                onNewImageFileIds(fileIds)
-              }}
+              enableImages={enableImages}
+              onImageFileIdsChange={(fileIds) => onNewImageFileIds(fileIds)}
             />
             <Tabs
               value={form.watch(`questions.${questionIndex}.options.${optionIndex}.isAnswer`) ? 'yes' : 'no'}
@@ -506,7 +555,8 @@ export function QuestionOptionsEditor({
               }
               minHeight="3rem"
               stemId={stemId ?? null}
-              enableImages={false}
+              enableImages={enableImages}
+              onImageFileIdsChange={(fileIds) => onNewImageFileIds(fileIds)}
             />
             {!isSyllogism && optionsArray.fields.length > 1 && (
               <Button
@@ -539,8 +589,9 @@ export function QuestionOptionsEditor({
                 <Trash2 className="h-4 w-4" />
               </Button>
             )}
-          </div>
-        ))
+            </div>
+          ))}
+        </>
       )}
     </div>
   )
@@ -813,6 +864,7 @@ export function UcatQuestionStemFormContent({
                 questionIndex={questionIndex}
                 stemType={stemType ?? 'multiple_choice'}
                 stemId={enableImages ? stemId : null}
+                enableImages={enableImages}
                 onNewImageFileIds={handleNewImageFileIds}
               />
             </section>
@@ -842,7 +894,8 @@ export function UcatQuestionStemFormContent({
                   }
                   minHeight="3rem"
                   stemId={enableImages ? stemId ?? null : null}
-                  enableImages={false}
+                  enableImages={enableImages}
+                  onImageFileIdsChange={(fileIds) => handleNewImageFileIds(fileIds)}
                 />
               </label>
               <Button

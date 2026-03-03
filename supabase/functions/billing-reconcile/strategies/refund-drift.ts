@@ -1,5 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import type { StrategyResult, InvoiceReconciliationResult } from '../shared/types.ts';
 import { getErrorMessage } from '../shared/utils.ts';
@@ -16,7 +15,7 @@ import { getErrorMessage } from '../shared/utils.ts';
  */
 export async function reconcileRefundDrift(
   stripe: Stripe,
-  supabase: any,
+  supabase: SupabaseClient,
   daysBack: number,
   fixDrift: boolean = false
 ): Promise<StrategyResult> {
@@ -219,7 +218,7 @@ export async function reconcileRefundDrift(
         end: endDate.toISOString(),
       },
     };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error('[refund-drift] Top-level error:', err);
     const errorMessage = getErrorMessage(err);
     return {

@@ -22,7 +22,7 @@ function getInitials(firstName: string, lastName: string): string {
 
 interface ClassCardProps {
   class: Tables<'classes'> | ClassWithExpandedSubject;
-  subject?: Tables<'subjects'>;
+  subject?: Tables<'subjects'> | null;
   staff: Tables<'staff'>[];
   students?: Tables<'students'>[];
   onClick?: () => void;

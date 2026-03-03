@@ -17,6 +17,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@altitutor/ucat-marking": "workspace:*",
     "@altitutor/ui": "workspace:*",
     "@altitutor/shared": "workspace:*",
     "@supabase/ssr": "^0.5.2",
@@ -47,6 +48,7 @@
     "postcss": "^8.4.33",
     "prettier": "^3.2.4",
     "tailwindcss": "^3.4.1",
+    "tailwindcss-animate": "^1.0.7",
     "typescript": "^5.8.3"
   }
 }

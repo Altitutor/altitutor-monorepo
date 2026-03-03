@@ -105,7 +105,8 @@ export function useParentDetails(id: string | null, enabled: boolean = true) {
       if (!data) return null;
       
       // Extract students from the join
-      const studentsList = data?.parents_students?.map((ps: any) => ps.students).filter(Boolean) || [];
+      type ParentStudentRow = { students: Tables<'students'> | null };
+      const studentsList = data?.parents_students?.map((ps: ParentStudentRow) => ps.students).filter(Boolean) || [];
       
       return {
         parent: data as Tables<'parents'>,

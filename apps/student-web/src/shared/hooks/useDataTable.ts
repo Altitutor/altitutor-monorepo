@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams, usePathname } from 'next/navigation';
 import { DataTableState, QuickFilter, resolveQuickFilterPlaceholders } from '@altitutor/shared';
 import { addDays, endOfWeek, format, startOfWeek, subDays } from 'date-fns';
@@ -15,7 +15,7 @@ function isEqual(a: unknown, b: unknown): boolean {
   
   for (let i = 0; i < keysA.length; i++) {
     const key = keysA[i];
-    if (keysA[i] !== keysB[i] || !isEqual((a as any)[key], (b as any)[key])) return false;
+    if (keysA[i] !== keysB[i] || !isEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false;
   }
   
   return true;
@@ -41,10 +41,10 @@ export function useDataTable({
   const pathname = usePathname();
   const isInitialLoad = useRef(true);
   const hasSyncedInitialDefaults = useRef(false);
-  const managedParamKeys = ['search', 'sort', 'order', 'group', 'page', 'pageSize', 'columns'];
+  const managedParamKeys = useMemo(() => ['search', 'sort', 'order', 'group', 'page', 'pageSize', 'columns'], []);
   const isManagedKey = useCallback((key: string) => {
     return managedParamKeys.includes(key) || (filterKeys ? filterKeys.includes(key) : !managedParamKeys.includes(key));
-  }, [filterKeys]);
+  }, [filterKeys, managedParamKeys]);
 
   // Parse filters from URL helper
   const parseFiltersFromUrl = useCallback(() => {
@@ -60,7 +60,7 @@ export function useDataTable({
       }
     });
     return filters;
-  }, [filterKeys, searchParams]);
+  }, [filterKeys, searchParams, managedParamKeys]);
 
   // Helper to get initial state from URL
   const getInitialState = useCallback((): DataTableState => {
@@ -203,7 +203,7 @@ export function useDataTable({
     }
 
     router.push(`${pathname}?${params.toString()}`);
-  }, [filterKeys, router, pathname, searchParams, initialPageSize, state.sortBy]);
+  }, [filterKeys, managedParamKeys, router, pathname, searchParams, initialPageSize, state.sortBy]);
 
   const setSearch = useCallback((search: string) => {
     updateUrl({ search, page: 1 });
@@ -223,7 +223,7 @@ export function useDataTable({
 
   const toggleFilter = useCallback((key: string, value: unknown) => {
     const current = state.filters[key] ?? [];
-    const next = current.includes(value as any)
+    const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value];
     

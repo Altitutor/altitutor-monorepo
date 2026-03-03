@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import { Button } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { MessageCircle } from 'lucide-react';
@@ -21,7 +20,6 @@ import { useChatStore } from '../state/chatStore';
 import { cn } from '@/shared/utils';
 
 export function MessagesDropdown() {
-  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<'list' | 'thread'>('list');
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
@@ -134,11 +132,6 @@ export function MessagesDropdown() {
   };
   
   const conversationTitle = activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
-  
-  const handleContactSelect = (contactId: string) => {
-    setActiveContactId(contactId);
-    setView('thread');
-  };
   
   const handleBack = () => {
     setView('list');

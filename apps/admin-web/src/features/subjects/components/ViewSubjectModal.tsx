@@ -128,8 +128,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       form.reset({
         name: subject.name,
         year_level: subject.year_level,
-        curriculum: subject.curriculum as any,
-        discipline: subject.discipline as any,
+        curriculum: subject.curriculum,
+        discipline: subject.discipline,
         level: subject.level,
         color: subject.color || null,
       });
@@ -181,8 +181,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       const updatedData: TablesUpdate<'subjects'> = {
         name: values.name,
         year_level: values.year_level,
-        curriculum: values.curriculum as any,
-        discipline: values.discipline as any,
+        curriculum: values.curriculum as TablesUpdate<'subjects'>['curriculum'],
+        discipline: values.discipline as TablesUpdate<'subjects'>['discipline'],
         level: values.level,
         color: values.color || null,
       };

@@ -14,14 +14,15 @@ import {
 } from '@altitutor/ui';
 import { useUpdateClass } from '../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { TablesUpdate } from '@altitutor/shared';
+import type { MinimalClass } from '../api/classes';
 import { Loader2 } from 'lucide-react';
 
 interface EditClassModalProps {
   isOpen: boolean;
   onClose: () => void;
   onClassUpdated: () => void;
-  classData: Tables<'classes'>;
+  classData: MinimalClass;
 }
 
 export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: EditClassModalProps) {

@@ -2,7 +2,7 @@ import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSub
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-type MinimalClass = Pick<
+export type MinimalClass = Pick<
   Tables<'classes'>,
   'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level'
 > & {
@@ -86,8 +86,24 @@ export const classesApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return { classes: [], total: 0 };
 
-    const rpcData = rpcResult as { classes: any[]; classSubjects: Record<string, any>; classStudents: Record<string, any[]>; classStaff: Record<string, any[]>; total: number };
-    let classes = (rpcData.classes || []) as any[];
+    interface RpcClassRow {
+      id: string;
+      day_of_week?: number;
+      start_time?: string;
+      end_time?: string;
+      status?: string;
+      room?: string | null;
+      subject_id?: string | null;
+      level?: string | null;
+    }
+    const rpcData = rpcResult as unknown as {
+      classes: RpcClassRow[];
+      classSubjects: Record<string, Tables<'subjects'>>;
+      classStudents: Record<string, Tables<'students'>[]>;
+      classStaff: Record<string, Tables<'staff'>[]>;
+      total: number;
+    };
+    let classes = rpcData.classes || [];
 
     // Apply day filter that RPC doesn't support
     if (dayFilters.length > 0) {
@@ -95,7 +111,7 @@ export const classesApi = {
     }
 
     // Transform RPC response to match expected format
-    const transformedClasses = classes.map((cls: any) => {
+    const transformedClasses = classes.map((cls) => {
       const subject = rpcData.classSubjects?.[cls.id] || null;
       const students = rpcData.classStudents?.[cls.id] || [];
       const staff = rpcData.classStaff?.[cls.id] || [];
@@ -156,15 +172,27 @@ export const classesApi = {
       if (rpcError) throw rpcError;
       if (!rpcResult) return { classes: [], classSubjects: {}, classStudents: {}, classStaff: {} };
       
-      const rpcData = rpcResult as { 
-        classes: any[]; 
-        classSubjects: Record<string, any>; 
-        classStudents: Record<string, any[]>; 
-        classStaff: Record<string, any[]>; 
-        total: number 
+      interface RpcClassRow {
+        id: string;
+        day_of_week?: number;
+        start_time?: string;
+        end_time?: string;
+        status?: string;
+        room?: string | null;
+        subject_id?: string | null;
+        level?: string | null;
+        created_at?: string | null;
+        updated_at?: string | null;
+      }
+      const rpcData = rpcResult as unknown as {
+        classes: RpcClassRow[];
+        classSubjects: Record<string, Tables<'subjects'>>;
+        classStudents: Record<string, Tables<'students'>[]>;
+        classStaff: Record<string, Tables<'staff'>[]>;
+        total: number;
       };
-      
-      const rpcClasses = (rpcData.classes || []) as any[];
+
+      const rpcClasses = rpcData.classes || [];
       
       // Transform RPC response to match expected format
       const classes: Tables<'classes'>[] = [];
@@ -172,7 +200,7 @@ export const classesApi = {
       const classStudents: Record<string, Tables<'students'>[]> = {};
       const classStaff: Record<string, Tables<'staff'>[]> = {};
       
-      rpcClasses.forEach((cls: any) => {
+      rpcClasses.forEach((cls) => {
         // Build class object
         const classData: Tables<'classes'> = {
           id: cls.id,
@@ -469,10 +497,10 @@ export const classesApi = {
           studentSubjectsMap[id] = [];
         });
         
-        (subjectsData ?? []).forEach((row: any) => {
-          const sid = row.student_id as string;
-          const subj = row.subject_details as Tables<'subjects'> | null;
-          if (sid && subj && studentSubjectsMap[sid]) {
+        (subjectsData ?? []).forEach((row: { student_id?: string; subject_details?: Tables<'subjects'> | null }) => {
+          const sid = row.student_id;
+          const subj = row.subject_details;
+          if (sid && subj && sid in studentSubjectsMap) {
             studentSubjectsMap[sid].push(subj);
           }
         });

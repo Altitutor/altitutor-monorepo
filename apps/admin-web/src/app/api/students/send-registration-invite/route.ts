@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { randomUUID } from 'crypto';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { sendEmail } from '@/shared/lib/email';
 import { getInviteEmailTemplate } from '@/shared/lib/email-templates';
 import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
@@ -125,11 +125,11 @@ export async function POST(request: NextRequest) {
     if (!token) {
       token = randomUUID();
       
-      // Update student with invite token
-      const { error: updateError } = await supabase
+      // Update student with invite token (use admin client for proper typing)
+      const updateData: TablesUpdate<'students'> = { invite_token: token };
+      const { error: updateError } = await supabaseAdmin!
         .from('students')
-        // @ts-expect-error - TypeScript inference issue with Supabase client
-        .update({ invite_token: token })
+        .update(updateData)
         .eq('id', studentId);
 
       if (updateError) {

@@ -1,5 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
 import Stripe from 'npm:stripe@16.6.0';
 import { Resend } from 'npm:resend@4.0.0';
 
@@ -24,8 +22,9 @@ export async function sendInvoiceEmail(
   let invoice: Stripe.Invoice;
   try {
     invoice = await stripe.invoices.retrieve(invoiceId);
-  } catch (err: any) {
-    console.error(`[invoice-email] Failed to retrieve invoice ${invoiceId}:`, err?.message || err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[invoice-email] Failed to retrieve invoice ${invoiceId}:`, msg);
     return { sent: [], failed: [] };
   }
 
@@ -164,8 +163,9 @@ export async function sendInvoiceEmail(
       });
       sent.push(recipient);
       console.log(`[invoice-email] Sent invoice ${invoiceId} to ${recipient}`);
-    } catch (err: any) {
-      console.error(`[invoice-email] Failed to send invoice ${invoiceId} to ${recipient}:`, err?.message || err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[invoice-email] Failed to send invoice ${invoiceId} to ${recipient}:`, msg);
       failed.push(recipient);
     }
   }

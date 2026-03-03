@@ -6,7 +6,7 @@ import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
-import { Loader2, Pencil, AlertTriangle } from "lucide-react";
+import { Pencil, AlertTriangle } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";

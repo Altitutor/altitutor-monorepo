@@ -2,6 +2,7 @@ import { act } from '@testing-library/react';
 import { useAssignStaffMutation, useEnrollStudentMutation } from '../useReconciliationMutations';
 import { classesApi } from '@/features/classes/api';
 import { renderHookWithProviders } from '@/shared/test-utils';
+import type { Tables } from '@altitutor/shared';
 
 // Mock the API and toast
 jest.mock('@/features/classes/api');
@@ -24,7 +25,7 @@ describe('useAssignStaffMutation', () => {
       assigned_by: 'current-staff-1',
       unassigned_at: null,
       unassigned_by: null,
-    } as any);
+    } as Tables<'classes_staff'>);
   });
 
   it('should call classesApi.assignStaff with correct parameters', async () => {
@@ -60,7 +61,7 @@ describe('useEnrollStudentMutation', () => {
       enrolled_by: 'current-staff-1',
       unenrolled_at: null,
       unenrolled_by: null,
-    } as any);
+    } as Tables<'classes_students'>);
   });
 
   it('should call classesApi.enrollStudent with correct parameters', async () => {

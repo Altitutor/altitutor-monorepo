@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { forgotPasswordSchema } from '../validations';
 import { Button } from '@altitutor/ui';
 import {
   Form,
@@ -20,10 +21,6 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { authApi } from '@/features/auth/api';
-
-const forgotPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-});
 
 type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 

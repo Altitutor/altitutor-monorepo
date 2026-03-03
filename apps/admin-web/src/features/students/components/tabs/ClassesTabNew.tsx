@@ -22,7 +22,7 @@ interface StudentClass {
   subject?: Tables<'subjects'>;
   staff: Tables<'staff'>[];
   students?: Tables<'students'>[];
-  enrollment?: any;
+  enrollment?: Tables<'classes_students'>;
 }
 
 export function ClassesTabNew({
@@ -75,7 +75,7 @@ export function ClassesTabNew({
             subject,
             staff,
             students: enrolledStudents,
-            enrollment: {} // Could fetch enrollment details here
+            enrollment: undefined // Could fetch enrollment details here
           });
         }
       }
