@@ -32,9 +32,16 @@ type MockDetailRow = {
 type StemDetailQuestion = {
   id: string
   question_text: unknown
+  answer_explanation?: unknown
   index: number
   question_type: 'multiple_choice' | 'syllogism'
-  answer_options: Array<{ id: string; answer_text: unknown; index: number; is_answer?: boolean }>
+  answer_options: Array<{
+    id: string
+    answer_text: unknown
+    answer_explanation?: unknown
+    index: number
+    is_answer?: boolean
+  }>
 }
 
 type StemDetailRow = {
@@ -81,9 +88,15 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
           index: option.index,
           text: extractTextFromRichJson(option.answer_text as JsonLike),
           isAnswer: option.is_answer ?? false,
+          answerExplanation: option.answer_explanation
+            ? extractTextFromRichJson(option.answer_explanation as JsonLike)?.trim() || undefined
+            : undefined,
         }))
         .sort((a, b) => a.index - b.index)
       const correctOption = options.find((o) => o.isAnswer)
+      const questionAnswerExplanation = question.answer_explanation
+        ? extractTextFromRichJson(question.answer_explanation as JsonLike)?.trim() || undefined
+        : undefined
       questions.push({
         id: question.id,
         index: questionMeta.index,
@@ -96,6 +109,7 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
         questionType: question.question_type,
         options,
         correctOptionId: correctOption?.id,
+        answerExplanation: questionAnswerExplanation,
       })
     })
   })

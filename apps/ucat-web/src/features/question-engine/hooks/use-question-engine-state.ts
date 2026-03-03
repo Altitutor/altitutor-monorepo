@@ -31,6 +31,7 @@ const initialState: QuestionEngineState = {
   reviewFilterIndex: 0,
   showReviewInstructionsDialog: false,
   showEndReviewDialog: false,
+  viewingQuestionIndex: null,
 }
 
 export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {

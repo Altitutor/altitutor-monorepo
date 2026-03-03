@@ -9,6 +9,12 @@ import type { QuestionMeta } from '@altitutor/ucat-marking'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
 import type { QuestionItem } from '@/features/question-engine/model/types'
 
+function truncateOneLine(text: string, maxLen = 60): string {
+  const t = text.replace(/\s+/g, ' ').trim()
+  if (t.length <= maxLen) return t
+  return t.slice(0, maxLen - 1) + '…'
+}
+
 export type MarkingRow = {
   question: QuestionItem
   index: number
@@ -89,10 +95,10 @@ export function computeMarkingResult(
 
 export function MarkingBody({
   result,
-  onNext,
+  onViewQuestion,
 }: {
   result: MarkingResult
-  onNext: () => void
+  onViewQuestion?: (index: number) => void
 }) {
   const { rows, totalRawScore, maxRawScore, scaledScore } = result
 
@@ -124,38 +130,55 @@ export function MarkingBody({
               style={{ backgroundColor: UCAT_COLORS.toolbarBlue }}
             >
               <th className="px-3 py-2 font-normal">#</th>
+              <th className="px-3 py-2 font-normal">Question</th>
               <th className="px-3 py-2 font-normal">Correct Answer</th>
               <th className="px-3 py-2 font-normal">Your Answer</th>
               <th className="px-3 py-2 font-normal text-right">Points</th>
+              {onViewQuestion ? (
+                <th className="px-3 py-2 font-normal">Actions</th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
-            {rows.map((row) => (
-              <tr
-                key={row.question.id}
-                className="border-b border-[#9ba9bd] hover:bg-[#fffd6f]/10"
-              >
-                <td className="px-3 py-2">{row.index + 1}</td>
-                <td className="px-3 py-2">{row.correctAnswerText}</td>
-                <td className="px-3 py-2">{row.studentAnswerText}</td>
-                <td className="px-3 py-2 text-right">{row.points.toFixed(1)}</td>
-              </tr>
-            ))}
+            {rows.map((row) => {
+              const questionPreview = truncateOneLine(
+                row.question.stemText && row.question.questionText
+                  ? `${row.question.stemText} ${row.question.questionText}`
+                  : row.question.questionText || row.question.stemText || '—',
+                80
+              )
+              return (
+                <tr
+                  key={row.question.id}
+                  className="border-b border-[#9ba9bd] hover:bg-[#fffd6f]/10"
+                >
+                  <td className="px-3 py-2">{row.index + 1}</td>
+                  <td className="px-3 py-2 max-w-[200px]" title={questionPreview}>
+                    {questionPreview}
+                  </td>
+                  <td className="px-3 py-2 max-w-[120px]" title={row.correctAnswerText}>
+                    {truncateOneLine(row.correctAnswerText, 50)}
+                  </td>
+                  <td className="px-3 py-2 max-w-[120px]" title={row.studentAnswerText}>
+                    {truncateOneLine(row.studentAnswerText, 50)}
+                  </td>
+                  <td className="px-3 py-2 text-right">{row.points.toFixed(1)}</td>
+                  {onViewQuestion ? (
+                    <td className="px-3 py-2">
+                      <button
+                        type="button"
+                        onClick={() => onViewQuestion(row.index)}
+                        className="text-[#0066b3] hover:underline"
+                      >
+                        View question
+                      </button>
+                    </td>
+                  ) : null}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
-      </div>
-      <div
-        className="shrink-0 p-4 border-t border-[#9ba9bd] flex justify-end"
-        style={{ fontFamily: UCAT_FONTS.message }}
-      >
-        <button
-          type="button"
-          onClick={onNext}
-          className="px-4 py-2 text-white rounded"
-          style={{ backgroundColor: UCAT_COLORS.primaryBlueDark }}
-        >
-          Next
-        </button>
       </div>
     </div>
   )

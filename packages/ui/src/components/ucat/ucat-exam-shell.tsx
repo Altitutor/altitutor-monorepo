@@ -45,11 +45,11 @@ export function UcatExamShell({
           <div className="h-full min-h-0 overflow-hidden">{children}</div>
         </div>
         <footer
-          className="flex shrink-0 items-center justify-between gap-4 px-4 py-2"
+          className="flex shrink-0 items-center justify-between"
           style={{ backgroundColor: UCAT_COLORS.primaryBlue }}
         >
-          <div className="flex items-stretch gap-2">{footerLeft}</div>
-          <div className="flex items-stretch gap-2">{footerRight}</div>
+          <div className="flex items-stretch">{footerLeft}</div>
+          <div className="flex items-stretch">{footerRight}</div>
         </footer>
       </div>
 
