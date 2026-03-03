@@ -1951,6 +1951,7 @@ export type Database = {
           subtotal_cents: number | null
           total_cents: number | null
           updated_at: string
+          voided_at: string | null
         }
         Insert: {
           amount_due_cents: number
@@ -1989,6 +1990,7 @@ export type Database = {
           subtotal_cents?: number | null
           total_cents?: number | null
           updated_at?: string
+          voided_at?: string | null
         }
         Update: {
           amount_due_cents?: number
@@ -2027,6 +2029,7 @@ export type Database = {
           subtotal_cents?: number | null
           total_cents?: number | null
           updated_at?: string
+          voided_at?: string | null
         }
         Relationships: [
           {
@@ -2268,6 +2271,7 @@ export type Database = {
           due_date: string | null
           id: string
           name: string
+          resolved_at: string | null
           search_vector: unknown
           status: string
           updated_at: string
@@ -2279,6 +2283,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           name: string
+          resolved_at?: string | null
           search_vector?: unknown
           status?: string
           updated_at?: string
@@ -2290,6 +2295,7 @@ export type Database = {
           due_date?: string | null
           id?: string
           name?: string
+          resolved_at?: string | null
           search_vector?: unknown
           status?: string
           updated_at?: string
@@ -5514,6 +5520,7 @@ export type Database = {
       }
       students: {
         Row: {
+          active_at: string | null
           availability_friday: boolean | null
           availability_monday: boolean | null
           availability_saturday_am: boolean | null
@@ -5532,6 +5539,7 @@ export type Database = {
           invite_token: string | null
           last_name: string
           phone: string | null
+          registered_at: string | null
           school: string | null
           status: string
           updated_at: string | null
@@ -5540,6 +5548,7 @@ export type Database = {
           year_level: number | null
         }
         Insert: {
+          active_at?: string | null
           availability_friday?: boolean | null
           availability_monday?: boolean | null
           availability_saturday_am?: boolean | null
@@ -5558,6 +5567,7 @@ export type Database = {
           invite_token?: string | null
           last_name: string
           phone?: string | null
+          registered_at?: string | null
           school?: string | null
           status: string
           updated_at?: string | null
@@ -5566,6 +5576,7 @@ export type Database = {
           year_level?: number | null
         }
         Update: {
+          active_at?: string | null
           availability_friday?: boolean | null
           availability_monday?: boolean | null
           availability_saturday_am?: boolean | null
@@ -5584,6 +5595,7 @@ export type Database = {
           invite_token?: string | null
           last_name?: string
           phone?: string | null
+          registered_at?: string | null
           school?: string | null
           status?: string
           updated_at?: string | null
