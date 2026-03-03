@@ -127,8 +127,7 @@ export function generateCsvHeader(): string {
 
 /**
  * Generate complete CSV content from entries
- * Groups entries: admin+meetings together, then classes
- * Adds blank lines between dates within each section
+ * Groups by date only: adds blank lines between dates
  */
 export function generateCsv(entries: Array<{
   date: string;
@@ -138,37 +137,20 @@ export function generateCsv(entries: Array<{
   payCategoryExternalId: string;
   comments: string;
   units: number;
-  sessionGroup?: 'admin' | 'meeting' | 'class';
-  isAdminOrMeeting?: boolean;
 }>): string {
   const header = generateCsvHeader();
   const rows: string[] = [];
-  
-  let lastIsAdminOrMeeting: boolean | null = null;
   let lastDate: string | null = null;
-  
+
   for (let i = 0; i < entries.length; i++) {
     const entry = entries[i];
-    const isAdminOrMeeting = entry.isAdminOrMeeting ?? (entry.sessionGroup === 'admin' || entry.sessionGroup === 'meeting');
-    
-    // Add blank line between sections (admin+meetings -> classes)
-    if (lastIsAdminOrMeeting !== null && lastIsAdminOrMeeting !== isAdminOrMeeting) {
-      rows.push('');
-      // Reset lastDate when transitioning sections to avoid double blank lines
-      lastDate = null;
-    }
-    
-    // Add blank line between dates within the same section
-    if (lastDate !== null && entry.date !== lastDate && lastIsAdminOrMeeting === isAdminOrMeeting) {
+    if (lastDate !== null && entry.date !== lastDate) {
       rows.push('');
     }
-    
     rows.push(generateCsvRow(entry));
-    
-    lastIsAdminOrMeeting = isAdminOrMeeting;
     lastDate = entry.date;
   }
-  
+
   return [header, ...rows].join('\n');
 }
 

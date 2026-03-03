@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -9,17 +9,14 @@ import {
   TableHeader,
   TableRow,
   Badge,
-  Button,
   SkeletonTable,
   DataTableToolbar,
   TablePagination,
+  Input,
 } from "@altitutor/ui";
-import { 
-  ArrowUpDown,
-  Search,
-} from 'lucide-react';
+import { ArrowUpDown, Search } from 'lucide-react';
 import type { DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { cn } from '@/shared/utils/index';
+import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useTutorLogsTable } from '../hooks/useTutorLogsTable';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -75,6 +72,7 @@ export function TutorLogsTable({
     topics,
     filteredStaff,
     filteredStudents,
+    filteredTutorLogs,
     paginatedTutorLogs,
     isLoading,
     isFetching,
@@ -127,43 +125,22 @@ export function TutorLogsTable({
     setIsEditModalOpen(true);
   };
 
-  useEffect(() => {
-    setPage(1);
-  }, [state.search, state.filters, setPage]);
-
-  if (isLoading && paginatedTutorLogs.length === 0) {
+  if (isLoading && filteredTutorLogs.length === 0) {
     return (
       <div className="space-y-4">
-        <DataTableToolbar
-          state={state}
-          onSearchChange={setSearch}
-          onFiltersChange={setFilters}
-          onSortChange={setSort}
-          onGroupByChange={() => {}}
-          onVisibleColumnsChange={setVisibleColumns}
-          onQuickFilterApply={(qf) => applyQuickFilter(qf, currentStaff?.id)}
-          onReset={resetFilters}
-          filterDefinitions={filterDefinitions}
-          sortOptions={sortOptions}
-          columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
-          filterSearchValues={{
-            staff: staffFilterSearch,
-            student: studentFilterSearch,
-          }}
-          onFilterSearchChange={(filterKey, value) => {
-            if (filterKey === 'staff') setStaffFilterSearch(value);
-            if (filterKey === 'student') setStudentFilterSearch(value);
-          }}
-          searchPlaceholder="Search tutor logs..."
-          isLoading={true}
-        />
-        <SkeletonTable rows={10} columns={state.visibleColumns.length} />
+        <div className="flex flex-col gap-2">
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Search tutor logs..." className="pl-8" disabled />
+          </div>
+        </div>
+        <SkeletonTable rows={8} columns={5} />
+        <div className="text-sm text-muted-foreground">Loading tutor logs...</div>
       </div>
     );
   }
 
-  if (error && paginatedTutorLogs.length === 0) {
+  if (error && filteredTutorLogs.length === 0) {
     return (
       <div className="text-red-500 p-4">
         Failed to load tutor logs. Please try again.
@@ -240,8 +217,6 @@ export function TutorLogsTable({
             ) : (
               paginatedTutorLogs.map((log) => {
                 const session = sessions[log.session_id];
-                const cls = session?.class_id ? classesById[session.class_id] : null;
-                const subject = cls?.subject_id ? subjectsById[cls.subject_id] : null;
                 const staffAtt = staffAttendance[log.id] || [];
                 const studentAtt = studentAttendance[log.id] || [];
                 const logTopics = topics[log.id] || [];
@@ -274,12 +249,18 @@ export function TutorLogsTable({
                     {state.visibleColumns.includes('class') && (
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          {subject && (
-                            <Badge variant="outline" style={{ borderColor: subject.color || undefined, color: subject.color || undefined }}>
-                              {subject.name}
-                            </Badge>
-                          )}
-                          <span className="text-sm font-medium">{formatClassDisplayName(session?.class_id || null, classesById, subjectsById) || 'Private Session'}</span>
+                          <Badge className={session?.class_id ? getSessionTypeBadgeColor(session.type) : session?.type === 'ADMIN_SHIFT' ? getSessionTypeBadgeColor('ADMIN_SHIFT') : getSessionTypeBadgeColor(null)}>
+                            {session?.class_id ? formatSessionType(session?.type) : session?.type === 'ADMIN_SHIFT' ? 'Admin Shift' : 'Meeting'}
+                          </Badge>
+                          {session?.class_id ? (
+                            <span className="text-sm font-medium">
+                              {formatClassDisplayName(session.class_id, classesById, subjectsById)}
+                            </span>
+                          ) : session?.type !== 'ADMIN_SHIFT' && formatSessionType(session?.type) !== 'Meeting' ? (
+                            <span className="text-sm font-medium">
+                              {formatSessionType(session?.type)}
+                            </span>
+                          ) : null}
                         </div>
                       </TableCell>
                     )}
@@ -331,7 +312,7 @@ export function TutorLogsTable({
       <TablePagination
         page={state.page}
         pageSize={state.pageSize}
-        total={paginatedTutorLogs.length === state.pageSize ? state.page * state.pageSize + 1 : (state.page - 1) * state.pageSize + paginatedTutorLogs.length}
+        total={filteredTutorLogs.length}
         isFetching={isFetching}
         onPageChange={setPage}
         onPageSizeChange={setPageSize}

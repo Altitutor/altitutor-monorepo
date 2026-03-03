@@ -74,6 +74,14 @@ export interface UseTutorLogsTableReturn {
   filteredStaff: Tables<'staff'>[];
   filteredStudents: Tables<'students'>[];
   
+  // Filtered count (for pagination total)
+  filteredTutorLogs: Array<{
+    id: string;
+    session_id: string;
+    created_by: string | null;
+    created_at: string;
+    updated_at: string | null;
+  }>;
   // Pagination state
   paginatedTutorLogs: Array<{
     id: string;
@@ -226,6 +234,7 @@ export function useTutorLogsTable({
 
   return {
     tutorLogs,
+    filteredTutorLogs,
     sessions,
     classesById,
     subjectsById,
