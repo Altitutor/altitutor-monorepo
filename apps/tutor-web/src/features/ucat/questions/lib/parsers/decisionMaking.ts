@@ -1,7 +1,7 @@
 import type { Json } from '@altitutor/shared'
 import {
-  plainTextToProseMirror,
-  plainTextToProseMirrorWithLineBreaks,
+  tokenizedPlainTextToProseMirror,
+  tokenizedPlainTextToProseMirrorWithLineBreaks,
 } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
@@ -91,7 +91,7 @@ export function parseDecisionMakingPlainText(input: string): ParsedDecisionMakin
 }
 
 function toRichText(text: string): Json {
-  return plainTextToProseMirror(text) as Json
+  return tokenizedPlainTextToProseMirror(text) as Json
 }
 
 export type DecisionMakingToFormOptions = {
@@ -136,7 +136,7 @@ export function mapParsedDecisionMakingToFormValues(
       return {
         sectionId,
         categoryId: categoryId ?? null,
-        stemText: plainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
+        stemText: tokenizedPlainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
         isPrivate,
         questions,
       }

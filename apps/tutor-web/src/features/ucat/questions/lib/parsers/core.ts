@@ -55,7 +55,22 @@ type PMNode = {
   type?: string
   content?: PMNode[]
   text?: string
+  attrs?: Record<string, unknown>
   [key: string]: unknown
+}
+
+function encodeImageToken(attrs: Record<string, unknown> | undefined): string | null {
+  if (!attrs) return null
+  const src = typeof attrs.src === 'string' ? attrs.src : ''
+  const fileId = typeof attrs.fileId === 'string' ? attrs.fileId : ''
+  if (!src && !fileId) return null
+
+  const parts: string[] = []
+  if (fileId) parts.push(`f=${encodeURIComponent(fileId)}`)
+  if (src) parts.push(`s=${encodeURIComponent(src)}`)
+  if (parts.length === 0) return null
+
+  return `[[IMG:${parts.join(';')}]]`
 }
 
 function buildQuestionRegexes(kind: QuestionIndicatorKind): {
@@ -114,6 +129,12 @@ function normaliseTextBlock(lines: string[], config: ParserConfig): string {
 
 function nodeToText(node: PMNode | null | undefined): string {
   if (!node) return ''
+
+  if (node.type === 'image') {
+    const token = encodeImageToken(node.attrs)
+    return token ?? ''
+  }
+
   if (typeof node.text === 'string') return node.text
   if (!Array.isArray(node.content) || node.content.length === 0) return ''
   return node.content.map((child) => nodeToText(child)).join(' ')
@@ -121,6 +142,14 @@ function nodeToText(node: PMNode | null | undefined): string {
 
 function collectLogicalLinesFromNode(node: PMNode, lines: string[]): void {
   if (!node) return
+
+  if (node.type === 'image') {
+    const text = nodeToText(node).trim()
+    if (text.length > 0) {
+      lines.push(text)
+    }
+    return
+  }
 
   if (node.type === 'table') {
     const rows = Array.isArray(node.content) ? node.content : []
@@ -261,9 +290,6 @@ export function parseFromLines(
     }
 
     if (isQuestionLine) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c30fa7'},body:JSON.stringify({sessionId:'c30fa7',location:'core:isQuestionLine',message:'match',data:{idx,line:line.slice(0,50),stemsSoFar:stems.length},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
-      // #endregion
       flushCurrentQuestion()
       expectingOptionTextLine = false
 
@@ -312,9 +338,6 @@ export function parseFromLines(
       !isBlank(trimmed) &&
       !(inlineOptionMatch || labelOnlyMatch)
     ) {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c30fa7'},body:JSON.stringify({sessionId:'c30fa7',location:'core:narrativeAfterOptions',message:'finalise then stem',data:{idx,line:line.slice(0,50),questionsInStem:questions.length},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-      // #endregion
       flushCurrentQuestion()
       finaliseStem()
       stemLines.push(line)
@@ -341,9 +364,6 @@ export function parseFromLines(
           // Require firstIdx > 0 so we keep at least the question text line (index 0); otherwise
           // we'd splice away everything when questionTextLines has exactly 5 lines (question + 4 options).
           if (allNonOption && firstIdx > 0) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c30fa7'},body:JSON.stringify({sessionId:'c30fa7',location:'core:syllogism',message:'add 5',data:{idx,stemsSoFar:stems.length},timestamp:Date.now(),hypothesisId:'H6'})}).catch(()=>{});
-            // #endregion
             const optionTexts = last5NonBlank.map((i) => questionTextLines[i] ?? '')
             questionTextLines.splice(firstIdx, questionTextLines.length - firstIdx)
             const labels = ['A', 'B', 'C', 'D', 'E']
@@ -367,10 +387,6 @@ export function parseFromLines(
 
   flushCurrentQuestion()
   finaliseStem()
-
-  // #region agent log
-  fetch('http://127.0.0.1:7242/ingest/03d835b2-9f2b-42e2-a795-53809de736bc',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'c30fa7'},body:JSON.stringify({sessionId:'c30fa7',location:'core:parseFromLinesDone',message:'done',data:{stemsLen:stems.length,totalQuestions:stems.reduce((a,s)=>a+s.questions.length,0),rawLinesLen:rawLines.length},timestamp:Date.now(),hypothesisId:'H7'})}).catch(()=>{});
-  // #endregion
 
   return stems
 }

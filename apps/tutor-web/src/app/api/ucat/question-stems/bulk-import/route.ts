@@ -4,15 +4,17 @@ import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/
 
 const SerializedAnswerOptionSchema = z.object({
   index: z.number().int().positive(),
-  answer_text: z.union([z.string(), z.number()]),
-  answer_explanation: z.union([z.string(), z.number(), z.null()]).optional(),
+  // Allow full JSON structures (ProseMirror, etc.) for answer text/explanation.
+  answer_text: z.unknown(),
+  answer_explanation: z.unknown().nullable().optional(),
   is_answer: z.boolean(),
 })
 
 const SerializedQuestionSchema = z.object({
   index: z.number().int().positive(),
-  question_text: z.union([z.string(), z.number()]),
-  answer_explanation: z.union([z.string(), z.number(), z.null()]).optional(),
+  // Question text and explanation are rich-text JSON blobs in practice.
+  question_text: z.unknown(),
+  answer_explanation: z.unknown().nullable().optional(),
   difficulty: z.number().nullable().optional(),
   time_burden_seconds: z.number().nullable().optional(),
   question_type: z.enum(['multiple_choice', 'syllogism']),
@@ -24,7 +26,8 @@ const SerializedStemSchema = z.object({
   stemId: z.string().uuid().nullable().optional(),
   sectionId: z.string().uuid(),
   categoryId: z.string().uuid().nullable().optional(),
-  stemText: z.union([z.string(), z.number()]),
+  // Stem text is also rich-text JSON.
+  stemText: z.unknown(),
   isPrivate: z.boolean(),
   questions: z.array(SerializedQuestionSchema),
 })

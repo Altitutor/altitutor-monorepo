@@ -69,7 +69,7 @@ export function BulkImportQuestionStemsModal({
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
   const [pastedAnswersText, setPastedAnswersText] = useState('')
   const [parseError, setParseError] = useState<string | null>(null)
-  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_all')
+  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
   const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
     questionIndicator: 'dot',
     answerOptionIndicator: 'paren',
@@ -88,7 +88,7 @@ export function BulkImportQuestionStemsModal({
       setPastedContent(null)
       setPastedAnswersText('')
       setParseError(null)
-      setPasteTableBehavior('strip_all')
+      setPasteTableBehavior('strip_outside')
       setParsingOptions({
         questionIndicator: 'dot',
         answerOptionIndicator: 'paren',
@@ -146,6 +146,23 @@ export function BulkImportQuestionStemsModal({
       })
     }
     onClose()
+  }
+
+  function docHasImageNode(doc: Json | null): boolean {
+    if (!doc || typeof doc !== 'object') return false
+    const visit = (node: unknown): boolean => {
+      if (!node || typeof node !== 'object') return false
+      const rec = node as Record<string, unknown>
+      if (rec.type === 'image') return true
+      const content = rec.content
+      if (Array.isArray(content)) {
+        for (const child of content) {
+          if (visit(child)) return true
+        }
+      }
+      return false
+    }
+    return visit(doc)
   }
 
   /** Parse pasted content according to the selected section; used when moving from step 1 to 2. */
