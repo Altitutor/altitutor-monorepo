@@ -128,8 +128,8 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
       form.reset({
         name: subject.name,
         year_level: subject.year_level,
-        curriculum: subject.curriculum as any,
-        discipline: subject.discipline as any,
+        curriculum: subject.curriculum,
+        discipline: subject.discipline,
         level: subject.level,
         color: subject.color || null,
       });

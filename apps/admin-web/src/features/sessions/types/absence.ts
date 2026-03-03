@@ -57,7 +57,7 @@ export interface StudentSession extends Tables<'sessions'> {
  */
 export interface LogAbsencesResponse {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 
@@ -66,7 +66,7 @@ export interface LogAbsencesResponse {
  */
 export interface UndoAbsencesResponse {
   success: boolean;
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 

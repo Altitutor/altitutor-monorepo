@@ -147,15 +147,16 @@ export const absencesApi = {
 
       if (error) throw error;
 
-      // Transform, filter by date range, and sort the data client-side
+      type RowWithSession = { id: string; session: { class?: { subject?: Tables<'subjects'> | null } | null } | null };
       const sessions: StudentSession[] = (data || [])
-        .filter((row: any) => row.session) // Filter out any null sessions
-        .map((row: any) => {
-          const session = row.session as Tables<'sessions'>;
+        .filter((row: RowWithSession): row is RowWithSession & { session: NonNullable<RowWithSession['session']> } => !!row.session)
+        .map((row) => {
+          const session = row.session as unknown as Tables<'sessions'>;
+          const cls = row.session.class;
           return {
             ...session,
-            class: row.session.class || null,
-            subject: row.session.class?.subject || null,
+            class: cls || null,
+            subject: (cls?.subject as Tables<'subjects'> | undefined) || null,
             sessionsStudentsId: row.id,
           } as StudentSession;
         })
@@ -216,16 +217,17 @@ export const absencesApi = {
       }
 
       // If data is a string (unparsed JSONB), parse it
-      let sessions: any[] = [];
+      type RpcSession = RescheduleSession & { class?: { subject_id?: string }; subject?: Tables<'subjects'>; studentCount?: number };
+      let sessions: RpcSession[] = [];
       if (typeof data === 'string') {
         try {
-          sessions = JSON.parse(data);
+          sessions = JSON.parse(data) as RpcSession[];
         } catch (e) {
           console.error('Error parsing RPC response:', e);
           return [];
         }
       } else if (Array.isArray(data)) {
-        sessions = data;
+        sessions = data as unknown as RpcSession[];
       } else {
         // If it's an object with an error, return empty array
         if (data && typeof data === 'object' && 'error' in data) {
@@ -236,7 +238,7 @@ export const absencesApi = {
       }
 
       // Transform RPC response to RescheduleSession format
-      return sessions.map((session: any) => ({
+      return sessions.map((session: RpcSession) => ({
         id: session.id,
         start_at: session.start_at,
         end_at: session.end_at,

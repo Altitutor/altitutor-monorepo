@@ -66,11 +66,11 @@ export function useUnloggedSessionsForStaff(staffId: string | null | undefined) 
         }
 
         const rpcData = rpcResult as {
-          sessions: any[];
-          sessionStudents: Record<string, any[]>;
-          sessionStaff: Record<string, any[]>;
-          classesById: Record<string, any>;
-          subjectsById: Record<string, any>;
+          sessions: Tables<'sessions'>[];
+          sessionStudents: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>;
+          sessionStaff: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>;
+          classesById: Record<string, Tables<'classes'>>;
+          subjectsById: Record<string, Tables<'subjects'>>;
           total: number;
         };
 
@@ -79,9 +79,9 @@ export function useUnloggedSessionsForStaff(staffId: string | null | undefined) 
           .from('tutor_logs')
           .select('session_id');
 
-        const loggedSessionIds = new Set((existingLogs || []).map((log: any) => log.session_id));
+        const loggedSessionIds = new Set((existingLogs || []).map((log: { session_id: string }) => log.session_id));
         const unloggedSessions = (rpcData.sessions || []).filter(
-          (s: any) => !loggedSessionIds.has(s.id)
+          (s: Tables<'sessions'>) => !loggedSessionIds.has(s.id)
         );
 
         return {

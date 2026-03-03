@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import {
   EntityList,
   type EntityListStatusColumn,
@@ -55,7 +55,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
     []
   );
 
-  const statusColumn: EntityListStatusColumn<IssueWithTags, IssueStatus> = {
+  const statusColumn: EntityListStatusColumn<IssueWithTags, unknown> = {
     key: 'status',
     label: 'Status',
     getValue: (i) => i.status as IssueStatus,
@@ -65,10 +65,11 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
       ...opt,
       icon: opt.value === 'open' ? Circle : opt.value === 'awaiting_response' ? Clock : CheckCircle
     })),
-    renderBubble: (value, collapsed) => {
-      const option = STATUS_OPTIONS.find(o => o.value === value) || STATUS_OPTIONS[0];
-      const Icon = value === 'open' ? Circle : value === 'awaiting_response' ? Clock : CheckCircle;
-      const color = value === 'open' ? 'text-blue-500' : value === 'awaiting_response' ? 'text-yellow-500' : 'text-green-500';
+    renderBubble: (value: unknown, collapsed) => {
+      const status = value as IssueStatus;
+      const option = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
+      const Icon = status === 'open' ? Circle : status === 'awaiting_response' ? Clock : CheckCircle;
+      const color = status === 'open' ? 'text-blue-500' : status === 'awaiting_response' ? 'text-yellow-500' : 'text-green-500';
 
       if (collapsed) return <Icon className={cn("h-3 w-3", color)} />;
 
@@ -79,7 +80,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         </span>
       );
     },
-    onStatusChange: handleStatusChange,
+    onStatusChange: (issue, value) => handleStatusChange(issue, value as IssueStatus),
   };
 
   const dueDateFilterOptions = useMemo(
@@ -151,7 +152,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         items={issues}
         getItemId={(i) => i.id}
         renderName={(i) => <TextWithTags text={i.name} />}
-        statusColumn={statusColumn as any}
+        statusColumn={statusColumn}
         rightPills={rightPills}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}
@@ -191,7 +192,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
           enabled: true,
           renderEditor: ({ value, onChange, placeholder, ref }) => (
             <RichTextEditor
-              ref={ref as any}
+              ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
               content={value}
               onChange={onChange}
               placeholder={placeholder}

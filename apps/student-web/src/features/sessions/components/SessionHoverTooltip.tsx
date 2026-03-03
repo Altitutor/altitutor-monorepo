@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Popover, PopoverContent, PopoverTrigger, Separator, Badge, Button } from '@altitutor/ui';
-import type { Database } from '@altitutor/shared';
+import type { Database, Tables } from '@altitutor/shared';
 import { formatSessionType, getSubjectColorStyle, formatSubjectDisplay } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { useMediaQuery, useCurrentStudentId } from '@/shared/hooks';
@@ -111,15 +111,16 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
   if (session.subject_curriculum) {
     subjectParts.push(session.subject_curriculum);
   }
-  const yearLevel = (session as any).subject_year_level ?? session.subject_level;
+  const sessionExt = session as StudentSession & { subject_year_level?: number | null; class_level?: string | null };
+  const yearLevel = sessionExt.subject_year_level ?? session.subject_level;
   if (yearLevel !== null && yearLevel !== undefined) {
     subjectParts.push(String(yearLevel));
   }
   if (session.subject_name) {
     subjectParts.push(session.subject_name);
   }
-  if ((session as any).class_level) {
-    subjectParts.push((session as any).class_level);
+  if (sessionExt.class_level) {
+    subjectParts.push(sessionExt.class_level);
   }
   const subjectDisplay = subjectParts.length > 0 ? subjectParts.join(' ') : formatSessionType(session.session_type);
 
@@ -157,14 +158,15 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
   const isCurrentStudentAbsent = session.planned_absence === true;
 
   // Create subject object for colored pill
-  const subjectForPill = session.subject_id ? {
+  type SubjectForPill = { id: string; name: string | null; curriculum: string | null; year_level: number | null; level: string | null; color: string | null };
+  const subjectForPill: SubjectForPill | null = session.subject_id ? {
     id: session.subject_id,
     name: session.subject_name || null,
     curriculum: session.subject_curriculum || null,
-    year_level: (session as any).subject_year_level ?? null,
+    year_level: sessionExt.subject_year_level ?? null,
     level: session.subject_level || null,
     color: session.subject_color || null,
-  } as any : null;
+  } : null;
 
   // Convert session to AbsenceStudentSession format for LogAbsenceDialog
   const absenceSession: AbsenceStudentSession | null = 
@@ -186,12 +188,12 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
         start_time: session.start_time,
         end_time: session.end_time,
         room: session.room,
-        level: (session as any).class_level,
+        level: sessionExt.class_level ?? null,
         status: session.class_status || 'ACTIVE',
         subject_id: session.subject_id,
         created_at: null,
         updated_at: null,
-      } as any : null,
+      } as Tables<'classes'> : null,
       subject: session.subject_id ? {
         id: session.subject_id,
         name: session.subject_name || null,
@@ -199,10 +201,10 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
         discipline: null,
         level: session.subject_level || null,
         color: session.subject_color || null,
-        year_level: (session as any).subject_year_level ?? null,
+        year_level: sessionExt.subject_year_level ?? null,
         created_at: null,
         updated_at: null,
-      } as any : null,
+      } as Tables<'subjects'> : null,
       sessionsStudentsId: session.session_student_id,
     } : null;
 
@@ -247,14 +249,15 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
               <div className="font-medium text-muted-foreground">Subject:</div>
               <div>
                 {subjectForPill ? (() => {
-                  const { style, textColorClass } = getSubjectColorStyle(subjectForPill);
+                  const subjectForUtils = subjectForPill as Tables<'subjects'>;
+                  const { style, textColorClass } = getSubjectColorStyle(subjectForUtils);
                   const defaultClass = !subjectForPill.color ? 'bg-gray-100 text-gray-800' : '';
                   return (
                     <Badge 
                       className={defaultClass || textColorClass}
                       style={style.backgroundColor ? style : undefined}
                     >
-                      {formatSubjectDisplay(subjectForPill)}
+                      {formatSubjectDisplay(subjectForUtils)}
                     </Badge>
                   );
                 })() : (

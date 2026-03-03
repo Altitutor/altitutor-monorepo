@@ -55,10 +55,10 @@ export function getEntityDisplayText(result: CommandPaletteEntityResult): Entity
 
   if (result.type === 'class') {
     const classData = result.data;
-    const subject = classData.subject;
+    const subject = classData.subject as Tables<'subjects'> | null | undefined;
     return {
-      title: formatClassShortName(classData as any, subject),
-      subtitle: formatClassName(classData as any, subject),
+      title: formatClassShortName(classData as Tables<'classes'>, subject),
+      subtitle: formatClassName(classData as Tables<'classes'>, subject),
     };
   }
 

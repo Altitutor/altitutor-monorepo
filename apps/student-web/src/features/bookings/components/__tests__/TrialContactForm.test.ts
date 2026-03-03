@@ -100,12 +100,12 @@ describe('TrialContactForm Schema', () => {
     });
 
     it('should reject invalid curriculum', () => {
-      const data = { ...validData, curriculum: 'INVALID' as any };
+      const data = { ...validData, curriculum: 'INVALID' as unknown as 'SACE' };
       expect(() => trialContactSchema.parse(data)).toThrow();
     });
 
     it('should reject invalid year level', () => {
-      const data = { ...validData, year_level: '14' as any };
+      const data = { ...validData, year_level: '14' as unknown as '1' };
       expect(() => trialContactSchema.parse(data)).toThrow();
     });
   });

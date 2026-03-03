@@ -18,6 +18,7 @@ import { X } from 'lucide-react';
 import { useCreateTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
 import type { TaskFormData, TaskStatus } from '../types';
+import type { SubmitHandler } from 'react-hook-form';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
@@ -25,7 +26,7 @@ import type { Resolver } from 'react-hook-form';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
-  description: z.any().optional(),
+  description: z.union([z.record(z.unknown()), z.string(), z.null()]).optional(),
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']),
   priority: z.number().min(0).max(4),
   assignedTo: z.union([z.string().uuid(), z.null()]).default(null),
@@ -120,7 +121,7 @@ export function CreateTaskDialog({
     try {
       await createTask.mutateAsync({
         title: data.title,
-        description: (data.description as any) || null,
+        description: (data.description as JSONContent | null) ?? null,
         status: data.status,
         priority: data.priority,
         assigned_to: data.assignedTo || null,
@@ -169,7 +170,7 @@ export function CreateTaskDialog({
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full flex">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
+              <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<TaskFormData>)} className="flex-1 flex min-h-0">
                 <TaskContentPanel
                   form={form}
                   taskId={createdTaskId}
@@ -225,7 +226,7 @@ export function CreateTaskDialog({
             {!createdTaskId && (
               <Button
                 type="submit"
-                onClick={form.handleSubmit(onSubmit as any)}
+                onClick={form.handleSubmit(onSubmit as SubmitHandler<TaskFormData>)}
                 disabled={createTask.isPending}
               >
                 {createTask.isPending ? 'Creating...' : 'Create Task'}

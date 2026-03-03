@@ -266,7 +266,7 @@ export function Composer({
       }
       // Check if it's a parent contact - use all their students
       else if (contact.contact_type === 'PARENT' && contact.parents) {
-        const parentData = contact.parents as any;
+        const parentData = contact.parents as Tables<'parents'> & { parents_students?: Array<{ students: Tables<'students'> }> };
         const parent: Tables<'parents'> = {
           id: parentData.id,
           first_name: parentData.first_name || '',
@@ -279,15 +279,15 @@ export function Composer({
           created_at: parentData.created_at || null,
           updated_at: parentData.updated_at || null,
         };
-        const parentStudents = (contact.parents as any).parents_students || [];
+        const parentStudents = parentData.parents_students || [];
         
         if (parentStudents.length > 0) {
           try {
             setIsGeneratingTokens(needsLinks);
             
             // Build students array with classes and link tokens
-            const studentsWithClasses: StudentWithClasses[] = await Promise.all(
-              parentStudents.map(async (ps: any) => {
+            const rawStudentsWithClasses = await Promise.all(
+              parentStudents.map(async (ps: { students: Tables<'students'> }) => {
                 const student = ps.students as Tables<'students'>;
                 if (!student) return null;
 
@@ -315,14 +315,14 @@ export function Composer({
                 return {
                   student,
                   classes,
-                  linkTokens,
+                  linkTokens: linkTokens ?? null,
                 };
               })
             );
 
             // Filter out nulls and sort alphabetically by name (consistent with UI)
-            const validStudents = studentsWithClasses
-              .filter((s): s is StudentWithClasses => s !== null)
+            const validStudents = rawStudentsWithClasses
+              .filter((s): s is NonNullable<typeof s> => s !== null)
               .sort((a, b) => {
                 const nameA = `${a.student.first_name || ''} ${a.student.last_name || ''}`.trim().toLowerCase();
                 const nameB = `${b.student.first_name || ''} ${b.student.last_name || ''}`.trim().toLowerCase();

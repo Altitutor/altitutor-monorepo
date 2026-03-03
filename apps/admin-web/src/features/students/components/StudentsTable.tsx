@@ -458,7 +458,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   >
                     {state.visibleColumns.includes('status') && (
                       <TableCell>
-                        <Badge className={cn("text-xs", getStudentStatusColor(student.status as any))}>
+                        <Badge className={cn("text-xs", getStudentStatusColor(student.status))}>
                           {student.status}
                         </Badge>
                       </TableCell>
@@ -467,7 +467,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                       <TableCell>
                         <div className="flex flex-wrap gap-1 items-center">
                           {student.curriculum ? (
-                            <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as any))}>
+                            <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum))}>
                               {student.curriculum}
                             </Badge>
                           ) : null}

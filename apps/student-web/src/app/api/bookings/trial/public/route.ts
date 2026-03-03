@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       : null;
     
     // Call database function (parameters must be in order: required first, then optional)
-    const { data, error } = await supabase.rpc('create_public_trial_booking' as any, {
+    const { data, error } = await supabase.rpc('create_public_trial_booking', {
       p_student_first_name: body.student_first_name,
       p_student_last_name: body.student_last_name,
       p_student_email: body.student_email,
@@ -118,8 +118,8 @@ export async function POST(request: NextRequest) {
       p_curriculum: body.curriculum,
       p_start_at: body.start_at,
       p_end_at: body.end_at,
-      p_year_level: yearLevel,
-      p_subject_ids: subjectIds,
+      p_year_level: yearLevel ?? undefined,
+      p_subject_ids: subjectIds ?? undefined,
       p_parent_first_name: body.skip_parent_details ? null : (body.parent_first_name || null),
       p_parent_last_name: body.skip_parent_details ? null : (body.parent_last_name || null),
       p_parent_email: body.skip_parent_details ? null : (body.parent_email || null),
@@ -198,12 +198,13 @@ export async function POST(request: NextRequest) {
         );
       }
       
+      const result = data as { session_id: string; student_id: string };
       return NextResponse.json({
-        session_id: data.session_id,
-        student_id: data.student_id,
+        session_id: result.session_id,
+        student_id: result.student_id,
       });
     
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

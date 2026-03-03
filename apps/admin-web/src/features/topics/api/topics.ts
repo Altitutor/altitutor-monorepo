@@ -154,7 +154,7 @@ export const topicsApi = {
     
     const { data: created, error } = await supabase
       .from('topics')
-      .insert(topicData as any) // index is calculated by database trigger
+      .insert(topicData as TablesInsert<'topics'>) // index is calculated by database trigger
       .select()
       .single();
     
@@ -298,12 +298,13 @@ export const topicsApi = {
         throw error;
       }
       
-      const topics = (data ?? []) as any[];
+      type TopicRow = Tables<'topics'> & { subjects?: Tables<'subjects'> };
+      const topics = (data ?? []) as TopicRow[];
       const subjectByTopicId: Record<string, Tables<'subjects'>> = {};
-      
-      topics.forEach((t: any) => {
+
+      topics.forEach((t) => {
         if (t.subjects) {
-          subjectByTopicId[t.id] = t.subjects as Tables<'subjects'>;
+          subjectByTopicId[t.id] = t.subjects;
         }
       });
       

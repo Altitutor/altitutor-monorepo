@@ -177,11 +177,12 @@ export const reconciliationApi = {
         
         if (staffError) throw staffError;
         
-        const assignedTutors = staffData?.map(s => ({
-          id: (s.staff as any)?.id ?? s.staff_id,
-          first_name: (s.staff as any)?.first_name ?? '',
-          last_name: (s.staff as any)?.last_name ?? '',
-          email: (s.staff as any)?.email ?? '',
+        type StaffRow = { staff_id: string; type: string; staff: { id: string; first_name: string; last_name: string; email: string | null } | null };
+        const assignedTutors = staffData?.map((s: StaffRow) => ({
+          id: s.staff?.id ?? s.staff_id,
+          first_name: s.staff?.first_name ?? '',
+          last_name: s.staff?.last_name ?? '',
+          email: s.staff?.email ?? '',
           type: s.type,
         })) ?? null;
         
@@ -267,7 +268,7 @@ export const reconciliationApi = {
           return {
             class_id: cls.id,
             subject_id: cls.subject_id,
-            subject_name: (cls.subject as any)?.name ?? null,
+            subject_name: (cls.subject as { name?: string } | null)?.name ?? null,
             day_of_week: cls.day_of_week,
             start_time: cls.start_time,
             end_time: cls.end_time,
@@ -330,9 +331,10 @@ export const reconciliationApi = {
     
     if (messagesError) throw messagesError;
     
+    type ConversationWithContact = { status?: string; assigned_staff_id?: string; last_message_at?: string; contact?: { contact_type?: string; student?: { first_name: string; last_name: string }; parent?: { first_name: string; last_name: string }; staff?: { first_name: string; last_name: string }; phone_e164?: string; student_id?: string; parent_id?: string; staff_id?: string } };
     return (messages ?? []).map((msg) => {
-      const conv = msg.conversation as any;
-      const contact = conv?.contact as any;
+      const conv = msg.conversation as ConversationWithContact | null;
+      const contact = conv?.contact;
       
       // Build contact name
       let contactName: string | null = null;
@@ -451,22 +453,23 @@ export const reconciliationApi = {
     // Build result: one row per student-subject combination where student has no active class for that subject
     const result: StudentWithoutClasses[] = [];
     
+    type StudentSubjectRow = { created_at?: string; subject?: { id: string; name?: string; curriculum?: string; year_level?: string | number | null } | null };
     (studentsWithSubjects ?? []).forEach((student) => {
-      const subjects = (student.students_subjects as any[]) ?? [];
+      const subjects = (student.students_subjects as StudentSubjectRow[] | null) ?? [];
       const studentActiveSubjectIds = studentSubjectClasses.get(student.id) ?? new Set();
       
-      subjects.forEach((studentSubject) => {
-        const subject = studentSubject.subject as any;
+      subjects.forEach((studentSubject: StudentSubjectRow) => {
+        const subject = studentSubject.subject;
         if (subject && !studentActiveSubjectIds.has(subject.id)) {
           result.push({
             student_id: student.id,
             first_name: student.first_name,
             last_name: student.last_name,
             subject_id: subject.id,
-            subject_name: subject.name,
-            subject_curriculum: subject.curriculum,
-            subject_year_level: subject.year_level,
-            subject_added_at: (studentSubject as any).created_at ?? null,
+            subject_name: subject.name ?? '',
+            subject_curriculum: subject.curriculum ?? null,
+            subject_year_level: typeof subject.year_level === 'number' ? subject.year_level : null,
+            subject_added_at: studentSubject.created_at ?? null,
             created_at: student.created_at ?? '',
             updated_at: student.updated_at ?? '',
           });
@@ -542,7 +545,8 @@ export const reconciliationApi = {
     return (students ?? [])
       .filter(s => !studentsWithPaymentMethods.has(s.id))
       .map((student) => {
-        const billing = (student.students_billing as any)?.[0];
+        type StudentsBillingRow = { stripe_customer_id?: string; created_at?: string }[];
+        const billing = (student.students_billing as StudentsBillingRow | null)?.[0];
         return {
           student_id: student.id,
           first_name: student.first_name,

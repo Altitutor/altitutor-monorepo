@@ -4,15 +4,15 @@ import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/
 
 const SerializedAnswerOptionSchema = z.object({
   index: z.number().int().positive(),
-  answer_text: z.any(),
-  answer_explanation: z.any().nullable().optional(),
+  answer_text: z.union([z.string(), z.number()]),
+  answer_explanation: z.union([z.string(), z.number(), z.null()]).optional(),
   is_answer: z.boolean(),
 })
 
 const SerializedQuestionSchema = z.object({
   index: z.number().int().positive(),
-  question_text: z.any(),
-  answer_explanation: z.any().nullable().optional(),
+  question_text: z.union([z.string(), z.number()]),
+  answer_explanation: z.union([z.string(), z.number(), z.null()]).optional(),
   difficulty: z.number().nullable().optional(),
   time_burden_seconds: z.number().nullable().optional(),
   question_type: z.enum(['multiple_choice', 'syllogism']),
@@ -24,7 +24,7 @@ const SerializedStemSchema = z.object({
   stemId: z.string().uuid().nullable().optional(),
   sectionId: z.string().uuid(),
   categoryId: z.string().uuid().nullable().optional(),
-  stemText: z.any(),
+  stemText: z.union([z.string(), z.number()]),
   isPrivate: z.boolean(),
   questions: z.array(SerializedQuestionSchema),
 })

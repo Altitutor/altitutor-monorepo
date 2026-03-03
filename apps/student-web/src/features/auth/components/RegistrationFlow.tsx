@@ -137,20 +137,22 @@ const STEPS = [
 ];
 
 // Helper function to extract all validation errors from form state
-function extractValidationErrors(errors: any, path: string = ''): string[] {
+function extractValidationErrors(errors: unknown, path: string = ''): string[] {
   const errorMessages: string[] = [];
   
   if (!errors || typeof errors !== 'object') {
     return errorMessages;
   }
   
+  const errObj = errors as Record<string, unknown>;
+  
   // Handle root-level error messages
-  if ('message' in errors && typeof errors.message === 'string') {
+  if ('message' in errObj && typeof errObj.message === 'string') {
     const fieldName = path || 'Form';
-    errorMessages.push(`${fieldName}: ${errors.message}`);
+    errorMessages.push(`${fieldName}: ${errObj.message}`);
   }
   
-  for (const [key, value] of Object.entries(errors)) {
+  for (const [key, value] of Object.entries(errObj)) {
     // Skip the message property if we already handled it
     if (key === 'message') {
       continue;
@@ -160,7 +162,8 @@ function extractValidationErrors(errors: any, path: string = ''): string[] {
     
     if (value && typeof value === 'object') {
       // Check if it's an error object with a message
-      if ('message' in value && typeof value.message === 'string') {
+      const valObj = value as Record<string, unknown>;
+      if ('message' in valObj && typeof valObj.message === 'string') {
         // Format field name nicely
         let fieldName = currentPath;
         if (currentPath.includes('.')) {
@@ -195,7 +198,7 @@ function extractValidationErrors(errors: any, path: string = ''): string[] {
           fieldName = 'Payment Method';
         }
         
-        errorMessages.push(`${fieldName}: ${value.message}`);
+        errorMessages.push(`${fieldName}: ${valObj.message}`);
       } else if (Array.isArray(value)) {
         // Handle array errors (e.g., parents array)
         value.forEach((item, index) => {

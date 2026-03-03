@@ -114,7 +114,7 @@ export function StaffModalSessionsTable({
         const tutorLogCreatedBy = tutorLogs[session.id]?.created_by;
         const processed = processStaffSessionData(
           session,
-          staffData as any,
+          staffData,
           staffId,
           hasTutorLog,
           tutorLogCreatedBy

@@ -239,7 +239,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
               </TableRow>
             ) : (
               parents.map((parent) => {
-                const students = (parent as any).students || [];
+                const students = (parent as Tables<'parents'> & { students?: Tables<'students'>[] }).students ?? [];
                 return (
                   <TableRow
                     key={parent.id}

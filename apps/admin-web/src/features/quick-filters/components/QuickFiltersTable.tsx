@@ -82,7 +82,7 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
         });
         setEditingFilter(null);
       } else {
-        await createFilter.mutateAsync(formData as any);
+        await createFilter.mutateAsync(formData as Omit<QuickFilter, 'id' | 'created_at' | 'updated_at'>);
         setIsCreateDialogOpen(false);
       }
       onUpdate();
@@ -103,7 +103,7 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
     }
   };
 
-  const toggleFilterValue = (field: FilterField, value: any) => {
+  const toggleFilterValue = (field: FilterField, value: string | number) => {
     const fieldKey = field.key;
     const currentConfig = { ...(formData.config || {}) };
     const currentValues = currentConfig[fieldKey] || [];

@@ -105,7 +105,7 @@ export function StudentModalSessionsTable({
         const hasTutorLog = !!tutorLogs[session.id];
         const processed = processStudentSessionData(
           session,
-          studentData as any,
+          studentData,
           studentId,
           hasTutorLog
         );

@@ -60,7 +60,8 @@ export function ApplyPlanDialog({
           subject:subjects(*)
         `);
       if (error) throw error;
-      return (data || []).filter((row: any) => row.student && row.subject);
+      type StudentSubjectRow = { student: unknown; subject: unknown };
+      return (data || []).filter((row: StudentSubjectRow) => row.student && row.subject);
     },
     enabled: !!plan, // Only run query when plan exists
   });
@@ -103,7 +104,8 @@ export function ApplyPlanDialog({
     });
   });
 
-  const unassignedCount = allStudentsWithSubjects?.filter((item: any) => {
+  type StudentWithSubject = { student: { id: string }; subject: { id: string } };
+  const unassignedCount = allStudentsWithSubjects?.filter((item: StudentWithSubject) => {
     const key = `${item.student.id}-${item.subject.id}`;
     return !assignedSet.has(key);
   }).length || 0;

@@ -5,7 +5,17 @@ import type { CSSProperties } from 'react';
 import { addDays, startOfWeek, format, differenceInMinutes, isSameDay, parseISO } from 'date-fns';
 import { Button } from './button';
 import { cn } from '../lib/cn';
-// Type import from shared package - using inline type definition to avoid tsconfig issues
+import type { Tables } from '@altitutor/shared';
+
+/** Session shape used in the calendar (existing + new session preview) */
+export type CalendarSession = {
+  id: string;
+  start_at: string;
+  end_at: string;
+  type: string;
+  subject_id?: string | null;
+  class_id?: string | null;
+};
 
 export interface BookingCalendarViewProps {
   /** The new session that will be booked (to highlight) */
@@ -16,20 +26,11 @@ export interface BookingCalendarViewProps {
     subject_id?: string | null;
   };
   /** Existing sessions for the week */
-  existingSessions?: Array<{
-    id: string;
-    start_at: string;
-    end_at: string;
-    type: string;
-    subject_id?: string | null;
-    class_id?: string | null;
-  }>;
+  existingSessions?: CalendarSession[];
   /** Subject data for color coding */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  subjectsById?: Record<string, any>;
+  subjectsById?: Record<string, Tables<'subjects'>>;
   /** Classes data */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  classesById?: Record<string, any>;
+  classesById?: Record<string, Tables<'classes'>>;
   /** Callback when clicking on an existing session */
   onSessionClick?: (sessionId: string) => void;
   /** Week anchor date (defaults to new session date) */
@@ -124,8 +125,7 @@ export function BookingCalendarView({
     };
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const getSessionLabel = (session: any): string => {
+  const getSessionLabel = (session: CalendarSession): string => {
     const isNewSession = session.id === 'new-session-preview';
     if (isNewSession) {
       return 'New Session';

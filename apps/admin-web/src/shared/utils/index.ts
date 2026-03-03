@@ -136,7 +136,7 @@ export function formatClassName(
  * Example: "12MATH Mon 2:00 PM"
  */
 export function formatClassShortName(
-  classData: Tables<'classes'>,
+  classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
   subject?: Tables<'subjects'> | null
 ): string {
   const parts: string[] = [];

@@ -33,8 +33,9 @@ export function useStudentSearchForFilter(
       if (rpcError) throw rpcError;
       if (!rpcResult) return { students: [], total: 0 };
 
-      const rpcData = rpcResult as { students: any[]; total: number };
-      const students = (rpcData.students || []).map((s: any) => ({
+      type RpcStudent = Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name' | 'status' | 'curriculum' | 'year_level' | 'school' | 'email' | 'phone' | 'created_at' | 'updated_at'>;
+      const rpcData = rpcResult as { students: RpcStudent[]; total: number };
+      const students = (rpcData.students || []).map((s: RpcStudent) => ({
         id: s.id,
         first_name: s.first_name,
         last_name: s.last_name,

@@ -31,6 +31,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
+import type { MinimalClass } from '../api/classes';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, formatClassShortName, formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
@@ -87,7 +88,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     daysOfWeek: state.filters.day as number[],
     page: state.page,
     pageSize: state.pageSize,
-    orderBy: state.sortBy as any || 'day_of_week',
+    orderBy: (state.sortBy as keyof Tables<'classes'>) || 'day_of_week',
     ascending: state.sortDirection === 'asc',
   });
 
@@ -121,18 +122,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     { key: 'staff', label: 'Staff' },
   ];
 
-  const classes: (Tables<'classes'> & {
-    subject?: Tables<'subjects'> | null;
-    students?: Tables<'students'>[];
-    staff?: Tables<'staff'>[];
-  })[] = (data?.classes as any) || [];
+  const classes: MinimalClass[] = data?.classes ?? [];
   const total = data?.total ?? 0;
   
   // Modal states - manage internally and use external state only when provided
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-  const [selectedClass, setSelectedClass] = useState<Tables<'classes'> | null>(null);
+  const [selectedClass, setSelectedClass] = useState<MinimalClass | null>(null);
 
   // Use external modal state if provided, otherwise use internal state
   const isAddModalOpen = addModalState ? addModalState[0] : internalAddModalOpen;
@@ -145,7 +142,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
 
   // Delete dialog state
-  const [classToDelete, setClassToDelete] = useState<typeof classes[0] | null>(null);
+  const [classToDelete, setClassToDelete] = useState<MinimalClass | null>(null);
   const [isClassDeleteDialogOpen, setIsClassDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const deleteClassMutation = useDeleteClass();
@@ -154,13 +151,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   // Ensure hooks are declared before any early returns
   const parentRef = useRef<HTMLDivElement | null>(null);
 
-  const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
-    const subject = (classItem as any).subject as Tables<'subjects'> | null | undefined;
+  type ClassWithSubject = MinimalClass;
+  const getSubjectDisplay = (classItem: ClassWithSubject): string => {
+    const subject = classItem.subject;
     return subject ? formatSubjectDisplay(subject) : '-';
   };
 
-  const getSubjectBadgeStyle = (classItem: Tables<'classes'>): { style: React.CSSProperties; textColorClass: string; defaultClass: string } => {
-    const subject = (classItem as any).subject as Tables<'subjects'> | null | undefined;
+  const getSubjectBadgeStyle = (classItem: ClassWithSubject): { style: React.CSSProperties; textColorClass: string; defaultClass: string } => {
+    const subject = classItem.subject;
     if (!subject) {
       return { style: {}, textColorClass: 'text-gray-800', defaultClass: 'bg-gray-100 text-gray-800' };
     }
@@ -179,15 +177,15 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return days[day] || 'Unknown';
   };
 
-  const getClassStudents = (classItem: Tables<'classes'>): Tables<'students'>[] => {
-    return ((classItem as any).students || []) as Tables<'students'>[];
+  const getClassStudents = (classItem: ClassWithSubject): Tables<'students'>[] => {
+    return classItem.students ?? [];
   };
 
-  const getClassStaff = (classItem: Tables<'classes'>): Tables<'staff'>[] => {
-    return ((classItem as any).staff || []) as Tables<'staff'>[];
+  const getClassStaff = (classItem: ClassWithSubject): Tables<'staff'>[] => {
+    return classItem.staff ?? [];
   };
   
-  const handleClassClick = (cls: Tables<'classes'>) => {
+  const handleClassClick = (cls: MinimalClass) => {
     setSelectedClass(cls);
     setIsDetailModalOpen(true);
   };
@@ -342,7 +340,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                           >
                             {/* Default to short names, only show full on 2xl+ screens */}
                             <span className="2xl:hidden">{(() => {
-                              const subject = (cls as any).subject as Tables<'subjects'> | null | undefined;
+                              const subject = (cls as ClassWithSubject).subject;
                               return subject ? formatSubjectShortName(subject) : '-';
                             })()}</span>
                             <span className="hidden 2xl:inline">{getSubjectDisplay(cls)}</span>
@@ -395,7 +393,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                         <ActionsMenu
                           type="class"
                           entityId={cls.id}
-                          copyTagDisplayText={formatClassShortName(cls as any, cls.subject || null)}
+                          copyTagDisplayText={formatClassShortName(cls, cls.subject ?? null)}
                           onOpenInPage={() => {
                             router.push(`/classes/${cls.id}`);
                           }}

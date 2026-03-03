@@ -367,10 +367,10 @@ export function RegistrationStep1StudentDetails({
                     onClick={(e) => {
                       e.stopPropagation();
                       const currentCurriculum = form.getValues('student.curriculum');
-                      form.setValue('student.year_level', undefined as any, { shouldValidate: true });
+                      form.setValue('student.year_level', undefined, { shouldValidate: true });
                       // If curriculum requires a year level, clear it too
                       if (currentCurriculum && getValidYearLevels(currentCurriculum).length > 0) {
-                        form.setValue('student.curriculum', undefined as any, { shouldValidate: true });
+                        form.setValue('student.curriculum', undefined, { shouldValidate: true });
                       }
                     }}
                     className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
@@ -416,12 +416,12 @@ export function RegistrationStep1StudentDetails({
                     onClick={(e) => {
                       e.stopPropagation();
                       const currentYearLevel = form.getValues('student.year_level');
-                      form.setValue('student.curriculum', undefined as any, { shouldValidate: true });
+                      form.setValue('student.curriculum', undefined as unknown as RegistrationFormValues['student']['curriculum'], { shouldValidate: true });
                       // If year level requires a curriculum, clear it too
                       if (currentYearLevel !== undefined) {
                         const validCurriculumsForYear = getValidCurriculums(currentYearLevel);
                         if (validCurriculumsForYear.length > 0 && validCurriculumsForYear.length < 4) {
-                          form.setValue('student.year_level', undefined as any, { shouldValidate: true });
+                          form.setValue('student.year_level', undefined as RegistrationFormValues['student']['year_level'], { shouldValidate: true });
                         }
                       }
                     }}

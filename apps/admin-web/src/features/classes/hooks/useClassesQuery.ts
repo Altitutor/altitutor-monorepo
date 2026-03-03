@@ -7,7 +7,7 @@ export const classesKeys = {
   all: ['classes'] as const,
   lists: () => [...classesKeys.all, 'list'] as const,
   list: (filters: string) => [...classesKeys.lists(), { filters }] as const,
-  minimal: (params?: any) => [...classesKeys.all, 'minimal', params] as const,
+  minimal: (params?: Record<string, unknown>) => [...classesKeys.all, 'minimal', params] as const,
   details: () => [...classesKeys.all, 'detail'] as const,
   detail: (id: string) => [...classesKeys.details(), id] as const,
   detailFull: (id: string) => [...classesKeys.detail(id), 'details'] as const,
@@ -173,7 +173,7 @@ export function useUpdateClass() {
       classesApi.updateClass(id, data),
     onSuccess: (updatedClass, { id }) => {
       // Update specific entity in cache
-      queryClient.setQueryData(classesKeys.detailFull(id), (old: any) => {
+      queryClient.setQueryData(classesKeys.detailFull(id), (old: { class: Tables<'classes'>; subject: Tables<'subjects'> | null; students: Tables<'students'>[]; staff: Tables<'staff'>[] } | undefined) => {
         if (!old) return old;
         return { ...old, class: updatedClass };
       });

@@ -45,8 +45,23 @@ export interface UseSessionsTableReturn {
   paginatedSessions: Tables<'sessions'>[];
   classesById: Record<string, Tables<'classes'>>;
   subjectsById: Record<string, Tables<'subjects'>>;
-  sessionStudents: Record<string, Tables<'students'>[]>;
-  sessionStaff: Record<string, Tables<'staff'>[]>;
+  sessionStudents: Record<string, Array<Tables<'students'> & {
+    planned_absence?: boolean;
+    actual_attended?: boolean | null;
+    sessions_students_id?: string | null;
+    is_extra?: boolean;
+    was_trial?: boolean;
+    is_rescheduled?: boolean;
+    is_credited?: boolean;
+    rescheduled_session?: unknown;
+  }>>;
+  sessionStaff: Record<string, Array<Tables<'staff'> & {
+    planned_absence?: boolean;
+    actual_attended?: boolean | null;
+    actual_was_trial?: boolean | null;
+    was_trial?: boolean;
+    is_swapped_in?: boolean;
+  }>>;
   tutorLogs: Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
   isLoading: boolean;
   error: Error | null;

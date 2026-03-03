@@ -16,6 +16,7 @@ import { Form } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import { useCreateIssue } from '../api/mutations';
 import type { IssueFormData, IssueStatus, IssueTagInsert } from '../types';
+import type { SubmitHandler } from 'react-hook-form';
 import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
 import { useEffect } from 'react';
@@ -59,7 +60,7 @@ async function buildDescriptionFromInitialTags(tags?: Omit<IssueTagInsert, 'issu
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  description: z.any().optional(),
+  description: z.union([z.record(z.unknown()), z.string(), z.null()]).optional(),
   status: z.enum(['open', 'awaiting_response', 'resolved']),
   dueDate: z.union([z.string(), z.null()]).default(null),
 });
@@ -160,7 +161,7 @@ export function CreateIssueDialog({
 
           <div className="flex-1 overflow-hidden min-h-0">
             <div className="h-full flex">
-              <form onSubmit={form.handleSubmit(onSubmit as any)} className="flex-1 flex min-h-0">
+              <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<IssueFormData>)} className="flex-1 flex min-h-0">
                 <IssuePropertiesPanel
                   form={form}
                   notes={[]}
@@ -183,7 +184,7 @@ export function CreateIssueDialog({
               </Button>
               <Button
                 type="submit"
-                onClick={form.handleSubmit(onSubmit as any)}
+                onClick={form.handleSubmit(onSubmit as SubmitHandler<IssueFormData>)}
                 disabled={createIssue.isPending}
               >
                 {createIssue.isPending ? 'Creating...' : 'Create Issue'}

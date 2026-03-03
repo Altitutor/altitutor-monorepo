@@ -92,7 +92,7 @@ export function useAssignStaffConflicts({
             if (!selectedClass) continue;
 
             // Check for time overlap with existing classes
-            const conflictingEnrollment = (staffClasses || []).find((sc: any) => {
+            const conflictingEnrollment = (staffClasses || []).find((sc: { class?: { id: string; day_of_week: number; start_time: string; end_time: string } | null }) => {
               const existingClass = sc.class;
               if (!existingClass) return false;
               return checkTimeOverlap(selectedClass, existingClass);
@@ -152,7 +152,7 @@ export function useAssignStaffConflicts({
             if (cancelled) return;
 
             // Check for time overlap
-            const conflictingEnrollment = (staffClasses || []).find((sc: any) => {
+            const conflictingEnrollment = (staffClasses || []).find((sc: { class?: { id: string; day_of_week: number; start_time: string; end_time: string } | null }) => {
               const existingClass = sc.class;
               if (!existingClass) return false;
               return checkTimeOverlap(classData, existingClass);

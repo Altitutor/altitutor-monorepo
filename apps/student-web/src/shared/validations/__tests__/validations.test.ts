@@ -193,7 +193,7 @@ describe('tutorSchema', () => {
       ...validTutorData,
       availability: [
         {
-          day: 'invalid-day' as any,
+          day: 'invalid-day' as unknown as string,
           startTime: '09:00',
           endTime: '17:00',
         },
@@ -269,7 +269,7 @@ describe('paymentSchema', () => {
   });
 
   it('should reject invalid payment method', () => {
-    const invalidData = { ...validPaymentData, paymentMethod: 'invalid' as any };
+    const invalidData = { ...validPaymentData, paymentMethod: 'invalid' as unknown as 'card' };
     expect(() => paymentSchema.parse(invalidData)).toThrow();
   });
 });

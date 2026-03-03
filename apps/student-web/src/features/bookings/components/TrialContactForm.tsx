@@ -187,7 +187,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     
     // If current year level is not valid for the selected curriculum, auto-select first valid option
     if (currentYearLevel && !validYearLevelsForCurriculum.includes(currentYearLevel)) {
-      form.setValue('year_level', validYearLevelsForCurriculum[0] as any, { shouldValidate: true });
+      form.setValue('year_level', validYearLevelsForCurriculum[0] as TrialContactFormValues['year_level'], { shouldValidate: true });
     }
   }, [curriculum, form]);
 
@@ -399,10 +399,10 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                         onClick={(e) => {
                           e.stopPropagation();
                           const currentCurriculum = form.getValues('curriculum');
-                          form.setValue('year_level', undefined as any, { shouldValidate: true });
+                          form.setValue('year_level', undefined as unknown as TrialContactFormValues['year_level'], { shouldValidate: true });
                           // If curriculum requires a year level, clear it too
                           if (currentCurriculum && getValidYearLevels(currentCurriculum).length > 0) {
-                            form.setValue('curriculum', undefined as any, { shouldValidate: true });
+                            form.setValue('curriculum', undefined as unknown as TrialContactFormValues['curriculum'], { shouldValidate: true });
                           }
                         }}
                         className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
@@ -448,12 +448,12 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                         onClick={(e) => {
                           e.stopPropagation();
                           const currentYearLevel = form.getValues('year_level');
-                          form.setValue('curriculum', undefined as any, { shouldValidate: true });
+                          form.setValue('curriculum', undefined as unknown as TrialContactFormValues['curriculum'], { shouldValidate: true });
                           // If year level requires a curriculum, clear it too
                           if (currentYearLevel) {
                             const validCurriculumsForYear = getValidCurriculums(currentYearLevel);
                             if (validCurriculumsForYear.length > 0 && validCurriculumsForYear.length < 4) {
-                              form.setValue('year_level', undefined as any, { shouldValidate: true });
+                              form.setValue('year_level', undefined as unknown as TrialContactFormValues['year_level'], { shouldValidate: true });
                             }
                           }
                         }}

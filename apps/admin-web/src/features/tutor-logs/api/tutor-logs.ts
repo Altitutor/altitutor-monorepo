@@ -165,7 +165,7 @@ export const tutorLogsApi = {
    * Only returns past/current sessions (start_at <= NOW())
    */
   getUnloggedSessions: async (staffId: string): Promise<Array<Tables<'sessions'> & { 
-    class: Tables<'classes'> & { subject: Tables<'subjects'> } 
+    class?: (Tables<'classes'> & { subject?: Tables<'subjects'> | null }) | null;
   }>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
 
@@ -213,7 +213,7 @@ export const tutorLogsApi = {
 
       const loggedSessionIds = new Set((existingLogs || []).map((log) => log.session_id));
 
-      return (sessions || []).filter((s: any) => !loggedSessionIds.has(s.id)) as any[];
+      return (sessions || []).filter((s: { id: string }) => !loggedSessionIds.has(s.id)) as Array<Tables<'sessions'> & { class?: (Tables<'classes'> & { subject?: Tables<'subjects'> | null }) | null }>;
     } catch (error) {
       throw error;
     }
@@ -351,7 +351,7 @@ export const tutorLogsApi = {
       };
 
       return {
-        tutorLogs: (rpcData.tutorLogs || []) as any[],
+        tutorLogs: (rpcData.tutorLogs || []) as Tables<'tutor_logs'>[],
         sessions: (rpcData.sessions || {}) as Record<string, Tables<'sessions'>>,
         sessionStudents: (rpcData.sessionStudents || {}) as Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>>,
         sessionStaff: (rpcData.sessionStaff || {}) as Record<string, Array<Tables<'staff'> & { planned_absence?: boolean }>>,

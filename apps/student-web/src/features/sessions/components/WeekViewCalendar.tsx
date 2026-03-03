@@ -133,7 +133,18 @@ export function WeekViewCalendar({
   };
 
   // Convert base session to StudentSession format for StudentSessionsCard
-  const convertToStudentSession = (session: BaseSession): any => {
+  type StudentSessionForCard = {
+    session_id: string;
+    start_at: string | null;
+    end_at: string | null;
+    class_id: string | null;
+    session_type: string;
+    subject_name?: string | null;
+    subject_curriculum?: string | null;
+    subject_level?: string | null;
+    subject_year_level?: number | null;
+  };
+  const convertToStudentSession = (session: BaseSession): StudentSessionForCard => {
     return {
       session_id: session.id,
       start_at: session.start_at,
@@ -203,7 +214,7 @@ export function WeekViewCalendar({
                         className={isSelected ? 'ring-2 ring-primary rounded-lg' : ''}
                       >
                         <StudentSessionsCard
-                          session={studentSession}
+                          session={studentSession as Parameters<typeof StudentSessionsCard>[0]['session']}
                           staff={[]}
                           students={[]}
                           isCalendarView={true}

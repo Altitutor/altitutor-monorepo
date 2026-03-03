@@ -35,7 +35,7 @@ export const topicsFilesApi = {
     
     const { data: created, error } = await supabase
       .from('topics_files')
-      .insert(topicFileData as any) // index is calculated by database trigger
+      .insert(topicFileData as TablesInsert<'topics_files'>) // index is calculated by database trigger
       .select()
       .single();
     
@@ -87,7 +87,7 @@ export const topicsFilesApi = {
       throw error;
     }
     
-    return (data ?? null) as any;
+    return (data ?? null) as (Tables<'topics_files'> & { file: Tables<'files'>; topic: Tables<'topics'> }) | null;
   },
   
   /**
@@ -111,7 +111,7 @@ export const topicsFilesApi = {
       throw error;
     }
     
-    return (data ?? []) as any[];
+    return (data ?? []) as Array<Tables<'topics_files'> & { file: Tables<'files'> }>;
   },
   
   /**
@@ -227,7 +227,7 @@ export const topicsFilesApi = {
       throw new Error('Topic file not found');
     }
     
-    const file = (topicFile as any).file as Tables<'files'> | null;
+    const file = (topicFile as { file?: Tables<'files'> | null }).file ?? null;
     
     // Delete the topics_files record
     const { error: deleteTopicFileError } = await supabase
@@ -274,7 +274,7 @@ export const topicsFilesApi = {
     
     // Use RPC function to update indices atomically (two-pass approach to avoid conflicts)
     const { error } = await supabase.rpc('batch_update_topic_file_indices', {
-      updates: updates as any
+      updates: updates as Array<{ id: string; index: number }>
     });
     
     if (error) {

@@ -155,17 +155,18 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   
   const sessionTitle = getSessionTitle(session);
   
-  // Build subject object from flattened fields
-  const subject = (session as any).subject_name ? {
-    id: (session as any).subject_id,
-    name: (session as any).subject_name,
-    curriculum: (session as any).subject_curriculum,
-    discipline: (session as any).subject_discipline,
-    level: (session as any).subject_level,
-    color: (session as any).subject_color,
-    year_level: (session as any).subject_year_level,
-    short_name: (session as any).subject_short_name,
-    long_name: (session as any).subject_long_name,
+  // Build subject object from flattened fields (FlattenedSessionDetail has these)
+  const flatSession = session as FlattenedSessionDetail;
+  const subject = flatSession.subject_name ? {
+    id: flatSession.subject_id,
+    name: flatSession.subject_name,
+    curriculum: flatSession.subject_curriculum,
+    discipline: flatSession.subject_discipline,
+    level: flatSession.subject_level,
+    color: flatSession.subject_color,
+    year_level: flatSession.subject_year_level,
+    short_name: flatSession.subject_short_name,
+    long_name: flatSession.subject_long_name,
   } as Tables<'subjects'> : null;
 
   // Check if current student has planned absence (from session.planned_absence)

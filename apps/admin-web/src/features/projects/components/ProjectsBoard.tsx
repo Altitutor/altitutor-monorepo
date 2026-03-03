@@ -11,7 +11,7 @@ import { useUpdateProject } from '../api/mutations';
 import { ProjectCard } from './ProjectCard';
 import { EditProjectDialog } from './EditProjectDialog';
 import { CreateProjectDialog } from './CreateProjectDialog';
-import type { ProjectStatus, ProjectWithLead } from '../types';
+import type { ProjectStatus, ProjectWithLead, ProjectFilters, ProjectUpdate } from '../types';
 import { cn } from '@/shared/utils';
 import { Circle, Clock3, Flag, CheckCircle2 } from 'lucide-react';
 import { getProjectStatusLabel } from '../utils/projectUtils';
@@ -31,30 +31,30 @@ export function ProjectsBoard() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createColumnValue, setCreateColumnValue] = useState<ProjectStatus>('backlog');
 
-  const { data: projects = [], isLoading } = useProjects(filters as any);
+  const { data: projects = [], isLoading } = useProjects(filters as import('../types').ProjectFilters);
   const updateProject = useUpdateProject();
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleUpdate = useCallback(
-    (project: ProjectWithLead, updates: any) => {
+    (project: ProjectWithLead, updates: Partial<import('../types').ProjectUpdate>) => {
       updateProject.mutate({ id: project.id, updates });
     },
     [updateProject]
   );
 
-  const handleAdd = useCallback((columnValue: any) => {
+  const handleAdd = useCallback((columnValue: unknown) => {
     setCreateColumnValue(columnValue as ProjectStatus);
     setIsCreateDialogOpen(true);
   }, []);
 
-  const columnDefs: KanbanColumnDef<ProjectWithLead, any>[] = useMemo(() => [
+  const columnDefs: KanbanColumnDef<ProjectWithLead, unknown>[] = useMemo(() => [
     {
       key: 'status',
       label: 'Status',
       getValue: (p) => p.status,
       options: STATUS_OPTIONS,
-      onValueChange: (p, v) => handleUpdate(p, { status: v }),
+      onValueChange: (p, v) => handleUpdate(p, { status: v as ProjectStatus }),
     }
   ], [handleUpdate]);
 
@@ -66,20 +66,21 @@ export function ProjectsBoard() {
     setSortDirection(direction);
   }, []);
 
-  const statusColumn: EntityListStatusColumn<ProjectWithLead, ProjectStatus> = {
+  const statusColumn: EntityListStatusColumn<ProjectWithLead, unknown> = {
     key: 'status',
     label: 'Status',
-    getValue: (p) => p.status as ProjectStatus,
+    getValue: (p) => p.status,
     defaultValue: 'backlog',
     filterable: true,
     options: STATUS_OPTIONS.map(opt => ({
       ...opt,
       icon: opt.value === 'backlog' ? Circle : opt.value === 'planned' ? Clock3 : opt.value === 'in_progress' ? Flag : CheckCircle2,
     })),
-    renderBubble: (value, collapsed) => {
-      const option = STATUS_OPTIONS.find(o => o.value === value) || STATUS_OPTIONS[0];
-      const Icon = value === 'backlog' ? Circle : value === 'planned' ? Clock3 : value === 'in_progress' ? Flag : CheckCircle2;
-      const color = value === 'backlog' ? 'text-muted-foreground' : value === 'planned' ? 'text-blue-500' : value === 'in_progress' ? 'text-yellow-500' : 'text-green-500';
+    renderBubble: (value: unknown, collapsed) => {
+      const status = value as ProjectStatus;
+      const option = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
+      const Icon = status === 'backlog' ? Circle : status === 'planned' ? Clock3 : status === 'in_progress' ? Flag : CheckCircle2;
+      const color = status === 'backlog' ? 'text-muted-foreground' : status === 'planned' ? 'text-blue-500' : status === 'in_progress' ? 'text-yellow-500' : 'text-green-500';
 
       if (collapsed) return <Icon className={cn('h-3 w-3', color)} />;
       return (
@@ -89,7 +90,7 @@ export function ProjectsBoard() {
         </span>
       );
     },
-    onStatusChange: (project, value) => handleUpdate(project, { status: value }),
+    onStatusChange: (project, value) => handleUpdate(project, { status: value as ProjectStatus }),
   };
 
   return (
@@ -109,7 +110,7 @@ export function ProjectsBoard() {
             }}
           />
         )}
-        statusColumn={statusColumn as any}
+        statusColumn={statusColumn}
         rightPills={[]}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}

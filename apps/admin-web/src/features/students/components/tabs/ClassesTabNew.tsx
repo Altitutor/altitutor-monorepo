@@ -22,7 +22,7 @@ interface StudentClass {
   subject?: Tables<'subjects'>;
   staff: Tables<'staff'>[];
   students?: Tables<'students'>[];
-  enrollment?: any;
+  enrollment?: Tables<'classes_students'>;
 }
 
 export function ClassesTabNew({

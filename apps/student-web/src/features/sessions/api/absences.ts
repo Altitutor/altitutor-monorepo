@@ -175,10 +175,10 @@ export const absencesApi = {
       }
 
       // If data is a string (unparsed JSONB), parse it
-      let sessions: any[] = [];
+      let sessions: unknown[] = [];
       if (typeof data === 'string') {
         try {
-          sessions = JSON.parse(data);
+          sessions = JSON.parse(data) as unknown[];
         } catch (e) {
           console.error('Error parsing RPC response:', e);
           return [];
@@ -195,21 +195,25 @@ export const absencesApi = {
       }
 
       // Transform RPC response to RescheduleSession format
-      return sessions.map((session: any) => ({
-        id: session.id,
-        start_at: session.start_at,
-        end_at: session.end_at,
-        class_id: session.class_id,
-        type: session.type,
-        status: session.status,
-        billing_type: null,
-        subject_id: session.class?.subject_id || null,
-        created_at: session.created_at,
-        updated_at: session.updated_at,
-        class: session.class || null,
-        subject: session.subject || null,
-        studentCount: session.studentCount || 0,
-      })) as RescheduleSession[];
+      return sessions.map((session) => {
+        const s = session as Record<string, unknown>;
+        const cls = s.class as Record<string, unknown> | null | undefined;
+        return {
+          id: s.id,
+          start_at: s.start_at,
+          end_at: s.end_at,
+          class_id: s.class_id,
+          type: s.type,
+          status: s.status,
+          billing_type: null,
+          subject_id: cls?.subject_id ?? null,
+          created_at: s.created_at,
+          updated_at: s.updated_at,
+          class: s.class ?? null,
+          subject: s.subject ?? null,
+          studentCount: s.studentCount ?? 0,
+        };
+      }) as RescheduleSession[];
     } catch (error) {
       console.error('Error getting available reschedule sessions:', error);
       throw error;

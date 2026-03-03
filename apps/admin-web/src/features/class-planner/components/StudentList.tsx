@@ -62,12 +62,13 @@ export function StudentList({ planId, onSubjectFilterChange, onDragStart, onDrag
       
       if (error) throw error;
       
+      type StudentSubjectRow = { student: Tables<'students'> | null; subject: Tables<'subjects'> | null };
       return (data || [])
-        .map((row: any) => ({
+        .map((row: StudentSubjectRow) => ({
           student: row.student,
           subject: row.subject,
         }))
-        .filter((item: StudentWithSubject) => item.student && item.subject) as StudentWithSubject[];
+        .filter((item): item is StudentWithSubject => !!item.student && !!item.subject);
     },
   });
 

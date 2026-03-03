@@ -126,8 +126,22 @@ export const staffApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return { staff: [], total: 0 };
 
-    const rpcData = rpcResult as { staff: any[]; staffClasses: Record<string, any[]>; classSubjects: Record<string, any>; total: number };
-    let staff = (rpcData.staff || []) as any[];
+    interface RpcStaffRow {
+      id: string;
+      first_name?: string | null;
+      last_name?: string | null;
+      role?: string;
+      status?: string;
+      phone_number?: string | null;
+      email?: string | null;
+    }
+    const rpcData = rpcResult as {
+      staff: RpcStaffRow[];
+      staffClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> } | Record<string, unknown>)[]>;
+      classSubjects: Record<string, Tables<'subjects'>>;
+      total: number;
+    };
+    let staff = rpcData.staff || [];
 
     // Apply role filter that RPC doesn't support
     if (roleFilters.length > 0) {
@@ -138,10 +152,11 @@ export const staffApi = {
     const staffClassesMap: Record<string, ClassWithExpandedSubject[]> = {};
     staff.forEach((s) => {
       const classes = rpcData.staffClasses?.[s.id] || [];
-      staffClassesMap[s.id] = classes.map((cls: any) => {
-        const subject = cls.subject || rpcData.classSubjects?.[cls.id] || null;
+      staffClassesMap[s.id] = classes.map((cls) => {
+        const classObj = cls as Tables<'classes'> & { subject?: Tables<'subjects'> };
+        const subject = classObj.subject || rpcData.classSubjects?.[classObj.id] || null;
         return {
-          ...cls,
+          ...classObj,
           subject,
         } as ClassWithExpandedSubject;
       });
@@ -404,7 +419,7 @@ export const staffApi = {
     // Ensure id exists if the table requires it
     const payload: TablesInsert<'staff'> = {
       ...(data as TablesInsert<'staff'>),
-      id: (data as any)?.id ?? crypto.randomUUID(),
+      id: (data as TablesInsert<'staff'> & { id?: string })?.id ?? crypto.randomUUID(),
     };
 
     const { data: created, error } = await (getSupabaseClient() as SupabaseClient<Database>)
@@ -526,21 +541,18 @@ export const staffApi = {
       });
 
       // Process staff classes
-      assignmentsData?.forEach((assignment: any) => {
-        const classWithSubject = assignment.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
+      type AssignmentRow = { staff_id?: string; class?: (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null };
+      assignmentsData?.forEach((assignment: AssignmentRow) => {
+        const classWithSubject = assignment.class;
         if (classWithSubject && assignment.staff_id) {
           if (!staffClasses[assignment.staff_id]) {
             staffClasses[assignment.staff_id] = [];
           }
+          const { subject_details, ...classBase } = classWithSubject;
           const cls: ClassWithExpandedSubject = {
-            ...classWithSubject,
-            subject: classWithSubject.subject_details
+            ...classBase,
+            subject: subject_details ?? undefined,
           };
-          delete (cls as any).subject_details;
-          delete (cls as any).subject; // Remove the string subject field
-          if (classWithSubject.subject_details) {
-            (cls as any).subject = classWithSubject.subject_details;
-          }
           staffClasses[assignment.staff_id].push(cls);
           
           // Store subject by class ID for easy lookup
@@ -666,8 +678,19 @@ export const staffApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return { staff: [], total: 0 };
 
-    const rpcData = rpcResult as { staff: any[]; total: number };
-    const staff = (rpcData.staff || []).map((s: any) => ({
+    interface RpcStaffRow {
+      id: string;
+      first_name?: string | null;
+      last_name?: string | null;
+      email?: string | null;
+      phone_number?: string | null;
+      role?: string;
+      status?: string;
+      created_at?: string | null;
+      updated_at?: string | null;
+    }
+    const rpcData = rpcResult as { staff: RpcStaffRow[]; total: number };
+    const staff = (rpcData.staff || []).map((s) => ({
       id: s.id,
       first_name: s.first_name,
       last_name: s.last_name,
@@ -717,8 +740,19 @@ export const staffApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return [];
 
-    const rpcData = rpcResult as { staff: unknown[]; total: number };
-    let staff = (rpcData.staff || []).map((s: any) => ({
+    interface RpcStaffRow {
+      id: string;
+      first_name?: string | null;
+      last_name?: string | null;
+      role?: string;
+      status?: string;
+      email?: string | null;
+      phone_number?: string | null;
+      created_at?: string | null;
+      updated_at?: string | null;
+    }
+    const rpcData = rpcResult as { staff: RpcStaffRow[]; total: number };
+    let staff = (rpcData.staff || []).map((s) => ({
       id: s.id,
       first_name: s.first_name,
       last_name: s.last_name,
