@@ -19,6 +19,7 @@ import { useQuestionEngineState } from '@/features/question-engine/hooks/use-que
 import { useUcatLag } from '@/features/question-engine/context/ucat-lag-context'
 import { CalculatorPanel } from '@/features/question-engine/components/calculator-panel'
 import { EndReviewDialog } from '@/features/question-engine/components/end-review-dialog'
+import { ExitResultsDialog } from '@/features/question-engine/components/exit-results-dialog'
 import { EngineIntroDialog } from '@/features/question-engine/components/engine-intro-dialog'
 import { InstructionsContent } from '@/features/question-engine/components/instructions-content'
 import { NavigatorPanel } from '@/features/question-engine/components/navigator-panel'
@@ -27,6 +28,7 @@ import {
   computeMarkingResult,
   MarkingBody,
 } from '@/features/question-engine/components/marking-body'
+import { ResultsQuestionViewer } from '@/features/question-engine/components/results-question-viewer'
 import { ReviewBody } from '@/features/question-engine/components/review-body'
 import { ReviewInstructionsDialog } from '@/features/question-engine/components/review-instructions-dialog'
 import { TimeExpiredDialog } from '@/features/question-engine/components/time-expired-dialog'
@@ -103,6 +105,7 @@ export function QuestionEnginePage({
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
+    setSyllogismSnapshot,
   } = useQuestionEngineState(exam)
   const router = useRouter()
   const { isLagging, runWithLag } = useUcatLag()
@@ -241,6 +244,7 @@ export function QuestionEnginePage({
         state.showReadyDialog ||
         state.showTimeExpiredDialog ||
         state.showEndReviewDialog ||
+        state.showExitResultsDialog ||
         state.showReviewInstructionsDialog
       const isQuestionView =
         (state.phase === 'question' || (state.phase === 'review' && state.reviewFilter)) &&
@@ -375,11 +379,17 @@ export function QuestionEnginePage({
             goPrevious()
           })
           break
-        case 'openNavigator':
-          void runWithLag(() =>
-            setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
-          )
+        case 'openNavigator': {
+          // Only allow when navigator button is visible (question or intro phase)
+          const showNavigatorButton =
+            state.phase === 'question' || state.phase === 'intro'
+          if (showNavigatorButton) {
+            void runWithLag(() =>
+              setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
+            )
+          }
           break
+        }
         case 'nextQuestion':
           void runWithLag(() => {
             goNext()
@@ -414,6 +424,7 @@ export function QuestionEnginePage({
     state.reviewFilter,
     state.showTimeExpiredDialog,
     state.showEndReviewDialog,
+    state.showExitResultsDialog,
     state.showReviewInstructionsDialog,
     state.flaggedIds,
     currentQuestion,
@@ -450,22 +461,32 @@ export function QuestionEnginePage({
   const isMarkingPhase = state.phase === 'marking'
   const isReviewScreen = isReviewPhase && !state.reviewFilter
   const isReviewMode = isReviewPhase && state.reviewFilter
-  const questionLabel =
-    isReviewMode && reviewFilterIndices.length > 0
-      ? `${effectiveCurrentIndex + 1} of ${questions.length}`
-      : `${Math.min(effectiveCurrentIndex + 1, questions.length)} of ${questions.length}`
+  const questionLabel = (() => {
+    if (isMarkingPhase && state.viewingQuestionIndex != null) {
+      // In individual answer review, show the actual question number (1-based) for that question.
+      const q = questions[state.viewingQuestionIndex]
+      const displayIndex = q ? q.index + 1 : state.viewingQuestionIndex + 1
+      return `${displayIndex} of ${questions.length}`
+    }
+    if (isReviewMode && reviewFilterIndices.length > 0) {
+      return `${effectiveCurrentIndex + 1} of ${questions.length}`
+    }
+    return `${Math.min(effectiveCurrentIndex + 1, questions.length)} of ${questions.length}`
+  })()
   const hasPreviousInstructions = state.instructionsIndex > 0
   const showReadyToBeginDialog = state.phase === 'intro' || state.showReadyDialog
   const overlayActive =
     showReadyToBeginDialog ||
     state.showTimeExpiredDialog ||
     state.showEndReviewDialog ||
+    state.showExitResultsDialog ||
     state.showReviewInstructionsDialog
 
   const incompleteCount = getIncompleteCount(
     questions,
     state.visitedQuestionIds,
-    state.selectedAnswers
+    state.selectedAnswers,
+    state.syllogismSnapshots
   )
 
   function handleTimeExpiredOk() {
@@ -479,6 +500,8 @@ export function QuestionEnginePage({
           phase: 'marking',
           reviewFilter: null,
           reviewFilterIndex: 0,
+          viewingQuestionIndex: null,
+          showExitResultsDialog: false,
         }))
       })
       return
@@ -493,6 +516,8 @@ export function QuestionEnginePage({
           phase: 'marking',
           reviewFilter: null,
           reviewFilterIndex: 0,
+          viewingQuestionIndex: null,
+          showExitResultsDialog: false,
         }))
       })
       return
@@ -576,6 +601,29 @@ export function QuestionEnginePage({
           </div>
         ) : null}
 
+        {state.showExitResultsDialog ? (
+          <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
+            <ExitResultsDialog
+              onConfirm={() =>
+                void runWithLag(() => {
+                  setState((current) => ({
+                    ...current,
+                    phase: 'intro',
+                    currentIndex: 0,
+                    showExitResultsDialog: false,
+                  }))
+                  router.back()
+                })
+              }
+              onCancel={() =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, showExitResultsDialog: false }))
+                )
+              }
+            />
+          </div>
+        ) : null}
+
         {state.showEndReviewDialog ? (
           <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
             <EndReviewDialog
@@ -589,6 +637,7 @@ export function QuestionEnginePage({
                     showEndReviewDialog: false,
                     reviewFilter: null,
                     reviewFilterIndex: 0,
+                    viewingQuestionIndex: null,
                   }))
                 })
               }
@@ -657,7 +706,7 @@ export function QuestionEnginePage({
               : null
         }
         toolLeft={
-          isReviewScreen ? (
+          isMarkingPhase ? null : isReviewScreen ? (
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
@@ -687,7 +736,7 @@ export function QuestionEnginePage({
           )
         }
         toolRight={
-          isReviewScreen || isInstructionsPhase ? null : (
+          isMarkingPhase || isReviewScreen || isInstructionsPhase ? null : (
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
@@ -717,7 +766,18 @@ export function QuestionEnginePage({
           )
         }
         footerLeft={
-          isMarkingPhase ? null : isReviewScreen ? (
+          isMarkingPhase && state.viewingQuestionIndex != null ? (
+            <UcatExamActionButton
+              onClick={() =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, viewingQuestionIndex: null }))
+                )
+              }
+              icon={<ArrowLeft className="h-4 w-4" />}
+            >
+              <span className="text-[14pt]">Back to results</span>
+            </UcatExamActionButton>
+          ) : isMarkingPhase ? null : isReviewScreen ? (
             <UcatExamActionButton
               onClick={() =>
                 void runWithLag(() => {
@@ -731,6 +791,7 @@ export function QuestionEnginePage({
                         phase: 'marking',
                         reviewFilter: null,
                         reviewFilterIndex: 0,
+                        viewingQuestionIndex: null,
                       }))
                     })
                   }
@@ -754,7 +815,62 @@ export function QuestionEnginePage({
           ) : isInstructionsPhase ? null : null
         }
         footerRight={
-          isMarkingPhase ? null : isReviewScreen ? (
+          isMarkingPhase ? (
+            state.viewingQuestionIndex != null ? (
+              <>
+                {state.viewingQuestionIndex > 0 ? (
+                  <UcatExamActionButton
+                    onClick={() =>
+                      void runWithLag(() =>
+                        setState((current) => ({
+                          ...current,
+                          viewingQuestionIndex: Math.max(0, (current.viewingQuestionIndex ?? 0) - 1),
+                        }))
+                      )
+                    }
+                    icon={<ArrowLeft className="h-4 w-4" />}
+                  >
+                    <span className="text-[14pt]">Previous</span>
+                  </UcatExamActionButton>
+                ) : null}
+                <UcatExamActionButton
+                  onClick={() =>
+                    void runWithLag(() => {
+                      const idx = state.viewingQuestionIndex ?? 0
+                      if (idx < questions.length - 1) {
+                        setState((current) => ({
+                          ...current,
+                          viewingQuestionIndex: idx + 1,
+                        }))
+                      } else {
+                        setState((current) => ({ ...current, viewingQuestionIndex: null }))
+                      }
+                    })
+                  }
+                  variant="highlight"
+                  icon={<ArrowRight className="h-4 w-4" />}
+                  iconRight
+                >
+                  <span className="text-[14pt]">
+                    {(state.viewingQuestionIndex ?? 0) < questions.length - 1 ? 'Next' : 'Done'}
+                  </span>
+                </UcatExamActionButton>
+              </>
+            ) : (
+              <UcatExamActionButton
+                onClick={() =>
+                  void runWithLag(() =>
+                    setState((current) => ({ ...current, showExitResultsDialog: true }))
+                  )
+                }
+                variant="highlight"
+                icon={<ArrowRight className="h-4 w-4" />}
+                iconRight
+              >
+                <span className="text-[14pt]">Exit</span>
+              </UcatExamActionButton>
+            )
+          ) : isReviewScreen ? (
             <>
               <UcatExamActionButton
                 onClick={() => void runWithLag(() => startReviewFilter('all'))}
@@ -873,19 +989,38 @@ export function QuestionEnginePage({
         {isInstructionsPhase && currentInstructionsScreen ? (
           <InstructionsContent screen={currentInstructionsScreen} />
         ) : isMarkingPhase ? (
-          <MarkingBody
-            result={computeMarkingResult(questions, state.selectedAnswers)}
-            onNext={() =>
-              void runWithLag(() => {
-                setState((current) => ({
-                  ...current,
-                  phase: 'intro',
-                  currentIndex: 0,
-                }))
-                router.back()
-              })
-            }
-          />
+          state.viewingQuestionIndex != null &&
+          questions[state.viewingQuestionIndex] ? (
+            <ResultsQuestionViewer
+              question={questions[state.viewingQuestionIndex]!}
+              selectedOptionId={state.selectedAnswers[questions[state.viewingQuestionIndex]!.id]}
+              correctOptionId={questions[state.viewingQuestionIndex]!.correctOptionId}
+              points={
+                computeMarkingResult(
+                  questions,
+                  state.selectedAnswers,
+                  state.syllogismSnapshots
+                ).rows[state.viewingQuestionIndex]?.points
+              }
+              syllogismSnapshot={
+                state.syllogismSnapshots?.[questions[state.viewingQuestionIndex]!.id]
+              }
+            />
+          ) : (
+            <MarkingBody
+              result={computeMarkingResult(
+                questions,
+                state.selectedAnswers,
+                state.syllogismSnapshots
+              )}
+              syllogismSnapshots={state.syllogismSnapshots}
+              onViewQuestion={(index) =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, viewingQuestionIndex: index }))
+                )
+              }
+            />
+          )
         ) : isReviewScreen ? (
           <ReviewBody
             sectionTitle={exam.title}
@@ -899,6 +1034,12 @@ export function QuestionEnginePage({
           <QuestionContent
             question={currentQuestion}
             selectedOptionId={state.selectedAnswers[currentQuestion.id]}
+            syllogismSnapshot={
+              state.syllogismSnapshots?.[currentQuestion.id]
+            }
+            onChangeSyllogismSnapshot={(snapshot) =>
+              setSyllogismSnapshot(currentQuestion.id, snapshot)
+            }
             onSelectOption={(optionId) => {
               setAnswer(optionId)
               recordAnswer(currentQuestion.id, optionId, flaggedCurrent)

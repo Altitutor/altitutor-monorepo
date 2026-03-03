@@ -1,9 +1,16 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
-import { GraduationCap, CalendarDays, Users } from 'lucide-react';
+import { GraduationCap, CalendarDays, Users, LineChart } from 'lucide-react';
 import { useActiveStudentsCount } from '@/features/students';
 import { useActiveClassesCount, useCurrentEnrollmentsCount } from '@/features/classes';
+import {
+  AdminStatsSection,
+  BillingStatsSection,
+  MarketingStatsSection,
+  StaffStatsSection,
+  StudentStatsSection,
+} from '@/features/reports';
 
 export default function ReportsPage() {
   const { data: activeStudentsCount, isLoading: loadingStudents } = useActiveStudentsCount();
@@ -57,6 +64,21 @@ export default function ReportsPage() {
           </div>
         </CardContent>
       </Card>
+
+      <div className="space-y-6">
+        <div className="flex items-center gap-2">
+          <LineChart className="h-5 w-5 text-muted-foreground" />
+          <h2 className="text-xl font-semibold">Detailed stats</h2>
+        </div>
+
+        <div className="space-y-6">
+          <AdminStatsSection />
+          <StaffStatsSection />
+          <StudentStatsSection />
+          <MarketingStatsSection />
+          <BillingStatsSection />
+        </div>
+      </div>
     </div>
   );
 }

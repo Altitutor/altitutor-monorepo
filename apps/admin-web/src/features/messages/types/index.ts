@@ -65,6 +65,7 @@ export type AggregatedConversation = {
     last_message_id: string | null;
     last_message: { id: string; direction: string } | null;
     status: string;
+    needs_follow_up: boolean;
   }>;
   latestMessageAt: string | null;
   latestMessage: { id: string; direction: string } | null;

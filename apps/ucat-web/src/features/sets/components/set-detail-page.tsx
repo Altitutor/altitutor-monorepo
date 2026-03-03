@@ -77,7 +77,9 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
 
   const timeLabel =
     set.time_limit_seconds != null
-      ? `${Math.round(set.time_limit_seconds / 60)} minute${set.time_limit_seconds / 60 === 1 ? '' : 's'}`
+      ? set.time_limit_seconds === 0
+        ? 'Untimed'
+        : `${Math.round(set.time_limit_seconds / 60)} minute${set.time_limit_seconds / 60 === 1 ? '' : 's'}`
       : null
 
   const createdAt =

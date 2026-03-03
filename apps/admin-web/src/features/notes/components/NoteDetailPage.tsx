@@ -285,14 +285,18 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
             </div>
           </div>
 
-          <div className="px-6 pt-8 flex-1 flex flex-col min-h-0 pb-20">
+          <div className="px-6 pt-8 flex-1 flex flex-col min-h-0">
             <Form {...form}>
               <div className="md:hidden pt-4 mb-4">
                 <NotePropertyPills form={form} folders={foldersArray} />
               </div>
 
               <div className="md:hidden mb-6">
-                <NoteTableOfContents editor={editorInstanceRef.current} collapsible />
+                <NoteTableOfContents
+                  editor={editorInstanceRef.current}
+                  title={form.watch('title')}
+                  collapsible
+                />
               </div>
 
               <div className="max-w-3xl mx-auto w-full relative flex-1 flex flex-col min-h-0">
@@ -320,7 +324,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
         </div>
 
         <div
-          className="flex-shrink-0 px-6 pb-4 pt-2 border-t bg-background pointer-events-none"
+          className="flex-shrink-0 px-6 pointer-events-none"
           style={{
             left: isMobile ? 0 : `${sidebarWidth}px`,
             right: isMobile ? '80px' : '320px',
@@ -333,7 +337,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       </div>
 
       <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
-        <Tabs defaultValue="properties" className="flex-1 flex flex-col min-h-0">
+        <Tabs defaultValue="outline" className="flex-1 flex flex-col min-h-0">
           <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="properties">Properties</TabsTrigger>
@@ -356,7 +360,10 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
             <TabsContent value="outline" className="h-full min-h-0 m-0 overflow-hidden data-[state=active]:flex flex-col">
               <ScrollArea className="flex-1 min-h-0">
                 <div className="p-6">
-                  <NoteTableOfContents editor={editorInstanceRef.current} />
+                  <NoteTableOfContents
+                    editor={editorInstanceRef.current}
+                    title={form.watch('title')}
+                  />
                 </div>
               </ScrollArea>
             </TabsContent>

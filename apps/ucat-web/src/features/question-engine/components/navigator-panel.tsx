@@ -142,11 +142,7 @@ export function NavigatorPanel({
   const sortedRows = useMemo(() => {
     const base = questions.map((question, index) => {
       const flagged = flaggedIds.includes(question.id)
-      const status = getReviewQuestionStatus(
-        question.id,
-        visitedQuestionIds,
-        selectedAnswers
-      )
+      const status = getReviewQuestionStatus(question, visitedQuestionIds, selectedAnswers)
       const statusLabel =
         status === 'complete' ? '' : status === 'incomplete' ? 'Incomplete' : 'Unseen'
       const statusRank = status === 'complete' ? 1 : status === 'incomplete' ? 0.5 : 0

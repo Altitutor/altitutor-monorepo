@@ -69,7 +69,7 @@ export function BulkImportQuestionStemsModal({
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
   const [pastedAnswersText, setPastedAnswersText] = useState('')
   const [parseError, setParseError] = useState<string | null>(null)
-  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_all')
+  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
   const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
     questionIndicator: 'dot',
     answerOptionIndicator: 'paren',
@@ -88,7 +88,7 @@ export function BulkImportQuestionStemsModal({
       setPastedContent(null)
       setPastedAnswersText('')
       setParseError(null)
-      setPasteTableBehavior('strip_all')
+      setPasteTableBehavior('strip_outside')
       setParsingOptions({
         questionIndicator: 'dot',
         answerOptionIndicator: 'paren',
@@ -262,7 +262,13 @@ export function BulkImportQuestionStemsModal({
         if (!q || !q.options) return
         const qWithPattern = q as typeof q & { syllogismAnswerPattern?: string | null }
         if (answer.pattern && qWithPattern.questionType === 'syllogism') {
-          questions[questionIndex] = { ...q, syllogismAnswerPattern: answer.pattern }
+          const pattern = answer.pattern
+          const options = (q.options ?? []).map((opt, j) => ({
+            ...opt,
+            // For syllogisms, treat 'Y' as "Yes" (isAnswer = true), anything else as "No".
+            isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
+          }))
+          questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
         } else if (answer.letter) {
           const optionIndex = letterToOptionIndex(answer.letter)
           const options = q.options.map((opt, j) => ({

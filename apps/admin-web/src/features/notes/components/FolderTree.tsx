@@ -12,6 +12,7 @@ import {
 } from '@dnd-kit/core';
 import { useFolderTree, useNotes } from '../api/queries';
 import { FolderTreeNode } from './FolderTreeNode';
+import { NotesSearchResults } from './NotesSearchResults';
 import { Skeleton } from '@altitutor/ui';
 import { useNoteDragAndDrop } from '../hooks/useNoteDragAndDrop';
 import { useUpdateNote, useUpdateFolder } from '../hooks/useNoteMutations';
@@ -20,16 +21,32 @@ import { DroppableNoFolder } from './DroppableNoFolder';
 import { useMemo } from 'react';
 import type { Note, FolderTreeItem } from '../types';
 
+interface FolderTreeProps {
+  searchQuery?: string;
+}
+
 /**
  * Main folder tree component showing root folders with notes and subfolders
- * Also displays notes without folders at the top
+ * Also displays notes without folders at the top.
+ * When searchQuery is provided, shows search results instead.
  */
-export function FolderTree() {
+export function FolderTree({ searchQuery = '' }: FolderTreeProps) {
   const router = useRouter();
-  const { data: folderTree, isLoading: isLoadingFolders, error: foldersError } = useFolderTree();
-  const { data: notesWithoutFolder, isLoading: isLoadingNotes } = useNotes({ folderId: null });
+  const isSearching = searchQuery.length > 0;
 
-  const isLoading = isLoadingFolders || isLoadingNotes;
+  const { data: folderTree, isLoading: isLoadingFolders, error: foldersError } = useFolderTree();
+  const { data: notesWithoutFolder, isLoading: isLoadingNotes } = useNotes(
+    { folderId: null },
+    !isSearching
+  );
+  const { data: searchResults, isLoading: isLoadingSearch } = useNotes(
+    { search: searchQuery },
+    isSearching
+  );
+
+  const isLoading = isSearching
+    ? isLoadingSearch
+    : isLoadingFolders || isLoadingNotes;
   const error = foldersError;
 
   const sensors = useSensors(
@@ -124,6 +141,16 @@ export function FolderTree() {
 
   const hasFolders = folderTree && folderTree.length > 0;
   const hasNotesWithoutFolder = notesWithoutFolder && notesWithoutFolder.length > 0;
+
+  // Search mode: show flat search results
+  if (isSearching) {
+    return (
+      <NotesSearchResults
+        notes={searchResults ?? []}
+        searchQuery={searchQuery}
+      />
+    );
+  }
 
   if (!hasFolders && !hasNotesWithoutFolder) {
     return (

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useMemo, useState, useLayoutEffect } from 'react';
 import { useMessagesForContact, useContactHeader } from '../api/queries';
-import { useMarkRead } from '../api/mutations';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
@@ -380,14 +379,11 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
 
 export function MessageThread({ contactId, isSearching = false, searchTerm = '', onSearchTermChange, onExitSearch, hideAddIssueHover = false }: Props) {
   const { data, fetchNextPage, hasNextPage } = useMessagesForContact(contactId);
-  const markRead = useMarkRead();
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
   const lastRenderedContactIdRef = useRef<string | null>(null);
   const prevContactId = useRef(contactId);
-  const lastMarkedMessageId = useRef<string | null>(null);
-  const markReadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isEditIssueOpen, setIsEditIssueOpen] = useState(false);
@@ -398,13 +394,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
   useEffect(() => {
     if (prevContactId.current !== contactId) {
       prevContactId.current = contactId;
-      lastMarkedMessageId.current = null; // Reset when contact changes
       shouldStickToBottomRef.current = true;
-      // Cancel any pending markRead calls
-      if (markReadTimeoutRef.current) {
-        clearTimeout(markReadTimeoutRef.current);
-        markReadTimeoutRef.current = null;
-      }
     }
   }, [contactId]);
 
@@ -463,41 +453,6 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
         };
       });
   }, [contactId, qc]);
-
-  // Mark conversation as read - debounced and only when last message changes
-  useEffect(() => {
-    const last = data?.pages?.flatMap(p => p.items)?.[0];
-    const lastMessageId = last?.id;
-    const currentContactId = contactId; // Capture for closure
-    
-    // Only mark as read if:
-    // 1. We have a last message ID
-    // 2. It's different from what we last marked
-    if (lastMessageId && lastMessageId !== lastMarkedMessageId.current) {
-      // Cancel any pending markRead calls
-      if (markReadTimeoutRef.current) {
-        clearTimeout(markReadTimeoutRef.current);
-      }
-      
-      // Debounce markRead to avoid excessive calls when switching contacts quickly
-      markReadTimeoutRef.current = setTimeout(() => {
-        // Double-check we're still on the same contact
-        if (prevContactId.current === currentContactId) {
-          markRead.mutate({ contactId: currentContactId, lastMessageId });
-          lastMarkedMessageId.current = lastMessageId;
-        }
-        markReadTimeoutRef.current = null;
-      }, 500); // 500ms debounce
-    }
-    
-    // Cleanup timeout on unmount or contact change
-    return () => {
-      if (markReadTimeoutRef.current) {
-        clearTimeout(markReadTimeoutRef.current);
-        markReadTimeoutRef.current = null;
-      }
-    };
-  }, [data, contactId, markRead]);
 
   // Filter and process messages for search
   const processedMessages = useMemo(() => {
@@ -760,6 +715,11 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
               
               return (
                 <div key={m.id}>
+                  {showDateSeparator && (
+                    <div className="text-center text-xs text-muted-foreground my-3">
+                      {formatDaySeparator(m.created_at)}
+                    </div>
+                  )}
                   <div className={`flex gap-2 items-end ${direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}>
                     {/* Staff avatar for outbound messages */}
                     {direction === 'OUTBOUND' && m.staff && (
@@ -871,11 +831,6 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       </div>
                     </div>
                   </div>
-                  {showDateSeparator && (
-                    <div className="text-center text-xs text-muted-foreground my-3">
-                      {formatDaySeparator(m.created_at)}
-                    </div>
-                  )}
                 </div>
               );
             })

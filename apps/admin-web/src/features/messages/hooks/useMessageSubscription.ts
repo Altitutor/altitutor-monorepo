@@ -47,8 +47,9 @@ export function useMessageSubscription() {
               .delete()
               .eq('conversation_id', row.conversation_id);
             
-            // Invalidate conversations query to update unread indicators
+            // Invalidate conversations queries to update unread indicators
             queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
+            queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContact() });
           } catch (error: unknown) {
             console.error('[useMessageSubscription] Failed to mark conversation as unread', error);
           }

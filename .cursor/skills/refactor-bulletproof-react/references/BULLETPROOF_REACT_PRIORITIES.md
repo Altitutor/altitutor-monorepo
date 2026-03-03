@@ -11,7 +11,8 @@ These cause tight coupling, bugs, or significant performance problems.
 | Antipattern | Why Critical | Refactor Action |
 |-------------|--------------|-----------------|
 | **Cross-feature imports** | Tight coupling, hard to test, circular deps risk | Move to `shared/` or compose at app level |
-| **Business logic bugs in components** | Data transformation/calculation errors in render | Extract to hook or util |
+| **Circular dependencies** | Runtime failures, hard to debug, build issues | Break cycle: extract shared code, invert dependency |
+| **Business logic in components** | Risks bugs, hard to test, duplication. Data transforms/calculations in render | Extract to hook or util |
 | **useEffect for data fetching** | No caching, no loading/error states, duplicate requests, stale data | Create React Query hook + api/ layer |
 | **Server state in local state** | Stale data, no cache, manual sync | Use React Query for server data |
 

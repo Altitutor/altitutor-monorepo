@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { RichTextJson } from '@/features/ucat/shared/types'
+import { snapshotMockDraft } from '@/features/ucat/shared/lib/dirty-state'
 import { useUcatMockDetail, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
 
 type UseUcatMockDraftArgs = {
@@ -26,18 +27,24 @@ export function useUcatMockDraft({ open, mockId }: UseUcatMockDraftArgs) {
     setDraftSetIds(setIds)
     setInstructionsText((current.instructions_text ?? null) as RichTextJson | null)
     setBaseline(
-      JSON.stringify({
+      snapshotMockDraft({
         name: current.name ?? '',
         isPrivate: !!current.is_private,
         setIds,
-        instructionsText: current.instructions_text ?? null,
+        instructionsText: (current.instructions_text ?? null) as RichTextJson | null,
       })
     )
   }, [detail.data])
 
   const isDirty = useMemo(() => {
     return (
-      JSON.stringify({ name, isPrivate, setIds: draftSetIds, instructionsText }) !== baseline
+      baseline !== '' &&
+      snapshotMockDraft({
+        name,
+        isPrivate,
+        setIds: draftSetIds,
+        instructionsText,
+      }) !== baseline
     )
   }, [baseline, draftSetIds, instructionsText, isPrivate, name])
 

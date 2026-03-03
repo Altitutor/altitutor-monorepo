@@ -63,12 +63,16 @@ export function useUpdateNote() {
     onSuccess: ({ note: updatedNote, silent }, { id }) => {
       queryClient.setQueryData(notesKeys.detail(id), updatedNote);
 
-      if (silent) {
-        return;
-      }
-
+      // Always invalidate lists/tree so folder tree and notes page show updated data
       queryClient.invalidateQueries({ queryKey: notesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
+
+      if (!silent) {
+        toast({
+          title: 'Note updated',
+          description: 'The note has been updated successfully.',
+        });
+      }
     },
     onError: (error: Error) => {
       toast({

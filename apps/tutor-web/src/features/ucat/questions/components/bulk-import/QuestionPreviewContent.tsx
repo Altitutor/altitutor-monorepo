@@ -2,6 +2,7 @@
 
 import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 
 type OptionInput = {
   answerText: Json
@@ -36,8 +37,6 @@ export function QuestionPreviewContent({
   isSyllogism?: boolean
   syllogismPattern?: string | null
 }) {
-  const stemPlain = proseMirrorToPlainText(stemTextJson)?.trim() ?? ''
-  const stemParagraphs = stemPlain ? stemPlain.split('\n') : []
   const questionText = proseMirrorToPlainText(questionTextJson)?.trim() ?? ''
   const questionExplanation = questionAnswerExplanationJson
     ? proseMirrorToPlainText(questionAnswerExplanationJson)?.trim()
@@ -52,11 +51,14 @@ export function QuestionPreviewContent({
   return (
     <div className="rounded-md border border-border bg-muted/30 text-[11pt] leading-relaxed">
       <div className="space-y-4 p-4">
-        {stemParagraphs.length > 0 ? (
+        {stemTextJson ? (
           <article className="space-y-2">
-            {stemParagraphs.map((line, i) => (
-              <p key={i}>{line}</p>
-            ))}
+            <UcatRichTextEditor
+              value={stemTextJson as Json}
+              onChange={undefined}
+              editable={false}
+              minHeight="0"
+            />
           </article>
         ) : null}
         <section className="space-y-2">
@@ -77,7 +79,6 @@ export function QuestionPreviewContent({
                 </thead>
                 <tbody>
                   {options.map((opt, index) => {
-                    const text = proseMirrorToPlainText(opt.answerText)?.trim() ?? ''
                     const optionExplanation = opt.answerExplanation
                       ? proseMirrorToPlainText(opt.answerExplanation)?.trim()
                       : ''
@@ -85,7 +86,14 @@ export function QuestionPreviewContent({
                     const yn = char === 'Y' ? 'Yes' : char === 'N' ? 'No' : '—'
                     return (
                       <tr key={index} className="border-b border-border/60">
-                        <td className="py-1.5 pr-4 align-top whitespace-pre-wrap">{text}</td>
+                        <td className="py-1.5 pr-4 align-top whitespace-pre-wrap">
+                          <UcatRichTextEditor
+                            value={opt.answerText as Json}
+                            onChange={undefined}
+                            editable={false}
+                            minHeight="0"
+                          />
+                        </td>
                         <td className="py-1.5 pr-4 align-top font-medium text-muted-foreground">{yn}</td>
                         {hasAnyOptionExplanation ? (
                           <td className="py-1.5 align-top text-[10pt] text-muted-foreground whitespace-pre-wrap">
@@ -101,7 +109,6 @@ export function QuestionPreviewContent({
           ) : (
             <div className="space-y-1.5 pl-8">
               {options.map((opt, index) => {
-                const text = proseMirrorToPlainText(opt.answerText)?.trim() ?? ''
                 const optionExplanation = opt.answerExplanation
                   ? proseMirrorToPlainText(opt.answerExplanation)?.trim()
                   : ''
@@ -117,7 +124,14 @@ export function QuestionPreviewContent({
                       <span className="inline-block w-8 shrink-0">
                         {letter}.{isCorrect ? ' ✓' : ''}
                       </span>
-                      <span className="whitespace-pre-wrap">{text}</span>
+                      <div className="whitespace-pre-wrap flex-1">
+                        <UcatRichTextEditor
+                          value={opt.answerText as Json}
+                          onChange={undefined}
+                          editable={false}
+                          minHeight="0"
+                        />
+                      </div>
                     </div>
                     {optionExplanation ? (
                       <div className="w-[45%] shrink-0 border-l border-border pl-3 text-[10pt] text-muted-foreground">

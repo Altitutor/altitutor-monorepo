@@ -30,6 +30,8 @@ function createBaseState(overrides: Partial<QuestionEngineState> = {}): Question
     reviewFilterIndex: 0,
     showReviewInstructionsDialog: false,
     showEndReviewDialog: false,
+    viewingQuestionIndex: null,
+    showExitResultsDialog: false,
     ...overrides,
   };
 }

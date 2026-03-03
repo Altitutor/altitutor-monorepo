@@ -6,10 +6,14 @@ import { notesKeys, foldersKeys } from './queryKeys';
 /**
  * Get all notes with optional filters
  */
-export function useNotes(filters?: { folderId?: string | null; projectId?: string | null; search?: string }) {
+export function useNotes(
+  filters?: { folderId?: string | null; projectId?: string | null; search?: string },
+  enabled = true
+) {
   return useQuery({
     queryKey: notesKeys.list(filters),
     queryFn: () => notesApi.list(filters),
+    enabled,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
   });

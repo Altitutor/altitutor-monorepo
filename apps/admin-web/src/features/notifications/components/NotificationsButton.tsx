@@ -29,7 +29,7 @@ export const NotificationsButton = forwardRef<HTMLButtonElement, NotificationsBu
             unreadCount > 9 && "text-[9px]"
           )}
         >
-          {unreadCount > 9 ? '9+' : unreadCount}
+          {unreadCount}
         </span>
       )}
       </Button>

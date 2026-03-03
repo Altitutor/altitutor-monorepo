@@ -32,9 +32,19 @@ type MockDetailRow = {
 type StemDetailQuestion = {
   id: string
   question_text: unknown
+  answer_explanation?: unknown
   index: number
   question_type: 'multiple_choice' | 'syllogism'
-  answer_options: Array<{ id: string; answer_text: unknown; index: number; is_answer?: boolean }>
+  answer_options: Array<{
+    id: string
+    answer_text: unknown
+    answer_explanation?: unknown
+    index: number
+    is_answer?: boolean
+    selection_count?: number
+    total_answered?: number
+    percentage?: number
+  }>
 }
 
 type StemDetailRow = {
@@ -57,9 +67,15 @@ function hasInstructionsContent(value: unknown): boolean {
 
 type DbQuestionEngineMode = Extract<QuestionEngineMode, 'set' | 'mock'>
 
+/**
+ * Maps set detail to QuestionItems. Order: stem index in set first, then question index within stem.
+ * The DB view provides stems ordered by question_stems_question_sets.index and questions_meta
+ * ordered by ucat_questions.index within each stem.
+ */
 function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): QuestionItem[] {
   const stemMap = new Map(stemDetails.map((stem) => [stem.id, stem]))
   const questions: QuestionItem[] = []
+  let runningIndex = 0
 
   set.stems.forEach((stemMeta) => {
     const stem = stemMap.get(stemMeta.stem_id)
@@ -76,17 +92,35 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
       }
 
       const options = (question.answer_options || [])
-        .map((option) => ({
-          id: option.id,
-          index: option.index,
-          text: extractTextFromRichJson(option.answer_text as JsonLike),
-          isAnswer: option.is_answer ?? false,
-        }))
+        .map((option) => {
+          const rawOptionExplanation = option.answer_explanation
+            ? extractTextFromRichJson(option.answer_explanation as JsonLike)?.trim() ?? ''
+            : ''
+          const cleanOptionExplanation =
+            rawOptionExplanation.toLowerCase() === 'paragraph' ? '' : rawOptionExplanation
+
+          return {
+            id: option.id,
+            index: option.index,
+            text: extractTextFromRichJson(option.answer_text as JsonLike),
+            isAnswer: option.is_answer ?? false,
+            answerExplanation: cleanOptionExplanation || undefined,
+            selectionCount: option.selection_count,
+            totalAnswered: option.total_answered,
+            percentage: option.percentage,
+          }
+        })
         .sort((a, b) => a.index - b.index)
       const correctOption = options.find((o) => o.isAnswer)
+      const rawQuestionExplanation = question.answer_explanation
+        ? extractTextFromRichJson(question.answer_explanation as JsonLike)?.trim() ?? ''
+        : ''
+      const cleanQuestionExplanation =
+        rawQuestionExplanation.toLowerCase() === 'paragraph' ? '' : rawQuestionExplanation
+      const questionAnswerExplanation = cleanQuestionExplanation || undefined
       questions.push({
         id: question.id,
-        index: questionMeta.index,
+        index: runningIndex++,
         questionSetId: set.id,
         stemId: stem.id,
         sectionName: stem.section_name,
@@ -96,11 +130,12 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
         questionType: question.question_type,
         options,
         correctOptionId: correctOption?.id,
+        answerExplanation: questionAnswerExplanation,
       })
     })
   })
 
-  return questions.sort((a, b) => a.index - b.index)
+  return questions
 }
 
 async function loadSetDetail(setId: string): Promise<SetDetailRow> {

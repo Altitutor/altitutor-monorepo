@@ -16,7 +16,6 @@ export function computeRawScore(params: {
   questions: QuestionMeta[]
 }): RawScoreResult {
   const { attempts, questions } = params
-  const questionMap = new Map(questions.map((q) => [q.id, q]))
   const attemptByQuestion = new Map(attempts.map((a) => [a.questionId, a]))
   const questionScores = new Map<string, number>()
 

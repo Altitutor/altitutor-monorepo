@@ -8,6 +8,7 @@ import {
   UnloggedSessionsTable,
   UnassignedClassesTable,
   FailedDeliveryMessagesTable,
+  UnreadMessagesTable,
   StudentsWithoutClassesTable,
   StudentsWithoutPaymentMethodTable,
   TrialStudentsNotSignedUpTable,
@@ -204,6 +205,7 @@ export function ReconciliationDashboard() {
             items={reconciliationData.failedDeliveryMessages.data ?? []}
             isLoading={reconciliationData.failedDeliveryMessages.isLoading}
           />
+          <UnreadMessagesTable />
         </div>
 
         {/* Empty state */}

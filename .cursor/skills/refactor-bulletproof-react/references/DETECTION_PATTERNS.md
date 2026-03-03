@@ -74,9 +74,9 @@ Often overlaps with "useEffect fetch" - if they're fetching into useState, it's 
 
 ---
 
-## Business Logic in Components (P0/P1)
+## Business Logic in Components (P0)
 
-**What**: Complex calculations, data transforms, or conditional logic in component body (not in useMemo/useCallback/hook).
+**What**: Complex calculations, data transforms, or conditional logic in component body (not in useMemo/useCallback/hook). Risks bugs and hurts testability.
 
 **Manual check**: Read component files. Look for:
 - `.reduce()`, `.filter()`, `.map()` with non-trivial logic in render
@@ -150,7 +150,7 @@ grep -r "import.*from 'react'\|import.*Component\|useState\|useEffect" apps/[app
 grep -r "fetch\|supabase\|axios\|\.from\(" apps/[app]/src/features/*/utils/ 2>/dev/null
 ```
 
-**Manual check**: Read api/, hooks/, utils/ files. API should only fetch/transform data. Hooks should not return JSX. Utils should be pure.
+**Manual check**: Read api/, hooks/, utils/ files. API should only fetch/transform data. Hooks should not return JSX. Utils should be pure. Note: API files with only `import type` from React are false positives; verify manually.
 
 ---
 
@@ -167,9 +167,17 @@ for f in $(find apps/[app]/src/features -name "*.tsx" -path "*/components/*" ! -
     echo "NO_TEST: $f"; 
   fi; 
 done
+
+# Hooks without adjacent test file
+for f in $(find apps/[app]/src/features -name "*.ts" -path "*/hooks/*" ! -path "*/__tests__/*" ! -name "*.test.ts" ! -name "*.test.tsx"); do
+  base="${f%.ts}"; 
+  if [[ ! -f "${base}.test.ts" && ! -f "${base}.test.tsx" && ! -f "$(dirname $f)/__tests__/$(basename $f .ts).test.ts" ]]; then 
+    echo "NO_TEST: $f"; 
+  fi; 
+done
 ```
 
-Or: List component/hook files, check if `*.test.tsx` or `__tests__/*.test.tsx` exists alongside.
+Or: List component/hook files, check if `*.test.tsx` or `*.test.ts` exists alongside.
 
 **Priority**: Focus on critical user flows, forms, and hooks that fetch data.
 
@@ -192,3 +200,17 @@ grep -r "function format\|const format" apps/[app]/src/features/ --include="*.ts
 ```
 
 **Manual check**: When reading components, note similar logic blocks. Use codebase_search for "format date" or "format currency" to find duplication.
+
+---
+
+## Circular Dependencies (P0)
+
+**What**: Import cycles (A → B → C → A) that can cause runtime failures, hard-to-debug issues, or build problems.
+
+**Search** (requires [madge](https://github.com/pahen/madge)):
+```bash
+# From each app directory (e.g., apps/admin-web)
+npx madge --circular src
+```
+
+Or: `pnpm add -D madge` then run from app dir. The analysis script includes an optional CIRCULAR_DEPENDENCIES section when madge is available.

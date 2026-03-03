@@ -49,16 +49,25 @@ Deno.serve(async (req: Request) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const billingCronSecret = Deno.env.get('BILLING_CRON_SECRET_KEY')?.trim();
 
-  // Parse request body for date override (must be done before auth check to avoid consuming body)
+  // Parse request body for date override and batching controls (must be done before auth check to avoid consuming body)
   let dateOverride: string | null = null;
+  let cursor: string | null = null;
+  let batchLimit: number | null = null;
   let requestBody: Record<string, unknown> | null = null;
 
   if (req.method === 'POST') {
     try {
       const bodyText = await req.text();
       if (bodyText) {
-        requestBody = JSON.parse(bodyText);
-        dateOverride = requestBody.date || null;
+        requestBody = JSON.parse(bodyText) as Record<string, unknown>;
+        dateOverride = (requestBody.date as string | undefined) || null;
+        cursor = (requestBody.cursor as string | undefined) || null;
+        if (requestBody.limit != null) {
+          const parsedLimit = Number(requestBody.limit);
+          if (!Number.isNaN(parsedLimit) && parsedLimit > 0) {
+            batchLimit = parsedLimit;
+          }
+        }
       }
     } catch {
       // Body parsing failed, continue with defaults
@@ -133,6 +142,11 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
   const resendApiKey = Deno.env.get('RESEND_API_KEY')?.trim();
 
+  // Default batch size for processing sessions_students rows
+  const effectiveBatchLimit = batchLimit && batchLimit > 0
+    ? Math.min(batchLimit, 50) // Hard cap to avoid overly large batches
+    : 20;
+
   try {
     // Load billing settings
     const { feePercentDom, feePercentIntl, feeFixedCents, domesticCountry } =
@@ -206,6 +220,29 @@ Deno.serve(async (req: Request) => {
       });
     }
 
+    // Sort uninvoiced rows deterministically and apply cursor-based pagination
+    const sortedUninvoiced = [...uninvoicedSsRows].sort((a, b) => {
+      if (a.id === b.id) return 0;
+      return a.id < b.id ? -1 : 1;
+    });
+
+    const pagedUninvoiced = cursor
+      ? sortedUninvoiced.filter((row) => row.id > cursor!)
+      : sortedUninvoiced;
+
+    const batchRows = pagedUninvoiced.slice(0, effectiveBatchLimit);
+    const hasMore = pagedUninvoiced.length > effectiveBatchLimit;
+
+    if (batchRows.length === 0) {
+      return json({
+        ok: true,
+        processed: 0,
+        invoicesCreated: 0,
+        dateRange: { start: startIso, end: endIso },
+        message: `No uninvoiced sessions found for ${dateOverride ? `date ${invoiceDate}` : 'tomorrow'} after cursor`,
+      });
+    }
+
     // Get unique session IDs from uninvoiced sessions
     const uninvoicedSessionIds = Array.from(
       new Set(uninvoicedSsRows.map((row: { session_id: string }) => row.session_id))
@@ -245,8 +282,8 @@ Deno.serve(async (req: Request) => {
     const invoicesCreated: string[] = [];
     const errors: string[] = [];
 
-    // Process each session individually (same as billing-single)
-    for (const row of uninvoicedSsRows) {
+    // Process each session individually (same as billing-single) for the current batch
+    for (const row of batchRows) {
       const session = uninvoicedSessions.find((s: { id: string }) => s.id === row.session_id);
       if (!session) continue;
 
@@ -300,12 +337,40 @@ Deno.serve(async (req: Request) => {
       }
     }
 
+    // If there are more uninvoiced rows for this date, fire-and-forget the next batch
+    if (hasMore && supabaseUrl && billingCronSecret) {
+      const nextCursor = batchRows[batchRows.length - 1]?.id;
+      if (nextCursor) {
+        const nextBody = {
+          date: invoiceDate,
+          cursor: nextCursor,
+          limit: effectiveBatchLimit,
+        };
+
+        // Fire-and-forget: do not await to avoid extending wall-clock time
+        fetch(`${supabaseUrl}/functions/v1/billing-runner`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${billingCronSecret}`,
+            apikey: billingCronSecret,
+          },
+          body: JSON.stringify(nextBody),
+        }).catch(() => {
+          // Swallow errors; any remaining uninvoiced rows will still show up in reconciliation
+        });
+      }
+    }
+
     return json({
       ok: true,
       invoicesCreated: invoicesCreated.length,
       errors: errors.length > 0 ? errors : undefined,
       stripeKeyType: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
       dateRange: { start: startIso, end: endIso },
+      processed: batchRows.length,
+      hasMore,
+      nextCursor: hasMore ? batchRows[batchRows.length - 1]?.id : null,
       message: `Created ${invoicesCreated.length} invoices${isStripeTestKey ? ' (using Stripe test keys)' : isStripeLiveKey ? ' (using Stripe live keys)' : ''}`,
     });
   } catch (e: unknown) {

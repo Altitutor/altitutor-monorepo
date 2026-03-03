@@ -157,7 +157,9 @@ export const foldersApi = {
       const children = allFolders.filter((f) => f.parent_id === parentId);
       return children.map((folder) => ({
         ...folder,
-        notes: allNotes.filter((n) => n.folder_id === folder.id),
+        notes: allNotes
+          .filter((n) => n.folder_id === folder.id)
+          .sort((a, b) => (a.title ?? '').localeCompare(b.title ?? '', undefined, { sensitivity: 'base' })),
         children: buildTree(folder.id),
       }));
     };

@@ -6,6 +6,14 @@ export type AnswerOption = {
   text: string
   /** True if this option is the correct answer. Used for marking display. */
   isAnswer?: boolean
+  /** Option-level answer explanation (shown in results review). */
+  answerExplanation?: string
+  /** Number of students who selected this option. From DB aggregation. */
+  selectionCount?: number
+  /** Total students who answered this question. From DB aggregation. */
+  totalAnswered?: number
+  /** Percentage (0–100) of students who selected this option. */
+  percentage?: number
 }
 
 export type QuestionItem = {
@@ -21,6 +29,8 @@ export type QuestionItem = {
   options: AnswerOption[]
   /** ID of the correct answer option. Used for marking. */
   correctOptionId?: string
+  /** Question-level answer explanation (shown below options in results review). */
+  answerExplanation?: string
 }
 
 /** One screen of instructions (tiptap/prosemirror JSON). Shown before questions when applicable. */
@@ -157,6 +167,8 @@ export type QuestionEngineState = {
   visitedQuestionIds: string[]
   flaggedIds: string[]
   selectedAnswers: Record<string, string>
+  /** For syllogism questions: map of questionId -> optionId -> true (Yes) / false (No). */
+  syllogismSnapshots?: Record<string, Record<string, boolean>>
   showNavigator: boolean
   showCalculator: boolean
   showEndExamDialog: boolean
@@ -166,4 +178,8 @@ export type QuestionEngineState = {
   reviewFilterIndex: number
   showReviewInstructionsDialog: boolean
   showEndReviewDialog: boolean
+  /** When phase === 'marking': index of question being viewed in fullscreen, or null for results table. */
+  viewingQuestionIndex: number | null
+  /** When true, show Exit Results confirmation dialog. */
+  showExitResultsDialog: boolean
 }

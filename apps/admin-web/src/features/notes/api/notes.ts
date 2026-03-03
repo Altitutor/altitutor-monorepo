@@ -38,8 +38,8 @@ export const notesApi = {
       });
     }
 
-    // Order by updated_at DESC
-    query = query.order('updated_at', { ascending: false });
+    // Order by title alphabetically
+    query = query.order('title', { ascending: true });
 
     const { data, error } = await query;
     if (error) throw error;
@@ -57,7 +57,7 @@ export const notesApi = {
       .from('notes_documents')
       .select('*')
       .eq('folder_id', folderId)
-      .order('updated_at', { ascending: false });
+      .order('title', { ascending: true });
 
     if (error) throw error;
     return (data ?? []) as Note[];

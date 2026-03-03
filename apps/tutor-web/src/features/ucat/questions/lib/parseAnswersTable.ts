@@ -112,11 +112,12 @@ export function letterToOptionIndex(letter: string): number {
   return 0
 }
 
-const YN_LINE = /^\s*[YN]\s*$/i
+// Accept Y / N plus common expansions like "ye", "yes", "no" (any casing, optional whitespace)
+const YN_LINE = /^\s*(y|ye|yes|n|no)\s*$/i
 const LETTER_LINE = /^\s*[A-Ea-e]\s*$/
 
 function isYorN(s: string): boolean {
-  return /^\s*[YN]\s*$/i.test(s)
+  return YN_LINE.test(s)
 }
 function isAthroughE(s: string): boolean {
   return /^\s*[A-Ea-e]\s*$/.test(s)

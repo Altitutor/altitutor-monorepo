@@ -44,7 +44,10 @@ export function UcatExamShell({
         <div className="flex-1 min-h-0 bg-white px-4 py-0 sm:px-5" data-ucat-scroll="content">
           <div className="h-full min-h-0 overflow-hidden">{children}</div>
         </div>
-        <footer className="flex justify-between" style={{ backgroundColor: UCAT_COLORS.primaryBlue }}>
+        <footer
+          className="flex shrink-0 items-center justify-between"
+          style={{ backgroundColor: UCAT_COLORS.primaryBlue }}
+        >
           <div className="flex items-stretch">{footerLeft}</div>
           <div className="flex items-stretch">{footerRight}</div>
         </footer>

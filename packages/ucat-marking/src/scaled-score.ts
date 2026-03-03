@@ -1,9 +1,4 @@
-import {
-  SCALED_MAX,
-  SCALED_MIN,
-  SCALED_RANGE,
-  SCALED_ROUND_TO,
-} from './config'
+import { SCALED_MIN, SCALED_RANGE, SCALED_ROUND_TO } from './config'
 import type { ScaledScoreOptions, ScaledScoreStrategy } from './types'
 
 /**

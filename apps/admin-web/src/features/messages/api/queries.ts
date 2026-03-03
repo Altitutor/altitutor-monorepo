@@ -22,6 +22,7 @@ type ConversationRow = {
   is_group_chat: boolean;
   group_chat_id: string | null;
   group_chat_name: string | null;
+  needs_follow_up?: boolean;
   contacts: {
     id: string;
     phone_e164: string | null;
@@ -354,6 +355,7 @@ export function useConversationsByContact() {
           id, status, last_message_at, last_message_id,
           assigned_staff_id, contact_id, owned_number_id,
           is_group_chat, group_chat_id, group_chat_name,
+          needs_follow_up,
           contacts!inner(
             id, phone_e164, contact_type, student_id, parent_id, staff_id,
             students(id, first_name, last_name),
@@ -417,6 +419,7 @@ export function useConversationsByContact() {
           last_message_id: conv.last_message_id,
           last_message: lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null,
           status: conv.status,
+          needs_follow_up: conv.needs_follow_up ?? false,
         });
         
         // Track latest message across all conversations
