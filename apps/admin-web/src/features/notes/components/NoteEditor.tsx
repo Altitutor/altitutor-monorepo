@@ -2,6 +2,7 @@ import { RichTextEditor, type RichTextEditorRef as NoteEditorRef, type JSONConte
 import { forwardRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { SuggestionOptions } from '@tiptap/suggestion';
+import { JumpHighlightExtension } from '../extensions/JumpHighlightExtension';
 
 export type { NoteEditorRef };
 
@@ -25,6 +26,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref
       {...props}
       ref={ref}
       minHeight="full"
+      extensions={[JumpHighlightExtension]}
     />
   );
 });

@@ -151,14 +151,71 @@ export interface RichTextEditorProps {
    * - keep: Preserve all HTML including tables.
    */
   pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
+  /**
+   * Additional TipTap extensions to add to the editor (e.g. JumpHighlightExtension for note TOC).
+   */
+  extensions?: import('@tiptap/core').AnyExtension[];
 }
 
-function htmlToPlainText(html: string): string {
+const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
+
+/**
+ * Convert HTML to plain text with structure preserved: each table cell and each block element
+ * becomes its own line, so line breaks are retained (one paragraph per line for strip_all).
+ */
+function htmlToPlainTextWithStructureWithStructure(html: string): string {
   if (!html.trim()) return '';
   try {
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, 'text/html');
-    return doc.body?.textContent?.replace(/\r\n/g, '\n').replace(/\r/g, '\n') ?? '';
+    const body = doc.body;
+    const lines: string[] = [];
+
+    function getText(el: Node): string {
+      return (el as HTMLElement).textContent?.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim() ?? '';
+    }
+
+    function processNode(node: Node): void {
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const el = node as Element;
+        if (el.tagName === 'TABLE') {
+          if ((el.parentElement as Element)?.closest?.('table')) return;
+          const rows = el.querySelectorAll(':scope > tbody > tr, :scope > tr');
+          for (const row of rows) {
+            const cells = row.querySelectorAll(':scope > td, :scope > th');
+            for (const cell of cells) {
+              const text = getText(cell);
+              if (text) lines.push(text);
+            }
+          }
+          return;
+        }
+        if (el.tagName === 'BR') {
+          lines.push('');
+          return;
+        }
+        if (BLOCK_TAGS.includes(el.tagName)) {
+          const hasBlockOrTableChild = Array.from(el.children).some(
+            (c) => c.tagName === 'TABLE' || BLOCK_TAGS.includes(c.tagName)
+          );
+          if (hasBlockOrTableChild) {
+            for (const child of el.childNodes) processNode(child);
+          } else {
+            const text = getText(el);
+            if (text) lines.push(text);
+          }
+          return;
+        }
+      }
+      for (const child of Array.from(node.childNodes)) {
+        processNode(child);
+      }
+    }
+
+    for (const child of Array.from(body.childNodes)) {
+      processNode(child);
+    }
+    return lines.join('\n');
   } catch {
     return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   }
@@ -214,6 +271,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   onPasteImages,
   pastePlainTextAsParagraphs = false,
   pasteTableBehavior,
+  extensions: extraExtensions,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -326,6 +384,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           },
         })
       ] : []),
+      ...(extraExtensions || []),
     ],
     content: (() => {
       if (!content) return { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -416,7 +475,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           if ((pastedText || pastedHtml) && editor) {
             event.preventDefault();
             const behavior = pasteTableBehavior ?? (pastePlainTextAsParagraphs ? 'strip_all' : 'keep');
-            const text = pastedHtml ? htmlToPlainText(pastedHtml) : pastedText;
+            const text = pastedHtml ? htmlToPlainTextWithStructure(pastedHtml) : pastedText;
             const lines = text.split(/\r?\n/);
             if (behavior === 'strip_all' && (lines.length > 1 || !pastedHtml)) {
               const content = lines.map((line) => ({
@@ -457,7 +516,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               if (!editor || editor.isDestroyed) return;
               const h = html ?? '';
               const t = text ?? '';
-              const resolvedText = h ? htmlToPlainText(h) : t;
+              const resolvedText = h ? htmlToPlainTextWithStructure(h) : t;
               const lines = resolvedText.split(/\r?\n/);
               if (behavior === 'strip_all') {
                 const content = lines.map((line) => ({
@@ -515,7 +574,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         const behavior = pasteTableBehavior ?? (pastePlainTextAsParagraphs ? 'strip_all' : null);
         if (behavior && (pastedText || pastedHtml) && editor) {
           event.preventDefault();
-          const text = pastedHtml ? htmlToPlainText(pastedHtml) : pastedText;
+          const text = pastedHtml ? htmlToPlainTextWithStructure(pastedHtml) : pastedText;
           const lines = text.split(/\r?\n/);
           if (behavior === 'strip_all') {
             const content = lines.map((line) => ({

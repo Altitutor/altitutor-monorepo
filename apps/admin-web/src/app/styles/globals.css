@@ -73,4 +73,19 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Temporary highlight when jumping to heading or search result in notes */
+.note-jump-highlight {
+  @apply rounded px-0.5;
+  animation: note-highlight-fade 2s ease-out forwards;
+}
+
+@keyframes note-highlight-fade {
+  0% {
+    background-color: hsl(var(--primary) / 0.35);
+  }
+  100% {
+    background-color: transparent;
+  }
 } 
