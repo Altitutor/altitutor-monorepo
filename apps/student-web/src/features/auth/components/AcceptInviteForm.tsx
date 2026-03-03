@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { acceptInviteSchema } from '../validations';
 import { Button } from '@altitutor/ui';
 import {
   Form,
@@ -21,16 +22,6 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { invitesApi, type ValidateInviteResponse } from '../api/invites';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
-
-const acceptInviteSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string()
-    .min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
 
 type AcceptInviteData = z.infer<typeof acceptInviteSchema>;
 

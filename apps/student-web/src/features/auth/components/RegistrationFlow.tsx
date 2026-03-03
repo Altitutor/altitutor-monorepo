@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { registrationSchema } from '../validations';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
@@ -17,80 +18,6 @@ import { RegistrationStep3Availability } from './RegistrationStep3Availability';
 import { RegistrationStep4Password } from './RegistrationStep4Password';
 import { RegistrationStep4PaymentMethod } from './RegistrationStep4PaymentMethod';
 import { RegistrationStep5Confirm } from './RegistrationStep5Confirm';
-
-// Registration form schema
-const registrationSchema = z.object({
-  // Student details
-  student: z.object({
-    first_name: z.string().min(1, 'First name is required'),
-    last_name: z.string().min(1, 'Last name is required'),
-    email: z.string().email('Invalid email address'),
-    phone: z.string().min(1, 'Phone number is required'),
-    school: z.string().optional(),
-    curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY']).optional(),
-    year_level: z.coerce.number().int().min(0).max(13).optional(),
-    subject_ids: z.array(z.string().uuid()).min(1, 'Please select at least one subject'),
-  }),
-  // Parents
-  parents: z.array(z.object({
-    id: z.string().optional(),
-    first_name: z.string().min(1, 'First name is required'),
-    last_name: z.string().min(1, 'Last name is required'),
-    email: z.string().email('Invalid email address'),
-    phone: z.string().min(1, 'Phone number is required'),
-  })).min(1, 'At least one parent is required'),
-  // Availability
-  availability: z.object({
-    monday: z.boolean(),
-    tuesday: z.boolean(),
-    wednesday: z.boolean(),
-    thursday: z.boolean(),
-    friday: z.boolean(),
-    saturday_am: z.boolean(),
-    saturday_pm: z.boolean(),
-    sunday_am: z.boolean(),
-    sunday_pm: z.boolean(),
-  }).refine(
-    (data) => Object.values(data).some((val) => val === true),
-    { message: 'At least one availability day must be selected' }
-  ),
-  // Password
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-  confirmPassword: z.string().optional(),
-  // Payment method verification
-  paymentMethodVerified: z.boolean(),
-}).refine((data) => {
-  // Only validate password match if confirmPassword is provided (i.e., not skipping password step)
-  if (data.confirmPassword === undefined || data.confirmPassword === '') {
-    return true; // Skip validation if confirmPassword is not provided
-  }
-  return data.password === data.confirmPassword;
-}, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-}).refine(
-  (data) => data.parents.some((p) => p.email && p.email.trim() !== '' && p.phone && p.phone.trim() !== ''),
-  { message: 'At least one parent must have both email and phone', path: ['parents'] }
-).refine(
-  (data) => data.paymentMethodVerified === true,
-  { message: 'Payment method must be verified', path: ['paymentMethodVerified'] }
-).superRefine((data, ctx) => {
-  // Require both curriculum and year_level to be selected
-  if (!data.student.curriculum) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Please select a curriculum',
-      path: ['student', 'curriculum'],
-    });
-  }
-  if (data.student.year_level === undefined || data.student.year_level === null) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: 'Please select a year level',
-      path: ['student', 'year_level'],
-    });
-  }
-});
 
 type RegistrationFormValues = z.infer<typeof registrationSchema>;
 

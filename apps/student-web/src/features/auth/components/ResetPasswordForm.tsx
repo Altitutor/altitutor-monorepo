@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { resetPasswordSchema } from '../validations';
 import { Button } from '@altitutor/ui';
 import {
   Form,
@@ -21,18 +22,6 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { authApi } from '@/features/auth/api';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
-
-const resetPasswordSchema = z.object({
-  password: z.string()
-    .min(8, 'Password must be at least 8 characters')
-    .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
-    .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
-    .regex(/[0-9]/, 'Password must contain at least one number'),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
-});
 
 type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
 
