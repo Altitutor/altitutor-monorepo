@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@altitutor/ui';
-import { GraduationCap, Layers3, ChevronLeft, ChevronRight } from 'lucide-react';
+import { GraduationCap, ChevronLeft, ChevronRight } from 'lucide-react';
 import { addWeeks, endOfWeek, format, startOfWeek } from 'date-fns';
 import type { ReportDataPoint } from '../types';
 import { useStudentStatsReport } from '../hooks/useAdditionalReports';

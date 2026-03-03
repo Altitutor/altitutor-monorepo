@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { useSendMessage } from '../api/mutations';
+import { useSendMessage, useMarkRead } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables } from '../utils/variableReplacer';
 import { replaceVariablesForParent } from '../utils/variableReplacerParent';
@@ -49,6 +49,7 @@ export function Composer({
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
   const send = useSendMessage();
+  const markRead = useMarkRead();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -196,8 +197,8 @@ export function Composer({
         await onBeforeSend(body, selectedSenderId);
       }
       
-      await send.mutateAsync({ 
-        contactId, 
+      const result = await send.mutateAsync({
+        contactId,
         body: body || '', // Allow empty body if attachments exist
         selectedSenderId,
         attachments: successfulAttachments.map(att => ({
@@ -207,7 +208,10 @@ export function Composer({
           sizeBytes: att.file.size,
         })),
       });
-      
+
+      // Mark conversation as read when sending a message
+      markRead.mutate({ contactId, lastMessageId: result.messageId });
+
       // Clear attachments after successful send
       clearAll();
     } catch (e) {

@@ -184,6 +184,7 @@ export function useMarkUnread() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContact() });
     },
   });
 }

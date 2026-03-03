@@ -12,7 +12,7 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ReconciliationActions } from './ReconciliationActions';
 import { useSubjects } from '@/features/subjects';
@@ -29,6 +29,9 @@ import type {
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
 } from '../types';
+import { useConversationsByContact } from '@/features/messages/api/queries';
+import { formatContactName } from '@/features/messages/utils/formatContactName';
+import { useChatStore } from '@/features/messages/state/chatStore';
 
 interface ReconciliationTableProps<T> {
   title: string;
@@ -427,6 +430,53 @@ export function FailedDeliveryMessagesTable({
             </TableCell>
             <TableCell>
               <ReconciliationActions type="failed_delivery_messages" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
+    />
+  );
+}
+
+export function UnreadMessagesTable() {
+  const { data: conversations } = useConversationsByContact();
+  const openWindow = useChatStore((s) => s.openWindow);
+
+  const unreadItems = (conversations ?? []).filter((c) => c.unreadCount > 0);
+
+  return (
+    <ReconciliationTable
+      title="Unread messages"
+      items={unreadItems}
+      isLoading={false}
+      columns={['Last message', 'Contact']}
+      renderRow={(item, index) => {
+        const lastAt = item.latestMessageAt ? new Date(item.latestMessageAt) : null;
+        const lastTime = lastAt ? format(lastAt, 'MMM d, yyyy HH:mm') : '—';
+        const contactName = item.contact ? formatContactName({ contacts: item.contact }) : 'Unknown';
+
+        const handleOpen = () => {
+          const convId = item.conversations[0]?.id;
+          if (convId) {
+            openWindow({ conversationId: convId, title: contactName });
+          }
+        };
+
+        return (
+          <TableRow key={item.contactId ?? index}>
+            <TableCell>{lastTime}</TableCell>
+            <TableCell className="font-medium">{contactName}</TableCell>
+            <TableCell className="whitespace-nowrap">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleOpen}
+                title="Open conversation"
+                className="h-8 px-2 gap-1"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span className="text-xs font-medium">Open conversation</span>
+              </Button>
             </TableCell>
           </TableRow>
         );

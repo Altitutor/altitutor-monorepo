@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Json } from '@altitutor/shared'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 
@@ -26,6 +27,7 @@ export async function POST(request: NextRequest) {
     studentQuestionSetAttemptId: string | null
     questionId: string
     questionAnswerOptionId: string | null
+    answerSnapshot?: Json | null
     timeSpentSeconds?: number | null
     isFlagged?: boolean
   }
@@ -72,11 +74,13 @@ export async function POST(request: NextRequest) {
   if (existing) {
     const updatePayload: {
       question_answer_option_id: string | null
+      answer_snapshot: Json | null
       is_submitted: boolean
       time_spent_seconds?: number | null
       is_flagged?: boolean
     } = {
       question_answer_option_id: body.questionAnswerOptionId,
+      answer_snapshot: body.answerSnapshot ?? null,
       is_submitted: false,
     }
 
@@ -101,11 +105,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: existing.id })
   }
 
-  const insertPayload = {
+  const insertPayload: {
+    student_id: string
+    student_question_set_attempt_id: string | null
+    question_id: string
+    question_answer_option_id: string | null
+    answer_snapshot: Json | null
+    is_flagged: boolean
+    is_submitted: boolean
+    time_spent_seconds: number | null
+  } = {
     student_id: student.id,
     student_question_set_attempt_id: body.studentQuestionSetAttemptId,
     question_id: body.questionId,
     question_answer_option_id: body.questionAnswerOptionId,
+    answer_snapshot: body.answerSnapshot ?? null,
     is_flagged: hasFlag ? body.isFlagged ?? false : false,
     is_submitted: false,
     time_spent_seconds: hasTime ? body.timeSpentSeconds ?? null : null,

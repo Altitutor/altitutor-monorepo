@@ -542,7 +542,7 @@ export async function fetchStudentStatsReportData(
         id: s.id,
         name: `${s.first_name} ${s.last_name}`,
         link: {
-          kind: 'student',
+          kind: 'student' as ReportEntityLink['kind'],
           studentId: s.id,
         },
       })),
@@ -568,7 +568,7 @@ export async function fetchStudentStatsReportData(
         id: cls.id,
         name: cls.name ? cls.name : `Class ${cls.id}`,
         link: {
-          kind: 'class',
+          kind: 'class' as ReportEntityLink['kind'],
           classId: cls.id,
         },
       })),

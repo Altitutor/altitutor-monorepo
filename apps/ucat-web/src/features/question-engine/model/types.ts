@@ -167,6 +167,8 @@ export type QuestionEngineState = {
   visitedQuestionIds: string[]
   flaggedIds: string[]
   selectedAnswers: Record<string, string>
+  /** For syllogism questions: map of questionId -> optionId -> true (Yes) / false (No). */
+  syllogismSnapshots?: Record<string, Record<string, boolean>>
   showNavigator: boolean
   showCalculator: boolean
   showEndExamDialog: boolean

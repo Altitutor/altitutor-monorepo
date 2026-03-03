@@ -21,6 +21,7 @@ type UpsertQuestionAttemptInput = {
   studentQuestionSetAttemptId: string | null
   questionId: string
   questionAnswerOptionId: string | null
+  answerSnapshot?: unknown
   timeSpentSeconds?: number | null
   isFlagged?: boolean
 }
@@ -244,17 +245,40 @@ export function useQuestionEnginePersistence({
     if (!isStudentEngine) return
     if (!exam) return
 
+    const question = findQuestion(exam, questionId)
+    const isSyllogism = question?.questionType === 'syllogism'
+
+    const inputBase: UpsertQuestionAttemptInput = {
+      studentQuestionSetAttemptId: null,
+      questionId,
+      questionAnswerOptionId: isSyllogism ? null : questionAnswerOptionId,
+      answerSnapshot: undefined,
+      isFlagged,
+    }
+
+    if (isSyllogism) {
+      const snapshot = (state as QuestionEngineState & {
+        syllogismSnapshots?: Record<string, Record<string, boolean>>
+      }).syllogismSnapshots?.[questionId]
+
+      if (snapshot) {
+        inputBase.answerSnapshot = {
+          type: 'syllogism_v1',
+          answers: Object.entries(snapshot).map(([optionId, value]) => ({
+            question_answer_option_id: optionId,
+            answer: value,
+          })),
+        }
+      }
+    }
+
     if (mode === 'questionStem' || mode === 'questions') {
       upsertQuestionAttempt.mutate({
-        studentQuestionSetAttemptId: null,
-        questionId,
-        questionAnswerOptionId,
-        isFlagged,
+        ...inputBase,
       })
       return
     }
 
-    const question = findQuestion(exam, questionId)
     if (!question) return
 
     const setAttemptIdExisting = attemptStateRef.current.setAttemptIdsBySetId.get(question.questionSetId)
@@ -262,10 +286,8 @@ export function useQuestionEnginePersistence({
     if (!setAttemptId) return
 
     upsertQuestionAttempt.mutate({
+      ...inputBase,
       studentQuestionSetAttemptId: setAttemptId,
-      questionId,
-      questionAnswerOptionId,
-      isFlagged,
     })
   }
 
@@ -307,13 +329,34 @@ export function useQuestionEnginePersistence({
           const setAttemptIdExisting = attemptStateRef.current.setAttemptIdsBySetId.get(question.questionSetId)
           const setAttemptId = setAttemptIdExisting ?? ensureSetAttemptForQuestion(question)
           if (setAttemptId) {
-            upsertQuestionAttempt.mutate({
+            const isSyllogism = question.questionType === 'syllogism'
+            const base: UpsertQuestionAttemptInput = {
               studentQuestionSetAttemptId: setAttemptId,
               questionId: timing.currentQuestionId,
-              questionAnswerOptionId: prevAnswerOptionId,
+              questionAnswerOptionId: isSyllogism ? null : prevAnswerOptionId,
               timeSpentSeconds: newTotal,
               isFlagged,
-            })
+              answerSnapshot: undefined,
+            }
+
+            if (isSyllogism) {
+              const snapshot = (state as QuestionEngineState & {
+                syllogismSnapshots?: Record<string, Record<string, boolean>>
+              }).syllogismSnapshots?.[timing.currentQuestionId]
+              if (snapshot) {
+                base.answerSnapshot = {
+                  type: 'syllogism_v1',
+                  answers: Object.entries(snapshot).map(
+                    ([optionId, value]) => ({
+                      question_answer_option_id: optionId,
+                      answer: value,
+                    })
+                  ),
+                }
+              }
+            }
+
+            upsertQuestionAttempt.mutate(base)
           }
         }
       }
@@ -325,7 +368,7 @@ export function useQuestionEnginePersistence({
     } else if (timing.startedAt == null) {
       timing.startedAt = now
     }
-  }, [state.currentIndex, state.phase, state.selectedAnswers, state.flaggedIds, exam, isStudentEngine, ensureSetAttemptForQuestion, upsertQuestionAttempt])
+  }, [state, exam, isStudentEngine, ensureSetAttemptForQuestion, upsertQuestionAttempt])
 
   async function handleExamCompleted(): Promise<void> {
     if (!isStudentEngine) return

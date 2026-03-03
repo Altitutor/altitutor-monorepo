@@ -1,7 +1,8 @@
 'use client';
 
 import { Button } from "@altitutor/ui";
-import { Search, ArrowLeft } from 'lucide-react';
+import { Search, ArrowLeft, Mail } from 'lucide-react';
+import { cn } from '@/shared/utils';
 import { IssuePill } from '@/features/issues';
 
 interface Props {
@@ -10,6 +11,8 @@ interface Props {
   onBack?: () => void;
   showBackButton?: boolean;
   onTitleClick?: () => void;
+   isUnread?: boolean;
+   onToggleRead?: () => void;
   contact?: {
     contact_type: string;
     students?: { id: string } | null;
@@ -24,6 +27,8 @@ export function ConversationHeader({
   onBack,
   showBackButton = false,
   onTitleClick,
+  isUnread,
+  onToggleRead,
   contact
 }: Props) {
   const getIssuePillProps = () => {
@@ -67,6 +72,20 @@ export function ConversationHeader({
             </div>
           )}
         </div>
+        {onToggleRead && (
+          <Button
+          variant="outline"
+            size="icon"
+            onClick={onToggleRead}
+          className={cn(
+            "flex-shrink-0",
+            isUnread && "bg-red-500 text-white hover:bg-red-600 border-transparent"
+          )}
+            title={isUnread ? "Mark as read" : "Mark as unread"}
+          >
+            <Mail className="h-4 w-4" />
+          </Button>
+        )}
         {onSearchToggle && (
           <Button variant="outline" size="icon" onClick={onSearchToggle} className="flex-shrink-0">
             <Search className="h-4 w-4" />

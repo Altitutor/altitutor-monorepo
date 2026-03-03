@@ -268,6 +268,9 @@ export function NoteTableOfContents({ editor, title = '', className, collapsible
     if (!editor) return [];
     const segments = getTextSegments(editor.state.doc);
     return searchInDocument(segments, title, searchQuery);
+    // We intentionally depend on editor.state.doc to recompute when the document changes,
+    // even though the editor instance is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, editor?.state.doc, title, searchQuery]);
 
   const isSearching = searchQuery.trim().length > 0;

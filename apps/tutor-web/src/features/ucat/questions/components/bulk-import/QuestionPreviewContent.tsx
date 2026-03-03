@@ -37,8 +37,6 @@ export function QuestionPreviewContent({
   isSyllogism?: boolean
   syllogismPattern?: string | null
 }) {
-  const stemPlain = proseMirrorToPlainText(stemTextJson)?.trim() ?? ''
-  const stemParagraphs = stemPlain ? stemPlain.split('\n') : []
   const questionText = proseMirrorToPlainText(questionTextJson)?.trim() ?? ''
   const questionExplanation = questionAnswerExplanationJson
     ? proseMirrorToPlainText(questionAnswerExplanationJson)?.trim()

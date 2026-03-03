@@ -115,7 +115,7 @@ export async function PATCH(
 
   const { data: questionAttempts, error: questionAttemptsError } = await supabaseAdmin
     .from('student_question_attempts')
-    .select('id, question_id, question_answer_option_id, student_id')
+    .select('id, question_id, question_answer_option_id, answer_snapshot, student_id')
     .eq('student_question_set_attempt_id', attemptId)
     .eq('student_id', student.id)
 
@@ -191,12 +191,53 @@ export async function PATCH(
       optionsByQuestionId
     )
 
-    const attempts = (questionAttempts ?? [])
-      .filter((qa) => qa.question_answer_option_id != null)
-      .map((qa) => ({
-        questionId: qa.question_id,
-        selectedOptionId: qa.question_answer_option_id as string,
-      }))
+    const syllogismQuestionIds = new Set(
+      (questions ?? [])
+        .filter((q) => q.question_type === 'syllogism')
+        .map((q) => q.id)
+    )
+
+    const attempts = (questionAttempts ?? []).flatMap((qa) => {
+      // Non-syllogism: use question_answer_option_id directly when present
+      if (!syllogismQuestionIds.has(qa.question_id)) {
+        if (!qa.question_answer_option_id) return []
+        return [
+          {
+            questionId: qa.question_id,
+            selectedOptionId: qa.question_answer_option_id as string,
+          },
+        ]
+      }
+
+      // Syllogism: derive selected option from answer_snapshot (type syllogism_v1)
+      const snapshot = qa.answer_snapshot as
+        | { type?: string; answers?: { question_answer_option_id: string; answer: boolean }[] }
+        | null
+        | undefined
+
+      if (!snapshot || snapshot.type !== 'syllogism_v1' || !Array.isArray(snapshot.answers)) {
+        // Fallback: if question_answer_option_id is set, still respect it
+        if (!qa.question_answer_option_id) return []
+        return [
+          {
+            questionId: qa.question_id,
+            selectedOptionId: qa.question_answer_option_id as string,
+          },
+        ]
+      }
+
+      const chosen = snapshot.answers.find((a) => a.answer === true)
+      if (!chosen) {
+        return []
+      }
+
+      return [
+        {
+          questionId: qa.question_id,
+          selectedOptionId: chosen.question_answer_option_id,
+        },
+      ]
+    })
 
     const { questionScores, totalRawScore } = computeRawScore({
       attempts,

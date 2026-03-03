@@ -8,6 +8,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { useConversationsByContact } from '@/features/messages/api/queries';
+import { useMarkRead, useMarkUnread } from '@/features/messages/api/mutations';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
@@ -32,6 +34,9 @@ export default function MessagesPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
+  const { data: conversationsByContact } = useConversationsByContact();
+  const markRead = useMarkRead();
+  const markUnread = useMarkUnread();
   
   // Convert conversationId to contactId if provided (backward compatibility)
   useEffect(() => {
@@ -148,6 +153,22 @@ export default function MessagesPage() {
   };
   
   const conversationTitle = activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
+  const activeAggregated = conversationsByContact?.find((c) => c.contactId === activeContactId) || null;
+  const isActiveUnread = !!activeAggregated && activeAggregated.unreadCount > 0;
+
+  const handleToggleReadHeader = () => {
+    if (!activeContactId || !activeAggregated) return;
+    if (isActiveUnread) {
+      const lastMessageId = activeAggregated.latestMessage?.id;
+      if (lastMessageId) {
+        markRead.mutate({ contactId: activeContactId, lastMessageId });
+      }
+    } else {
+      activeAggregated.conversations.forEach((conv) => {
+        markUnread.mutate(conv.id);
+      });
+    }
+  };
   
   const handleContactSelect = (contactId: string) => {
     setActiveContactId(contactId);
@@ -190,13 +211,13 @@ export default function MessagesPage() {
       <div className="flex h-full">
         {/* Conversation List 
             - Mobile (< md): Full width when viewing list, hidden when viewing thread
-            - Medium (md-xl): Fixed 260px, always visible alongside messages
-            - Wide (xl+): Fixed 260px, always visible with info panel
+            - Medium (md-xl): Fixed width, always visible alongside messages
+            - Wide (xl+): Fixed width, always visible with info panel
         */}
         <div className={`
           flex-shrink-0
-          ${mobileView === 'thread' ? 'hidden md:block' : 'w-full md:w-[260px]'}
-          md:w-[260px]
+          ${mobileView === 'thread' ? 'hidden md:block' : 'w-full md:w-[320px]'}
+          md:w-[320px]
         `}>
           <ConversationList 
             activeContactId={activeContactId} 
@@ -218,6 +239,8 @@ export default function MessagesPage() {
             onTitleClick={activeContact ? handleTitleClick : undefined}
             onBack={handleBack}
             showBackButton={mobileView === 'thread'}
+            isUnread={mobileView === 'thread' ? isActiveUnread : undefined}
+            onToggleRead={mobileView === 'thread' ? handleToggleReadHeader : undefined}
             contact={activeContact}
           />
           <div className="flex-1 flex flex-col min-h-0">

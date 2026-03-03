@@ -43,12 +43,27 @@ function buildQuestionMeta(questions: QuestionItem[]): QuestionMeta[] {
 
 export function computeMarkingResult(
   questions: QuestionItem[],
-  selectedAnswers: Record<string, string>
+  selectedAnswers: Record<string, string>,
+  syllogismSnapshots?: Record<string, Record<string, boolean>>
 ): MarkingResult {
   const questionMeta = buildQuestionMeta(questions)
-  const attempts = Object.entries(selectedAnswers)
-    .filter(([, optId]) => optId != null)
-    .map(([questionId, selectedOptionId]) => ({ questionId, selectedOptionId }))
+
+  const attempts = questions.flatMap((q) => {
+    if (q.questionType !== 'syllogism') {
+      const selectedOptionId = selectedAnswers[q.id]
+      if (!selectedOptionId) return []
+      return [{ questionId: q.id, selectedOptionId }]
+    }
+
+    const snapshot = syllogismSnapshots?.[q.id]
+    if (!snapshot) return []
+
+    const optionsSorted = [...q.options].sort((a, b) => a.index - b.index)
+    const chosen = optionsSorted.find((opt) => snapshot[opt.id] === true)
+    if (!chosen) return []
+
+    return [{ questionId: q.id, selectedOptionId: chosen.id }]
+  })
 
   const { questionScores, totalRawScore } = computeRawScore({
     attempts,
@@ -96,9 +111,11 @@ export function computeMarkingResult(
 export function MarkingBody({
   result,
   onViewQuestion,
+  syllogismSnapshots,
 }: {
   result: MarkingResult
   onViewQuestion?: (index: number) => void
+  syllogismSnapshots?: Record<string, Record<string, boolean>>
 }) {
   const { rows, totalRawScore, maxRawScore, scaledScore } = result
   const rawPercent = maxRawScore > 0 ? (totalRawScore / maxRawScore) * 100 : 0
@@ -167,6 +184,34 @@ export function MarkingBody({
                   : row.question.questionText || row.question.stemText || '—',
                 80
               )
+
+              let correctDisplay = row.correctAnswerText
+              let studentDisplay = row.studentAnswerText
+
+              if (row.question.questionType === 'syllogism') {
+                const options = [...row.question.options].sort(
+                  (a, b) => a.index - b.index
+                )
+                const snapshot = syllogismSnapshots?.[row.question.id] ?? {}
+
+                const correctPattern = options
+                  .map((opt) => (opt.isAnswer ? 'Y' : 'N'))
+                  .join('')
+
+                const studentPattern = options
+                  .map((opt) =>
+                    snapshot[opt.id] === true
+                      ? 'Y'
+                      : snapshot[opt.id] === false
+                        ? 'N'
+                        : 'N'
+                  )
+                  .join('')
+
+                correctDisplay = correctPattern
+                studentDisplay = studentPattern
+              }
+
               return (
                 <tr
                   key={row.question.id}
@@ -176,11 +221,11 @@ export function MarkingBody({
                   <td className="px-3 py-2 max-w-[200px]" title={questionPreview}>
                     {questionPreview}
                   </td>
-                  <td className="px-3 py-2 max-w-[120px]" title={row.correctAnswerText}>
-                    {truncateOneLine(row.correctAnswerText, 50)}
+                  <td className="px-3 py-2 max-w-[120px]" title={correctDisplay}>
+                    {truncateOneLine(correctDisplay, 50)}
                   </td>
-                  <td className="px-3 py-2 max-w-[120px]" title={row.studentAnswerText}>
-                    {truncateOneLine(row.studentAnswerText, 50)}
+                  <td className="px-3 py-2 max-w-[120px]" title={studentDisplay}>
+                    {truncateOneLine(studentDisplay, 50)}
                   </td>
                   <td className="px-3 py-2 text-right">{row.points.toFixed(1)}</td>
                   {onViewQuestion ? (

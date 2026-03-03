@@ -105,6 +105,7 @@ export function QuestionEnginePage({
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
+    setSyllogismSnapshot,
   } = useQuestionEngineState(exam)
   const router = useRouter()
   const { isLagging, runWithLag } = useUcatLag()
@@ -484,7 +485,8 @@ export function QuestionEnginePage({
   const incompleteCount = getIncompleteCount(
     questions,
     state.visitedQuestionIds,
-    state.selectedAnswers
+    state.selectedAnswers,
+    state.syllogismSnapshots
   )
 
   function handleTimeExpiredOk() {
@@ -994,14 +996,24 @@ export function QuestionEnginePage({
               selectedOptionId={state.selectedAnswers[questions[state.viewingQuestionIndex]!.id]}
               correctOptionId={questions[state.viewingQuestionIndex]!.correctOptionId}
               points={
-                computeMarkingResult(questions, state.selectedAnswers).rows[
-                  state.viewingQuestionIndex
-                ]?.points
+                computeMarkingResult(
+                  questions,
+                  state.selectedAnswers,
+                  state.syllogismSnapshots
+                ).rows[state.viewingQuestionIndex]?.points
+              }
+              syllogismSnapshot={
+                state.syllogismSnapshots?.[questions[state.viewingQuestionIndex]!.id]
               }
             />
           ) : (
             <MarkingBody
-              result={computeMarkingResult(questions, state.selectedAnswers)}
+              result={computeMarkingResult(
+                questions,
+                state.selectedAnswers,
+                state.syllogismSnapshots
+              )}
+              syllogismSnapshots={state.syllogismSnapshots}
               onViewQuestion={(index) =>
                 void runWithLag(() =>
                   setState((current) => ({ ...current, viewingQuestionIndex: index }))
@@ -1022,6 +1034,12 @@ export function QuestionEnginePage({
           <QuestionContent
             question={currentQuestion}
             selectedOptionId={state.selectedAnswers[currentQuestion.id]}
+            syllogismSnapshot={
+              state.syllogismSnapshots?.[currentQuestion.id]
+            }
+            onChangeSyllogismSnapshot={(snapshot) =>
+              setSyllogismSnapshot(currentQuestion.id, snapshot)
+            }
             onSelectOption={(optionId) => {
               setAnswer(optionId)
               recordAnswer(currentQuestion.id, optionId, flaggedCurrent)

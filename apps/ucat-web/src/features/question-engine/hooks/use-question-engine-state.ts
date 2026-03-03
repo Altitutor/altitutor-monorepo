@@ -24,6 +24,7 @@ const initialState: QuestionEngineState = {
   visitedQuestionIds: [],
   flaggedIds: [],
   selectedAnswers: {},
+  syllogismSnapshots: {},
   showNavigator: false,
   showCalculator: false,
   showEndExamDialog: false,
@@ -69,7 +70,8 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
       state.reviewFilter,
       state.visitedQuestionIds,
       state.selectedAnswers,
-      state.flaggedIds
+      state.flaggedIds,
+      state.syllogismSnapshots
     )
   }, [
     state.phase,
@@ -77,6 +79,7 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
     state.visitedQuestionIds,
     state.selectedAnswers,
     state.flaggedIds,
+    state.syllogismSnapshots,
     questions,
   ])
 
@@ -104,13 +107,14 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
         question,
         index,
         status: getReviewQuestionStatus(
-          question.id,
+          question,
           state.visitedQuestionIds,
-          state.selectedAnswers
+          state.selectedAnswers,
+          state.syllogismSnapshots
         ) as ReviewQuestionStatus,
         flagged: state.flaggedIds.includes(question.id),
       })),
-    [questions, state.visitedQuestionIds, state.selectedAnswers, state.flaggedIds]
+    [questions, state.visitedQuestionIds, state.selectedAnswers, state.flaggedIds, state.syllogismSnapshots]
   )
 
   useEffect(() => {
@@ -272,6 +276,19 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
     }))
   }
 
+  function setSyllogismSnapshot(
+    questionId: string,
+    snapshot: Record<string, boolean>
+  ) {
+    setState((current) => ({
+      ...current,
+      syllogismSnapshots: {
+        ...(current.syllogismSnapshots ?? {}),
+        [questionId]: snapshot,
+      },
+    }))
+  }
+
   return {
     state,
     currentQuestion,
@@ -288,6 +305,7 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
     toggleFlagCurrent,
     toggleFlagById,
     setAnswer,
+    setSyllogismSnapshot,
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,

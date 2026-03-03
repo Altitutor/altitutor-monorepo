@@ -20,6 +20,7 @@ import { RevenueReportChart } from './RevenueReportChart';
 import { IssuesReportChart } from './IssuesReportChart';
 
 type BillingDialogKind = 'predicted' | 'actual' | 'refunds' | 'credits' | 'voided' | null;
+type ReportEntity = ReportDataPoint['entities'][number];
 
 export function BillingStatsSection() {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -41,14 +42,6 @@ export function BillingStatsSection() {
     weekEnd,
     'd MMM yyyy'
   )}`;
-
-  const openRevenueDialog =
-    (kind: Exclude<BillingDialogKind, null>) =>
-    (point: RevenueReportDataPoint) => {
-      setDialogKind(kind);
-      setSelectedRevenuePoint(point);
-      setSelectedPoint(null);
-    };
 
   const openCountDialog =
     (kind: Exclude<BillingDialogKind, null>) =>
@@ -248,7 +241,7 @@ export function BillingStatsSection() {
           </DialogHeader>
           <div className="mt-2 space-y-2 max-h-80 overflow-y-auto">
             {entities.length ? (
-              entities.map((entity) => (
+              entities.map((entity: ReportEntity) => (
                 <p
                   key={entity.id}
                   className="text-sm text-brand-darkBlue dark:text-brand-lightBlue"

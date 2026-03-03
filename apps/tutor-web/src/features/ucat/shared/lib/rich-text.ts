@@ -22,7 +22,7 @@ export function plainTextToProseMirror(text: string): Json {
 type ProseMirrorNode = {
   type: string
   text?: string
-  attrs?: Record<string, unknown>
+  attrs?: Record<string, Json | undefined>
 }
 
 function buildInlineNodesFromTokenizedString(text: string): ProseMirrorNode[] {
@@ -60,7 +60,7 @@ function buildInlineNodesFromTokenizedString(text: string): ProseMirrorNode[] {
     const fileId = params.f ?? ''
 
     if (src || fileId) {
-      const attrs: Record<string, unknown> = {}
+      const attrs: Record<string, Json | undefined> = {}
       if (src) attrs.src = src
       if (fileId) attrs.fileId = fileId
       nodes.push({

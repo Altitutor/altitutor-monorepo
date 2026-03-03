@@ -16,6 +16,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useMessageSubscription } from '../hooks/useMessageSubscription';
 import { useConversationsByContact, getContactIdFromConversation } from '../api/queries';
+import { useMarkRead, useMarkUnread } from '../api/mutations';
 import { useChatStore } from '../state/chatStore';
 import { cn } from '@/shared/utils';
 
@@ -59,12 +60,33 @@ export function MessagesDropdown() {
   
   // Fetch conversations to calculate unread count
   const { data: conversations } = useConversationsByContact();
+  const markRead = useMarkRead();
+  const markUnread = useMarkUnread();
   
   // Calculate total unread count
   const unreadCount = useMemo(() => {
     if (!conversations) return 0;
     return conversations.reduce((total, conv) => total + conv.unreadCount, 0);
   }, [conversations]);
+  const activeAggregated = useMemo(
+    () => conversations?.find((c) => c.contactId === activeContactId) || null,
+    [conversations, activeContactId]
+  );
+  const isActiveUnread = !!activeAggregated && activeAggregated.unreadCount > 0;
+
+  const handleToggleReadHeader = () => {
+    if (!activeContactId || !activeAggregated) return;
+    if (isActiveUnread) {
+      const lastMessageId = activeAggregated.latestMessage?.id;
+      if (lastMessageId) {
+        markRead.mutate({ contactId: activeContactId, lastMessageId });
+      }
+    } else {
+      activeAggregated.conversations.forEach((conv) => {
+        markUnread.mutate(conv.id);
+      });
+    }
+  };
   
   // Fetch active contact details for header
   const { data: activeContact } = useQuery({
@@ -192,7 +214,7 @@ export function MessagesDropdown() {
                   unreadCount > 9 && "text-[9px]"
                 )}
               >
-                {unreadCount > 9 ? '9+' : unreadCount}
+                {unreadCount}
               </span>
             )}
           </Button>
@@ -222,6 +244,8 @@ export function MessagesDropdown() {
                   onTitleClick={activeContact ? handleTitleClick : undefined}
                   onBack={handleBack}
                   showBackButton={true}
+                  isUnread={isActiveUnread}
+                  onToggleRead={handleToggleReadHeader}
                   contact={activeContact}
                 />
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">

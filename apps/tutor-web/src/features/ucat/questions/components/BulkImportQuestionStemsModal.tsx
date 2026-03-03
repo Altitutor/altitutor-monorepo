@@ -148,23 +148,6 @@ export function BulkImportQuestionStemsModal({
     onClose()
   }
 
-  function docHasImageNode(doc: Json | null): boolean {
-    if (!doc || typeof doc !== 'object') return false
-    const visit = (node: unknown): boolean => {
-      if (!node || typeof node !== 'object') return false
-      const rec = node as Record<string, unknown>
-      if (rec.type === 'image') return true
-      const content = rec.content
-      if (Array.isArray(content)) {
-        for (const child of content) {
-          if (visit(child)) return true
-        }
-      }
-      return false
-    }
-    return visit(doc)
-  }
-
   /** Parse pasted content according to the selected section; used when moving from step 1 to 2. */
   function parseForCurrentSection(): boolean {
     if (!sectionId) return false
