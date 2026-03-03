@@ -64,9 +64,15 @@ function hasInstructionsContent(value: unknown): boolean {
 
 type DbQuestionEngineMode = Extract<QuestionEngineMode, 'set' | 'mock'>
 
+/**
+ * Maps set detail to QuestionItems. Order: stem index in set first, then question index within stem.
+ * The DB view provides stems ordered by question_stems_question_sets.index and questions_meta
+ * ordered by ucat_questions.index within each stem.
+ */
 function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): QuestionItem[] {
   const stemMap = new Map(stemDetails.map((stem) => [stem.id, stem]))
   const questions: QuestionItem[] = []
+  let runningIndex = 0
 
   set.stems.forEach((stemMeta) => {
     const stem = stemMap.get(stemMeta.stem_id)
@@ -99,7 +105,7 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
         : undefined
       questions.push({
         id: question.id,
-        index: questionMeta.index,
+        index: runningIndex++,
         questionSetId: set.id,
         stemId: stem.id,
         sectionName: stem.section_name,
@@ -114,7 +120,7 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
     })
   })
 
-  return questions.sort((a, b) => a.index - b.index)
+  return questions
 }
 
 async function loadSetDetail(setId: string): Promise<SetDetailRow> {
