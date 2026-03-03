@@ -5420,21 +5420,30 @@ export type Database = {
           attempted_at: string
           completed_at: string | null
           id: string
+          scaled_score: number | null
+          score_points: number | null
           student_id: string
+          total_points: number | null
           ucat_mock_id: string
         }
         Insert: {
           attempted_at?: string
           completed_at?: string | null
           id?: string
+          scaled_score?: number | null
+          score_points?: number | null
           student_id: string
+          total_points?: number | null
           ucat_mock_id: string
         }
         Update: {
           attempted_at?: string
           completed_at?: string | null
           id?: string
+          scaled_score?: number | null
+          score_points?: number | null
           student_id?: string
+          total_points?: number | null
           ucat_mock_id?: string
         }
         Relationships: [
@@ -8863,11 +8872,8 @@ export type Database = {
           question_stem_category_id: string | null
           questions: Json | null
           section_id: string | null
-          section_instructions_text: Json | null
-          section_instructions_time_limit_seconds: number | null
           section_name: string | null
           section_number: number | null
-          section_time_limit_seconds: number | null
           stem_text: Json | null
           updated_at: string | null
         }
