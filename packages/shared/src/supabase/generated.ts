@@ -8872,8 +8872,11 @@ export type Database = {
           question_stem_category_id: string | null
           questions: Json | null
           section_id: string | null
+          section_instructions_text: Json | null
+          section_instructions_time_limit_seconds: number | null
           section_name: string | null
           section_number: number | null
+          section_time_limit_seconds: number | null
           stem_text: Json | null
           updated_at: string | null
         }
