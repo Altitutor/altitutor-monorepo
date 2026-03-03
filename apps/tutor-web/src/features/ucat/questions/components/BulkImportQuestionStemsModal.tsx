@@ -279,7 +279,13 @@ export function BulkImportQuestionStemsModal({
         if (!q || !q.options) return
         const qWithPattern = q as typeof q & { syllogismAnswerPattern?: string | null }
         if (answer.pattern && qWithPattern.questionType === 'syllogism') {
-          questions[questionIndex] = { ...q, syllogismAnswerPattern: answer.pattern }
+          const pattern = answer.pattern
+          const options = (q.options ?? []).map((opt, j) => ({
+            ...opt,
+            // For syllogisms, treat 'Y' as "Yes" (isAnswer = true), anything else as "No".
+            isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
+          }))
+          questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
         } else if (answer.letter) {
           const optionIndex = letterToOptionIndex(answer.letter)
           const options = q.options.map((opt, j) => ({
