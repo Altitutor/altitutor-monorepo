@@ -4,7 +4,6 @@ import { Badge } from '@altitutor/ui'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useTheme } from 'next-themes'
 import { useComingSoon } from '@/features/layout/context/coming-soon-context'
 import { appNavigation } from '@/features/layout/config/navigation'
 import { isComingSoon } from '@/features/layout/config/coming-soon'
@@ -20,7 +19,6 @@ export function AppSidebar({
   onCloseMobile: () => void
 }) {
   const pathname = usePathname()
-  const { resolvedTheme } = useTheme()
   const { showComingSoonModal } = useComingSoon()
   const isVisible = mobileOpen || !collapsed
   const logoSrc = '/images/logo-banner-dark.svg'

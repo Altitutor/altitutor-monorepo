@@ -20,7 +20,6 @@ import { TablePagination } from '@/shared/components/TablePagination';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useSessionsTable } from '@/features/sessions/hooks/useSessionsTable';
 import { useDataTable } from '@/shared/hooks/useDataTable';
-import type { DataTableState } from '@altitutor/shared';
 import { getInvoiceStatusBadgeVariant } from '@/features/sessions/utils/sessionsTableHelpers';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { processStudentSessionData } from '@/features/sessions/utils/modalSessionProcessing';

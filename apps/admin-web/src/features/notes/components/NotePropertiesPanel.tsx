@@ -9,16 +9,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-import { z } from 'zod';
 import { useProjects } from '@/features/projects/api/queries';
 
 import type { NoteFormData } from '../types';
-
-const formSchema = z.object({
-  title: z.string().min(1, 'Title is required'),
-  content: z.any(),
-  folder_id: z.string().nullable().optional(),
-});
 
 interface NotePropertiesPanelProps {
   form: UseFormReturn<NoteFormData>;

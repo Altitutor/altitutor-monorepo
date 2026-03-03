@@ -2,7 +2,6 @@
 
 import { Separator } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../../types';
 import { formatSessionDate } from '@/features/sessions/utils/session-helpers';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';

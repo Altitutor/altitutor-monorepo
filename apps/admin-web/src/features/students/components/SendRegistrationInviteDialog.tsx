@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -42,7 +42,7 @@ export function SendRegistrationInviteDialog({
     isOpen
   );
   const student = data?.student ?? null;
-  const parents = data?.parents ?? [];
+  const parents = useMemo(() => data?.parents ?? [], [data?.parents]);
   const token = data?.token ?? null;
   const inviteUrl = data?.inviteUrl ?? null;
 
@@ -91,6 +91,7 @@ export function SendRegistrationInviteDialog({
     ) {
       generateTokenMutation.mutate();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Intentionally omit generateTokenMutation to avoid re-running when mutation state changes
   }, [
     isOpen,
     token,

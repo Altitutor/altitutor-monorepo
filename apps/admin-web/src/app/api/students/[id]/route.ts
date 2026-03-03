@@ -97,10 +97,9 @@ export async function PATCH(
       }
     }
 
-    // Update student record
-    const { data: updatedStudent, error: updateError } = await supabase
+    // Update student record (use admin client for proper typing)
+    const { data: updatedStudent, error: updateError } = await supabaseAdmin
       .from('students')
-      // @ts-expect-error - TypeScript inference issue with Supabase client
       .update({
         first_name: body.first_name,
         last_name: body.last_name,

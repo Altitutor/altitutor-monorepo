@@ -98,11 +98,17 @@ export function useSessionsTable({
   const pageSize = state?.pageSize || 50;
   const sortDirection = state?.sortDirection || 'desc';
 
-  // Extract specific filters
+  // Extract specific filters (wrapped in useMemo for stable refs in downstream useMemo)
   const typeFilters = (filters.type as string[]) || [];
-  const subjectFilters = (filters.subject as string[]) || [];
+  const subjectFilters = useMemo(
+    () => (filters.subject as string[]) || [],
+    [filters.subject]
+  );
   const studentFilters = (filters.student as string[]) || [];
-  const staffFilters = (filters.staff as string[]) || [];
+  const staffFilters = useMemo(
+    () => (filters.staff as string[]) || [],
+    [filters.staff]
+  );
   const tutorLogFilters = (filters.tutor_log as string[]) || [];
   const fromFilters = (filters.from as string[]) || [];
   const toFilters = (filters.to as string[]) || [];

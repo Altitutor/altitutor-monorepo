@@ -34,8 +34,8 @@ type TutorLogsTableProps = {
 export function TutorLogsTable({
   rangeStart,
   rangeEnd,
-  onOpenSession,
-  onOpenStaff,
+  onOpenSession: _onOpenSession,
+  onOpenStaff: _onOpenStaff,
 }: TutorLogsTableProps) {
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('tutor_logs');

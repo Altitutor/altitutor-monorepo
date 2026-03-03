@@ -27,7 +27,7 @@ export function StaffSessionsCalendarView({
   const rangeStartStr = format(weekStart, 'yyyy-MM-dd');
   const rangeEndStr = format(weekEnd, 'yyyy-MM-dd');
   
-  const { data, isLoading, error } = useSessionsWithDetails({ 
+  const { data } = useSessionsWithDetails({ 
     rangeStart: rangeStartStr, 
     rangeEnd: rangeEndStr,
     staffId,

@@ -6,7 +6,6 @@
  */
 
 import { format } from 'date-fns';
-import type { Tables } from '@altitutor/shared';
 import {
   type StudentAttendanceStatus,
   type StaffAttendanceStatus,

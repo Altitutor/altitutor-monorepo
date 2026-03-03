@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { SessionDetailsTab } from '../SessionDetailsTab';
 import { renderWithProviders } from '@/shared/test-utils';
 import type { Tables } from '@altitutor/shared';
+import type { SessionDetailsSession } from '../../types';
 
 function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionDetailsTab>> = {}) {
   const onAddStudentToSession = jest.fn();
@@ -15,19 +16,21 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
 
   const result = renderWithProviders(
     <SessionDetailsTab
-      session={{
-        id: 'session-1',
-        start_at: '2026-01-01T00:00:00.000Z',
-        end_at: '2026-01-01T01:00:00.000Z',
-        class_id: 'class-1',
-        class: {
-          id: 'class-1',
-          day_of_week: 1,
-          start_time: '15:00',
-          end_time: '16:00',
-          subject: { id: 'subject-1', name: 'Math', code: 'MATH' },
-        },
-      }}
+      session={
+        {
+          id: 'session-1',
+          start_at: '2026-01-01T00:00:00.000Z',
+          end_at: '2026-01-01T01:00:00.000Z',
+          class_id: 'class-1',
+          class: {
+            id: 'class-1',
+            day_of_week: 1,
+            start_time: '15:00',
+            end_time: '16:00',
+            subject: { id: 'subject-1', name: 'Math', long_name: 'Mathematics', short_name: 'MATH' },
+          },
+        } as SessionDetailsSession
+      }
       studentsData={[
         {
           student: { id: 'student-extra', first_name: 'Extra', last_name: 'Student' } as Tables<'students'>,

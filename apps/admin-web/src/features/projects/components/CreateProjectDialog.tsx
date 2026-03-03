@@ -17,7 +17,6 @@ import {
 import { X } from 'lucide-react';
 import { useCreateProject } from '../api/mutations';
 import type { ProjectFormData, ProjectStatus } from '../types';
-import type { JSONContent } from '@altitutor/ui';
 import type { SubmitHandler } from 'react-hook-form';
 import { ProjectTitleField } from './fields/ProjectTitleField';
 import { ProjectDescriptionField } from './fields/ProjectDescriptionField';

@@ -17,6 +17,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@altitutor/ucat-marking": "workspace:*",
     "@altitutor/ui": "workspace:*",
     "@altitutor/shared": "workspace:*",
     "@supabase/ssr": "^0.5.2",

@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { X, File, AlertCircle, Loader2 } from 'lucide-react';
 import type { AttachmentFile } from '../hooks/useMessageAttachments';

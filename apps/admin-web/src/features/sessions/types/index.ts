@@ -48,3 +48,10 @@ export type TutorLogInfo = {
 };
 
 export type InvoiceStatusInfo = Record<string, string | null>;
+
+export type {
+  SessionDetailsSession,
+  SessionDetailsTutorLog,
+  SessionDetailsTutorLogTopic,
+  SessionDetailsTutorLogTopicFile,
+} from './session-details';

@@ -21,7 +21,6 @@ import type {
   StaffAbsenceDecision,
   StaffAbsenceOperation,
   StaffAbsenceAction,
-  StaffSession,
   ReplacementStaff,
 } from '../../types/staff-absence';
 import { Search, Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';

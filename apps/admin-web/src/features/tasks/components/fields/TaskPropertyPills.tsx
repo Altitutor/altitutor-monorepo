@@ -6,7 +6,7 @@ import { TaskPriorityPill } from './TaskPriorityPill';
 import { TaskAssigneePill } from './TaskAssigneePill';
 import { TaskEstimatePill } from './TaskEstimatePill';
 import { TaskDueDatePill } from './TaskDueDatePill';
-import type { TaskFormData, TaskStatus, TaskPriority } from '../../types';
+import type { TaskFormData, TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
 
 interface TaskPropertyPillsProps {

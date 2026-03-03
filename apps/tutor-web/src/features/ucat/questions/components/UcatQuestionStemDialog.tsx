@@ -163,9 +163,8 @@ export function UcatQuestionStemDialog({
     }
   }, [initial, sections])
 
-  // Type instantiation for this large nested form can be deep; the schema
-  // already validates the shape at runtime.
-  // @ts-expect-error Type instantiation is deep but safe for this validated form.
+  // Type instantiation is excessively deep due to recursive Json in schema; runtime is validated by Zod.
+  // @ts-expect-error TS2589 - Type instantiation is deep but safe for this validated form.
   const form = useForm<UcatQuestionStemFormValues>({
     resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
     defaultValues,
@@ -204,8 +203,7 @@ export function UcatQuestionStemDialog({
 
 
   async function handleSave() {
-    // Second arg (onInvalid) triggers deep type instantiation; errors are surfaced via toast.
-    // @ts-expect-error -- Form type is deep; runtime behavior is correct.
+    // @ts-expect-error TS2589 - Form type is deep; runtime behavior is correct.
     form.handleSubmit(
       async (values) => {
         await onSubmit(values)

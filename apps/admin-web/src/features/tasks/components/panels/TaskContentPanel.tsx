@@ -1,6 +1,6 @@
 'use client';
 
-import { Separator, type JSONContent } from '@altitutor/ui';
+import { Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { TaskTitleField, TaskDescriptionField } from '../fields';

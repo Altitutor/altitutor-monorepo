@@ -81,7 +81,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
     const item = flatItems[index];
 
     if (item) {
-      const { title } = getEntityDisplayText(item);
+      getEntityDisplayText(item);
       props.command(item);
     }
   };

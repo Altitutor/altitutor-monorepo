@@ -7,7 +7,6 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 import {
   collectLogicalLinesFromDoc,
   parseFromLines,
-  type ParsedStem,
   type ParserConfig,
 } from '@/features/ucat/questions/lib/parsers/core'
 

@@ -18,7 +18,7 @@ interface UseNoteAutoSaveOptions {
  */
 export function useNoteAutoSave({
   form,
-  noteId,
+  noteId: _noteId,
   note,
   isInitialized,
   isUpdatingFromServer,

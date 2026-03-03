@@ -27,12 +27,11 @@ import {
   useToast,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
+import type { SessionDetailsSession, SessionDetailsTutorLog } from '../types';
 
 type SessionDetailsTabProps = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex nested type from session API with joins
-  session: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex nested type from tutor log API with topics, created_by_staff
-  tutorLog: any;
+  session: SessionDetailsSession | null;
+  tutorLog: SessionDetailsTutorLog | null;
   studentsData: Array<{
     student: Tables<'students'>;
     sessionsStudentsId: string | null;
@@ -137,14 +136,14 @@ export function SessionDetailsTab({
           time={formatSessionTimeRangeForDisplay(session as SessionTimeInput, formatTime)}
           subjectNode={
             subject ? (() => {
-              const { style, textColorClass } = getSubjectColorStyle(subject);
+              const { style, textColorClass } = getSubjectColorStyle(subject as unknown as Tables<'subjects'>);
               const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
               return (
                 <Badge
                   className={defaultClass || textColorClass}
                   style={style.backgroundColor ? style : undefined}
                 >
-                  {formatSubjectDisplay(subject)}
+                  {formatSubjectDisplay(subject as unknown as Tables<'subjects'>)}
                 </Badge>
               );
             })() : (
@@ -158,7 +157,7 @@ export function SessionDetailsTab({
                 onClick={() => onOpenClass(classId)}
                 className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
               >
-                {formatClassName(classData as Tables<'classes'>, subject ?? null)}
+                {formatClassName(classData as unknown as Tables<'classes'>, (subject ?? null) as unknown as Tables<'subjects'> | null)}
               </button>
             ) : (
               '—'
@@ -494,7 +493,7 @@ export function SessionDetailsTab({
           <div>
             <h3 className="text-lg font-semibold mb-4">Topics Covered</h3>
             <div className="space-y-4">
-              {tutorLog.topics.map((topicData: { id: string; topic?: { id: string; code?: string; name?: string } | null; students?: Tables<'students'>[]; files?: { id: string; topics_file?: { code?: string; file?: { id: string } } }[] }) => {
+              {tutorLog.topics.map((topicData) => {
                 // Find the complete topic record from allTopics to ensure we have parent_id and index
                 const topic = allTopics.find(t => t.id === topicData.topic?.id) || topicData.topic;
                 const topicCode = topic?.code || '';
@@ -517,7 +516,7 @@ export function SessionDetailsTab({
                       <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
                         <div className="space-y-1">
-                          {files.map((fileData: { id: string; topics_file?: { code?: string; file?: { id: string } } }) => {
+                          {files.map((fileData) => {
                             const topicFile = fileData.topics_file;
                             if (!topicFile) return null;
                             
@@ -544,7 +543,7 @@ export function SessionDetailsTab({
                       <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Students:</div>
                         <div className="flex flex-wrap gap-1">
-                          {students.slice(0, 5).map((student: Tables<'students'>) => (
+                          {students.slice(0, 5).map((student) => (
                             <button
                               key={student.id}
                               onClick={() => onOpenStudent(student.id)}

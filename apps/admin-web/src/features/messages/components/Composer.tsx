@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables } from '../utils/variableReplacer';
-import { replaceVariablesForParent, type StudentWithClasses } from '../utils/variableReplacerParent';
+import { replaceVariablesForParent } from '../utils/variableReplacerParent';
 import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses, getStaffClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/shared/hooks';

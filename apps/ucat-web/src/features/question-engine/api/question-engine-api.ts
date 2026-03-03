@@ -34,7 +34,7 @@ type StemDetailQuestion = {
   question_text: unknown
   index: number
   question_type: 'multiple_choice' | 'syllogism'
-  answer_options: Array<{ id: string; answer_text: unknown; index: number }>
+  answer_options: Array<{ id: string; answer_text: unknown; index: number; is_answer?: boolean }>
 }
 
 type StemDetailRow = {
@@ -75,6 +75,15 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
         return
       }
 
+      const options = (question.answer_options || [])
+        .map((option) => ({
+          id: option.id,
+          index: option.index,
+          text: extractTextFromRichJson(option.answer_text as JsonLike),
+          isAnswer: option.is_answer ?? false,
+        }))
+        .sort((a, b) => a.index - b.index)
+      const correctOption = options.find((o) => o.isAnswer)
       questions.push({
         id: question.id,
         index: questionMeta.index,
@@ -85,13 +94,8 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
         stemText: extractTextFromRichJson(stem.stem_text as JsonLike),
         questionText: extractTextFromRichJson(question.question_text as JsonLike),
         questionType: question.question_type,
-        options: (question.answer_options || [])
-          .map((option) => ({
-            id: option.id,
-            index: option.index,
-            text: extractTextFromRichJson(option.answer_text as JsonLike),
-          }))
-          .sort((a, b) => a.index - b.index),
+        options,
+        correctOptionId: correctOption?.id,
       })
     })
   })

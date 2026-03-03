@@ -31,6 +31,8 @@ export interface UcatRichTextEditorProps {
   onImageFileIdsChange?: (fileIds: string[]) => void
   /** When true, pasting plain text with newlines inserts one paragraph per line (e.g. for bulk import). */
   pastePlainTextAsParagraphs?: boolean
+  /** When set, controls how pasted table content is handled. See RichTextEditor pasteTableBehavior. */
+  pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep'
 }
 
 function toJsonContent(value: UcatRichTextValue): JSONContent | null {
@@ -60,6 +62,7 @@ export function UcatRichTextEditor({
   enableImages,
   onImageFileIdsChange,
   pastePlainTextAsParagraphs,
+  pasteTableBehavior,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
 
@@ -317,6 +320,7 @@ export function UcatRichTextEditor({
         editable={editable}
         minHeight={minHeight}
         pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
+        pasteTableBehavior={pasteTableBehavior}
         {...pasteImagesProp}
       />
     </div>

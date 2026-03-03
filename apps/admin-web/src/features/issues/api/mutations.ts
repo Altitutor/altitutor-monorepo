@@ -77,7 +77,7 @@ export function useAddIssueTag() {
 export function useRemoveIssueTag() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ tagId, issueId }: { tagId: string, issueId: string }) => issuesApi.removeTag(tagId),
+    mutationFn: ({ tagId, issueId: _issueId }: { tagId: string, issueId: string }) => issuesApi.removeTag(tagId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: issueKeys.detail(variables.issueId) });
     },

@@ -10,7 +10,7 @@ import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
 import { Tabs, TabsList, TabsTrigger, useToast, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components';
-import { Plus, ChevronDown } from 'lucide-react';
+import { ChevronDown } from 'lucide-react';
 
 export default function SessionsPage() {
   const search = useSearchParams();

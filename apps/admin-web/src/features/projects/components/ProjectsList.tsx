@@ -13,7 +13,7 @@ import { EditProjectDialog } from './EditProjectDialog';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { cn } from '@/shared/utils';
 import { Circle, Clock3, Flag, CheckCircle2 } from 'lucide-react';
-import type { ProjectWithLead, ProjectStatus, ProjectFilters } from '../types';
+import type { ProjectWithLead, ProjectStatus } from '../types';
 import { getProjectStatusLabel, getProjectStatusOrder } from '../utils/projectUtils';
 
 const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [

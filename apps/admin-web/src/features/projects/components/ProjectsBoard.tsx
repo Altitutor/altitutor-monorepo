@@ -11,7 +11,7 @@ import { useUpdateProject } from '../api/mutations';
 import { ProjectCard } from './ProjectCard';
 import { EditProjectDialog } from './EditProjectDialog';
 import { CreateProjectDialog } from './CreateProjectDialog';
-import type { ProjectStatus, ProjectWithLead, ProjectFilters, ProjectUpdate } from '../types';
+import type { ProjectStatus, ProjectWithLead } from '../types';
 import { cn } from '@/shared/utils';
 import { Circle, Clock3, Flag, CheckCircle2 } from 'lucide-react';
 import { getProjectStatusLabel } from '../utils/projectUtils';

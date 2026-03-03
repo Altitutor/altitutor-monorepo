@@ -17,7 +17,6 @@ import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { getInviteUrlForStudent } from '@/shared/utils/invites';
 import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
 import { useAvailableSenders } from '@/features/messages/api/queries';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
@@ -67,7 +66,7 @@ export function SendStudentInviteDialog({
   const { data: inviteData } = useStudentInviteData(student.id, linkType, isOpen);
   const token = inviteData?.token ?? null;
   const inviteUrl = inviteData?.inviteUrl ?? null;
-  const parents = inviteData?.parents ?? [];
+  const parents = useMemo(() => inviteData?.parents ?? [], [inviteData?.parents]);
 
   const { data: studentClasses = [] } = useStudentClassesForTemplate(isOpen ? student.id : null);
 
@@ -134,7 +133,7 @@ export function SendStudentInviteDialog({
     if (selectedRecipient?.method === 'phone') {
       setComposerDraft('');
     }
-  }, [selectedRecipient?.id, selectedRecipient?.type]);
+  }, [selectedRecipient?.id, selectedRecipient?.type, selectedRecipient?.method]);
 
   // Pre-populate message with SMS template when inviteUrl and recipient are ready
   useEffect(() => {
@@ -205,7 +204,7 @@ export function SendStudentInviteDialog({
           throw new Error(error.error || 'Failed to generate invite token');
         }
 
-        const result = await response.json();
+        await response.json();
         queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'invite') });
       } else {
         // Use registration API
@@ -220,7 +219,7 @@ export function SendStudentInviteDialog({
           throw new Error(error.error || 'Failed to generate registration invite');
         }
 
-        const result = await response.json();
+        await response.json();
         queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'register') });
       }
     } catch (error) {
@@ -233,7 +232,7 @@ export function SendStudentInviteDialog({
     } finally {
       setIsGenerating(false);
     }
-  }, [student.id, linkType, token, toast]);
+  }, [student.id, linkType, token, toast, queryClient]);
 
   // Generate token when modal opens ONLY if no existing token
   useEffect(() => {

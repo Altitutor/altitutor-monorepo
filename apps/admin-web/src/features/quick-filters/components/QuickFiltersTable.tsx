@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Table,
   TableBody,
@@ -22,13 +22,12 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Checkbox,
 } from '@altitutor/ui';
-import { Edit2, Trash2, Plus, X, Filter } from 'lucide-react';
+import { Edit2, Trash2, Plus } from 'lucide-react';
 import { QuickFilter } from '@altitutor/shared';
 import { useCreateQuickFilter, useUpdateQuickFilter, useDeleteQuickFilter } from '../hooks/useQuickFilters';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { SUPPORTED_ENTITIES, EntityConfig, FilterField } from '../config/entities';
+import { SUPPORTED_ENTITIES, FilterField } from '../config/entities';
 import { cn } from '@/shared/utils';
 
 interface QuickFiltersTableProps {

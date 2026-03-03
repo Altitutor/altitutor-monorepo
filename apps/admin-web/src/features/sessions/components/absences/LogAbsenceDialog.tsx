@@ -21,7 +21,6 @@ import type {
   AbsenceDecision,
   AbsenceOperation,
   AbsenceAction,
-  StudentSession,
   RescheduleSession,
 } from '../../types/absence';
 import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';

@@ -1,5 +1,4 @@
 import { useQuery } from '@tanstack/react-query';
-import type { Tables } from '@altitutor/shared';
 import { getStudentClasses } from '../api/bulk';
 import { getSampleStudents } from '../utils/templateHelpers';
 import { messagesKeys } from '../api/queryKeys';

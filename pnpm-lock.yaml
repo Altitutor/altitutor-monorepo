@@ -902,6 +902,9 @@ importers:
       '@altitutor/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@altitutor/ucat-marking':
+        specifier: workspace:*
+        version: link:../../packages/ucat-marking
       '@altitutor/ui':
         specifier: workspace:*
         version: link:../../packages/ui
@@ -996,6 +999,22 @@ importers:
       date-fns:
         specifier: ^4.1.0
         version: 4.1.0
+    devDependencies:
+      '@swc/jest':
+        specifier: ^0.2.37
+        version: 0.2.39(@swc/core@1.14.0)
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.24)
+
+  packages/ucat-marking:
+    devDependencies:
+      '@swc/jest':
+        specifier: ^0.2.37
+        version: 0.2.39(@swc/core@1.14.0)
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.24)
 
   packages/ui:
     dependencies:
@@ -1077,6 +1096,13 @@ importers:
       tippy.js:
         specifier: ^6.3.7
         version: 6.3.7
+    devDependencies:
+      '@swc/jest':
+        specifier: ^0.2.37
+        version: 0.2.39(@swc/core@1.14.0)
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@20.19.24)
 
 packages:
 

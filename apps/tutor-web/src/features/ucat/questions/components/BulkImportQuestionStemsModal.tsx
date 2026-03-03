@@ -25,10 +25,10 @@ import { Step1ChooseSection } from '@/features/ucat/questions/components/bulk-im
 import {
   Step2PasteDocument,
   type ParsingOptions,
+  type PasteTableBehavior,
 } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
 import { Step2PasteAnswers } from '@/features/ucat/questions/components/bulk-import/Step2PasteAnswers'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
-import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import {
   parseVerbalReasoningFromDoc,
   mapParsedVerbalReasoningToFormValues,
@@ -69,6 +69,7 @@ export function BulkImportQuestionStemsModal({
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
   const [pastedAnswersText, setPastedAnswersText] = useState('')
   const [parseError, setParseError] = useState<string | null>(null)
+  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_all')
   const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
     questionIndicator: 'dot',
     answerOptionIndicator: 'paren',
@@ -87,6 +88,7 @@ export function BulkImportQuestionStemsModal({
       setPastedContent(null)
       setPastedAnswersText('')
       setParseError(null)
+      setPasteTableBehavior('strip_all')
       setParsingOptions({
         questionIndicator: 'dot',
         answerOptionIndicator: 'paren',
@@ -105,7 +107,6 @@ export function BulkImportQuestionStemsModal({
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = categoriesQuery.data ?? []
-  const tags = tagsQuery.data ?? []
 
   const selectedSection = useMemo(
     () => sections.find((s) => s.id === sectionId) ?? null,
@@ -419,6 +420,8 @@ export function BulkImportQuestionStemsModal({
             onImageFileIdsChange={handleStep2ImageFileIds}
             parsingOptions={parsingOptions}
             onParsingOptionsChange={setParsingOptions}
+            pasteTableBehavior={pasteTableBehavior}
+            onPasteTableBehaviorChange={setPasteTableBehavior}
           />
           {parseError && (
             <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">

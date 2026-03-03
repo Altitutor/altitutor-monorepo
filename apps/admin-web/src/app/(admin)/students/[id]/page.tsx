@@ -49,7 +49,7 @@ import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
 import { useToast } from '@altitutor/ui';
-import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
+import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import { DiscontinueStudentConfirmDialog } from '@/features/students/components/DiscontinueStudentConfirmDialog';
 
 export default function StudentDetailPage({ params }: { params: { id: string } }) {

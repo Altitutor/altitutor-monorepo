@@ -7,7 +7,6 @@ import { getInviteUrlForStudent, getInviteUrlForStaff } from '@/shared/utils/inv
 import { generateLinkTokensForStudent, generateLinkTokensForStaff } from '../utils/generateLinkTokens';
 import {
   getVariablesForRecipientType,
-  STUDENT_SUB_VARIABLES,
   parseStudentSubVariable,
   canGenerateStudentVariable,
   canGenerateStaffVariable,

@@ -191,13 +191,6 @@ export function DataTableToolbar({
     onFiltersChange(nextFilters);
   };
 
-  const clearRangeFilter = (minKey: string, maxKey: string) => {
-    const nextFilters = { ...state.filters };
-    delete nextFilters[minKey];
-    delete nextFilters[maxKey];
-    onFiltersChange(nextFilters);
-  };
-
   const clearRangeFilterBound = (key: string) => {
     const nextFilters = { ...state.filters };
     delete nextFilters[key];

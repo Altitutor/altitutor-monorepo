@@ -766,7 +766,6 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
 
 export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem>) {
   const {
-    onAdd,
     statusColumn,
     rightPills,
     visiblePillKeys,

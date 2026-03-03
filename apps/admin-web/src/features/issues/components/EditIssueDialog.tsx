@@ -78,7 +78,7 @@ function AutoSaveManager({ form, issueId, issue, isInitialized, isLoading, onSav
   return null;
 }
 
-export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: EditIssueDialogProps) {
+export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onIssueUpdated }: EditIssueDialogProps) {
   const { data: issue, isLoading } = useIssue(issueId || '', !!issueId && isOpen);
   const updateIssue = useUpdateIssue();
   const deleteIssue = useDeleteIssue();

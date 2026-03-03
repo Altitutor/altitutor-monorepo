@@ -26,20 +26,25 @@ interface UseMentionSuggestionsOptions {
  * Hook to provide suggestion configuration for Tiptap Mention extension.
  * Reuses the entity search logic from command palette.
  */
+const DEFAULT_MENTION_TYPES = [
+  'students',
+  'staff',
+  'parents',
+  'classes',
+  'subjects',
+  'tasks',
+  'issues',
+  'projects',
+  'topics',
+  'files',
+] as const;
+
 export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
   const searchTimeoutRef = useRef<NodeJS.Timeout>();
-  const types = options?.types ?? [
-    'students',
-    'staff',
-    'parents',
-    'classes',
-    'subjects',
-    'tasks',
-    'issues',
-    'projects',
-    'topics',
-    'files',
-  ];
+  const types = useMemo(
+    () => options?.types ?? DEFAULT_MENTION_TYPES,
+    [options?.types]
+  );
 
   return useMemo(() => ({
     items: async ({ query }: { query: string }): Promise<CommandPaletteEntityResult[]> => {

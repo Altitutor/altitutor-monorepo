@@ -4,6 +4,8 @@ export type AnswerOption = {
   id: string
   index: number
   text: string
+  /** True if this option is the correct answer. Used for marking display. */
+  isAnswer?: boolean
 }
 
 export type QuestionItem = {
@@ -17,6 +19,8 @@ export type QuestionItem = {
   questionText: string
   questionType: 'multiple_choice' | 'syllogism'
   options: AnswerOption[]
+  /** ID of the correct answer option. Used for marking. */
+  correctOptionId?: string
 }
 
 /** One screen of instructions (tiptap/prosemirror JSON). Shown before questions when applicable. */
@@ -80,6 +84,7 @@ export function mapQuestionStemsToItems(stems: QuestionStemWithQuestions[]): Que
 
     for (const question of sortedQuestions) {
       const sortedOptions = [...question.options].sort((a, b) => a.index - b.index)
+      const correctOption = sortedOptions.find((o) => o.isAnswer)
 
       items.push({
         id: question.id,
@@ -92,6 +97,7 @@ export function mapQuestionStemsToItems(stems: QuestionStemWithQuestions[]): Que
         questionText: question.questionText,
         questionType: question.questionType,
         options: sortedOptions,
+        correctOptionId: correctOption?.id,
       })
     }
   }
@@ -111,26 +117,31 @@ export type QuestionEngineQuestion = {
 }
 
 export function mapQuestionsToItems(questions: QuestionEngineQuestion[]): QuestionItem[] {
-  return questions.map((question, index) => ({
-    id: question.id,
-    index,
-    questionSetId: 'questions-mode',
-    stemId: question.stemId,
-    sectionName: question.sectionName,
-    sectionDisplayColumns: question.sectionDisplayColumns,
-    stemText: question.stemText,
-    questionText: question.questionText,
-    questionType: question.questionType,
-    options: [...question.options].sort((a, b) => a.index - b.index),
-  }))
+  return questions.map((question, index) => {
+    const sortedOptions = [...question.options].sort((a, b) => a.index - b.index)
+    const correctOption = sortedOptions.find((o) => o.isAnswer)
+    return {
+      id: question.id,
+      index,
+      questionSetId: 'questions-mode',
+      stemId: question.stemId,
+      sectionName: question.sectionName,
+      sectionDisplayColumns: question.sectionDisplayColumns,
+      stemText: question.stemText,
+      questionText: question.questionText,
+      questionType: question.questionType,
+      options: sortedOptions,
+      correctOptionId: correctOption?.id,
+    }
+  })
 }
 
 /** Filter for review mode: which subset of questions to step through. */
 export type ReviewFilter = 'all' | 'incomplete' | 'flagged'
 
 export type QuestionEngineState = {
-  /** 'instructions' = instructions screen; 'intro' = ready-to-begin; 'question' = questions; 'review' = review screen or review mode */
-  phase: 'instructions' | 'intro' | 'question' | 'review'
+  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' (marking = results table, Next closes) */
+  phase: 'instructions' | 'intro' | 'question' | 'review' | 'marking'
   /** Which instructions screen (0-based). Only relevant when phase === 'instructions'. */
   instructionsIndex: number
   /** When true, Ready to Begin dialog is shown on top of current screen (e.g. instructions). No = dismiss only. */

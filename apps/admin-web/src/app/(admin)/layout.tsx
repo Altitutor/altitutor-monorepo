@@ -8,7 +8,6 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';

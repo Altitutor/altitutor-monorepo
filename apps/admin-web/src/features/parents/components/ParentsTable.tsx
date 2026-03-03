@@ -25,7 +25,7 @@ import {
   DataTableToolbar,
   TablePagination,
 } from "@altitutor/ui";
-import { Search, ArrowUpDown, Loader2 } from 'lucide-react';
+import { ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';

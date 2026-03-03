@@ -144,6 +144,55 @@ export interface RichTextEditorProps {
    * instead of a single paragraph. Use for content where line breaks must be preserved (e.g. bulk import).
    */
   pastePlainTextAsParagraphs?: boolean;
+  /**
+   * When set, controls how pasted table content is handled. Overrides pastePlainTextAsParagraphs when both apply.
+   * - strip_all: Convert to plain text, one paragraph per line (tables and formatting removed).
+   * - strip_outside: Flatten top-level tables only; nested tables inside cells are preserved.
+   * - keep: Preserve all HTML including tables.
+   */
+  pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
+}
+
+function htmlToPlainText(html: string): string {
+  if (!html.trim()) return '';
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    return doc.body?.textContent?.replace(/\r\n/g, '\n').replace(/\r/g, '\n') ?? '';
+  } catch {
+    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+}
+
+/** Replace top-level tables (not nested inside another table) with divs containing each cell's innerHTML; nested tables are preserved. */
+function stripOuterTablesFromHtml(html: string): string {
+  if (!html.trim()) return html;
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(html, 'text/html');
+    const body = doc.body;
+    const tables = body.querySelectorAll('table');
+    for (const table of tables) {
+      if ((table.parentElement as Element)?.closest?.('table')) continue;
+      const fragment = doc.createDocumentFragment();
+      const rows = table.querySelectorAll(':scope > tbody > tr, :scope > tr');
+      for (const row of rows) {
+        const cells = row.querySelectorAll(':scope > td, :scope > th');
+        for (const cell of cells) {
+          const content = (cell as HTMLElement).innerHTML.trim();
+          if (content) {
+            const div = doc.createElement('div');
+            div.innerHTML = content;
+            fragment.appendChild(div);
+          }
+        }
+      }
+      table.replaceWith(fragment);
+    }
+    return body.innerHTML;
+  } catch {
+    return html;
+  }
 }
 
 /**
@@ -164,6 +213,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   mentionSuggestions,
   onPasteImages,
   pastePlainTextAsParagraphs = false,
+  pasteTableBehavior,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -365,18 +415,30 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           pastedHtml = captured.html;
           if ((pastedText || pastedHtml) && editor) {
             event.preventDefault();
-            if (pastedHtml) {
-              editor.chain().deleteSelection().insertContent(pastedHtml).focus().run();
-            } else if (pastePlainTextAsParagraphs && pastedText.includes('\n')) {
-              const lines = pastedText.split(/\r?\n/);
+            const behavior = pasteTableBehavior ?? (pastePlainTextAsParagraphs ? 'strip_all' : 'keep');
+            const text = pastedHtml ? htmlToPlainText(pastedHtml) : pastedText;
+            const lines = text.split(/\r?\n/);
+            if (behavior === 'strip_all' && (lines.length > 1 || !pastedHtml)) {
               const content = lines.map((line) => ({
                 type: 'paragraph',
                 content: line.length > 0 ? [{ type: 'text', text: line }] : [],
               }));
               const pos = editor.state.selection.from;
               editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
-            } else {
+            } else if (behavior === 'strip_outside' && pastedHtml) {
+              const transformed = stripOuterTablesFromHtml(pastedHtml);
+              editor.chain().deleteSelection().insertContent(transformed).focus().run();
+            } else if (behavior === 'keep' && pastedHtml) {
+              editor.chain().deleteSelection().insertContent(pastedHtml).focus().run();
+            } else if (behavior === 'strip_outside' || behavior === 'keep') {
               editor.chain().deleteSelection().insertContent(pastedText).focus().run();
+            } else {
+              const content = lines.map((line) => ({
+                type: 'paragraph',
+                content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+              }));
+              const pos = editor.state.selection.from;
+              editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
             }
             return true;
           }
@@ -385,37 +447,34 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         // Fallback when paste event (and capture) had no clipboardData: try async Clipboard API.
         if (pastedText === '' && pastedHtml === '' && editor && typeof navigator?.clipboard?.read === 'function') {
           event.preventDefault();
+          const behavior = pasteTableBehavior ?? (pastePlainTextAsParagraphs ? 'strip_all' : 'keep');
           navigator.clipboard.read().then((clipboardItems) => {
-            for (const item of clipboardItems) {
-              if (item.types.includes('text/html')) {
-                item.getType('text/html').then((blob) => blob.text()).then((html) => {
-                  if (html && editor && !editor.isDestroyed) {
-                    editor.chain().deleteSelection().insertContent(html).focus().run();
-                  }
-                }).catch(() => {});
-                return;
+            const htmlItem = clipboardItems.find((i) => i.types.includes('text/html'));
+            const textItem = clipboardItems.find((i) => i.types.includes('text/plain'));
+            const getHtml = htmlItem ? htmlItem.getType('text/html').then((b) => b.text()) : Promise.resolve('');
+            const getText = textItem ? textItem.getType('text/plain').then((b) => b.text()) : Promise.resolve('');
+            Promise.all([getHtml, getText]).then(([html, text]) => {
+              if (!editor || editor.isDestroyed) return;
+              const h = html ?? '';
+              const t = text ?? '';
+              const resolvedText = h ? htmlToPlainText(h) : t;
+              const lines = resolvedText.split(/\r?\n/);
+              if (behavior === 'strip_all') {
+                const content = lines.map((line) => ({
+                  type: 'paragraph',
+                  content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+                }));
+                const pos = editor.state.selection.from;
+                editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+              } else if (behavior === 'strip_outside' && h) {
+                const transformed = stripOuterTablesFromHtml(h);
+                editor.chain().deleteSelection().insertContent(transformed).focus().run();
+              } else if (behavior === 'keep' && h) {
+                editor.chain().deleteSelection().insertContent(h).focus().run();
+              } else {
+                editor.chain().deleteSelection().insertContent(t || resolvedText).focus().run();
               }
-            }
-            for (const item of clipboardItems) {
-              if (item.types.includes('text/plain')) {
-                item.getType('text/plain').then((blob) => blob.text()).then((text) => {
-                  if (text != null && editor && !editor.isDestroyed) {
-                    if (pastePlainTextAsParagraphs && text.includes('\n')) {
-                      const lines = text.split(/\r?\n/);
-                      const content = lines.map((line) => ({
-                        type: 'paragraph',
-                        content: line.length > 0 ? [{ type: 'text', text: line }] : [],
-                      }));
-                      const pos = editor.state.selection.from;
-                      editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
-                    } else {
-                      editor.chain().deleteSelection().insertContent(text).focus().run();
-                    }
-                  }
-                }).catch(() => {});
-                return;
-              }
-            }
+            }).catch(() => {});
           }).catch(() => {});
           return true;
         }
@@ -452,16 +511,34 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           }
         }
 
-        // When enabled, paste plain text with newlines as one paragraph per line.
-        if (pastePlainTextAsParagraphs && pastedText.includes('\n') && editor) {
+        // Apply pasteTableBehavior or pastePlainTextAsParagraphs when we have data.
+        const behavior = pasteTableBehavior ?? (pastePlainTextAsParagraphs ? 'strip_all' : null);
+        if (behavior && (pastedText || pastedHtml) && editor) {
           event.preventDefault();
-          const lines = pastedText.split(/\r?\n/);
-          const content = lines.map((line) => ({
-            type: 'paragraph',
-            content: line.length > 0 ? [{ type: 'text', text: line }] : [],
-          }));
-          const pos = editor.state.selection.from;
-          editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+          const text = pastedHtml ? htmlToPlainText(pastedHtml) : pastedText;
+          const lines = text.split(/\r?\n/);
+          if (behavior === 'strip_all') {
+            const content = lines.map((line) => ({
+              type: 'paragraph',
+              content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+            }));
+            const pos = editor.state.selection.from;
+            editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+          } else if (behavior === 'strip_outside' && pastedHtml) {
+            const transformed = stripOuterTablesFromHtml(pastedHtml);
+            editor.chain().deleteSelection().insertContent(transformed).focus().run();
+          } else if (behavior === 'keep' && pastedHtml) {
+            editor.chain().deleteSelection().insertContent(pastedHtml).focus().run();
+          } else if (behavior === 'strip_outside' || behavior === 'keep') {
+            editor.chain().deleteSelection().insertContent(pastedText).focus().run();
+          } else {
+            const content = lines.map((line) => ({
+              type: 'paragraph',
+              content: line.length > 0 ? [{ type: 'text', text: line }] : [],
+            }));
+            const pos = editor.state.selection.from;
+            editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
+          }
           return true;
         }
 

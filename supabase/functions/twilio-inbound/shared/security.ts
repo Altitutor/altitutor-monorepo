@@ -21,8 +21,7 @@ export function timingSafeEqual(a: string, b: string): boolean {
 export function parseFormEncoded(body: string): Record<string, string> {
   const params = new URLSearchParams(body);
   const obj: Record<string, string> = {};
-  // @ts-ignore - URLSearchParams.entries() exists in Deno runtime
-  for (const [key, value] of params.entries()) obj[key] = value;
+  params.forEach((value, key) => { obj[key] = value; });
   return obj;
 }
 

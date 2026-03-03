@@ -29,7 +29,6 @@ import { NoteTableOfContents } from './NoteTableOfContents';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import type { Editor } from '@tiptap/react';
 import type { NoteUpdate } from '../types';
-import type { Tables } from '@altitutor/shared';
 import { useNote } from '../api/queries';
 import { useUpdateNote, useDeleteNote } from '../hooks/useNoteMutations';
 import { useFolders } from '../api/queries';

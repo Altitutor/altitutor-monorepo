@@ -16,6 +16,8 @@ import type {
   QuestionIndicatorKind,
 } from '@/features/ucat/questions/lib/parsers/core'
 
+export type PasteTableBehavior = 'strip_all' | 'strip_outside' | 'keep'
+
 export type ParsingOptions = {
   questionIndicator: QuestionIndicatorKind
   answerOptionIndicator: AnswerOptionIndicatorKind
@@ -36,6 +38,8 @@ type Step2PasteDocumentProps = {
   onImageFileIdsChange?: (fileIds: string[]) => void
   parsingOptions?: ParsingOptions
   onParsingOptionsChange?: (options: ParsingOptions) => void
+  pasteTableBehavior?: PasteTableBehavior
+  onPasteTableBehaviorChange?: (behavior: PasteTableBehavior) => void
 }
 
 export function Step2PasteDocument({
@@ -44,6 +48,8 @@ export function Step2PasteDocument({
   onImageFileIdsChange,
   parsingOptions = DEFAULT_PARSING_OPTIONS,
   onParsingOptionsChange,
+  pasteTableBehavior = 'strip_all',
+  onPasteTableBehaviorChange,
 }: Step2PasteDocumentProps) {
   const opts = parsingOptions
   const setOpts = onParsingOptionsChange ?? (() => {})
@@ -116,6 +122,22 @@ export function Step2PasteDocument({
             Answer option letter must be on own line
           </Label>
         </div>
+        <div className="space-y-2">
+          <Label className="text-xs">Paste table handling</Label>
+          <Select
+            value={pasteTableBehavior}
+            onValueChange={(v) => onPasteTableBehaviorChange?.(v as PasteTableBehavior)}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="strip_all">Strip all tables</SelectItem>
+              <SelectItem value="strip_outside">Strip outside tables only</SelectItem>
+              <SelectItem value="keep">Keep formatting</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <div className="rounded-md border bg-muted/40 p-3 min-h-[360px]">
@@ -127,7 +149,7 @@ export function Step2PasteDocument({
           stemId={null}
           enableImages={true}
           onImageFileIdsChange={onImageFileIdsChange}
-          pastePlainTextAsParagraphs={true}
+          pasteTableBehavior={pasteTableBehavior}
         />
       </div>
     </div>

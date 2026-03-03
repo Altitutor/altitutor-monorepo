@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { useSubjectsSearch, useSubjectSearchWithTerm } from '@/shared/hooks';
 import { useDebounce } from '@/shared/hooks/useDebounce';
@@ -82,7 +82,7 @@ export function RegistrationStep1StudentDetails({
     return yearLevel;
   };
 
-  const getValidCurriculums = (yearLevel: number | undefined): Array<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'> => {
+  const getValidCurriculums = useCallback((yearLevel: number | undefined): Array<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'> => {
     const yearLevelNum = getYearLevelNum(yearLevel);
     if (yearLevelNum === null) return ['SACE', 'IB', 'PRESACE', 'PRIMARY'];
     
@@ -94,9 +94,9 @@ export function RegistrationStep1StudentDetails({
       return ['PRIMARY'];
     }
     return ['SACE', 'IB', 'PRESACE', 'PRIMARY'];
-  };
+  }, []);
 
-  const getValidYearLevels = (curriculum: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | undefined): number[] => {
+  const getValidYearLevels = useCallback((curriculum: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | undefined): number[] => {
     if (!curriculum) return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
     
     if (curriculum === 'SACE' || curriculum === 'IB') {
@@ -107,10 +107,10 @@ export function RegistrationStep1StudentDetails({
       return [0, 1, 2, 3, 4, 5, 6];
     }
     return [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13];
-  };
+  }, []);
 
-  const validCurriculums = useMemo(() => getValidCurriculums(yearLevel), [yearLevel]);
-  const validYearLevels = useMemo(() => getValidYearLevels(curriculum), [curriculum]);
+  const validCurriculums = useMemo(() => getValidCurriculums(yearLevel), [getValidCurriculums, yearLevel]);
+  const validYearLevels = useMemo(() => getValidYearLevels(curriculum), [getValidYearLevels, curriculum]);
 
   // Ref to prevent infinite loops between curriculum and year level auto-selection
   const isAutoSelectingRef = useRef(false);
@@ -173,7 +173,7 @@ export function RegistrationStep1StudentDetails({
         }, 0);
       }
     }
-  }, [curriculum, form]);
+  }, [curriculum, form, getValidYearLevels]);
 
   // Subject search state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
@@ -195,15 +195,18 @@ export function RegistrationStep1StudentDetails({
     curriculum: curriculum ?? null,
     yearLevel: yearLevel ?? null,
   });
-  const allSubjects = subjectsFilteredData?.subjects ?? [];
+  const allSubjects = useMemo(() => subjectsFilteredData?.subjects ?? [], [subjectsFilteredData?.subjects]);
 
   // Search by term when user types (ignores curriculum/year level)
   const { data: subjectsSearchData, isFetching: isSearchingByTerm } = useSubjectSearchWithTerm({
     searchTerm: debouncedSearchQuery,
     enabled: debouncedSearchQuery.trim().length > 0,
   });
-  const subjectSearchResults =
-    debouncedSearchQuery.trim().length > 0 ? (subjectsSearchData?.subjects ?? []) : allSubjects;
+  const subjectSearchResults = useMemo(
+    () =>
+      debouncedSearchQuery.trim().length > 0 ? (subjectsSearchData?.subjects ?? []) : allSubjects,
+    [debouncedSearchQuery, subjectsSearchData?.subjects, allSubjects]
+  );
 
   const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
 

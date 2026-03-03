@@ -14,7 +14,7 @@ import {
 } from '@altitutor/ui';
 import { useUpdateClass } from '../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { TablesUpdate } from '@altitutor/shared';
 import type { MinimalClass } from '../api/classes';
 import { Loader2 } from 'lucide-react';
 

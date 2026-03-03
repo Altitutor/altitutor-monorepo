@@ -175,8 +175,6 @@ export default function DashboardDatePage({ params }: { params: { date: string }
     () => (selectedDate ? format(addDays(selectedDate, 1), DATE_FORMAT) : ''),
     [selectedDate]
   );
-  const isToday = dateStr === todayDateStr;
-
   const handleSessionClick = useCallback((sessionId: string) => {
     setSelectedSessionId(sessionId);
     setIsSessionModalOpen(true);

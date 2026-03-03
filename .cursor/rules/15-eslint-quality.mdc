@@ -1,0 +1,30 @@
+---
+description: ESLint quality - zero warnings, no unused code, proper hooks deps
+alwaysApply: true
+---
+
+# ESLint & Code Quality
+
+## Zero Warnings Policy
+
+- **Leave zero lint warnings or errors** after any change
+- Run `pnpm lint` after edits and fix all reported issues
+- Do not introduce new warnings "for later" — fix them immediately
+
+## Unused Code
+
+- **Remove unused imports** — delete imports that are not referenced
+- **Remove unused variables** — delete or use variables; prefix with `_` only when required by a callback signature (e.g. `_issueId`)
+- **Remove unused type imports** — use `type` imports only when the type is used
+
+## React Hooks Dependencies
+
+- **Include all dependencies** in `useEffect`, `useMemo`, `useCallback` dependency arrays
+- If a value changes every render, wrap it in `useMemo` or `useCallback` first
+- Use `eslint-disable-next-line react-hooks/exhaustive-deps` only when adding a dep would cause infinite loops — add a brief comment explaining why
+
+## Before Finishing
+
+After making changes, run:
+1. `pnpm typecheck` — must pass
+2. `pnpm lint` — must pass with zero warnings

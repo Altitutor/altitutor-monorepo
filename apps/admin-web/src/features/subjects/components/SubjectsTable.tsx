@@ -32,7 +32,7 @@ import {
   Palette,
   Loader2
 } from 'lucide-react';
-import type { Tables, Enums, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
+import type { Enums, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, getSubjectColorHex, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils/index';
 import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
@@ -46,7 +46,7 @@ interface SubjectsTableProps {
 }
 
 export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSubject }: SubjectsTableProps) {
-  const router = useRouter();
+  useRouter(); // Required for URL sync in useDataTable
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('subjects');
   

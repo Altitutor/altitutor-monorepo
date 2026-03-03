@@ -26,10 +26,7 @@ import {
   DataTableToolbar,
   TablePagination,
 } from "@altitutor/ui";
-import { 
-  Search,
-  Loader2,
-} from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
 import type { MinimalClass } from '../api/classes';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { getErrorMessage } from '@/shared/utils';
 import type { Database } from '@altitutor/shared';
 
@@ -102,11 +103,16 @@ export async function PATCH(
       );
     }
 
-    // Update existing billing account
-    const { data: updatedBilling, error: updateError } = await supabase
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: 'Server configuration error' },
+        { status: 500 }
+      );
+    }
+
+    // Update existing billing account (use admin client for proper typing)
+    const { data: updatedBilling, error: updateError } = await supabaseAdmin
       .from('students_billing')
-      // @ts-expect-error - TypeScript inference limitation with Supabase client update method
-      // updateData is properly typed as StudentsBillingUpdate, but TypeScript can't infer it here
       .update(updateData)
       .eq('student_id', studentId)
       .select('auto_bill_enabled, invoice_email_to_student, invoice_email_to_parents')

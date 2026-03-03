@@ -202,7 +202,7 @@ function TaskListAddRowWithSearch({
       top: rect.bottom + 4,
       left: rect.left,
     });
-  }, [showAutocomplete, addName, suggestions.length, isLoading]);
+  }, [showAutocomplete, addName, suggestions.length, isLoading, inputRef]);
 
   const handleSelect = useCallback(
     (taskId: string) => {

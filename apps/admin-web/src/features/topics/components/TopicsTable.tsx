@@ -13,19 +13,11 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  Button,
-  Input,
   SkeletonTable,
-  ScrollArea,
   DataTableToolbar,
   TablePagination,
 } from "@altitutor/ui";
-import { 
-  ChevronRight,
-  ChevronDown,
-  X,
-  Loader2,
-} from 'lucide-react';
+import { ChevronRight, ChevronDown } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
@@ -51,10 +43,10 @@ export function TopicsTable({
   onRefresh: _onRefresh, 
   onViewTopic,
   subjectId,
-  basePath = '/topics',
+  basePath: _basePath = '/topics',
   hideSubjectFilter = false,
 }: TopicsTableProps) {
-  const router = useRouter();
+  useRouter(); // Required for URL sync in useDataTable
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('topics');
   
@@ -91,11 +83,11 @@ export function TopicsTable({
   const [isFileModalOpen, setIsFileModalOpen] = useState(false);
 
   // Subject filter popover state
-  const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
-  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
+  const [isSubjectPopoverOpen] = useState(false);
+  const [subjectSearchQuery] = useState('');
 
   // Use React Query hook for debounced subject search
-  const { subjects: subjectSearchResults, isLoading: isSubjectSearching } = useSubjectSearch({
+  const { subjects: subjectSearchResults } = useSubjectSearch({
     searchQuery: subjectSearchQuery,
     isOpen: isSubjectPopoverOpen,
     limit: 100,

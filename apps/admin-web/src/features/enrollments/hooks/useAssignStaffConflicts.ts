@@ -200,8 +200,7 @@ export function useAssignStaffConflicts({
     return () => {
       cancelled = true;
     };
-    // Use stable primitives (classIds, staffIds, selectedClassIdsStr, selectedStaffIdsStr, staff?.id, classData?.id)
-    // to avoid infinite loops when parent passes new array/object references each render (e.g. class context from ViewClassModal)
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- Use stable primitives (classIds, staffIds, etc.) to avoid infinite loops when parent passes new array/object references each render
   }, [context, step, selectedStaffId, selectedClassIdsStr, selectedStaffIdsStr, staff?.id, classData?.id, classIds, staffIds, assignmentDate, enabled]);
 
   return {

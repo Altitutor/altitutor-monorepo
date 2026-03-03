@@ -87,7 +87,7 @@ function grossUp(
   return Math.round((net + fixedCents) / (1 - percent));
 }
 
-export function CustomerBalanceSection({ studentId, studentName }: CustomerBalanceSectionProps) {
+export function CustomerBalanceSection({ studentId, studentName: _studentName }: CustomerBalanceSectionProps) {
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
   const [adjustmentAmount, setAdjustmentAmount] = useState('');
   const [adjustmentDescription, setAdjustmentDescription] = useState('');

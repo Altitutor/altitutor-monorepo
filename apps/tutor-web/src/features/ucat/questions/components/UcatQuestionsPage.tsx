@@ -385,35 +385,6 @@ export function UcatQuestionsPage() {
     }
   }
 
-  function stemDetailToBundlePayload(
-    detail: StemDetailRow,
-    overrides: { categoryId?: string | null; isPrivate?: boolean }
-  ): UcatQuestionStemBundlePayload {
-    const EMPTY_DOC = plainTextToProseMirror('')
-    const questions: UcatQuestionStemBundlePayload['questions'] = (detail.questions ?? []).map((q) => ({
-      index: q.index,
-      questionText: (q.question_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
-      questionType: q.question_type,
-      answerExplanation: (q.answer_explanation ?? null) as import('@altitutor/shared').Json | null,
-      difficulty: q.difficulty,
-      timeBurdenSeconds: q.time_burden_seconds ?? null,
-      tagIds: (q.tags ?? []).map((t) => t.id),
-      options: (q.answer_options ?? []).map((opt, i) => ({
-        index: i + 1,
-        answerText: (opt.answer_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
-        answerExplanation: (opt.answer_explanation ?? null) as import('@altitutor/shared').Json | null,
-        isAnswer: opt.is_answer,
-      })),
-    }))
-    return {
-      sectionId: detail.section_id,
-      categoryId: overrides.categoryId ?? detail.question_stem_category_id ?? null,
-      stemText: (detail.stem_text ?? EMPTY_DOC) as import('@altitutor/shared').Json,
-      isPrivate: overrides.isPrivate ?? detail.is_private,
-      questions,
-    }
-  }
-
   function toExplanationNull(value: unknown): import('@altitutor/shared').Json | null {
     if (value == null) return null
     if (typeof value === 'string' && value === 'null') return null

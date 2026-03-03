@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import type { TablesUpdate } from '@altitutor/shared';
 
 // Force dynamic rendering for this API route
 export const dynamic = 'force-dynamic';
@@ -18,8 +19,6 @@ const ALLOWED_UPDATE_FIELDS = [
   'availability_sunday_am',
   'availability_sunday_pm',
 ] as const;
-
-type AllowedField = typeof ALLOWED_UPDATE_FIELDS[number];
 
 /**
  * PATCH /api/profile
@@ -84,7 +83,7 @@ export async function PATCH(request: NextRequest) {
     }
     
     // Filter body to only include whitelisted fields
-    const updates: Partial<Record<AllowedField, unknown>> = {};
+    const updates: Record<string, unknown> = {};
     for (const field of ALLOWED_UPDATE_FIELDS) {
       if (field in body) {
         updates[field] = body[field];
@@ -102,8 +101,7 @@ export async function PATCH(request: NextRequest) {
     // Use admin client to update the staff record
     const { data, error } = await supabaseAdmin
       .from('staff')
-      // @ts-expect-error - TypeScript inference issue with Supabase client and Partial<Record>
-      .update(updates)
+      .update(updates as TablesUpdate<'staff'>)
       .eq('id', staffRecord.id)
       .select()
       .single();

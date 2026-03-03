@@ -12,7 +12,7 @@ import {
   Input,
   ScrollArea,
 } from '@altitutor/ui';
-import { User, Check, Circle, Clock, Eye, CheckCircle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
+import { User, Check, Circle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import {
   getPriorityLabel,

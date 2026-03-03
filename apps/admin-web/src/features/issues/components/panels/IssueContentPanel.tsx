@@ -1,10 +1,9 @@
 'use client';
 
 import { useMemo, memo } from 'react';
-import { ScrollArea, ScrollBar, Button, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Skeleton } from '@altitutor/ui';
+import { ScrollArea, ScrollBar, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Skeleton } from '@altitutor/ui';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
-import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { ClassCard } from '@/shared/components/ClassCard';
@@ -15,11 +14,10 @@ import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import { useSessionData } from '@/features/sessions/hooks/useSessionData';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { getContactIdFromConversation, useContactHeader } from '@/features/messages/api/queries';
 import { ParentCard } from '@/shared/components/ParentCard';
 import type { IssueWithTags, IssueTag } from '../../types';
 import type { Tables } from '@altitutor/shared';
-import { MessageSquare, Plus, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
+import { MessageSquare, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
 import { cn, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils';
 import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 

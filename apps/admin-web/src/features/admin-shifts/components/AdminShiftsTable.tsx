@@ -26,7 +26,7 @@ import {
   DataTableToolbar,
   TablePagination,
 } from "@altitutor/ui";
-import { Search, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useAdminShiftsMinimalPaginated, useDeleteAdminShift } from '../hooks/useAdminShiftsQuery';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';

@@ -3,7 +3,7 @@
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useSubjectsSearch, useSubjectSearchWithTerm } from '@/shared/hooks';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
@@ -122,7 +122,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     return parseInt(yearLevel, 10);
   };
 
-  const getValidCurriculums = (yearLevel: string | undefined): Array<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'> => {
+  const getValidCurriculums = useCallback((yearLevel: string | undefined): Array<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'> => {
     const yearLevelNum = getYearLevelNum(yearLevel);
     if (yearLevelNum === null) return ['SACE', 'IB', 'PRESACE', 'PRIMARY'];
     
@@ -134,9 +134,9 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
       return ['PRIMARY'];
     }
     return ['SACE', 'IB', 'PRESACE', 'PRIMARY'];
-  };
+  }, []);
 
-  const getValidYearLevels = (curriculum: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | undefined): string[] => {
+  const getValidYearLevels = useCallback((curriculum: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | undefined): string[] => {
     if (!curriculum) return ['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
     
     if (curriculum === 'SACE' || curriculum === 'IB') {
@@ -147,10 +147,10 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
       return ['Reception', '1', '2', '3', '4', '5', '6'];
     }
     return ['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
-  };
+  }, []);
 
-  const validCurriculums = useMemo(() => getValidCurriculums(yearLevel), [yearLevel]);
-  const validYearLevels = useMemo(() => getValidYearLevels(curriculum), [curriculum]);
+  const validCurriculums = useMemo(() => getValidCurriculums(yearLevel), [getValidCurriculums, yearLevel]);
+  const validYearLevels = useMemo(() => getValidYearLevels(curriculum), [getValidYearLevels, curriculum]);
 
   // Auto-select curriculum when year level changes
   useEffect(() => {
@@ -189,7 +189,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     if (currentYearLevel && !validYearLevelsForCurriculum.includes(currentYearLevel)) {
       form.setValue('year_level', validYearLevelsForCurriculum[0] as TrialContactFormValues['year_level'], { shouldValidate: true });
     }
-  }, [curriculum, form]);
+  }, [curriculum, form, getValidYearLevels]);
 
   // Subject search state
   const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
@@ -203,14 +203,18 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     curriculum: curriculum ?? null,
     yearLevel: yearLevel ?? null,
   });
-  const allSubjects = subjectsFilteredData?.subjects ?? [];
+  const allSubjects = useMemo(() => subjectsFilteredData?.subjects ?? [], [subjectsFilteredData?.subjects]);
 
   // Search by term when user types (ignores curriculum/year level)
   const { data: subjectsSearchData, isFetching: isSearchingByTerm } = useSubjectSearchWithTerm({
     searchTerm: debouncedSearchQuery,
     enabled: debouncedSearchQuery.trim().length > 0,
   });
-  const subjectSearchResults = debouncedSearchQuery.trim().length > 0 ? (subjectsSearchData?.subjects ?? []) : allSubjects;
+  const subjectSearchResults = useMemo(
+    () =>
+      debouncedSearchQuery.trim().length > 0 ? (subjectsSearchData?.subjects ?? []) : allSubjects,
+    [debouncedSearchQuery, subjectsSearchData?.subjects, allSubjects]
+  );
 
   const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
 
@@ -386,7 +390,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {validYearLevels.map((year) => (
+                        {validYearLevels.map((year: string) => (
                           <SelectItem key={year} value={year}>
                             {year === 'Reception' ? 'Reception' : `Year ${year}`}
                           </SelectItem>
@@ -435,7 +439,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {validCurriculums.map((curr) => (
+                        {validCurriculums.map((curr: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY') => (
                           <SelectItem key={curr} value={curr}>
                             {curr}
                           </SelectItem>

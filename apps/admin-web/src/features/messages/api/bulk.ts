@@ -317,7 +317,6 @@ export async function getStudentClassesWithStartDates(studentId: string): Promis
   }
   
   // Sort sessions by start_at ascending (client-side since we can't order by nested relation)
-  type SessionWithClassRow = { session?: { class_id?: string | null; start_at?: string | null } };
   const sortedSessions = (sessionsData || []).sort((a, b) => {
     const dateA = a.session?.start_at ? new Date(a.session.start_at).getTime() : 0;
     const dateB = b.session?.start_at ? new Date(b.session.start_at).getTime() : 0;
@@ -538,7 +537,6 @@ export async function getStaffClassesWithStartDates(staffId: string): Promise<Ar
   }
   
   // Sort sessions by start_at ascending (client-side)
-  type SessionWithClassRow = { session?: { class_id?: string | null; start_at?: string | null } };
   const sortedSessions = (sessionsData || []).sort((a, b) => {
     const dateA = a.session?.start_at ? new Date(a.session.start_at).getTime() : 0;
     const dateB = b.session?.start_at ? new Date(b.session.start_at).getTime() : 0;

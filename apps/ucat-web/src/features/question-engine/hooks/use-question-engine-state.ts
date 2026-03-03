@@ -36,7 +36,7 @@ const initialState: QuestionEngineState = {
 export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
   const [state, setState] = useState<QuestionEngineState>(initialState)
 
-  const questions = exam?.questions ?? []
+  const questions = useMemo(() => exam?.questions ?? [], [exam?.questions])
 
   // When exam loads with instructions, start in instructions phase (set/mock mode)
   useEffect(() => {

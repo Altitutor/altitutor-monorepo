@@ -543,7 +543,6 @@ export const staffApi = {
       });
 
       // Process staff classes
-      type AssignmentRow = { staff_id?: string; class?: (Tables<'classes'> & { subject_details?: Tables<'subjects'> | null }) | null };
       assignmentsData?.forEach((assignment) => {
         const classWithSubject = assignment.class;
         if (classWithSubject && assignment.staff_id) {

@@ -25,7 +25,7 @@ import {
   TooltipTrigger,
 } from "@altitutor/ui";
 import { Loader2, Pencil, Trash2, X, Copy, Check, Mail, UserPlus } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
@@ -115,8 +115,7 @@ export function StaffDetailsTab({
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const { toast } = useToast();
   const form = useForm<FormData>({
-    // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as Resolver<FormData>,
     defaultValues: {
       firstName: '',
       lastName: '',

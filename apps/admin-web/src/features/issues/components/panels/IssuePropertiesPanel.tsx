@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useCallback, memo } from 'react';
-import { ScrollArea, type JSONContent, Separator } from '@altitutor/ui';
+import { ScrollArea, Separator } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { IssueActivityTab } from '@/features/issues/components/IssueActivityTab';

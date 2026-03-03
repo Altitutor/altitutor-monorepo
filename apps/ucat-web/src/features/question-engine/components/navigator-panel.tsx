@@ -115,7 +115,6 @@ export function NavigatorPanel({
       if (event.button !== 0) return
       event.preventDefault()
       const panel = panelRef.current
-      const shellRect = getShellRect()
       if (!panel) return
       const panelRect = panel.getBoundingClientRect()
       resizeState.current = {

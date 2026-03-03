@@ -29,7 +29,7 @@ import { useCreateStudent } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { studentsApi } from '../api';
 import { formatSubjectDisplay } from '@/shared/utils';
-import { useForm, Controller, SubmitHandler, useFieldArray, type FieldValues } from 'react-hook-form';
+import { useForm, Controller, SubmitHandler, useFieldArray, type FieldValues, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
@@ -115,8 +115,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     reset,
     formState: { errors } 
   } = useForm<FormData>({
-    // @ts-expect-error - Type mismatch due to duplicate react-hook-form types in node_modules
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(formSchema) as Resolver<FormData>,
     defaultValues: {
       firstName: '',
       lastName: '',

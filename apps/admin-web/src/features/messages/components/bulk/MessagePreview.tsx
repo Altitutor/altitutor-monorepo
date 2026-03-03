@@ -11,8 +11,6 @@ import type { Tables } from '@altitutor/shared';
 import type { Sender } from '../../api/queries';
 import type { AttachmentFile } from '../../hooks/useMessageAttachments';
 import { MessageAttachment } from '../MessageThread';
-import type { MessagePreviewRecipient } from '../../api/bulk';
-
 interface MessagePreviewProps {
   students: Tables<'students'>[];
   message: string;

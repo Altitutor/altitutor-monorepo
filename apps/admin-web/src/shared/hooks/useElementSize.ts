@@ -11,6 +11,7 @@ export function useElementSize<T extends HTMLElement = HTMLDivElement>(): [RefOb
   const resizeObserverRef = useRef<ResizeObserver | null>(null);
   const elementRef = useRef<T | null>(null);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- Effect runs each render to detect when ref.current is populated; adding [] would miss late-mounted refs
   useEffect(() => {
     const element = ref.current;
     
@@ -53,9 +54,6 @@ export function useElementSize<T extends HTMLElement = HTMLDivElement>(): [RefOb
         resizeObserverRef.current = null;
       }
     };
-    // Effect runs on every render to check if ref.current has changed.
-    // The guard `element !== elementRef.current` prevents infinite loops.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   });
 
   return [ref, size];

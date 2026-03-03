@@ -7,7 +7,6 @@ import {
   filterAndSortPages,
   filterItemsByType,
   groupItemsByType,
-  type CommandPaletteItem,
 } from '../filtering';
 import type { CommandPaletteCommand, CommandPalettePage } from '../../config/commandPalette.config';
 import type { Tables } from '@altitutor/shared';

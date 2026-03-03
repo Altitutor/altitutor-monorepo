@@ -20,7 +20,6 @@ import { TablePagination } from '@/shared/components/TablePagination';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useSessionsTable } from '@/features/sessions/hooks/useSessionsTable';
 import { useDataTable } from '@/shared/hooks/useDataTable';
-import type { DataTableState } from '@altitutor/shared';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { processStaffSessionData } from '@/features/sessions/utils/modalSessionProcessing';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components/absences/LogStaffAbsenceDialog';
@@ -65,17 +64,7 @@ export function StaffModalSessionsTable({
   const [logSessionId, setLogSessionId] = useState<string | null>(null);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
 
-  const {
-    state,
-    setSearch,
-    setSort,
-    setFilters,
-    setPage,
-    setPageSize,
-    setVisibleColumns,
-    applyQuickFilter,
-    resetFilters,
-  } = useDataTable({
+  const { state, setSort, setPage, setPageSize } = useDataTable({
     defaultSort: { field: 'start_at', direction: 'desc' },
     pageSize: 50,
     skipUrlSync: true,
