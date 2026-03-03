@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type {
   QuestionEngineExam,
   QuestionEngineState,
@@ -12,46 +12,6 @@ import {
   getReviewQuestionStatus,
   type ReviewQuestionStatus,
 } from '@/features/question-engine/lib/review'
-
-const VISITED_STORAGE_KEY = 'ucat-visited'
-
-function getVisitedStorageKey(exam: QuestionEngineExam | undefined): string | null {
-  if (!exam) return null
-  return `${VISITED_STORAGE_KEY}-${exam.sourceType}-${exam.sourceId}`
-}
-
-function loadVisitedFromStorage(exam: QuestionEngineExam | undefined): string[] {
-  const key = getVisitedStorageKey(exam)
-  if (!key) return []
-  try {
-    const raw = typeof window !== 'undefined' ? sessionStorage.getItem(key) : null
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    return Array.isArray(parsed) ? parsed.filter((x): x is string => typeof x === 'string') : []
-  } catch {
-    return []
-  }
-}
-
-function saveVisitedToStorage(exam: QuestionEngineExam | undefined, ids: string[]): void {
-  const key = getVisitedStorageKey(exam)
-  if (!key) return
-  try {
-    if (typeof window !== 'undefined') sessionStorage.setItem(key, JSON.stringify(ids))
-  } catch {
-    // ignore
-  }
-}
-
-function clearVisitedStorage(exam: QuestionEngineExam | undefined): void {
-  const key = getVisitedStorageKey(exam)
-  if (!key) return
-  try {
-    if (typeof window !== 'undefined') sessionStorage.removeItem(key)
-  } catch {
-    // ignore
-  }
-}
 
 const initialState: QuestionEngineState = {
   phase: 'intro',
@@ -78,32 +38,7 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
 
   const questions = exam?.questions ?? []
 
-  // Restore visitedQuestionIds from sessionStorage when exam loads (survives React Strict Mode remount)
-  useEffect(() => {
-    if (!exam || questions.length === 0) return
-    const stored = loadVisitedFromStorage(exam)
-    const validIds = stored.filter((id) => questions.some((q) => q.id === id))
-    if (validIds.length === 0) return
-    setState((prev) => {
-      const merged = [...new Set([...prev.visitedQuestionIds, ...validIds])]
-      if (merged.length === prev.visitedQuestionIds.length) return prev
-      return { ...prev, visitedQuestionIds: merged }
-    })
-  }, [exam?.sourceType, exam?.sourceId, questions])
-
-  // Persist visitedQuestionIds to sessionStorage when it changes
-  useEffect(() => {
-    if (!exam || state.visitedQuestionIds.length === 0) return
-    saveVisitedToStorage(exam, state.visitedQuestionIds)
-  }, [exam?.sourceType, exam?.sourceId, state.visitedQuestionIds])
-
-  const clearVisitedSession = useCallback(() => {
-    clearVisitedStorage(exam)
-  }, [exam?.sourceType, exam?.sourceId])
-
   // When exam loads with instructions, start in instructions phase (set/mock mode)
-  // Also merge visitedQuestionIds from storage so we don't overwrite restored data (restore effect
-  // may not have been applied yet when this runs due to React's effect ordering)
   useEffect(() => {
     if (
       !exam ||
@@ -112,7 +47,6 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
     ) {
       return
     }
-    const questionsList = exam.questions ?? []
     setState((prev) => {
       if (prev.phase !== 'intro' || prev.instructionsIndex !== 0 || prev.currentIndex !== 0) {
         return prev
@@ -121,11 +55,6 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
       const timeLimit = getCurrentSegmentTimeLimitSeconds(exam, next)
       if (timeLimit != null && timeLimit > 0) {
         next.timerStartedAt = Date.now()
-      }
-      const stored = loadVisitedFromStorage(exam)
-      const validIds = stored.filter((id) => questionsList.some((q) => q.id === id))
-      if (validIds.length > 0) {
-        next.visitedQuestionIds = [...new Set([...prev.visitedQuestionIds, ...validIds])]
       }
       return next
     })
@@ -360,6 +289,5 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
-    clearVisitedSession,
   }
 }

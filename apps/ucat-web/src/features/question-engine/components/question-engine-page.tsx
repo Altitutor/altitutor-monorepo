@@ -97,7 +97,6 @@ export function QuestionEnginePage({
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
-    clearVisitedSession,
   } = useQuestionEngineState(exam)
   const router = useRouter()
   const { isLagging, runWithLag } = useUcatLag()
@@ -462,7 +461,6 @@ export function QuestionEnginePage({
     if (exam.sourceType === 'set') {
       void runWithLag(() => {
         handleExamCompleted()
-        clearVisitedSession()
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -477,7 +475,6 @@ export function QuestionEnginePage({
     if (!nextSeg) {
       void runWithLag(() => {
         handleExamCompleted()
-        clearVisitedSession()
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -574,7 +571,6 @@ export function QuestionEnginePage({
               onConfirm={() =>
                 void runWithLag(() => {
                   handleExamCompleted()
-                  clearVisitedSession()
                   setState((current) => ({
                     ...current,
                     phase: 'intro',
@@ -715,7 +711,6 @@ export function QuestionEnginePage({
                     setState((current) => ({ ...current, showEndReviewDialog: true }))
                   } else {
                     handleExamCompleted()
-                    clearVisitedSession()
                     setState((current) => ({
                       ...current,
                       phase: 'intro',
