@@ -1224,6 +1224,7 @@ export type Database = {
           is_pinned: boolean
           last_message_at: string | null
           last_message_id: string | null
+          needs_follow_up: boolean
           owned_number_id: string
           status: string
           updated_at: string | null
@@ -1240,6 +1241,7 @@ export type Database = {
           is_pinned?: boolean
           last_message_at?: string | null
           last_message_id?: string | null
+          needs_follow_up?: boolean
           owned_number_id: string
           status?: string
           updated_at?: string | null
@@ -1256,6 +1258,7 @@ export type Database = {
           is_pinned?: boolean
           last_message_at?: string | null
           last_message_id?: string | null
+          needs_follow_up?: boolean
           owned_number_id?: string
           status?: string
           updated_at?: string | null
