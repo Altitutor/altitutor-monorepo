@@ -17,6 +17,7 @@ import {
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
+import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
@@ -106,6 +107,14 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
     resolver: zodResolver(ucatQuestionStemSchema),
     defaultValues,
   })
+
+  const baseline = useMemo(() => snapshotQuestionStemFormValues(defaultValues), [defaultValues])
+  const watchedValues = form.watch()
+  const hasUnsavedChanges = isSnapshotDirty(
+    snapshotQuestionStemFormValues(watchedValues),
+    baseline
+  )
+
   async function onSubmit(values: UcatQuestionStemFormValues) {
     if (!stemId) return
     await updateStemMutation.mutateAsync({
@@ -136,8 +145,6 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
 
   if (isLoading) return <UcatPageSkeleton rows={6} />
   if (!access.data) return <UcatAccessDenied />
-
-  const hasUnsavedChanges = form.formState.isDirty
 
   return (
     <div className="p-6">

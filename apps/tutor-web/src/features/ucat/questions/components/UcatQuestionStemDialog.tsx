@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Json } from '@altitutor/shared'
 import type { Resolver, UseFormReturn } from 'react-hook-form'
-import { useFieldArray, useForm } from 'react-hook-form'
+import { Controller, useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
@@ -40,6 +40,7 @@ import { ExternalLink, Trash2 } from 'lucide-react'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
@@ -170,12 +171,30 @@ export function UcatQuestionStemDialog({
     defaultValues,
   })
 
+  // Baseline for semantic dirty check (avoids ProseMirror JSON structural false positives)
+  const [baseline, setBaseline] = useState<string>('')
+
   // When editing, populate the form once the initial stem detail has loaded.
+  // Only reset when opening a different stem—not when a refetch returns for the same stem.
+  // A refetch during save would overwrite user edits with stale data before the mutation completes.
+  const lastResetStemIdRef = useRef<string | null>(null)
   useEffect(() => {
     if (initial) {
-      form.reset(defaultValues)
+      const stemId = initial.id
+      if (lastResetStemIdRef.current !== stemId) {
+        lastResetStemIdRef.current = stemId
+        form.reset(defaultValues)
+        setBaseline(snapshotQuestionStemFormValues(defaultValues))
+      }
+    } else {
+      lastResetStemIdRef.current = null
     }
   }, [initial, defaultValues, form])
+
+  // Clear last-reset ref when dialog closes so reopening the same stem gets fresh data
+  useEffect(() => {
+    if (!open) lastResetStemIdRef.current = null
+  }, [open])
 
   // When opening for create (no initial), reset form so previous content is cleared
   useEffect(() => {
@@ -198,6 +217,7 @@ export function UcatQuestionStemDialog({
         ],
       }
       form.reset(emptyDefaults)
+      setBaseline(snapshotQuestionStemFormValues(emptyDefaults))
     }
   }, [open, initial, sections, form])
 
@@ -206,7 +226,9 @@ export function UcatQuestionStemDialog({
     // @ts-expect-error TS2589 - Form type is deep; runtime behavior is correct.
     form.handleSubmit(
       async (values) => {
-        await onSubmit(values)
+        // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
+        const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
+        await onSubmit(valuesCopy)
         setNewImageFileIds(new Set())
       },
       (errs: Record<string, unknown>) => {
@@ -220,7 +242,9 @@ export function UcatQuestionStemDialog({
     )()
   }
 
-  const hasUnsavedChanges = form.formState.isDirty
+  const watchedValues = form.watch()
+  const hasUnsavedChanges =
+    baseline !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
 
   const stemId = initial?.id
 
@@ -887,15 +911,21 @@ export function UcatQuestionStemFormContent({
               </label>
               <label className="block space-y-1 text-sm">
                 <span className="font-medium">Answer explanation</span>
-                <UcatRichTextEditor
-                  value={form.watch(`questions.${questionIndex}.answerExplanation`) as Json | null | undefined}
-                  onChange={(val) =>
-                    form.setValue(`questions.${questionIndex}.answerExplanation`, val, { shouldDirty: true })
-                  }
-                  minHeight="3rem"
-                  stemId={enableImages ? stemId ?? null : null}
-                  enableImages={enableImages}
-                  onImageFileIdsChange={(fileIds) => handleNewImageFileIds(fileIds)}
+                <Controller
+                  control={form.control}
+                  name={`questions.${questionIndex}.answerExplanation`}
+                  render={({ field }) => (
+                    <UcatRichTextEditor
+                      value={(field.value ?? null) as Json | null | undefined}
+                      onChange={(val) =>
+                        form.setValue(field.name, val, { shouldDirty: true })
+                      }
+                      minHeight="3rem"
+                      stemId={enableImages ? stemId ?? null : null}
+                      enableImages={enableImages}
+                      onImageFileIdsChange={(fileIds) => handleNewImageFileIds(fileIds)}
+                    />
+                  )}
                 />
               </label>
               <Button
@@ -955,6 +985,7 @@ export function UcatQuestionStemFormContent({
               append({
                 questionText: EMPTY_DOC,
                 questionType: stemType ?? 'multiple_choice',
+                answerExplanation: null,
                 difficulty: null,
                 timeBurdenSeconds: '',
                 tagIds: [],
