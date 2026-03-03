@@ -1,5 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createSupabaseClient } from '../_shared/supabase.ts';
 import { loadMessageSendData, updateMessageStatus } from '../_shared/messages.ts';
@@ -136,7 +134,7 @@ async function callIMessageSend(
   const bridgeUrl = Deno.env.get('IMESSAGE_BRIDGE_URL') || 'https://api.altitutor.com';
   const url = `${bridgeUrl}/messages/`;
 
-  const payload: any = {
+  const payload: { text: string; chatId?: string; to?: string; mediaUrls?: string[] } = {
     text: body,
   };
 
@@ -233,7 +231,7 @@ async function handleIMessage(
     .select('storage_url')
     .eq('message_id', messageId);
 
-  const mediaUrls = (attachments || []).map((a: any) => a.storage_url);
+  const mediaUrls = (attachments || []).map((a: { storage_url: string }) => a.storage_url);
 
   // Call iMessage bridge API
   const result = await callIMessageSend(
@@ -317,7 +315,7 @@ Deno.serve(async (req: Request) => {
 
     // Route based on provider (default to IMESSAGE if not set)
     const provider = data.ownedNumber.provider || 'IMESSAGE';
-    let result: any;
+    let result: { success: boolean; sid?: string; messageId?: string; guid?: string };
 
     if (provider === 'IMESSAGE') {
       result = await handleIMessage(supabase, data, messageId);
@@ -336,22 +334,23 @@ Deno.serve(async (req: Request) => {
         'Vary': 'Origin, Access-Control-Request-Headers',
       },
     });
-  } catch (e: any) {
-    console.error('[send-message] Error', e?.message || e);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[send-message] Error', msg);
 
     // Best effort: if we have messageId (captured before error), mark message as failed
     if (messageId) {
       try {
         const supabase = createSupabaseClient();
         await updateMessageStatus(supabase, messageId, 'FAILED', {
-          error_message: String(e?.message || e),
+          error_message: msg,
         });
       } catch (updateErr) {
         console.error('[send-message] Failed to update message status', updateErr);
       }
     }
 
-    return new Response(JSON.stringify({ error: e.message || 'Unknown error' }), {
+    return new Response(JSON.stringify({ error: msg || 'Unknown error' }), {
       status: 500,
       headers: {
         'Content-Type': 'application/json',

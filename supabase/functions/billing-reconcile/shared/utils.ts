@@ -1,5 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
 const corsHeaders = {
@@ -10,7 +9,7 @@ const corsHeaders = {
 /**
  * Create JSON response with CORS headers
  */
-export function json(resp: any, status = 200): Response {
+export function json(resp: unknown, status = 200): Response {
   try {
     const body = JSON.stringify(resp);
     return new Response(body, { 
@@ -20,8 +19,9 @@ export function json(resp: any, status = 200): Response {
         ...corsHeaders 
       } 
     });
-  } catch (e: any) {
-    console.error('[reconcile] Failed to serialize response:', e?.message || e);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[reconcile] Failed to serialize response:', msg);
     return new Response(JSON.stringify({ 
       error: 'serialization_error', 
       message: 'Failed to serialize response',
@@ -88,8 +88,9 @@ export async function fetchFullInvoice(
     return await stripe.invoices.retrieve(invoiceId, {
       expand: ['lines.data.price.product'],
     });
-  } catch (err: any) {
-    console.error(`[reconcile] Failed to retrieve Stripe invoice ${invoiceId}:`, err?.message || err);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[reconcile] Failed to retrieve Stripe invoice ${invoiceId}:`, msg);
     return null;
   }
 }
@@ -98,7 +99,7 @@ export async function fetchFullInvoice(
  * Validate sessions_students_id exists, with fallback lookup
  */
 export async function validateSessionsStudentsId(
-  supabase: any,
+  supabase: SupabaseClient,
   sessionsStudentsId: string | undefined,
   sessionId: string | undefined,
   studentId: string | undefined
@@ -186,8 +187,11 @@ export function isValidStatusTransition(
 /**
  * Extract error message safely
  */
-export function getErrorMessage(error: any): string {
+export function getErrorMessage(error: unknown): string {
   if (typeof error === 'string') return error;
-  if (error?.message) return error.message;
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
+    return (error as { message: string }).message;
+  }
   return 'Unknown error';
 }

@@ -127,9 +127,10 @@ export const staffFilesApi = {
     }
     
     // Get signed URLs for each file
+    type StaffFileWithNestedFile = Tables<'staff_files'> & { file: Tables<'files'> };
     const filesWithUrls = await Promise.all(
-      (data || []).map(async (staffFile: any) => {
-        const file = staffFile.file as Tables<'files'>;
+      (data || []).map(async (staffFile: StaffFileWithNestedFile) => {
+        const file = staffFile.file;
         const signedUrl = await getStaffFileSignedUrl(file.storage_path);
         
         return {
@@ -182,7 +183,8 @@ export const staffFilesApi = {
       throw staffFileError;
     }
     
-    const file = (staffFile as any).file as { storage_path: string };
+    type StaffFileWithStoragePath = { file: { storage_path: string } };
+    const file = (staffFile as StaffFileWithStoragePath).file;
     
     // Delete from storage first
     try {

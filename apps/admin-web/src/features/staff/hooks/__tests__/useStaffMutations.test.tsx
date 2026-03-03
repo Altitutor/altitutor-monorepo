@@ -30,19 +30,19 @@ describe('useStaffMutations', () => {
 
     mockUseUpdateStaff.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useUpdateStaff>);
 
     mockUseDeleteStaff.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useDeleteStaff>);
 
     mockUseAssignSubjectToStaff.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useAssignSubjectToStaff>);
 
     mockUseRemoveSubjectFromStaff.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useRemoveSubjectFromStaff>);
   });
 
   describe('updateDetails', () => {

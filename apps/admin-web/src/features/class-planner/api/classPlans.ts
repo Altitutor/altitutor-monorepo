@@ -379,7 +379,7 @@ export const classPlansApi = {
               id: crypto.randomUUID(),
               draft_class_id: newClassId,
               staff_id: staffMember.id,
-              type: (staffAssignment as any)?.type || 'MAIN_TUTOR',
+              type: (staffAssignment as { type?: string } | null)?.type || 'MAIN_TUTOR',
             });
           
           if (staffError) throw staffError;

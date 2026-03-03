@@ -68,8 +68,9 @@ export function NewConversationDialog({
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];
 
-      const rpcData = rpcResult as { students: any[]; total: number };
-      return (rpcData.students || []).map((s: any) => ({
+      type RpcStudent = Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name' | 'status' | 'curriculum' | 'year_level' | 'school' | 'email' | 'phone' | 'created_at' | 'updated_at'>;
+      const rpcData = rpcResult as { students: RpcStudent[]; total: number };
+      return (rpcData.students || []).map((s: RpcStudent) => ({
         id: s.id,
         first_name: s.first_name,
         last_name: s.last_name,
@@ -122,9 +123,10 @@ export function NewConversationDialog({
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];
 
-      const rpcData = rpcResult as { parents: any[]; total: number };
+      type RpcParent = Pick<Tables<'parents'>, 'id' | 'first_name' | 'last_name' | 'created_at' | 'updated_at'> & { email?: string | null; phone?: string | null };
+      const rpcData = rpcResult as { parents: RpcParent[]; total: number };
       // Transform RPC response to match Tables<'parents'> format
-      return (rpcData.parents || []).map((p: any) => ({
+      return (rpcData.parents || []).map((p: RpcParent) => ({
         id: p.id,
         first_name: p.first_name,
         last_name: p.last_name,

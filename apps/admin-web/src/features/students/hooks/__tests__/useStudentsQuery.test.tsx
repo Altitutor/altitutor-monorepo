@@ -16,6 +16,7 @@ import {
   studentsKeys,
 } from '../useStudentsQuery';
 import { studentsApi } from '../../api/students';
+import type { Tables } from '@altitutor/shared';
 
 // Mock the API
 jest.mock('../../api/students', () => ({
@@ -60,7 +61,7 @@ describe('useStudents hooks', () => {
         { id: '1', first_name: 'John', last_name: 'Doe', status: 'ACTIVE' },
         { id: '2', first_name: 'Jane', last_name: 'Smith', status: 'ACTIVE' },
       ];
-      mockStudentsApi.getAllStudents.mockResolvedValue(mockStudents as any);
+      mockStudentsApi.getAllStudents.mockResolvedValue(mockStudents as Tables<'students'>[]);
 
       const { result } = renderHook(() => useStudents(), {
         wrapper: createWrapper(),
@@ -89,7 +90,7 @@ describe('useStudents hooks', () => {
   describe('useStudent', () => {
     it('should fetch single student when id provided', async () => {
       const mockStudent = { id: '1', first_name: 'John', last_name: 'Doe' };
-      mockStudentsApi.getStudent.mockResolvedValue(mockStudent as any);
+      mockStudentsApi.getStudent.mockResolvedValue(mockStudent as Tables<'students'>);
 
       const { result } = renderHook(() => useStudent('1'), {
         wrapper: createWrapper(),
@@ -117,11 +118,11 @@ describe('useStudents hooks', () => {
         students: [{ id: '1', first_name: 'John', last_name: 'Doe' }],
         total: 1,
       };
-      mockStudentsApi.listMinimal.mockResolvedValue(mockResponse as any);
+      mockStudentsApi.listMinimal.mockResolvedValue(mockResponse as Awaited<ReturnType<typeof studentsApi.listMinimal>>);
 
       const params = {
         search: 'John',
-        statuses: ['ACTIVE'] as any[],
+        statuses: ['ACTIVE'] as Tables<'students'>['status'][],
         page: 1,
         pageSize: 50,
       };
@@ -138,7 +139,7 @@ describe('useStudents hooks', () => {
 
     it('should calculate offset correctly for pagination', async () => {
       const mockResponse = { students: [], total: 0 };
-      mockStudentsApi.listMinimal.mockResolvedValue(mockResponse as any);
+      mockStudentsApi.listMinimal.mockResolvedValue(mockResponse as Awaited<ReturnType<typeof studentsApi.listMinimal>>);
 
       const params = {
         page: 3,
@@ -166,7 +167,7 @@ describe('useStudents hooks', () => {
         subjects: [],
         classes: [],
       };
-      mockStudentsApi.getStudentDetails.mockResolvedValue(mockDetails as any);
+      mockStudentsApi.getStudentDetails.mockResolvedValue(mockDetails as unknown as Awaited<ReturnType<typeof studentsApi.getStudentDetails>>);
 
       const { result } = renderHook(() => useStudentDetails('1', true), {
         wrapper: createWrapper(),
@@ -191,7 +192,7 @@ describe('useStudents hooks', () => {
     it('should create student and invalidate queries', async () => {
       const newStudent = { first_name: 'John', last_name: 'Doe' };
       const createdStudent = { id: '1', ...newStudent };
-      mockStudentsApi.createStudent.mockResolvedValue(createdStudent as any);
+      mockStudentsApi.createStudent.mockResolvedValue(createdStudent as Awaited<ReturnType<typeof studentsApi.createStudent>>);
 
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },
@@ -204,7 +205,7 @@ describe('useStudents hooks', () => {
         wrapper,
       });
 
-      result.current.mutate(newStudent as any);
+      result.current.mutate(newStudent as Parameters<typeof studentsApi.createStudent>[0]);
 
       await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
@@ -217,7 +218,7 @@ describe('useStudents hooks', () => {
   describe('useUpdateStudent', () => {
     it('should update student and update cache', async () => {
       const updatedStudent = { id: '1', first_name: 'Jane', last_name: 'Doe' };
-      mockStudentsApi.updateStudent.mockResolvedValue(updatedStudent as any);
+      mockStudentsApi.updateStudent.mockResolvedValue(updatedStudent as Awaited<ReturnType<typeof studentsApi.updateStudent>>);
 
       const queryClient = new QueryClient({
         defaultOptions: { queries: { retry: false } },

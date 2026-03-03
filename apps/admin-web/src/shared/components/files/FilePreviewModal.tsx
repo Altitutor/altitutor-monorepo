@@ -15,7 +15,7 @@ import {
 import { getFileTypeIcon } from '@/shared/utils/file-type-icons';
 import { useFilePreview } from '@/shared/hooks/useFilePreview';
 import { isPdfFile, isImageFile, downloadFile, printPdf, setupPrintKeyboardHandler } from '@/shared/utils/fileOperations';
-import type { Enums } from '@altitutor/shared';
+import type { Enums, Tables } from '@altitutor/shared';
 
 export interface FilePreviewModalProps {
   isOpen: boolean;
@@ -44,8 +44,8 @@ export interface FilePreviewModalProps {
    * Should return file data and any additional metadata
    */
   getMetadataFn?: (junctionTableId: string) => Promise<{
-    file: any;
-    metadata?: Record<string, any>;
+    file: Tables<'files'>;
+    metadata?: Record<string, unknown>;
   }>;
 }
 

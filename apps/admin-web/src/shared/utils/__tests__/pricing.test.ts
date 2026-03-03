@@ -15,9 +15,9 @@ describe('calculateSessionPrice', () => {
     studentId: string | undefined,
     targetDate: Date,
     pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }>,
-    overridesBySubjectAndBilling: Record<string, Record<string, any>>,
-    pricingOverrides: any[],
-    subsidies: any[]
+    overridesBySubjectAndBilling: Record<string, Record<string, { hourly_rate_cents: number; currency: string }>>,
+    pricingOverrides: Array<{ subject_id: string; billing_type: string; effective_from: string; effective_until?: string | null; hourly_rate_cents: number; currency: string }>,
+    subsidies: Array<{ student_id: string; subject_id: string; billing_type: string; effective_from?: string | null; effective_until?: string | null; price_cents: number; currency?: string }>
   ): { amount_cents: number; currency: string } {
     if (!session.billing_type) {
       return { amount_cents: 0, currency: 'aud' };
@@ -34,7 +34,7 @@ describe('calculateSessionPrice', () => {
 
     if (override) {
       const overrideData = pricingOverrides?.find(
-        (o: any) =>
+        (o) =>
           o.subject_id === session.subject_id && o.billing_type === session.billing_type
       );
       if (overrideData) {
@@ -63,7 +63,7 @@ describe('calculateSessionPrice', () => {
 
     if (studentId && session.subject_id && session.billing_type) {
       const activeSub = (subsidies || []).find(
-        (s: any) =>
+        (s) =>
           s.student_id === studentId &&
           s.subject_id === session.subject_id &&
           s.billing_type === session.billing_type &&

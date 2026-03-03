@@ -272,7 +272,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Insert message with appropriate direction and status
-    const messageData: any = {
+    const messageData: Record<string, unknown> = {
       conversation_id: conversationId,
       direction: direction,
       body: text || '',
@@ -314,14 +314,16 @@ Deno.serve(async (req: Request) => {
       .eq('id', conversationId);
 
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    const ext = e && typeof e === 'object' ? e as { messageGuid?: string; from?: string; to?: string } : {};
     console.error('[imessage-inbound] Error processing webhook', {
-      error: e?.message || e,
-      stack: e?.stack,
-      messageGuid: e?.messageGuid || 'unknown',
-      from: e?.from || 'unknown',
-      to: e?.to || 'unknown',
+      error: err.message || e,
+      stack: err.stack,
+      messageGuid: ext.messageGuid || 'unknown',
+      from: ext.from || 'unknown',
+      to: ext.to || 'unknown',
     });
-    return new Response(JSON.stringify({ error: e?.message || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: err.message || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });

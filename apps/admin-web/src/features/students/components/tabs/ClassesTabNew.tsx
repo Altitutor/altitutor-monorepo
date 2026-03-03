@@ -75,7 +75,7 @@ export function ClassesTabNew({
             subject,
             staff,
             students: enrolledStudents,
-            enrollment: {} // Could fetch enrollment details here
+            enrollment: undefined // Could fetch enrollment details here
           });
         }
       }

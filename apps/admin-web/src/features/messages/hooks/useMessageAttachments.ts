@@ -58,14 +58,14 @@ export function useMessageAttachments() {
             : att
         )
       );
-    } catch (error: any) {
+    } catch (error: unknown) {
       setAttachments((prev) =>
         prev.map((att) =>
           att.id === attachmentId
             ? {
                 ...att,
                 status: 'error',
-                error: error?.message || 'Upload failed',
+                error: error instanceof Error ? error.message : 'Upload failed',
                 uploadProgress: 0,
               }
             : att

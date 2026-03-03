@@ -1,5 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
@@ -23,7 +21,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function json(resp: any, status = 200) {
+function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
     headers: {
@@ -50,7 +48,7 @@ Deno.serve(async (req: Request) => {
   const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 
   // Parse request body (must be done before auth check to avoid consuming body)
-  let requestBody: any = null;
+  let requestBody: Record<string, unknown> | null = null;
   if (req.method === 'POST') {
     try {
       const bodyText = await req.text();
@@ -116,8 +114,9 @@ Deno.serve(async (req: Request) => {
         403
       );
     }
-  } catch (authErr: any) {
-    return json({ error: 'Authentication error', message: authErr?.message }, 401);
+  } catch (authErr: unknown) {
+    const msg = authErr instanceof Error ? authErr.message : String(authErr);
+    return json({ error: 'Authentication error', message: msg }, 401);
   }
 
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
@@ -343,16 +342,17 @@ Deno.serve(async (req: Request) => {
       invoiceDate,
       message: 'Session invoiced successfully',
     });
-  } catch (e: any) {
-    console.error('[billing-single] Unexpected error:', e instanceof Error ? e.message : String(e));
-    if (e?.stack) {
-      console.error('[billing-single] Stack trace:', e.stack);
+  } catch (e: unknown) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    console.error('[billing-single] Unexpected error:', err.message);
+    if (err.stack) {
+      console.error('[billing-single] Stack trace:', err.stack);
     }
     return json(
       {
         error: 'internal_server_error',
-        message: e?.message || 'An unexpected error occurred',
-        sessions_students_id: requestBody?.sessions_students_id || null,
+        message: err.message || 'An unexpected error occurred',
+        sessions_students_id: requestBody?.sessions_students_id ?? null,
       },
       500
     );

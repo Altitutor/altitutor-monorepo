@@ -43,7 +43,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
 
   const getDaySessions = (d: Date): Tables<'sessions'>[] => {
     const sessions = ((data?.sessions as Tables<'sessions'>[]) || [])
-      .filter((s: any) => s.start_at && isSameDay(new Date(s.start_at), d));
+      .filter((s: Tables<'sessions'>) => s.start_at && isSameDay(new Date(s.start_at), d));
     return sessions as Tables<'sessions'>[];
   };
 
@@ -153,34 +153,34 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                           </div>
                         )}
                         {(() => {
-                        const daySessions = getDaySessions(d).sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime());
+                        const daySessions = getDaySessions(d).sort((a: Tables<'sessions'>, b: Tables<'sessions'>) => new Date(a.start_at ?? 0).getTime() - new Date(b.start_at ?? 0).getTime());
                         // Separate ADMIN_SHIFT sessions from regular sessions
                         // ADMIN_SHIFT sessions are long-duration availability windows and should not be grouped with regular sessions
-                        const adminShiftSessions = daySessions.filter((s: any) => s.type === 'ADMIN_SHIFT');
-                        const regularSessions = daySessions.filter((s: any) => s.type !== 'ADMIN_SHIFT');
+                        const adminShiftSessions = daySessions.filter((s: Tables<'sessions'>) => s.type === 'ADMIN_SHIFT');
+                        const regularSessions = daySessions.filter((s: Tables<'sessions'>) => s.type !== 'ADMIN_SHIFT');
                         
                         // Build overlap groups for regular sessions only (exclude ADMIN_SHIFT)
                         // Fix: Check if session overlaps with ANY session in the group, not just the first one
-                        const regularGroups: any[][] = [];
+                        const regularGroups: Tables<'sessions'>[][] = [];
                         const processed = new Set<string>();
-                        regularSessions.forEach((s: any) => {
+                        regularSessions.forEach((s: Tables<'sessions'>) => {
                           if (processed.has(s.id)) return;
-                          const group = [s];
+                          const group: Tables<'sessions'>[] = [s];
                           processed.add(s.id);
                           
                           // Keep checking for new overlaps until no more sessions can be added
                           let foundNewOverlap = true;
                           while (foundNewOverlap) {
                             foundNewOverlap = false;
-                            regularSessions.forEach((o: any) => {
+                            regularSessions.forEach((o: Tables<'sessions'>) => {
                               if (processed.has(o.id)) return;
-                              const oStart = adelaideTimeToMinutes(o.start_at);
-                              const oEnd = adelaideTimeToMinutes(o.end_at);
+                              const oStart = adelaideTimeToMinutes(o.start_at ?? '');
+                              const oEnd = adelaideTimeToMinutes(o.end_at ?? '');
                               
                               // Check if o overlaps with ANY session already in the group
-                              const overlapsWithGroup = group.some((groupSession: any) => {
-                                const gStart = adelaideTimeToMinutes(groupSession.start_at);
-                                const gEnd = adelaideTimeToMinutes(groupSession.end_at);
+                              const overlapsWithGroup = group.some((groupSession: Tables<'sessions'>) => {
+                                const gStart = adelaideTimeToMinutes(groupSession.start_at ?? '');
+                                const gEnd = adelaideTimeToMinutes(groupSession.end_at ?? '');
                                 // Events that end exactly when another starts should NOT overlap
                                 // Use strict comparison: gStart < oEnd && gEnd > oStart
                                 return gStart < oEnd && gEnd > oStart;
@@ -198,8 +198,8 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                         });
                         
                         // Create ADMIN_SHIFT groups (one session per group)
-                        const adminShiftGroups: any[][] = [];
-                        adminShiftSessions.forEach((s: any) => {
+                        const adminShiftGroups: Tables<'sessions'>[][] = [];
+                        adminShiftSessions.forEach((s: Tables<'sessions'>) => {
                           adminShiftGroups.push([s]);
                         });
                         
@@ -209,17 +209,17 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                         adminShiftGroups.forEach((group) => {
                           const total = group.length;
                           const columnWidth = total > 1 ? 95 / total : 95;
-                          group.forEach((s: any, idx: number) => {
-                            const sStartMinutes = adelaideTimeToMinutes(s.start_at);
-                            const sEndMinutes = adelaideTimeToMinutes(s.end_at);
-                            const top = Math.max(0, (minutesFromStart(s.start_at) / 60) * slotHeight);
+                          group.forEach((s: Tables<'sessions'>, idx: number) => {
+                            const sStartMinutes = adelaideTimeToMinutes(s.start_at ?? '');
+                            const sEndMinutes = adelaideTimeToMinutes(s.end_at ?? '');
+                            const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                             const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = (idx * columnWidth) + 2.5;
                             
-                            const cls: any = (data as any)?.classesById?.[s.class_id];
-                            const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-                            const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                            const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                            const cls = data?.classesById?.[s.class_id ?? ''];
+                            const subj = cls?.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined;
+                            const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+                            const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
                             // Check if session has any students attending (planned attendance)
                             const hasAttendingStudents = sessionStudents.length > 0 && 
@@ -258,17 +258,17 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                         regularGroups.forEach((group) => {
                           const total = group.length;
                           const columnWidth = total > 1 ? 95 / total : 95;
-                          group.forEach((s: any, idx: number) => {
-                            const sStartMinutes = adelaideTimeToMinutes(s.start_at);
-                            const sEndMinutes = adelaideTimeToMinutes(s.end_at);
-                            const top = Math.max(0, (minutesFromStart(s.start_at) / 60) * slotHeight);
+                          group.forEach((s: Tables<'sessions'>, idx: number) => {
+                            const sStartMinutes = adelaideTimeToMinutes(s.start_at ?? '');
+                            const sEndMinutes = adelaideTimeToMinutes(s.end_at ?? '');
+                            const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                             const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                             const left = (idx * columnWidth) + 2.5;
                             
-                            const cls: any = (data as any)?.classesById?.[s.class_id];
-                            const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-                            const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                            const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                            const cls = data?.classesById?.[s.class_id ?? ''];
+                            const subj = cls?.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined;
+                            const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+                            const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
                             // Check if session has any students attending (planned attendance)
                             const hasAttendingStudents = sessionStudents.length > 0 && 

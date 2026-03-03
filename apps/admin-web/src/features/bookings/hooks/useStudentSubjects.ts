@@ -19,9 +19,9 @@ export function useStudentSubjects(studentId: string | undefined, enabled: boole
         
       if (error) throw error;
       
+      type StudentSubjectRow = { subject_details: Tables<'subjects'> | null };
       return (data || [])
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .map((row: any) => row.subject_details)
+        .map((row: StudentSubjectRow) => row.subject_details)
         .filter(Boolean) as Tables<'subjects'>[];
     },
     enabled: enabled && !!studentId,

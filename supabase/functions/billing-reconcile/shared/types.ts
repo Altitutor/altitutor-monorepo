@@ -1,6 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
-
 /**
  * Reconciliation mode - determines which strategies to run
  */
@@ -36,8 +33,8 @@ export interface InvoiceReconciliationResult {
   warnings?: string[];
   changes?: {
     field: string;
-    old_value: any;
-    new_value: any;
+    old_value: unknown;
+    new_value: unknown;
   }[];
 }
 

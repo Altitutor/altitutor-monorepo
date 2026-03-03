@@ -66,11 +66,10 @@ async function getOrCreateContactsAndConversationsWithSender(
       return { studentConversations, parentConversations, studentsWithoutPhone, parentsWithoutPhone };
     }
     
+    type ParentStudentRow = { parent_id: string };
     const uniqueParentIds = Array.from(
       new Set(
-        (parentStudents || [])
-          .map((ps: any) => ps.parent_id)
-          .filter(Boolean)
+        (parentStudents || []).map((ps: ParentStudentRow) => ps.parent_id).filter(Boolean)
       )
     );
     
@@ -300,10 +299,11 @@ export function useAnnouncements() {
           studentIds: string[];
         }>();
 
-        for (const ps of (parentStudents || [])) {
-          const parentId = (ps as any).parent_id;
-          const studentId = (ps as any).student_id;
-          const parent = (ps as any).parents;
+        type ParentStudentWithParent = { parent_id: string; student_id: string; parents: Tables<'parents'> | null };
+        for (const ps of (parentStudents || []) as ParentStudentWithParent[]) {
+          const parentId = ps.parent_id;
+          const studentId = ps.student_id;
+          const parent = ps.parents;
 
           if (!parent?.phone) continue;
 

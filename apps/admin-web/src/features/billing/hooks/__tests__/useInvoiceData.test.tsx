@@ -41,8 +41,8 @@ describe('useInvoiceData', () => {
       },
     ];
 
-    mockBillingApi.getInvoiceById.mockResolvedValue(mockInvoice as any);
-    mockBillingApi.getInvoiceItemsByInvoice.mockResolvedValue(mockInvoiceItems as any);
+    mockBillingApi.getInvoiceById.mockResolvedValue(mockInvoice as Awaited<ReturnType<typeof billingApi.getInvoiceById>>);
+    mockBillingApi.getInvoiceItemsByInvoice.mockResolvedValue(mockInvoiceItems as Awaited<ReturnType<typeof billingApi.getInvoiceItemsByInvoice>>);
 
     const { result } = renderHookWithQueryClient(() =>
       useInvoiceData({ invoiceId: 'invoice-1' })
@@ -82,8 +82,8 @@ describe('useInvoiceData', () => {
   });
 
   it('should return isLoading true while fetching', async () => {
-    let resolveInvoice: (value: any) => void;
-    let resolveItems: (value: any) => void;
+    let resolveInvoice: (value: Awaited<ReturnType<typeof billingApi.getInvoiceById>>) => void;
+    let resolveItems: (value: Awaited<ReturnType<typeof billingApi.getInvoiceItemsByInvoice>>) => void;
 
     const invoicePromise = new Promise((resolve) => {
       resolveInvoice = resolve;
@@ -92,8 +92,8 @@ describe('useInvoiceData', () => {
       resolveItems = resolve;
     });
 
-    mockBillingApi.getInvoiceById.mockReturnValue(invoicePromise as any);
-    mockBillingApi.getInvoiceItemsByInvoice.mockReturnValue(itemsPromise as any);
+    mockBillingApi.getInvoiceById.mockReturnValue(invoicePromise as ReturnType<typeof mockBillingApi.getInvoiceById>);
+    mockBillingApi.getInvoiceItemsByInvoice.mockReturnValue(itemsPromise as ReturnType<typeof mockBillingApi.getInvoiceItemsByInvoice>);
 
     const { result } = renderHookWithQueryClient(() =>
       useInvoiceData({ invoiceId: 'invoice-1' })
@@ -101,7 +101,7 @@ describe('useInvoiceData', () => {
 
     expect(result.current.isLoading).toBe(true);
 
-    resolveInvoice!({ id: 'invoice-1' });
+    resolveInvoice!({ id: 'invoice-1' } as Awaited<ReturnType<typeof billingApi.getInvoiceById>>);
     resolveItems!([]);
 
     await waitFor(() => {
@@ -119,7 +119,7 @@ describe('useInvoiceData', () => {
       student: null,
     };
 
-    mockBillingApi.getInvoiceById.mockResolvedValue(mockInvoice as any);
+    mockBillingApi.getInvoiceById.mockResolvedValue(mockInvoice as Awaited<ReturnType<typeof billingApi.getInvoiceById>>);
     mockBillingApi.getInvoiceItemsByInvoice.mockResolvedValue([]);
 
     const { result } = renderHookWithQueryClient(() =>
@@ -143,7 +143,7 @@ describe('useInvoiceData', () => {
       invoice_date: '2024-01-15',
     };
 
-    mockBillingApi.getInvoiceById.mockResolvedValue(mockInvoice as any);
+    mockBillingApi.getInvoiceById.mockResolvedValue(mockInvoice as Awaited<ReturnType<typeof billingApi.getInvoiceById>>);
     mockBillingApi.getInvoiceItemsByInvoice.mockResolvedValue([]);
 
     const { result } = renderHookWithQueryClient(() =>

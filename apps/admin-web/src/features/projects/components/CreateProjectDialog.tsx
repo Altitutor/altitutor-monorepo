@@ -118,7 +118,6 @@ export function CreateProjectDialog({ isOpen, onClose, onProjectCreated, initial
                   />
                   <ProjectDescriptionField
                     form={form}
-                    value={form.watch('description') as any}
                     descriptionRef={descriptionFieldRef}
                   />
                 </div>

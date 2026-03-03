@@ -1,5 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
@@ -24,7 +22,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function json(resp: any, status = 200) {
+function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
     headers: {
@@ -53,7 +51,7 @@ Deno.serve(async (req: Request) => {
 
   // Parse request body for date override (must be done before auth check to avoid consuming body)
   let dateOverride: string | null = null;
-  let requestBody: any = null;
+  let requestBody: Record<string, unknown> | null = null;
 
   if (req.method === 'POST') {
     try {
@@ -126,8 +124,9 @@ Deno.serve(async (req: Request) => {
         403
       );
     }
-  } catch (authErr: any) {
-    return json({ error: 'Authentication error', message: authErr?.message }, 401);
+  } catch (authErr: unknown) {
+    const msg = authErr instanceof Error ? authErr.message : String(authErr);
+    return json({ error: 'Authentication error', message: msg }, 401);
   }
 
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
@@ -176,7 +175,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Load attending students
-    const sessionIds = sessions.map((s: any) => s.id);
+    const sessionIds = sessions.map((s: { id: string }) => s.id);
     const { data: ssRows, error: ssErr } = await supabase
       .from('sessions_students')
       .select('id, session_id, student_id, planned_absence')
@@ -185,8 +184,8 @@ Deno.serve(async (req: Request) => {
 
     // *** NEW: Check which sessions_students_ids are already invoiced (session-level idempotency) ***
     const sessionsStudentsIds = (ssRows || [])
-      .filter((row: any) => !row.planned_absence)
-      .map((row: any) => row.id);
+      .filter((row: { planned_absence?: boolean }) => !row.planned_absence)
+      .map((row: { id: string }) => row.id);
     const invoicedSessionsStudentsIds = await getInvoicedSessionsStudentsIds(
       supabase,
       sessionsStudentsIds
@@ -194,7 +193,7 @@ Deno.serve(async (req: Request) => {
 
     // Filter out already-invoiced sessions
     const uninvoicedSsRows = (ssRows || []).filter(
-      (row: any) => !row.planned_absence && !invoicedSessionsStudentsIds.has(row.id)
+      (row: { planned_absence?: boolean; id: string }) => !row.planned_absence && !invoicedSessionsStudentsIds.has(row.id)
     );
 
     if (uninvoicedSsRows.length === 0) {
@@ -209,9 +208,9 @@ Deno.serve(async (req: Request) => {
 
     // Get unique session IDs from uninvoiced sessions
     const uninvoicedSessionIds = Array.from(
-      new Set(uninvoicedSsRows.map((row: any) => row.session_id))
+      new Set(uninvoicedSsRows.map((row: { session_id: string }) => row.session_id))
     );
-    const uninvoicedSessions = sessions.filter((s: any) =>
+    const uninvoicedSessions = sessions.filter((s: { id: string }) =>
       uninvoicedSessionIds.includes(s.id)
     );
 
@@ -219,7 +218,7 @@ Deno.serve(async (req: Request) => {
     const pricingByBillingType = await loadBillingPricing(supabase);
 
     // Load subject pricing overrides
-    const subjectIds = Array.from(new Set(uninvoicedSessions.map((s: any) => s.subject_id).filter(Boolean)));
+    const subjectIds = Array.from(new Set(uninvoicedSessions.map((s: { subject_id?: string | null }) => s.subject_id).filter(Boolean)));
     const { overridesBySubjectAndBilling, pricingOverrides } = await loadPricingOverrides(
       supabase,
       subjectIds
@@ -230,7 +229,7 @@ Deno.serve(async (req: Request) => {
 
     // Load classes for class name display
     const classIds = Array.from(
-      new Set(uninvoicedSessions.map((s: any) => s.class_id).filter(Boolean))
+      new Set(uninvoicedSessions.map((s: { class_id?: string | null }) => s.class_id).filter(Boolean))
     );
     const classById = await loadClasses(supabase, classIds);
 
@@ -248,7 +247,7 @@ Deno.serve(async (req: Request) => {
 
     // Process each session individually (same as billing-single)
     for (const row of uninvoicedSsRows) {
-      const session = uninvoicedSessions.find((s: any) => s.id === row.session_id);
+      const session = uninvoicedSessions.find((s: { id: string }) => s.id === row.session_id);
       if (!session) continue;
 
       const subject = session.subject_id ? subjectById[session.subject_id] : null;
@@ -309,15 +308,16 @@ Deno.serve(async (req: Request) => {
       dateRange: { start: startIso, end: endIso },
       message: `Created ${invoicesCreated.length} invoices${isStripeTestKey ? ' (using Stripe test keys)' : isStripeLiveKey ? ' (using Stripe live keys)' : ''}`,
     });
-  } catch (e: any) {
-    console.error('[billing-runner] Unexpected error:', e instanceof Error ? e.message : String(e));
-    if (e?.stack) {
-      console.error('[billing-runner] Stack trace:', e.stack);
+  } catch (e: unknown) {
+    const err = e instanceof Error ? e : new Error(String(e));
+    console.error('[billing-runner] Unexpected error:', err.message);
+    if (err.stack) {
+      console.error('[billing-runner] Stack trace:', err.stack);
     }
     return json(
       {
         error: 'internal_server_error',
-        message: e?.message || String(e),
+        message: err.message || String(e),
         dateRange: { start: startIso || 'unknown', end: endIso || 'unknown' },
       },
       500

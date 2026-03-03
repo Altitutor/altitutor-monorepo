@@ -1,5 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import type { StrategyResult } from '../shared/types.ts';
 import { 
@@ -14,7 +13,7 @@ import {
  */
 export async function reconcileMissingInvoices(
   stripe: Stripe,
-  supabase: any,
+  supabase: SupabaseClient,
   daysBack: number
 ): Promise<StrategyResult> {
   const reconciled: string[] = [];
@@ -123,7 +122,17 @@ export async function reconcileMissingInvoices(
         
         // Insert invoice items using upsert to handle duplicates
         // Validate sessions_students_id before inserting
-        const itemInserts: any[] = [];
+        const itemInserts: Array<{
+          invoice_id: string;
+          sessions_students_id: string;
+          stripe_invoice_item_id: string;
+          amount_cents: number;
+          description: string;
+          is_subsidy: boolean;
+          is_fee: boolean;
+          session_id: string | null;
+          student_id: string;
+        }> = [];
         const invalidItems: string[] = [];
         
         for (const item of invoiceItems.data.filter(item => item.invoice === invoice.id)) {
@@ -193,7 +202,7 @@ export async function reconcileMissingInvoices(
         
         reconciled.push(invoice.id);
         console.log(`[missing-invoices] Reconciled invoice ${invoice.id} for student ${studentId}`);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(`[missing-invoices] Failed to reconcile invoice ${invoice.id}:`, getErrorMessage(err));
         errors.push(`Invoice ${invoice.id}: ${getErrorMessage(err)}`);
       }

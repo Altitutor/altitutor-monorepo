@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
 
     console.log('[sync-imessage-history] Starting sync', { since: since.toISOString() });
 
-    let allMessages: any[] = [];
+    let allMessages: Array<Record<string, unknown>> = [];
     let offset = 0;
     const limit = 500;
     let hasMore = true;
@@ -157,7 +157,7 @@ Deno.serve(async (req: Request) => {
         }
 
         // Prepare attachments
-        const attachmentInserts = attachments.map((att: any) => ({
+        const attachmentInserts = attachments.map((att: { url?: string; filename?: string }) => ({
           storage_url: att.url || att.path || '',
           filename: att.filename || null,
           mime_type: att.mimeType || att.type || null,
@@ -191,8 +191,9 @@ Deno.serve(async (req: Request) => {
           .eq('id', conversationId);
 
         synced++;
-      } catch (e: any) {
-        console.error('[sync-imessage-history] Error processing message', { guid: msg.guid, error: e?.message || e });
+      } catch (e: unknown) {
+        const errMsg = e instanceof Error ? e.message : String(e);
+        console.error('[sync-imessage-history] Error processing message', { guid: msg.guid, error: errMsg });
         errors++;
       }
     }
@@ -206,8 +207,9 @@ Deno.serve(async (req: Request) => {
       errors, 
       total: allMessages.length 
     }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-  } catch (e: any) {
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
     console.error('[sync-imessage-history] Error', e);
-    return new Response(JSON.stringify({ error: e?.message || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ error: msg || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });

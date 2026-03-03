@@ -458,7 +458,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   >
                     {state.visibleColumns.includes('status') && (
                       <TableCell>
-                        <Badge className={cn("text-xs", getStudentStatusColor(student.status))}>
+                        <Badge className={cn("text-xs", getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'))}>
                           {student.status}
                         </Badge>
                       </TableCell>
@@ -467,7 +467,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                       <TableCell>
                         <div className="flex flex-wrap gap-1 items-center">
                           {student.curriculum ? (
-                            <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum))}>
+                            <Badge className={cn("text-xs", getSubjectCurriculumColor(student.curriculum as 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE'))}>
                               {student.curriculum}
                             </Badge>
                           ) : null}
@@ -561,7 +561,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         }}
                         onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE'
                           ? () => {
-                              setStudentToDiscontinue(student as any);
+                              setStudentToDiscontinue(student);
                             }
                           : undefined}
                         onDelete={() => {
@@ -655,7 +655,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             setInviteDialogOpen(false);
             setActionStudentId(null);
           }}
-          student={filteredStudents.find(s => s.id === actionStudentId)! as any}
+          student={filteredStudents.find(s => s.id === actionStudentId)!}
           linkType={inviteDialogType}
         />
       )}

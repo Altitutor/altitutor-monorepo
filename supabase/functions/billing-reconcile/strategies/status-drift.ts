@@ -1,5 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import type { StrategyResult, InvoiceReconciliationResult } from '../shared/types.ts';
 import { 
@@ -15,7 +14,7 @@ import {
  */
 export async function reconcileStatusDrift(
   stripe: Stripe,
-  supabase: any,
+  supabase: SupabaseClient,
   daysBack: number,
   fixDrift: boolean = false
 ): Promise<StrategyResult> {
@@ -136,7 +135,7 @@ export async function reconcileStatusDrift(
       }
       
       mismatches.push(mismatch);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[status-drift] Failed to check status for invoice ${invoice.stripe_invoice_id}:`, getErrorMessage(err));
       errors.push(`Invoice ${invoice.stripe_invoice_id}: ${getErrorMessage(err)}`);
     }

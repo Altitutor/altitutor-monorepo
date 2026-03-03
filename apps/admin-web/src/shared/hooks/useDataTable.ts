@@ -15,7 +15,7 @@ function isEqual(a: unknown, b: unknown): boolean {
   
   for (let i = 0; i < keysA.length; i++) {
     const key = keysA[i];
-    if (keysA[i] !== keysB[i] || !isEqual((a as any)[key], (b as any)[key])) return false;
+    if (keysA[i] !== keysB[i] || !isEqual((a as Record<string, unknown>)[key], (b as Record<string, unknown>)[key])) return false;
   }
   
   return true;
@@ -260,7 +260,7 @@ export function useDataTable({
 
   const toggleFilter = useCallback((key: string, value: unknown) => {
     const current = state.filters[key] ?? [];
-    const next = current.includes(value as any)
+    const next = current.includes(value)
       ? current.filter((v) => v !== value)
       : [...current, value];
     

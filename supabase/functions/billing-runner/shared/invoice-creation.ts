@@ -1,5 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import {
   generateInvoiceIdempotencyKey,
@@ -12,19 +11,33 @@ const LOG_PREFIX = '[billing-runner]';
 /**
  * Create Stripe invoice items and return them with stripe_invoice_item_id
  */
+interface InvoiceItemInput {
+  sessions_students_id?: string;
+  session_id?: string;
+  student_id: string;
+  amount_cents: number;
+  description: string;
+  is_subsidy?: boolean;
+  is_fee?: boolean;
+}
+
+interface StripeInvoiceItemWithId extends InvoiceItemInput {
+  stripe_invoice_item_id: string;
+}
+
 export async function createStripeInvoiceItems(
   stripe: Stripe,
   customerId: string,
-  invoiceItems: any[],
+  invoiceItems: InvoiceItemInput[],
   currency: string,
   studentId: string,
   invoiceDate: string,
   timestamp: number
 ): Promise<{
-  stripeInvoiceItems: any[];
+  stripeInvoiceItems: StripeInvoiceItemWithId[];
   createdStripeItemIds: string[];
 }> {
-  const stripeInvoiceItems: any[] = [];
+  const stripeInvoiceItems: StripeInvoiceItemWithId[] = [];
   const createdStripeItemIds: string[] = [];
 
   for (const item of invoiceItems) {
@@ -204,7 +217,7 @@ export async function createStripeCustomer(
  * Save invoice to database
  */
 export async function saveInvoiceToDatabase(
-  supabase: any,
+  supabase: SupabaseClient,
   studentId: string,
   finalizedInvoice: Stripe.Invoice,
   invoiceDate: string
@@ -277,9 +290,9 @@ export async function saveInvoiceToDatabase(
  * Uses stripe_invoice_item_id as unique key to prevent duplicates
  */
 export async function saveInvoiceItemsToDatabase(
-  supabase: any,
+  supabase: SupabaseClient,
   invoiceId: string,
-  stripeInvoiceItems: any[]
+  stripeInvoiceItems: StripeInvoiceItemWithId[]
 ): Promise<void> {
   if (!stripeInvoiceItems || stripeInvoiceItems.length === 0) {
     return; // Nothing to save
@@ -322,7 +335,7 @@ export async function saveInvoiceItemsToDatabase(
  * Following Stripe best practices: store charge ID for refund/dispute tracking
  */
 export async function updateInvoicePaymentStatus(
-  supabase: any,
+  supabase: SupabaseClient,
   invoiceId: string,
   paidInvoice: Stripe.Invoice
 ): Promise<void> {
@@ -330,17 +343,15 @@ export async function updateInvoicePaymentStatus(
   // This is critical for refund tracking - charge.refunded webhooks need this to find invoices
   let chargeId: string | null = null;
   if (paidInvoice.latest_charge) {
-    chargeId = typeof paidInvoice.latest_charge === 'string'
-      ? paidInvoice.latest_charge
-      : (paidInvoice.latest_charge as any)?.id || null;
+    const lc = paidInvoice.latest_charge;
+    chargeId = typeof lc === 'string' ? lc : (lc && typeof lc === 'object' && 'id' in lc ? (lc as { id: string }).id : null);
   }
   
   // Extract payment intent ID from payment_intent (can be string ID or expanded object)
   let payment_intent_id: string | null = null;
   if (paidInvoice.payment_intent) {
-    payment_intent_id = typeof paidInvoice.payment_intent === 'string'
-      ? paidInvoice.payment_intent
-      : (paidInvoice.payment_intent as any)?.id || null;
+    const pi = paidInvoice.payment_intent;
+    payment_intent_id = typeof pi === 'string' ? pi : (pi && typeof pi === 'object' && 'id' in pi ? (pi as { id: string }).id : null);
   }
   
   // Use null coalescing to properly handle null values (important for customer balance payments)
@@ -372,7 +383,7 @@ export async function updateInvoicePaymentStatus(
  * Update invoice with payment error in database
  */
 export async function updateInvoicePaymentError(
-  supabase: any,
+  supabase: SupabaseClient,
   invoiceId: string,
   errorMessage: string
 ): Promise<void> {

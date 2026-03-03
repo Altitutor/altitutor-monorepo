@@ -315,7 +315,7 @@ export function Composer({
                 return {
                   student,
                   classes,
-                  linkTokens: linkTokens ?? null,
+                  linkTokens: linkTokens ?? undefined,
                 };
               })
             );

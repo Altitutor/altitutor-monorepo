@@ -101,15 +101,15 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       onClassAdded();
       resetForm();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       let errorMessage = 'Failed to create class';
       
-      if (err?.message) {
+      if (err instanceof Error) {
         errorMessage = err.message;
-      } else if (err?.details) {
-        errorMessage = err.details;
-      } else if (err?.hint) {
-        errorMessage = err.hint;
+      } else if (err && typeof err === 'object' && 'details' in err) {
+        errorMessage = String((err as { details?: string }).details);
+      } else if (err && typeof err === 'object' && 'hint' in err) {
+        errorMessage = String((err as { hint?: string }).hint);
       } else if (typeof err === 'string') {
         errorMessage = err;
       }

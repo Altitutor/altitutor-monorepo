@@ -108,7 +108,10 @@ export function useSendMessage() {
       // which marks the message as FAILED when applicable.
       supabase.functions
         .invoke('send-message', { body: { messageId: created.id } })
-        .catch((e: any) => console.error('[send-message invoke] error', e?.message || e));
+        .catch((e: unknown) => {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[send-message invoke] error', msg);
+        });
 
       // Return immediately so UI can refresh and show the queued message
       return { messageId: created.id, conversationId };

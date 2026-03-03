@@ -557,7 +557,7 @@ export function EnrollmentWeekCalendar({
                               } else {
                                 // Regular sessions: get from query data
                                 const existingStudents = ((data as { sessionStudents?: Record<string, Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>> })?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                                const existingStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                                const existingStaff = ((data as { sessionStaff?: Record<string, Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>> })?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                                 
                                 if (isClassContext) {
                                   // Class context: add potential student if session is after enrollment date

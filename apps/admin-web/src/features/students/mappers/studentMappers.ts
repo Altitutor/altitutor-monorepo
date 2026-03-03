@@ -5,11 +5,11 @@ export function mapDetailsFormToStudentUpdate(data: DetailsFormData): TablesUpda
   return {
     first_name: data.firstName,
     last_name: data.lastName,
-    email: (data.email || null) as any,
-    phone: (data.phone || null) as any,
+    email: data.email || null,
+    phone: data.phone || null,
     school: data.school || null,
     // Keep enum tightening for Phase 7; for now allow null or provided value
-    curriculum: (data.curriculum || null) as any,
+    curriculum: data.curriculum || null,
     year_level: data.yearLevel ?? null,
     // Status is not editable through the form - use discontinue/re-enroll actions instead
     availability_monday: data.availability_monday,

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import { parseTags } from '@/shared/utils/tagParsing';
 import { extractMentions } from '@/shared/utils/extractMentions';
-import type { IssueFormData, IssueTagInsert } from '../types';
+import type { IssueFormData, IssueTagInsert, IssueTag } from '../types';
 
 interface UseLiveIssueTagsOptions {
   form: UseFormReturn<IssueFormData>;
@@ -35,22 +35,21 @@ export function useLiveIssueTags({ form, initialTags = [] }: UseLiveIssueTagsOpt
       ...descriptionMentions,
     ];
 
-    // 4. De-duplicate tags by their ID fields
+    // 4. De-duplicate tags by their ID fields; build minimal tag-like objects for panel display
     const uniqueTagsMap = new Map<string, Record<string, unknown>>();
-    
+
     allTags.forEach(tag => {
-      // Find the entity ID field (e.g., student_id, staff_id, etc.)
       const tagRecord = tag as Record<string, unknown>;
       const idKey = Object.keys(tagRecord).find(key => key.endsWith('_id') && tagRecord[key]);
       if (idKey) {
         const idValue = tagRecord[idKey];
         const uniqueKey = `${idKey}:${idValue}`;
         if (!uniqueTagsMap.has(uniqueKey)) {
-          uniqueTagsMap.set(uniqueKey, tag);
+          uniqueTagsMap.set(uniqueKey, { ...tagRecord, id: uniqueKey });
         }
       }
     });
 
-    return Array.from(uniqueTagsMap.values());
+    return Array.from(uniqueTagsMap.values()) as IssueTag[];
   }, [nameValue, descriptionValue, initialTags]);
 }

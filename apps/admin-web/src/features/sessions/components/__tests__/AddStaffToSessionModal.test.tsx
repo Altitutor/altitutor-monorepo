@@ -5,11 +5,14 @@ import { AddStaffToSessionModal } from '../AddStaffToSessionModal';
 import { renderWithProviders } from '@/shared/test-utils';
 
 beforeAll(() => {
-  (global as any).ResizeObserver = class ResizeObserver {
-    observe() {}
-    unobserve() {}
-    disconnect() {}
-  };
+  Object.defineProperty(globalThis, 'ResizeObserver', {
+    value: class ResizeObserver {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+    writable: true,
+  });
 });
 
 jest.mock('@/features/staff/api/staff', () => ({
@@ -19,22 +22,23 @@ jest.mock('@/features/staff/api/staff', () => ({
 }));
 
 import { staffApi } from '@/features/staff/api/staff';
+import type { Tables } from '@altitutor/shared';
 
 const mockListMinimal = staffApi.listMinimal as jest.MockedFunction<typeof staffApi.listMinimal>;
+
+const mockStaff: Partial<Tables<'staff'>> = {
+  id: 'staff-1',
+  first_name: 'Jane',
+  last_name: 'Tutor',
+  status: 'ACTIVE',
+  role: 'TUTOR',
+};
 
 describe('AddStaffToSessionModal', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockListMinimal.mockResolvedValue({
-      staff: [
-        {
-          id: 'staff-1',
-          first_name: 'Jane',
-          last_name: 'Tutor',
-          status: 'ACTIVE',
-          role: 'TUTOR',
-        } as any,
-      ],
+      staff: [mockStaff as Tables<'staff'>],
       total: 1,
     });
   });

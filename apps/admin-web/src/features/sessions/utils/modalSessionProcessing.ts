@@ -38,21 +38,13 @@ type SessionStudentDataItem = {
   planned_absence?: boolean;
   actual_attended?: boolean | null;
   invoice_status?: string | null;
-  sessions_students_id?: string;
+  sessions_students_id?: string | null;
   is_extra?: boolean;
   was_trial?: boolean;
   was_trial_actual?: boolean;
   is_rescheduled?: boolean;
   is_credited?: boolean;
-  rescheduled_session?: {
-    session?: {
-      id: string;
-      start_at?: string;
-      class?: {
-        start_time?: string;
-      };
-    };
-  };
+  rescheduled_session?: unknown;
 };
 
 export function processStudentSessionData(
@@ -71,13 +63,13 @@ export function processStudentSessionData(
   // This means extra students won't be marked as "attending-extra" in modal context
   const input: StudentAttendanceInput = {
     student_id: studentId,
-    sessions_students_id: studentData.sessions_students_id,
+    sessions_students_id: studentData.sessions_students_id ?? undefined,
     planned_absence: studentData.planned_absence,
     is_extra: studentData.is_extra,
     was_trial: studentData.was_trial,
     is_rescheduled: studentData.is_rescheduled,
     is_credited: studentData.is_credited,
-    rescheduled_session: studentData.rescheduled_session,
+    rescheduled_session: studentData.rescheduled_session as StudentAttendanceInput['rescheduled_session'],
     actual_attended: studentData.actual_attended,
     actual_was_trial: studentData.was_trial_actual ?? studentData.was_trial, // Infer from planned if actual not available
   };

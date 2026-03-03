@@ -1,5 +1,3 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
@@ -9,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-function json(resp: any, status = 200) {
+function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
     headers: { 
@@ -267,8 +265,9 @@ Deno.serve(async (req: Request) => {
               default_payment_method: paymentMethod.stripe_payment_method_id,
             },
           });
-        } catch (stripeError: any) {
-          console.error('[payment-methods] Failed to update Stripe default payment method:', stripeError?.message);
+        } catch (stripeError: unknown) {
+          const msg = stripeError instanceof Error ? stripeError.message : String(stripeError);
+          console.error('[payment-methods] Failed to update Stripe default payment method:', msg);
           // Don't fail the request - DB update succeeded, webhook can sync later
         }
       }
@@ -326,8 +325,9 @@ Deno.serve(async (req: Request) => {
       // Detach payment method from Stripe customer
       try {
         await stripe.paymentMethods.detach(paymentMethod.stripe_payment_method_id);
-      } catch (stripeError: any) {
-        console.error('[payment-methods] Stripe detach error:', stripeError?.message);
+      } catch (stripeError: unknown) {
+        const msg = stripeError instanceof Error ? stripeError.message : String(stripeError);
+        console.error('[payment-methods] Stripe detach error:', msg);
         // Continue even if Stripe detach fails - the webhook might have already handled it
       }
 
@@ -370,11 +370,12 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Invalid action. Use "create_setup_intent", "set_default", "delete", or "verify_payment_method"' }, 400);
     }
 
-  } catch (e: any) {
-    console.error('[payment-methods] error', e?.message || e);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[payment-methods] error', msg);
     return json({ 
       error: 'payment_methods_error', 
-      message: String(e?.message || e) 
+      message: msg 
     }, 500);
   }
 });

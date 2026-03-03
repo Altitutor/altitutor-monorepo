@@ -41,10 +41,21 @@ export const parentsApi = {
     if (rpcError) throw rpcError;
     if (!rpcResult) return { parents: [], total: 0 };
 
-    const rpcData = rpcResult as { parents: any[]; total: number };
+    type RpcStudentPreview = { id: string; first_name: string | null; last_name: string | null; status: string; curriculum: string | null; year_level: number | null; school: string | null };
+    type RpcParentRow = {
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+      phone: string | null;
+      created_at: string | null;
+      updated_at: string | null;
+      students?: RpcStudentPreview[];
+    };
+    const rpcData = rpcResult as { parents: RpcParentRow[]; total: number };
     
     // Transform RPC response to match expected format
-    const parents = (rpcData.parents || []).map((p: any) => ({
+    const parents = (rpcData.parents || []).map((p: RpcParentRow) => ({
       id: p.id,
       first_name: p.first_name,
       last_name: p.last_name,
@@ -55,7 +66,7 @@ export const parentsApi = {
       created_by: null, // Not returned by RPC
       created_at: p.created_at || null,
       updated_at: p.updated_at || null,
-      students: (p.students || []).map((s: any) => ({
+      students: (p.students || []).map((s: RpcStudentPreview) => ({
         id: s.id,
         first_name: s.first_name,
         last_name: s.last_name,

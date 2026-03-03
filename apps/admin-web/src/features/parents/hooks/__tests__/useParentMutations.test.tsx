@@ -20,9 +20,9 @@ describe('useParentMutations', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    mockStudentsApi.updateParent.mockResolvedValue({} as any);
-    mockStudentsApi.assignStudentToParent.mockResolvedValue({} as any);
-    mockStudentsApi.removeStudentFromParent.mockResolvedValue({} as any);
+    mockStudentsApi.updateParent.mockResolvedValue({ id: mockParentId, first_name: '', last_name: '', email: null, phone: null } as unknown as Awaited<ReturnType<typeof mockStudentsApi.updateParent>>);
+    mockStudentsApi.assignStudentToParent.mockResolvedValue({} as unknown as Awaited<ReturnType<typeof mockStudentsApi.assignStudentToParent>>);
+    mockStudentsApi.removeStudentFromParent.mockResolvedValue(undefined);
   });
 
   describe('updateDetails', () => {
@@ -157,7 +157,7 @@ describe('useParentMutations', () => {
         resolveUpdate = resolve;
       });
 
-      mockStudentsApi.updateParent.mockReturnValue(updatePromise as any);
+      mockStudentsApi.updateParent.mockReturnValue(updatePromise as unknown as ReturnType<typeof mockStudentsApi.updateParent>);
 
       const { result } = renderHookWithProviders(() =>
         useParentMutations({ parentId: mockParentId })

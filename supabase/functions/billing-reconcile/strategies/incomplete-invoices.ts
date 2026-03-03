@@ -1,5 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import type { StrategyResult } from '../shared/types.ts';
 import { 
@@ -15,7 +14,7 @@ import {
  */
 export async function reconcileIncompleteInvoices(
   stripe: Stripe,
-  supabase: any,
+  supabase: SupabaseClient,
   daysBack: number,
   onlyMissingItems: boolean,
   onlyMissingTotals: boolean
@@ -136,11 +135,22 @@ export async function reconcileIncompleteInvoices(
         }
         
         // Map Stripe invoice line items to our format and validate foreign keys
-        const itemInserts: any[] = [];
+        interface InvoiceItemInsert {
+          invoice_id: string;
+          sessions_students_id: string;
+          stripe_invoice_item_id: string;
+          amount_cents: number;
+          description: string;
+          is_subsidy: boolean;
+          is_fee: boolean;
+          session_id: string | null;
+          student_id: string;
+        }
+        const itemInserts: InvoiceItemInsert[] = [];
         const invalidItems: string[] = [];
         
         for (const line of invoiceLines) {
-          const lineItem = line as any;
+          const lineItem = line as { invoice_item?: string; id?: string; metadata?: Record<string, unknown>; amount?: number; description?: string };
           const invoiceItemId = lineItem.invoice_item || lineItem.id;
           const metadata = lineItem.metadata || {};
           
@@ -222,7 +232,7 @@ export async function reconcileIncompleteInvoices(
       if (reconciledThisInvoice) {
         reconciled.push(invoice.stripe_invoice_id);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(`[incomplete-invoices] Failed to reconcile invoice ${invoice.stripe_invoice_id}:`, getErrorMessage(err));
       errors.push(`Invoice ${invoice.stripe_invoice_id}: ${getErrorMessage(err)}`);
     }

@@ -1,5 +1,4 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import { grossUp, formatSessionDate, getClassLongName } from './utils.ts';
 import { calculateSessionPrice } from './pricing.ts';
@@ -20,7 +19,6 @@ import { sendInvoiceEmail } from './invoice-email.ts';
 import {
   getStripeErrorDetails,
   formatStripeErrorMessage,
-  createErrorResponse,
 } from './stripe-errors.ts';
 
 const LOG_PREFIX = '[billing-runner]';
@@ -30,11 +28,18 @@ export interface ProcessStudentResult {
   error: string | null;
 }
 
+interface StudentSessionInput {
+  session: { id: string; start_at: string; subject_id?: string | null; class_id?: string | null; billing_type?: string | null; end_at: string };
+  subject: { long_name?: string; short_name?: string } | null;
+  sessions_students_id: string;
+  student_id: string;
+}
+
 export interface ProcessStudentDependencies {
-  supabase: any;
+  supabase: SupabaseClient;
   stripe: Stripe;
   studentId: string;
-  studentSessions: any[];
+  studentSessions: StudentSessionInput[];
   invoiceDate: string;
   targetDate: Date;
   feePercentDom: number;
@@ -42,12 +47,19 @@ export interface ProcessStudentDependencies {
   feeFixedCents: number;
   domesticCountry: string;
   pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }>;
-  overridesBySubjectAndBilling: Record<string, Record<string, any>>;
-  pricingOverrides: any[];
-  subsidies: any[];
-  classById: Record<string, any>;
-  subjectById: Record<string, any>;
-  billingByStudent: Record<string, any>; // Mutable - will be updated if billing account is created
+  overridesBySubjectAndBilling: Record<string, Record<string, { hourly_rate_cents: number; currency: string; effective_from: string; effective_until?: string | null }>>;
+  pricingOverrides: Array<{ subject_id: string; billing_type: string; hourly_rate_cents: number; currency: string; effective_from: string; effective_until?: string | null }>;
+  subsidies: Array<{ student_id: string; subject_id: string; billing_type: string; price_cents: number; currency?: string | null; effective_from?: string | null; effective_until?: string | null }>;
+  classById: Record<string, { level?: string | number | null }>;
+  subjectById: Record<string, { name?: string; curriculum?: string; year_level?: number }>;
+  billingByStudent: Record<string, {
+    student_id: string;
+    stripe_customer_id: string | null;
+    payment_methods: Array<{ stripe_payment_method_id: string; card_country: string | null }>;
+    auto_bill_enabled?: boolean;
+    invoice_email_to_student?: boolean;
+    invoice_email_to_parents?: boolean;
+  }>;
   parentEmailsByStudent: Record<string, string[]>; // All parent emails per student
   studentEmailById: Record<string, string | undefined>;
   isStripeTestKey: boolean;
@@ -96,7 +108,17 @@ export async function processStudentInvoicing(
     const defaultPM = billing?.payment_methods?.[0];
 
     // Calculate pricing for each session and build invoice items
-    const invoiceItems: any[] = [];
+    interface InvoiceItemRow {
+      sessions_students_id: string;
+      session_id: string;
+      student_id: string;
+      amount_cents: number;
+      description: string;
+      is_subsidy: boolean;
+      currency: string;
+      is_fee?: boolean;
+    }
+    const invoiceItems: InvoiceItemRow[] = [];
     let totalNetCents = 0; // Track total net amount (before fees)
     let invoiceCurrency: string | null = null; // Track currency for validation
     const errors: string[] = [];
@@ -167,7 +189,7 @@ export async function processStudentInvoicing(
 
       // Add fees as a separate line item (only if fees > 0)
       if (totalFeesCents > 0 && invoiceItems.length > 0) {
-        const firstSessionItem = invoiceItems.find((item: any) => item.sessions_students_id);
+        const firstSessionItem = invoiceItems.find((item: InvoiceItemRow) => item.sessions_students_id);
         if (firstSessionItem) {
           invoiceItems.push({
             sessions_students_id: firstSessionItem.sessions_students_id,
@@ -205,7 +227,7 @@ export async function processStudentInvoicing(
     }
 
     // Ensure all items have the same currency
-    const mismatchedCurrency = invoiceItems.find((item: any) => item.currency !== invoiceCurrency);
+    const mismatchedCurrency = invoiceItems.find((item: InvoiceItemRow) => item.currency !== invoiceCurrency);
     if (mismatchedCurrency) {
       return {
         invoiceId: null,
@@ -265,15 +287,16 @@ export async function processStudentInvoicing(
         console.log(
           `${LOG_PREFIX} Auto-created billing account for student ${studentId} with Stripe customer ${stripeCustomer.id}`
         );
-      } catch (createErr: any) {
-        const createErrDetails = getStripeErrorDetails(createErr);
+      } catch (createErr: unknown) {
+        getStripeErrorDetails(createErr);
         console.error(
           `${LOG_PREFIX} Failed to auto-create billing account for student ${studentId}:`,
           formatStripeErrorMessage(createErr, 'create billing account', { studentId })
         );
+        const msg = createErr instanceof Error ? createErr.message : String(createErr);
         return {
           invoiceId: null,
-          error: `Student ${studentId}: Failed to create billing account - ${createErr?.message || 'Unknown error'}`,
+          error: `Student ${studentId}: Failed to create billing account - ${msg}`,
         };
       }
     }
@@ -293,7 +316,7 @@ export async function processStudentInvoicing(
       // Create invoice with send_invoice collection method (no auto-charge)
       try {
         // Create invoice items in Stripe
-        let stripeInvoiceItems: any[] = [];
+        let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
         let createdStripeItemIds: string[] = [];
 
         try {
@@ -308,7 +331,7 @@ export async function processStudentInvoicing(
           );
           stripeInvoiceItems = result.stripeInvoiceItems;
           createdStripeItemIds = result.createdStripeItemIds;
-        } catch (itemErr: any) {
+        } catch (itemErr: unknown) {
           // Rollback: delete created invoice items if any failed
           console.error(
             `${LOG_PREFIX} Failed to create invoice items for student ${studentId}, rolling back:`,
@@ -340,7 +363,7 @@ export async function processStudentInvoicing(
         );
 
         // Save invoice to database
-        let dbInvoice = await saveInvoiceToDatabase(supabase, studentId, finalizedInvoice, invoiceDate);
+        const dbInvoice = await saveInvoiceToDatabase(supabase, studentId, finalizedInvoice, invoiceDate);
 
         if (!dbInvoice) {
           // Failed to save - void invoice
@@ -351,7 +374,7 @@ export async function processStudentInvoicing(
             await voidInvoice(stripe, finalizedInvoice.id);
             console.log(`${LOG_PREFIX} Successfully voided invoice ${finalizedInvoice.id} during rollback`);
           } catch (voidErr) {
-            const voidErrDetails = getStripeErrorDetails(voidErr);
+            getStripeErrorDetails(voidErr);
             console.error(
               `${LOG_PREFIX} Failed to void invoice ${finalizedInvoice.id} during rollback:`,
               formatStripeErrorMessage(voidErr, 'void invoice', { studentId, invoiceId: finalizedInvoice.id })
@@ -365,7 +388,7 @@ export async function processStudentInvoicing(
         // Upsert handles duplicates and race conditions
         try {
           await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
-        } catch (itemsErr: any) {
+        } catch (itemsErr: unknown) {
           console.error(
             `${LOG_PREFIX} Failed to save invoice items for invoice ${dbInvoice.id}:`,
             formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id })
@@ -396,7 +419,7 @@ export async function processStudentInvoicing(
             if (emailResult.failed.length > 0) {
               console.warn(`${LOG_PREFIX} Failed to send invoice ${finalizedInvoice.id} emails to: ${emailResult.failed.join(', ')}`);
             }
-          } catch (emailErr: any) {
+          } catch (emailErr: unknown) {
             // Don't fail invoice creation if email fails - log and continue
             console.error(
               `${LOG_PREFIX} Failed to send invoice email for ${finalizedInvoice.id}:`,
@@ -408,8 +431,8 @@ export async function processStudentInvoicing(
         }
 
         return { invoiceId: dbInvoice.id, error: null };
-      } catch (e: any) {
-        const errorDetails = getStripeErrorDetails(e);
+      } catch (e: unknown) {
+        getStripeErrorDetails(e);
         console.error(
           `${LOG_PREFIX} Failed to create invoice for student ${studentId}:`,
           formatStripeErrorMessage(e, 'create invoice (send_invoice)', { studentId })
@@ -423,7 +446,7 @@ export async function processStudentInvoicing(
       // Create invoice with automatic collection
       try {
         // Create invoice items in Stripe
-        let stripeInvoiceItems: any[] = [];
+        let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
         let createdStripeItemIds: string[] = [];
 
         try {
@@ -438,7 +461,7 @@ export async function processStudentInvoicing(
           );
           stripeInvoiceItems = result.stripeInvoiceItems;
           createdStripeItemIds = result.createdStripeItemIds;
-        } catch (itemErr: any) {
+        } catch (itemErr: unknown) {
           // Rollback: delete created invoice items if any failed
           console.error(
             `${LOG_PREFIX} Failed to create invoice items for student ${studentId}, rolling back:`,
@@ -471,7 +494,7 @@ export async function processStudentInvoicing(
         );
 
         // Save invoice to database FIRST (before payment)
-        let dbInvoice = await saveInvoiceToDatabase(supabase, studentId, finalizedInvoice, invoiceDate);
+        const dbInvoice = await saveInvoiceToDatabase(supabase, studentId, finalizedInvoice, invoiceDate);
 
         if (!dbInvoice) {
           // Failed to save - void invoice
@@ -482,7 +505,7 @@ export async function processStudentInvoicing(
             await voidInvoice(stripe, finalizedInvoice.id);
             console.log(`${LOG_PREFIX} Successfully voided invoice ${finalizedInvoice.id} during rollback`);
           } catch (voidErr) {
-            const voidErrDetails = getStripeErrorDetails(voidErr);
+            getStripeErrorDetails(voidErr);
             console.error(
               `${LOG_PREFIX} Failed to void invoice ${finalizedInvoice.id} during rollback:`,
               formatStripeErrorMessage(voidErr, 'void invoice', { studentId, invoiceId: finalizedInvoice.id })
@@ -504,7 +527,7 @@ export async function processStudentInvoicing(
         // Upsert handles duplicates and race conditions
         try {
           await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
-        } catch (itemsErr: any) {
+        } catch (itemsErr: unknown) {
           console.error(
             `${LOG_PREFIX} Failed to save invoice items for invoice ${dbInvoice.id}:`,
             formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id })
@@ -529,7 +552,7 @@ export async function processStudentInvoicing(
             await updateInvoicePaymentStatus(supabase, dbInvoice.id, paidInvoice);
 
             return { invoiceId: dbInvoice.id, error: null };
-          } catch (payErr: any) {
+          } catch (payErr: unknown) {
             // Payment failed but DB record exists - log for reconciliation
             const payErrDetails = getStripeErrorDetails(payErr);
             console.warn(
@@ -540,7 +563,7 @@ export async function processStudentInvoicing(
             // Update DB with error status (invoice remains 'open')
             const errorMessage = payErrDetails.isStripeError
               ? `${payErrDetails.type || 'payment_error'}: ${payErrDetails.message || 'Payment failed'}`
-              : payErr?.message || 'Payment failed';
+              : payErr instanceof Error ? payErr.message : 'Payment failed';
             await updateInvoicePaymentError(supabase, dbInvoice.id, errorMessage);
 
             // Don't throw - invoice created, payment can be retried
@@ -557,7 +580,7 @@ export async function processStudentInvoicing(
           // For send_invoice or already paid, no payment needed
           return { invoiceId: dbInvoice.id, error: null };
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         console.error(
           `${LOG_PREFIX} Failed to create invoice for student ${studentId}:`,
           formatStripeErrorMessage(e, 'create invoice (charge_automatically)', { studentId })
@@ -568,7 +591,7 @@ export async function processStudentInvoicing(
         };
       }
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error(
       `${LOG_PREFIX} Error processing student ${studentId}:`,
       formatStripeErrorMessage(e, 'process student invoicing', { studentId })

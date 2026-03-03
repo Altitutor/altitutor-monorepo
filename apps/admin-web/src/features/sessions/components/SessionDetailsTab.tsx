@@ -3,7 +3,7 @@
 import { Badge, Separator, Button } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
 import { formatSessionDate } from '../utils/session-helpers';
-import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
+import { formatSessionTimeRangeForDisplay, type SessionTimeInput } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
@@ -31,7 +31,7 @@ import type { Tables } from '@altitutor/shared';
 type SessionDetailsTabProps = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex nested type from session API with joins
   session: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex nested type from session API
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex nested type from tutor log API with topics, created_by_staff
   tutorLog: any;
   studentsData: Array<{
     student: Tables<'students'>;
@@ -121,9 +121,11 @@ export function SessionDetailsTab({
 }: SessionDetailsTabProps) {
   const { toast } = useToast();
   const hasTutorLog = !!tutorLog;
-  const subject = session.subject ?? session.class?.subject;
-  const classData = session.class;
-  const classId = session.class_id;
+  const subject = session?.subject ?? session?.class?.subject;
+  const classData = session?.class;
+  const classId = session?.class_id ?? null;
+
+  if (!session) return null;
 
   return (
     <div className="space-y-6">
@@ -132,7 +134,7 @@ export function SessionDetailsTab({
         <h3 className="text-lg font-semibold mb-4">Session Information</h3>
         <SessionInfoGrid
           day={session.start_at ? formatSessionDate(session.start_at) : '—'}
-          time={formatSessionTimeRangeForDisplay(session, formatTime)}
+          time={formatSessionTimeRangeForDisplay(session as SessionTimeInput, formatTime)}
           subjectNode={
             subject ? (() => {
               const { style, textColorClass } = getSubjectColorStyle(subject);
@@ -156,7 +158,7 @@ export function SessionDetailsTab({
                 onClick={() => onOpenClass(classId)}
                 className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
               >
-                {formatClassName(classData, subject)}
+                {formatClassName(classData as Tables<'classes'>, subject ?? null)}
               </button>
             ) : (
               '—'

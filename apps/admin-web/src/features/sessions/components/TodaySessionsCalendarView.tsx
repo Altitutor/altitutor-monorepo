@@ -247,17 +247,17 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                     regularGroups.forEach((group) => {
                       const total = group.length;
                       const columnWidth = total > 1 ? 95 / total : 95;
-                      group.forEach((s: any, idx: number) => {
-                        const sStartMinutes = adelaideTimeToMinutes(s.start_at);
-                        const sEndMinutes = adelaideTimeToMinutes(s.end_at);
-                        const top = Math.max(0, (minutesFromStart(s.start_at) / 60) * slotHeight);
+                      group.forEach((s: Tables<'sessions'>, idx: number) => {
+                        const sStartMinutes = adelaideTimeToMinutes(s.start_at ?? '');
+                        const sEndMinutes = adelaideTimeToMinutes(s.end_at ?? '');
+                        const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                         const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
                         const left = (idx * columnWidth) + 2.5;
                         
-                        const cls: any = (data as any)?.classesById?.[s.class_id];
-                        const subj: any = cls?.subject_id ? (data as any)?.subjectsById?.[cls.subject_id] : undefined;
-                        const sessionStudents = ((data as any)?.sessionStudents?.[s.id] || []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
-                        const sessionStaff = ((data as any)?.sessionStaff?.[s.id] || []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
+                        const cls = sessionsData?.classesById?.[s.class_id ?? ''];
+                        const subj = cls?.subject_id ? sessionsData?.subjectsById?.[cls.subject_id] : undefined;
+                        const sessionStudents = (sessionsData?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
+                        const sessionStaff = (sessionsData?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                         
                         // Check if session has any students attending (planned attendance)
                         const hasAttendingStudents = sessionStudents.length > 0 && 

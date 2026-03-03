@@ -135,7 +135,7 @@ export const staffApi = {
       phone_number?: string | null;
       email?: string | null;
     }
-    const rpcData = rpcResult as {
+    const rpcData = rpcResult as unknown as {
       staff: RpcStaffRow[];
       staffClasses: Record<string, (Tables<'classes'> & { subject?: Tables<'subjects'> } | Record<string, unknown>)[]>;
       classSubjects: Record<string, Tables<'subjects'>>;
@@ -162,7 +162,7 @@ export const staffApi = {
       });
     });
 
-    const transformedStaff = staff.map((s: any) => ({
+    const transformedStaff = staff.map((s: RpcStaffRow) => ({
       id: s.id,
       first_name: s.first_name,
       last_name: s.last_name,
@@ -240,29 +240,31 @@ export const staffApi = {
       if (sessionsResult.error) throw sessionsResult.error;
 
       // Transform subjects
+      type SubjectRow = { subject_details: Tables<'subjects'> | null };
       const subjects = (subjectsResult.data ?? [])
-        .map((row: any) => row.subject_details)
+        .map((row: SubjectRow) => row.subject_details)
         .filter(Boolean) as Tables<'subjects'>[];
 
-      // Transform classes
-      const classes: ClassWithExpandedSubject[] = (classesResult.data ?? [])
-        .map((row: any) => {
-          const cls = row.class as (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null;
+      // Transform classes - Supabase returns class with subject_details from join
+      type ClassesResultRow = { class: (Tables<'classes'> & { subject_details?: Tables<'subjects'> | null }) | null };
+      const classes: ClassWithExpandedSubject[] = ((classesResult.data ?? []) as ClassesResultRow[])
+        .map((row: ClassesResultRow): ClassWithExpandedSubject | null => {
+          const cls = row.class;
           if (!cls) return null;
-          const classWithSubject: ClassWithExpandedSubject = {
-            ...cls,
-            subject: cls.subject_details,
+          const { subject_details, ...classBase } = cls;
+          return {
+            ...classBase,
+            subject: subject_details ?? undefined,
           };
-          delete (classWithSubject as any).subject_details;
-          return classWithSubject;
         })
-        .filter(Boolean) as ClassWithExpandedSubject[];
+        .filter((c): c is ClassWithExpandedSubject => c != null);
 
       // Sessions - transform from sessions_staff join, filter and sort client-side
+      type SessionRow = { sessions: Tables<'sessions'> | null };
       const upcomingSessions = (sessionsResult.data ?? [])
-        .map((row: any) => row.sessions)
-        .filter((s: any) => s && s.start_at && new Date(s.start_at) >= new Date())
-        .sort((a: any, b: any) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime())
+        .map((row: SessionRow) => row.sessions)
+        .filter((s): s is Tables<'sessions'> => s != null && s.start_at != null && new Date(s.start_at) >= new Date())
+        .sort((a: Tables<'sessions'>, b: Tables<'sessions'>) => new Date(a.start_at ?? 0).getTime() - new Date(b.start_at ?? 0).getTime())
         .slice(0, 5) as Tables<'sessions'>[];
 
       return {
@@ -541,8 +543,8 @@ export const staffApi = {
       });
 
       // Process staff classes
-      type AssignmentRow = { staff_id?: string; class?: (Tables<'classes'> & { subject_details?: Tables<'subjects'> }) | null };
-      assignmentsData?.forEach((assignment: AssignmentRow) => {
+      type AssignmentRow = { staff_id?: string; class?: (Tables<'classes'> & { subject_details?: Tables<'subjects'> | null }) | null };
+      assignmentsData?.forEach((assignment) => {
         const classWithSubject = assignment.class;
         if (classWithSubject && assignment.staff_id) {
           if (!staffClasses[assignment.staff_id]) {
@@ -689,7 +691,7 @@ export const staffApi = {
       created_at?: string | null;
       updated_at?: string | null;
     }
-    const rpcData = rpcResult as { staff: RpcStaffRow[]; total: number };
+    const rpcData = rpcResult as unknown as { staff: RpcStaffRow[]; total: number };
     const staff = (rpcData.staff || []).map((s) => ({
       id: s.id,
       first_name: s.first_name,
@@ -751,7 +753,7 @@ export const staffApi = {
       created_at?: string | null;
       updated_at?: string | null;
     }
-    const rpcData = rpcResult as { staff: RpcStaffRow[]; total: number };
+    const rpcData = rpcResult as unknown as { staff: RpcStaffRow[]; total: number };
     let staff = (rpcData.staff || []).map((s) => ({
       id: s.id,
       first_name: s.first_name,

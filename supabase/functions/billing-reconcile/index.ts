@@ -191,9 +191,9 @@ Deno.serve(async (req: Request) => {
     };
     
     return json(response);
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('[reconcile] Top-level error:', e);
-    const errorMessage = e?.message || (typeof e === 'string' ? e : String(e) || 'Unknown error');
+    const errorMessage = e instanceof Error ? e.message : (typeof e === 'string' ? e : String(e) || 'Unknown error');
     return json({ 
       error: 'reconcile_error', 
       message: errorMessage,

@@ -1,12 +1,10 @@
-// @ts-nocheck
-// deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import { validateStripeEnv, validateSignatureHeader } from './shared/validation.ts';
 import { shouldSkipEvent, getEventId, getEventType } from './shared/idempotency.ts';
 
-function json(resp: any, status = 200) {
+function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -56,14 +54,15 @@ Deno.serve(async (req: Request) => {
   // Important: Don't parse as JSON before signature verification
   const rawBody = await req.text();
   
-  let event: any;
+  let event: Stripe.Event;
   try {
     // Use constructEventAsync for Deno/Supabase Edge Functions
     // constructEvent() uses synchronous crypto which isn't allowed in Deno
     event = await stripe.webhooks.constructEventAsync(rawBody, sig, STRIPE_WEBHOOK_SECRET!);
-  } catch (err: any) {
-    console.error('[webhook] Signature verification failed:', err?.message || err);
-    return json({ error: 'invalid signature', details: err?.message || 'Unknown error' }, 400);
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('[webhook] Signature verification failed:', msg);
+    return json({ error: 'invalid signature', details: err instanceof Error ? err.message : 'Unknown error' }, 400);
   }
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -97,7 +96,7 @@ Deno.serve(async (req: Request) => {
 
     switch (event.type) {
       case 'setup_intent.succeeded': {
-        const si = event.data.object as any;
+        const si = event.data.object as { payment_method?: string; customer?: string; metadata?: { student_id?: string } };
         const paymentMethodId = si.payment_method as string;
         const customerId = si.customer as string;
         const studentId = si.metadata?.student_id;
@@ -121,7 +120,7 @@ Deno.serve(async (req: Request) => {
         try {
           // Retrieve payment method details from Stripe
           const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
-          const card = (pm as any)?.card || {};
+          const card = (pm && typeof pm === 'object' && 'card' in pm ? (pm as { card?: { brand?: string; last4?: string; exp_month?: number; exp_year?: number; country?: string } }).card : null) || {};
 
           // Check if student already has payment methods
           const { data: existingMethods, error: queryErr } = await supabase
@@ -152,8 +151,9 @@ Deno.serve(async (req: Request) => {
           if (insertErr) {
             console.error('[webhook] Failed to save payment method:', insertErr);
           }
-        } catch (e: any) {
-          console.error('[webhook] setup_intent handler error:', e?.message || e);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[webhook] setup_intent handler error:', msg);
         }
 
         await supabase
@@ -164,7 +164,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'payment_method.detached': {
-        const pm = event.data.object as any;
+        const pm = event.data.object as { id?: string };
         const paymentMethodId = pm.id as string;
 
         if (!paymentMethodId) {
@@ -205,8 +205,9 @@ Deno.serve(async (req: Request) => {
                 .eq('id', otherMethods[0].id);
             }
           }
-        } catch (e: any) {
-          console.error('[webhook] payment_method.detached handler error:', e?.message || e);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[webhook] payment_method.detached handler error:', msg);
         }
 
         await supabase
@@ -217,7 +218,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'customer.updated': {
-        const customer = event.data.object as any;
+        const customer = event.data.object as { id: string; invoice_settings?: { default_payment_method?: string } };
         const customerId = customer.id;
         const defaultPmId = customer.invoice_settings?.default_payment_method as string | undefined;
         
@@ -258,8 +259,9 @@ Deno.serve(async (req: Request) => {
               console.error('[webhook] Failed to sync default payment method:', updateError);
             }
           }
-        } catch (e: any) {
-          console.error('[webhook] customer.updated handler error:', e?.message || e);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[webhook] customer.updated handler error:', msg);
         }
         
         await supabase
@@ -270,7 +272,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'payment_method.updated': {
-        const pm = event.data.object as any;
+        const pm = event.data.object as { id?: string; type?: string; card?: { brand?: string; last4?: string; exp_month?: number; exp_year?: number; country?: string } };
         const paymentMethodId = pm.id as string;
         
         if (!paymentMethodId || pm.type !== 'card' || !pm.card) {
@@ -297,8 +299,9 @@ Deno.serve(async (req: Request) => {
           if (updateErr) {
             console.error('[webhook] Failed to update payment method:', updateErr);
           }
-        } catch (e: any) {
-          console.error('[webhook] payment_method.updated handler error:', e?.message || e);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[webhook] payment_method.updated handler error:', msg);
         }
         
         await supabase
@@ -310,7 +313,7 @@ Deno.serve(async (req: Request) => {
 
       case 'invoice.created': {
         // Log invoice creation (optional, for tracking)
-        const invoice = event.data.object as any;
+        const invoice = event.data.object as { id: string; customer?: string };
         console.log('[webhook] Invoice created:', invoice.id, 'for customer:', invoice.customer);
         
         await supabase
@@ -322,7 +325,7 @@ Deno.serve(async (req: Request) => {
 
       case 'invoice.finalized': {
         // Invoice finalized, ready to charge (optional, for tracking)
-        const invoice = event.data.object as any;
+        const invoice = event.data.object as { id: string; status?: string; status_transitions?: { finalized_at?: number } };
         console.log('[webhook] Invoice finalized:', invoice.id);
         
         // Check current invoice status before updating
@@ -334,7 +337,7 @@ Deno.serve(async (req: Request) => {
           .maybeSingle();
         
         // Only update finalized_at timestamp, don't overwrite status if already paid
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
           finalized_at: invoice.status_transitions?.finalized_at 
             ? new Date(invoice.status_transitions.finalized_at * 1000).toISOString()
             : new Date().toISOString(),
@@ -360,7 +363,7 @@ Deno.serve(async (req: Request) => {
 
       case 'invoice.paid': {
         // CRITICAL: Invoice payment succeeded
-        const invoice = event.data.object as any;
+        const invoice = event.data.object as { id: string; hosted_invoice_url?: string; invoice_pdf?: string };
         
         let chargeId: string | null = null;
         let payment_intent_id: string | null = null;
@@ -371,7 +374,7 @@ Deno.serve(async (req: Request) => {
         // Fetch invoice from Stripe with expanded fields to get charge/payment_intent IDs
         // Webhook payloads are minimal and don't include expanded fields or reliable subtotal/total
         // CRITICAL: Use fullInvoice for subtotal/total to correctly handle customer balance payments
-        let fullInvoice: any = null;
+        let fullInvoice: Stripe.Invoice | null = null;
         try {
           fullInvoice = await stripe.invoices.retrieve(invoice.id, {
             expand: ['latest_charge', 'payment_intent']
@@ -379,16 +382,14 @@ Deno.serve(async (req: Request) => {
           
           // Extract charge ID from latest_charge (can be string ID or expanded object)
           if (fullInvoice.latest_charge) {
-            chargeId = typeof fullInvoice.latest_charge === 'string'
-              ? fullInvoice.latest_charge
-              : (fullInvoice.latest_charge as any)?.id || null;
+            const lc = fullInvoice.latest_charge;
+            chargeId = typeof lc === 'string' ? lc : (lc && typeof lc === 'object' && 'id' in lc ? (lc as { id: string }).id : null);
           }
           
           // Extract payment intent ID from payment_intent (can be string ID or expanded object)
           if (fullInvoice.payment_intent) {
-            payment_intent_id = typeof fullInvoice.payment_intent === 'string'
-              ? fullInvoice.payment_intent
-              : (fullInvoice.payment_intent as any)?.id || null;
+            const pi = fullInvoice.payment_intent;
+            payment_intent_id = typeof pi === 'string' ? pi : (pi && typeof pi === 'object' && 'id' in pi ? (pi as { id: string }).id : null);
           }
           
           // Retrieve charge details if we have charge ID
@@ -397,7 +398,7 @@ Deno.serve(async (req: Request) => {
               const charge = await stripe.charges.retrieve(chargeId, { 
                 expand: ['balance_transaction', 'payment_intent'] 
               });
-              const bt: any = charge.balance_transaction;
+              const bt = charge.balance_transaction as { fee?: number; net?: number } | null;
               if (bt) {
                 fee_cents = typeof bt.fee === 'number' ? bt.fee : null;
                 net_cents = typeof bt.net === 'number' ? bt.net : null;
@@ -406,16 +407,17 @@ Deno.serve(async (req: Request) => {
               
               // If payment_intent_id wasn't found from invoice, get it from charge
               if (!payment_intent_id && charge.payment_intent) {
-                payment_intent_id = typeof charge.payment_intent === 'string'
-                  ? charge.payment_intent
-                  : (charge.payment_intent as any)?.id || null;
+                const cpi = charge.payment_intent;
+                payment_intent_id = typeof cpi === 'string' ? cpi : (cpi && typeof cpi === 'object' && 'id' in cpi ? (cpi as { id: string }).id : null);
               }
-            } catch (e: any) {
-              console.error('[webhook] Error retrieving charge details:', e?.message || e);
+            } catch (e: unknown) {
+              const msg = e instanceof Error ? e.message : String(e);
+              console.error('[webhook] Error retrieving charge details:', msg);
             }
           }
-        } catch (e: any) {
-          console.error('[webhook] Error fetching invoice from Stripe:', e?.message || e);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[webhook] Error fetching invoice from Stripe:', msg);
           // Continue with update even if fetch fails - we'll just have null charge/payment_intent IDs
         }
         
@@ -460,7 +462,7 @@ Deno.serve(async (req: Request) => {
 
       case 'invoice.payment_failed': {
         // CRITICAL: Invoice payment failed
-        const invoice = event.data.object as any;
+        const invoice = event.data.object as { id: string };
         const lastError = invoice.last_payment_error;
         const failure_code = lastError?.code || 'unknown_error';
         const failure_message = lastError?.message || 'payment_failed';
@@ -493,7 +495,7 @@ Deno.serve(async (req: Request) => {
 
       case 'invoice.updated': {
         // MEDIUM: Handle status changes, updates to amounts, etc.
-        const invoice = event.data.object as any;
+        const invoice = event.data.object as { id: string; status?: string; hosted_invoice_url?: string; invoice_pdf?: string };
         
         // Check current invoice status before updating
         // Don't downgrade status from 'paid' to lower statuses (e.g., 'open')
@@ -505,11 +507,12 @@ Deno.serve(async (req: Request) => {
         
         // Fetch full invoice from Stripe API to get reliable subtotal/total values
         // Webhook payloads may not include these fields or may have them as null
-        let fullInvoice: any = null;
+        let fullInvoice: Stripe.Invoice | null = null;
         try {
           fullInvoice = await stripe.invoices.retrieve(invoice.id);
-        } catch (e: any) {
-          console.error('[webhook] Error fetching invoice from Stripe for invoice.updated:', e?.message || e);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[webhook] Error fetching invoice from Stripe for invoice.updated:', msg);
           // Continue with webhook payload if fetch fails
         }
         
@@ -521,7 +524,7 @@ Deno.serve(async (req: Request) => {
         const amountDueCents = invoiceForAmounts.amount_due ?? 0;
         const amountPaidFromBalanceCents = totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
 
-        const updateData: any = {
+        const updateData: Record<string, unknown> = {
           subtotal_cents: subtotalCents,
           total_cents: totalCents,
           amount_due_cents: amountDueCents,
@@ -554,7 +557,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'invoice.voided': {
-        const invoice = event.data.object as any;
+        const invoice = event.data.object as { id: string };
         
         await supabase
           .from('invoices')
@@ -569,7 +572,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'invoice.marked_uncollectible': {
-        const invoice = event.data.object as any;
+        const invoice = event.data.object as { id: string };
         
         await supabase
           .from('invoices')
@@ -585,7 +588,7 @@ Deno.serve(async (req: Request) => {
 
       case 'charge.dispute.created': {
         // CRITICAL: Update invoice dispute fields
-        const dispute = event.data.object as any;
+        const dispute = event.data.object as { id: string; charge: string; status?: string; reason?: string; amount?: number; currency?: string; created?: number };
         const chargeId = dispute.charge as string;
         
         // Find invoice by stripe_charge_id
@@ -631,7 +634,7 @@ Deno.serve(async (req: Request) => {
 
       case 'charge.dispute.updated': {
         // CRITICAL: Update invoice dispute status
-        const dispute = event.data.object as any;
+        const dispute = event.data.object as { charge: string; status?: string; reason?: string; amount?: number };
         const chargeId = dispute.charge as string;
         
         // Find invoice by stripe_charge_id
@@ -673,7 +676,7 @@ Deno.serve(async (req: Request) => {
 
       case 'charge.dispute.closed': {
         // CRITICAL: Update invoice dispute status, set dispute_resolved_at
-        const dispute = event.data.object as any;
+        const dispute = event.data.object as { charge: string; status: string };
         const chargeId = dispute.charge as string;
         
         // Find invoice by stripe_charge_id
@@ -689,7 +692,7 @@ Deno.serve(async (req: Request) => {
           const disputeStatus = dispute.status; // 'won' or 'lost'
           const resolvedAt = new Date().toISOString();
           
-          let updateData: any = {
+          const updateData: Record<string, unknown> = {
             dispute_status: disputeStatus,
             dispute_resolved_at: resolvedAt,
             dispute_updated_at: resolvedAt,
@@ -728,7 +731,7 @@ Deno.serve(async (req: Request) => {
 
       case 'credit_note.created': {
         // HIGH: Create credit_notes record for refunds
-        const creditNote = event.data.object as any;
+        const creditNote = event.data.object as { id: string; invoice: string; amount?: number; currency?: string; reason?: string; status?: string; metadata?: Record<string, unknown> };
         const invoiceId = creditNote.invoice as string;
         
         // Find invoice by stripe_invoice_id
@@ -771,7 +774,7 @@ Deno.serve(async (req: Request) => {
 
       case 'credit_note.updated': {
         // HIGH: Update credit_notes status
-        const creditNote = event.data.object as any;
+        const creditNote = event.data.object as { id: string; status?: string; reason?: string };
         
         await supabase
           .from('credit_notes')
@@ -791,7 +794,7 @@ Deno.serve(async (req: Request) => {
 
       case 'credit_note.voided': {
         // HIGH: Update credit_notes status to 'void'
-        const creditNote = event.data.object as any;
+        const creditNote = event.data.object as { id: string };
         
         await supabase
           .from('credit_notes')
@@ -811,7 +814,7 @@ Deno.serve(async (req: Request) => {
 
       case 'charge.refunded': {
         // HIGH: Track direct charge refunds (not via credit notes)
-        const charge = event.data.object as any;
+        const charge = event.data.object as { id: string };
         const chargeId = charge.id;
         
         // Find invoice by stripe_charge_id
@@ -850,7 +853,7 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'customer.source.expiring': {
-        const source = event.data.object as any;
+        const source = event.data.object as { id: string; exp_month?: number; exp_year?: number; last4?: string };
         const paymentMethodId = source.id;
         
         try {
@@ -940,8 +943,9 @@ Deno.serve(async (req: Request) => {
           });
           
           console.log('[webhook] Card expiry SMS queued for student', pm.student_id);
-        } catch (e: any) {
-          console.error('[webhook] customer.source.expiring handler error', e?.message || e);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[webhook] customer.source.expiring handler error', msg);
         }
         
         await supabase
@@ -959,13 +963,14 @@ Deno.serve(async (req: Request) => {
           .eq('stripe_event_id', event.id);
         return json({ received: true });
     }
-  } catch (e: any) {
-    console.error('[webhook] handler error', e?.message || e);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error('[webhook] handler error', msg);
     
     // Log error to webhook events table
     await supabase
       .from('stripe_webhook_events')
-      .update({ error_message: String(e?.message || e) })
+      .update({ error_message: String(msg) })
       .eq('stripe_event_id', event.id);
     
     return json({ error: 'handler_error' }, 500);

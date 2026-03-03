@@ -40,7 +40,7 @@ describe('getInviteUrlForStudent', () => {
   });
 
   it('should generate development URL for student invite', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
       value: env,
@@ -62,7 +62,7 @@ describe('getInviteUrlForStudent', () => {
   });
 
   it('should generate register URL for student', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
       value: env,
@@ -74,7 +74,7 @@ describe('getInviteUrlForStudent', () => {
   });
 
   it('should default to invite path', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
       value: env,
@@ -99,7 +99,7 @@ describe('getInviteUrlForStaff', () => {
   });
 
   it('should generate tutor URL for TUTOR role in development', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_TUTOR_URL;
     Object.defineProperty(process, 'env', {
       value: env,
@@ -111,7 +111,7 @@ describe('getInviteUrlForStaff', () => {
   });
 
   it('should generate admin URL for ADMINSTAFF role in development', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_ADMIN_URL;
     Object.defineProperty(process, 'env', {
       value: env,
@@ -156,7 +156,7 @@ describe('buildInviteUrl', () => {
   });
 
   it('should build student invite URL', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
       value: env,
@@ -168,7 +168,7 @@ describe('buildInviteUrl', () => {
   });
 
   it('should build staff invite URL (defaults to admin)', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_ADMIN_URL;
     Object.defineProperty(process, 'env', {
       value: env,
@@ -192,7 +192,7 @@ describe('getBookingConfirmationUrl', () => {
   });
 
   it('should generate development booking confirmation URL', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
       value: env,
@@ -214,7 +214,7 @@ describe('getBookingConfirmationUrl', () => {
   });
 
   it('should include session ID in query parameter', () => {
-    const env: any = { ...process.env, NODE_ENV: 'development' };
+    const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
       value: env,

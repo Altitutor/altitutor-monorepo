@@ -242,11 +242,10 @@ export async function getOrCreateContactsAndConversations(
     }
     
     // Get unique parents
+    type ParentStudentRow = { parent_id: string };
     const uniqueParentIds = Array.from(
       new Set(
-        (parentStudents || [])
-          .map((ps: any) => ps.parent_id)
-          .filter(Boolean)
+        (parentStudents || []).map((ps: ParentStudentRow) => ps.parent_id).filter(Boolean)
       )
     );
     

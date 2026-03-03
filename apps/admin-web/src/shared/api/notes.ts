@@ -74,7 +74,7 @@ export const notesApi = {
       .order('created_at', { ascending: false });
     
     if (error) throw error;
-    return data as any;
+    return (data ?? []) as Array<Tables<'notes'> & { staff?: Tables<'staff'> | null }>;
   },
 
   /**

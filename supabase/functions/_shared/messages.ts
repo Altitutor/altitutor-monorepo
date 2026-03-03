@@ -197,7 +197,7 @@ export async function updateMessageStatus(
     error_message?: string;
   }
 ): Promise<void> {
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     status,
     status_updated_at: new Date().toISOString(),
   };

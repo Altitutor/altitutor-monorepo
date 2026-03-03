@@ -14,7 +14,7 @@ export function useCreateIssue() {
       queryClient.invalidateQueries({ queryKey: issueKeys.lists() });
       toast({ title: 'Issue created', description: 'The issue has been successfully created.' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ 
         title: 'Error creating issue', 
         description: error.message || 'An unexpected error occurred.',
@@ -34,7 +34,7 @@ export function useUpdateIssue() {
       queryClient.invalidateQueries({ queryKey: issueKeys.lists() });
       queryClient.invalidateQueries({ queryKey: issueKeys.detail(id) });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ 
         title: 'Error updating issue', 
         description: error.message || 'An unexpected error occurred.',
@@ -54,7 +54,7 @@ export function useDeleteIssue() {
       queryClient.invalidateQueries({ queryKey: issueKeys.lists() });
       toast({ title: 'Issue deleted', description: 'The issue has been successfully deleted.' });
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       toast({ 
         title: 'Error deleting issue', 
         description: error.message || 'An unexpected error occurred.',

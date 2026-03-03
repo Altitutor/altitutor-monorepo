@@ -200,7 +200,7 @@ export const classesApi = {
       const classStudents: Record<string, Tables<'students'>[]> = {};
       const classStaff: Record<string, Tables<'staff'>[]> = {};
       
-      rpcClasses.forEach((cls: any) => {
+      rpcClasses.forEach((cls) => {
         // Build class object
         const classData: Tables<'classes'> = {
           id: cls.id,

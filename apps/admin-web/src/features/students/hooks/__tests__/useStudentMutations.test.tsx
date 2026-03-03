@@ -35,35 +35,35 @@ describe('useStudentMutations', () => {
   beforeEach(() => {
     jest.clearAllMocks();
 
-    // Setup default mock mutations
+    // Setup default mock mutations (partial mocks for testing)
     mockUseUpdateStudent.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useUpdateStudent>);
 
     mockUseDeleteStudent.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useDeleteStudent>);
 
     mockUseAssignSubjectToStudent.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useAssignSubjectToStudent>);
 
     mockUseRemoveSubjectFromStudent.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useRemoveSubjectFromStudent>);
 
     mockUseAssignParentToStudent.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useAssignParentToStudent>);
 
     mockUseRemoveParentFromStudent.mockReturnValue({
       mutateAsync: jest.fn().mockResolvedValue({}),
-    } as any);
+    } as unknown as ReturnType<typeof useRemoveParentFromStudent>);
 
     mockMapDetailsFormToStudentUpdate.mockReturnValue({
       first_name: 'John',
       last_name: 'Doe',
-    } as any);
+    } as ReturnType<typeof mapDetailsFormToStudentUpdate>);
   });
 
   describe('updateDetails', () => {
