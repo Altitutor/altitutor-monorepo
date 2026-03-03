@@ -31,6 +31,7 @@ function createBaseState(overrides: Partial<QuestionEngineState> = {}): Question
     showReviewInstructionsDialog: false,
     showEndReviewDialog: false,
     viewingQuestionIndex: null,
+    showExitResultsDialog: false,
     ...overrides,
   };
 }

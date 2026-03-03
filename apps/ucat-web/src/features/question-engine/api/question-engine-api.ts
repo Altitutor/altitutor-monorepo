@@ -41,6 +41,9 @@ type StemDetailQuestion = {
     answer_explanation?: unknown
     index: number
     is_answer?: boolean
+    selection_count?: number
+    total_answered?: number
+    percentage?: number
   }>
 }
 
@@ -89,20 +92,32 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
       }
 
       const options = (question.answer_options || [])
-        .map((option) => ({
-          id: option.id,
-          index: option.index,
-          text: extractTextFromRichJson(option.answer_text as JsonLike),
-          isAnswer: option.is_answer ?? false,
-          answerExplanation: option.answer_explanation
-            ? extractTextFromRichJson(option.answer_explanation as JsonLike)?.trim() || undefined
-            : undefined,
-        }))
+        .map((option) => {
+          const rawOptionExplanation = option.answer_explanation
+            ? extractTextFromRichJson(option.answer_explanation as JsonLike)?.trim() ?? ''
+            : ''
+          const cleanOptionExplanation =
+            rawOptionExplanation.toLowerCase() === 'paragraph' ? '' : rawOptionExplanation
+
+          return {
+            id: option.id,
+            index: option.index,
+            text: extractTextFromRichJson(option.answer_text as JsonLike),
+            isAnswer: option.is_answer ?? false,
+            answerExplanation: cleanOptionExplanation || undefined,
+            selectionCount: option.selection_count,
+            totalAnswered: option.total_answered,
+            percentage: option.percentage,
+          }
+        })
         .sort((a, b) => a.index - b.index)
       const correctOption = options.find((o) => o.isAnswer)
-      const questionAnswerExplanation = question.answer_explanation
-        ? extractTextFromRichJson(question.answer_explanation as JsonLike)?.trim() || undefined
-        : undefined
+      const rawQuestionExplanation = question.answer_explanation
+        ? extractTextFromRichJson(question.answer_explanation as JsonLike)?.trim() ?? ''
+        : ''
+      const cleanQuestionExplanation =
+        rawQuestionExplanation.toLowerCase() === 'paragraph' ? '' : rawQuestionExplanation
+      const questionAnswerExplanation = cleanQuestionExplanation || undefined
       questions.push({
         id: question.id,
         index: runningIndex++,

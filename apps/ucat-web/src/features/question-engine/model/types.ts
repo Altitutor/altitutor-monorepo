@@ -8,6 +8,12 @@ export type AnswerOption = {
   isAnswer?: boolean
   /** Option-level answer explanation (shown in results review). */
   answerExplanation?: string
+  /** Number of students who selected this option. From DB aggregation. */
+  selectionCount?: number
+  /** Total students who answered this question. From DB aggregation. */
+  totalAnswered?: number
+  /** Percentage (0–100) of students who selected this option. */
+  percentage?: number
 }
 
 export type QuestionItem = {
@@ -172,4 +178,6 @@ export type QuestionEngineState = {
   showEndReviewDialog: boolean
   /** When phase === 'marking': index of question being viewed in fullscreen, or null for results table. */
   viewingQuestionIndex: number | null
+  /** When true, show Exit Results confirmation dialog. */
+  showExitResultsDialog: boolean
 }
