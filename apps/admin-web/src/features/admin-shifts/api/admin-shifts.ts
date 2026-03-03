@@ -105,9 +105,10 @@ export const adminShiftsApi = {
 
     if (staffError) throw staffError;
 
-    // Group staff by admin_shift_id
+    // Group staff by admin_shift_id (Supabase returns staff via relationship - type assertion for ambiguous relationship)
     const staffByShift: Record<string, Tables<'staff'>[]> = {};
-    (staffData || []).forEach((row: any) => {
+    type StaffRow = { admin_shift_id: string; staff?: Tables<'staff'> };
+    ((staffData || []) as unknown as StaffRow[]).forEach((row) => {
       if (row.staff && row.admin_shift_id) {
         if (!staffByShift[row.admin_shift_id]) {
           staffByShift[row.admin_shift_id] = [];
@@ -166,9 +167,10 @@ export const adminShiftsApi = {
 
       if (staffError) throw staffError;
 
-      // Group staff by admin_shift_id
+      // Group staff by admin_shift_id (Supabase returns staff via relationship - type assertion for ambiguous relationship)
       const adminShiftStaff: Record<string, Tables<'staff'>[]> = {};
-      (staffData || []).forEach((row: any) => {
+      type StaffRow = { admin_shift_id: string; staff?: Tables<'staff'> };
+      ((staffData || []) as unknown as StaffRow[]).forEach((row) => {
         if (row.staff && row.admin_shift_id) {
           if (!adminShiftStaff[row.admin_shift_id]) {
             adminShiftStaff[row.admin_shift_id] = [];
@@ -220,13 +222,15 @@ export const adminShiftsApi = {
 
       if (staffError) throw staffError;
 
-      const staff = ((staffData || []) as any[])
+      type StaffRowWithId = { id: string; staff_id: string; staff?: Tables<'staff'> };
+      const staffRows = (staffData || []) as unknown as StaffRowWithId[];
+      const staff = staffRows
         .map((row) => row.staff)
-        .filter(Boolean) as Tables<'staff'>[];
+        .filter((s): s is Tables<'staff'> => Boolean(s));
       
       // Map staff IDs to admin_shifts_staff IDs for removal
       const staffToAdminShiftStaffId: Record<string, string> = {};
-      (staffData || []).forEach((row: any) => {
+      staffRows.forEach((row) => {
         if (row.staff_id && row.id) {
           staffToAdminShiftStaffId[row.staff_id] = row.id;
         }

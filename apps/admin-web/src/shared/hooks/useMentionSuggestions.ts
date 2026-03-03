@@ -1,5 +1,6 @@
 import { useMemo, useRef } from 'react';
 import { ReactRenderer } from '@tiptap/react';
+import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import { studentsApi } from '@/features/students/api/students';
 import { staffApi } from '@/features/staff/api/staff';
@@ -161,7 +162,7 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
       let popup: TippyInstance[];
 
       return {
-        onStart: (props: any) => {
+        onStart: (props: SuggestionProps) => {
           component = new ReactRenderer(MentionList, {
             props,
             editor: props.editor,
@@ -171,8 +172,9 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
             return;
           }
 
+          const getRect = () => props.clientRect?.() ?? new DOMRect(0, 0, 0, 0);
           popup = tippy('body', {
-            getReferenceClientRect: props.clientRect,
+            getReferenceClientRect: getRect,
             appendTo: () => {
               // Try to find the nearest dialog to append to, so pointer events aren't blocked by Radix
               const dialog = props.editor.view.dom.closest('[role="dialog"]');
@@ -189,19 +191,20 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
           });
         },
 
-        onUpdate(props: any) {
+        onUpdate(props: SuggestionProps) {
           component.updateProps(props);
 
           if (!props.clientRect) {
             return;
           }
 
+          const getRect = () => props.clientRect?.() ?? new DOMRect(0, 0, 0, 0);
           popup[0].setProps({
-            getReferenceClientRect: props.clientRect,
+            getReferenceClientRect: getRect,
           });
         },
 
-        onKeyDown(props: any) {
+        onKeyDown(props: SuggestionKeyDownProps) {
           if (props.event.key === 'Escape') {
             popup[0].hide();
             return true;

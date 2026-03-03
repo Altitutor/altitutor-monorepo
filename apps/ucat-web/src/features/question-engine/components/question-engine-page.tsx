@@ -902,6 +902,7 @@ export function QuestionEnginePage({
               currentIndex={state.currentIndex}
               flaggedIds={state.flaggedIds}
               selectedAnswers={state.selectedAnswers}
+              visitedQuestionIds={state.visitedQuestionIds}
               onSelect={(index: number) =>
                 void runWithLag(() => {
                   setQuestionByIndex(index)

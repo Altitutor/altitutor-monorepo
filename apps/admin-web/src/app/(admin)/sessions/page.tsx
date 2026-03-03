@@ -51,24 +51,21 @@ export default function SessionsPage() {
       if (detail?.id) setActiveFileId(detail.id);
     };
     
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    window.addEventListener('open-student-modal', onOpenStudent as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    window.addEventListener('open-staff-modal', onOpenStaff as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    window.addEventListener('open-topic-modal', onOpenTopic as any);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    window.addEventListener('open-file-preview', onOpenFile as any);
-    
+    const studentListener = onOpenStudent as EventListener;
+    const staffListener = onOpenStaff as EventListener;
+    const topicListener = onOpenTopic as EventListener;
+    const fileListener = onOpenFile as EventListener;
+
+    window.addEventListener('open-student-modal', studentListener);
+    window.addEventListener('open-staff-modal', staffListener);
+    window.addEventListener('open-topic-modal', topicListener);
+    window.addEventListener('open-file-preview', fileListener);
+
     return () => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.removeEventListener('open-student-modal', onOpenStudent as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.removeEventListener('open-staff-modal', onOpenStaff as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.removeEventListener('open-topic-modal', onOpenTopic as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      window.removeEventListener('open-file-preview', onOpenFile as any);
+      window.removeEventListener('open-student-modal', studentListener);
+      window.removeEventListener('open-staff-modal', staffListener);
+      window.removeEventListener('open-topic-modal', topicListener);
+      window.removeEventListener('open-file-preview', fileListener);
     };
   }, []);
 

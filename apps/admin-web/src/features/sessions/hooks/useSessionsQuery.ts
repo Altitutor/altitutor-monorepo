@@ -105,7 +105,8 @@ export function useCreateSession() {
       queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
       
       // Optimistically add the new session to the cache
-      queryClient.setQueryData(sessionsKeys.withDetails(), (old: any) => {
+      type SessionsWithDetailsCache = { sessions: Tables<'sessions'>[]; sessionStudents: Record<string, unknown[]>; sessionStaff: Record<string, unknown[]> };
+      queryClient.setQueryData(sessionsKeys.withDetails(), (old: SessionsWithDetailsCache | undefined) => {
         if (!old) return old;
         return {
           ...old,
@@ -126,17 +127,18 @@ export function useUpdateSession() {
       sessionsApi.updateSession(id, data),
     onSuccess: (updatedSession, { id }) => {
       // Update the session in all relevant caches
-      queryClient.setQueryData(sessionsKeys.detail(id), (old: any) => {
+      queryClient.setQueryData(sessionsKeys.detail(id), (old: { session: Tables<'sessions'> } | undefined) => {
         if (!old) return old;
         return { ...old, session: updatedSession };
       });
 
       // Update in the main sessions list
-      queryClient.setQueryData(sessionsKeys.withDetails(), (old: any) => {
+      type SessionsWithDetailsCache = { sessions: Tables<'sessions'>[]; sessionStudents: Record<string, unknown[]>; sessionStaff: Record<string, unknown[]> };
+      queryClient.setQueryData(sessionsKeys.withDetails(), (old: SessionsWithDetailsCache | undefined) => {
         if (!old) return old;
         return {
           ...old,
-          sessions: old.sessions.map((session: Tables<'sessions'>) =>
+          sessions: old.sessions.map((session) =>
             session.id === id ? updatedSession : session
           ),
         };
@@ -158,11 +160,12 @@ export function useDeleteSession() {
       queryClient.removeQueries({ queryKey: sessionsKeys.detail(deletedId) });
       
       // Remove from lists
-      queryClient.setQueryData(sessionsKeys.withDetails(), (old: any) => {
+      type SessionsWithDetailsCache = { sessions: Tables<'sessions'>[]; sessionStudents: Record<string, unknown[]>; sessionStaff: Record<string, unknown[]> };
+      queryClient.setQueryData(sessionsKeys.withDetails(), (old: SessionsWithDetailsCache | undefined) => {
         if (!old) return old;
         return {
           ...old,
-          sessions: old.sessions.filter((session: Tables<'sessions'>) => session.id !== deletedId),
+          sessions: old.sessions.filter((session) => session.id !== deletedId),
           sessionStudents: Object.fromEntries(
             Object.entries(old.sessionStudents).filter(([id]) => id !== deletedId)
           ),

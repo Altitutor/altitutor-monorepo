@@ -36,13 +36,14 @@ export function useLiveIssueTags({ form, initialTags = [] }: UseLiveIssueTagsOpt
     ];
 
     // 4. De-duplicate tags by their ID fields
-    const uniqueTagsMap = new Map<string, any>();
+    const uniqueTagsMap = new Map<string, Record<string, unknown>>();
     
     allTags.forEach(tag => {
       // Find the entity ID field (e.g., student_id, staff_id, etc.)
-      const idKey = Object.keys(tag).find(key => key.endsWith('_id') && (tag as any)[key]);
+      const tagRecord = tag as Record<string, unknown>;
+      const idKey = Object.keys(tagRecord).find(key => key.endsWith('_id') && tagRecord[key]);
       if (idKey) {
-        const idValue = (tag as any)[idKey];
+        const idValue = tagRecord[idKey];
         const uniqueKey = `${idKey}:${idValue}`;
         if (!uniqueTagsMap.has(uniqueKey)) {
           uniqueTagsMap.set(uniqueKey, tag);

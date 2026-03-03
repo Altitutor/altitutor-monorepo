@@ -85,15 +85,16 @@ export const tasksApi = {
     for (const [key, values] of Object.entries(otherFilters)) {
       if (!Array.isArray(values) || values.length === 0) continue;
       
-      const dateRanges = values.filter(v => typeof v === 'object' && v !== null && (v as any).type === 'date_range');
-      const otherValues = values.filter(v => typeof v !== 'object' || v === null || (v as any).type !== 'date_range');
+      type DateRangeFilter = { type: 'date_range'; operator?: 'gte' | 'lte'; start?: string; end?: string };
+      const dateRanges = values.filter((v): v is DateRangeFilter => typeof v === 'object' && v !== null && (v as DateRangeFilter).type === 'date_range');
+      const otherValues = values.filter(v => typeof v !== 'object' || v === null || (v as DateRangeFilter).type !== 'date_range');
       
       if (otherValues.length > 0) {
         query = query.in(key, otherValues);
       }
       
       if (dateRanges.length > 0) {
-        const dr = dateRanges[0] as any;
+        const dr = dateRanges[0];
         if (dr.operator === 'gte' && dr.start) {
           query = query.gte(key, dr.start);
         } else if (dr.operator === 'lte' && dr.end) {

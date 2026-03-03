@@ -37,7 +37,7 @@ export function IssueDescriptionField({ form, value, onTagClick, descriptionRef 
               onChange={field.onChange}
               placeholder="Add issue description..."
               className="min-h-0"
-              mentionSuggestions={mentionSuggestions as any}
+              mentionSuggestions={mentionSuggestions}
             />
           </FormControl>
           <FormMessage />

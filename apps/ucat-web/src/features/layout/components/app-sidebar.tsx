@@ -1,10 +1,13 @@
 'use client'
 
-import Link from 'next/link'
+import { Badge } from '@altitutor/ui'
 import Image from 'next/image'
+import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
+import { useComingSoon } from '@/features/layout/context/coming-soon-context'
 import { appNavigation } from '@/features/layout/config/navigation'
+import { isComingSoon } from '@/features/layout/config/coming-soon'
 import { cn } from '@/lib/utils'
 
 export function AppSidebar({
@@ -18,6 +21,7 @@ export function AppSidebar({
 }) {
   const pathname = usePathname()
   const { resolvedTheme } = useTheme()
+  const { showComingSoonModal } = useComingSoon()
   const isVisible = mobileOpen || !collapsed
   const logoSrc = '/images/logo-banner-dark.svg'
 
@@ -61,6 +65,31 @@ export function AppSidebar({
                 {section.items.map((item) => {
                   const Icon = item.icon
                   const active = pathname === item.href
+                  const comingSoon = isComingSoon(item.href)
+
+                  if (comingSoon) {
+                    return (
+                      <button
+                        key={item.href}
+                        type="button"
+                        className={cn(
+                          'flex w-full cursor-default items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium',
+                          'text-sidebar-foreground/50'
+                        )}
+                        onClick={() => {
+                          showComingSoonModal()
+                          onCloseMobile()
+                        }}
+                        aria-label={`${item.label} (coming soon)`}
+                      >
+                        <Icon className="h-4 w-4 shrink-0" />
+                        <span className="ml-3 flex-1">{item.label}</span>
+                        <Badge variant="secondary" className="shrink-0 text-[10px]">
+                          Coming soon
+                        </Badge>
+                      </button>
+                    )
+                  }
 
                   return (
                     <Link

@@ -14,6 +14,7 @@ export async function POST(request: NextRequest) {
       p_name: body.name,
       p_is_private: !!body.isPrivate,
       p_set_ids: body.setIds ?? [],
+      p_instructions_text: body.instructionsText ?? null,
     })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 400 })

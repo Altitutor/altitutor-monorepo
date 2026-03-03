@@ -29,7 +29,10 @@ import {
 import type { Tables } from '@altitutor/shared';
 
 type SessionDetailsTabProps = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex nested type from session API with joins
   session: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Complex nested type from session API
+  tutorLog: any;
   studentsData: Array<{
     student: Tables<'students'>;
     sessionsStudentsId: string | null;
@@ -54,7 +57,6 @@ type SessionDetailsTabProps = {
     submittedTutorLog: boolean;
     plannedAbsence: boolean;
   }>;
-  tutorLog: any;
   allTopics: Tables<'topics'>[];
   sessionId: string | null;
   isSessionInPast: boolean;
@@ -119,7 +121,7 @@ export function SessionDetailsTab({
 }: SessionDetailsTabProps) {
   const { toast } = useToast();
   const hasTutorLog = !!tutorLog;
-  const subject = (session as any).subject || session.class?.subject;
+  const subject = session.subject ?? session.class?.subject;
   const classData = session.class;
   const classId = session.class_id;
 
@@ -192,7 +194,7 @@ export function SessionDetailsTab({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {studentsData.map((data: any) => (
+                {studentsData.map((data) => (
                   <TableRow key={data.student.id}>
                     <TableCell>
                       <button
@@ -211,7 +213,7 @@ export function SessionDetailsTab({
                             ? {
                                 type: 'session',
                                 id: data.rescheduledSessionId,
-                                onClick: () => onOpenSession(data.rescheduledSessionId),
+                                onClick: () => data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
                               }
                             : undefined
                         }
@@ -277,7 +279,7 @@ export function SessionDetailsTab({
                                 onUndoLogAbsenceStudent({
                                   studentId: data.student.id,
                                   studentName: studentName || 'Student',
-                                  sessionsStudentsId: data.sessionsStudentsId,
+                                  sessionsStudentsId: data.sessionsStudentsId!,
                                   action: data.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
                                   rescheduledSessionId: data.rescheduledSessionId,
                                 });
@@ -360,7 +362,7 @@ export function SessionDetailsTab({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {staffData.map((data: any) => (
+                {staffData.map((data) => (
                   <TableRow key={data.staff.id}>
                     <TableCell>
                       <button
@@ -387,7 +389,7 @@ export function SessionDetailsTab({
                       />
                     </TableCell>
                     <TableCell>
-                      <AttendanceCell status={data.actualStatus} staffType={data.staffType} />
+                      <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
                     </TableCell>
                     <TableCell>
                       {tutorLog && tutorLog.created_by_staff && tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
@@ -430,7 +432,7 @@ export function SessionDetailsTab({
                                 onUndoLogAbsenceStaff({
                                   staffId: data.staff.id,
                                   staffName: staffName || 'Staff',
-                                  sessionsStaffId: data.sessionsStaffId,
+                                  sessionsStaffId: data.sessionsStaffId!,
                                   action: data.plannedStatus === 'swapped' ? 'swap' : 'log',
                                   swappedStaffName: data.swappedStaffName || undefined,
                                 });
@@ -490,7 +492,7 @@ export function SessionDetailsTab({
           <div>
             <h3 className="text-lg font-semibold mb-4">Topics Covered</h3>
             <div className="space-y-4">
-              {tutorLog.topics.map((topicData: any) => {
+              {tutorLog.topics.map((topicData: { id: string; topic?: { id: string; code?: string; name?: string } | null; students?: Tables<'students'>[]; files?: { id: string; topics_file?: { code?: string; file?: { id: string } } }[] }) => {
                 // Find the complete topic record from allTopics to ensure we have parent_id and index
                 const topic = allTopics.find(t => t.id === topicData.topic?.id) || topicData.topic;
                 const topicCode = topic?.code || '';
@@ -503,9 +505,9 @@ export function SessionDetailsTab({
                       <button
                         type="button"
                         className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
-                        onClick={() => onOpenTopic(topic.id)}
+                        onClick={() => topic && onOpenTopic(topic.id)}
                       >
-                        {topicCode} {topic.name}
+                        {topicCode} {topic?.name}
                       </button>
                     </div>
                     
@@ -513,7 +515,7 @@ export function SessionDetailsTab({
                       <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
                         <div className="space-y-1">
-                          {files.map((fileData: any) => {
+                          {files.map((fileData: { id: string; topics_file?: { code?: string; file?: { id: string } } }) => {
                             const topicFile = fileData.topics_file;
                             if (!topicFile) return null;
                             
@@ -540,7 +542,7 @@ export function SessionDetailsTab({
                       <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Students:</div>
                         <div className="flex flex-wrap gap-1">
-                          {students.slice(0, 5).map((student: any) => (
+                          {students.slice(0, 5).map((student: Tables<'students'>) => (
                             <button
                               key={student.id}
                               onClick={() => onOpenStudent(student.id)}

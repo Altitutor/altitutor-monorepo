@@ -42,6 +42,8 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
     detail,
     name,
     isPrivate,
+    instructionsText,
+    setInstructionsText,
     draftSetIds,
     setName,
     setIsPrivate,
@@ -95,6 +97,8 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
         <UcatMockEditorContent
           name={name}
           isPrivate={isPrivate}
+          instructionsText={instructionsText}
+          setInstructionsText={setInstructionsText}
           setName={setName}
           setIsPrivate={(value) => setIsPrivate(value)}
           draftSetIds={draftSetIds}

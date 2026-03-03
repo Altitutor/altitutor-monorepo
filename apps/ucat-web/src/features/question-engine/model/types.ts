@@ -19,11 +19,41 @@ export type QuestionItem = {
   options: AnswerOption[]
 }
 
+/** One screen of instructions (tiptap/prosemirror JSON). Shown before questions when applicable. */
+export type InstructionsScreen = {
+  instructionsJson: Record<string, unknown> | null
+}
+
+/** Time limit for current segment. If set is untimed (questions time null), instructions are also untimed. */
+export type SetModeTiming = {
+  /** Question set time limit. Null = untimed (no timer in instructions or questions). */
+  setTimeLimitSeconds: number | null
+  /** Section instructions time limit. Only shown when set is timed. */
+  instructionsTimeLimitSeconds: number | null
+}
+
+/** One segment in mock (instructions screen or block of questions). Used for timer and time-expired flow. */
+export type MockTimingSegment =
+  | { type: 'instructions'; instructionsIndex: number; timeLimitSeconds: number | null }
+  | {
+      type: 'questions'
+      setIndex: number
+      questionStartIndex: number
+      questionEndIndex: number
+      timeLimitSeconds: number | null
+    }
+
 export type QuestionEngineExam = {
   sourceType: QuestionEngineMode
   sourceId: string
   title: string
   questions: QuestionItem[]
+  /** Ordered list of instruction screens. Set/mock mode only. Empty = no instructions phase. */
+  instructionsScreens: InstructionsScreen[]
+  /** Set mode only. When null, exam is untimed. */
+  setModeTiming?: SetModeTiming | null
+  /** Mock mode only. Ordered segments for timer and expiry. */
+  mockTimingSegments?: MockTimingSegment[]
 }
 
 export type QuestionStemWithQuestions = {
@@ -95,12 +125,34 @@ export function mapQuestionsToItems(questions: QuestionEngineQuestion[]): Questi
   }))
 }
 
+/** Filter for review mode: which subset of questions to step through. */
+export type ReviewFilter = 'all' | 'incomplete' | 'flagged'
+
 export type QuestionEngineState = {
-  phase: 'intro' | 'question'
+  /** 'instructions' = instructions screen; 'intro' = ready-to-begin; 'question' = questions; 'review' = review screen or review mode */
+  phase: 'instructions' | 'intro' | 'question' | 'review'
+  /** Which instructions screen (0-based). Only relevant when phase === 'instructions'. */
+  instructionsIndex: number
+  /** When true, Ready to Begin dialog is shown on top of current screen (e.g. instructions). No = dismiss only. */
+  showReadyDialog: boolean
+  /** When the current segment's timer started (ms). Null when untimed or timer not started. */
+  timerStartedAt: number | null
+  /** When true, show "Time Expired" dialog. On OK: set mode = end set; mock mode = advance to next segment. */
+  showTimeExpiredDialog: boolean
+  /** Mock only: when we showed time expired, the next segment's timer was started at this time (ms). */
+  nextSegmentTimerStartedAt: number | null
   currentIndex: number
+  /** Question ids the user has visited (for Unseen vs Incomplete status in review). */
+  visitedQuestionIds: string[]
   flaggedIds: string[]
   selectedAnswers: Record<string, string>
   showNavigator: boolean
   showCalculator: boolean
   showEndExamDialog: boolean
+  /** When phase === 'review': null = review screen (list); non-null = review mode (stepping through filtered list). */
+  reviewFilter: ReviewFilter | null
+  /** Index into the filtered list when in review mode. Only relevant when reviewFilter !== null. */
+  reviewFilterIndex: number
+  showReviewInstructionsDialog: boolean
+  showEndReviewDialog: boolean
 }

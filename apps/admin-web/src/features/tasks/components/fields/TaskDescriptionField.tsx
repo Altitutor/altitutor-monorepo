@@ -37,7 +37,7 @@ export function TaskDescriptionField({ form, value, onTagClick, descriptionRef }
               onChange={field.onChange}
               placeholder="Add task description..."
               className="min-h-0"
-              mentionSuggestions={mentionSuggestions as any}
+              mentionSuggestions={mentionSuggestions}
             />
           </FormControl>
           <FormMessage />

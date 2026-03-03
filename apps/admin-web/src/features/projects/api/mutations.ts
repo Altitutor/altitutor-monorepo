@@ -14,10 +14,10 @@ export function useCreateProject() {
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
       toast({ title: 'Project created', description: 'The project has been successfully created.' });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error creating project',
-        description: error.message || 'An unexpected error occurred.',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred.',
         variant: 'destructive',
       });
     },
@@ -36,10 +36,10 @@ export function useUpdateProject() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
       queryClient.invalidateQueries({ queryKey: ['notes'] });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error updating project',
-        description: error.message || 'An unexpected error occurred.',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred.',
         variant: 'destructive',
       });
     },
@@ -58,10 +58,10 @@ export function useDeleteProject() {
       queryClient.invalidateQueries({ queryKey: ['notes'] });
       toast({ title: 'Project deleted', description: 'The project has been successfully deleted.' });
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       toast({
         title: 'Error deleting project',
-        description: error.message || 'An unexpected error occurred.',
+        description: error instanceof Error ? error.message : 'An unexpected error occurred.',
         variant: 'destructive',
       });
     },

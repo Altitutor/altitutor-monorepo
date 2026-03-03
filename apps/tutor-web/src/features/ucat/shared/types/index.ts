@@ -52,4 +52,5 @@ export type UcatMockPayload = {
   name: string
   isPrivate: boolean
   setIds: string[]
+  instructionsText?: RichTextJson | null
 }

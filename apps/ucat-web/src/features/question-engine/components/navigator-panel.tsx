@@ -3,6 +3,7 @@ import { UcatExamActionButton, UcatFloatingPanel } from '@altitutor/ui'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { QuestionItem } from '@/features/question-engine/model/types'
+import { getReviewQuestionStatus } from '@/features/question-engine/lib/review'
 import { useDraggablePanel } from '@/features/question-engine/hooks/use-draggable-panel'
 
 const DEFAULT_WIDTH = 520
@@ -20,6 +21,7 @@ export function NavigatorPanel({
   currentIndex,
   flaggedIds,
   selectedAnswers,
+  visitedQuestionIds,
   onSelect,
   onClose,
 }: {
@@ -27,6 +29,7 @@ export function NavigatorPanel({
   currentIndex: number
   flaggedIds: string[]
   selectedAnswers: Record<string, string>
+  visitedQuestionIds: string[]
   onSelect: (index: number) => void
   onClose: () => void
 }) {
@@ -140,16 +143,21 @@ export function NavigatorPanel({
   const sortedRows = useMemo(() => {
     const base = questions.map((question, index) => {
       const flagged = flaggedIds.includes(question.id)
-      const answered = Boolean(selectedAnswers[question.id])
-      const statusLabel = answered ? '' : 'Unseen'
-      const statusRank = answered ? 1 : 0
+      const status = getReviewQuestionStatus(
+        question.id,
+        visitedQuestionIds,
+        selectedAnswers
+      )
+      const statusLabel =
+        status === 'complete' ? '' : status === 'incomplete' ? 'Incomplete' : 'Unseen'
+      const statusRank = status === 'complete' ? 1 : status === 'incomplete' ? 0.5 : 0
       const flaggedRank = flagged ? 0 : 1
 
       return {
         question,
         index,
         flagged,
-        answered,
+        answered: status === 'complete',
         statusLabel,
         statusRank,
         flaggedRank,
@@ -177,7 +185,7 @@ export function NavigatorPanel({
       }
       return (a.index - b.index) * directionFactor
     })
-  }, [questions, flaggedIds, selectedAnswers, sortField, sortDirection])
+  }, [questions, flaggedIds, selectedAnswers, visitedQuestionIds, sortField, sortDirection])
 
   const handleHeaderClick = (field: 'question' | 'status' | 'flagged') => {
     if (sortField === field) {
@@ -274,7 +282,7 @@ export function NavigatorPanel({
                       </span>
                     </td>
                     <td className="border border-[#9ba9bd] px-2 py-1.5 text-[#d90000]">
-                      {row.answered ? '' : 'Unseen'}
+                      {row.statusLabel}
                     </td>
                     <td className="border border-[#9ba9bd] px-2 py-1.5 text-center align-middle">
                       {row.flagged ? (

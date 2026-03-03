@@ -1,5 +1,5 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
-import type { Database } from '@altitutor/shared'
+import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 export type UcatSectionPayload = {
@@ -7,7 +7,7 @@ export type UcatSectionPayload = {
   sectionNumber: number
   name: string
   displayColumns: 1 | 2
-  description?: string
+  instructionsText?: Json | null
   timeLimitSeconds?: number | null
   numberOfQuestions?: number | null
   instructionsTimeLimitSeconds?: number | null

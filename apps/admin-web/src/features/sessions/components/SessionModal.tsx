@@ -242,11 +242,13 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   // Process students and staff data
   const studentsData = processSessionStudents(sessionsStudents, actualStudentAttendance, helpers.hasTutorLog);
   const staffData = processSessionStaff(sessionsStaff, actualStaffAttendance, helpers.hasTutorLog, tutorLog?.created_by);
-  const existingStudentIds = sessionsStudents
-    .map((row: any) => row.student_id)
+  type SessionsStudentRow = { student_id: string | null };
+  type SessionsStaffRow = { staff_id: string | null };
+  const existingStudentIds = (sessionsStudents as SessionsStudentRow[])
+    .map((row) => row.student_id)
     .filter((id: string | null | undefined): id is string => !!id);
-  const existingStaffIds = sessionsStaff
-    .map((row: any) => row.staff_id)
+  const existingStaffIds = (sessionsStaff as SessionsStaffRow[])
+    .map((row) => row.staff_id)
     .filter((id: string | null | undefined): id is string => !!id);
 
   return (
@@ -329,7 +331,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onLogAbsenceStudent={modals.openLogStudentAbsenceDialog}
                     onLogAbsenceStaff={modals.openLogStaffAbsenceDialog}
                     onUndoLogAbsenceStudent={(payload) => {
-                      const sourceRow = sessionsStudents.find((row: any) =>
+                      type SessionsStudentRowWithId = { sessions_students_id?: string; id?: string; rescheduled_session?: { session?: unknown } };
+                      const sourceRow = (sessionsStudents as SessionsStudentRowWithId[]).find((row) =>
                         (row.sessions_students_id || row.id) === payload.sessionsStudentsId
                       );
                       const rescheduledSession = sourceRow?.rescheduled_session?.session;
@@ -672,7 +675,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           sessionType={session.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
           initialStudentId={modals.selectedStudentForReschedule}
           originalSessionId={sessionId}
-          originalSubjectId={helpers.subject?.id || (session as any)?.subject_id || null}
+          originalSubjectId={helpers.subject?.id ?? session?.subject_id ?? null}
           onBookingCreated={(_newSessionId) => {
             modals.closeRescheduleModal();
           }}

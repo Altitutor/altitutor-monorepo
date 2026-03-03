@@ -120,7 +120,7 @@ function DailyNoteCard({ date }: { date: string }) {
                 onChange={setContent}
                 placeholder="Write daily notes..."
                 onEditorReady={setEditor}
-                mentionSuggestions={mentionSuggestions as any}
+                mentionSuggestions={mentionSuggestions}
               />
             </div>
             <NoteEditorBottomToolbar editor={editor} />
