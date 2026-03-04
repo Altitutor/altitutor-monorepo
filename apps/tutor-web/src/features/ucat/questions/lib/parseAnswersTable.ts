@@ -124,14 +124,18 @@ function isAthroughE(s: string): boolean {
 }
 
 /**
- * Parse Decision Making pasted answers: syllogism questions get a 5-char Y/N pattern,
- * multiple choice get a single letter A–E. Supports (1) lines with question number then Y/N lines,
- * (2) table rows with col0 = question #, col1 = Y/N or letter.
+ * Parse Decision Making pasted answers:
+ * - Syllogism questions: 5-char Y/N pattern + optional per-option explanations
+ * - Multiple choice: single letter A–E + optional question-level explanation
+ *
+ * Supports:
+ * 1) Table rows: [question #] \t [Y/N or letter] \t [explanation...]
+ * 2) Line format: question number on its own line, followed by Y/N or letter lines.
  */
 export function parseDecisionMakingAnswers(
   input: string,
   questionTypes: ('syllogism' | 'multiple_choice')[]
-): { letter?: string; pattern?: string }[] {
+): { letter?: string; pattern?: string; explanation?: string; optionExplanations?: string[] }[] {
   if (!input || typeof input !== 'string' || questionTypes.length === 0)
     return []
   const trimmed = input.trim()
@@ -143,12 +147,18 @@ export function parseDecisionMakingAnswers(
   const nonEmpty = rows.filter((cells) => cells.some((c) => c.length > 0))
   if (nonEmpty.length === 0) return []
 
-  const result: { letter?: string; pattern?: string }[] = []
+  const result: {
+    letter?: string
+    pattern?: string
+    explanation?: string
+    optionExplanations?: string[]
+  }[] = []
   let rowIndex = 0
   const skipHeader = nonEmpty[0]?.length >= 2 && /^(answer|explanation|#|number|no\.?)$/i.test((nonEmpty[0]?.[0] ?? '').trim())
   if (skipHeader) rowIndex = 1
 
-  const byQuestion = new Map<number, string[]>()
+  const byQuestionTokens = new Map<number, string[]>()
+  const byQuestionExplanations = new Map<number, string[]>()
   for (let i = rowIndex; i < nonEmpty.length; i++) {
     const cells = nonEmpty[i] ?? []
     const first = (cells[0] ?? '').trim()
@@ -156,35 +166,60 @@ export function parseDecisionMakingAnswers(
     const num = Number.parseInt(first, 10)
     if (!Number.isNaN(num) && num >= 1 && num <= 999) {
       const token = second.length > 0 ? second : first
+      const explanationText = cells.slice(2).join('\t').trim()
       if (isYorN(token) || isAthroughE(token)) {
-        const list = byQuestion.get(num) ?? []
-        list.push(token.charAt(0).toUpperCase())
-        byQuestion.set(num, list)
+        const letter = token.charAt(0).toUpperCase()
+        const list = byQuestionTokens.get(num) ?? []
+        const explList = byQuestionExplanations.get(num) ?? []
+        list.push(letter)
+        explList.push(explanationText)
+        byQuestionTokens.set(num, list)
+        byQuestionExplanations.set(num, explList)
       }
       continue
     }
     if (isYorN(first) || isAthroughE(first)) {
-      const keys = Array.from(byQuestion.keys()).sort((a, b) => a - b)
+      const keys = Array.from(byQuestionTokens.keys()).sort((a, b) => a - b)
       const lastQ = keys[keys.length - 1]
       if (lastQ != null) {
-        const list = byQuestion.get(lastQ) ?? []
-        list.push(first.charAt(0).toUpperCase())
-        byQuestion.set(lastQ, list)
+        const letter = first.charAt(0).toUpperCase()
+        const list = byQuestionTokens.get(lastQ) ?? []
+        const explList = byQuestionExplanations.get(lastQ) ?? []
+        const explanationText = cells.slice(1).join('\t').trim()
+        list.push(letter)
+        explList.push(explanationText)
+        byQuestionTokens.set(lastQ, list)
+        byQuestionExplanations.set(lastQ, explList)
       }
     }
   }
 
-  const sortedQuestions = Array.from(byQuestion.keys()).sort((a, b) => a - b)
+  const sortedQuestions = Array.from(byQuestionTokens.keys()).sort((a, b) => a - b)
   for (let i = 0; i < questionTypes.length && i < sortedQuestions.length; i++) {
     const qNum = sortedQuestions[i]
-    const tokens = byQuestion.get(qNum) ?? []
+    const tokens = byQuestionTokens.get(qNum) ?? []
+    const explanations = byQuestionExplanations.get(qNum) ?? []
     const type = questionTypes[i]
     if (type === 'syllogism') {
-      const yn = tokens.filter((t) => t === 'Y' || t === 'N').slice(0, 5)
-      result.push({ pattern: yn.length === 5 ? yn.join('') : undefined })
+      const pairs = tokens
+        .map((t, idx) => ({ token: t, explanation: explanations[idx] ?? '' }))
+        .filter((p) => p.token === 'Y' || p.token === 'N')
+        .slice(0, 5)
+      const yn = pairs.map((p) => p.token)
+      result.push({
+        pattern: yn.length === 5 ? yn.join('') : undefined,
+        optionExplanations: yn.length === 5 ? pairs.map((p) => p.explanation) : undefined,
+      })
     } else {
-      const letter = tokens.find((t) => /^[A-E]$/.test(t))
-      result.push(letter ? { letter } : {})
+      const letterIndex = tokens.findIndex((t) => /^[A-E]$/.test(t))
+      if (letterIndex >= 0) {
+        const letter = tokens[letterIndex]
+        const explanation =
+          explanations[letterIndex]?.trim() || explanations[0]?.trim() || undefined
+        result.push({ letter, explanation })
+      } else {
+        result.push({})
+      }
     }
   }
 

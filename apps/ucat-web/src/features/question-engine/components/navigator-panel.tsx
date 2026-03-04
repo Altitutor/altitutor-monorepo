@@ -22,6 +22,7 @@ export function NavigatorPanel({
   flaggedIds,
   selectedAnswers,
   visitedQuestionIds,
+  syllogismSnapshots,
   onSelect,
   onClose,
 }: {
@@ -30,6 +31,7 @@ export function NavigatorPanel({
   flaggedIds: string[]
   selectedAnswers: Record<string, string>
   visitedQuestionIds: string[]
+  syllogismSnapshots?: Record<string, Record<string, boolean>>
   onSelect: (index: number) => void
   onClose: () => void
 }) {
@@ -51,8 +53,13 @@ export function NavigatorPanel({
   })
 
   const unseenOrIncompleteCount = questions.reduce((count, question) => {
-    const answered = Boolean(selectedAnswers[question.id])
-    return answered ? count : count + 1
+    const status = getReviewQuestionStatus(
+      question,
+      visitedQuestionIds,
+      selectedAnswers,
+      syllogismSnapshots
+    )
+    return status === 'complete' ? count : count + 1
   }, 0)
 
   // Keep navigator panel fully within the UCAT exam shell
@@ -142,7 +149,12 @@ export function NavigatorPanel({
   const sortedRows = useMemo(() => {
     const base = questions.map((question, index) => {
       const flagged = flaggedIds.includes(question.id)
-      const status = getReviewQuestionStatus(question, visitedQuestionIds, selectedAnswers)
+      const status = getReviewQuestionStatus(
+        question,
+        visitedQuestionIds,
+        selectedAnswers,
+        syllogismSnapshots
+      )
       const statusLabel =
         status === 'complete' ? '' : status === 'incomplete' ? 'Incomplete' : 'Unseen'
       const statusRank = status === 'complete' ? 1 : status === 'incomplete' ? 0.5 : 0
@@ -180,7 +192,15 @@ export function NavigatorPanel({
       }
       return (a.index - b.index) * directionFactor
     })
-  }, [questions, flaggedIds, selectedAnswers, visitedQuestionIds, sortField, sortDirection])
+  }, [
+    questions,
+    flaggedIds,
+    selectedAnswers,
+    visitedQuestionIds,
+    syllogismSnapshots,
+    sortField,
+    sortDirection,
+  ])
 
   const handleHeaderClick = (field: 'question' | 'status' | 'flagged') => {
     if (sortField === field) {

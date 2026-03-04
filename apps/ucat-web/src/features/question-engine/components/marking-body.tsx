@@ -48,27 +48,62 @@ export function computeMarkingResult(
 ): MarkingResult {
   const questionMeta = buildQuestionMeta(questions)
 
-  const attempts = questions.flatMap((q) => {
-    if (q.questionType !== 'syllogism') {
-      const selectedOptionId = selectedAnswers[q.id]
-      if (!selectedOptionId) return []
-      return [{ questionId: q.id, selectedOptionId }]
-    }
+  // Non-syllogism questions scored via shared marking package
+  const nonSyllogismMeta = questionMeta.filter((q) => q.questionType !== 'syllogism')
+  const nonSyllogismIds = new Set(nonSyllogismMeta.map((q) => q.id))
+
+  const attempts = Object.entries(selectedAnswers)
+    .filter(([questionId]) => nonSyllogismIds.has(questionId) && selectedAnswers[questionId])
+    .map(([questionId, selectedOptionId]) => ({ questionId, selectedOptionId }))
+
+  const base = computeRawScore({
+    attempts,
+    questions: nonSyllogismMeta,
+  })
+
+  const questionScores = new Map(base.questionScores)
+
+  // Syllogism questions: score from snapshots against option.isAnswer flags
+  for (const q of questions) {
+    if (q.questionType !== 'syllogism') continue
 
     const snapshot = syllogismSnapshots?.[q.id]
-    if (!snapshot) return []
+    if (!snapshot) {
+      questionScores.set(q.id, 0)
+      continue
+    }
 
     const optionsSorted = [...q.options].sort((a, b) => a.index - b.index)
-    const chosen = optionsSorted.find((opt) => snapshot[opt.id] === true)
-    if (!chosen) return []
+    let correctCount = 0
+    for (const opt of optionsSorted) {
+      const student = snapshot[opt.id]
+      const correctYes = opt.isAnswer === true
+      if (student === undefined) {
+        // treat unanswered as incorrect
+        continue
+      }
+      if (student === correctYes) {
+        correctCount += 1
+      }
+    }
 
-    return [{ questionId: q.id, selectedOptionId: chosen.id }]
-  })
+    let stemPoints = 0
+    if (correctCount >= 5) {
+      stemPoints = 2
+    } else if (correctCount >= 3) {
+      stemPoints = 1
+    } else {
+      stemPoints = 0
+    }
 
-  const { questionScores, totalRawScore } = computeRawScore({
-    attempts,
-    questions: questionMeta,
-  })
+    questionScores.set(q.id, stemPoints)
+  }
+
+  const totalRawScore = Array.from(questionScores.values()).reduce(
+    (sum, s) => sum + s,
+    0
+  )
+
   const maxRawScore = computeMaxRawScore(questionMeta)
   const scaledScore =
     maxRawScore > 0 ? scaleTo300_900(totalRawScore, maxRawScore) : null
