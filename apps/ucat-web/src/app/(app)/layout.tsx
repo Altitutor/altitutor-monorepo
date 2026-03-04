@@ -3,9 +3,8 @@ import { AppShell } from '@/features/layout'
 
 type AuthenticatedLayoutProps = {
   children?: React.ReactNode
-  detail: React.ReactNode
 }
 
-export default function AuthenticatedLayout({ children, detail }: AuthenticatedLayoutProps) {
-  return <AppShell detail={detail}>{children}</AppShell>
+export default function AuthenticatedLayout({ children }: AuthenticatedLayoutProps) {
+  return <AppShell>{children}</AppShell>
 }

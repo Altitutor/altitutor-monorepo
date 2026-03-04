@@ -14,10 +14,9 @@ import { cn } from '@/lib/utils'
 
 type AppShellProps = {
   children: React.ReactNode
-  detail?: React.ReactNode
 }
 
-export function AppShell({ children, detail }: AppShellProps) {
+export function AppShell({ children }: AppShellProps) {
   const router = useRouter()
   const pathname = usePathname()
   const { user, isLoading } = useAuth()
@@ -87,47 +86,46 @@ export function AppShell({ children, detail }: AppShellProps) {
     >
       <div className="min-h-screen bg-background">
         {isExamRoute ? (
-        <UcatLagProvider>
-          <UcatFloatingToolbar />
-          <div className={cn('flex', 'w-screen')}>
-            <AppSidebar
-              collapsed={collapsed}
-              mobileOpen={mobileOpen}
-              onCloseMobile={() => setMobileOpen(false)}
-            />
-            <main
-              className={cn(
-                'flex-1 min-h-0 transition-[margin] duration-200',
-                'h-screen min-h-0 overflow-hidden p-0',
-                sidebarExpanded ? 'md:ml-[240px]' : 'ml-0'
-              )}
-            >
-              {children}
-            </main>
-          </div>
-        </UcatLagProvider>
-      ) : (
-        <>
-          <FloatingAppActions onToggleNav={handleToggleNav} isMenuOpen={sidebarExpanded} />
-          <div className={cn('flex', 'mx-auto max-w-[1400px]')}>
-            <AppSidebar
-              collapsed={collapsed}
-              mobileOpen={mobileOpen}
-              onCloseMobile={() => setMobileOpen(false)}
-            />
-            <main
-              className={cn(
-                'flex-1 min-h-0 transition-[margin] duration-200',
-                'min-h-screen pt-16 p-6',
-                sidebarExpanded ? 'md:ml-[240px]' : 'ml-0'
-              )}
-            >
-              {children}
-            </main>
-          </div>
-        </>
-      )}
-        {detail}
+          <UcatLagProvider>
+            <UcatFloatingToolbar />
+            <div className={cn('flex', 'w-screen')}>
+              <AppSidebar
+                collapsed={collapsed}
+                mobileOpen={mobileOpen}
+                onCloseMobile={() => setMobileOpen(false)}
+              />
+              <main
+                className={cn(
+                  'flex-1 min-h-0 transition-[margin] duration-200',
+                  'h-screen min-h-0 overflow-hidden p-0',
+                  sidebarExpanded ? 'md:ml-[240px]' : 'ml-0'
+                )}
+              >
+                {children}
+              </main>
+            </div>
+          </UcatLagProvider>
+        ) : (
+          <>
+            <FloatingAppActions onToggleNav={handleToggleNav} isMenuOpen={sidebarExpanded} />
+            <div className={cn('flex', 'mx-auto max-w-[1400px]')}>
+              <AppSidebar
+                collapsed={collapsed}
+                mobileOpen={mobileOpen}
+                onCloseMobile={() => setMobileOpen(false)}
+              />
+              <main
+                className={cn(
+                  'flex-1 min-h-0 transition-[margin] duration-200',
+                  'min-h-screen pt-16 p-6',
+                  sidebarExpanded ? 'md:ml-[240px]' : 'ml-0'
+                )}
+              >
+                {children}
+              </main>
+            </div>
+          </>
+        )}
       </div>
     </ComingSoonProvider>
   )
