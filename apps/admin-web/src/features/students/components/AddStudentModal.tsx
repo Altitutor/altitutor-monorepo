@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
 import type { Tables, TablesInsert } from '@altitutor/shared';
 import { useCreateParent } from '@/features/parents/hooks/useParentsQuery';
 import { useQueryClient } from '@tanstack/react-query';
+import { showEntityCreatedToast } from '@/shared/utils';
 
 interface AddStudentModalProps {
   isOpen: boolean;
@@ -98,6 +100,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentModalProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const queryClient = useQueryClient();
   const createStudentMutation = useCreateStudent();
   const createParentMutation = useCreateParent();
@@ -236,10 +239,20 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
         }
       }
       
-      toast({
-        title: "Success",
-        description: "Student added successfully.",
-      });
+      if (createdStudent) {
+        showEntityCreatedToast({
+          toast,
+          router,
+          entityType: 'student',
+          entityId: createdStudent.id,
+          message: 'Student added successfully.',
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Student added successfully.",
+        });
+      }
       
       // Reset form and close modal
       reset();

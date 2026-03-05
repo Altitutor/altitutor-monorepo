@@ -7,7 +7,7 @@ interface ToastContextValue {
   toasts: ToastData[];
   toast: (props: {
     title?: string;
-    description?: string;
+    description?: React.ReactNode;
     variant?: "default" | "destructive";
     duration?: number;
   }) => void;
@@ -24,7 +24,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const toast = React.useCallback(
     (props: {
       title?: string;
-      description?: string;
+      description?: React.ReactNode;
       variant?: "default" | "destructive";
       duration?: number;
     }) => {

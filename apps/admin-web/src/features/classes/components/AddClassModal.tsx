@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
+import { useRouter } from 'next/navigation';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, useToast } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
@@ -15,6 +16,7 @@ import {
 import { useCreateClass } from '../hooks/useClassesQuery';
 import type { TablesInsert, Tables } from '@altitutor/shared';
 import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
+import { showEntityCreatedToast } from '@/shared/utils';
 
 interface AddClassModalProps {
   isOpen: boolean;
@@ -24,6 +26,8 @@ interface AddClassModalProps {
 
 export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalProps) {
   const createMutation = useCreateClass();
+  const router = useRouter();
+  const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -96,8 +100,23 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         session_start_date: sessionStartDate || null,
         session_end_date: sessionEndDate || null,
       };
-      await createMutation.mutateAsync(payload);
-      
+      const createdClass = await createMutation.mutateAsync(payload);
+
+      if (createdClass?.id) {
+        showEntityCreatedToast({
+          toast,
+          router,
+          entityType: 'class',
+          entityId: createdClass.id,
+          message: 'Class created successfully.',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Class created successfully.',
+        });
+      }
+
       onClassAdded();
       resetForm();
       onClose();

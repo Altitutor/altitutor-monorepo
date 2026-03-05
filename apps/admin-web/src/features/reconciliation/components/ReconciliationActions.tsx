@@ -168,12 +168,26 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
 
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data: { invoiceId?: string } | null | undefined) => {
       // Invalidate reconciliation queries to refresh the list
       queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
       toast({
         title: 'Success',
-        description: 'Session invoiced successfully',
+        description: (
+          <div className="flex items-center gap-2">
+            <span>Session invoiced successfully.</span>
+            {data?.invoiceId && (
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0"
+                onClick={() => handlers.onOpenInvoice(data.invoiceId!)}
+              >
+                View invoice
+              </Button>
+            )}
+          </div>
+        ),
       });
     },
     onError: (error: Error) => {
