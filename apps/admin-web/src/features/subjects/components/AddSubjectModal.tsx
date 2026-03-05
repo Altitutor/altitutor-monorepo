@@ -11,6 +11,7 @@ import { useToast } from '@altitutor/ui';
 import { subjectsApi } from '../api';
 import type { Tables, Enums, TablesInsert } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';
+import { showEntityCreatedToast } from '@/shared/utils';
 
 interface AddSubjectModalProps {
   isOpen: boolean;
@@ -52,12 +53,22 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
         level: formData.level || null,
       } as TablesInsert<'subjects'>;
 
-      await subjectsApi.createSubject(subjectData);
+      const created = await subjectsApi.createSubject(subjectData);
       
-      toast({
-        title: 'Success',
-        description: 'Subject added successfully',
-      });
+      if (created && (created as Tables<'subjects'>).id) {
+        showEntityCreatedToast({
+          toast,
+          router,
+          entityType: 'subject',
+          entityId: (created as Tables<'subjects'>).id,
+          message: 'Subject added successfully',
+        });
+      } else {
+        toast({
+          title: 'Success',
+          description: 'Subject added successfully',
+        });
+      }
       
       onSubjectAdded();
       onClose();

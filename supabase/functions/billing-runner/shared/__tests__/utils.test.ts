@@ -196,7 +196,7 @@ describe('generateInvoiceItemIdempotencyKey', () => {
   const invoiceDate = '2024-01-15';
   const timestamp = 1234567890;
 
-  it('should generate key for session item with sessions_students_id', () => {
+  it('should generate stable key for session item with sessions_students_id', () => {
     const item = {
       ...baseItem,
       sessions_students_id: 'session-student-456',
@@ -209,18 +209,16 @@ describe('generateInvoiceItemIdempotencyKey', () => {
       timestamp
     );
 
-    expect(result).toContain('invoice_item_');
-    expect(result).toContain('session-student-456');
-    expect(result).toContain('10000');
-    expect(result).toContain('Test session');
-    expect(result).toContain(String(timestamp));
+    expect(result).toBe(
+      `invoice_item_session-student-456_main-charge_${item.amount_cents}_${invoiceDate}`
+    );
   });
 
-  it('should truncate long descriptions to 50 chars in hash', () => {
+  it('should ignore description for idempotency key hashing', () => {
     const item = {
       ...baseItem,
       sessions_students_id: 'session-student-456',
-      description: 'A'.repeat(100), // Very long description
+      description: 'A'.repeat(100),
     };
 
     const result = generateInvoiceItemIdempotencyKey(
@@ -230,15 +228,16 @@ describe('generateInvoiceItemIdempotencyKey', () => {
       timestamp
     );
 
-    // Should use first 50 chars of description
-    expect(result).toContain('session-student-456');
+    expect(result).toBe(
+      `invoice_item_session-student-456_main-charge_${item.amount_cents}_${invoiceDate}`
+    );
   });
 
-  it('should sanitize special characters in hash', () => {
+  it('should differentiate fee vs main items by flag in key', () => {
     const item = {
       ...baseItem,
       sessions_students_id: 'session-student-456',
-      description: 'Test @#$% session',
+      is_fee: true,
     };
 
     const result = generateInvoiceItemIdempotencyKey(
@@ -248,11 +247,9 @@ describe('generateInvoiceItemIdempotencyKey', () => {
       timestamp
     );
 
-    // Special characters should be replaced with underscores
-    expect(result).not.toContain('@');
-    expect(result).not.toContain('#');
-    expect(result).not.toContain('$');
-    expect(result).not.toContain('%');
+    expect(result).toBe(
+      `invoice_item_session-student-456_fee-charge_${item.amount_cents}_${invoiceDate}`
+    );
   });
 
   it('should generate key for fee item without sessions_students_id', () => {
@@ -303,28 +300,7 @@ describe('generateInvoiceItemIdempotencyKey', () => {
     expect(key2).toContain('10000');
   });
 
-  it('should truncate hash to 80 chars max', () => {
-    const item = {
-      ...baseItem,
-      sessions_students_id: 'session-student-456',
-      description: 'A'.repeat(200), // Very long description
-    };
-
-    const result = generateInvoiceItemIdempotencyKey(
-      item,
-      studentId,
-      invoiceDate,
-      timestamp
-    );
-
-    // Extract hash part (between sessions_students_id and timestamp)
-    const parts = result.split('_');
-    const hashIndex = parts.findIndex((p) => p.startsWith('invoice_item'));
-    // The hash should be truncated appropriately
-    expect(result.length).toBeLessThan(300); // Reasonable upper bound
-  });
-
-  it('should generate unique keys for different timestamps', () => {
+  it('should generate unique keys for different fee item timestamps', () => {
     const item = {
       ...baseItem,
       sessions_students_id: 'session-student-456',

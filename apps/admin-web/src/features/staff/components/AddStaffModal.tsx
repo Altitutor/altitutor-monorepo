@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -29,6 +30,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
 import type { Tables, TablesInsert } from '@altitutor/shared';
+import { showEntityCreatedToast } from '@/shared/utils';
 
 interface AddStaffModalProps {
   isOpen: boolean;
@@ -80,6 +82,7 @@ type FormData = z.infer<typeof formSchema>;
 
 export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalProps) {
   const { toast } = useToast();
+  const router = useRouter();
   const createStaffMutation = useCreateStaff();
   const assignSubjectMutation = useAssignSubjectToStaff();
   const { data: allSubjects = [] } = useSubjects();
@@ -176,10 +179,20 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
         }
       }
       
-      toast({
-        title: 'Staff added successfully',
-        description: 'Staff member has been added to the system.',
-      });
+      if (createdStaff?.id) {
+        showEntityCreatedToast({
+          toast,
+          router,
+          entityType: 'staff',
+          entityId: createdStaff.id,
+          message: 'Staff member has been added to the system.',
+        });
+      } else {
+        toast({
+          title: 'Staff added successfully',
+          description: 'Staff member has been added to the system.',
+        });
+      }
       
       // Reset form and close modal
       reset();

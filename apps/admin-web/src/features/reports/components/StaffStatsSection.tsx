@@ -14,13 +14,17 @@ import {
 } from '@altitutor/ui';
 import { Users, ChevronLeft, ChevronRight } from 'lucide-react';
 import { addWeeks, endOfWeek, format, startOfWeek } from 'date-fns';
-import type { ReportDataPoint } from '../types';
+import type { ReportDataPoint, ReportEntityLink } from '../types';
+import { ViewStaffModal } from '@/features/staff';
+import { SessionModal } from '@/features/sessions';
 import { useStaffAbsencesReport } from '../hooks/useAdditionalReports';
 import { IssuesReportChart } from './IssuesReportChart';
 
 export function StaffStatsSection() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [selectedPoint, setSelectedPoint] = useState<ReportDataPoint | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), {
     weekStartsOn: 1,
@@ -129,14 +133,35 @@ export function StaffStatsSection() {
           </DialogHeader>
           <div className="mt-2 space-y-2 max-h-80 overflow-y-auto">
             {selectedPoint?.entities.length ? (
-              selectedPoint.entities.map((entity) => (
-                <p
-                  key={entity.id}
-                  className="text-sm text-brand-darkBlue dark:text-brand-lightBlue"
-                >
-                  {entity.name}
-                </p>
-              ))
+              selectedPoint.entities.map((entity) => {
+                const link = entity.link as ReportEntityLink | undefined;
+                const handleClick = () => {
+                  if (!link) return;
+                  if (link.kind === 'staff' && link.staffId) {
+                    setSelectedStaffId(link.staffId);
+                  } else if (link.sessionId) {
+                    setSelectedSessionId(link.sessionId);
+                  }
+                };
+
+                const isClickable = !!entity.link;
+
+                return (
+                  <button
+                    key={entity.id}
+                    type="button"
+                    onClick={handleClick}
+                    disabled={!isClickable}
+                    className={`block w-full text-left text-sm ${
+                      isClickable
+                        ? 'text-brand-darkBlue hover:underline dark:text-brand-lightBlue'
+                        : 'text-muted-foreground cursor-default'
+                    }`}
+                  >
+                    {entity.name}
+                  </button>
+                );
+              })
             ) : (
               <p className="text-sm text-muted-foreground">
                 No staff absences for this day.
@@ -145,6 +170,19 @@ export function StaffStatsSection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ViewStaffModal
+        isOpen={!!selectedStaffId}
+        staffId={selectedStaffId}
+        onClose={() => setSelectedStaffId(null)}
+        onStaffUpdated={() => {}}
+      />
+
+      <SessionModal
+        isOpen={!!selectedSessionId}
+        sessionId={selectedSessionId}
+        onClose={() => setSelectedSessionId(null)}
+      />
     </>
   );
 }

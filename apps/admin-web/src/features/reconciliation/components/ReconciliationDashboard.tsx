@@ -9,6 +9,7 @@ import {
   UnassignedClassesTable,
   FailedDeliveryMessagesTable,
   UnreadMessagesTable,
+  MessagesToFollowUpTable,
   StudentsWithoutClassesTable,
   StudentsWithoutPaymentMethodTable,
   TrialStudentsNotSignedUpTable,
@@ -206,6 +207,7 @@ export function ReconciliationDashboard() {
             isLoading={reconciliationData.failedDeliveryMessages.isLoading}
           />
           <UnreadMessagesTable />
+          <MessagesToFollowUpTable />
         </div>
 
         {/* Empty state */}

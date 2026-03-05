@@ -6,6 +6,7 @@
 
 import type { Database } from '@altitutor/shared';
 import {
+  PAY_CATEGORIES,
   determinePayCategory,
   generateEmployeeExternalId,
   getSessionPriority,
@@ -152,6 +153,14 @@ function processStaffEntries(logs: TutorLogExportData[]): QuickBooksEntry[] {
         return null;
       }
       
+      const basePriority = getSessionPriority(log.sessionType);
+      // Homework Help should have lower priority than other classes
+      // while still remaining above admin shifts.
+      const priority =
+        payCategory === PAY_CATEGORIES.HOMEWORK_HELP && basePriority > 0
+          ? basePriority - 0.5
+          : basePriority;
+
       const employeeExternalId = generateEmployeeExternalId(
         log.staffFirstName,
         log.staffLastName
@@ -169,7 +178,7 @@ function processStaffEntries(logs: TutorLogExportData[]): QuickBooksEntry[] {
         units: calculateHours(log.sessionStartAt, log.sessionEndAt),
         originalStartAt: log.sessionStartAt,
         originalEndAt: log.sessionEndAt,
-        priority: getSessionPriority(log.sessionType),
+        priority,
       };
     })
     .filter((e): e is QuickBooksEntry => e !== null);

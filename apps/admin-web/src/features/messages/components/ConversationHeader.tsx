@@ -74,13 +74,13 @@ export function ConversationHeader({
         </div>
         {onToggleRead && (
           <Button
-          variant="outline"
+            variant={isUnread ? 'default' : 'outline'}
             size="icon"
             onClick={onToggleRead}
-          className={cn(
-            "flex-shrink-0",
-            isUnread && "bg-red-500 text-white hover:bg-red-600 border-transparent"
-          )}
+            className={cn(
+              "flex-shrink-0",
+              isUnread && "bg-red-500 text-white hover:bg-red-600 border-transparent"
+            )}
             title={isUnread ? "Mark as read" : "Mark as unread"}
           >
             <Mail className="h-4 w-4" />

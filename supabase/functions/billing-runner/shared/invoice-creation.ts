@@ -32,7 +32,8 @@ export async function createStripeInvoiceItems(
   currency: string,
   studentId: string,
   invoiceDate: string,
-  timestamp: number
+  timestamp: number,
+  invoiceId: string
 ): Promise<{
   stripeInvoiceItems: StripeInvoiceItemWithId[];
   createdStripeItemIds: string[];
@@ -51,6 +52,7 @@ export async function createStripeInvoiceItems(
     const stripeItem = await stripe.invoiceItems.create(
       {
         customer: customerId,
+        invoice: invoiceId,
         amount: item.amount_cents,
         currency: currency,
         description: item.description,
@@ -96,26 +98,31 @@ export async function rollbackStripeInvoiceItems(
 }
 
 /**
- * Create invoice with send_invoice collection method
+ * Create draft invoice with send_invoice collection method.
+ * Caller must add items (with invoice: draft.id) then call finalizeInvoice.
  */
-export async function createSendInvoiceInvoice(
+export async function createDraftSendInvoiceInvoice(
   stripe: Stripe,
   customerId: string,
   invoiceDate: string,
   studentId: string,
   isStripeTestKey: boolean,
   isStripeLiveKey: boolean,
-  timestamp: number
+  timestamp: number,
+  sessionsStudentsIds?: string[]
 ): Promise<Stripe.Invoice> {
-  const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, timestamp);
+  const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, {
+    sessionsStudentsIds,
+    timestamp,
+  });
 
-  const invoice = await stripe.invoices.create(
+  return await stripe.invoices.create(
     {
       customer: customerId,
       collection_method: 'send_invoice',
       days_until_due: 30, // Set 30 days payment window for manual invoices
       auto_advance: false,
-      pending_invoice_items_behavior: 'include',
+      pending_invoice_items_behavior: 'exclude',
       description: `Invoice for sessions on ${invoiceDate}`,
       metadata: {
         type: 'session_invoice',
@@ -126,15 +133,13 @@ export async function createSendInvoiceInvoice(
     },
     { idempotencyKey }
   );
-
-  // Finalize invoice (sends email)
-  return await stripe.invoices.finalizeInvoice(invoice.id);
 }
 
 /**
- * Create invoice with automatic collection
+ * Create draft invoice with automatic collection.
+ * Caller must add items (with invoice: draft.id) then call finalizeInvoice.
  */
-export async function createChargeAutomaticallyInvoice(
+export async function createDraftChargeAutomaticallyInvoice(
   stripe: Stripe,
   customerId: string,
   defaultPaymentMethodId: string,
@@ -142,16 +147,20 @@ export async function createChargeAutomaticallyInvoice(
   studentId: string,
   isStripeTestKey: boolean,
   isStripeLiveKey: boolean,
-  timestamp: number
+  timestamp: number,
+  sessionsStudentsIds?: string[]
 ): Promise<Stripe.Invoice> {
-  const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, timestamp);
+  const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, {
+    sessionsStudentsIds,
+    timestamp,
+  });
 
-  const invoice = await stripe.invoices.create(
+  return await stripe.invoices.create(
     {
       customer: customerId,
       collection_method: 'charge_automatically',
       auto_advance: true,
-      pending_invoice_items_behavior: 'include',
+      pending_invoice_items_behavior: 'exclude',
       default_payment_method: defaultPaymentMethodId,
       description: `Invoice for sessions on ${invoiceDate}`,
       metadata: {
@@ -163,28 +172,21 @@ export async function createChargeAutomaticallyInvoice(
     },
     { idempotencyKey }
   );
-
-  // Finalize invoice (triggers automatic charge)
-  return await stripe.invoices.finalizeInvoice(invoice.id);
 }
 
 /**
- * Attempt to pay an invoice
- * Returns the paid invoice with expanded fields to access charge and payment_intent IDs
- * Following Stripe best practices: retrieve invoice with expanded fields after payment
+ * Finalize a draft invoice after items have been attached.
  */
-export async function payInvoice(
-  stripe: Stripe,
-  invoiceId: string
-): Promise<Stripe.Invoice> {
-  // Pay the invoice
-  await stripe.invoices.pay(invoiceId);
-  
-  // Retrieve the paid invoice with expanded fields to get charge/payment_intent IDs
-  // This ensures we have access to latest_charge and payment_intent for refund tracking
-  return await stripe.invoices.retrieve(invoiceId, {
-    expand: ['latest_charge', 'payment_intent']
-  });
+export async function finalizeInvoice(stripe: Stripe, invoiceId: string): Promise<Stripe.Invoice> {
+  return await stripe.invoices.finalizeInvoice(invoiceId);
+}
+
+/**
+ * Delete a draft invoice (and its line items). Only draft invoices can be deleted.
+ * Use for rollback when item creation or finalize fails.
+ */
+export async function deleteDraftInvoice(stripe: Stripe, invoiceId: string): Promise<void> {
+  await stripe.invoices.del(invoiceId);
 }
 
 /**
@@ -321,6 +323,18 @@ export async function saveInvoiceItemsToDatabase(
     });
 
   if (itemsErr) {
+    // If we hit a unique violation (e.g. from the sessions_students_id partial
+    // unique index), treat it as "session already billed" and log a warning
+    // instead of failing the entire billing flow. Stripe idempotency will have
+    // ensured we are not creating a truly new charge in this case.
+    if (itemsErr.code === '23505') {
+      console.warn(
+        `${LOG_PREFIX} Unique constraint violation while saving invoice items (likely already billed session).`,
+        formatStripeErrorMessage(itemsErr, 'save invoice items unique violation', { invoiceId })
+      );
+      return;
+    }
+
     console.error(
       `${LOG_PREFIX} Failed to save invoice items:`,
       formatStripeErrorMessage(itemsErr, 'save invoice items to database', { invoiceId })

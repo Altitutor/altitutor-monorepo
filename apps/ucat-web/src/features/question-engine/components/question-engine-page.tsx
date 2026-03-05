@@ -1007,19 +1007,19 @@ export function QuestionEnginePage({
               }
             />
           ) : (
-            <MarkingBody
-              result={computeMarkingResult(
-                questions,
-                state.selectedAnswers,
-                state.syllogismSnapshots
-              )}
-              syllogismSnapshots={state.syllogismSnapshots}
-              onViewQuestion={(index) =>
-                void runWithLag(() =>
-                  setState((current) => ({ ...current, viewingQuestionIndex: index }))
-                )
-              }
-            />
+          <MarkingBody
+            result={computeMarkingResult(
+              questions,
+              state.selectedAnswers,
+              state.syllogismSnapshots
+            )}
+            syllogismSnapshots={state.syllogismSnapshots}
+            onViewQuestion={(index) =>
+              void runWithLag(() =>
+                setState((current) => ({ ...current, viewingQuestionIndex: index }))
+              )
+            }
+          />
           )
         ) : isReviewScreen ? (
           <ReviewBody
@@ -1067,6 +1067,7 @@ export function QuestionEnginePage({
               flaggedIds={state.flaggedIds}
               selectedAnswers={state.selectedAnswers}
               visitedQuestionIds={state.visitedQuestionIds}
+              syllogismSnapshots={state.syllogismSnapshots}
               onSelect={(index: number) =>
                 void runWithLag(() => {
                   setQuestionByIndex(index)

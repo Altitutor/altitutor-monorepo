@@ -103,14 +103,42 @@ export function calculateAdelaideDateRange(targetDate: Date): {
 }
 
 /**
- * Generate idempotency key for invoice
+ * Generate idempotency key for invoice.
+ *
+ * The key is primarily derived from the business identity of the invoice:
+ * - studentId
+ * - invoiceDate (billing day)
+ * - sessionsStudentsIds (set of sessions in the invoice, if available)
+ *
+ * For session-based invoices (billing-single and billing-runner), this makes
+ * the key stable per (student, date, sessions_students set) so that retries
+ * and double-calls reuse the same Stripe invoice instead of creating new ones.
+ *
+ * When no sessionsStudentsIds are provided (e.g. legacy or non-session
+ * invoices), an optional timestamp can be supplied as a tiebreaker to avoid
+ * collisions.
  */
 export function generateInvoiceIdempotencyKey(
   studentId: string,
   invoiceDate: string,
-  timestamp: number
+  options?: {
+    sessionsStudentsIds?: string[];
+    timestamp?: number;
+  }
 ): string {
-  return `invoice_${studentId}_${invoiceDate}_${timestamp}`;
+  const base = `invoice_${studentId}_${invoiceDate}`;
+
+  const ids = options?.sessionsStudentsIds;
+  if (ids && ids.length > 0) {
+    const sorted = [...ids].sort();
+    return `${base}_${sorted.join('-')}`;
+  }
+
+  if (options?.timestamp != null) {
+    return `${base}_${options.timestamp}`;
+  }
+
+  return base;
 }
 
 /**
@@ -118,25 +146,40 @@ export function generateInvoiceIdempotencyKey(
  */
 interface InvoiceItemLike {
   sessions_students_id?: string;
+  session_id?: string;
   amount_cents: number;
   description: string;
+  is_fee?: boolean;
+  is_subsidy?: boolean;
 }
 
+/**
+ * Generate idempotency key for invoice item.
+ *
+ * For session-based items (with sessions_students_id), the key is stable per
+ * (sessions_students_id, is_fee, is_subsidy, amount_cents, invoiceDate).
+ * This ensures retries or double-calls reuse the same Stripe invoice item
+ * instead of creating duplicates.
+ *
+ * For fee-only items that are not tied to a specific sessions_students_id,
+ * we continue to allow a timestamp tiebreaker so multiple distinct fee items
+ * can coexist on the same invoice.
+ */
 export function generateInvoiceItemIdempotencyKey(
   item: InvoiceItemLike,
   studentId: string,
   invoiceDate: string,
-  timestamp: number
+  timestamp?: number
 ): string {
   if (item.sessions_students_id) {
-    // For session items, include amount and description hash for uniqueness
-    const hash = `${item.amount_cents}_${item.description.substring(0, 50)}`.replace(
-      /[^a-zA-Z0-9_]/g,
-      '_'
-    );
-    return `invoice_item_${item.sessions_students_id}_${hash.substring(0, 80)}_${timestamp}`;
-  } else {
-    // For fee items, include amount and timestamp in key
-    return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}_${timestamp}`;
+    const flags = [
+      item.is_fee ? 'fee' : 'main',
+      item.is_subsidy ? 'subsidy' : 'charge',
+    ].join('-');
+    return `invoice_item_${item.sessions_students_id}_${flags}_${item.amount_cents}_${invoiceDate}`;
   }
+
+  const effectiveTimestamp = timestamp ?? Date.now();
+  return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}_${effectiveTimestamp}`;
 }
+

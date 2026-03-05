@@ -267,6 +267,10 @@ export function BulkImportQuestionStemsModal({
             ...opt,
             // For syllogisms, treat 'Y' as "Yes" (isAnswer = true), anything else as "No".
             isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
+            answerExplanation:
+              answer.optionExplanations?.[j]?.trim() && answer.optionExplanations?.[j]
+                ? (plainTextToProseMirror(answer.optionExplanations[j]!) as Json)
+                : opt.answerExplanation ?? null,
           }))
           questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
         } else if (answer.letter) {
@@ -275,7 +279,15 @@ export function BulkImportQuestionStemsModal({
             ...opt,
             isAnswer: j === optionIndex,
           }))
-          questions[questionIndex] = { ...q, options }
+          const explanationText = answer.explanation?.trim() ?? ''
+          questions[questionIndex] = {
+            ...q,
+            options,
+            // For non-syllogism DM, treat explanation like VR: question-level explanation.
+            answerExplanation: explanationText
+              ? (plainTextToProseMirror(explanationText) as Json)
+              : q.answerExplanation ?? null,
+          }
         }
         nextValues = { ...nextValues, questions }
         updatesByStem.set(stemId, nextValues)

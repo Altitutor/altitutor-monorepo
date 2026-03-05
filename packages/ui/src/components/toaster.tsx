@@ -12,7 +12,7 @@ import {
 export interface ToastData extends ToastProps {
   id: string;
   title?: string;
-  description?: string;
+  description?: React.ReactNode;
 }
 
 interface ToasterProps {
