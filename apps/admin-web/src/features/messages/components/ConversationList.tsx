@@ -258,7 +258,7 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
                       )}
                       <Button
                         size="sm"
-                        variant="outline"
+                        variant={isUnreadConv ? 'default' : 'outline'}
                         className={cn(
                           "h-6 w-6 p-0 shrink-0",
                           isUnreadConv && "bg-red-500 text-white hover:bg-red-600 border-transparent"

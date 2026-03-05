@@ -1,4 +1,5 @@
-import type { Database } from '@altitutor/shared';
+import type { Database, Tables } from '@altitutor/shared';
+import { formatClassShortName } from '@/shared/utils';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -51,11 +52,8 @@ type StudentRow = {
   registered_at: string | null;
 };
 
-type ClassRow = {
-  id: string;
-  name: string | null;
-  session_start_date: string | null;
-  session_end_date: string | null;
+type ClassRow = Tables<'classes'> & {
+  subject?: Tables<'subjects'> | null;
 };
 
 type ClassEnrollmentRow = {
@@ -375,24 +373,15 @@ async function fetchClassesForReport(): Promise<ClassRow[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('classes')
-    .select('id, level, session_start_date, session_end_date');
+    .select(
+      `
+      *,
+      subject:subjects(*)
+    `
+    );
 
   if (error) throw error;
-
-  const rows =
-    (data as Array<{
-      id: string;
-      level: string | null;
-      session_start_date: string | null;
-      session_end_date: string | null;
-    }> | null) ?? [];
-
-  return rows.map((row) => ({
-    id: row.id,
-    name: row.level,
-    session_start_date: row.session_start_date,
-    session_end_date: row.session_end_date,
-  }));
+  return (data ?? []) as ClassRow[];
 }
 
 async function fetchClassEnrollmentsForReport(
@@ -566,7 +555,14 @@ export async function fetchStudentStatsReportData(
       count: activeClasses.length,
       entities: activeClasses.map((cls) => ({
         id: cls.id,
-        name: cls.name ? cls.name : `Class ${cls.id}`,
+        name:
+          formatClassShortName(
+            {
+              day_of_week: cls.day_of_week,
+              start_time: cls.start_time,
+            } as Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
+            (cls.subject ?? null) as Tables<'subjects'> | null
+          ) || `Class ${cls.id}`,
         link: {
           kind: 'class' as ReportEntityLink['kind'],
           classId: cls.id,
@@ -993,7 +989,7 @@ export async function fetchBillingStatsReportData(
 
     const point = creditsByDay[index];
     point.amountCents += note.amount_cents;
-    point.count = point.amountCents;
+    point.count += 1;
     const reason = note.reason ? ` · ${note.reason}` : '';
     point.entities = [
       ...point.entities,

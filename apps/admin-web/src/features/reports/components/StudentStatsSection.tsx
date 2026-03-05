@@ -14,7 +14,10 @@ import {
 } from '@altitutor/ui';
 import { GraduationCap, ChevronLeft, ChevronRight } from 'lucide-react';
 import { addWeeks, endOfWeek, format, startOfWeek } from 'date-fns';
-import type { ReportDataPoint } from '../types';
+import type { ReportDataPoint, ReportEntityLink } from '../types';
+import { ViewStudentModal } from '@/features/students';
+import { ViewClassModal } from '@/features/classes';
+import { SessionModal } from '@/features/sessions';
 import { useStudentStatsReport } from '../hooks/useAdditionalReports';
 import { IssuesReportChart } from './IssuesReportChart';
 
@@ -30,6 +33,9 @@ export function StudentStatsSection() {
   const [weekOffset, setWeekOffset] = useState(0);
   const [dialogKind, setDialogKind] = useState<DialogKind>(null);
   const [selectedPoint, setSelectedPoint] = useState<ReportDataPoint | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), {
     weekStartsOn: 1,
@@ -108,7 +114,7 @@ export function StudentStatsSection() {
 
           <p className="text-xs text-muted-foreground">Week: {weekLabel}</p>
 
-          <div className="grid gap-8 md:grid-cols-2">
+          <div className="space-y-8">
             <div>
               <h3 className="text-sm font-medium mb-2">Active students</h3>
               <p className="text-xs text-muted-foreground mb-3">
@@ -151,7 +157,7 @@ export function StudentStatsSection() {
             </div>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-2">
+          <div className="space-y-8">
             <div>
               <h3 className="text-sm font-medium mb-2">Class enrolments</h3>
               <p className="text-xs text-muted-foreground mb-3">
@@ -242,14 +248,45 @@ export function StudentStatsSection() {
           </DialogHeader>
           <div className="mt-2 space-y-2 max-h-80 overflow-y-auto">
             {selectedPoint?.entities.length ? (
-              selectedPoint.entities.map((entity) => (
-                <p
-                  key={entity.id}
-                  className="text-sm text-brand-darkBlue dark:text-brand-lightBlue"
-                >
-                  {entity.name}
-                </p>
-              ))
+              selectedPoint.entities.map((entity) => {
+                const link = entity.link as ReportEntityLink | undefined;
+                const handleClick = () => {
+                  if (!link) return;
+                  if (
+                    (link.kind === 'student' || link.kind === 'registration') &&
+                    link.studentId
+                  ) {
+                    setSelectedStudentId(link.studentId);
+                  } else if (
+                    (link.kind === 'class' ||
+                      link.kind === 'enrolment' ||
+                      link.kind === 'unenrolment') &&
+                    link.classId
+                  ) {
+                    setSelectedClassId(link.classId);
+                  } else if (link.kind === 'absence' && link.sessionId) {
+                    setSelectedSessionId(link.sessionId);
+                  }
+                };
+
+                const isClickable = !!entity.link;
+
+                return (
+                  <button
+                    key={entity.id}
+                    type="button"
+                    onClick={handleClick}
+                    disabled={!isClickable}
+                    className={`block w-full text-left text-sm ${
+                      isClickable
+                        ? 'text-brand-darkBlue hover:underline dark:text-brand-lightBlue'
+                        : 'text-muted-foreground cursor-default'
+                    }`}
+                  >
+                    {entity.name}
+                  </button>
+                );
+              })
             ) : (
               <p className="text-sm text-muted-foreground">
                 No records for this day.
@@ -258,6 +295,26 @@ export function StudentStatsSection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ViewStudentModal
+        isOpen={!!selectedStudentId}
+        onClose={() => setSelectedStudentId(null)}
+        studentId={selectedStudentId}
+        onStudentUpdated={() => {}}
+      />
+
+      <ViewClassModal
+        isOpen={!!selectedClassId}
+        onClose={() => setSelectedClassId(null)}
+        classId={selectedClassId}
+        onClassUpdated={() => {}}
+      />
+
+      <SessionModal
+        isOpen={!!selectedSessionId}
+        sessionId={selectedSessionId}
+        onClose={() => setSelectedSessionId(null)}
+      />
     </>
   );
 }

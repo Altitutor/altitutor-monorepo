@@ -14,12 +14,14 @@ import {
 } from '@altitutor/ui';
 import { CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
 import { addWeeks, endOfWeek, format, startOfWeek } from 'date-fns';
-import type { ReportDataPoint, RevenueReportDataPoint } from '../types';
+import type { ReportDataPoint, ReportEntityLink, RevenueReportDataPoint } from '../types';
 import { useBillingStatsReport } from '../hooks/useAdditionalReports';
 import { RevenueReportChart } from './RevenueReportChart';
-import { IssuesReportChart } from './IssuesReportChart';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ViewInvoiceModal } from '@/features/billing';
+import { ViewStudentModal } from '@/features/students';
 
-type BillingDialogKind = 'predicted' | 'actual' | 'refunds' | 'credits' | 'voided' | null;
+type BillingDialogKind = 'predicted' | 'actual' | 'billingErrors' | null;
 type ReportEntity = ReportDataPoint['entities'][number];
 
 export function BillingStatsSection() {
@@ -28,6 +30,8 @@ export function BillingStatsSection() {
   const [selectedRevenuePoint, setSelectedRevenuePoint] =
     useState<RevenueReportDataPoint | null>(null);
   const [selectedPoint, setSelectedPoint] = useState<ReportDataPoint | null>(null);
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
+  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
 
   const weekStart = startOfWeek(addWeeks(new Date(), weekOffset), {
     weekStartsOn: 1,
@@ -42,14 +46,6 @@ export function BillingStatsSection() {
     weekEnd,
     'd MMM yyyy'
   )}`;
-
-  const openCountDialog =
-    (kind: Exclude<BillingDialogKind, null>) =>
-    (point: ReportDataPoint) => {
-      setDialogKind(kind);
-      setSelectedPoint(point);
-      setSelectedRevenuePoint(null);
-    };
 
   const closeDialog = () => {
     setDialogKind(null);
@@ -74,12 +70,8 @@ export function BillingStatsSection() {
         return `Predicted revenue on ${base}`;
       case 'actual':
         return `Actual revenue on ${base}`;
-      case 'refunds':
-        return `Refunds on ${base}`;
-      case 'credits':
-        return `Credits issued on ${base}`;
-      case 'voided':
-        return `Voided invoices on ${base}`;
+      case 'billingErrors':
+        return `Billing errors on ${base}`;
       default:
         return 'Billing stats';
     }
@@ -87,6 +79,48 @@ export function BillingStatsSection() {
 
   const entities =
     selectedRevenuePoint?.entities ?? selectedPoint?.entities ?? [];
+
+  const errorsChartData =
+    data && data.predictedRevenueByDay
+      ? data.predictedRevenueByDay.map((day) => {
+          const date = day.date;
+          const refundsPoint = data.refundsByDay.find((p) => p.date === date);
+          const creditsPoint = data.creditsByDay.find((p) => p.date === date);
+          const voidsPoint = data.voidedInvoicesByDay.find((p) => p.date === date);
+          return {
+            date,
+            refunds: refundsPoint?.count ?? 0,
+            credits: creditsPoint?.count ?? 0,
+            voids: voidsPoint?.count ?? 0,
+          };
+        })
+      : [];
+
+  const handleErrorsBarClick = (date: string) => {
+    if (!data) return;
+    const refundsPoint = data.refundsByDay.find((p) => p.date === date);
+    const creditsPoint = data.creditsByDay.find((p) => p.date === date);
+    const voidsPoint = data.voidedInvoicesByDay.find((p) => p.date === date);
+
+    const combined: ReportDataPoint = {
+      date,
+      count:
+        (refundsPoint?.count ?? 0) +
+        (creditsPoint?.count ?? 0) +
+        (voidsPoint?.count ?? 0),
+      entities: [
+        ...(refundsPoint?.entities ?? []),
+        ...(creditsPoint?.entities ?? []),
+        ...(voidsPoint?.entities ?? []),
+      ],
+    };
+
+    if (!combined.entities.length) return;
+
+    setSelectedPoint(combined);
+    setSelectedRevenuePoint(null);
+    setDialogKind('billingErrors');
+  };
 
   return (
     <>
@@ -134,7 +168,7 @@ export function BillingStatsSection() {
 
           <p className="text-xs text-muted-foreground">Week: {weekLabel}</p>
 
-          <div className="grid gap-8 md:grid-cols-2">
+          <div className="space-y-8">
             <div>
               <h3 className="text-sm font-medium mb-2">Predicted revenue</h3>
               <p className="text-xs text-muted-foreground mb-3">
@@ -172,64 +206,59 @@ export function BillingStatsSection() {
             </div>
           </div>
 
-          <div className="grid gap-8 md:grid-cols-3">
-            <div>
-              <h3 className="text-sm font-medium mb-2">Refunds</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Number of refunds over time, grouped by refund date.
-              </p>
-              {isLoading ? (
-                <div className="h-[200px] flex items-center justify-center bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Loading...</p>
-                </div>
-              ) : (
-                <IssuesReportChart
-                  data={data?.refundsByDay ?? []}
-                  title="Refunds"
-                  barColor="#b91c1c"
-                  onBarClick={openCountDialog('refunds')}
-                  entityLabelSingular="refund"
-                />
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-sm font-medium mb-2">Credits</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Credit given over time, including credit note reasons.
-              </p>
-              {isLoading ? (
-                <div className="h-[200px] flex items-center justify-center bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Loading...</p>
-                </div>
-              ) : (
-                <RevenueReportChart
-                  data={data?.creditsByDay ?? []}
-                  title="Credits"
-                  barColor="#f97316"
-                />
-              )}
-            </div>
-
-            <div>
-              <h3 className="text-sm font-medium mb-2">Voided invoices</h3>
-              <p className="text-xs text-muted-foreground mb-3">
-                Invoices whose status changed to void over the period.
-              </p>
-              {isLoading ? (
-                <div className="h-[200px] flex items-center justify-center bg-muted/30 rounded-lg">
-                  <p className="text-sm text-muted-foreground">Loading...</p>
-                </div>
-              ) : (
-                <IssuesReportChart
-                  data={data?.voidedInvoicesByDay ?? []}
-                  title="Voided invoices"
-                  barColor="#6b7280"
-                  onBarClick={openCountDialog('voided')}
-                  entityLabelSingular="invoice"
-                />
-              )}
-            </div>
+          <div>
+            <h3 className="text-sm font-medium mb-2">Billing errors</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Combined view of refunds, credits, and voided invoices per day.
+            </p>
+            {isLoading ? (
+              <div className="h-[220px] flex items-center justify-center bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              </div>
+            ) : (
+              <div className="h-[220px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={errorsChartData}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                    onClick={(state) => {
+                      const payload = (state?.activePayload?.[0]?.payload ||
+                        null) as { date?: string } | null;
+                      if (payload?.date) {
+                        handleErrorsBarClick(payload.date);
+                      }
+                    }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 12 }}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        return date.toLocaleDateString('en-AU', {
+                          weekday: 'short',
+                          day: 'numeric',
+                        });
+                      }}
+                    />
+                    <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                    <Tooltip
+                      formatter={(value: number, name: string) => [
+                        value,
+                        name === 'refunds'
+                          ? 'Refunds'
+                          : name === 'credits'
+                          ? 'Credits'
+                          : 'Voided invoices',
+                      ]}
+                    />
+                    <Bar dataKey="refunds" stackId="errors" fill="#b91c1c" />
+                    <Bar dataKey="credits" stackId="errors" fill="#f97316" />
+                    <Bar dataKey="voids" stackId="errors" fill="#6b7280" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -241,14 +270,39 @@ export function BillingStatsSection() {
           </DialogHeader>
           <div className="mt-2 space-y-2 max-h-80 overflow-y-auto">
             {entities.length ? (
-              entities.map((entity: ReportEntity) => (
-                <p
-                  key={entity.id}
-                  className="text-sm text-brand-darkBlue dark:text-brand-lightBlue"
-                >
-                  {entity.name}
-                </p>
-              ))
+              entities.map((entity: ReportEntity) => {
+                const link = entity.link as ReportEntityLink | undefined;
+                const handleClick = () => {
+                  if (!link) return;
+                  if (
+                    (link.kind === 'invoice' ||
+                      link.kind === 'refund' ||
+                      link.kind === 'credit') &&
+                    link.invoiceId
+                  ) {
+                    setSelectedInvoiceId(link.invoiceId);
+                  } else if (link.studentId) {
+                    setSelectedStudentId(link.studentId);
+                  }
+                };
+                const isClickable = !!entity.link;
+
+                return (
+                  <button
+                    key={entity.id}
+                    type="button"
+                    onClick={handleClick}
+                    disabled={!isClickable}
+                    className={`block w-full text-left text-sm ${
+                      isClickable
+                        ? 'text-brand-darkBlue hover:underline dark:text-brand-lightBlue'
+                        : 'text-muted-foreground cursor-default'
+                    }`}
+                  >
+                    {entity.name}
+                  </button>
+                );
+              })
             ) : (
               <p className="text-sm text-muted-foreground">
                 No items for this day.
@@ -257,6 +311,19 @@ export function BillingStatsSection() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ViewInvoiceModal
+        isOpen={!!selectedInvoiceId}
+        invoiceId={selectedInvoiceId}
+        onClose={() => setSelectedInvoiceId(null)}
+      />
+
+      <ViewStudentModal
+        isOpen={!!selectedStudentId}
+        studentId={selectedStudentId}
+        onClose={() => setSelectedStudentId(null)}
+        onStudentUpdated={() => {}}
+      />
     </>
   );
 }

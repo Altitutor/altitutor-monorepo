@@ -485,6 +485,55 @@ export function UnreadMessagesTable() {
   );
 }
 
+export function MessagesToFollowUpTable() {
+  const { data: conversations } = useConversationsByContact();
+  const openWindow = useChatStore((s) => s.openWindow);
+
+  const toFollowUpItems = (conversations ?? []).filter((c) =>
+    c.conversations.some((conv) => conv.needs_follow_up)
+  );
+
+  return (
+    <ReconciliationTable
+      title="Messages to follow up"
+      items={toFollowUpItems}
+      isLoading={false}
+      columns={['Last message', 'Contact']}
+      renderRow={(item, index) => {
+        const lastAt = item.latestMessageAt ? new Date(item.latestMessageAt) : null;
+        const lastTime = lastAt ? format(lastAt, 'MMM d, yyyy HH:mm') : '—';
+        const contactName = item.contact ? formatContactName({ contacts: item.contact }) : 'Unknown';
+
+        const handleOpen = () => {
+          const convId = item.conversations[0]?.id;
+          if (convId) {
+            openWindow({ conversationId: convId, title: contactName });
+          }
+        };
+
+        return (
+          <TableRow key={item.contactId ?? index}>
+            <TableCell>{lastTime}</TableCell>
+            <TableCell className="font-medium">{contactName}</TableCell>
+            <TableCell className="whitespace-nowrap">
+              <Button
+                size="sm"
+                variant="default"
+                onClick={handleOpen}
+                title="Open conversation"
+                className="h-8 px-2 gap-1"
+              >
+                <MessageCircle className="h-4 w-4" />
+                <span className="text-xs font-medium">Open conversation</span>
+              </Button>
+            </TableCell>
+          </TableRow>
+        );
+      }}
+    />
+  );
+}
+
 export function StudentsWithoutPaymentMethodTable({
   items,
   isLoading,
