@@ -222,8 +222,10 @@ export function BillingStatsSection() {
                     data={errorsChartData}
                     margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
                     onClick={(state) => {
-                      const payload = (state?.activePayload?.[0]?.payload ||
-                        null) as { date?: string } | null;
+                      const chartState = (state || null) as {
+                        activePayload?: Array<{ payload?: { date?: string } | null }>;
+                      } | null;
+                      const payload = chartState?.activePayload?.[0]?.payload ?? null;
                       if (payload?.date) {
                         handleErrorsBarClick(payload.date);
                       }
@@ -243,8 +245,8 @@ export function BillingStatsSection() {
                     />
                     <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
                     <Tooltip
-                      formatter={(value: number, name: string) => [
-                        value,
+                      formatter={(value, name) => [
+                        value ?? 0,
                         name === 'refunds'
                           ? 'Refunds'
                           : name === 'credits'
