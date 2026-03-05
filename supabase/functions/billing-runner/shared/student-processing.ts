@@ -4,9 +4,10 @@ import { grossUp, formatSessionDate, getClassLongName } from './utils.ts';
 import { calculateSessionPrice } from './pricing.ts';
 import {
   createStripeInvoiceItems,
-  rollbackStripeInvoiceItems,
-  createSendInvoiceInvoice,
-  createChargeAutomaticallyInvoice,
+  createDraftSendInvoiceInvoice,
+  createDraftChargeAutomaticallyInvoice,
+  finalizeInvoice,
+  deleteDraftInvoice,
   voidInvoice,
   createStripeCustomer,
   saveInvoiceToDatabase,
@@ -319,44 +320,8 @@ export async function processStudentInvoicing(
     if (!shouldAutoBill) {
       // Create invoice with send_invoice collection method (no auto-charge)
       try {
-        // Create invoice items in Stripe
-        let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
-        let createdStripeItemIds: string[] = [];
-
-        try {
-          const result = await createStripeInvoiceItems(
-            stripe,
-            billing.stripe_customer_id!,
-            invoiceItems,
-            invoiceCurrency,
-            studentId,
-            invoiceDate,
-            timestamp
-          );
-          stripeInvoiceItems = result.stripeInvoiceItems;
-          createdStripeItemIds = result.createdStripeItemIds;
-        } catch (itemErr: unknown) {
-          // Rollback: delete created invoice items if any failed
-          console.error(
-            `${LOG_PREFIX} Failed to create invoice items for student ${studentId}, rolling back:`,
-            formatStripeErrorMessage(itemErr, 'create invoice items', { studentId })
-          );
-          if (createdStripeItemIds.length > 0) {
-            try {
-              await rollbackStripeInvoiceItems(stripe, createdStripeItemIds);
-              console.log(`${LOG_PREFIX} Successfully rolled back ${createdStripeItemIds.length} invoice items`);
-            } catch (rollbackErr) {
-              console.error(
-                `${LOG_PREFIX} Failed to rollback invoice items:`,
-                formatStripeErrorMessage(rollbackErr, 'rollback invoice items', { studentId })
-              );
-            }
-          }
-          throw itemErr;
-        }
-
-        // Create invoice with send_invoice collection method
-        const finalizedInvoice = await createSendInvoiceInvoice(
+        // Create draft invoice (no pending items sweep)
+        const draftInvoice = await createDraftSendInvoiceInvoice(
           stripe,
           billing.stripe_customer_id!,
           invoiceDate,
@@ -366,6 +331,54 @@ export async function processStudentInvoicing(
           timestamp,
           sessionsStudentsIds
         );
+
+        let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
+        try {
+          const result = await createStripeInvoiceItems(
+            stripe,
+            billing.stripe_customer_id!,
+            invoiceItems,
+            invoiceCurrency,
+            studentId,
+            invoiceDate,
+            timestamp,
+            draftInvoice.id
+          );
+          stripeInvoiceItems = result.stripeInvoiceItems as Array<InvoiceItemRow & { stripe_invoice_item_id: string }>;
+        } catch (itemErr: unknown) {
+          console.error(
+            `${LOG_PREFIX} Failed to create invoice items for student ${studentId}, deleting draft invoice:`,
+            formatStripeErrorMessage(itemErr, 'create invoice items', { studentId })
+          );
+          try {
+            await deleteDraftInvoice(stripe, draftInvoice.id);
+          } catch (delErr) {
+            console.error(
+              `${LOG_PREFIX} Failed to delete draft invoice ${draftInvoice.id}:`,
+              formatStripeErrorMessage(delErr, 'delete draft invoice', { studentId })
+            );
+          }
+          throw itemErr;
+        }
+
+        let finalizedInvoice: Stripe.Invoice;
+        try {
+          finalizedInvoice = await finalizeInvoice(stripe, draftInvoice.id);
+        } catch (finalizeErr: unknown) {
+          console.error(
+            `${LOG_PREFIX} Failed to finalize invoice for student ${studentId}, deleting draft:`,
+            formatStripeErrorMessage(finalizeErr, 'finalize invoice', { studentId })
+          );
+          try {
+            await deleteDraftInvoice(stripe, draftInvoice.id);
+          } catch (delErr) {
+            console.error(
+              `${LOG_PREFIX} Failed to delete draft invoice ${draftInvoice.id}:`,
+              formatStripeErrorMessage(delErr, 'delete draft invoice', { studentId })
+            );
+          }
+          throw finalizeErr;
+        }
 
         // Save invoice to database
         const dbInvoice = await saveInvoiceToDatabase(supabase, studentId, finalizedInvoice, invoiceDate);
@@ -450,44 +463,8 @@ export async function processStudentInvoicing(
     } else {
       // Create invoice with automatic collection
       try {
-        // Create invoice items in Stripe
-        let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
-        let createdStripeItemIds: string[] = [];
-
-        try {
-          const result = await createStripeInvoiceItems(
-            stripe,
-            billing.stripe_customer_id!,
-            invoiceItems,
-            invoiceCurrency,
-            studentId,
-            invoiceDate,
-            timestamp
-          );
-          stripeInvoiceItems = result.stripeInvoiceItems;
-          createdStripeItemIds = result.createdStripeItemIds;
-        } catch (itemErr: unknown) {
-          // Rollback: delete created invoice items if any failed
-          console.error(
-            `${LOG_PREFIX} Failed to create invoice items for student ${studentId}, rolling back:`,
-            formatStripeErrorMessage(itemErr, 'create invoice items', { studentId })
-          );
-          if (createdStripeItemIds.length > 0) {
-            try {
-              await rollbackStripeInvoiceItems(stripe, createdStripeItemIds);
-              console.log(`${LOG_PREFIX} Successfully rolled back ${createdStripeItemIds.length} invoice items`);
-            } catch (rollbackErr) {
-              console.error(
-                `${LOG_PREFIX} Failed to rollback invoice items:`,
-                formatStripeErrorMessage(rollbackErr, 'rollback invoice items', { studentId })
-              );
-            }
-          }
-          throw itemErr;
-        }
-
-        // Create invoice with automatic collection
-        const finalizedInvoice = await createChargeAutomaticallyInvoice(
+        // Create draft invoice (no pending items sweep)
+        const draftInvoice = await createDraftChargeAutomaticallyInvoice(
           stripe,
           billing.stripe_customer_id!,
           defaultPM.stripe_payment_method_id,
@@ -498,6 +475,54 @@ export async function processStudentInvoicing(
           timestamp,
           sessionsStudentsIds
         );
+
+        let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
+        try {
+          const result = await createStripeInvoiceItems(
+            stripe,
+            billing.stripe_customer_id!,
+            invoiceItems,
+            invoiceCurrency,
+            studentId,
+            invoiceDate,
+            timestamp,
+            draftInvoice.id
+          );
+          stripeInvoiceItems = result.stripeInvoiceItems as Array<InvoiceItemRow & { stripe_invoice_item_id: string }>;
+        } catch (itemErr: unknown) {
+          console.error(
+            `${LOG_PREFIX} Failed to create invoice items for student ${studentId}, deleting draft invoice:`,
+            formatStripeErrorMessage(itemErr, 'create invoice items', { studentId })
+          );
+          try {
+            await deleteDraftInvoice(stripe, draftInvoice.id);
+          } catch (delErr) {
+            console.error(
+              `${LOG_PREFIX} Failed to delete draft invoice ${draftInvoice.id}:`,
+              formatStripeErrorMessage(delErr, 'delete draft invoice', { studentId })
+            );
+          }
+          throw itemErr;
+        }
+
+        let finalizedInvoice: Stripe.Invoice;
+        try {
+          finalizedInvoice = await finalizeInvoice(stripe, draftInvoice.id);
+        } catch (finalizeErr: unknown) {
+          console.error(
+            `${LOG_PREFIX} Failed to finalize invoice for student ${studentId}, deleting draft:`,
+            formatStripeErrorMessage(finalizeErr, 'finalize invoice', { studentId })
+          );
+          try {
+            await deleteDraftInvoice(stripe, draftInvoice.id);
+          } catch (delErr) {
+            console.error(
+              `${LOG_PREFIX} Failed to delete draft invoice ${draftInvoice.id}:`,
+              formatStripeErrorMessage(delErr, 'delete draft invoice', { studentId })
+            );
+          }
+          throw finalizeErr;
+        }
 
         // Save invoice to database FIRST (before payment)
         const dbInvoice = await saveInvoiceToDatabase(supabase, studentId, finalizedInvoice, invoiceDate);
