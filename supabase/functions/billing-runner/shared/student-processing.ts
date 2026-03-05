@@ -7,7 +7,6 @@ import {
   rollbackStripeInvoiceItems,
   createSendInvoiceInvoice,
   createChargeAutomaticallyInvoice,
-  payInvoice,
   voidInvoice,
   createStripeCustomer,
   saveInvoiceToDatabase,
@@ -100,10 +99,6 @@ export async function processStudentInvoicing(
   } = deps;
 
   try {
-    // Note: We always create a new invoice for billing-single (manual reconciliation)
-    // This ensures each session gets its own invoice, even if other sessions for the
-    // same student/date were already invoiced. The billing-single function already
-    // checks that the specific session isn't already invoiced before calling this.
     let billing = billingByStudent[studentId];
     const defaultPM = billing?.payment_methods?.[0];
 
@@ -312,6 +307,15 @@ export async function processStudentInvoicing(
     // Auto-bill if: preferences allow it AND payment method exists
     const shouldAutoBill = autoBillEnabled && defaultPM?.stripe_payment_method_id;
 
+    // Collect the set of sessions_students_id values included in this invoice.
+    const sessionsStudentsIds = Array.from(
+      new Set(
+        studentSessions
+          .map((s) => s.sessions_students_id)
+          .filter((id): id is string => Boolean(id))
+      )
+    );
+
     if (!shouldAutoBill) {
       // Create invoice with send_invoice collection method (no auto-charge)
       try {
@@ -359,7 +363,8 @@ export async function processStudentInvoicing(
           studentId,
           isStripeTestKey,
           isStripeLiveKey,
-          timestamp
+          timestamp,
+          sessionsStudentsIds
         );
 
         // Save invoice to database
@@ -490,7 +495,8 @@ export async function processStudentInvoicing(
           studentId,
           isStripeTestKey,
           isStripeLiveKey,
-          timestamp
+          timestamp,
+          sessionsStudentsIds
         );
 
         // Save invoice to database FIRST (before payment)
@@ -535,51 +541,8 @@ export async function processStudentInvoicing(
           // Don't throw - invoice is saved, items can be reconciled later
         }
 
-        // If invoice is already paid (via webhook), skip payment
-        if (dbInvoice.status === 'paid') {
-          return { invoiceId: dbInvoice.id, error: null };
-        }
-
-        // Attempt payment (after DB insert succeeds)
-        if (
-          finalizedInvoice.status === 'open' &&
-          finalizedInvoice.collection_method === 'charge_automatically'
-        ) {
-          try {
-            const paidInvoice = await payInvoice(stripe, finalizedInvoice.id);
-
-            // Update DB record with payment status
-            await updateInvoicePaymentStatus(supabase, dbInvoice.id, paidInvoice);
-
-            return { invoiceId: dbInvoice.id, error: null };
-          } catch (payErr: unknown) {
-            // Payment failed but DB record exists - log for reconciliation
-            const payErrDetails = getStripeErrorDetails(payErr);
-            console.warn(
-              `${LOG_PREFIX} Failed to pay invoice ${finalizedInvoice.id} for student ${studentId}:`,
-              formatStripeErrorMessage(payErr, 'pay invoice', { studentId, invoiceId: finalizedInvoice.id })
-            );
-
-            // Update DB with error status (invoice remains 'open')
-            const errorMessage = payErrDetails.isStripeError
-              ? `${payErrDetails.type || 'payment_error'}: ${payErrDetails.message || 'Payment failed'}`
-              : payErr instanceof Error ? payErr.message : 'Payment failed';
-            await updateInvoicePaymentError(supabase, dbInvoice.id, errorMessage);
-
-            // Don't throw - invoice created, payment can be retried
-            return {
-              invoiceId: dbInvoice.id,
-              error: formatStripeErrorMessage(
-                payErr,
-                'pay invoice',
-                { studentId, invoiceId: finalizedInvoice.id }
-              ) + ' Invoice created but payment failed. Will retry automatically.',
-            };
-          }
-        } else {
-          // For send_invoice or already paid, no payment needed
-          return { invoiceId: dbInvoice.id, error: null };
-        }
+        // For automatic collection, rely on Stripe's billing + webhooks to handle payment status
+        return { invoiceId: dbInvoice.id, error: null };
       } catch (e: unknown) {
         console.error(
           `${LOG_PREFIX} Failed to create invoice for student ${studentId}:`,
