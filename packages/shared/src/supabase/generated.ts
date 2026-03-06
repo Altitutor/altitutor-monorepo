@@ -2541,7 +2541,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
-          note: string
+          note: Json
           target_id: string
           target_type: string
           updated_at: string
@@ -2550,7 +2550,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
-          note: string
+          note?: Json
           target_id: string
           target_type: string
           updated_at?: string
@@ -2559,7 +2559,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
-          note?: string
+          note?: Json
           target_id?: string
           target_type?: string
           updated_at?: string
@@ -3085,6 +3085,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          completed_at: string | null
           created_at: string
           created_by: string | null
           description: Json | null
@@ -3099,6 +3100,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          completed_at?: string | null
           created_at?: string
           created_by?: string | null
           description?: Json | null
@@ -3113,6 +3115,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          completed_at?: string | null
           created_at?: string
           created_by?: string | null
           description?: Json | null
@@ -5848,6 +5851,7 @@ export type Database = {
       tasks: {
         Row: {
           assigned_to: string | null
+          completed_at: string | null
           created_at: string | null
           created_by: string | null
           description: Json | null
@@ -5866,6 +5870,7 @@ export type Database = {
         }
         Insert: {
           assigned_to?: string | null
+          completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: Json | null
@@ -5884,6 +5889,7 @@ export type Database = {
         }
         Update: {
           assigned_to?: string | null
+          completed_at?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: Json | null
@@ -9393,7 +9399,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           id: string | null
-          note: string | null
+          note: Json | null
           staff: Json | null
           target_id: string | null
           target_type: string | null
@@ -9402,7 +9408,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string | null
-          note?: string | null
+          note?: Json | null
           staff?: never
           target_id?: string | null
           target_type?: string | null
@@ -9411,7 +9417,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           id?: string | null
-          note?: string | null
+          note?: Json | null
           staff?: never
           target_id?: string | null
           target_type?: string | null
@@ -12036,6 +12042,7 @@ export type Database = {
         Args: { first_name: string; last_name: string }
         Returns: string
       }
+      migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
       precreate_admin_shift_sessions: {
         Args: {
           end_date: string
