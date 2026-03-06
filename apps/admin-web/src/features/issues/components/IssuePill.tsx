@@ -6,7 +6,6 @@ import { Badge } from '@altitutor/ui';
 import { useOpenIssuesByEntity } from '../api/queries';
 import { EditIssueDialog } from './EditIssueDialog';
 import { cn } from '@/shared/utils';
-import { TextWithTags } from '@/shared/components/TextWithTags';
 
 interface IssuePillProps {
   entityType: 'student' | 'staff' | 'parent' | 'class' | 'session' | 'invoice';
@@ -42,7 +41,7 @@ export function IssuePill({ entityType, entityId, enabled = true, className, tru
             <>
               <Icon className={cn('h-3 w-3 flex-shrink-0', iconColor)} />
               <span className={cn('text-xs', truncateWithTitle && 'truncate max-w-[140px] min-w-0')}>
-                <TextWithTags text={issue.name} />
+                {issue.name ?? ''}
               </span>
             </>
           );

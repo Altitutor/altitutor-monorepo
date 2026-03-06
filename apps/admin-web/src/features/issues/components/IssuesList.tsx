@@ -9,7 +9,6 @@ import {
 } from '@altitutor/ui';
 import { useIssues } from '../api/queries';
 import { useUpdateIssue } from '../api/mutations';
-import { TextWithTags } from '@/shared/components/TextWithTags';
 import { EditIssueDialog } from './EditIssueDialog';
 import { CreateIssueDialog } from './CreateIssueDialog';
 import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
@@ -151,7 +150,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
       <EntityList<IssueWithTags>
         items={issues}
         getItemId={(i) => i.id}
-        renderName={(i) => <TextWithTags text={i.name} />}
+        renderName={(i) => i.name ?? ''}
         statusColumn={statusColumn}
         rightPills={rightPills}
         groupByOptions={groupByOptions}

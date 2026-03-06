@@ -16,7 +16,6 @@ import { useTaskSearch, type TaskSearchResult } from '../hooks/useTaskSearch';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useIssues } from '@/features/issues/api/queries';
 import { useProjects } from '@/features/projects/api/queries';
-import { TextWithTags } from '@/shared/components/TextWithTags';
 import { EditTaskDialog } from './EditTaskDialog';
 import {
   TaskAssigneeEntityPill,
@@ -616,7 +615,7 @@ export function TasksList({
       <EntityList<TaskWithAssignee>
         items={filteredTasks}
         getItemId={(t) => t.id}
-        renderName={(t) => <TextWithTags text={t.title} />}
+        renderName={(t) => t.title ?? ''}
         statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
         rightPills={rightPills}
         groupByOptions={groupByOptions}

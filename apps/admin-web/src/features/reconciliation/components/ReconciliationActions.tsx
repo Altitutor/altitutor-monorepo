@@ -20,7 +20,6 @@ import { issuesApi } from '@/features/issues/api/issues';
 import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issues/types';
 import type { JSONContent } from '@altitutor/ui';
 import { extractMentions } from '@/shared/utils/extractMentions';
-import { TextWithTags } from '@/shared/components/TextWithTags';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
 import type {
   UninvoicedSession,
@@ -587,7 +586,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
               onClick={() => handleAddToIssue(issue)}
             >
               <span className="mr-1">Add to open issue:</span>
-              <TextWithTags text={issue.name} />
+              {issue.name ?? ''}
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>

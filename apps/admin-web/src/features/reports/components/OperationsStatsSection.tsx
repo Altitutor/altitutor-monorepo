@@ -75,97 +75,110 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
           </p>
         )}
 
-        {visibleCharts.openIssues && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Open issues at end of day</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              Number of issues that were open (not resolved) at the end of each day
-            </p>
-            {issuesLoading ? (
-              <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              </div>
-            ) : (
-              <IssuesReportChart
-                data={issuesData?.openByDay ?? []}
-                title="Open issues"
-                barColor="#0a2941"
-                parseEntityNamesAsTags
-                onEntityClick={handleEntityClick}
-              />
-            )}
+        {/* Tasks */}
+        {(visibleCharts.tasks.openTasks || visibleCharts.tasks.completedTasks) && (
+          <div className="space-y-6">
+            <h3 className="text-sm font-semibold">Tasks</h3>
+            <div className="space-y-8">
+              {visibleCharts.tasks.openTasks && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Open tasks at end of day</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Number of tasks that were open (not done) at the end of each day
+                  </p>
+                  {tasksLoading ? (
+                    <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Loading...</p>
+                    </div>
+                  ) : (
+                    <IssuesReportChart
+                      data={tasksData?.openByDay ?? []}
+                      title="Open tasks"
+                      barColor="#7c3aed"
+                      onEntityClick={handleEntityClick}
+                    />
+                  )}
+                </div>
+              )}
+              {visibleCharts.tasks.completedTasks && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Completed tasks within period</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Number of tasks completed on each day
+                  </p>
+                  {tasksLoading ? (
+                    <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Loading...</p>
+                    </div>
+                  ) : (
+                    <IssuesReportChart
+                      data={tasksData?.completedByDay ?? []}
+                      title="Completed tasks"
+                      barColor="hsl(142, 76%, 36%)"
+                      onEntityClick={handleEntityClick}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {visibleCharts.resolvedIssues && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Resolved issues within period</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              Number of issues resolved on each day
-            </p>
-            {issuesLoading ? (
-              <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              </div>
-            ) : (
-              <IssuesReportChart
-                data={issuesData?.resolvedByDay ?? []}
-                title="Resolved issues"
-                barColor="hsl(142, 76%, 36%)"
-                parseEntityNamesAsTags
-                onEntityClick={handleEntityClick}
-              />
-            )}
+        {/* Issues */}
+        {(visibleCharts.issues.openIssues || visibleCharts.issues.resolvedIssues) && (
+          <div className="space-y-6">
+            <h3 className="text-sm font-semibold">Issues</h3>
+            <div className="space-y-8">
+              {visibleCharts.issues.openIssues && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Open issues at end of day</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Number of issues that were open (not resolved) at the end of each day
+                  </p>
+                  {issuesLoading ? (
+                    <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Loading...</p>
+                    </div>
+                  ) : (
+                    <IssuesReportChart
+                      data={issuesData?.openByDay ?? []}
+                      title="Open issues"
+                      barColor="#0a2941"
+                      onEntityClick={handleEntityClick}
+                    />
+                  )}
+                </div>
+              )}
+              {visibleCharts.issues.resolvedIssues && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Resolved issues within period</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Number of issues resolved on each day
+                  </p>
+                  {issuesLoading ? (
+                    <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Loading...</p>
+                    </div>
+                  ) : (
+                    <IssuesReportChart
+                      data={issuesData?.resolvedByDay ?? []}
+                      title="Resolved issues"
+                      barColor="hsl(142, 76%, 36%)"
+                      onEntityClick={handleEntityClick}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {visibleCharts.openTasks && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Open tasks at end of day</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              Number of tasks that were open (not done) at the end of each day
-            </p>
-            {tasksLoading ? (
-              <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              </div>
-            ) : (
-              <IssuesReportChart
-                data={tasksData?.openByDay ?? []}
-                title="Open tasks"
-                barColor="#7c3aed"
-                parseEntityNamesAsTags
-                onEntityClick={handleEntityClick}
-              />
-            )}
-          </div>
-        )}
-
-        {visibleCharts.completedTasks && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Completed tasks within period</h3>
-            <p className="text-xs text-muted-foreground mb-3">
-              Number of tasks completed on each day
-            </p>
-            {tasksLoading ? (
-              <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              </div>
-            ) : (
-              <IssuesReportChart
-                data={tasksData?.completedByDay ?? []}
-                title="Completed tasks"
-                barColor="hsl(142, 76%, 36%)"
-                parseEntityNamesAsTags
-                onEntityClick={handleEntityClick}
-              />
-            )}
-          </div>
-        )}
-
-        {visibleCharts.openProjects && (
-          <div>
-            <h3 className="text-sm font-medium mb-2">Open projects at end of day</h3>
+        {/* Projects */}
+        {visibleCharts.projects.openProjects && (
+          <div className="space-y-6">
+            <h3 className="text-sm font-semibold">Projects</h3>
+            <div>
+              <h4 className="text-sm font-medium mb-2">Open projects at end of day</h4>
             <p className="text-xs text-muted-foreground mb-3">
               Number of projects that were open (not completed) at the end of each day
             </p>
@@ -178,10 +191,10 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                 data={projectsData?.openByDay ?? []}
                 title="Open projects"
                 barColor="#0d9488"
-                parseEntityNamesAsTags
                 onEntityClick={handleEntityClick}
               />
             )}
+            </div>
           </div>
         )}
       </CardContent>
