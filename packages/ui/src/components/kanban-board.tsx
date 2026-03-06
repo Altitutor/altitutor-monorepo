@@ -436,17 +436,25 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
               </>
             )}
 
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Show pills</DropdownMenuLabel>
-            {rightPills.map((p) => (
-              <DropdownMenuCheckboxItem
-                key={p.key}
-                checked={visiblePillKeys.includes(p.key)}
-                onCheckedChange={() => togglePillVisibility(p.key)}
-              >
-                {p.label}
-              </DropdownMenuCheckboxItem>
-            ))}
+            {rightPills.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Show pills</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-[180px]">
+                    {rightPills.map((p) => (
+                      <DropdownMenuCheckboxItem
+                        key={p.key}
+                        checked={visiblePillKeys.includes(p.key)}
+                        onCheckedChange={() => togglePillVisibility(p.key)}
+                      >
+                        {p.label}
+                      </DropdownMenuCheckboxItem>
+                    ))}
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
 

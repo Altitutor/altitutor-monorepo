@@ -1,9 +1,11 @@
 import type { Tables, TablesInsert, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import type { JSONContent } from '@tiptap/core';
 
 /**
- * Notes API client for working with notes data
+ * Notes API client for working with notes data.
+ * Note content is stored as TipTap/ProseMirror JSONB.
  */
 export const notesApi = {
   /**
@@ -12,15 +14,14 @@ export const notesApi = {
   createNote: async (params: {
     targetType: string;
     targetId: string;
-    note: string;
+    note: JSONContent;
     staffId: string;
   }): Promise<Tables<'notes'>> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
     const noteInsert: TablesInsert<'notes'> = {
       target_type: params.targetType,
       target_id: params.targetId,
-      note: params.note,
+      note: params.note as TablesInsert<'notes'>['note'],
       created_by: params.staffId,
     };
     
@@ -80,9 +81,9 @@ export const notesApi = {
   /**
    * Update a note
    */
-  updateNote: async (noteId: string, note: string): Promise<Tables<'notes'>> => {
+  updateNote: async (noteId: string, note: JSONContent): Promise<Tables<'notes'>> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
+
     const { data, error } = await supabase
       .from('notes')
       .update({ note })

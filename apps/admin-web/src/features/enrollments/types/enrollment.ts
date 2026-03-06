@@ -111,7 +111,7 @@ export interface UnenrollStudentModalProps {
     studentId: string;
     classId: string;
     unenrolledAt: Date;
-    reason: string;
+    reason: import('@tiptap/core').JSONContent;
     staffId: string;
   }) => Promise<void>;
   

@@ -31,6 +31,7 @@ export function IssuesBoard() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [createColumnValue, setCreateColumnValue] = useState<IssueStatus>('open');
+  const [createDefaultDueDate, setCreateDefaultDueDate] = useState<string | null>(null);
 
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
@@ -44,23 +45,16 @@ export function IssuesBoard() {
     [updateIssue]
   );
 
-  const handleAdd = useCallback(
-    (columnValue: unknown) => {
+  const handleAdd = useCallback((columnValue: unknown) => {
+    if (activeColumnKey === 'status') {
       setCreateColumnValue(columnValue as IssueStatus);
-      setIsCreateDialogOpen(true);
-    },
-    []
-  );
-
-  const columnDefs: KanbanColumnDef<IssueWithTags, unknown>[] = useMemo(() => [
-    {
-      key: 'status',
-      label: 'Status',
-      getValue: (i) => i.status,
-      options: STATUS_OPTIONS,
-      onValueChange: (i, v) => handleUpdate(i, { status: v as IssueStatus }),
+      setCreateDefaultDueDate(null);
+    } else if (activeColumnKey === 'due_date') {
+      setCreateColumnValue('open');
+      setCreateDefaultDueDate(columnValue === '__null__' ? null : (columnValue as string));
     }
-  ], [handleUpdate]);
+    setIsCreateDialogOpen(true);
+  }, [activeColumnKey]);
 
   const dueDateFilterOptions = useMemo(
     () =>
@@ -70,8 +64,49 @@ export function IssuesBoard() {
     [issues]
   );
 
+  const dueDateColumnOptions = useMemo(
+    () => [
+      { value: '__null__' as unknown, label: 'No due date' },
+      ...dueDateFilterOptions,
+    ],
+    [dueDateFilterOptions]
+  );
+
+  const columnDefs: KanbanColumnDef<IssueWithTags, unknown>[] = useMemo(() => [
+    {
+      key: 'status',
+      label: 'Status',
+      getValue: (i) => i.status,
+      options: STATUS_OPTIONS,
+      onValueChange: (i, v) => handleUpdate(i, { status: v as IssueStatus }),
+    },
+    {
+      key: 'due_date',
+      label: 'Due date',
+      getValue: (i) => i.due_date ?? '__null__',
+      options: dueDateColumnOptions,
+      onValueChange: (i, v) => handleUpdate(i, { due_date: v === '__null__' ? null : (v as string) }),
+    },
+  ], [handleUpdate, dueDateColumnOptions]);
+
   const rightPills: EntityListPillColumn<IssueWithTags, unknown>[] = useMemo(
     () => [
+      {
+        key: 'status',
+        label: 'Status',
+        visibleByDefault: true,
+        getValue: (issue) => issue.status ?? null,
+        defaultValue: null,
+        filterOptions: STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        renderPill: (item, _onChange, collapsed) => (
+          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
+            {getIssueStatusLabel((item.status ?? 'open') as IssueStatus)}
+          </span>
+        ),
+      },
       {
         key: 'due_date',
         label: 'Due date',
@@ -100,6 +135,22 @@ export function IssuesBoard() {
           />
         ),
       },
+      {
+        key: 'tags',
+        label: 'Tags',
+        visibleByDefault: true,
+        getValue: (issue) => (issue.tags?.length ? issue.tags.length : null),
+        defaultValue: null,
+        groupable: false,
+        sortable: true,
+        filterable: false,
+        compare: (a, b) => (Number(a) ?? 0) - (Number(b) ?? 0),
+        renderPill: (item, _onChange, collapsed) => (
+          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
+            {item.tags?.length ? `${item.tags.length} tags` : 'No tags'}
+          </span>
+        ),
+      },
     ],
     [dueDateFilterOptions, handleUpdate]
   );
@@ -108,6 +159,7 @@ export function IssuesBoard() {
     () => [
       { key: 'status', label: 'Status' },
       { key: 'due_date', label: 'Due date' },
+      { key: 'tags', label: 'Tags' },
     ],
     []
   );
@@ -116,6 +168,7 @@ export function IssuesBoard() {
     () => [
       { key: 'status', label: 'Status' },
       { key: 'due_date', label: 'Due date' },
+      { key: 'tags', label: 'Tags' },
     ],
     []
   );
@@ -161,13 +214,14 @@ export function IssuesBoard() {
         columnDefs={columnDefs}
         activeColumnKey={activeColumnKey}
         onActiveColumnKeyChange={setActiveColumnKey}
-        renderCard={(i) => (
-          <IssueCard 
-            issue={i} 
+        renderCard={(i, visiblePillKeys) => (
+          <IssueCard
+            issue={i}
+            visiblePillKeys={visiblePillKeys}
             onClick={() => {
               setSelectedIssueId(i.id);
               setIsEditDialogOpen(true);
-            }} 
+            }}
           />
         )}
         statusColumn={statusColumn}
@@ -185,6 +239,10 @@ export function IssuesBoard() {
           if (columnKey === 'due_date') {
             if (valueKey === '__null__') return 'No due date';
             return formatIssueDueDate(valueKey);
+          }
+          if (columnKey === 'tags') {
+            if (valueKey === '__null__') return 'No tags';
+            return `${valueKey} tag${Number(valueKey) !== 1 ? 's' : ''}`;
           }
           return valueKey === '__null__' ? 'No value' : valueKey;
         }}
@@ -210,6 +268,7 @@ export function IssuesBoard() {
         isOpen={isCreateDialogOpen}
         onClose={() => setIsCreateDialogOpen(false)}
         initialStatus={createColumnValue}
+        initialDueDate={createDefaultDueDate}
       />
     </>
   );

@@ -34,14 +34,11 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   isOpen,
   onClose: _onClose,
 }: IssuePropertiesPanelProps) {
-  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionRef = useRef<RichTextEditorRef>(null);
 
   const handleTagClick = useCallback((type: TagEntityType, id: string) => {
-    // Dispatch custom event for MentionModalProvider to handle
-    window.dispatchEvent(new CustomEvent('mentionClick', { 
-      detail: { id, type } 
-    }));
+    window.dispatchEvent(new CustomEvent('mentionClick', { detail: { id, type } }));
   }, []);
 
   const handleTitleEnter = useCallback(() => {
@@ -67,8 +64,6 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
 
               <IssueTitleField
                 form={form}
-                value={form.getValues('name')}
-                onTagClick={handleTagClick}
                 onEnter={handleTitleEnter}
                 titleRef={titleFieldRef}
               />

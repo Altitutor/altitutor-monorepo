@@ -1,17 +1,7 @@
-import { useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { ReactRenderer } from '@tiptap/react';
 import type { SuggestionKeyDownProps, SuggestionProps } from '@tiptap/suggestion';
 import tippy, { type Instance as TippyInstance } from 'tippy.js';
-import { studentsApi } from '@/features/students/api/students';
-import { staffApi } from '@/features/staff/api/staff';
-import { parentsApi } from '@/features/parents/api/parents';
-import { classesApi } from '@/features/classes/api/classes';
-import { subjectsApi } from '@/features/subjects/api/subjects';
-import { tasksApi } from '@/features/tasks/api/tasks';
-import { issuesApi } from '@/features/issues/api/issues';
-import { projectsApi } from '@/features/projects/api/projects';
-import { topicsApi } from '@/features/topics/api/topics';
-import { topicsFilesApi } from '@/features/topics/api/topics-files';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import { MentionList, type MentionListRef } from '@/shared/components/MentionList';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
@@ -24,7 +14,8 @@ interface UseMentionSuggestionsOptions {
 
 /**
  * Hook to provide suggestion configuration for Tiptap Mention extension.
- * Reuses the entity search logic from command palette.
+ * Items resolve immediately so the dropdown (pills) appears right away;
+ * MentionList fetches results via useEntitySearch and shows skeleton while loading.
  */
 const DEFAULT_MENTION_TYPES = [
   'students',
@@ -40,136 +31,26 @@ const DEFAULT_MENTION_TYPES = [
 ] as const;
 
 export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
-  const searchTimeoutRef = useRef<NodeJS.Timeout>();
   const types = useMemo(
     () => options?.types ?? DEFAULT_MENTION_TYPES,
     [options?.types]
   );
 
   return useMemo(() => ({
-    items: async ({ query }: { query: string }): Promise<CommandPaletteEntityResult[]> => {
-      if (!query || query.length < 2) return [];
-
-      // Debounce the search manually since this is a callback
-      return new Promise((resolve) => {
-        if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
-
-        searchTimeoutRef.current = setTimeout(async () => {
-          const trimmedSearch = query.trim();
-          const enabledTypes = new Set(types);
-
-          // Perform parallel searches (similar to useEntitySearch but in a functional way for Tiptap)
-          const searchPromises: Promise<CommandPaletteEntityResult[]>[] = [];
-
-          if (enabledTypes.has('students')) {
-            searchPromises.push(
-              studentsApi.searchStudents(trimmedSearch, ['ACTIVE', 'TRIAL'], true)
-                .then(res => res.slice(0, entityTypes.students.limit).map(s => ({ type: 'student' as const, id: s.id, data: s })))
-            );
-          }
-
-          if (enabledTypes.has('staff')) {
-            searchPromises.push(
-              staffApi.listMinimal({ search: trimmedSearch, statuses: ['ACTIVE'], limit: entityTypes.staff.limit, offset: 0, excludeClassSearch: true })
-                .then(res => res.staff.map(s => ({
-                  type: 'staff' as const,
-                  id: s.id,
-                  data: { id: s.id, first_name: s.first_name, last_name: s.last_name, role: s.role, status: s.status, email: s.email, phone_number: s.phone_number }
-                } as CommandPaletteEntityResult)))
-            );
-          }
-
-          if (enabledTypes.has('parents')) {
-            searchPromises.push(
-              parentsApi.list({ search: trimmedSearch, limit: entityTypes.parents.limit, offset: 0 })
-                .then(res => res.parents.map(p => ({
-                  type: 'parent' as const,
-                  id: p.id,
-                  data: { id: p.id, first_name: p.first_name, last_name: p.last_name, email: p.email, phone: p.phone }
-                } as CommandPaletteEntityResult)))
-            );
-          }
-
-          if (enabledTypes.has('classes')) {
-            searchPromises.push(
-              classesApi.listMinimal({ search: trimmedSearch, limit: entityTypes.classes.limit, offset: 0, excludeStudentSearch: true, excludeStaffSearch: true })
-                .then(res => res.classes.map(c => ({ type: 'class' as const, id: c.id, data: c } as CommandPaletteEntityResult)))
-            );
-          }
-
-          if (enabledTypes.has('subjects')) {
-            searchPromises.push(
-              subjectsApi.list({ search: trimmedSearch, limit: entityTypes.subjects.limit, offset: 0 })
-                .then(res => res.subjects.map(s => ({ type: 'subject' as const, id: s.id, data: s } as CommandPaletteEntityResult)))
-            );
-          }
-
-          if (enabledTypes.has('tasks')) {
-            searchPromises.push(
-              tasksApi.search(trimmedSearch, entityTypes.tasks.limit)
-                .then(res => res.map(t => ({ type: 'task' as const, id: t.id, data: t } as CommandPaletteEntityResult)))
-            );
-          }
-
-          if (enabledTypes.has('issues')) {
-            searchPromises.push(
-              issuesApi.search(trimmedSearch, entityTypes.issues.limit)
-                .then(res => res.map(i => ({ type: 'issue' as const, id: i.id, data: i } as CommandPaletteEntityResult)))
-            );
-          }
-
-          if (enabledTypes.has('projects')) {
-            searchPromises.push(
-              projectsApi.search(trimmedSearch, entityTypes.projects.limit)
-                .then(res => res.map(p => ({ type: 'project' as const, id: p.id, data: p } as CommandPaletteEntityResult)))
-            );
-          }
-
-          if (enabledTypes.has('topics')) {
-            searchPromises.push(
-              topicsApi.search({ search: trimmedSearch, limit: entityTypes.topics.limit, offset: 0 })
-                .then(res => res.topics.map(t => ({ type: 'topic' as const, id: t.id, data: t } as CommandPaletteEntityResult)))
-            );
-          }
-
-          if (enabledTypes.has('files')) {
-            searchPromises.push(
-              topicsFilesApi.searchFiles({ search: trimmedSearch, limit: entityTypes.files.limit, offset: 0 })
-                .then(res =>
-                  res.files.map(f => ({
-                    type: 'file' as const,
-                    id: f.id,
-                    data: {
-                      id: f.id,
-                      topic_id: f.topic_id,
-                      code: f.code,
-                      file: { filename: f.file.filename },
-                      topic: { id: f.topic.id, name: f.topic.name },
-                      subject: { short_name: f.subject.short_name, long_name: f.subject.long_name },
-                    },
-                  } as CommandPaletteEntityResult))
-                )
-            );
-          }
-
-          const results = await Promise.allSettled(searchPromises);
-          const allResults = results
-            .filter((r): r is PromiseFulfilledResult<CommandPaletteEntityResult[]> => r.status === 'fulfilled')
-            .flatMap(r => r.value);
-
-          resolve(allResults);
-        }, 200);
-      });
+    items: async (_props: { query: string }): Promise<CommandPaletteEntityResult[]> => {
+      // Resolve immediately so TipTap shows the dropdown right away.
+      // MentionList uses useEntitySearch internally for actual results.
+      return [];
     },
 
     render: () => {
-      let component: ReactRenderer<MentionListRef>;
-      let popup: TippyInstance[];
+      let component: ReactRenderer<MentionListRef> | undefined;
+      let popup: TippyInstance[] | undefined;
 
       return {
         onStart: (props: SuggestionProps) => {
           component = new ReactRenderer(MentionList, {
-            props,
+            props: { ...props, types },
             editor: props.editor,
           });
 
@@ -181,7 +62,6 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
           popup = tippy('body', {
             getReferenceClientRect: getRect,
             appendTo: () => {
-              // Try to find the nearest dialog to append to, so pointer events aren't blocked by Radix
               const dialog = props.editor.view.dom.closest('[role="dialog"]');
               if (dialog) {
                 return dialog;
@@ -197,9 +77,10 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
         },
 
         onUpdate(props: SuggestionProps) {
+          if (!component) return;
           component.updateProps(props);
 
-          if (!props.clientRect) {
+          if (!props.clientRect || !popup?.[0]) {
             return;
           }
 
@@ -211,16 +92,28 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
 
         onKeyDown(props: SuggestionKeyDownProps) {
           if (props.event.key === 'Escape') {
-            popup[0].hide();
+            if (popup?.[0]) {
+              try {
+                popup[0].hide();
+              } catch {
+                // Ignore if already destroyed
+              }
+            }
             return true;
           }
 
-          return component.ref?.onKeyDown(props) ?? false;
+          return component?.ref?.onKeyDown(props) ?? false;
         },
 
         onExit() {
-          popup[0].destroy();
-          component.destroy();
+          if (popup?.[0]) {
+            try {
+              popup[0].destroy();
+            } catch {
+              // Ignore if already destroyed
+            }
+          }
+          component?.destroy();
         },
       };
     },

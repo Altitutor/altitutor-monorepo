@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { useTutorLog, useUpdateTutorLog } from '../hooks/useTutorLogsQuery';
 import { staffApi } from '@/features/staff/api/staff';
+import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
 import type { TutorLogFormData } from '../types';
 import { Step2StaffAttendance } from './steps/Step2StaffAttendance';
 import { Step3StudentAttendance } from './steps/Step3StudentAttendance';
@@ -93,7 +94,7 @@ export function EditTutorLogDialog({
           topicId: tf.topicFile.topic_id,
           studentIds: tf.students.map((s) => s.student_id),
         })),
-        notes: tutorLog.notes.map((n) => n.note),
+        notes: tutorLog.notes.map((n) => extractTextFromNoteContent(n.note)),
       });
 
       setIsFormDataReady(true);

@@ -140,8 +140,8 @@ export interface ActivityEventDisplay {
   newValue?: string;
   // The entity ID from the original event (useful for grouping)
   entityId?: string;
-  // For note CREATED events: the full note content (for preserving line breaks)
-  noteContent?: string;
+  // For note CREATED events: the full note content (TipTap JSON or plain text for rich display)
+  noteContent?: Record<string, unknown> | string;
 }
 
 /**

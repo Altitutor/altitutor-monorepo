@@ -3,6 +3,7 @@ import { getActivityTemplate, getGroupedActivityTemplate, FIELD_LABELS } from '.
 import { coalesceRelatedEvents } from './activityEventCoalescer';
 import type { Tables } from '@altitutor/shared';
 import { formatClassName, formatSubjectShortName } from '@/shared/utils';
+import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
 import { formatDate, formatActivityTimestamp } from '@/shared/utils/datetime';
 
 /**
@@ -107,16 +108,17 @@ function getTaskTitle(
 }
 
 /**
- * Get note content from related entities
+ * Get note content from related entities.
+ * Returns raw note content (TipTap JSON or plain text) for NoteContentDisplay.
  */
 function getNoteContent(
   noteId: string | null | undefined,
   relatedEntities: ActivityEventsResponse['relatedEntities']
-): string | undefined {
+): Record<string, unknown> | string | undefined {
   if (!noteId) return undefined;
   const note = relatedEntities.notes?.[noteId];
   if (!note) return undefined;
-  return note.note || undefined;
+  return note.note as Record<string, unknown> | string | undefined;
 }
 
 /**
@@ -213,10 +215,18 @@ export function mapActivityEventToDisplay(
   const parentName = getParentName(event.parent_id, relatedEntities);
   const taskTitle = getTaskTitle(event.task_id, relatedEntities);
   
-  // For notes CREATED events, extract note content
-  let noteContent: string | undefined;
+  // For notes CREATED events, get note content (raw for display, text for message template)
+  let noteContent: Record<string, unknown> | string | undefined;
+  let noteContentForMessage: string | undefined;
   if (event.entity_type === 'notes' && event.event_type === 'CREATED') {
-    noteContent = getNoteContent(event.entity_id, relatedEntities);
+    const raw = getNoteContent(event.entity_id, relatedEntities);
+    noteContent = raw;
+    noteContentForMessage =
+      raw != null
+        ? typeof raw === 'string'
+          ? raw
+          : extractTextFromNoteContent(raw as import('@altitutor/shared').Json)
+        : undefined;
   }
   
   // For students_subjects CREATED events, extract subject_id from the entity
@@ -287,7 +297,7 @@ export function mapActivityEventToDisplay(
     parentName,
     taskTitle,
     subjectName,
-    noteContent,
+    noteContent: noteContentForMessage,
     fieldLabels,
     oldValue,
     newValue,

@@ -4,7 +4,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { IssueFilters, IssueWithTags, IssueInsert, IssueUpdate, IssueTagInsert, IssueTag, Issue } from '../types';
 import { extractMentions } from '@/shared/utils/extractMentions';
 import type { JSONContent } from '@altitutor/ui';
-import { parseTags } from '@/shared/utils/tagParsing';
 import { getTagEntity, resolveTagLabels } from '../utils/mentionLabels';
 
 async function appendTagsToDescription(
@@ -68,18 +67,26 @@ export const issuesApi = {
     limit = 8
   ): Promise<Array<Pick<Issue, 'id' | 'name' | 'status' | 'due_date'>>> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const trimmed = search.trim();
 
-    if (!search.trim()) {
-      return [];
+    if (trimmed.length > 0) {
+      const { data, error } = await supabase
+        .from('issues')
+        .select('id, name, status, due_date')
+        .textSearch('search_vector', trimmed, {
+          type: 'websearch',
+          config: 'english',
+        })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return (data ?? []) as Array<Pick<Issue, 'id' | 'name' | 'status' | 'due_date'>>;
     }
 
     const { data, error } = await supabase
       .from('issues')
       .select('id, name, status, due_date')
-      .textSearch('search_vector', search.trim(), {
-        type: 'websearch',
-        config: 'english',
-      })
       .order('created_at', { ascending: false })
       .limit(limit);
 
@@ -90,41 +97,21 @@ export const issuesApi = {
   /**
    * Sync tags based on mentions in name and description
    */
-  syncTags: async (issueId: string, name?: string | null, description?: JSONContent | null): Promise<void> => {
+  syncTags: async (issueId: string, _name?: string | null, description?: JSONContent | null): Promise<void> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
-    // If either name or description is not provided, fetch them from the database
-    let finalName = name;
     let finalDescription = description;
-    
-    if (finalName === undefined || finalDescription === undefined) {
+    if (finalDescription === undefined) {
       const { data: issue } = await supabase
         .from('issues')
-        .select('name, description')
+        .select('description')
         .eq('id', issueId)
         .single();
-      
-      if (issue) {
-        if (finalName === undefined) finalName = issue.name;
-        if (finalDescription === undefined) finalDescription = issue.description as JSONContent;
-      }
+      if (issue) finalDescription = issue.description as JSONContent;
     }
 
     // Extract mentions from description (JSON)
-    const descriptionMentions = extractMentions(finalDescription);
-    
-    // Extract tags from name (Regex)
-    const nameTags = parseTags(finalName || '');
-    const nameMentions = nameTags.map(tag => ({
-      id: tag.id,
-      type: tag.type,
-      label: tag.displayText
-    }));
-
-    // Combine and deduplicate mentions
-    const allMentions = Array.from(new Map(
-      [...descriptionMentions, ...nameMentions].map(m => [`${m.type}:${m.id}`, m])
-    ).values());
+    const allMentions = extractMentions(finalDescription);
 
     // Get current tags
     const { data: currentTags } = await supabase

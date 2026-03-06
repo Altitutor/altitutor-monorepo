@@ -32,7 +32,6 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   passwordResetLabel: string;
   onLogAbsence: () => void;
   onBookDraftingSession: () => void;
-  onAddClass?: () => void;
   onDiscontinue?: () => void;
   onDelete: () => void;
 }
@@ -219,12 +218,6 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
                 Add issue
-              </DropdownMenuItem>
-            )}
-            {props.onAddClass && (
-              <DropdownMenuItem onClick={props.onAddClass}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add class
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator />

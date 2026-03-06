@@ -49,7 +49,7 @@ export function TaskContentPanel({
   autoFocusTitle = false,
 }: TaskContentPanelProps) {
   // Refs for fields
-  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<TaskEditorRef>(null);
 
   // Modal state for entity tags
@@ -121,21 +121,8 @@ export function TaskContentPanel({
   // Auto-focus title field when dialog opens
   useEffect(() => {
     if (isOpen && autoFocusTitle && titleFieldRef.current) {
-      // Use setTimeout to ensure the dialog is fully rendered
       const timer = setTimeout(() => {
-        const titleElement = titleFieldRef.current;
-        if (!titleElement) return;
-        
-        titleElement.focus();
-        // Place cursor at the start
-        const selection = window.getSelection();
-        if (!selection) return;
-        
-        const range = document.createRange();
-        range.selectNodeContents(titleElement);
-        range.collapse(true); // Collapse to start
-        selection.removeAllRanges();
-        selection.addRange(range);
+        titleFieldRef.current?.focus();
       }, 100);
       return () => clearTimeout(timer);
     }
@@ -161,8 +148,6 @@ export function TaskContentPanel({
         <div className="space-y-2">
           <TaskTitleField
             form={form}
-            value={form.getValues('title')}
-            onTagClick={handleTagClick}
             onEnter={handleTitleEnter}
             titleRef={titleFieldRef}
           />

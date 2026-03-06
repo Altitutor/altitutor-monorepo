@@ -1,14 +1,21 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Textarea } from '@altitutor/ui';
+import { useState, useCallback } from 'react';
 import { Button } from '@altitutor/ui';
 import { ActivityFeed } from '../ActivityFeed';
+import { NotesEditorWithMentions } from '@/shared/components/NotesEditorWithMentions';
+import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 import { useStudentActivity } from '../../hooks';
-import { useCreateNote } from '@/shared/hooks/useNotes';
+import { useCreateNote, notesKeys } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { activityKeys } from '../../hooks';
+import type { JSONContent } from '@tiptap/core';
+
+const EMPTY_DOC: JSONContent = {
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [] }],
+};
 
 interface StudentActivityTabProps {
   studentId: string;
@@ -20,65 +27,47 @@ export function StudentActivityTab({ studentId, isOpen = true }: StudentActivity
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
-  const [newNote, setNewNote] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [newNoteContent, setNewNoteContent] = useState<JSONContent>(EMPTY_DOC);
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [newNote]);
-
-  const handleSubmit = async () => {
-    if (!newNote.trim() || !currentStaff?.id) return;
+  const handleSubmit = useCallback(async () => {
+    if (isTiptapContentEmpty(newNoteContent) || !currentStaff?.id) return;
 
     try {
       await createNoteMutation.mutateAsync({
         targetType: 'student',
         targetId: studentId,
-        note: newNote.trim(),
+        note: newNoteContent,
         staffId: currentStaff.id,
       });
-      setNewNote('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-      queryClient.invalidateQueries({ queryKey: ['notes', 'student', studentId] });
+      setNewNoteContent(EMPTY_DOC);
+      queryClient.invalidateQueries({ queryKey: notesKeys.forTarget('student', studentId) });
       queryClient.invalidateQueries({ queryKey: activityKeys.student(studentId) });
-    } catch (error) {
-      console.error('Failed to create note:', error);
+    } catch {
+      // Error handled silently - user can retry
     }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
+  }, [newNoteContent, currentStaff?.id, studentId, createNoteMutation, queryClient]);
 
   return (
     <div className="h-full space-y-6">
-      {/* Add Note Input */}
-      <div className="relative rounded-lg border bg-card p-4">
-        <Textarea
-          ref={textareaRef}
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          onKeyDown={handleKeyDown}
+      <div className="rounded-lg border bg-card p-4 space-y-2">
+        <NotesEditorWithMentions
+          content={newNoteContent}
+          onChange={setNewNoteContent}
           placeholder="Add a note..."
-          className="min-h-[80px] resize-none border-0 bg-transparent pr-20 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={createNoteMutation.isPending || !currentStaff}
+          minHeight="80px"
         />
-        <div className="absolute bottom-4 right-4 flex items-center gap-2">
+        <div className="flex justify-end gap-2">
           {createNoteMutation.isPending && (
-            <span className="text-xs text-muted-foreground">Posting...</span>
+            <span className="text-xs text-muted-foreground self-center">Posting...</span>
           )}
           <Button
             onClick={handleSubmit}
-            disabled={!newNote.trim() || createNoteMutation.isPending || !currentStaff}
+            disabled={
+              isTiptapContentEmpty(newNoteContent) ||
+              createNoteMutation.isPending ||
+              !currentStaff
+            }
             size="sm"
             variant="default"
           >
@@ -87,9 +76,7 @@ export function StudentActivityTab({ studentId, isOpen = true }: StudentActivity
         </div>
       </div>
 
-      {/* Activity Feed */}
       <ActivityFeed data={data} isLoading={isLoading} error={error} />
     </div>
   );
 }
-

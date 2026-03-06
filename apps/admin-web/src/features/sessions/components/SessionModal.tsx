@@ -18,7 +18,7 @@ import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useCurrentStaff } from '@/shared/hooks';
 import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
-import { SessionDetailsTab } from './SessionDetailsTab';
+import { SessionDetailsTab, type SessionEditFormData } from './SessionDetailsTab';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { AddStudentToSessionModal } from './AddStudentToSessionModal';
 import { AddStaffToSessionModal } from './AddStaffToSessionModal';
@@ -34,6 +34,7 @@ import {
   useRemoveStaffFromSession,
   useUndoAbsences,
   useUndoStaffAbsences,
+  useUpdateSession,
 } from '../hooks';
 import {
   buildStudentAttendanceMap,
@@ -43,6 +44,8 @@ import {
 } from '../utils';
 import { IssuePill } from '@/features/issues';
 import { formatTime } from '@/shared/utils/datetime';
+import type { TablesUpdate } from '@altitutor/shared';
+import { Loader2 } from 'lucide-react';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -79,6 +82,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const removeStaffMutation = useRemoveStaffFromSession();
   const undoAbsenceMutation = useUndoAbsences();
   const undoStaffAbsenceMutation = useUndoStaffAbsences();
+  const updateSessionMutation = useUpdateSession();
 
   // Business logic hooks
   const sessionData = useSessionData({
@@ -91,15 +95,45 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [undoTarget, setUndoTarget] = useState<UndoTarget | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
 
   // Reset modals when modal closes
   useEffect(() => {
     if (!isOpen) {
       modals.reset();
       setUndoTarget(null);
+      setIsEditing(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
+
+  const handleSessionUpdate = async (data: SessionEditFormData) => {
+    if (!sessionId) return;
+    try {
+      const update: TablesUpdate<'sessions'> = {
+        type: data.type as TablesUpdate<'sessions'>['type'],
+        start_at: new Date(data.startAtLocal).toISOString(),
+        end_at: new Date(data.endAtLocal).toISOString(),
+        subject_id: data.type === 'CLASS' ? (data.subjectId ?? null) : null,
+        class_id: data.type === 'CLASS' ? (data.classId ?? null) : null,
+      };
+      await updateSessionMutation.mutateAsync({ id: sessionId, data: update });
+      await sessionData.refresh();
+      setIsEditing(false);
+      toast({
+        title: 'Session updated',
+        description: 'Session has been updated successfully.',
+      });
+    } catch (err) {
+      console.error('Failed to update session:', err);
+      toast({
+        title: 'Update failed',
+        description: err instanceof Error ? err.message : 'Failed to update session. Please try again.',
+        variant: 'destructive',
+      });
+      throw err;
+    }
+  };
 
   const handleOpenSession = (id: string) => {
     // Close current modal and open new one
@@ -330,6 +364,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onOpenFile={handleOpenFile}
                     onLogAbsenceStudent={modals.openLogStudentAbsenceDialog}
                     onLogAbsenceStaff={modals.openLogStaffAbsenceDialog}
+                    isEditing={isEditing}
+                    onEdit={() => setIsEditing(true)}
+                    onCancelEdit={() => setIsEditing(false)}
+                    onSubmit={handleSessionUpdate}
+                    isUpdating={updateSessionMutation.isPending}
                     onUndoLogAbsenceStudent={(payload) => {
                       type SessionsStudentRowWithId = { sessions_students_id?: string; id?: string; rescheduled_session?: { session?: unknown } };
                       const sourceRow = (sessionsStudents as SessionsStudentRowWithId[]).find((row) =>
@@ -383,6 +422,33 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                 </div>
               </TabsContent>
             </div>
+            {sessionId && isEditing && activeTab === 'details' && (
+              <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+                <div className="flex w-full justify-end">
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      type="button"
+                      onClick={() => setIsEditing(false)}
+                      disabled={updateSessionMutation.isPending}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      disabled={updateSessionMutation.isPending}
+                      onClick={() => {
+                        const form = document.getElementById('session-edit-form') as HTMLFormElement | null;
+                        if (form) form.requestSubmit();
+                      }}
+                    >
+                      {updateSessionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Changes
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
           </Tabs>
         </SheetContent>
       </Sheet>

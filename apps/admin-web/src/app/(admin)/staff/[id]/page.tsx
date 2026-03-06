@@ -19,6 +19,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Label,
+  Input,
 } from "@altitutor/ui";
 import { SendInviteDialog } from '@/features/staff/components/modal/SendInviteDialog';
 import { useStaffDetails, staffKeys } from '@/features/staff/hooks/useStaffQuery';
@@ -53,6 +55,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   
   const staffMember = staffData?.staff || null;
   const staffSubjects = staffData?.subjects || [];
+  const staffFullName = staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : '';
   
   // Business logic hooks
   const editFlow = useStaffEditFlow({
@@ -98,6 +101,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const [activeTab, setActiveTab] = useState('details');
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Handle details submit
   const handleDetailsSubmit = async (data: StaffDetailsFormData) => {
@@ -149,6 +153,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
     try {
       await mutations.deleteStaff();
       modals.closeDeleteDialog();
+      setDeleteConfirmText('');
       router.push('/staff');
     } catch (error) {
       // Error handling is done in the mutation hook
@@ -363,7 +368,15 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
 
       {/* Delete Confirmation Dialog */}
       {staffMember && (
-        <AlertDialog open={modals.isDeleteDialogOpen} onOpenChange={modals.closeDeleteDialog}>
+        <AlertDialog
+          open={modals.isDeleteDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              modals.closeDeleteDialog();
+              setDeleteConfirmText('');
+            }
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -372,12 +385,26 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
                 "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <div className="py-4">
+              <div className="space-y-2">
+                <Label>
+                  Type <strong>{staffFullName}</strong> to confirm deletion
+                </Label>
+                <Input
+                  type="text"
+                  placeholder={staffFullName}
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+            </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
-                disabled={mutations.isDeleting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={mutations.isDeleting || deleteConfirmText !== staffFullName}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {mutations.isDeleting ? (
                   <>

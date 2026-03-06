@@ -18,7 +18,9 @@ export type ReportEntityKind =
   | 'invoice'
   | 'refund'
   | 'credit'
-  | 'staff';
+  | 'staff'
+  | 'task'
+  | 'project';
 
 export interface ReportEntityLink {
   kind: ReportEntityKind;
@@ -27,6 +29,8 @@ export interface ReportEntityLink {
   sessionId?: string | null;
   staffId?: string | null;
   invoiceId?: string | null;
+  taskId?: string | null;
+  projectId?: string | null;
 }
 
 export interface ReportDataPoint {
@@ -38,6 +42,15 @@ export interface ReportDataPoint {
 export interface IssuesReportData {
   openByDay: ReportDataPoint[];
   resolvedByDay: ReportDataPoint[];
+}
+
+export interface TasksReportData {
+  openByDay: ReportDataPoint[];
+  completedByDay: ReportDataPoint[];
+}
+
+export interface ProjectsReportData {
+  openByDay: ReportDataPoint[];
 }
 
 export interface DateRange {
@@ -81,9 +94,13 @@ export interface StudentStatsReportData {
 
 export interface MarketingStatsReportData {
   /**
-   * Student registrations created within the day.
+   * Student registrations created within the day (based on registered_at).
    */
   registrationsByDay: ReportDataPoint[];
+  /**
+   * Student discontinuations within the day (based on discontinued_at).
+   */
+  discontinuationsByDay: ReportDataPoint[];
 }
 
 export interface RevenueReportDataPoint extends ReportDataPoint {

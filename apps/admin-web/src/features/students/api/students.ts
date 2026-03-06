@@ -524,15 +524,11 @@ export const studentsApi = {
   searchStudents: async (query: string, statuses?: Tables<'students'>['status'][], excludeClassSearch?: boolean): Promise<Tables<'students'>[]> => {
     try {
       const trimmed = query.trim();
-      if (!trimmed) return [];
-      
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      
-      // Use server-side search function to avoid pagination limits
-      // Build params object - only include p_statuses if we want to filter by status
-      // If omitted, RPC will use default ARRAY['ACTIVE', 'TRIAL']
+
+      // Use server-side search function - p_search undefined returns recent when empty
       const rpcParams: Record<string, unknown> = {
-        p_search: trimmed,
+        p_search: trimmed.length > 0 ? trimmed : undefined,
         p_include_relationships: false,
         p_exclude_class_search: excludeClassSearch ?? false,
         p_limit: 1000, // Reasonable limit for search results

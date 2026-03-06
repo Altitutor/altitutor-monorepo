@@ -15,6 +15,14 @@ import {
 } from '../useNotes';
 import { notesApi } from '@/shared/api/notes';
 import type { Tables } from '@altitutor/shared';
+import type { JSONContent } from '@tiptap/core';
+
+const sampleNoteContent: JSONContent = {
+  type: 'doc',
+  content: [
+    { type: 'paragraph', content: [{ type: 'text', text: 'New note' }] },
+  ],
+};
 
 // Mock notes API
 jest.mock('@/shared/api/notes', () => ({
@@ -162,7 +170,7 @@ describe('useCreateNote', () => {
       await result.current.mutateAsync({
         targetType: 'student',
         targetId: 'student-1',
-        note: 'New note',
+        note: sampleNoteContent,
         staffId: 'staff-1',
       });
     });
@@ -170,7 +178,7 @@ describe('useCreateNote', () => {
     expect(mockNotesApi.createNote).toHaveBeenCalledWith({
       targetType: 'student',
       targetId: 'student-1',
-      note: 'New note',
+      note: sampleNoteContent,
       staffId: 'staff-1',
     });
   });
@@ -188,7 +196,7 @@ describe('useCreateNote', () => {
         await result.current.mutateAsync({
           targetType: 'student',
           targetId: 'student-1',
-          note: 'New note',
+          note: sampleNoteContent,
           staffId: 'staff-1',
         });
       } catch (e) {
@@ -220,14 +228,23 @@ describe('useUpdateNote', () => {
       wrapper: createWrapper(),
     });
 
+    const updatedContent: JSONContent = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Updated note' }] },
+      ],
+    };
     await act(async () => {
       await result.current.mutateAsync({
         noteId: 'note-1',
-        note: 'Updated note',
+        note: updatedContent,
       });
     });
 
-    expect(mockNotesApi.updateNote).toHaveBeenCalledWith('note-1', 'Updated note');
+    expect(mockNotesApi.updateNote).toHaveBeenCalledWith(
+      'note-1',
+      updatedContent
+    );
   });
 
   it('should handle errors', async () => {
@@ -238,11 +255,17 @@ describe('useUpdateNote', () => {
       wrapper: createWrapper(),
     });
 
+    const updatedContent: JSONContent = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Updated note' }] },
+      ],
+    };
     await act(async () => {
       try {
         await result.current.mutateAsync({
           noteId: 'note-1',
-          note: 'Updated note',
+          note: updatedContent,
         });
       } catch (e) {
         expect(e).toEqual(error);

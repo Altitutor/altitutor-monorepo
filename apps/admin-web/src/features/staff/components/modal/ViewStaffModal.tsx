@@ -31,6 +31,8 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  Label,
+  Input,
 } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { SendInviteDialog } from './SendInviteDialog';
@@ -124,6 +126,7 @@ export function ViewStaffModal({
   const [activeTab, setActiveTab] = useState('details');
   const [baseUrl, setBaseUrl] = useState('');
   const [loadingPasswordReset, setLoadingPasswordReset] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   // Nested modal state for sessions table interactions
   const {
@@ -172,6 +175,7 @@ export function ViewStaffModal({
     try {
       await mutations.deleteStaff();
       modals.closeDeleteDialog();
+      setDeleteConfirmText('');
       onClose();
     } catch (error) {
       // Error handling is done in the mutation hook
@@ -454,8 +458,18 @@ export function ViewStaffModal({
       )}
 
       {/* Delete Confirmation Dialog */}
-      {staffMember && (
-        <AlertDialog open={modals.isDeleteDialogOpen} onOpenChange={modals.closeDeleteDialog}>
+      {staffMember && (() => {
+        const staffFullName = `${staffMember.first_name} ${staffMember.last_name}`;
+        return (
+        <AlertDialog
+          open={modals.isDeleteDialogOpen}
+          onOpenChange={(open) => {
+            if (!open) {
+              modals.closeDeleteDialog();
+              setDeleteConfirmText('');
+            }
+          }}
+        >
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -464,12 +478,26 @@ export function ViewStaffModal({
                 "{staffMember.first_name} {staffMember.last_name}" and all associated data from the database.
               </AlertDialogDescription>
             </AlertDialogHeader>
+            <div className="py-4">
+              <div className="space-y-2">
+                <Label>
+                  Type <strong>{staffFullName}</strong> to confirm deletion
+                </Label>
+                <Input
+                  type="text"
+                  placeholder={staffFullName}
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  className="mt-2"
+                />
+              </div>
+            </div>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleDelete}
-                disabled={mutations.isDeleting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={mutations.isDeleting || deleteConfirmText !== staffFullName}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {mutations.isDeleting ? (
                   <>
@@ -483,7 +511,8 @@ export function ViewStaffModal({
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
-      )}
+        );
+      })()}
 
       {/* Nested Session Modal */}
       <SessionModal

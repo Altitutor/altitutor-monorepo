@@ -9,3 +9,4 @@ export { useSessionModals } from './useSessionModals';
 export { useSessionHelpers } from './useSessionHelpers';
 export * from './useStaffAbsenceDecisions';
 export { useSessionActions } from './useSessionActions';
+export { useInvoiceSessionMutation } from './useInvoiceSessionMutation';

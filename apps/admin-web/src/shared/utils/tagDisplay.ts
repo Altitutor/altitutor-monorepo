@@ -1,10 +1,10 @@
-import { extractDisplayText } from './tagParsing';
+const TAG_PATTERN = /@\[[^:]+:[^:]+:(.+?)\]/g;
 
 /**
- * Converts text with tag markers to display text (tags replaced with their display text)
- * Used in activity feed where we just want to show the text without pills
+ * Converts text with tag markers to display text (tags replaced with their display text).
+ * Used in activity feed and notes where we show plain text.
  */
 export function renderTextWithTagsAsPlainText(text: string | null | undefined): string {
   if (!text) return '';
-  return extractDisplayText(text);
+  return text.replace(TAG_PATTERN, (_, displayText) => displayText);
 }

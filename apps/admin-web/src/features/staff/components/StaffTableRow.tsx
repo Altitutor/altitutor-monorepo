@@ -1,7 +1,7 @@
 'use client';
 
 import { memo, useCallback, useState } from 'react';
-import { TableCell, TableRow, Button } from "@altitutor/ui";
+import { TableCell, TableRow, Button, Label, Input } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
 import { StaffRoleBadge, StaffStatusBadge } from '@altitutor/ui';
 import { formatClassName, formatClassShortName } from '@/shared/utils';
@@ -46,6 +46,9 @@ export const StaffTableRow = memo(function StaffTableRow({
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const staffFullName = `${staff.first_name} ${staff.last_name}`;
 
   const handleClick = useCallback(() => {
     onStaffClick(staff.id);
@@ -99,6 +102,7 @@ export const StaffTableRow = memo(function StaffTableRow({
       setIsDeleting(true);
       await staffApi.deleteStaff(staff.id);
       setIsDeleteDialogOpen(false);
+      setDeleteConfirmText('');
       onStaffUpdated?.();
       toast({
         title: 'Staff deleted',
@@ -203,7 +207,15 @@ export const StaffTableRow = memo(function StaffTableRow({
     />
 
     {/* Delete Confirmation Dialog */}
-    <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+    <AlertDialog
+      open={isDeleteDialogOpen}
+      onOpenChange={(open) => {
+        setIsDeleteDialogOpen(open);
+        if (!open) {
+          setDeleteConfirmText('');
+        }
+      }}
+    >
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
@@ -212,12 +224,26 @@ export const StaffTableRow = memo(function StaffTableRow({
             "{staff.first_name} {staff.last_name}" and all associated data from the database.
           </AlertDialogDescription>
         </AlertDialogHeader>
+        <div className="py-4">
+          <div className="space-y-2">
+            <Label>
+              Type <strong>{staffFullName}</strong> to confirm deletion
+            </Label>
+            <Input
+              type="text"
+              placeholder={staffFullName}
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              className="mt-2"
+            />
+          </div>
+        </div>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleDelete}
-            disabled={isDeleting}
-            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            disabled={isDeleting || deleteConfirmText !== staffFullName}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isDeleting ? (
               <>

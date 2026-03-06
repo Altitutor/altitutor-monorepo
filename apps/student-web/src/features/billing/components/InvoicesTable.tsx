@@ -157,7 +157,17 @@ export function InvoicesTable() {
                   <TableCell>
                     <div className="flex flex-wrap gap-2">
                       {invoice.hosted_invoice_url &&
-                        (invoice.status === 'paid' ? (
+                        (invoice.status === 'open' ? (
+                          <Button variant="default" size="sm" asChild>
+                            <a
+                              href={invoice.hosted_invoice_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              Pay invoice
+                            </a>
+                          </Button>
+                        ) : (
                           <Button variant="outline" size="sm" asChild>
                             <a
                               href={invoice.hosted_invoice_url}
@@ -166,16 +176,6 @@ export function InvoicesTable() {
                             >
                               <ExternalLink className="h-4 w-4 mr-1" />
                               View invoice
-                            </a>
-                          </Button>
-                        ) : (
-                          <Button variant="default" size="sm" asChild>
-                            <a
-                              href={invoice.hosted_invoice_url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              Pay invoice
                             </a>
                           </Button>
                         ))}

@@ -8,7 +8,6 @@ import {
 } from '@altitutor/ui';
 import { useProjects } from '../api/queries';
 import { useUpdateProject } from '../api/mutations';
-import { TextWithTags } from '@/shared/components/TextWithTags';
 import { EditProjectDialog } from './EditProjectDialog';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import { cn } from '@/shared/utils';
@@ -80,7 +79,7 @@ export function ProjectsList() {
       <EntityList<ProjectWithLead>
         items={projects}
         getItemId={(p) => p.id}
-        renderName={(p) => <TextWithTags text={p.name} />}
+        renderName={(p) => p.name ?? ''}
         statusColumn={statusColumn}
         rightPills={[]}
         groupByOptions={groupByOptions}

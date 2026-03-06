@@ -1,7 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import type { JSONContent } from '@tiptap/core';
 import type { Tables } from '@altitutor/shared';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
+import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
 
 interface UseUnenrollFlowProps {
@@ -9,12 +11,12 @@ interface UseUnenrollFlowProps {
   student: Tables<'students'>;
   classData: Tables<'classes'>;
   unenrollmentDate: string;
-  reason: string;
+  reason: JSONContent | undefined;
   onUnenroll: (params: {
     studentId: string;
     classId: string;
     unenrolledAt: Date;
-    reason: string;
+    reason: JSONContent;
     staffId: string;
   }) => Promise<void>;
   currentStaffId: string;
@@ -43,13 +45,14 @@ export function useUnenrollFlow({
   }, [isOpen]);
 
   const handleConfirm = useCallback(async () => {
+    if (isTiptapContentEmpty(reason)) return;
     setIsUnenrolling(true);
     try {
       await onUnenroll({
         studentId: student.id,
         classId: classData.id,
         unenrolledAt: getMidnightAdelaide(new Date(unenrollmentDate)),
-        reason,
+        reason: reason as JSONContent,
         staffId: currentStaffId,
       });
       

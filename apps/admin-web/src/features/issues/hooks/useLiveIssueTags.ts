@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { parseTags } from '@/shared/utils/tagParsing';
 import { extractMentions } from '@/shared/utils/extractMentions';
 import type { IssueFormData, IssueTagInsert, IssueTag } from '../types';
 
@@ -10,28 +9,18 @@ interface UseLiveIssueTagsOptions {
 }
 
 /**
- * Hook to extract and merge tags from form fields (title and description)
- * and combine them with initial tags.
+ * Hook to extract and merge tags from form description (mentions) and initial tags.
  */
 export function useLiveIssueTags({ form, initialTags = [] }: UseLiveIssueTagsOptions) {
-  const nameValue = form.watch('name');
   const descriptionValue = form.watch('description');
 
   return useMemo(() => {
-    // 1. Parse tags from name (plain text with @[type:id:text])
-    const nameTags = parseTags(nameValue || '').map(tag => ({
-      [`${tag.type}_id`]: tag.id,
-    }));
-
-    // 2. Extract mentions from description (JSON content)
     const descriptionMentions = extractMentions(descriptionValue).map(mention => ({
       [`${mention.type}_id`]: mention.id,
     }));
 
-    // 3. Combine all tags
     const allTags = [
       ...initialTags,
-      ...nameTags,
       ...descriptionMentions,
     ];
 
@@ -51,5 +40,5 @@ export function useLiveIssueTags({ form, initialTags = [] }: UseLiveIssueTagsOpt
     });
 
     return Array.from(uniqueTagsMap.values()) as IssueTag[];
-  }, [nameValue, descriptionValue, initialTags]);
+  }, [descriptionValue, initialTags]);
 }

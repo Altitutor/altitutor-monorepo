@@ -300,6 +300,7 @@ export function getSessionTypeBadgeColor(type: string | null | undefined): strin
 
 // Re-export enum color utilities from shared UI package
 export * from '@altitutor/ui';
+export * from './userHelpers';
 export * from './subject-icons';
 export * from './tableSorting';
 export * from './filtering';

@@ -43,14 +43,15 @@ export const notesApi = {
     if (error) throw error;
     
     // Transform the data to match expected format (staff is already included as JSON)
+    // note is JSONB (TipTap content)
     type NoteWithStaff = {
       id: string;
       target_type: string;
       target_id: string;
-      note: string;
+      note: unknown;
       created_at: string;
       created_by: string;
-      staff?: Tables<'staff'> | null;
+      staff?: unknown;
     };
     
     return ((data || []) as NoteWithStaff[]).map((note) => ({

@@ -70,14 +70,16 @@ interface CreateIssueDialogProps {
   onClose: () => void;
   onIssueCreated?: () => void;
   initialStatus?: IssueStatus;
+  initialDueDate?: string | null;
   initialTags?: Omit<IssueTagInsert, 'issue_id'>[];
 }
 
-export function CreateIssueDialog({ 
-  isOpen, 
-  onClose, 
-  onIssueCreated, 
+export function CreateIssueDialog({
+  isOpen,
+  onClose,
+  onIssueCreated,
   initialStatus = 'open',
+  initialDueDate = null,
   initialTags 
 }: CreateIssueDialogProps) {
   const createIssue = useCreateIssue();
@@ -88,7 +90,7 @@ export function CreateIssueDialog({
       name: '',
       description: null,
       status: initialStatus,
-      dueDate: null,
+      dueDate: initialDueDate ? new Date(initialDueDate).toISOString().split('T')[0] : null,
     },
   });
 
@@ -105,14 +107,14 @@ export function CreateIssueDialog({
         name: '',
         description,
         status: initialStatus,
-        dueDate: null,
+        dueDate: initialDueDate ? new Date(initialDueDate).toISOString().split('T')[0] : null,
       });
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [isOpen, initialStatus, initialTags, form]);
+  }, [isOpen, initialStatus, initialDueDate, initialTags, form]);
 
   const onSubmit = async (data: IssueFormData) => {
     try {

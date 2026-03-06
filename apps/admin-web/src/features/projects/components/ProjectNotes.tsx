@@ -1,7 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Textarea } from '@altitutor/ui';
+import { useState, useCallback } from 'react';
 import { Button } from '@altitutor/ui';
 import { Card, CardContent } from '@altitutor/ui';
 import {
@@ -14,10 +13,22 @@ import { format } from 'date-fns';
 import { MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useCreateNote, useUpdateNote, useDeleteNote } from '@/shared/hooks/useNotes';
+import { NotesEditorWithMentions } from '@/shared/components/NotesEditorWithMentions';
+import { NoteContentDisplay } from '@/shared/components/NoteContentDisplay';
+import {
+  isTiptapContentEmpty,
+  toEditorContent,
+} from '@/shared/utils/plainTextToTiptapJson';
 import type { Tables } from '@altitutor/shared';
+import type { JSONContent } from '@tiptap/core';
 
 type NoteWithStaff = Tables<'notes'> & {
   staff?: Tables<'staff'> | null;
+};
+
+const EMPTY_DOC: JSONContent = {
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [] }],
 };
 
 type ProjectNotesProps = {
@@ -27,80 +38,64 @@ type ProjectNotesProps = {
 };
 
 export function ProjectNotes({ projectId, notes, onNoteAdded }: ProjectNotesProps) {
-  const [newNote, setNewNote] = useState('');
+  const [newNoteContent, setNewNoteContent] = useState<JSONContent>(EMPTY_DOC);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteText, setEditingNoteText] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState<JSONContent>(EMPTY_DOC);
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const updateNoteMutation = useUpdateNote();
   const deleteNoteMutation = useDeleteNote();
 
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [newNote]);
-
-  const handleSubmit = async () => {
-    if (!newNote.trim() || !currentStaff?.id) return;
+  const handleSubmit = useCallback(async () => {
+    if (isTiptapContentEmpty(newNoteContent) || !currentStaff?.id) return;
 
     try {
       await createNoteMutation.mutateAsync({
         targetType: 'projects',
         targetId: projectId,
-        note: newNote.trim(),
+        note: newNoteContent,
         staffId: currentStaff.id,
       });
-      setNewNote('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
+      setNewNoteContent(EMPTY_DOC);
       onNoteAdded?.();
-    } catch (error) {
-      console.error('Failed to create note:', error);
+    } catch {
+      // Error handled silently - user can retry
     }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
+  }, [newNoteContent, currentStaff?.id, projectId, createNoteMutation, onNoteAdded]);
 
   const formatAuthorName = (staff: Tables<'staff'> | null | undefined) => {
     if (!staff) return 'Unknown';
     return `${staff.first_name} ${staff.last_name}`.trim() || 'Unknown';
   };
 
-  const handleEdit = (note: NoteWithStaff) => {
+  const handleEdit = useCallback((note: NoteWithStaff) => {
     setEditingNoteId(note.id);
-    setEditingNoteText(note.note);
-  };
+    setEditingNoteContent(toEditorContent(note.note));
+  }, []);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditingNoteId(null);
-    setEditingNoteText('');
-  };
+    setEditingNoteContent(EMPTY_DOC);
+  }, []);
 
-  const handleSaveEdit = async (noteId: string) => {
-    if (!editingNoteText.trim()) return;
+  const handleSaveEdit = useCallback(
+    async (noteId: string) => {
+      if (isTiptapContentEmpty(editingNoteContent)) return;
 
-    try {
-      await updateNoteMutation.mutateAsync({
-        noteId,
-        note: editingNoteText.trim(),
-      });
-      setEditingNoteId(null);
-      setEditingNoteText('');
-      onNoteAdded?.();
-    } catch (error) {
-      console.error('Failed to update note:', error);
-    }
-  };
+      try {
+        await updateNoteMutation.mutateAsync({
+          noteId,
+          note: editingNoteContent,
+        });
+        setEditingNoteId(null);
+        setEditingNoteContent(EMPTY_DOC);
+        onNoteAdded?.();
+      } catch {
+        // Error handled silently - user can retry
+      }
+    },
+    [editingNoteContent, updateNoteMutation, onNoteAdded]
+  );
 
   const handleDelete = async (noteId: string) => {
     if (!confirm('Are you sure you want to delete this note?')) return;
@@ -108,28 +103,10 @@ export function ProjectNotes({ projectId, notes, onNoteAdded }: ProjectNotesProp
     try {
       await deleteNoteMutation.mutateAsync(noteId);
       onNoteAdded?.();
-    } catch (error) {
-      console.error('Failed to delete note:', error);
+    } catch {
+      // Error handled silently - user can retry
     }
   };
-
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, noteId: string) => {
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSaveEdit(noteId);
-    }
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      handleCancelEdit();
-    }
-  };
-
-  useEffect(() => {
-    if (editTextareaRef.current && editingNoteId) {
-      editTextareaRef.current.style.height = 'auto';
-      editTextareaRef.current.style.height = `${editTextareaRef.current.scrollHeight}px`;
-    }
-  }, [editingNoteText, editingNoteId]);
 
   return (
     <div className="space-y-4">
@@ -158,18 +135,20 @@ export function ProjectNotes({ projectId, notes, onNoteAdded }: ProjectNotesProp
                     </div>
                     {editingNoteId === note.id ? (
                       <div className="space-y-2">
-                        <Textarea
-                          ref={editTextareaRef}
-                          value={editingNoteText}
-                          onChange={(e) => setEditingNoteText(e.target.value)}
-                          onKeyDown={(e) => handleEditKeyDown(e, note.id)}
-                          className="min-h-[80px] resize-none text-sm"
-                          autoFocus
+                        <NotesEditorWithMentions
+                          content={editingNoteContent}
+                          onChange={setEditingNoteContent}
+                          placeholder="Edit note..."
+                          disabled={updateNoteMutation.isPending}
+                          minHeight="80px"
                         />
                         <div className="flex items-center gap-2">
                           <Button
                             onClick={() => handleSaveEdit(note.id)}
-                            disabled={!editingNoteText.trim() || updateNoteMutation.isPending}
+                            disabled={
+                              isTiptapContentEmpty(editingNoteContent) ||
+                              updateNoteMutation.isPending
+                            }
                             size="sm"
                             variant="default"
                           >
@@ -186,8 +165,8 @@ export function ProjectNotes({ projectId, notes, onNoteAdded }: ProjectNotesProp
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
-                        {note.note}
+                      <div className="text-sm">
+                        <NoteContentDisplay content={note.note} />
                       </div>
                     )}
                   </div>
@@ -228,24 +207,26 @@ export function ProjectNotes({ projectId, notes, onNoteAdded }: ProjectNotesProp
         </div>
       )}
 
-      <div className="relative rounded-lg border bg-card p-4">
-        <Textarea
-          ref={textareaRef}
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          onKeyDown={handleKeyDown}
+      <div className="rounded-lg border bg-card p-4 space-y-2">
+        <NotesEditorWithMentions
+          content={newNoteContent}
+          onChange={setNewNoteContent}
           placeholder="Add a note..."
-          className="min-h-[80px] resize-none border-0 bg-transparent pr-20 text-sm focus-visible:ring-0 focus-visible:ring-offset-0"
           disabled={createNoteMutation.isPending || !currentStaff}
+          minHeight="80px"
         />
-        <div className="absolute bottom-4 right-4 flex items-center gap-2">
+        <div className="flex justify-end gap-2">
           {createNoteMutation.isPending && (
-            <span className="text-xs text-muted-foreground">Posting...</span>
+            <span className="text-xs text-muted-foreground self-center">Posting...</span>
           )}
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={!newNote.trim() || createNoteMutation.isPending || !currentStaff}
+            disabled={
+              isTiptapContentEmpty(newNoteContent) ||
+              createNoteMutation.isPending ||
+              !currentStaff
+            }
             size="sm"
             variant="default"
           >
@@ -256,4 +237,3 @@ export function ProjectNotes({ projectId, notes, onNoteAdded }: ProjectNotesProp
     </div>
   );
 }
-

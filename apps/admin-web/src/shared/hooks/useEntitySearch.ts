@@ -34,7 +34,7 @@ export function useEntitySearch({
 }: UseEntitySearchOptions) {
   const debouncedSearch = useDebounce(search, debounceMs);
   const trimmedSearch = debouncedSearch.trim();
-  const shouldSearch = enabled && trimmedSearch.length >= 2;
+  const shouldSearch = enabled;
 
   const studentsQuery = useQuery({
     queryKey: ['entity-search-students', trimmedSearch],

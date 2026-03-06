@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { Check, X, MoreVertical, ExternalLink, Copy, Calendar, RotateCcw, Trash2 } from 'lucide-react';
+import { Check, X, MoreVertical, ExternalLink, Copy, Calendar, CalendarX, CreditCard, RotateCcw, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
@@ -23,6 +23,7 @@ import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/s
 import { getShortSessionName } from '../utils/session-helpers';
 import type { SessionTableStudent, SessionTableStaff } from '../types/sessions-table';
 import type { UseSessionsTableModalsReturn } from '../hooks/useSessionsTableModals';
+import { useInvoiceSessionMutation } from '../hooks/useInvoiceSessionMutation';
 
 type TutorLogMap = Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
 
@@ -76,6 +77,8 @@ export interface SessionsTableRowProps {
   onClassClick: (classId: string, e: React.MouseEvent) => void;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
   router: { push: (path: string) => void };
+  /** Set of sessions_students IDs that are uninvoiced per reconciliation view (student view only) */
+  uninvoicedSessionsStudentsIds?: Set<string>;
 }
 
 export function SessionsTableRow({
@@ -114,8 +117,10 @@ export function SessionsTableRow({
   onClassClick,
   onCopySessionId,
   router,
+  uninvoicedSessionsStudentsIds,
 }: SessionsTableRowProps) {
   const { toast } = useToast();
+  const invoiceSessionMutation = useInvoiceSessionMutation();
   const staffList = (sessionStaff[session.id] || []) as SessionTableStaff[];
   const studentList = (sessionStudents[session.id] || []) as SessionTableStudent[];
   const hasTutorLog = !!tutorLogs[session.id];
@@ -344,10 +349,33 @@ export function SessionsTableRow({
           {(() => {
             const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
             const status = selectedStudent?.invoice_status || null;
-            if (!status) return <span className="text-xs text-muted-foreground">-</span>;
-            const badgeInfo = getInvoiceStatusBadgeVariant(status);
-            if (!badgeInfo) return <span className="text-xs text-muted-foreground">-</span>;
-            return <Badge variant={badgeInfo.variant} className="text-xs">{badgeInfo.label}</Badge>;
+            if (status) {
+              const badgeInfo = getInvoiceStatusBadgeVariant(status);
+              if (!badgeInfo) return <span className="text-xs text-muted-foreground">-</span>;
+              return <Badge variant={badgeInfo.variant} className="text-xs">{badgeInfo.label}</Badge>;
+            }
+            const sessionsStudentsId = selectedStudent?.sessions_students_id;
+            const isUninvoiced =
+              isStudentAttendanceView &&
+              sessionsStudentsId &&
+              uninvoicedSessionsStudentsIds?.has(sessionsStudentsId);
+            if (isUninvoiced) {
+              return (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    invoiceSessionMutation.mutate(sessionsStudentsId!);
+                  }}
+                  disabled={invoiceSessionMutation.isPending}
+                >
+                  <CreditCard className="h-4 w-4 mr-1" />
+                  {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Send invoice'}
+                </Button>
+              );
+            }
+            return <span className="text-xs text-muted-foreground">-</span>;
           })()}
         </TableCell>
       )}
@@ -375,6 +403,8 @@ export function SessionsTableRow({
             sessionShortName={sessionShortName}
             getClassShortDisplayName={getClassShortDisplayName}
             getShortSessionName={getShortSessionName}
+            canReschedule={canReschedule}
+            getRescheduleStudentId={getRescheduleStudentId}
             onOpenSession={onOpenSession}
             onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
             onRemoveStudentFromSession={onRemoveStudentFromSession}
@@ -421,6 +451,8 @@ interface SessionsTableRowStudentActionsProps {
   sessionShortName: string;
   getClassShortDisplayName: (session: Tables<'sessions'>) => string;
   getShortSessionName: (session: Parameters<typeof getShortSessionName>[0]) => string;
+  canReschedule: (session: Tables<'sessions'>) => boolean;
+  getRescheduleStudentId: (sessionId: string) => string | null;
   onOpenSession?: (id: string) => void;
   onUndoLogAbsenceStudent?: (payload: {
     studentId: string;
@@ -448,6 +480,8 @@ function SessionsTableRowStudentActions({
   sessionShortName,
   getClassShortDisplayName,
   getShortSessionName,
+  canReschedule,
+  getRescheduleStudentId,
   onOpenSession: _onOpenSession,
   onUndoLogAbsenceStudent,
   onRemoveStudentFromSession,
@@ -457,6 +491,8 @@ function SessionsTableRowStudentActions({
   router,
   toast,
 }: SessionsTableRowStudentActionsProps) {
+  const sessionCanReschedule = canReschedule(session);
+  const rescheduleStudentId = getRescheduleStudentId(session.id);
   const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
   const plannedStudentIds = new Set(studentList.filter((s) => s.sessions_students_id != null).map((s) => s.id));
   const attendance = selectedStudent
@@ -502,6 +538,7 @@ function SessionsTableRowStudentActions({
           : !onRemoveStudentFromSession
             ? 'Remove from session is not available here.'
             : 'Cannot remove this student from the session.';
+  const rescheduleReason = sessionCanReschedule && rescheduleStudentId ? '' : 'This session cannot be rescheduled.';
 
   return (
     <DropdownMenu>
@@ -522,6 +559,20 @@ function SessionsTableRowStudentActions({
         >
           <Copy className="h-4 w-4 mr-2" />
           Copy ID
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className={cn(!(sessionCanReschedule && rescheduleStudentId) && 'opacity-60 text-muted-foreground')}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (sessionCanReschedule && rescheduleStudentId) {
+              modals.openRescheduleModal(session, rescheduleStudentId);
+            } else {
+              toast({ description: rescheduleReason, variant: 'destructive' });
+            }
+          }}
+        >
+          <CalendarX className="h-4 w-4 mr-2" />
+          Reschedule session
         </DropdownMenuItem>
         <DropdownMenuItem
           className={cn((!canLogAbsence || !canOpenAbsenceDialog) && 'opacity-60 text-muted-foreground')}

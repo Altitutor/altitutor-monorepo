@@ -30,10 +30,6 @@ interface UseStudentActionsProps {
    */
   onBookDraftingSession: () => void;
   /**
-   * Optional callback for add class action
-   */
-  onAddClass?: () => void;
-  /**
    * Optional callback for discontinue action
    */
   onDiscontinue?: () => void;
@@ -56,7 +52,6 @@ export function useStudentActions({
   passwordResetLabel,
   onLogAbsence,
   onBookDraftingSession,
-  onAddClass,
   onDiscontinue,
   onDelete,
 }: UseStudentActionsProps) {
@@ -77,7 +72,6 @@ export function useStudentActions({
     passwordResetLabel,
     onLogAbsence,
     onBookDraftingSession,
-    onAddClass,
     onDiscontinue: student && (student.status === 'TRIAL' || student.status === 'ACTIVE')
       ? onDiscontinue
       : undefined,

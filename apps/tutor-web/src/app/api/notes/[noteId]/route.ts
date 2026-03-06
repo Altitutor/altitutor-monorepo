@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import type { Json } from '@altitutor/shared';
+
+function toTiptapJson(val: string | Record<string, unknown>): Json {
+  if (typeof val === 'object' && val !== null && 'type' in val && val.type === 'doc') {
+    return val as Json;
+  }
+  const text = typeof val === 'string' ? val : String(val);
+  if (!text.trim()) {
+    return { type: 'doc', content: [{ type: 'paragraph', content: [] }] } as Json;
+  }
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  } as Json;
+}
 
 /**
  * PATCH /api/notes/[noteId]
@@ -17,8 +32,19 @@ export async function PATCH(
   try {
     const body = await request.json();
     const { note } = body;
-    
-    if (!note || typeof note !== 'string' || !note.trim()) {
+
+    if (note === undefined || note === null) {
+      return NextResponse.json(
+        { error: 'Note is required' },
+        { status: 400 }
+      );
+    }
+
+    const noteContent = typeof note === 'string' && !note.trim()
+      ? null
+      : toTiptapJson(note as string | Record<string, unknown>);
+
+    if (!noteContent) {
       return NextResponse.json(
         { error: 'Note is required' },
         { status: 400 }
@@ -92,7 +118,7 @@ export async function PATCH(
     
     const { data, error } = await serviceClient
       .from('notes')
-      .update({ note: note.trim() })
+      .update({ note: noteContent })
       .eq('id', params.noteId)
       .select()
       .single();
