@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { Textarea } from '@altitutor/ui';
+import { useState, useCallback } from 'react';
 import { Button } from '@altitutor/ui';
 import { Card, CardContent } from '@altitutor/ui';
+import { RichTextEditor } from '@altitutor/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,10 +13,21 @@ import {
 import { format } from 'date-fns';
 import { MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useCreateSessionNote, useUpdateNote, useDeleteNote } from '../hooks/useSessionNotes';
+import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
+import {
+  isTiptapContentEmpty,
+  toEditorContent,
+} from '@/shared/utils/plainTextToTiptapJson';
 import type { Tables } from '@altitutor/shared';
+import type { JSONContent } from '@altitutor/ui';
 
 type NoteWithStaff = Tables<'notes'> & {
   staff?: Tables<'staff'> | null;
+};
+
+const EMPTY_DOC: JSONContent = {
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [] }],
 };
 
 type SessionNotesProps = {
@@ -33,79 +44,61 @@ export function SessionNotes({
   onNoteAdded,
   currentStaffId,
 }: SessionNotesProps) {
-  const [newNote, setNewNote] = useState('');
+  const [newNoteContent, setNewNoteContent] = useState<JSONContent>(EMPTY_DOC);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [editingNoteText, setEditingNoteText] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const editTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [editingNoteContent, setEditingNoteContent] = useState<JSONContent>(EMPTY_DOC);
   const createNoteMutation = useCreateSessionNote();
   const updateNoteMutation = useUpdateNote();
   const deleteNoteMutation = useDeleteNote();
 
-  // Auto-resize textarea
-  useEffect(() => {
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`;
-    }
-  }, [newNote]);
-
-  const handleSubmit = async () => {
-    if (!newNote.trim() || !currentStaffId) return;
+  const handleSubmit = useCallback(async () => {
+    if (isTiptapContentEmpty(newNoteContent) || !currentStaffId) return;
 
     try {
       await createNoteMutation.mutateAsync({
         sessionId,
-        note: newNote.trim(),
+        note: newNoteContent,
       });
-      setNewNote('');
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
+      setNewNoteContent(EMPTY_DOC);
       onNoteAdded?.();
-    } catch (error) {
-      console.error('Failed to create note:', error);
+    } catch {
+      // Error handled silently - user can retry
     }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    // CMD+Enter (Mac) or Ctrl+Enter (Windows/Linux) to submit
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
+  }, [newNoteContent, currentStaffId, sessionId, createNoteMutation, onNoteAdded]);
 
   const formatAuthorName = (staff: Tables<'staff'> | null | undefined) => {
     if (!staff) return 'Unknown';
     return `${staff.first_name} ${staff.last_name}`.trim() || 'Unknown';
   };
 
-  const handleEdit = (note: NoteWithStaff) => {
+  const handleEdit = useCallback((note: NoteWithStaff) => {
     setEditingNoteId(note.id);
-    setEditingNoteText(note.note);
-  };
+    setEditingNoteContent(toEditorContent(note.note));
+  }, []);
 
-  const handleCancelEdit = () => {
+  const handleCancelEdit = useCallback(() => {
     setEditingNoteId(null);
-    setEditingNoteText('');
-  };
+    setEditingNoteContent(EMPTY_DOC);
+  }, []);
 
-  const handleSaveEdit = async (noteId: string) => {
-    if (!editingNoteText.trim()) return;
+  const handleSaveEdit = useCallback(
+    async (noteId: string) => {
+      if (isTiptapContentEmpty(editingNoteContent)) return;
 
-    try {
-      await updateNoteMutation.mutateAsync({
-        noteId,
-        note: editingNoteText.trim(),
-      });
-      setEditingNoteId(null);
-      setEditingNoteText('');
-      onNoteAdded?.();
-    } catch (error) {
-      console.error('Failed to update note:', error);
-    }
-  };
+      try {
+        await updateNoteMutation.mutateAsync({
+          noteId,
+          note: editingNoteContent,
+        });
+        setEditingNoteId(null);
+        setEditingNoteContent(EMPTY_DOC);
+        onNoteAdded?.();
+      } catch {
+        // Error handled silently - user can retry
+      }
+    },
+    [editingNoteContent, updateNoteMutation, onNoteAdded]
+  );
 
   const handleDelete = async (noteId: string) => {
     if (!confirm('Are you sure you want to delete this note?')) return;
@@ -113,31 +106,10 @@ export function SessionNotes({
     try {
       await deleteNoteMutation.mutateAsync(noteId);
       onNoteAdded?.();
-    } catch (error) {
-      console.error('Failed to delete note:', error);
+    } catch {
+      // Error handled silently - user can retry
     }
   };
-
-  const handleEditKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>, noteId: string) => {
-    // CMD+Enter (Mac) or Ctrl+Enter (Windows/Linux) to save
-    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-      e.preventDefault();
-      handleSaveEdit(noteId);
-    }
-    // Escape to cancel
-    if (e.key === 'Escape') {
-      e.preventDefault();
-      handleCancelEdit();
-    }
-  };
-
-  // Auto-resize edit textarea
-  useEffect(() => {
-    if (editTextareaRef.current && editingNoteId) {
-      editTextareaRef.current.style.height = 'auto';
-      editTextareaRef.current.style.height = `${editTextareaRef.current.scrollHeight}px`;
-    }
-  }, [editingNoteText, editingNoteId]);
 
   // Filter notes to only show those created by current tutor
   const tutorNotes = notes.filter((note) => note.created_by === currentStaffId);
@@ -146,21 +118,18 @@ export function SessionNotes({
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Session Notes</h3>
 
-      {/* Notes List */}
       {tutorNotes.length > 0 && (
         <div className="space-y-3">
           {tutorNotes.map((note) => (
             <Card key={note.id} className="group">
               <CardContent className="p-4">
                 <div className="flex gap-3">
-                  {/* Avatar */}
                   <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
                     {note.staff
                       ? `${note.staff.first_name?.[0] || ''}${note.staff.last_name?.[0] || ''}`.toUpperCase()
                       : '?'}
                   </div>
 
-                  {/* Note content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-baseline gap-2 mb-1">
                       <span className="text-sm font-medium text-foreground">
@@ -172,18 +141,20 @@ export function SessionNotes({
                     </div>
                     {editingNoteId === note.id ? (
                       <div className="space-y-2">
-                        <Textarea
-                          ref={editTextareaRef}
-                          value={editingNoteText}
-                          onChange={(e) => setEditingNoteText(e.target.value)}
-                          onKeyDown={(e) => handleEditKeyDown(e, note.id)}
-                          className="min-h-[80px] resize-none text-sm"
-                          autoFocus
+                        <RichTextEditor
+                          content={editingNoteContent}
+                          onChange={setEditingNoteContent}
+                          placeholder="Edit note..."
+                          editable={!updateNoteMutation.isPending}
+                          minHeight="80px"
                         />
                         <div className="flex items-center gap-2">
                           <Button
                             onClick={() => handleSaveEdit(note.id)}
-                            disabled={!editingNoteText.trim() || updateNoteMutation.isPending}
+                            disabled={
+                              isTiptapContentEmpty(editingNoteContent) ||
+                              updateNoteMutation.isPending
+                            }
                             size="sm"
                             variant="default"
                           >
@@ -201,12 +172,11 @@ export function SessionNotes({
                       </div>
                     ) : (
                       <div className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
-                        {note.note}
+                        {extractTextFromNoteContent(note.note)}
                       </div>
                     )}
                   </div>
 
-                  {/* Actions menu - only show for notes created by current tutor */}
                   {editingNoteId !== note.id && note.created_by === currentStaffId && (
                     <div className="flex-shrink-0">
                       <DropdownMenu>
@@ -243,16 +213,13 @@ export function SessionNotes({
         </div>
       )}
 
-      {/* New Note Input */}
       <div className="space-y-2 pt-2">
-        <Textarea
-          ref={textareaRef}
-          value={newNote}
-          onChange={(e) => setNewNote(e.target.value)}
-          onKeyDown={handleKeyDown}
+        <RichTextEditor
+          content={newNoteContent}
+          onChange={setNewNoteContent}
           placeholder="Add a note..."
-          className="min-h-[80px] resize-none text-sm"
-          disabled={createNoteMutation.isPending || !currentStaffId}
+          editable={!createNoteMutation.isPending && !!currentStaffId}
+          minHeight="80px"
         />
         <div className="flex items-center justify-between">
           <span className="text-xs text-muted-foreground">
@@ -260,7 +227,11 @@ export function SessionNotes({
           </span>
           <Button
             onClick={handleSubmit}
-            disabled={!newNote.trim() || createNoteMutation.isPending || !currentStaffId}
+            disabled={
+              isTiptapContentEmpty(newNoteContent) ||
+              createNoteMutation.isPending ||
+              !currentStaffId
+            }
             size="sm"
             variant="default"
           >
@@ -271,4 +242,3 @@ export function SessionNotes({
     </div>
   );
 }
-

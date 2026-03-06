@@ -1,0 +1,75 @@
+import type { JSONContent } from '@tiptap/core';
+
+const EMPTY_DOC: JSONContent = {
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [] }],
+};
+
+/**
+ * Check if TipTap JSON content is empty (no text)
+ */
+export function isTiptapContentEmpty(content: JSONContent | null | undefined): boolean {
+  if (!content) return true;
+  const hasText = (node: JSONContent): boolean => {
+    if (node.type === 'text' && (node as { text?: string }).text?.trim()) return true;
+    if (node.type === 'mention') return true; // Mention has content
+    for (const c of node.content || []) {
+      if (hasText(c)) return true;
+    }
+    return false;
+  };
+  return !hasText(content);
+}
+
+/**
+ * Convert any note content (DB value) to JSONContent for the editor.
+ * Handles TipTap JSON, plain text, or legacy strings.
+ */
+export function toEditorContent(value: unknown): JSONContent {
+  if (value == null) return EMPTY_DOC;
+  if (typeof value === 'string') return plainTextToTiptapJson(value);
+  if (typeof value === 'object' && value !== null) {
+    const obj = value as Record<string, unknown>;
+    if (obj.type === 'doc' || Array.isArray(obj.content)) {
+      return value as JSONContent;
+    }
+  }
+  return plainTextToTiptapJson(String(value));
+}
+
+/**
+ * Convert plain text to TipTap ProseMirror JSON structure.
+ * Used when the API receives a string (legacy or simple input) instead of JSON.
+ */
+export function plainTextToTiptapJson(val: string | null | undefined): JSONContent {
+  if (val === null || val === undefined || val === '') {
+    return EMPTY_DOC;
+  }
+
+  const trimmed = val.trim();
+  if (!trimmed) {
+    return EMPTY_DOC;
+  }
+
+  // Already looks like JSON
+  if (trimmed.startsWith('{') && (trimmed.includes('"type"') || trimmed.includes('"content"'))) {
+    try {
+      const parsed = JSON.parse(val) as JSONContent;
+      if (parsed.type === 'doc' || parsed.content) {
+        return parsed;
+      }
+    } catch {
+      // Fall through to wrap as text
+    }
+  }
+
+  return {
+    type: 'doc',
+    content: [
+      {
+        type: 'paragraph',
+        content: [{ type: 'text', text: val }],
+      },
+    ],
+  };
+}
