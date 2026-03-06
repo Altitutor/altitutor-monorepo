@@ -3,12 +3,27 @@
 import { Badge } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
-import type { TaskWithAssignee, TaskPriority } from '../types';
-import { getPriorityColor, getPriorityLabel, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
-import { Calendar, FolderKanban, Link2 } from 'lucide-react';
+import type { TaskWithAssignee, TaskPriority, TaskStatus } from '../types';
+import {
+  getPriorityColor,
+  getPriorityLabel,
+  getStatusColor,
+  getStatusLabel,
+  getUserInitials,
+  getEstimateLabel,
+} from '../utils/taskUtils';
+import { formatShortDate, isOverdue } from '@/shared/utils/datetime';
+import { Calendar, Circle, Clock, Eye, CheckCircle, FolderKanban, Link2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { TextWithTags } from '@/shared/components/TextWithTags';
+
+const TASK_STATUS_ICONS: Record<TaskStatus, typeof Circle> = {
+  backlog: Circle,
+  todo: Circle,
+  in_progress: Clock,
+  in_review: Eye,
+  done: CheckCircle,
+};
 
 interface TaskCardProps {
   task: TaskWithAssignee;
@@ -39,6 +54,8 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
     : 'Unassigned';
 
   const overdue = isOverdue(task.due_date);
+  const taskStatus = (task.status ?? 'backlog') as TaskStatus;
+  const StatusIcon = TASK_STATUS_ICONS[taskStatus];
 
   return (
     <div
@@ -48,26 +65,46 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
       {...listeners}
       onClick={onClick}
       className={cn(
-        'bg-card border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow',
+        'group bg-card border rounded-lg p-3 cursor-grab active:cursor-grabbing hover:border-primary transition-colors',
         'space-y-2',
         isDragging && 'opacity-50'
       )}
     >
       {/* Title */}
-      <div className="font-medium text-sm">
-        <TextWithTags text={task.title} />
+      <div className="font-medium text-sm group-hover:text-primary transition-colors">
+        {task.title ?? ''}
       </div>
 
-      {/* Badges row */}
+      {/* Badges row - order: status, due date, tags, priority, estimate */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Priority */}
+        {/* Status - from issues style */}
+        <Badge className={cn('text-xs flex items-center gap-1', getStatusColor(taskStatus))}>
+          <StatusIcon className="h-3 w-3 shrink-0" />
+          {getStatusLabel(taskStatus)}
+        </Badge>
+
+        {/* Due date - from issues style */}
+        {task.due_date && (
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-xs flex items-center gap-1',
+              overdue && 'border-red-500 text-red-700 dark:text-red-400'
+            )}
+          >
+            <Calendar className="h-3 w-3 shrink-0" />
+            {formatShortDate(task.due_date)}
+          </Badge>
+        )}
+
+        {/* Priority - from tasks */}
         {task.priority !== 0 && visiblePillKeys.includes('priority') && (
           <Badge className={cn('text-xs', getPriorityColor((task.priority ?? 0) as TaskPriority))}>
             {getPriorityLabel((task.priority ?? 0) as TaskPriority)}
           </Badge>
         )}
 
-        {/* Estimate */}
+        {/* Estimate - from tasks */}
         {task.estimate && getEstimateLabel(task.estimate) && visiblePillKeys.includes('estimate') && (
           <Badge variant="outline" className="text-xs">
             {getEstimateLabel(task.estimate)}
@@ -78,7 +115,7 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
         {task.issue_id && visiblePillKeys.includes('issue_id') && (
           <Badge variant="outline" className="text-xs max-w-[220px]">
             <span className="inline-flex items-center gap-1 truncate">
-              <Link2 className="h-3 w-3" />
+              <Link2 className="h-3 w-3 shrink-0" />
               <span className="truncate">{task.issue?.name || 'Linked issue'}</span>
             </span>
           </Badge>
@@ -88,34 +125,20 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
         {task.project_id && visiblePillKeys.includes('project_id') && (
           <Badge variant="outline" className="text-xs max-w-[220px]">
             <span className="inline-flex items-center gap-1 truncate">
-              <FolderKanban className="h-3 w-3" />
+              <FolderKanban className="h-3 w-3 shrink-0" />
               <span className="truncate">{task.project?.name || 'Linked project'}</span>
             </span>
           </Badge>
         )}
-
-        {/* Due date */}
-        {task.due_date && (
-          <Badge
-            variant="outline"
-            className={cn(
-              'text-xs flex items-center gap-1',
-              overdue && 'border-red-500 text-red-700 dark:text-red-400'
-            )}
-          >
-            <Calendar className="h-3 w-3" />
-            {formatDueDate(task.due_date)}
-          </Badge>
-        )}
       </div>
 
-      {/* Assignee */}
+      {/* Assignee - from tasks */}
       {task.assignee && visiblePillKeys.includes('assignee') && (
         <div className="flex items-center gap-2">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium">
+                <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium shrink-0">
                   {assigneeInitials}
                 </div>
               </TooltipTrigger>
@@ -124,7 +147,7 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <span className="text-xs text-muted-foreground">{assigneeName}</span>
+          <span className="text-xs text-muted-foreground truncate">{assigneeName}</span>
         </div>
       )}
     </div>

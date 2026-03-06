@@ -4,9 +4,8 @@ import { Calendar, Circle, Clock, CheckCircle } from 'lucide-react';
 import type { IssueWithTags, IssueStatus } from '../types';
 import { cn } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
-import { formatIssueDueDate, isIssueOverdue } from '../utils/issueUtils';
-
-import { TextWithTags } from '@/shared/components/TextWithTags';
+import { formatShortDate, isOverdue } from '@/shared/utils/datetime';
+import { getIssueStatusColor, getIssueStatusLabel } from '../utils/issueUtils';
 
 interface IssueCardProps {
   issue: IssueWithTags;
@@ -16,9 +15,8 @@ interface IssueCardProps {
 
 export function IssueCard({ issue, onClick }: IssueCardProps) {
   const status = issue.status as IssueStatus;
-  const color = status === 'open' ? 'text-blue-500' : status === 'awaiting_response' ? 'text-yellow-500' : 'text-green-500';
   const Icon = status === 'open' ? Circle : status === 'awaiting_response' ? Clock : CheckCircle;
-  const overdue = isIssueOverdue(issue.due_date);
+  const overdue = isOverdue(issue.due_date);
 
   return (
     <div
@@ -27,31 +25,34 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
     >
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
-          <TextWithTags text={issue.name} />
+          {issue.name ?? ''}
         </h4>
       </div>
 
-      <div className="flex items-center gap-2">
-        <div className={cn("flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider", color)}>
-          <Icon className="h-3 w-3" />
-          <span>{status.replace('_', ' ')}</span>
-        </div>
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* Status - from issues style */}
+        <Badge className={cn('text-xs flex items-center gap-1', getIssueStatusColor(status))}>
+          <Icon className="h-3 w-3 shrink-0" />
+          {getIssueStatusLabel(status)}
+        </Badge>
 
+        {/* Due date */}
         {issue.due_date && (
           <Badge
             variant="outline"
             className={cn(
-              'text-[10px] h-4 px-1 font-normal flex items-center gap-1',
+              'text-xs flex items-center gap-1',
               overdue && 'border-red-500 text-red-700 dark:text-red-400'
             )}
           >
-            <Calendar className="h-3 w-3" />
-            {formatIssueDueDate(issue.due_date)}
+            <Calendar className="h-3 w-3 shrink-0" />
+            {formatShortDate(issue.due_date)}
           </Badge>
         )}
-        
+
+        {/* Tags */}
         {issue.tags.length > 0 && (
-          <Badge variant="outline" className="text-[10px] h-4 px-1 font-normal opacity-60">
+          <Badge variant="outline" className="text-xs opacity-80">
             {issue.tags.length} tags
           </Badge>
         )}

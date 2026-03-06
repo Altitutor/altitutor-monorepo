@@ -3,6 +3,8 @@ import {
   getDayOfWeek,
   getDayShortName,
   formatDate,
+  formatShortDate,
+  isOverdue,
   formatTimeHHMM,
   dateStringToUtcStart,
   dateStringToUtcEnd,
@@ -91,6 +93,41 @@ describe('datetime utilities', () => {
     it('should return empty string for invalid date', () => {
       expect(formatDate('invalid-date')).toBe('');
       expect(formatDate(new Date('invalid'))).toBe('');
+    });
+  });
+
+  describe('formatShortDate', () => {
+    it('should format date as "Jan 15"', () => {
+      const result = formatShortDate('2024-01-15T12:00:00Z');
+      expect(result).toBe('Jan 15');
+    });
+
+    it('should return empty string for null/undefined', () => {
+      expect(formatShortDate(null)).toBe('');
+      expect(formatShortDate(undefined)).toBe('');
+    });
+
+    it('should return empty string for invalid date', () => {
+      expect(formatShortDate('invalid-date')).toBe('');
+    });
+  });
+
+  describe('isOverdue', () => {
+    it('should return true for past dates', () => {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      expect(isOverdue(yesterday.toISOString())).toBe(true);
+    });
+
+    it('should return false for future dates', () => {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      expect(isOverdue(tomorrow.toISOString())).toBe(false);
+    });
+
+    it('should return false for null/undefined', () => {
+      expect(isOverdue(null)).toBe(false);
+      expect(isOverdue(undefined)).toBe(false);
     });
   });
 

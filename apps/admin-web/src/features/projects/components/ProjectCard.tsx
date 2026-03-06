@@ -1,11 +1,25 @@
 'use client';
 
 import { Calendar, Circle, Clock3, CheckCircle2, Flag } from 'lucide-react';
-import type { ProjectWithLead, ProjectStatus } from '../types';
+import type { ProjectWithLead, ProjectStatus, ProjectPriority } from '../types';
 import { cn } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
-import { formatProjectDate } from '../utils/projectUtils';
-import { TextWithTags } from '@/shared/components/TextWithTags';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import { formatShortDate, isOverdue } from '@/shared/utils/datetime';
+import {
+  getProjectStatusColor,
+  getProjectStatusLabel,
+  getProjectPriorityColor,
+  getProjectPriorityLabel,
+} from '../utils/projectUtils';
+import { getUserInitials } from '@/shared/utils';
+
+const PROJECT_STATUS_ICONS: Record<ProjectStatus, typeof Circle> = {
+  backlog: Circle,
+  planned: Clock3,
+  in_progress: Flag,
+  completed: CheckCircle2,
+};
 
 interface ProjectCardProps {
   project: ProjectWithLead;
@@ -14,14 +28,15 @@ interface ProjectCardProps {
 
 export function ProjectCard({ project, onClick }: ProjectCardProps) {
   const status = project.status as ProjectStatus;
-  const color = status === 'backlog'
-    ? 'text-muted-foreground'
-    : status === 'planned'
-      ? 'text-blue-500'
-      : status === 'in_progress'
-        ? 'text-yellow-500'
-        : 'text-green-500';
-  const Icon = status === 'backlog' ? Circle : status === 'planned' ? Clock3 : status === 'in_progress' ? Flag : CheckCircle2;
+  const StatusIcon = PROJECT_STATUS_ICONS[status];
+  const overdue = isOverdue(project.target_date ?? undefined);
+  const projectLead = project.project_lead;
+  const leadInitials = projectLead
+    ? getUserInitials(projectLead.first_name, projectLead.last_name)
+    : null;
+  const leadName = projectLead
+    ? `${projectLead.first_name ?? ''} ${projectLead.last_name ?? ''}`.trim() || 'Unnamed'
+    : 'No lead';
 
   return (
     <div
@@ -30,28 +45,56 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
     >
       <div className="flex items-start justify-between gap-2">
         <h4 className="text-sm font-medium line-clamp-2 group-hover:text-primary transition-colors">
-          <TextWithTags text={project.name} />
+          {project.name ?? ''}
         </h4>
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <div className={cn('flex items-center gap-1 text-[10px] font-medium uppercase tracking-wider', color)}>
-          <Icon className="h-3 w-3" />
-          <span>{status.replace('_', ' ')}</span>
-        </div>
+        {/* Status - from issues style */}
+        <Badge className={cn('text-xs flex items-center gap-1', getProjectStatusColor(status))}>
+          <StatusIcon className="h-3 w-3 shrink-0" />
+          {getProjectStatusLabel(status)}
+        </Badge>
 
+        {/* Start/target date - show range when both exist */}
+        {(project.start_date || project.target_date) && (
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-xs flex items-center gap-1',
+              overdue && 'border-red-500 text-red-700 dark:text-red-400'
+            )}
+          >
+            <Calendar className="h-3 w-3 shrink-0" />
+            {project.start_date && project.target_date
+              ? `${formatShortDate(project.start_date)} → ${formatShortDate(project.target_date)}`
+              : formatShortDate(project.target_date ?? project.start_date)}
+          </Badge>
+        )}
+
+        {/* Priority - from tasks style */}
         {(project.priority ?? 0) > 0 && (
-          <Badge variant="outline" className="text-[10px] h-4 px-1 font-normal">
-            P{project.priority}
+          <Badge className={cn('text-xs', getProjectPriorityColor((project.priority ?? 0) as ProjectPriority))}>
+            {getProjectPriorityLabel((project.priority ?? 0) as ProjectPriority)}
           </Badge>
         )}
+      </div>
 
-        {project.target_date && (
-          <Badge variant="outline" className="text-[10px] h-4 px-1 font-normal flex items-center gap-1">
-            <Calendar className="h-3 w-3" />
-            {formatProjectDate(project.target_date)}
-          </Badge>
-        )}
+      {/* Project lead - from tasks assignee style */}
+      <div className="flex items-center gap-2">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium shrink-0">
+                {leadInitials ?? '?'}
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{leadName}</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+        <span className="text-xs text-muted-foreground truncate">{leadName}</span>
       </div>
     </div>
   );

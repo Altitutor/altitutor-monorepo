@@ -132,17 +132,9 @@ export function formatDueDate(dueDate: string | null | undefined): string {
 }
 
 /**
- * Get user initials
+ * Get user initials (re-exported from shared for backwards compatibility)
  */
-export function getUserInitials(firstName?: string | null, lastName?: string | null): string {
-  if (firstName && lastName) {
-    return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-  }
-  if (firstName) {
-    return firstName.charAt(0).toUpperCase();
-  }
-  return '?';
-}
+export { getUserInitials } from '@/shared/utils/userHelpers';
 
 /**
  * Estimate size options mapping

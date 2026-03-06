@@ -45,6 +45,24 @@ export function formatDate(date: Date | string | null | undefined): string {
   return dateObj.toLocaleDateString('en-US', options);
 }
 
+/**
+ * Format date for compact card display (e.g. "Jan 15")
+ */
+export function formatShortDate(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return '';
+  return dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Check if a date is overdue (in the past)
+ */
+export function isOverdue(date: string | null | undefined): boolean {
+  if (!date) return false;
+  return new Date(date).getTime() < Date.now();
+}
+
 export function formatTimeHHMM(timeString: string | null | undefined): string {
   if (!timeString) return '';
 
