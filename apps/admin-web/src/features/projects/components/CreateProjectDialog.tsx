@@ -43,7 +43,7 @@ interface CreateProjectDialogProps {
 export function CreateProjectDialog({ isOpen, onClose, onProjectCreated, initialStatus = 'backlog' }: CreateProjectDialogProps) {
   const createProject = useCreateProject();
   const { data: currentStaff } = useCurrentStaff();
-  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
 
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
@@ -111,7 +111,6 @@ export function CreateProjectDialog({ isOpen, onClose, onProjectCreated, initial
                 <div className="flex-1 min-w-0 border-r overflow-y-auto p-6 space-y-6">
                   <ProjectTitleField
                     form={form}
-                    value={form.watch('name')}
                     onEnter={handleTitleEnter}
                     titleRef={titleFieldRef}
                   />
