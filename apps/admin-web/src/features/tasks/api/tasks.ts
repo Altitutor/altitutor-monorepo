@@ -15,18 +15,26 @@ export const tasksApi = {
     limit = 8
   ): Promise<Array<Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'>>> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const trimmed = search.trim();
 
-    if (!search.trim()) {
-      return [];
+    if (trimmed.length > 0) {
+      const { data, error } = await supabase
+        .from('tasks')
+        .select('id, title, status, due_date, priority')
+        .textSearch('search_vector', trimmed, {
+          type: 'websearch',
+          config: 'english',
+        })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+      return (data ?? []) as Array<Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'>>;
     }
 
     const { data, error } = await supabase
       .from('tasks')
       .select('id, title, status, due_date, priority')
-      .textSearch('search_vector', search.trim(), {
-        type: 'websearch',
-        config: 'english',
-      })
       .order('created_at', { ascending: false })
       .limit(limit);
 

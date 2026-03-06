@@ -8,6 +8,20 @@ import { cn } from '@/shared/utils';
 import { getDayShortName } from '@/shared/utils/datetime';
 import type { LucideIcon } from 'lucide-react';
 
+const ENTITY_PILL_ORDER = ['student', 'staff', 'parent', 'class', 'subject', 'task', 'issue', 'project', 'topic', 'file'] as const;
+const TYPE_TO_SEARCH_KEY: Record<string, string> = {
+  student: 'students',
+  staff: 'staff',
+  parent: 'parents',
+  class: 'classes',
+  subject: 'subjects',
+  task: 'tasks',
+  issue: 'issues',
+  project: 'projects',
+  topic: 'topics',
+  file: 'files',
+};
+
 interface MentionAutocompleteProps {
   searchQuery: string;
   isOpen: boolean;
@@ -16,6 +30,8 @@ interface MentionAutocompleteProps {
   position?: { top: number; left: number };
   /** Portal target. Use nearest dialog when inside one so Radix overlay does not block clicks. */
   portalContainer?: HTMLElement | null;
+  /** Optional: restrict search to these entity types (plural keys: students, staff, etc.) */
+  types?: readonly string[];
 }
 
 const entityIcons: Record<string, LucideIcon> = {
@@ -145,6 +161,8 @@ function getEntityDisplayText(result: EntitySearchResult): { title: string; subt
   return { title: '', subtitle: null };
 }
 
+const DEFAULT_SEARCH_TYPES = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files'] as const;
+
 export function MentionAutocomplete({
   searchQuery,
   isOpen,
@@ -152,14 +170,20 @@ export function MentionAutocomplete({
   onClose,
   position,
   portalContainer = typeof document !== 'undefined' ? document.body : null,
+  types: typesProp,
 }: MentionAutocompleteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Search entities - allow empty search to show all results
+  const effectiveTypes = selectedTypeFilter
+    ? [TYPE_TO_SEARCH_KEY[selectedTypeFilter] ?? selectedTypeFilter]
+    : (typesProp as string[] | undefined) ?? DEFAULT_SEARCH_TYPES;
+
   const { results, isLoading } = useEntitySearch({
     search: searchQuery,
     enabled: isOpen,
+    types: effectiveTypes as ('students' | 'staff' | 'parents' | 'classes' | 'subjects' | 'tasks' | 'issues' | 'projects' | 'topics' | 'files')[],
   });
 
   // Group results by type
@@ -174,7 +198,10 @@ export function MentionAutocomplete({
     return groups;
   }, [results]);
 
-  // Reset selected index when results change
+  useEffect(() => {
+    if (!isOpen) setSelectedTypeFilter(null);
+  }, [isOpen]);
+
   useEffect(() => {
     if (results.length > 0) {
       setSelectedIndex(0);
@@ -254,6 +281,33 @@ export function MentionAutocomplete({
         e.preventDefault();
       }}
     >
+      <div className="flex flex-wrap gap-1 p-2 border-b border-muted/50 shrink-0">
+        {ENTITY_PILL_ORDER.map((type) => {
+          const Icon = entityIcons[type];
+          const label = entityLabels[type];
+          const isActive = selectedTypeFilter === type;
+          return (
+            <button
+              key={type}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setSelectedTypeFilter((prev) => (prev === type ? null : type));
+              }}
+              onMouseDown={(e) => e.preventDefault()}
+              className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors',
+                isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {Icon && <Icon className="h-3 w-3" />}
+              {label}
+            </button>
+          );
+        })}
+      </div>
       {isLoading && (
         <div className="flex items-center justify-center p-4">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -262,7 +316,7 @@ export function MentionAutocomplete({
 
       {!isLoading && allResults.length === 0 && (
         <div className="px-4 py-3 text-sm text-muted-foreground text-center">
-          {searchQuery.length === 0 ? 'Start typing to search...' : 'No results found'}
+          {searchQuery.trim().length < 2 ? 'Start typing to search...' : 'No results found'}
         </div>
       )}
 

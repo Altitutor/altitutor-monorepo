@@ -5,7 +5,7 @@ import React, {
   useState,
   useMemo,
 } from 'react';
-import { Badge, ScrollArea } from '@altitutor/ui';
+import { Badge } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import { getEntityDisplayText } from '@/features/command-palette/utils/entityFormatters';
@@ -26,6 +26,8 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   file: 'files',
 };
 
+const ENTITY_PILL_ORDER = ['student', 'staff', 'parent', 'class', 'subject', 'task', 'issue', 'project', 'topic', 'file'] as const;
+
 export interface MentionListProps {
   items: CommandPaletteEntityResult[];
   command: (item: CommandPaletteEntityResult) => void;
@@ -38,67 +40,68 @@ export interface MentionListRef {
 
 export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, ref) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [selectedTypeFilter, setSelectedTypeFilter] = useState<string | null>(null);
 
-  // Group items by category and calculate max score for each group to sort groups
-  const { groupedItems, flatItems } = useMemo(() => {
-    const groups: Record<string, { label: string; items: CommandPaletteEntityResult[]; maxScore: number }> = {};
-    
+  const { groupedItems, flatItems, typesWithResults } = useMemo(() => {
+    const groups: Record<string, { type: string; label: string; items: CommandPaletteEntityResult[]; maxScore: number }> = {};
+
     props.items.forEach(item => {
       const type = item.type;
       const configKey = ENTITY_TYPE_MAPPING[type] || type;
       const config = entityTypes[configKey];
       const label = config?.label || type;
-      
+
       const score = calculateMatchScore({ type: 'entity', result: item }, props.query || '');
-      
+
       if (!groups[type]) {
-        groups[type] = {
-          label,
-          items: [],
-          maxScore: 0
-        };
+        groups[type] = { type, label, items: [], maxScore: 0 };
       }
-      
+
       groups[type].items.push(item);
       groups[type].maxScore = Math.max(groups[type].maxScore, score);
     });
 
-    // Sort groups: highest maxScore first, then alphabetically by label
-    const sortedGroups = Object.values(groups).sort((a, b) => {
-      if (b.maxScore !== a.maxScore) {
-        return b.maxScore - a.maxScore;
-      }
+    let sortedGroups = Object.values(groups).sort((a, b) => {
+      if (b.maxScore !== a.maxScore) return b.maxScore - a.maxScore;
       return a.label.localeCompare(b.label);
     });
 
-    // Flatten items for index-based selection
-    const flatItems = sortedGroups.flatMap(group => group.items);
+    if (selectedTypeFilter) {
+      sortedGroups = sortedGroups.filter(g => g.type === selectedTypeFilter);
+    }
 
-    return { groupedItems: sortedGroups, flatItems };
-  }, [props.items, props.query]);
+    const flatItems = sortedGroups.flatMap(group => group.items);
+    const typesWithResults = Object.keys(groups);
+
+    return { groupedItems: sortedGroups, flatItems, typesWithResults };
+  }, [props.items, props.query, selectedTypeFilter]);
 
   const selectItem = (index: number) => {
     const item = flatItems[index];
-
-    if (item) {
-      getEntityDisplayText(item);
-      props.command(item);
-    }
+    if (!item) return;
+    props.command(item);
   };
 
+  const safeLength = Math.max(flatItems.length, 1);
   const upHandler = () => {
-    setSelectedIndex((selectedIndex + flatItems.length - 1) % flatItems.length);
+    setSelectedIndex((selectedIndex + safeLength - 1) % safeLength);
   };
 
   const downHandler = () => {
-    setSelectedIndex((selectedIndex + 1) % flatItems.length);
+    setSelectedIndex((selectedIndex + 1) % safeLength);
   };
 
   const enterHandler = () => {
     selectItem(selectedIndex);
   };
 
-  useEffect(() => setSelectedIndex(0), [props.items]);
+  useEffect(() => setSelectedIndex(0), [props.items, selectedTypeFilter]);
+
+  useEffect(() => {
+    if (selectedTypeFilter && !props.items.some(i => i.type === selectedTypeFilter)) {
+      setSelectedTypeFilter(null);
+    }
+  }, [props.items, selectedTypeFilter]);
 
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }) => {
@@ -124,7 +127,47 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
   if (props.items.length === 0) {
     return (
       <div className="bg-popover border rounded-md shadow-md p-2 text-sm text-muted-foreground">
-        No results found
+        {props.query.trim().length < 2 ? 'Start typing to search...' : 'No results found'}
+      </div>
+    );
+  }
+
+  if (groupedItems.length === 0) {
+    const filterLabel = selectedTypeFilter
+      ? entityTypes[ENTITY_TYPE_MAPPING[selectedTypeFilter]]?.label ?? selectedTypeFilter
+      : null;
+    return (
+      <div className="bg-popover border rounded-md shadow-md overflow-hidden min-w-[300px] max-w-[400px] max-h-[300px] flex flex-col pointer-events-auto">
+        <div className="flex flex-wrap gap-1 p-2 border-b border-muted/50 shrink-0">
+          {ENTITY_PILL_ORDER.filter(t => typesWithResults.includes(t)).map((type) => {
+            const configKey = ENTITY_TYPE_MAPPING[type] || type;
+            const config = entityTypes[configKey];
+            const Icon = config?.icon;
+            const label = config?.label || type;
+            const isActive = selectedTypeFilter === type;
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setSelectedTypeFilter((prev) => (prev === type ? null : type));
+                }}
+                onMouseDown={(e) => e.preventDefault()}
+                className={cn(
+                  'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors',
+                  isActive ? 'bg-primary text-primary-foreground' : 'bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+                )}
+              >
+                {Icon && <Icon className="h-3 w-3" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="p-2 text-sm text-muted-foreground">
+          {filterLabel ? `No ${filterLabel} found` : 'No results found'}
+        </div>
       </div>
     );
   }
@@ -133,13 +176,41 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
 
   return (
     <div 
-      className="bg-popover border rounded-md shadow-md overflow-hidden min-w-[300px] max-w-[400px] pointer-events-auto"
+      className="bg-popover border rounded-md shadow-md overflow-hidden min-w-[300px] max-w-[400px] max-h-[300px] flex flex-col pointer-events-auto"
       onMouseDown={(e) => {
-        // Prevent the editor from losing focus when clicking on the list
         e.preventDefault();
       }}
     >
-      <ScrollArea className="max-h-[400px]">
+      <div className="flex flex-wrap gap-1 p-2 border-b border-muted/50 shrink-0">
+        {ENTITY_PILL_ORDER.filter(t => typesWithResults.includes(t)).map((type) => {
+          const configKey = ENTITY_TYPE_MAPPING[type] || type;
+          const config = entityTypes[configKey];
+          const Icon = config?.icon;
+          const label = config?.label || type;
+          const isActive = selectedTypeFilter === type;
+          return (
+            <button
+              key={type}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                setSelectedTypeFilter((prev) => (prev === type ? null : type));
+              }}
+              onMouseDown={(e) => e.preventDefault()}
+              className={cn(
+                'inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium transition-colors',
+                isActive
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted/50 hover:bg-muted text-muted-foreground hover:text-foreground'
+              )}
+            >
+              {Icon && <Icon className="h-3 w-3" />}
+              {label}
+            </button>
+          );
+        })}
+      </div>
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <div className="p-1 space-y-3">
           {groupedItems.map((group) => (
             <div key={group.label} className="space-y-1">
@@ -184,7 +255,7 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
             </div>
           ))}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 });

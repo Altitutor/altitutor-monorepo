@@ -579,7 +579,7 @@ export function useMentionField<T extends object>({
     },
     mentionPortalContainer:
       typeof document !== 'undefined' && ref.current
-        ? ref.current.closest('[role="dialog"]') ?? document.body
+        ? (ref.current.closest('[role="dialog"]') as HTMLElement | null) ?? document.body
         : typeof document !== 'undefined'
           ? document.body
           : null,

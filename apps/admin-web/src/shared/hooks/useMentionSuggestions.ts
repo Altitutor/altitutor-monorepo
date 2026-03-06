@@ -49,7 +49,7 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
 
   return useMemo(() => ({
     items: async ({ query }: { query: string }): Promise<CommandPaletteEntityResult[]> => {
-      if (!query || query.length < 2) return [];
+      if (query === undefined || query === null) return [];
 
       // Debounce the search manually since this is a callback
       return new Promise((resolve) => {
