@@ -5,11 +5,12 @@ import React, {
   useState,
   useMemo,
 } from 'react';
-import { Badge } from '@altitutor/ui';
+import { Badge, Skeleton } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import { getEntityDisplayText } from '@/features/command-palette/utils/entityFormatters';
 import { calculateMatchScore } from '@/features/command-palette/utils/matchScoring';
+import { useEntitySearch } from '@/shared/hooks/useEntitySearch';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
 // Map singular entity types to plural keys in entityTypes config
@@ -26,12 +27,29 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   file: 'files',
 };
 
+// Map plural entity types to singular for pill ordering
+const PLURAL_TO_SINGULAR: Record<string, string> = {
+  students: 'student',
+  staff: 'staff',
+  parents: 'parent',
+  classes: 'class',
+  subjects: 'subject',
+  tasks: 'task',
+  issues: 'issue',
+  projects: 'project',
+  topics: 'topic',
+  files: 'file',
+};
+
 const ENTITY_PILL_ORDER = ['student', 'staff', 'parent', 'class', 'subject', 'task', 'issue', 'project', 'topic', 'file'] as const;
+
+const DEFAULT_TYPES = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files'] as const;
 
 export interface MentionListProps {
   items: CommandPaletteEntityResult[];
   command: (item: CommandPaletteEntityResult) => void;
   query: string;
+  types?: readonly string[];
 }
 
 export interface MentionListRef {
@@ -42,10 +60,20 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string | null>(null);
 
+  const effectiveTypes = (props.types ?? DEFAULT_TYPES) as string[];
+  const { results, isLoading } = useEntitySearch({
+    search: props.query ?? '',
+    enabled: true,
+    debounceMs: 200,
+    types: effectiveTypes,
+  });
+
+  const items = results;
+
   const { groupedItems, flatItems, typesWithResults } = useMemo(() => {
     const groups: Record<string, { type: string; label: string; items: CommandPaletteEntityResult[]; maxScore: number }> = {};
 
-    props.items.forEach(item => {
+    items.forEach(item => {
       const type = item.type;
       const configKey = ENTITY_TYPE_MAPPING[type] || type;
       const config = entityTypes[configKey];
@@ -74,12 +102,13 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
     const typesWithResults = Object.keys(groups);
 
     return { groupedItems: sortedGroups, flatItems, typesWithResults };
-  }, [props.items, props.query, selectedTypeFilter]);
+  }, [items, props.query, selectedTypeFilter]);
 
   const selectItem = (index: number) => {
     const item = flatItems[index];
     if (!item) return;
-    props.command(item);
+    const { title } = getEntityDisplayText(item);
+    props.command({ ...item, label: title } as CommandPaletteEntityResult & { label: string });
   };
 
   const safeLength = Math.max(flatItems.length, 1);
@@ -95,13 +124,13 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
     selectItem(selectedIndex);
   };
 
-  useEffect(() => setSelectedIndex(0), [props.items, selectedTypeFilter]);
+  useEffect(() => setSelectedIndex(0), [items, selectedTypeFilter]);
 
   useEffect(() => {
-    if (selectedTypeFilter && !props.items.some(i => i.type === selectedTypeFilter)) {
+    if (selectedTypeFilter && !items.some(i => i.type === selectedTypeFilter)) {
       setSelectedTypeFilter(null);
     }
-  }, [props.items, selectedTypeFilter]);
+  }, [items, selectedTypeFilter]);
 
   useImperativeHandle(ref, () => ({
     onKeyDown: ({ event }) => {
@@ -124,22 +153,21 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
     },
   }));
 
-  if (props.items.length === 0) {
-    return (
-      <div className="bg-popover border rounded-md shadow-md p-2 text-sm text-muted-foreground">
-        {props.query.trim().length < 2 ? 'Start typing to search...' : 'No results found'}
-      </div>
-    );
-  }
+  const pillTypes = typesWithResults.length > 0
+    ? ENTITY_PILL_ORDER.filter(t => typesWithResults.includes(t))
+    : effectiveTypes.map(t => PLURAL_TO_SINGULAR[t] ?? t).filter(Boolean);
 
-  if (groupedItems.length === 0) {
+  const showSkeleton = isLoading;
+  const emptyMessage = props.query.trim().length < 2 ? 'Start typing to search...' : 'No results found';
+
+  if (groupedItems.length === 0 && !showSkeleton) {
     const filterLabel = selectedTypeFilter
       ? entityTypes[ENTITY_TYPE_MAPPING[selectedTypeFilter]]?.label ?? selectedTypeFilter
       : null;
     return (
       <div className="bg-popover border rounded-md shadow-md overflow-hidden min-w-[300px] max-w-[400px] max-h-[300px] flex flex-col pointer-events-auto">
         <div className="flex flex-wrap gap-1 p-2 border-b border-muted/50 shrink-0">
-          {ENTITY_PILL_ORDER.filter(t => typesWithResults.includes(t)).map((type) => {
+          {pillTypes.map((type) => {
             const configKey = ENTITY_TYPE_MAPPING[type] || type;
             const config = entityTypes[configKey];
             const Icon = config?.icon;
@@ -166,7 +194,44 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
           })}
         </div>
         <div className="p-2 text-sm text-muted-foreground">
-          {filterLabel ? `No ${filterLabel} found` : 'No results found'}
+          {filterLabel ? `No ${filterLabel} found` : emptyMessage}
+        </div>
+      </div>
+    );
+  }
+
+  if (groupedItems.length === 0 && showSkeleton) {
+    return (
+      <div className="bg-popover border rounded-md shadow-md overflow-hidden min-w-[300px] max-w-[400px] max-h-[300px] flex flex-col pointer-events-auto">
+        <div className="flex flex-wrap gap-1 p-2 border-b border-muted/50 shrink-0">
+          {pillTypes.map((type) => {
+            const configKey = ENTITY_TYPE_MAPPING[type] || type;
+            const config = entityTypes[configKey];
+            const Icon = config?.icon;
+            const label = config?.label || type;
+            return (
+              <button
+                key={type}
+                type="button"
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium bg-muted/50 text-muted-foreground cursor-default"
+                disabled
+              >
+                {Icon && <Icon className="h-3 w-3" />}
+                {label}
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex-1 min-h-0 overflow-y-auto p-3 space-y-2">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="flex items-start gap-2">
+              <Skeleton className="h-4 w-4 shrink-0 rounded" />
+              <div className="flex-1 space-y-1">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
