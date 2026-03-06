@@ -208,11 +208,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     }
   };
 
-  // Handle add class
-  const handleAddClass = () => {
-    setIsEnrollModalOpen(true);
-  };
-
   // Handle enrollment
   const handleEnroll = async (params: {
     studentId: string;
@@ -266,7 +261,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
-    onAddClass: handleAddClass,
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });

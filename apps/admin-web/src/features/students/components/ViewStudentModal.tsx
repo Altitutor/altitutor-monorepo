@@ -249,11 +249,6 @@ export function ViewStudentModal({
     }
   };
 
-  // Handle add class
-  const handleAddClass = () => {
-    setIsEnrollModalOpen(true);
-  };
-
   // Handle enrollment
   const handleEnroll = async (params: {
     studentId: string;
@@ -311,7 +306,6 @@ export function ViewStudentModal({
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
-    onAddClass: handleAddClass,
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });

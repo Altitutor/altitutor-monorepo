@@ -549,9 +549,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                           setActionStudentId(student.id);
                           setIsBookDraftingSessionModalOpen(true);
                         }}
-                        onAddClass={() => {
-                          handleStudentClick(student.id);
-                        }}
                         onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE'
                           ? () => {
                               setStudentToDiscontinue(student);
