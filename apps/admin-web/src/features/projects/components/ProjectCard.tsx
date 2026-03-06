@@ -23,10 +23,11 @@ const PROJECT_STATUS_ICONS: Record<ProjectStatus, typeof Circle> = {
 
 interface ProjectCardProps {
   project: ProjectWithLead;
+  visiblePillKeys?: string[];
   onClick?: () => void;
 }
 
-export function ProjectCard({ project, onClick }: ProjectCardProps) {
+export function ProjectCard({ project, onClick, visiblePillKeys = [] }: ProjectCardProps) {
   const status = project.status as ProjectStatus;
   const StatusIcon = PROJECT_STATUS_ICONS[status];
   const overdue = isOverdue(project.target_date ?? undefined);
@@ -50,14 +51,16 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Status - from issues style */}
-        <Badge className={cn('text-xs flex items-center gap-1', getProjectStatusColor(status))}>
-          <StatusIcon className="h-3 w-3 shrink-0" />
-          {getProjectStatusLabel(status)}
-        </Badge>
+        {/* Status */}
+        {visiblePillKeys.includes('status') && (
+          <Badge className={cn('text-xs flex items-center gap-1', getProjectStatusColor(status))}>
+            <StatusIcon className="h-3 w-3 shrink-0" />
+            {getProjectStatusLabel(status)}
+          </Badge>
+        )}
 
-        {/* Start/target date - show range when both exist */}
-        {(project.start_date || project.target_date) && (
+        {/* Start/target date */}
+        {(project.start_date || project.target_date) && visiblePillKeys.includes('dates') && (
           <Badge
             variant="outline"
             className={cn(
@@ -72,15 +75,16 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
           </Badge>
         )}
 
-        {/* Priority - from tasks style */}
-        {(project.priority ?? 0) > 0 && (
+        {/* Priority */}
+        {(project.priority ?? 0) > 0 && visiblePillKeys.includes('priority') && (
           <Badge className={cn('text-xs', getProjectPriorityColor((project.priority ?? 0) as ProjectPriority))}>
             {getProjectPriorityLabel((project.priority ?? 0) as ProjectPriority)}
           </Badge>
         )}
       </div>
 
-      {/* Project lead - from tasks assignee style */}
+      {/* Project lead */}
+      {visiblePillKeys.includes('project_lead') && (
       <div className="flex items-center gap-2">
         <TooltipProvider>
           <Tooltip>
@@ -96,6 +100,7 @@ export function ProjectCard({ project, onClick }: ProjectCardProps) {
         </TooltipProvider>
         <span className="text-xs text-muted-foreground truncate">{leadName}</span>
       </div>
+      )}
     </div>
   );
 }

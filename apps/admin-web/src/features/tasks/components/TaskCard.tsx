@@ -31,7 +31,7 @@ interface TaskCardProps {
   visiblePillKeys?: string[];
 }
 
-export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priority', 'estimate', 'issue_id', 'project_id'] }: TaskCardProps) {
+export function TaskCard({ task, onClick, visiblePillKeys = [] }: TaskCardProps) {
   const {
     attributes,
     listeners,
@@ -77,14 +77,16 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
 
       {/* Badges row - order: status, due date, tags, priority, estimate */}
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Status - from issues style */}
-        <Badge className={cn('text-xs flex items-center gap-1', getStatusColor(taskStatus))}>
-          <StatusIcon className="h-3 w-3 shrink-0" />
-          {getStatusLabel(taskStatus)}
-        </Badge>
+        {/* Status */}
+        {visiblePillKeys.includes('status') && (
+          <Badge className={cn('text-xs flex items-center gap-1', getStatusColor(taskStatus))}>
+            <StatusIcon className="h-3 w-3 shrink-0" />
+            {getStatusLabel(taskStatus)}
+          </Badge>
+        )}
 
-        {/* Due date - from issues style */}
-        {task.due_date && (
+        {/* Due date */}
+        {task.due_date && visiblePillKeys.includes('due_date') && (
           <Badge
             variant="outline"
             className={cn(
@@ -97,14 +99,14 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
           </Badge>
         )}
 
-        {/* Priority - from tasks */}
+        {/* Priority */}
         {task.priority !== 0 && visiblePillKeys.includes('priority') && (
           <Badge className={cn('text-xs', getPriorityColor((task.priority ?? 0) as TaskPriority))}>
             {getPriorityLabel((task.priority ?? 0) as TaskPriority)}
           </Badge>
         )}
 
-        {/* Estimate - from tasks */}
+        {/* Estimate */}
         {task.estimate && getEstimateLabel(task.estimate) && visiblePillKeys.includes('estimate') && (
           <Badge variant="outline" className="text-xs">
             {getEstimateLabel(task.estimate)}
@@ -132,7 +134,7 @@ export function TaskCard({ task, onClick, visiblePillKeys = ['assignee', 'priori
         )}
       </div>
 
-      {/* Assignee - from tasks */}
+      {/* Assignee */}
       {task.assignee && visiblePillKeys.includes('assignee') && (
         <div className="flex items-center gap-2">
           <TooltipProvider>

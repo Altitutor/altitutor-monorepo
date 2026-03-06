@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -16,7 +16,7 @@ import {
 } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import { useCreateProject } from '../api/mutations';
-import type { ProjectFormData, ProjectStatus } from '../types';
+import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
 import { ProjectTitleField } from './fields/ProjectTitleField';
 import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
@@ -38,9 +38,18 @@ interface CreateProjectDialogProps {
   onClose: () => void;
   onProjectCreated?: (projectId: string) => void;
   initialStatus?: ProjectStatus;
+  initialPriority?: ProjectPriority | null;
+  initialProjectLeadId?: string | null;
 }
 
-export function CreateProjectDialog({ isOpen, onClose, onProjectCreated, initialStatus = 'backlog' }: CreateProjectDialogProps) {
+export function CreateProjectDialog({
+  isOpen,
+  onClose,
+  onProjectCreated,
+  initialStatus = 'backlog',
+  initialPriority = null,
+  initialProjectLeadId = null,
+}: CreateProjectDialogProps) {
   const createProject = useCreateProject();
   const { data: currentStaff } = useCurrentStaff();
   const titleFieldRef = useRef<HTMLInputElement>(null);
@@ -52,12 +61,25 @@ export function CreateProjectDialog({ isOpen, onClose, onProjectCreated, initial
       name: '',
       description: null,
       status: initialStatus,
-      priority: 0,
-      projectLeadId: null,
+      priority: (initialPriority ?? 0) as ProjectPriority,
+      projectLeadId: initialProjectLeadId ?? null,
       startDate: null,
       targetDate: null,
     },
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    form.reset({
+      name: '',
+      description: null,
+      status: initialStatus,
+      priority: (initialPriority ?? 0) as ProjectPriority,
+      projectLeadId: initialProjectLeadId ?? null,
+      startDate: null,
+      targetDate: null,
+    });
+  }, [isOpen, initialStatus, initialPriority, initialProjectLeadId, form]);
 
   const onSubmit = async (data: ProjectFormData) => {
     try {

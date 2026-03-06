@@ -33,6 +33,7 @@ import {
   TaskIssueEntityPill,
   TaskProjectEntityPill,
 } from './fields/TaskEntityPills';
+import { TaskDueDateEntityPill } from './fields/TaskDueDateEntityPill';
 import type { TaskWithAssignee, TaskStatus, TaskPriority, TaskFilters, TaskUpdate, TaskFormData } from '../types';
 import { cn } from '@/shared/utils';
 import { Circle, Clock, Eye, CheckCircle } from 'lucide-react';
@@ -142,7 +143,58 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     onStatusChange: (task, value) => handleUpdate(task, { status: value }),
   }), [handleUpdate]);
 
+  const dueDateFilterOptions = useMemo(
+    () =>
+      Array.from(new Set(tasks.map((t) => t.due_date).filter((d): d is string => !!d)))
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+        .map((d) => ({ value: d as unknown, label: new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })),
+    [tasks]
+  );
+
   const rightPills: EntityListPillColumn<TaskWithAssignee, unknown>[] = useMemo(() => [
+    {
+      key: 'status',
+      label: 'Status',
+      visibleByDefault: true,
+      getValue: (t) => t.status ?? null,
+      defaultValue: null,
+      filterOptions: STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
+      groupable: true,
+      sortable: true,
+      filterable: true,
+      renderPill: (item, _onChange, collapsed) => (
+        <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
+          {getStatusLabel((item.status ?? 'backlog') as TaskStatus)}
+        </span>
+      ),
+    },
+    {
+      key: 'due_date',
+      label: 'Due date',
+      visibleByDefault: true,
+      getValue: (t) => t.due_date ?? null,
+      defaultValue: null,
+      filterOptions: dueDateFilterOptions,
+      filterSearchable: true,
+      groupable: true,
+      sortable: true,
+      filterable: true,
+      compare: (a, b) => {
+        const aTime = a ? new Date(String(a)).getTime() : Number.POSITIVE_INFINITY;
+        const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
+        return aTime - bTime;
+      },
+      renderPill: (item, onChange, collapsed) => (
+        <TaskDueDateEntityPill
+          task={item}
+          collapsed={collapsed}
+          onChange={(date) => {
+            handleUpdate(item, { due_date: date });
+            onChange(date);
+          }}
+        />
+      ),
+    },
     {
       key: 'assignee',
       label: 'Assignee',
@@ -263,7 +315,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         />
       ),
     },
-  ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate]);
+  ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate, dueDateFilterOptions]);
 
   const columnDefs: KanbanColumnDef<TaskWithAssignee, unknown>[] = useMemo(() => [
     {
@@ -293,17 +345,19 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
   ], [handleUpdate, staffList]);
 
   const groupByOptions = [
+    { key: 'status', label: 'Status' },
     { key: 'assignee', label: 'Assignee' },
     { key: 'priority', label: 'Priority' },
     { key: 'estimate', label: 'Estimate' },
-    { key: 'status', label: 'Status' },
+    { key: 'due_date', label: 'Due date' },
     { key: 'project_id', label: 'Project' },
   ];
 
   const sortByOptions = [
+    { key: 'status', label: 'Status' },
+    { key: 'due_date', label: 'Due date' },
     { key: 'estimate', label: 'Estimate' },
     { key: 'priority', label: 'Priority' },
-    { key: 'status', label: 'Status' },
   ];
 
   const handleAdd = useCallback((columnValue: unknown) => {
@@ -351,6 +405,10 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       if (valueKey === '__null__') return 'No project';
       const project = projects.find((p) => p.id === valueKey);
       return project?.name || valueKey;
+    }
+    if (columnKey === 'due_date') {
+      if (valueKey === '__null__') return 'No due date';
+      return new Date(valueKey).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     }
     return valueKey === '__null__' ? 'No value' : valueKey;
   }, [staffList, issues, projects]);

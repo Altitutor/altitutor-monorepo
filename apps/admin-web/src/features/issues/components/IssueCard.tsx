@@ -13,7 +13,7 @@ interface IssueCardProps {
   onClick?: () => void;
 }
 
-export function IssueCard({ issue, onClick }: IssueCardProps) {
+export function IssueCard({ issue, onClick, visiblePillKeys = [] }: IssueCardProps) {
   const status = issue.status as IssueStatus;
   const Icon = status === 'open' ? Circle : status === 'awaiting_response' ? Clock : CheckCircle;
   const overdue = isOverdue(issue.due_date);
@@ -30,14 +30,16 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        {/* Status - from issues style */}
-        <Badge className={cn('text-xs flex items-center gap-1', getIssueStatusColor(status))}>
-          <Icon className="h-3 w-3 shrink-0" />
-          {getIssueStatusLabel(status)}
-        </Badge>
+        {/* Status */}
+        {visiblePillKeys.includes('status') && (
+          <Badge className={cn('text-xs flex items-center gap-1', getIssueStatusColor(status))}>
+            <Icon className="h-3 w-3 shrink-0" />
+            {getIssueStatusLabel(status)}
+          </Badge>
+        )}
 
         {/* Due date */}
-        {issue.due_date && (
+        {issue.due_date && visiblePillKeys.includes('due_date') && (
           <Badge
             variant="outline"
             className={cn(
@@ -51,7 +53,7 @@ export function IssueCard({ issue, onClick }: IssueCardProps) {
         )}
 
         {/* Tags */}
-        {issue.tags.length > 0 && (
+        {issue.tags.length > 0 && visiblePillKeys.includes('tags') && (
           <Badge variant="outline" className="text-xs opacity-80">
             {issue.tags.length} tags
           </Badge>
