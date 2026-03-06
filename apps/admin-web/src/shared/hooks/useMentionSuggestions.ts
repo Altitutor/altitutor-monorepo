@@ -15,6 +15,7 @@ import { topicsFilesApi } from '@/features/topics/api/topics-files';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import { MentionList, type MentionListRef } from '@/shared/components/MentionList';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
+import { getEntityDisplayText } from '@/features/command-palette/utils/entityFormatters';
 
 type MentionSearchType = keyof typeof entityTypes;
 
@@ -157,7 +158,20 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
             .filter((r): r is PromiseFulfilledResult<CommandPaletteEntityResult[]> => r.status === 'fulfilled')
             .flatMap(r => r.value);
 
-          resolve(allResults);
+          // Attach a human-friendly label to each result so the Tiptap
+          // Mention extension can render the name instead of the raw ID.
+          // The Mention node's attrs will include this `label`, and the
+          // default renderers use `label ?? id`, so this keeps titles and
+          // rich-text bodies consistent.
+          const resultsWithLabel = allResults.map((item) => {
+            const { title } = getEntityDisplayText(item);
+            return {
+              ...item,
+              label: title,
+            } as CommandPaletteEntityResult & { label: string };
+          });
+
+          resolve(resultsWithLabel);
         }, 200);
       });
     },

@@ -38,6 +38,7 @@ export function ProjectTitleField({ form, value, onTagClick, onEnter, titleRef }
     isMentionOpen,
     insertTag,
     closeMention,
+    mentionPortalContainer,
   } = useMentionField({
     form,
     fieldName: 'name',
@@ -86,6 +87,7 @@ export function ProjectTitleField({ form, value, onTagClick, onEnter, titleRef }
                     top: mentionPosition.top,
                     left: mentionPosition.left,
                   }}
+                  portalContainer={mentionPortalContainer}
                 />
               )}
             </div>

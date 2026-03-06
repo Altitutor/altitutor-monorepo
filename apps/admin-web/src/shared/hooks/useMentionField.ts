@@ -577,6 +577,12 @@ export function useMentionField<T extends object>({
       setIsMentionOpen(false);
       mentionStartRef.current = -1; // Reset stored position
     },
+    mentionPortalContainer:
+      typeof document !== 'undefined' && ref.current
+        ? ref.current.closest('[role="dialog"]') ?? document.body
+        : typeof document !== 'undefined'
+          ? document.body
+          : null,
   };
 }
 

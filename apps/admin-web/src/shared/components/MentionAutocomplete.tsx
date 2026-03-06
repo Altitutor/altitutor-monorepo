@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, GraduationCap, UserRound, Users, Calendar, Beaker, Newspaper, File, CheckSquare, AlertTriangle, FolderKanban } from 'lucide-react';
 import { useEntitySearch, type EntitySearchResult } from '@/shared/hooks/useEntitySearch';
 import { cn } from '@/shared/utils';
@@ -13,6 +14,8 @@ interface MentionAutocompleteProps {
   onSelect: (result: EntitySearchResult) => void;
   onClose: () => void;
   position?: { top: number; left: number };
+  /** Portal target. Use nearest dialog when inside one so Radix overlay does not block clicks. */
+  portalContainer?: HTMLElement | null;
 }
 
 const entityIcons: Record<string, LucideIcon> = {
@@ -148,6 +151,7 @@ export function MentionAutocomplete({
   onSelect,
   onClose,
   position,
+  portalContainer = typeof document !== 'undefined' ? document.body : null,
 }: MentionAutocompleteProps) {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -226,19 +230,25 @@ export function MentionAutocomplete({
     });
   });
 
-  return (
+  const isInDialog = portalContainer && portalContainer !== document.body;
+  const positionStyle = position
+    ? isInDialog && portalContainer
+      ? (() => {
+          const rect = portalContainer.getBoundingClientRect();
+          return {
+            position: 'absolute' as const,
+            left: `${position.left - rect.left}px`,
+            top: `${position.top - rect.top}px`,
+          };
+        })()
+      : { position: 'fixed' as const, left: `${position.left}px`, top: `${position.top}px` }
+    : undefined;
+
+  const content = (
     <div
       ref={containerRef}
       className="fixed z-[200] bg-popover border rounded-lg shadow-lg max-h-[300px] overflow-y-auto min-w-[300px] max-w-[400px]"
-      style={
-        position
-          ? {
-              top: `${position.top}px`,
-              left: `${position.left}px`,
-              position: 'fixed',
-            }
-          : undefined
-      }
+      style={positionStyle}
       onMouseDown={(e) => {
         // Prevent blur on contentEditable when clicking autocomplete
         e.preventDefault();
@@ -315,4 +325,8 @@ export function MentionAutocomplete({
       )}
     </div>
   );
+
+  return typeof document !== 'undefined' && portalContainer
+    ? createPortal(content, portalContainer)
+    : content;
 }

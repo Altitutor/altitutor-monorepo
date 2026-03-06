@@ -38,6 +38,7 @@ export function TaskTitleField({ form, value, onTagClick, onEnter, titleRef }: T
     isMentionOpen,
     insertTag,
     closeMention,
+    mentionPortalContainer,
   } = useMentionField({
     form,
     fieldName: 'title',
@@ -89,6 +90,7 @@ export function TaskTitleField({ form, value, onTagClick, onEnter, titleRef }: T
                     top: mentionPosition.top,
                     left: mentionPosition.left,
                   }}
+                  portalContainer={mentionPortalContainer}
                 />
               )}
             </div>
