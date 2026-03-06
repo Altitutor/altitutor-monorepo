@@ -119,10 +119,10 @@ BEGIN
       -- ========================
       INSERT INTO public.notes (id, target_type, target_id, note, created_by)
       VALUES
-        (gen_random_uuid(), 'STUDENT', '10000000-0000-0000-0000-000000000001', 'Alice is making excellent progress in mathematics. Very engaged in class.', '00000000-0000-0000-0000-000000000010'),
-        (gen_random_uuid(), 'STUDENT', '10000000-0000-0000-0000-000000000003', 'Charlie missed the last session. Parent notified.', '00000000-0000-0000-0000-000000000010'),
-        (gen_random_uuid(), 'SESSION', session1_id, 'Great session today. Covered functions and graphs thoroughly.', '00000000-0000-0000-0000-000000000010'),
-        (gen_random_uuid(), 'TUTOR_LOG', tutor_log1_id, 'All students participated well. Homework assigned.', '00000000-0000-0000-0000-000000000010')
+        (gen_random_uuid(), 'students', '10000000-0000-0000-0000-000000000001', public.migrate_text_to_tiptap_jsonb('Alice is making excellent progress in mathematics. Very engaged in class.'), '00000000-0000-0000-0000-000000000010'),
+        (gen_random_uuid(), 'students', '10000000-0000-0000-0000-000000000003', public.migrate_text_to_tiptap_jsonb('Charlie missed the last session. Parent notified.'), '00000000-0000-0000-0000-000000000010'),
+        (gen_random_uuid(), 'sessions', session1_id, public.migrate_text_to_tiptap_jsonb('Great session today. Covered functions and graphs thoroughly.'), '00000000-0000-0000-0000-000000000010'),
+        (gen_random_uuid(), 'tutor_logs', tutor_log1_id, public.migrate_text_to_tiptap_jsonb('All students participated well. Homework assigned.'), '00000000-0000-0000-0000-000000000010')
       ON CONFLICT DO NOTHING;
 
     END IF; -- End of tutor_logs existence check
