@@ -77,6 +77,8 @@ export interface SessionsTableRowProps {
   onClassClick: (classId: string, e: React.MouseEvent) => void;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
   router: { push: (path: string) => void };
+  /** Set of sessions_students IDs that are uninvoiced per reconciliation view (student view only) */
+  uninvoicedSessionsStudentsIds?: Set<string>;
 }
 
 export function SessionsTableRow({
@@ -115,6 +117,7 @@ export function SessionsTableRow({
   onClassClick,
   onCopySessionId,
   router,
+  uninvoicedSessionsStudentsIds,
 }: SessionsTableRowProps) {
   const { toast } = useToast();
   const invoiceSessionMutation = useInvoiceSessionMutation();
@@ -351,30 +354,26 @@ export function SessionsTableRow({
               if (!badgeInfo) return <span className="text-xs text-muted-foreground">-</span>;
               return <Badge variant={badgeInfo.variant} className="text-xs">{badgeInfo.label}</Badge>;
             }
-            if (isStudentAttendanceView && selectedStudent?.sessions_students_id && hasTutorLog) {
-              const plannedStudentIds = new Set(
-                studentList.filter((s) => s.sessions_students_id != null).map((s) => s.id)
+            const sessionsStudentsId = selectedStudent?.sessions_students_id;
+            const isUninvoiced =
+              isStudentAttendanceView &&
+              sessionsStudentsId &&
+              uninvoicedSessionsStudentsIds?.has(sessionsStudentsId);
+            if (isUninvoiced) {
+              return (
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    invoiceSessionMutation.mutate(sessionsStudentsId!);
+                  }}
+                  disabled={invoiceSessionMutation.isPending}
+                >
+                  <CreditCard className="h-4 w-4 mr-1" />
+                  {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Send invoice'}
+                </Button>
               );
-              const attendance = getStudentAttendanceStatus(selectedStudent, hasTutorLog, plannedStudentIds);
-              const plannedStatus = attendance.plannedStatus;
-              const shouldShowInvoiceButton =
-                plannedStatus !== 'absent' && plannedStatus !== 'rescheduled' && plannedStatus !== 'credited';
-              if (shouldShowInvoiceButton) {
-                return (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      invoiceSessionMutation.mutate(selectedStudent.sessions_students_id!);
-                    }}
-                    disabled={invoiceSessionMutation.isPending}
-                  >
-                    <CreditCard className="h-4 w-4 mr-1" />
-                    {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Invoice session'}
-                  </Button>
-                );
-              }
             }
             return <span className="text-xs text-muted-foreground">-</span>;
           })()}

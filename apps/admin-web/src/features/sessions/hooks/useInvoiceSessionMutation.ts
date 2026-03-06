@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { sessionsKeys } from './useSessionsQuery';
+import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
 
 export function useInvoiceSessionMutation(_options?: {
   onOpenInvoice?: (invoiceId: string) => void;
@@ -27,6 +28,7 @@ export function useInvoiceSessionMutation(_options?: {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
       toast({
         title: 'Success',
         description: 'Session invoiced successfully.',

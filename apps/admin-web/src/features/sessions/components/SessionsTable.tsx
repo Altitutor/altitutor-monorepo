@@ -27,6 +27,7 @@ import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { LogAbsenceDialog } from './absences';
 import { SessionsTableRow } from './SessionsTableRow';
+import { useUninvoicedSessions } from '@/features/reconciliation/api/queries';
 
 const SESSION_TYPES = [
   'CLASS',
@@ -184,6 +185,16 @@ export function SessionsTable({
   });
 
   const modals = useSessionsTableModals(refetch);
+
+  const { data: uninvoicedSessions = [] } = useUninvoicedSessions();
+  const uninvoicedSessionsStudentsIds = useMemo(() => {
+    if (!studentId) return undefined;
+    return new Set(
+      uninvoicedSessions
+        .filter((s) => s.student_id === studentId)
+        .map((s) => s.sessions_students_id)
+    );
+  }, [uninvoicedSessions, studentId]);
 
   const subjectFilterOptions = useMemo(() => {
     const list = Object.values(subjectsById);
@@ -450,6 +461,7 @@ export function SessionsTable({
                   onClassClick={handleClassClick}
                   onCopySessionId={handleCopySessionId}
                   router={router}
+                  uninvoicedSessionsStudentsIds={uninvoicedSessionsStudentsIds}
                 />
               ))
             )}
