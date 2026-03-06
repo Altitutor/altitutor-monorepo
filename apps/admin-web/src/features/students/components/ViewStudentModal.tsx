@@ -347,9 +347,9 @@ export function ViewStudentModal({
                           {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
                         </SheetTitle>
                         <SheetDescription className="text-lg font-medium">
-                          <div className="flex items-center gap-2 flex-wrap">
+                          <span className="inline-flex items-center gap-2 flex-wrap">
                             {student.first_name} {student.last_name}
-                            <Badge 
+                            <Badge
                               variant={
                                 student.status === 'ACTIVE' ? 'success' :
                                 student.status === 'TRIAL' ? 'secondary' :
@@ -365,7 +365,7 @@ export function ViewStudentModal({
                               entityId={studentId}
                               enabled={isOpen && !!studentId}
                             />
-                          </div>
+                          </span>
                         </SheetDescription>
                       </div>
                     </div>
