@@ -1,6 +1,8 @@
 import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
+import type { JSONContent } from '@tiptap/core';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 
 export type MinimalClass = Pick<
   Tables<'classes'>,
@@ -821,7 +823,7 @@ export const classesApi = {
     classId: string;
     studentId: string;
     unenrolledAt: Date;
-    reason: string;
+    reason: JSONContent;
     staffId: string;
   }): Promise<void> => {
     try {
@@ -858,8 +860,8 @@ export const classesApi = {
       
       if (unenrollError) throw unenrollError;
       
-      // Create note with the reason
-      if (params.reason) {
+      // Create note with the reason (TipTap JSON)
+      if (!isTiptapContentEmpty(params.reason)) {
         const notePayload = {
           target_type: 'classes_students',
           target_id: enrollment.id,

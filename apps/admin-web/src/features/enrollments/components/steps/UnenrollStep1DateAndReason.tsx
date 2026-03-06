@@ -8,6 +8,7 @@ import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
 import type { Tables } from '@altitutor/shared';
+import type { JSONContent } from '@tiptap/core';
 
 interface UnenrollStep1DateAndReasonProps {
   student: Tables<'students'>;
@@ -16,9 +17,9 @@ interface UnenrollStep1DateAndReasonProps {
   classSubject?: Tables<'subjects'>;
   classStaff?: Tables<'staff'>[];
   unenrollmentDate: string;
-  reason: string;
+  reason: JSONContent | undefined;
   onDateChange: (date: string) => void;
-  onReasonChange: (reason: string) => void;
+  onReasonChange: (reason: JSONContent) => void;
 }
 
 export function UnenrollStep1DateAndReason({

@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import type { JSONContent } from '@tiptap/core';
 import { notesApi } from '@/shared/api/notes';
 
 export const sessionNotesKeys = {
@@ -15,7 +16,7 @@ export function useCreateSessionNote() {
   return useMutation({
     mutationFn: async (params: {
       sessionId: string;
-      note: string;
+      note: JSONContent;
       staffId: string;
     }) => {
       return notesApi.createNote({
@@ -41,7 +42,7 @@ export function useUpdateNote() {
   return useMutation({
     mutationFn: async (params: {
       noteId: string;
-      note: string;
+      note: JSONContent;
     }) => {
       return notesApi.updateNote(params.noteId, params.note);
     },

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import type { JSONContent } from '@tiptap/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -10,6 +11,7 @@ import {
   UnenrollStep2Summary,
   UnenrollStep3MessageScreen,
 } from './steps';
+import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 import type { UnenrollStudentModalProps } from '../types/enrollment';
 
 export function UnenrollStudentModal({
@@ -25,7 +27,7 @@ export function UnenrollStudentModal({
 }: UnenrollStudentModalProps) {
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [unenrollmentDate, setUnenrollmentDate] = useState<string>('');
-  const [reason, setReason] = useState('');
+  const [reason, setReason] = useState<JSONContent | undefined>(undefined);
 
   // Flow management
   const { isUnenrolling, handleConfirm, unenrollmentSuccess } = useUnenrollFlow({
@@ -51,7 +53,7 @@ export function UnenrollStudentModal({
     if (isOpen) {
       setStep(1);
       setUnenrollmentDate('');
-      setReason('');
+      setReason(undefined);
     }
   }, [isOpen]);
 
@@ -153,7 +155,7 @@ export function UnenrollStudentModal({
               classSubject={classSubject}
               classStaff={classStaff}
               unenrollmentDate={unenrollmentDate}
-              reason={reason}
+              reason={reason ?? { type: 'doc', content: [{ type: 'paragraph', content: [] }] }}
               onReasonChange={setReason}
             />
           )}
@@ -202,7 +204,7 @@ export function UnenrollStudentModal({
                 ) : (
                   <Button 
                     onClick={handleConfirm} 
-                    disabled={isUnenrolling || !reason || reason.trim() === ''} 
+                    disabled={isUnenrolling || isTiptapContentEmpty(reason)} 
                     variant="destructive"
                   >
                     {isUnenrolling ? (

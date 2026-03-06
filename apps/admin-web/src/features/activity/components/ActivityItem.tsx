@@ -7,7 +7,7 @@ import { FormattedActivityMessage } from './FormattedActivityMessage';
 import { cn } from '@/shared/utils';
 import { Card, CardContent, Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronDown } from 'lucide-react';
-import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
+import { NoteContentDisplay } from '@/shared/components/NoteContentDisplay';
 
 interface ActivityItemProps {
   activity: ActivityEventDisplay;
@@ -43,16 +43,17 @@ export function ActivityItem({ activity, showConnector = true, className, isNest
           <div className="flex items-start gap-2">
             <div className="flex-1">
               {isNoteEvent ? (
-                // Special rendering for notes to preserve line breaks
+                // Special rendering for notes (TipTap JSON or plain text)
                 <div className="text-sm text-foreground">
                   <span className="font-medium">{activity.performedBy.name}</span>
                   {' '}
                   <span className="text-muted-foreground">added a note:</span>
                   <Card className="mt-2">
                     <CardContent className="p-4">
-                      <div className="text-muted-foreground whitespace-pre-wrap break-words">
-                        {renderTextWithTagsAsPlainText(activity.noteContent)}
-                      </div>
+                      <NoteContentDisplay
+                        content={activity.noteContent}
+                        className="text-muted-foreground"
+                      />
                     </CardContent>
                   </Card>
                 </div>

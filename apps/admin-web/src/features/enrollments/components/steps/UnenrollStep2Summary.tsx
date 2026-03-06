@@ -1,10 +1,11 @@
 'use client';
 
-import { Textarea } from '@altitutor/ui';
 import { calculateLastSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { formatClassName, formatDate, cn } from '@/shared/utils';
+import { NotesEditorWithMentions } from '@/shared/components/NotesEditorWithMentions';
 import type { Tables } from '@altitutor/shared';
+import type { JSONContent } from '@tiptap/core';
 
 interface UnenrollStep2SummaryProps {
   student: Tables<'students'>;
@@ -13,8 +14,8 @@ interface UnenrollStep2SummaryProps {
   classSubject?: Tables<'subjects'>;
   classStaff?: Tables<'staff'>[];
   unenrollmentDate: string;
-  reason: string;
-  onReasonChange: (reason: string) => void;
+  reason: JSONContent;
+  onReasonChange: (reason: JSONContent) => void;
 }
 
 export function UnenrollStep2Summary({
@@ -76,18 +77,16 @@ export function UnenrollStep2Summary({
         </p>
       </div>
 
-      {/* Reason Text Box */}
+      {/* Reason Rich Text */}
       <div className="space-y-2">
         <label htmlFor="reason" className="text-sm font-medium">
           Reason for Unenrollment <span className="text-destructive">*</span>
         </label>
-        <Textarea
-          id="reason"
+        <NotesEditorWithMentions
+          content={reason}
+          onChange={onReasonChange}
           placeholder="Enter reason for unenrolling this student..."
-          value={reason}
-          onChange={(e) => onReasonChange(e.target.value)}
-          rows={4}
-          className="resize-none"
+          minHeight="100px"
         />
         <p className="text-xs text-muted-foreground">
           Please provide a reason for unenrolling this student from the class.

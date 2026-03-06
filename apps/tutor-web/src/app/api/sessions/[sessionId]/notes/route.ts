@@ -1,7 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
-import type { TablesInsert } from '@altitutor/shared';
+import type { Json, TablesInsert } from '@altitutor/shared';
+
+function toTiptapJson(val: string | Record<string, unknown>): Json {
+  if (typeof val === 'object' && val !== null && 'type' in val && val.type === 'doc') {
+    return val as Json;
+  }
+  const text = typeof val === 'string' ? val : String(val);
+  if (!text.trim()) {
+    return { type: 'doc', content: [{ type: 'paragraph', content: [] }] } as Json;
+  }
+  return {
+    type: 'doc',
+    content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+  } as Json;
+}
 
 /**
  * POST /api/sessions/[sessionId]/notes
@@ -18,8 +32,19 @@ export async function POST(
   try {
     const body = await request.json();
     const { note } = body;
-    
-    if (!note || typeof note !== 'string' || !note.trim()) {
+
+    if (note === undefined || note === null) {
+      return NextResponse.json(
+        { error: 'Note is required' },
+        { status: 400 }
+      );
+    }
+
+    const noteContent = typeof note === 'string' && !note.trim()
+      ? null
+      : toTiptapJson(note as string | Record<string, unknown>);
+
+    if (!noteContent) {
       return NextResponse.json(
         { error: 'Note is required' },
         { status: 400 }
@@ -86,7 +111,7 @@ export async function POST(
     const noteInsert: TablesInsert<'notes'> = {
       target_type: 'sessions',
       target_id: params.sessionId,
-      note: note.trim(),
+      note: noteContent,
       created_by: tutorId,
     };
     

@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { JSONContent } from '@altitutor/ui';
 import { notesApi } from '@/shared/api/notes';
 
 export const sessionNotesKeys = {
@@ -33,7 +34,7 @@ export function useCreateSessionNote() {
   return useMutation({
     mutationFn: async (params: {
       sessionId: string;
-      note: string;
+      note: JSONContent | string;
     }) => {
       const response = await fetch(`/api/sessions/${params.sessionId}/notes`, {
         method: 'POST',
@@ -62,7 +63,7 @@ export function useUpdateNote() {
   return useMutation({
     mutationFn: async (params: {
       noteId: string;
-      note: string;
+      note: JSONContent | string;
     }) => {
       const response = await fetch(`/api/notes/${params.noteId}`, {
         method: 'PATCH',
