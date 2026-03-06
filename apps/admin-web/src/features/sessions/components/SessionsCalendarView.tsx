@@ -154,10 +154,17 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                         )}
                         {(() => {
                         const daySessions = getDaySessions(d).sort((a: Tables<'sessions'>, b: Tables<'sessions'>) => new Date(a.start_at ?? 0).getTime() - new Date(b.start_at ?? 0).getTime());
+                        // Dedupe by id (same session can appear in multiple days if it spans midnight)
+                        const seenIds = new Set<string>();
+                        const deduped = daySessions.filter((s: Tables<'sessions'>) => {
+                          if (seenIds.has(s.id)) return false;
+                          seenIds.add(s.id);
+                          return true;
+                        });
                         // Separate ADMIN_SHIFT sessions from regular sessions
                         // ADMIN_SHIFT sessions are long-duration availability windows and should not be grouped with regular sessions
-                        const adminShiftSessions = daySessions.filter((s: Tables<'sessions'>) => s.type === 'ADMIN_SHIFT');
-                        const regularSessions = daySessions.filter((s: Tables<'sessions'>) => s.type !== 'ADMIN_SHIFT');
+                        const adminShiftSessions = deduped.filter((s: Tables<'sessions'>) => s.type === 'ADMIN_SHIFT');
+                        const regularSessions = deduped.filter((s: Tables<'sessions'>) => s.type !== 'ADMIN_SHIFT');
                         
                         // Build overlap groups for regular sessions only (exclude ADMIN_SHIFT)
                         // Fix: Check if session overlaps with ANY session in the group, not just the first one
@@ -233,7 +240,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             
                             blocks.push(
                               <div
-                                key={s.id}
+                                key={`admin-${d.toISOString()}-${s.id}-${idx}`}
                                 className={cn("absolute", !hasAttendingStudents && "opacity-50")}
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 5, minHeight: '45px' }}
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
@@ -282,7 +289,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                             
                             blocks.push(
                               <div
-                                key={s.id}
+                                key={`reg-${d.toISOString()}-${s.id}-${idx}`}
                                 className={cn("absolute", !hasAttendingStudents && "opacity-50")}
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                                 onClick={() => onOpenSession && onOpenSession(s.id)}

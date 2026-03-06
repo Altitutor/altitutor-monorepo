@@ -51,13 +51,17 @@ export const bookingsApi = {
         p_session_type: input.session_type,
         p_start_at: input.start_at,
         p_end_at: input.end_at,
-        p_subject_id: input.subject_id || undefined,
-        p_staff_id: input.staff_id || undefined,
-        p_reservation_id: input.reservation_id || undefined,
+        p_subject_id: input.subject_id ?? undefined,
+        p_staff_id: input.staff_id ?? undefined,
+        p_reservation_id: input.reservation_id ?? undefined,
         p_created_by: user.id,
+        p_bypass_date_restrictions: true, // Admin can reschedule past sessions
       });
-      
-      if (error) throw error;
+
+      if (error) {
+        const message = error.message ?? 'Failed to reschedule session';
+        throw new Error(message);
+      }
       if (!data) throw new Error('Failed to reschedule session: no session ID returned');
       return data as string; // Returns the original session_id (session is updated in place)
     }
