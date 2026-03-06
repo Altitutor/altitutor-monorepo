@@ -6,11 +6,13 @@ import type {
   BillingStatsReportData,
   IssuesReportData,
   MarketingStatsReportData,
+  ProjectsReportData,
   ReportDataPoint,
   ReportEntityLink,
   RevenueReportDataPoint,
   StaffAbsencesReportData,
   StudentStatsReportData,
+  TasksReportData,
 } from '../types';
 import {
   eachDayOfInterval,
@@ -20,6 +22,10 @@ import {
   startOfDay,
   endOfDay,
 } from 'date-fns';
+import { calculateSessionPrice } from '@/shared/utils/pricing';
+import type { StudentSubsidyRow } from '@/features/students/api/subsidies';
+import { pricingApi } from '@/features/billing/api/pricing';
+import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
 
 type IssueRow = {
   id: string;
@@ -95,19 +101,25 @@ type InvoiceRow = {
   voided_at: string | null;
 };
 
-type InvoiceItemRow = {
-  id: string;
-  created_at: string;
-  amount_cents: number;
-  is_fee: boolean;
-};
-
 type CreditNoteRow = {
   id: string;
   invoice_id: string;
   amount_cents: number;
   reason: string | null;
   created_at: string;
+};
+
+type PredictedRevenueSessionRow = {
+  id: string;
+  session_id: string;
+  student_id: string;
+  planned_absence: boolean;
+  session: {
+    start_at: string;
+    end_at: string;
+    subject_id: string | null;
+    billing_type: string | null;
+  };
 };
 
 function toDateOnlyString(date: Date): string {
@@ -227,6 +239,174 @@ export async function fetchIssuesReportData(
   return {
     openByDay: computeOpenByDay(issues, days),
     resolvedByDay: computeResolvedByDay(issues, days),
+  };
+}
+
+type TaskRow = {
+  id: string;
+  title: string;
+  created_at: string | null;
+  completed_at: string | null;
+};
+
+type ProjectRow = {
+  id: string;
+  name: string;
+  created_at: string;
+  completed_at: string | null;
+};
+
+/**
+ * Fetch tasks relevant for reports: created before or during the period,
+ * or completed during the period.
+ */
+async function fetchTasksForReport(
+  periodStart: Date,
+  periodEnd: Date
+): Promise<TaskRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const periodEndIso = endOfDay(periodEnd).toISOString();
+
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('id, title, created_at, completed_at')
+    .lte('created_at', periodEndIso);
+
+  if (error) throw error;
+  return (data ?? []) as TaskRow[];
+}
+
+/**
+ * Open tasks at end of each day: created_at <= end_of_day AND (completed_at IS NULL OR completed_at > end_of_day)
+ */
+function computeOpenTasksByDay(
+  tasks: TaskRow[],
+  days: Date[]
+): ReportDataPoint[] {
+  return days.map((day) => {
+    const dayEnd = endOfDay(day);
+    const dayStr = toDateOnlyString(day);
+
+    const openTasks = tasks.filter((task) => {
+      const createdAt = task.created_at ? new Date(task.created_at) : null;
+      if (!createdAt || isAfter(createdAt, dayEnd)) return false;
+      if (!task.completed_at) return true;
+      const completedAt = new Date(task.completed_at);
+      return isAfter(completedAt, dayEnd);
+    });
+
+    return {
+      date: dayStr,
+      count: openTasks.length,
+      entities: openTasks.map((t) => ({
+        id: t.id,
+        name: t.title,
+        link: { kind: 'task' as ReportEntityLink['kind'], taskId: t.id },
+      })),
+    };
+  });
+}
+
+/**
+ * Completed tasks per day (completed_at within the day).
+ */
+function computeCompletedTasksByDay(
+  tasks: TaskRow[],
+  days: Date[]
+): ReportDataPoint[] {
+  return days.map((day) => {
+    const dayStart = startOfDay(day);
+    const dayEnd = endOfDay(day);
+    const dayStr = toDateOnlyString(day);
+
+    const completedTasks = tasks.filter((task) => {
+      if (!task.completed_at) return false;
+      const completedAt = new Date(task.completed_at);
+      return !isBefore(completedAt, dayStart) && !isAfter(completedAt, dayEnd);
+    });
+
+    return {
+      date: dayStr,
+      count: completedTasks.length,
+      entities: completedTasks.map((t) => ({
+        id: t.id,
+        name: t.title,
+        link: { kind: 'task' as ReportEntityLink['kind'], taskId: t.id },
+      })),
+    };
+  });
+}
+
+export async function fetchTasksReportData(
+  periodStart: Date,
+  periodEnd: Date
+): Promise<TasksReportData> {
+  const tasks = await fetchTasksForReport(periodStart, periodEnd);
+  const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
+  return {
+    openByDay: computeOpenTasksByDay(tasks, days),
+    completedByDay: computeCompletedTasksByDay(tasks, days),
+  };
+}
+
+/**
+ * Fetch projects relevant for reports (created before/during period or completed during period).
+ */
+async function fetchProjectsForReport(
+  periodStart: Date,
+  periodEnd: Date
+): Promise<ProjectRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const periodEndIso = endOfDay(periodEnd).toISOString();
+
+  const { data, error } = await supabase
+    .from('projects')
+    .select('id, name, created_at, completed_at')
+    .lte('created_at', periodEndIso);
+
+  if (error) throw error;
+  return (data ?? []) as ProjectRow[];
+}
+
+/**
+ * Open projects at end of each day: created_at <= end_of_day AND (completed_at IS NULL OR completed_at > end_of_day)
+ */
+function computeOpenProjectsByDay(
+  projects: ProjectRow[],
+  days: Date[]
+): ReportDataPoint[] {
+  return days.map((day) => {
+    const dayEnd = endOfDay(day);
+    const dayStr = toDateOnlyString(day);
+
+    const openProjects = projects.filter((proj) => {
+      const createdAt = new Date(proj.created_at);
+      if (isAfter(createdAt, dayEnd)) return false;
+      if (!proj.completed_at) return true;
+      const completedAt = new Date(proj.completed_at);
+      return isAfter(completedAt, dayEnd);
+    });
+
+    return {
+      date: dayStr,
+      count: openProjects.length,
+      entities: openProjects.map((p) => ({
+        id: p.id,
+        name: p.name,
+        link: { kind: 'project' as ReportEntityLink['kind'], projectId: p.id },
+      })),
+    };
+  });
+}
+
+export async function fetchProjectsReportData(
+  periodStart: Date,
+  periodEnd: Date
+): Promise<ProjectsReportData> {
+  const projects = await fetchProjectsForReport(periodStart, periodEnd);
+  const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
+  return {
+    openByDay: computeOpenProjectsByDay(projects, days),
   };
 }
 
@@ -581,6 +761,20 @@ export async function fetchStudentStatsReportData(
   });
 
   // Enrolments / unenrolments
+  const getClassShortName = (classId: string): string => {
+    const cls = classes.find((c) => c.id === classId);
+    if (!cls) return classId ? `Class ${classId}` : 'Class';
+    return (
+      formatClassShortName(
+        {
+          day_of_week: cls.day_of_week,
+          start_time: cls.start_time,
+        } as Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
+        (cls.subject ?? null) as Tables<'subjects'> | null
+      ) || `Class ${classId}`
+    );
+  };
+
   classEnrollments.forEach((row) => {
     const enrolDate = new Date(row.enrolled_at);
     const enrolDayStr = toDateOnlyString(enrolDate);
@@ -592,8 +786,7 @@ export async function fetchStudentStatsReportData(
               row.student_last_name ?? ''
             }`.trim()
           : row.student_id;
-      const className =
-        row.class_name ?? (row.class_id ? `Class ${row.class_id}` : 'Class');
+      const className = getClassShortName(row.class_id);
 
       const enrolPoint = enrolmentsByDay[enrolIndex];
       enrolPoint.count += 1;
@@ -622,8 +815,7 @@ export async function fetchStudentStatsReportData(
                 row.student_last_name ?? ''
               }`.trim()
             : row.student_id;
-        const className =
-          row.class_name ?? (row.class_id ? `Class ${row.class_id}` : 'Class');
+        const className = getClassShortName(row.class_id);
 
         const unenrolPoint = unenrolmentsByDay[unenrolIndex];
         unenrolPoint.count += 1;
@@ -717,28 +909,45 @@ export async function fetchMarketingStatsReportData(
   const startIso = periodStart.toISOString();
   const endIso = periodEnd.toISOString();
 
-  const { data, error } = await supabase
-    .from('students')
-    .select('id, first_name, last_name, registered_at')
-    .gte('registered_at', startIso)
-    .lte('registered_at', endIso);
+  const [registrationsResult, discontinuationsResult] = await Promise.all([
+    supabase
+      .from('students')
+      .select('id, first_name, last_name, registered_at')
+      .gte('registered_at', startIso)
+      .lte('registered_at', endIso),
+    supabase
+      .from('students')
+      .select('id, first_name, last_name, discontinued_at')
+      .gte('discontinued_at', startIso)
+      .lte('discontinued_at', endIso),
+  ]);
 
-  if (error) throw error;
-  const students = (data ?? []) as Array<{
+  if (registrationsResult.error) throw registrationsResult.error;
+  if (discontinuationsResult.error) throw discontinuationsResult.error;
+
+  const registeredStudents = (registrationsResult.data ?? []) as Array<{
     id: string;
     first_name: string;
     last_name: string;
     registered_at: string | null;
   }>;
 
+  const discontinuedStudents = (discontinuationsResult.data ?? []) as Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    discontinued_at: string | null;
+  }>;
+
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
   const registrationsByDay = buildEmptySeries(days);
+  const discontinuationsByDay = buildEmptySeries(days);
   const indexByDate = new Map<string, number>();
   registrationsByDay.forEach((point, index) => {
     indexByDate.set(point.date, index);
   });
 
-  students.forEach((student) => {
+  registeredStudents.forEach((student) => {
     if (!student.registered_at) return;
     const registeredAt = new Date(student.registered_at);
     const dayStr = toDateOnlyString(registeredAt);
@@ -752,16 +961,39 @@ export async function fetchMarketingStatsReportData(
       {
         id: student.id,
         name: `${student.first_name} ${student.last_name}`,
-          link: {
-            kind: 'registration',
-            studentId: student.id,
-          },
+        link: {
+          kind: 'registration',
+          studentId: student.id,
+        },
+      },
+    ];
+  });
+
+  discontinuedStudents.forEach((student) => {
+    if (!student.discontinued_at) return;
+    const discontinuedAt = new Date(student.discontinued_at);
+    const dayStr = toDateOnlyString(discontinuedAt);
+    const index = indexByDate.get(dayStr);
+    if (index === undefined) return;
+
+    const point = discontinuationsByDay[index];
+    point.count += 1;
+    point.entities = [
+      ...point.entities,
+      {
+        id: student.id,
+        name: `${student.first_name} ${student.last_name}`,
+        link: {
+          kind: 'student',
+          studentId: student.id,
+        },
       },
     ];
   });
 
   return {
     registrationsByDay,
+    discontinuationsByDay,
   };
 }
 
@@ -824,22 +1056,92 @@ async function fetchInvoicesForReport(
   }));
 }
 
-async function fetchInvoiceItemsForReport(
+/**
+ * Fetch sessions_students for predicted revenue: sessions occurring in the period
+ * where the student does NOT have a planned absence.
+ */
+async function fetchSessionsStudentsForPredictedRevenue(
   periodStart: Date,
   periodEnd: Date
-): Promise<InvoiceItemRow[]> {
+): Promise<PredictedRevenueSessionRow[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
-  const startIso = periodStart.toISOString();
-  const endIso = periodEnd.toISOString();
+  const startIso = startOfDay(periodStart).toISOString();
+  const endIso = endOfDay(periodEnd).toISOString();
 
+  // Fetch sessions in date range first
+  const { data: sessionsData, error: sessErr } = await supabase
+    .from('sessions')
+    .select('id, start_at, end_at, subject_id, billing_type')
+    .gte('start_at', startIso)
+    .lte('start_at', endIso);
+
+  if (sessErr) throw sessErr;
+  const sessions = (sessionsData ?? []) as Array<{
+    id: string;
+    start_at: string;
+    end_at: string;
+    subject_id: string | null;
+    billing_type: string | null;
+  }>;
+
+  if (sessions.length === 0) return [];
+
+  const sessionIds = sessions.map((s) => s.id);
+  const sessionById = new Map(sessions.map((s) => [s.id, s]));
+
+  // Fetch sessions_students (excluding planned absences) for those sessions
+  const { data: ssData, error: ssErr } = await supabase
+    .from('sessions_students')
+    .select('id, session_id, student_id, planned_absence')
+    .in('session_id', sessionIds)
+    .eq('planned_absence', false);
+
+  if (ssErr) throw ssErr;
+  const ssRows = (ssData ?? []) as Array<{
+    id: string;
+    session_id: string;
+    student_id: string;
+    planned_absence: boolean;
+  }>;
+
+  return ssRows
+    .map((row) => {
+      const session = sessionById.get(row.session_id);
+      if (!session) return null;
+      return {
+        id: row.id,
+        session_id: row.session_id,
+        student_id: row.student_id,
+        planned_absence: row.planned_absence,
+        session: {
+          start_at: session.start_at,
+          end_at: session.end_at,
+          subject_id: session.subject_id,
+          billing_type: session.billing_type,
+        },
+      };
+    })
+    .filter((r): r is PredictedRevenueSessionRow => r !== null);
+}
+
+type SubsidyRow = {
+  student_id: string;
+  subject_id: string;
+  billing_type: string;
+  price_cents: number;
+  currency: string | null;
+  effective_from: string | null;
+  effective_until: string | null;
+};
+
+async function fetchSubsidiesForReport(): Promise<SubsidyRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
   const { data, error } = await supabase
-    .from('invoice_items')
-    .select('id, created_at, amount_cents, is_fee')
-    .gte('created_at', startIso)
-    .lte('created_at', endIso);
+    .from('student_subsidies')
+    .select('student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until');
 
   if (error) throw error;
-  return (data ?? []) as InvoiceItemRow[];
+  return (data ?? []) as SubsidyRow[];
 }
 
 async function fetchCreditNotesForReport(
@@ -865,11 +1167,15 @@ export async function fetchBillingStatsReportData(
   periodEnd: Date
 ): Promise<BillingStatsReportData> {
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
-  const [invoices, invoiceItems, creditNotes] = await Promise.all([
-    fetchInvoicesForReport(periodStart, periodEnd),
-    fetchInvoiceItemsForReport(periodStart, periodEnd),
-    fetchCreditNotesForReport(periodStart, periodEnd),
-  ]);
+  const [invoices, sessionsStudents, creditNotes, billingPricing, pricingOverrides, subsidies] =
+    await Promise.all([
+      fetchInvoicesForReport(periodStart, periodEnd),
+      fetchSessionsStudentsForPredictedRevenue(periodStart, periodEnd),
+      fetchCreditNotesForReport(periodStart, periodEnd),
+      pricingApi.getBillingPricing(),
+      subjectPricingOverridesApi.getAllSubjectOverrides(),
+      fetchSubsidiesForReport(),
+    ]);
 
   const predictedRevenueByDay = buildEmptyRevenueSeries(days);
   const actualRevenueByDay = buildEmptyRevenueSeries(days);
@@ -882,18 +1188,62 @@ export async function fetchBillingStatsReportData(
     indexByDate.set(point.date, index);
   });
 
-  // Predicted revenue: sum of non-fee invoice items created on that day
-  invoiceItems.forEach((item) => {
-    const createdAt = new Date(item.created_at);
-    const dayStr = toDateOnlyString(createdAt);
+  // Build pricing lookup structures (mirror billing-runner)
+  const pricingByBillingType: Record<
+    string,
+    { hourly_rate_cents: number; currency: string }
+  > = {};
+  for (const p of billingPricing) {
+    pricingByBillingType[p.billing_type] = {
+      hourly_rate_cents: p.hourly_rate_cents,
+      currency: p.currency,
+    };
+  }
+
+  const overridesBySubjectAndBilling: Record<
+    string,
+    Record<string, { hourly_rate_cents: number; currency: string }>
+  > = {};
+  for (const o of pricingOverrides) {
+    if (!overridesBySubjectAndBilling[o.subject_id]) {
+      overridesBySubjectAndBilling[o.subject_id] = {};
+    }
+    overridesBySubjectAndBilling[o.subject_id][o.billing_type] = {
+      hourly_rate_cents: o.hourly_rate_cents,
+      currency: o.currency,
+    };
+  }
+
+  // Predicted revenue: sessions occurring on each day × calculated price per student
+  // Only billable sessions (billing_type + subject_id) contribute to revenue
+  sessionsStudents.forEach((row) => {
+    const { session, student_id } = row;
+    if (!session.billing_type || !session.subject_id) return;
+
+    const sessionDate = new Date(session.start_at);
+    const dayStr = toDateOnlyString(sessionDate);
     const index = indexByDate.get(dayStr);
     if (index === undefined) return;
 
+    const targetDate = sessionDate;
+    const priceResult = calculateSessionPrice(
+      {
+        billing_type: session.billing_type,
+        subject_id: session.subject_id,
+        start_at: session.start_at,
+        end_at: session.end_at,
+      },
+      student_id,
+      targetDate,
+      pricingByBillingType,
+      overridesBySubjectAndBilling,
+      pricingOverrides,
+      subsidies as unknown as StudentSubsidyRow[]
+    );
+
     const point = predictedRevenueByDay[index];
-    if (!item.is_fee) {
-      point.amountCents += item.amount_cents;
-      point.count = point.amountCents;
-    }
+    point.amountCents += priceResult.amount_cents;
+    point.count = point.amountCents;
   });
 
   // Actual revenue + refunds + voids
@@ -922,6 +1272,11 @@ export async function fetchBillingStatsReportData(
         {
           id: invoice.id,
           name: `Invoice ${invoice.id.slice(0, 8)} · ${studentName}`,
+          link: {
+            kind: 'invoice' as ReportEntityLink['kind'],
+            invoiceId: invoice.id,
+            studentId: invoice.student_id,
+          },
         },
       ];
     }
@@ -949,6 +1304,11 @@ export async function fetchBillingStatsReportData(
               0,
               8
             )} · ${studentName}`,
+            link: {
+              kind: 'refund' as ReportEntityLink['kind'],
+              invoiceId: invoice.id,
+              studentId: invoice.student_id,
+            },
           },
         ];
       }
@@ -974,6 +1334,11 @@ export async function fetchBillingStatsReportData(
           {
             id: invoice.id,
             name: `Voided invoice ${invoice.id.slice(0, 8)} · ${studentName}`,
+            link: {
+              kind: 'invoice' as ReportEntityLink['kind'],
+              invoiceId: invoice.id,
+              studentId: invoice.student_id,
+            },
           },
         ];
       }

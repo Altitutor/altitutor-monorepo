@@ -1,18 +1,34 @@
 'use client';
 
+import { useState, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 import { GraduationCap, CalendarDays, Users, LineChart } from 'lucide-react';
 import { useActiveStudentsCount } from '@/features/students';
 import { useActiveClassesCount, useCurrentEnrollmentsCount } from '@/features/classes';
 import {
-  AdminStatsSection,
-  BillingStatsSection,
-  MarketingStatsSection,
-  StaffStatsSection,
-  StudentStatsSection,
+  OperationsStatsSection,
+  SchedulingStatsSection,
+  FinancialStatsSection,
+  ReportsDateRangeCard,
+  getDefaultReportsDateRange,
+  DEFAULT_VISIBLE_CHARTS,
+  isSectionVisible,
 } from '@/features/reports';
+import { format } from 'date-fns';
 
 export default function ReportsPage() {
+  const defaultRange = useMemo(() => getDefaultReportsDateRange(), []);
+  const [startDate, setStartDate] = useState(() => format(defaultRange.start, 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(() => format(defaultRange.end, 'yyyy-MM-dd'));
+  const [visibleCharts, setVisibleCharts] = useState(DEFAULT_VISIBLE_CHARTS);
+
+  const dateRange = useMemo(
+    () => ({
+      start: new Date(startDate),
+      end: new Date(endDate),
+    }),
+    [startDate, endDate]
+  );
   const { data: activeStudentsCount, isLoading: loadingStudents } = useActiveStudentsCount();
   const { data: activeClassesCount, isLoading: loadingClasses } = useActiveClassesCount();
   const { data: currentEnrollmentsCount, isLoading: loadingEnrollments } = useCurrentEnrollmentsCount();
@@ -71,12 +87,25 @@ export default function ReportsPage() {
           <h2 className="text-xl font-semibold">Detailed stats</h2>
         </div>
 
+        <ReportsDateRangeCard
+          startDate={startDate}
+          endDate={endDate}
+          onStartDateChange={setStartDate}
+          onEndDateChange={setEndDate}
+          visibleCharts={visibleCharts}
+          onVisibleChartsChange={setVisibleCharts}
+        />
+
         <div className="space-y-6">
-          <AdminStatsSection />
-          <StaffStatsSection />
-          <StudentStatsSection />
-          <MarketingStatsSection />
-          <BillingStatsSection />
+          {isSectionVisible(visibleCharts, 'operations') && (
+            <OperationsStatsSection dateRange={dateRange} visibleCharts={visibleCharts.operations} />
+          )}
+          {isSectionVisible(visibleCharts, 'scheduling') && (
+            <SchedulingStatsSection dateRange={dateRange} visibleCharts={visibleCharts.scheduling} />
+          )}
+          {isSectionVisible(visibleCharts, 'financial') && (
+            <FinancialStatsSection dateRange={dateRange} visibleCharts={visibleCharts.financial} />
+          )}
         </div>
       </div>
     </div>

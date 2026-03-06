@@ -1,10 +1,25 @@
-export { AdminStatsSection } from './components/AdminStatsSection';
-export { StaffStatsSection } from './components/StaffStatsSection';
-export { StudentStatsSection } from './components/StudentStatsSection';
-export { MarketingStatsSection } from './components/MarketingStatsSection';
-export { BillingStatsSection } from './components/BillingStatsSection';
+export { OperationsStatsSection } from './components/OperationsStatsSection';
+export { SchedulingStatsSection } from './components/SchedulingStatsSection';
+export { FinancialStatsSection } from './components/FinancialStatsSection';
 export { StatSummaryCard } from './components/StatSummaryCard';
-export { useIssuesReport } from './hooks/useIssuesReport';
+export {
+  ReportsDateRangeCard,
+  getDefaultReportsDateRange,
+  REPORTS_SECTION_KEYS,
+  REPORTS_SECTION_LABELS,
+  REPORTS_CHART_CONFIG,
+  DEFAULT_VISIBLE_CHARTS,
+  isSectionVisible,
+} from './components/ReportsDateRangeCard';
+export type {
+  ReportsDateRange,
+  ReportsSectionKey,
+  ReportsChartKey,
+  ReportsVisibleCharts,
+  OperationsSubsection,
+  SchedulingSubsection,
+} from './components/ReportsDateRangeCard';
+export { useIssuesReport, useTasksReport, useProjectsReport } from './hooks/useIssuesReport';
 export {
   useStaffAbsencesReport,
   useStudentStatsReport,
@@ -13,6 +28,8 @@ export {
 } from './hooks/useAdditionalReports';
 export type {
   IssuesReportData,
+  TasksReportData,
+  ProjectsReportData,
   ReportDataPoint,
   IssueReportEntity,
   StaffAbsencesReportData,

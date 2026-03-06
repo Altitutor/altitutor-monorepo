@@ -91,6 +91,7 @@ describe('processSessionStudents', () => {
     status: 'ACTIVE',
     active_at: null,
     registered_at: null,
+    discontinued_at: null,
     curriculum: null,
     year_level: null,
     school: null,
