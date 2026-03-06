@@ -159,11 +159,23 @@ export function groupItemsByType(
     }
   });
 
-  // Sort groups by maxScore (highest first), then by label for consistency
+  // Sort groups: when query is empty, Commands first, then Pages, then entities. Otherwise by maxScore.
   return groups.sort((a, b) => {
-    if (b.maxScore !== a.maxScore) {
-      return b.maxScore - a.maxScore;
+    if (query.trim()) {
+      if (b.maxScore !== a.maxScore) {
+        return b.maxScore - a.maxScore;
+      }
+      return a.label.localeCompare(b.label);
     }
+    // Empty query: Commands at top, then Pages, then entities alphabetically
+    const order = (label: string) => {
+      if (label === 'Commands') return 2;
+      if (label === 'Pages') return 1;
+      return 0;
+    };
+    const aOrder = order(a.label);
+    const bOrder = order(b.label);
+    if (aOrder !== bOrder) return bOrder - aOrder;
     return a.label.localeCompare(b.label);
   });
 }
