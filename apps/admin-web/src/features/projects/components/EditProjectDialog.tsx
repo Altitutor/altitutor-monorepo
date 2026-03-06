@@ -112,7 +112,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
   const [newDocumentTitle, setNewDocumentTitle] = useState('');
-  const titleFieldRef = useRef<HTMLDivElement>(null);
+  const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
   const { data: linkedTasks = [] } = useTasks(projectId ? { project_id: [projectId] } : undefined);
 
@@ -305,7 +305,6 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
 
                         <ProjectTitleField
                           form={form}
-                          value={form.watch('name')}
                           onEnter={handleTitleEnter}
                           titleRef={titleFieldRef}
                         />
