@@ -22,6 +22,7 @@ export type SessionDetailsClass = Pick<
 export interface SessionDetailsSession extends SessionTimeInput {
   id: string;
   class_id?: string | null;
+  subject_id?: string | null;
   start_at?: string | null;
   end_at?: string | null;
   type?: string;

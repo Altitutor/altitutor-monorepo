@@ -1,13 +1,19 @@
 'use client';
 
-import { Badge, Separator, Button } from '@altitutor/ui';
-import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2 } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { Badge, Separator, Button, Input, Label } from '@altitutor/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
+import { Controller, useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { formatSessionDate } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay, type SessionTimeInput } from '@altitutor/shared';
+import { Supabase } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
-import { formatSubjectDisplay, getSubjectColorStyle, formatClassName } from '@/shared/utils';
+import { formatSubjectDisplay, getSubjectColorStyle, formatClassName, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import {
   SessionInfoGrid,
@@ -28,6 +34,37 @@ import {
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import type { SessionDetailsSession, SessionDetailsTutorLog } from '../types';
+import { useSubjects } from '@/features/subjects';
+import { useClassesMinimal } from '@/features/classes/hooks/useClassesQuery';
+
+const SESSION_TYPES = Supabase.Constants.public.Enums.session_type;
+
+const sessionEditSchema = z
+  .object({
+    type: z.enum([...SESSION_TYPES] as [string, ...string[]]),
+    startAtLocal: z.string().min(1, 'Start date/time is required'),
+    endAtLocal: z.string().min(1, 'End date/time is required'),
+    subjectId: z.string().optional().nullable(),
+    classId: z.string().optional().nullable(),
+  })
+  .refine((data) => data.endAtLocal > data.startAtLocal, {
+    message: 'End must be after start',
+    path: ['endAtLocal'],
+  });
+
+export type SessionEditFormData = z.infer<typeof sessionEditSchema>;
+
+/** Convert ISO string to datetime-local value (YYYY-MM-DDTHH:mm) */
+function toLocalDateTimeString(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  const h = String(d.getHours()).padStart(2, '0');
+  const min = String(d.getMinutes()).padStart(2, '0');
+  return `${y}-${m}-${day}T${h}:${min}`;
+}
 
 type SessionDetailsTabProps = {
   session: SessionDetailsSession | null;
@@ -89,6 +126,12 @@ type SessionDetailsTabProps = {
   onAddStaffToSession?: () => void;
   onRemoveStudentFromSession?: (studentId: string, studentName: string) => void;
   onRemoveStaffFromSession?: (staffId: string, staffName: string) => void;
+  /** Edit mode: when true, show edit form instead of view */
+  isEditing?: boolean;
+  onEdit?: () => void;
+  onCancelEdit?: () => void;
+  onSubmit?: (data: SessionEditFormData) => Promise<void>;
+  isUpdating?: boolean;
 };
 
 export function SessionDetailsTab({
@@ -117,6 +160,11 @@ export function SessionDetailsTab({
   onAddStaffToSession,
   onRemoveStudentFromSession,
   onRemoveStaffFromSession,
+  isEditing = false,
+  onEdit,
+  onCancelEdit: _onCancelEdit,
+  onSubmit,
+  isUpdating = false,
 }: SessionDetailsTabProps) {
   const { toast } = useToast();
   const hasTutorLog = !!tutorLog;
@@ -124,46 +172,244 @@ export function SessionDetailsTab({
   const classData = session?.class;
   const classId = session?.class_id ?? null;
 
+  const { data: subjects = [] } = useSubjects();
+  const { data: classesData } = useClassesMinimal(
+    isEditing ? { limit: 300 } : undefined
+  );
+  const classesList = classesData?.classes ?? [];
+
+  const form = useForm<SessionEditFormData>({
+    resolver: zodResolver(sessionEditSchema),
+    defaultValues: {
+      type: 'CLASS',
+      startAtLocal: '',
+      endAtLocal: '',
+      subjectId: null,
+      classId: null,
+    },
+  });
+  const formType = form.watch('type');
+  const hasResetRef = useRef(false);
+
+  useEffect(() => {
+    if (formType !== 'CLASS') {
+      form.setValue('subjectId', null, { shouldValidate: false });
+      form.setValue('classId', null, { shouldValidate: false });
+    }
+  }, [formType, form]);
+
+  useEffect(() => {
+    if (isEditing && session && !hasResetRef.current) {
+      const type = (session.type ?? 'CLASS') as SessionEditFormData['type'];
+      form.reset({
+        type,
+        startAtLocal: toLocalDateTimeString(session.start_at ?? null),
+        endAtLocal: toLocalDateTimeString(session.end_at ?? null),
+        subjectId: session.subject?.id ?? session.class?.subject?.id ?? session.subject_id ?? null,
+        classId: session.class_id ?? null,
+      }, { keepDefaultValues: false });
+      hasResetRef.current = true;
+    } else if (!isEditing) {
+      hasResetRef.current = false;
+    }
+    // session refs above are sufficient; including full session would reset form on every session field change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditing, session?.id, session?.start_at, session?.end_at, session?.type, session?.subject_id, session?.class_id, session?.subject?.id, session?.class?.subject?.id, form]);
+
+  const classesForSubject = formType === 'CLASS' && form.watch('subjectId')
+    ? classesList.filter((c) => c.subject_id === form.watch('subjectId'))
+    : classesList;
+
   if (!session) return null;
 
   return (
     <div className="space-y-6">
       {/* Session Information */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Session Information</h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-semibold">
+            {isEditing ? 'Edit Session' : 'Session Information'}
+          </h3>
+          {!isEditing && onEdit && (
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          )}
+        </div>
+        {isEditing ? (
+          <form
+            id="session-edit-form"
+            onSubmit={form.handleSubmit(async (data) => {
+              if (!onSubmit) return;
+              await onSubmit(data);
+            })}
+            className="space-y-4"
+          >
+            <div>
+              <Label htmlFor="session-type">Type</Label>
+              <Controller
+                control={form.control}
+                name="type"
+                render={({ field }) => (
+                  <Select
+                    value={field.value}
+                    onValueChange={field.onChange}
+                    disabled={isUpdating}
+                  >
+                    <SelectTrigger id="session-type">
+                      <SelectValue placeholder="Session type" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {SESSION_TYPES.map((t) => (
+                        <SelectItem key={t} value={t}>
+                          {formatSessionType(t)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="session-start">Start</Label>
+                <Controller
+                  control={form.control}
+                  name="startAtLocal"
+                  render={({ field }) => (
+                    <Input
+                      id="session-start"
+                      type="datetime-local"
+                      {...field}
+                      disabled={isUpdating}
+                    />
+                  )}
+                />
+                {form.formState.errors.startAtLocal && (
+                  <p className="text-sm text-destructive mt-0.5">{form.formState.errors.startAtLocal.message}</p>
+                )}
+              </div>
+              <div>
+                <Label htmlFor="session-end">End</Label>
+                <Controller
+                  control={form.control}
+                  name="endAtLocal"
+                  render={({ field }) => (
+                    <Input
+                      id="session-end"
+                      type="datetime-local"
+                      {...field}
+                      disabled={isUpdating}
+                    />
+                  )}
+                />
+                {form.formState.errors.endAtLocal && (
+                  <p className="text-sm text-destructive mt-0.5">{form.formState.errors.endAtLocal.message}</p>
+                )}
+              </div>
+            </div>
+            {formType === 'CLASS' && (
+              <>
+                <div>
+                  <Label htmlFor="session-subject">Subject</Label>
+                  <Controller
+                    control={form.control}
+                    name="subjectId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? 'none'}
+                        onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
+                        disabled={isUpdating}
+                      >
+                        <SelectTrigger id="session-subject">
+                          <SelectValue placeholder="Subject" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {subjects.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {formatSubjectDisplay(s)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="session-class">Class</Label>
+                  <Controller
+                    control={form.control}
+                    name="classId"
+                    render={({ field }) => (
+                      <Select
+                        value={field.value ?? 'none'}
+                        onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
+                        disabled={isUpdating}
+                      >
+                        <SelectTrigger id="session-class">
+                          <SelectValue placeholder="Class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">None</SelectItem>
+                          {classesForSubject.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {formatClassName(c as unknown as Tables<'classes'>, c.subject ?? null)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  />
+                </div>
+              </>
+            )}
+          </form>
+        ) : (
         <SessionInfoGrid
           day={session.start_at ? formatSessionDate(session.start_at) : '—'}
           time={formatSessionTimeRangeForDisplay(session as SessionTimeInput, formatTime)}
+          timeSubline={
+            session.type ? (
+              <Badge variant="secondary" className={getSessionTypeBadgeColor(session.type)}>
+                {formatSessionType(session.type)}
+              </Badge>
+            ) : undefined
+          }
           subjectNode={
-            subject ? (() => {
-              const { style, textColorClass } = getSubjectColorStyle(subject as unknown as Tables<'subjects'>);
-              const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-              return (
-                <Badge
-                  className={defaultClass || textColorClass}
-                  style={style.backgroundColor ? style : undefined}
-                >
-                  {formatSubjectDisplay(subject as unknown as Tables<'subjects'>)}
-                </Badge>
-              );
-            })() : (
-              '—'
-            )
+            session.type === 'CLASS'
+              ? subject
+                ? (() => {
+                    const { style, textColorClass } = getSubjectColorStyle(subject as unknown as Tables<'subjects'>);
+                    const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                    return (
+                      <Badge
+                        className={defaultClass || textColorClass}
+                        style={style.backgroundColor ? style : undefined}
+                      >
+                        {formatSubjectDisplay(subject as unknown as Tables<'subjects'>)}
+                      </Badge>
+                    );
+                  })()
+                : '—'
+              : undefined
           }
           classNode={
-            classData && classId ? (
-              <button
-                type="button"
-                onClick={() => onOpenClass(classId)}
-                className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
-              >
-                {formatClassName(classData as unknown as Tables<'classes'>, (subject ?? null) as unknown as Tables<'subjects'> | null)}
-              </button>
-            ) : (
-              '—'
-            )
+            session.type === 'CLASS' && classData && classId
+              ? (
+                  <button
+                    type="button"
+                    onClick={() => onOpenClass(classId)}
+                    className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
+                  >
+                    {formatClassName(classData as unknown as Tables<'classes'>, (subject ?? null) as unknown as Tables<'subjects'> | null)}
+                  </button>
+                )
+              : undefined
           }
         />
+        )}
       </div>
 
       <Separator />
