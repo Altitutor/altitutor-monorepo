@@ -13,6 +13,15 @@ export function grossUp(
 }
 
 /**
+ * Return the calendar date (YYYY-MM-DD) for a timestamp in Australia/Adelaide.
+ * Use this for invoice_date so it matches the session date in Adelaide, not UTC.
+ */
+export function getAdelaideDateString(isoTimestamp: string): string {
+  const date = new Date(isoTimestamp);
+  return date.toLocaleDateString('en-CA', { timeZone: 'Australia/Adelaide' });
+}
+
+/**
  * Format session date in Australia/Adelaide timezone
  */
 export function formatSessionDate(startAt: string): string {

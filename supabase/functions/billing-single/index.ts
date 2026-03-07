@@ -15,6 +15,7 @@ import {
   getInvoicedSessionsStudentsIds,
 } from '../billing-runner/shared/data-loading.ts';
 import { processStudentInvoicing } from '../billing-runner/shared/student-processing.ts';
+import { getAdelaideDateString } from '../billing-runner/shared/utils.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -247,8 +248,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const studentId = sessionStudent.student_id;
-    const sessionDate = new Date(session.start_at);
-    const invoiceDate = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    const invoiceDate = getAdelaideDateString(session.start_at); // Session date in Australia/Adelaide (YYYY-MM-DD)
 
     // Load all required data
     const [
