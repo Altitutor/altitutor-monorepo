@@ -133,7 +133,6 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               <RevenueReportChart
                 data={data?.predictedRevenueByDay ?? []}
                 title="Predicted revenue"
-                barColor="#0f766e"
               />
             )}
           </div>
@@ -153,7 +152,6 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               <RevenueReportChart
                 data={data?.actualRevenueByDay ?? []}
                 title="Actual revenue"
-                barColor="#2563eb"
                 onEntityClick={handleBillingEntityClick}
               />
             )}
@@ -202,9 +200,21 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
                           : 'Voided invoices',
                       ]}
                     />
-                    <Bar dataKey="refunds" stackId="errors" fill="#b91c1c" />
-                    <Bar dataKey="credits" stackId="errors" fill="#f97316" />
-                    <Bar dataKey="voids" stackId="errors" fill="#6b7280" />
+                    <Bar
+                      dataKey="refunds"
+                      stackId="errors"
+                      fill="hsl(var(--primary))"
+                    />
+                    <Bar
+                      dataKey="credits"
+                      stackId="errors"
+                      fill="hsl(var(--primary) / 0.7)"
+                    />
+                    <Bar
+                      dataKey="voids"
+                      stackId="errors"
+                      fill="hsl(var(--primary) / 0.4)"
+                    />
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -250,6 +260,73 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
             </div>
           )}
         </div>
+        )}
+
+        {visibleCharts.subsidiesEnrolled && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Subsidies (enrolled in class)</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Number of student subsidies that are effective and where the student is
+              enrolled in a class for that subject, per day.
+            </p>
+            {isLoading ? (
+              <div className="h-[220px] flex items-center justify-center bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              </div>
+            ) : (
+              <div className="flex gap-4">
+                <div className="h-[220px] flex-1 min-w-0">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data?.subsidiesEnrolledByDay ?? []}
+                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-AU', {
+                            weekday: 'short',
+                            day: 'numeric',
+                          });
+                        }}
+                      />
+                      <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                      <Tooltip />
+                    <Bar
+                      dataKey="count"
+                      name="Subsidies"
+                      fill="hsl(var(--primary))"
+                      radius={[4, 4, 0, 0]}
+                    />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <Card className="w-64 shrink-0">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Subsidies (enrolled in class)
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <p className="text-2xl font-bold">
+                      {data?.subsidiesEnrolledByDay?.length
+                        ? Math.max(
+                            ...data.subsidiesEnrolledByDay.map((d) => d.count),
+                            0
+                          )
+                        : 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Peak in range (max on a single day)
+                    </p>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

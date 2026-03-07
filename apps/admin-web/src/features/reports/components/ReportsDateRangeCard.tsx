@@ -68,6 +68,7 @@ export const REPORTS_CHART_CONFIG = {
     predictedRevenue: 'Predicted revenue',
     actualRevenue: 'Actual revenue',
     billingErrors: 'Billing errors',
+    subsidiesEnrolled: 'Subsidies (enrolled in class)',
   },
 } as const;
 
@@ -101,6 +102,7 @@ export type ReportsVisibleCharts = {
     predictedRevenue: boolean;
     actualRevenue: boolean;
     billingErrors: boolean;
+    subsidiesEnrolled: boolean;
   };
 };
 
@@ -129,6 +131,7 @@ function buildDefaultVisibleCharts(): ReportsVisibleCharts {
       predictedRevenue: true,
       actualRevenue: true,
       billingErrors: true,
+      subsidiesEnrolled: true,
     },
   };
 }

@@ -99,7 +99,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                       <IssuesReportChart
                         data={studentData?.activeStudentsByDay ?? []}
                         title="Active students"
-                        barColor="#0a2941"
                         entityLabelSingular="student"
                         onEntityClick={handleEntityClick}
                       />
@@ -122,7 +121,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                       <IssuesReportChart
                         data={marketingData?.registrationsByDay ?? []}
                         title="Student registrations"
-                        barColor="#7c3aed"
                         entityLabelSingular="registration"
                         onEntityClick={handleEntityClick}
                       />
@@ -145,7 +143,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                       <IssuesReportChart
                         data={marketingData?.discontinuationsByDay ?? []}
                         title="Student discontinuations"
-                        barColor="#991b1b"
                         entityLabelSingular="discontinuation"
                         onEntityClick={handleEntityClick}
                       />
@@ -168,7 +165,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                       <IssuesReportChart
                         data={studentData?.absencesByDay ?? []}
                         title="Student absences"
-                        barColor="#b45309"
                         entityLabelSingular="absence"
                         onEntityClick={handleEntityClick}
                       />
@@ -197,7 +193,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                   <IssuesReportChart
                     data={staffData?.absencesByDay ?? []}
                     title="Staff absences"
-                    barColor="hsl(12, 76%, 40%)"
                     entityLabelSingular="absence"
                     onEntityClick={handleEntityClick}
                   />
@@ -228,7 +223,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                       <IssuesReportChart
                         data={studentData?.activeClassesByDay ?? []}
                         title="Active classes"
-                        barColor="#2563eb"
                         entityLabelSingular="class"
                         onEntityClick={handleEntityClick}
                       />
@@ -250,7 +244,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                       <IssuesReportChart
                         data={studentData?.enrolmentsByDay ?? []}
                         title="Class enrolments"
-                        barColor="#16a34a"
                         entityLabelSingular="enrolment"
                         onEntityClick={handleEntityClick}
                       />
@@ -272,7 +265,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                       <IssuesReportChart
                         data={studentData?.unenrolmentsByDay ?? []}
                         title="Class unenrolments"
-                        barColor="#f97316"
                         entityLabelSingular="unenrolment"
                         onEntityClick={handleEntityClick}
                       />

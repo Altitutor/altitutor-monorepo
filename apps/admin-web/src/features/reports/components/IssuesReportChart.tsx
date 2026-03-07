@@ -39,6 +39,8 @@ interface IssuesReportChartProps {
   onEntityClick?: (entity: ReportEntity) => void;
 }
 
+const CHART_PRIMARY = 'hsl(var(--primary))';
+
 function CustomTooltip({
   active,
   payload,
@@ -112,12 +114,12 @@ function EntityDisplay({
 export function IssuesReportChart({
   data,
   title,
-  barColor = '#0a2941',
+  barColor = CHART_PRIMARY,
   entityLabelSingular = 'issue',
   onEntityClick,
 }: IssuesReportChartProps) {
   const todayStr = new Date().toISOString().slice(0, 10);
-  const highlightColor = '#144e72';
+  const highlightColor = CHART_PRIMARY;
 
   const deduplicatedEntities = getDeduplicatedEntities(data);
   const aggregateCount = deduplicatedEntities.length;

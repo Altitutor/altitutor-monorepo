@@ -65,15 +65,17 @@ function getDeduplicatedEntities(data: RevenueReportDataPoint[]): RevenueReportD
   return result;
 }
 
+const CHART_PRIMARY = 'hsl(var(--primary))';
+
 export function RevenueReportChart({
   data,
   title,
-  barColor = '#0a2941',
+  barColor = CHART_PRIMARY,
   currency = 'AUD',
   onEntityClick,
 }: RevenueReportChartProps) {
   const todayStr = new Date().toISOString().slice(0, 10);
-  const highlightColor = '#144e72';
+  const highlightColor = CHART_PRIMARY;
 
   const aggregateAmountCents = data.reduce((sum, p) => sum + (p.amountCents ?? 0), 0);
   const deduplicatedEntities = getDeduplicatedEntities(data);
