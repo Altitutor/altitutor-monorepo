@@ -10,6 +10,7 @@ import { reconcileIncompleteInvoices } from './strategies/incomplete-invoices.ts
 import { reconcileStatusDrift } from './strategies/status-drift.ts';
 import { reconcileAmountsMismatch } from './strategies/amounts-mismatch.ts';
 import { reconcileRefundDrift } from './strategies/refund-drift.ts';
+import { reconcileChargeIdBackfill } from './strategies/charge-id-backfill.ts';
 
 /**
  * Unified reconciliation coordinator
@@ -131,6 +132,7 @@ Deno.serve(async (req: Request) => {
     const fixStatusDrift = body.fix_status_drift === true; // Default false (report only)
     const fixAmountsMismatch = body.fix_amounts_mismatch === true; // Default false (report only)
     const fixRefundDrift = body.fix_refund_drift === true; // Default false (report only)
+    const fixChargeIdBackfill = body.fix_charge_id_backfill === true; // Default false (report only)
     
     const strategies: StrategyResult[] = [];
     
@@ -168,6 +170,12 @@ Deno.serve(async (req: Request) => {
     if (mode === 'all' || mode === 'refund-drift') {
       console.log('[reconcile] Running refund-drift strategy...');
       const result = await reconcileRefundDrift(stripe, supabase, daysBack, fixRefundDrift);
+      strategies.push(result);
+    }
+    
+    if (mode === 'all' || mode === 'charge-id-backfill') {
+      console.log('[reconcile] Running charge-id-backfill strategy...');
+      const result = await reconcileChargeIdBackfill(stripe, supabase, daysBack, fixChargeIdBackfill);
       strategies.push(result);
     }
     

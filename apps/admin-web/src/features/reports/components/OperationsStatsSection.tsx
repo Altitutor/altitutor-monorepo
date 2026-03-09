@@ -94,7 +94,6 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                     <IssuesReportChart
                       data={tasksData?.openByDay ?? []}
                       title="Open tasks"
-                      barColor="#7c3aed"
                       entityLabelSingular="task"
                       onEntityClick={handleEntityClick}
                     />
@@ -115,7 +114,6 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                     <IssuesReportChart
                       data={tasksData?.completedByDay ?? []}
                       title="Completed tasks"
-                      barColor="hsl(142, 76%, 36%)"
                       entityLabelSingular="task"
                       onEntityClick={handleEntityClick}
                     />
@@ -145,7 +143,6 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                     <IssuesReportChart
                       data={issuesData?.openByDay ?? []}
                       title="Open issues"
-                      barColor="#0a2941"
                       entityLabelSingular="issue"
                       onEntityClick={handleEntityClick}
                     />
@@ -166,7 +163,6 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                     <IssuesReportChart
                       data={issuesData?.resolvedByDay ?? []}
                       title="Resolved issues"
-                      barColor="hsl(142, 76%, 36%)"
                       entityLabelSingular="issue"
                       onEntityClick={handleEntityClick}
                     />
@@ -194,7 +190,6 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
               <IssuesReportChart
                 data={projectsData?.openByDay ?? []}
                 title="Open projects"
-                barColor="#0d9488"
                 entityLabelSingular="project"
                 onEntityClick={handleEntityClick}
               />

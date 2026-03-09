@@ -1134,6 +1134,53 @@ type SubsidyRow = {
   effective_until: string | null;
 };
 
+type EnrollmentWithSubjectRow = {
+  student_id: string;
+  subject_id: string;
+  enrolled_at: string;
+  unenrolled_at: string | null;
+};
+
+/**
+ * Fetch class enrollments that overlap the period, with subject_id from the class.
+ * Used to determine which (student_id, subject_id) pairs are enrolled on a given day.
+ */
+async function fetchEnrollmentsWithSubjectForReport(
+  periodStart: Date,
+  periodEnd: Date
+): Promise<EnrollmentWithSubjectRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const startIso = periodStart.toISOString();
+  const endIso = periodEnd.toISOString();
+
+  const { data, error } = await supabase
+    .from('classes_students')
+    .select('student_id, enrolled_at, unenrolled_at, class:classes(subject_id)')
+    .lte('enrolled_at', endIso)
+    .or(`unenrolled_at.is.null,unenrolled_at.gte.${startIso}`);
+
+  if (error) throw error;
+
+  type RawRow = {
+    student_id: string;
+    enrolled_at: string;
+    unenrolled_at: string | null;
+    class: { subject_id: string | null } | null;
+  };
+
+  const rows = (data ?? []) as RawRow[];
+  return rows
+    .filter((row): row is RawRow & { class: { subject_id: string } } =>
+      row.class?.subject_id != null
+    )
+    .map((row) => ({
+      student_id: row.student_id,
+      subject_id: row.class.subject_id,
+      enrolled_at: row.enrolled_at,
+      unenrolled_at: row.unenrolled_at,
+    }));
+}
+
 async function fetchSubsidiesForReport(): Promise<SubsidyRow[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   const { data, error } = await supabase
@@ -1167,21 +1214,30 @@ export async function fetchBillingStatsReportData(
   periodEnd: Date
 ): Promise<BillingStatsReportData> {
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
-  const [invoices, sessionsStudents, creditNotes, billingPricing, pricingOverrides, subsidies] =
-    await Promise.all([
-      fetchInvoicesForReport(periodStart, periodEnd),
-      fetchSessionsStudentsForPredictedRevenue(periodStart, periodEnd),
-      fetchCreditNotesForReport(periodStart, periodEnd),
-      pricingApi.getBillingPricing(),
-      subjectPricingOverridesApi.getAllSubjectOverrides(),
-      fetchSubsidiesForReport(),
-    ]);
+  const [
+    invoices,
+    sessionsStudents,
+    creditNotes,
+    billingPricing,
+    pricingOverrides,
+    subsidies,
+    enrollmentsWithSubject,
+  ] = await Promise.all([
+    fetchInvoicesForReport(periodStart, periodEnd),
+    fetchSessionsStudentsForPredictedRevenue(periodStart, periodEnd),
+    fetchCreditNotesForReport(periodStart, periodEnd),
+    pricingApi.getBillingPricing(),
+    subjectPricingOverridesApi.getAllSubjectOverrides(),
+    fetchSubsidiesForReport(),
+    fetchEnrollmentsWithSubjectForReport(periodStart, periodEnd),
+  ]);
 
   const predictedRevenueByDay = buildEmptyRevenueSeries(days);
   const actualRevenueByDay = buildEmptyRevenueSeries(days);
   const refundsByDay = buildEmptySeries(days);
   const creditsByDay = buildEmptyRevenueSeries(days);
   const voidedInvoicesByDay = buildEmptySeries(days);
+  const subsidiesEnrolledByDay = buildEmptySeries(days);
 
   const indexByDate = new Map<string, number>();
   predictedRevenueByDay.forEach((point, index) => {
@@ -1369,11 +1425,46 @@ export async function fetchBillingStatsReportData(
     ];
   });
 
+  // Subsidies enrolled: count subsidies effective on each day where the student
+  // is enrolled in a class for that subject on that day.
+  const enrollmentKey = (studentId: string, subjectId: string) =>
+    `${studentId}:${subjectId}`;
+  subsidiesEnrolledByDay.forEach((point, i) => {
+    const day = days[i];
+    if (!day) return;
+    const dayEnd = endOfDay(day);
+
+    const enrolledSet = new Set<string>();
+    for (const enr of enrollmentsWithSubject) {
+      const enrolledAt = new Date(enr.enrolled_at);
+      if (enrolledAt > dayEnd) continue;
+      if (enr.unenrolled_at != null && new Date(enr.unenrolled_at) <= dayEnd)
+        continue;
+      enrolledSet.add(enrollmentKey(enr.student_id, enr.subject_id));
+    }
+
+    let count = 0;
+    for (const sub of subsidies) {
+      const effectiveFrom = sub.effective_from ? new Date(sub.effective_from) : null;
+      if (!effectiveFrom || effectiveFrom > dayEnd) continue;
+      if (
+        sub.effective_until != null &&
+        new Date(sub.effective_until) <= dayEnd
+      )
+        continue;
+      if (!enrolledSet.has(enrollmentKey(sub.student_id, sub.subject_id)))
+        continue;
+      count += 1;
+    }
+    point.count = count;
+  });
+
   return {
     predictedRevenueByDay,
     actualRevenueByDay,
     refundsByDay,
     creditsByDay,
     voidedInvoicesByDay,
+    subsidiesEnrolledByDay,
   };
 }

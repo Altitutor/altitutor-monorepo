@@ -363,62 +363,73 @@ Deno.serve(async (req: Request) => {
 
       case 'invoice.paid': {
         // CRITICAL: Invoice payment succeeded
-        const invoice = event.data.object as { id: string; hosted_invoice_url?: string; invoice_pdf?: string };
-        
-        let chargeId: string | null = null;
-        let payment_intent_id: string | null = null;
+        const invoice = event.data.object as {
+          id: string;
+          hosted_invoice_url?: string;
+          invoice_pdf?: string;
+          charge?: string | { id: string };
+          payment_intent?: string | { id: string };
+          subtotal?: number | null;
+          total?: number | null;
+          amount_due?: number;
+          amount_paid?: number;
+        };
+
+        // Extract charge/payment_intent from payload first (Stripe sends these on invoice.paid)
+        const idFrom = (v: string | { id: string } | null | undefined): string | null =>
+          v == null ? null : typeof v === 'string' ? v : 'id' in v ? (v as { id: string }).id : null;
+
+        let chargeId: string | null = idFrom(invoice.charge);
+        let payment_intent_id: string | null = idFrom(invoice.payment_intent);
         let fee_cents: number | null = null;
         let net_cents: number | null = null;
         let receipt_url: string | null = null;
-        
-        // Fetch invoice from Stripe with expanded fields to get charge/payment_intent IDs
-        // Webhook payloads are minimal and don't include expanded fields or reliable subtotal/total
-        // CRITICAL: Use fullInvoice for subtotal/total to correctly handle customer balance payments
+
+        // Fallback: fetch from Stripe if payload didn't include charge/payment_intent
+        // Also needed for reliable subtotal/total (customer balance, etc.)
         let fullInvoice: Stripe.Invoice | null = null;
         try {
           fullInvoice = await stripe.invoices.retrieve(invoice.id, {
             expand: ['latest_charge', 'payment_intent']
           });
-          
-          // Extract charge ID from latest_charge (can be string ID or expanded object)
-          if (fullInvoice.latest_charge) {
+
+          if (!chargeId && fullInvoice.latest_charge) {
             const lc = fullInvoice.latest_charge;
             chargeId = typeof lc === 'string' ? lc : (lc && typeof lc === 'object' && 'id' in lc ? (lc as { id: string }).id : null);
           }
-          
-          // Extract payment intent ID from payment_intent (can be string ID or expanded object)
-          if (fullInvoice.payment_intent) {
+          if (!chargeId && (fullInvoice as { charge?: string | { id: string } }).charge) {
+            chargeId = idFrom((fullInvoice as { charge?: string | { id: string } }).charge);
+          }
+          if (!payment_intent_id && fullInvoice.payment_intent) {
             const pi = fullInvoice.payment_intent;
             payment_intent_id = typeof pi === 'string' ? pi : (pi && typeof pi === 'object' && 'id' in pi ? (pi as { id: string }).id : null);
-          }
-          
-          // Retrieve charge details if we have charge ID
-          if (chargeId) {
-            try {
-              const charge = await stripe.charges.retrieve(chargeId, { 
-                expand: ['balance_transaction', 'payment_intent'] 
-              });
-              const bt = charge.balance_transaction as { fee?: number; net?: number } | null;
-              if (bt) {
-                fee_cents = typeof bt.fee === 'number' ? bt.fee : null;
-                net_cents = typeof bt.net === 'number' ? bt.net : null;
-              }
-              receipt_url = charge.receipt_url || null;
-              
-              // If payment_intent_id wasn't found from invoice, get it from charge
-              if (!payment_intent_id && charge.payment_intent) {
-                const cpi = charge.payment_intent;
-                payment_intent_id = typeof cpi === 'string' ? cpi : (cpi && typeof cpi === 'object' && 'id' in cpi ? (cpi as { id: string }).id : null);
-              }
-            } catch (e: unknown) {
-              const msg = e instanceof Error ? e.message : String(e);
-              console.error('[webhook] Error retrieving charge details:', msg);
-            }
           }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error('[webhook] Error fetching invoice from Stripe:', msg);
-          // Continue with update even if fetch fails - we'll just have null charge/payment_intent IDs
+          // We may already have chargeId/payment_intent_id from payload
+        }
+
+        // Retrieve charge details if we have charge ID (for fee_cents, net_cents, receipt_url)
+        if (chargeId) {
+          try {
+            const charge = await stripe.charges.retrieve(chargeId, {
+              expand: ['balance_transaction', 'payment_intent']
+            });
+            const bt = charge.balance_transaction as { fee?: number; net?: number } | null;
+            if (bt) {
+              fee_cents = typeof bt.fee === 'number' ? bt.fee : null;
+              net_cents = typeof bt.net === 'number' ? bt.net : null;
+            }
+            receipt_url = charge.receipt_url || null;
+            if (!payment_intent_id && charge.payment_intent) {
+              const cpi = charge.payment_intent;
+              payment_intent_id = typeof cpi === 'string' ? cpi : (cpi && typeof cpi === 'object' && 'id' in cpi ? (cpi as { id: string }).id : null);
+            }
+          } catch (e: unknown) {
+            const msg = e instanceof Error ? e.message : String(e);
+            console.error('[webhook] Error retrieving charge details:', msg);
+          }
         }
         
         // Calculate amount paid from customer balance

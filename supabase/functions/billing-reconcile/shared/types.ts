@@ -7,6 +7,7 @@ export type ReconciliationMode =
   | 'status-drift'          // Fix status mismatches
   | 'amounts-mismatch'      // Detect and report amount discrepancies
   | 'refund-drift'          // Fix refund status drift (using Events API)
+  | 'charge-id-backfill'    // Backfill stripe_charge_id for paid invoices missing it
   | 'all';                  // Run all strategies
 
 /**
@@ -20,6 +21,7 @@ export interface ReconciliationRequest {
   fix_status_drift?: boolean;  // Whether to fix status drift or just report
   fix_amounts_mismatch?: boolean; // Whether to fix amounts or just report
   fix_refund_drift?: boolean; // Whether to fix refund drift or just report
+  fix_charge_id_backfill?: boolean; // Whether to backfill stripe_charge_id (default false = report only)
 }
 
 /**

@@ -131,4 +131,9 @@ export interface BillingStatsReportData {
    * Invoices voided over time. Each entity is the voided invoice.
    */
   voidedInvoicesByDay: ReportDataPoint[];
+  /**
+   * Number of student subsidies that are effective and where the student is
+   * enrolled in a class for that subject, per day.
+   */
+  subsidiesEnrolledByDay: ReportDataPoint[];
 }
