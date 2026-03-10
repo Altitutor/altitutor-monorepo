@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
-import { Calendar } from 'lucide-react';
 import type { ReportEntityLink } from '../types';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
 import {
@@ -63,14 +61,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Scheduling
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-8">
+      <div className="space-y-8">
           {error && (
             <p className="text-sm text-destructive">
               Failed to load scheduling stats. Please try again.
@@ -100,6 +91,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         data={studentData?.activeStudentsByDay ?? []}
                         title="Active students"
                         entityLabelSingular="student"
+                        tableVariant="activeStudents"
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -122,6 +114,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         data={marketingData?.registrationsByDay ?? []}
                         title="Student registrations"
                         entityLabelSingular="registration"
+                        tableVariant="studentRegistrations"
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -144,6 +137,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         data={marketingData?.discontinuationsByDay ?? []}
                         title="Student discontinuations"
                         entityLabelSingular="discontinuation"
+                        tableVariant="discontinuations"
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -166,6 +160,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         data={studentData?.absencesByDay ?? []}
                         title="Student absences"
                         entityLabelSingular="absence"
+                        tableVariant="studentAbsences"
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -194,6 +189,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                     data={staffData?.absencesByDay ?? []}
                     title="Staff absences"
                     entityLabelSingular="absence"
+                    tableVariant="staffAbsences"
                     onEntityClick={handleEntityClick}
                   />
                 )}
@@ -224,6 +220,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         data={studentData?.activeClassesByDay ?? []}
                         title="Active classes"
                         entityLabelSingular="class"
+                        tableVariant="activeClasses"
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -245,6 +242,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         data={studentData?.enrolmentsByDay ?? []}
                         title="Class enrolments"
                         entityLabelSingular="enrolment"
+                        tableVariant="classEnrolments"
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -266,6 +264,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         data={studentData?.unenrolmentsByDay ?? []}
                         title="Class unenrolments"
                         entityLabelSingular="unenrolment"
+                        tableVariant="classUnenrolments"
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -274,8 +273,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
               </div>
             </div>
           )}
-        </CardContent>
-      </Card>
+      </div>
 
       <ViewStudentModal
         isOpen={!!selectedStudentId}

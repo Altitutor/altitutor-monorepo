@@ -1,5 +1,6 @@
 export type {
   IssueReportEntity,
+  ReportEntityMeta,
   ReportDataPoint,
   IssuesReportData,
   TasksReportData,
