@@ -16,19 +16,21 @@ import {
 } from '../../hooks/useAbsenceInitialData';
 import { AbsenceSessionSelector } from './AbsenceSessionSelector';
 import { AbsenceBulkActionSelector } from './AbsenceBulkActionSelector';
+import { AbsenceMessageScreen } from './AbsenceMessageScreen';
 import { StudentCard } from '@/shared/components/StudentCard';
 import type {
   AbsenceDecision,
   AbsenceOperation,
   AbsenceAction,
   RescheduleSession,
+  StudentSession,
 } from '../../types/absence';
 import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
 import type { Tables } from '@altitutor/shared';
 
-type WizardStep = 'select-student' | 'select-sessions' | 'process-sessions' | 'success' | 'error';
+type WizardStep = 'select-student' | 'select-sessions' | 'process-sessions' | 'message' | 'error';
 
 interface LogAbsenceDialogProps {
   isOpen: boolean;
@@ -46,9 +48,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<AbsenceDecision[]>([]);
   const [, setCurrentSessionIndex] = useState(0);
-  const [, setRescheduledSessionsMap] = useState<
+  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<
     Map<string, RescheduleSession>
   >(new Map());
+  const [processedSessionsForMessage, setProcessedSessionsForMessage] = useState<StudentSession[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
   
@@ -139,6 +142,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       setDecisions([]);
       setCurrentSessionIndex(0);
       setRescheduledSessionsMap(new Map());
+      setProcessedSessionsForMessage([]);
       setSearchQuery('');
       setPage(0);
       setErrorMessage('');
@@ -186,16 +190,16 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   const handleBulkDecisionsChange = (bulkDecisions: Array<{ sessionId: string; action: AbsenceAction; targetSessionId?: string; targetSession?: RescheduleSession }>) => {
     if (!selectedStudent) return;
 
-    // Convert bulk decisions to AbsenceDecision format
+    const newRescheduledMap = new Map<string, RescheduleSession>();
+
     const newDecisions: AbsenceDecision[] = bulkDecisions.map((bulkDecision) => {
       const session = selectedSessionsArray.find((s) => s.id === bulkDecision.sessionId);
       if (!session) {
         throw new Error(`Session ${bulkDecision.sessionId} not found`);
       }
 
-      // Store target session in map for later display
       if (bulkDecision.action === 'reschedule' && bulkDecision.targetSession && bulkDecision.targetSessionId) {
-        setRescheduledSessionsMap((prev) => new Map(prev).set(bulkDecision.targetSessionId!, bulkDecision.targetSession!));
+        newRescheduledMap.set(bulkDecision.targetSessionId, bulkDecision.targetSession);
       }
 
       return {
@@ -206,6 +210,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       };
     });
 
+    setRescheduledSessionsMap(newRescheduledMap);
     setDecisions(newDecisions);
   };
 
@@ -228,6 +233,9 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   const handleFinalConfirm = async (decisionsToSubmit: AbsenceDecision[]) => {
     if (!selectedStudent) return;
 
+    // Snapshot sessions before mutation - query invalidation removes processed sessions from API
+    const sessionsSnapshot = [...selectedSessionsArray];
+
     // Convert decisions to operations
     const operations: AbsenceOperation[] = decisionsToSubmit.map((decision) => ({
       student_id: selectedStudent.id,
@@ -244,8 +252,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       });
 
       if (result.success) {
-        // Success - show success screen
-        setStep('success');
+        setProcessedSessionsForMessage(sessionsSnapshot);
+        setStep('message');
       } else {
         setErrorMessage(result.error || 'Unknown error occurred');
         setStep('error');
@@ -405,27 +413,14 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         );
 
 
-      case 'success':
+      case 'message':
         return (
-          <div className="py-12 text-center space-y-4">
-            <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/20 mx-auto flex items-center justify-center">
-              <svg
-                className="h-8 w-8 text-green-600 dark:text-green-400"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path d="M5 13l4 4L19 7"></path>
-              </svg>
-            </div>
-            <div className="text-lg font-semibold">Absences Logged Successfully!</div>
-            <div className="text-sm text-muted-foreground">
-              {decisions.length} session{decisions.length !== 1 ? 's' : ''} processed
-            </div>
-          </div>
+          <AbsenceMessageScreen
+            selectedStudent={selectedStudent}
+            decisions={decisions}
+            selectedSessionsArray={processedSessionsForMessage}
+            rescheduledSessionsMap={rescheduledSessionsMap}
+          />
         );
 
       case 'error':
@@ -464,6 +459,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         return 'Select Sessions';
       case 'process-sessions':
         return 'Process Absences';
+      case 'message':
+        return 'Send Message';
       default:
         return 'Log Absence';
     }
@@ -477,6 +474,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         return 'Select which future sessions the student will be absent from';
       case 'process-sessions':
         return 'Choose whether to reschedule or credit each session';
+      case 'message':
+        return 'Notify the student/parent about the processed absences';
       default:
         return '';
     }
@@ -552,12 +551,12 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             </Button>
           </div>
         );
-      case 'success':
+      case 'message':
         return (
           <div className="flex justify-between px-4 py-3 border-t bg-background">
             <div></div>
             <Button onClick={onClose}>
-              Close
+              Done
             </Button>
           </div>
         );
