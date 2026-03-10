@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, memo, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -28,6 +29,7 @@ interface StaffTableProps {
 }
 
 export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: StaffTableProps = {}) {
+  useSearchParams(); // Required for URL sync in useDataTable
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('staff');
   
