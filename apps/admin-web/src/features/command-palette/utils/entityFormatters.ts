@@ -112,6 +112,16 @@ export function getEntityDisplayText(result: CommandPaletteEntityResult): Entity
     };
   }
 
+  if (result.type === 'note') {
+    const noteData = result.data as Tables<'notes_documents'>;
+    const title = noteData.title?.trim() || 'Untitled note';
+
+    return {
+      title,
+      subtitle: null,
+    };
+  }
+
   // Fallback (should never reach here with proper typing)
   return {
     title: '',

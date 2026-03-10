@@ -25,6 +25,7 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   project: 'projects',
   topic: 'topics',
   file: 'files',
+  note: 'notes',
 };
 
 // Map plural entity types to singular for pill ordering
@@ -39,11 +40,12 @@ const PLURAL_TO_SINGULAR: Record<string, string> = {
   projects: 'project',
   topics: 'topic',
   files: 'file',
+  notes: 'note',
 };
 
-const ENTITY_PILL_ORDER = ['student', 'staff', 'parent', 'class', 'subject', 'task', 'issue', 'project', 'topic', 'file'] as const;
+const ENTITY_PILL_ORDER = ['student', 'staff', 'parent', 'class', 'subject', 'task', 'issue', 'project', 'topic', 'file', 'note'] as const;
 
-const DEFAULT_TYPES = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files'] as const;
+const DEFAULT_TYPES = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files', 'notes'] as const;
 
 export interface MentionListProps {
   items: CommandPaletteEntityResult[];
