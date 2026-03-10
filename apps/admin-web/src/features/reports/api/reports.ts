@@ -32,6 +32,8 @@ type IssueRow = {
   name: string;
   created_at: string | null;
   resolved_at: string | null;
+  created_by: string | null;
+  created_by_staff: { first_name: string | null; last_name: string | null } | null;
 };
 
 type StaffSessionRow = {
@@ -47,6 +49,9 @@ type StaffSessionRow = {
   swapped_sessions_staff_id: string | null;
   swapped_staff_first_name: string | null;
   swapped_staff_last_name: string | null;
+  class_short_name: string | null;
+  logged_by_first_name: string | null;
+  logged_by_last_name: string | null;
 };
 
 type StudentRow = {
@@ -71,17 +76,21 @@ type ClassEnrollmentRow = {
   student_last_name: string | null;
   enrolled_at: string;
   unenrolled_at: string | null;
+  enrolled_by_staff: { first_name: string | null; last_name: string | null } | null;
+  unenrolled_by_staff: { first_name: string | null; last_name: string | null } | null;
 };
 
 type SessionStudentRow = {
   id: string;
   session_id: string;
   session_start_at: string | null;
+  class_short_name: string | null;
   student_id: string;
   student_first_name: string | null;
   student_last_name: string | null;
   planned_absence: boolean;
   planned_absence_logged_at: string | null;
+  planned_absence_logged_by_staff: { first_name: string | null; last_name: string | null } | null;
   is_credited: boolean;
   credited_at: string | null;
   is_rescheduled: boolean;
@@ -113,6 +122,8 @@ type PredictedRevenueSessionRow = {
   id: string;
   session_id: string;
   student_id: string;
+  student_first_name: string | null;
+  student_last_name: string | null;
   planned_absence: boolean;
   session: {
     start_at: string;
@@ -124,6 +135,25 @@ type PredictedRevenueSessionRow = {
 
 function toDateOnlyString(date: Date): string {
   return format(date, 'yyyy-MM-dd');
+}
+
+function formatMetaDate(iso: string | null | undefined): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return format(d, 'd MMM yyyy');
+}
+
+function formatMetaDateTime(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '';
+  return format(d, 'd MMM yyyy, h:mm a');
+}
+
+function staffName(first: string | null, last: string | null, fallback: string): string {
+  const n = [first, last].filter(Boolean).join(' ').trim();
+  return n || fallback;
 }
 
 function buildEmptySeries(days: Date[]): ReportDataPoint[] {
@@ -156,11 +186,30 @@ async function fetchIssuesForReport(
 
   const { data, error } = await supabase
     .from('issues')
-    .select('id, name, created_at, resolved_at')
+    .select(
+      'id, name, created_at, resolved_at, created_by, created_by_staff:staff!issues_created_by_fkey(id, first_name, last_name)'
+    )
     .lte('created_at', weekEndIso);
 
   if (error) throw error;
-  return (data ?? []) as IssueRow[];
+
+  type RawRow = {
+    id: string;
+    name: string;
+    created_at: string | null;
+    resolved_at: string | null;
+    created_by: string | null;
+    created_by_staff: { id: string; first_name: string | null; last_name: string | null } | null;
+  };
+  const rows = (data ?? []) as RawRow[];
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    created_at: r.created_at,
+    resolved_at: r.resolved_at,
+    created_by: r.created_by,
+    created_by_staff: r.created_by_staff,
+  }));
 }
 
 /**
@@ -191,6 +240,11 @@ function computeOpenByDay(
         id: i.id,
         name: i.name,
         link: { kind: 'issue' as ReportEntityLink['kind'] },
+        meta: {
+          createdBy: i.created_by_staff
+            ? staffName(i.created_by_staff.first_name, i.created_by_staff.last_name, '')
+            : undefined,
+        },
       })),
     };
   });
@@ -221,6 +275,12 @@ function computeResolvedByDay(
         id: i.id,
         name: i.name,
         link: { kind: 'issue' as ReportEntityLink['kind'] },
+        meta: {
+          createdBy: i.created_by_staff
+            ? staffName(i.created_by_staff.first_name, i.created_by_staff.last_name, '')
+            : undefined,
+          resolvedAt: formatMetaDate(i.resolved_at),
+        },
       })),
     };
   });
@@ -247,6 +307,8 @@ type TaskRow = {
   title: string;
   created_at: string | null;
   completed_at: string | null;
+  created_by_staff: { first_name: string | null; last_name: string | null } | null;
+  assigned_to_staff: { first_name: string | null; last_name: string | null } | null;
 };
 
 type ProjectRow = {
@@ -254,6 +316,8 @@ type ProjectRow = {
   name: string;
   created_at: string;
   completed_at: string | null;
+  created_by_staff: { first_name: string | null; last_name: string | null } | null;
+  project_lead_staff: { first_name: string | null; last_name: string | null } | null;
 };
 
 /**
@@ -269,11 +333,22 @@ async function fetchTasksForReport(
 
   const { data, error } = await supabase
     .from('tasks')
-    .select('id, title, created_at, completed_at')
+    .select(
+      'id, title, created_at, completed_at, created_by_staff:staff!tasks_created_by_fkey(first_name, last_name), assigned_to_staff:staff!tasks_assigned_to_fkey(first_name, last_name)'
+    )
     .lte('created_at', periodEndIso);
 
   if (error) throw error;
-  return (data ?? []) as TaskRow[];
+
+  type RawRow = {
+    id: string;
+    title: string;
+    created_at: string | null;
+    completed_at: string | null;
+    created_by_staff: { first_name: string | null; last_name: string | null } | null;
+    assigned_to_staff: { first_name: string | null; last_name: string | null } | null;
+  };
+  return (data ?? []) as RawRow[];
 }
 
 /**
@@ -302,6 +377,14 @@ function computeOpenTasksByDay(
         id: t.id,
         name: t.title,
         link: { kind: 'task' as ReportEntityLink['kind'], taskId: t.id },
+        meta: {
+          createdBy: t.created_by_staff
+            ? staffName(t.created_by_staff.first_name, t.created_by_staff.last_name, '')
+            : undefined,
+          assignee: t.assigned_to_staff
+            ? staffName(t.assigned_to_staff.first_name, t.assigned_to_staff.last_name, '')
+            : undefined,
+        },
       })),
     };
   });
@@ -332,6 +415,15 @@ function computeCompletedTasksByDay(
         id: t.id,
         name: t.title,
         link: { kind: 'task' as ReportEntityLink['kind'], taskId: t.id },
+        meta: {
+          createdBy: t.created_by_staff
+            ? staffName(t.created_by_staff.first_name, t.created_by_staff.last_name, '')
+            : undefined,
+          assignee: t.assigned_to_staff
+            ? staffName(t.assigned_to_staff.first_name, t.assigned_to_staff.last_name, '')
+            : undefined,
+          completedAt: formatMetaDateTime(t.completed_at),
+        },
       })),
     };
   });
@@ -361,11 +453,22 @@ async function fetchProjectsForReport(
 
   const { data, error } = await supabase
     .from('projects')
-    .select('id, name, created_at, completed_at')
+    .select(
+      'id, name, created_at, completed_at, created_by_staff:staff!projects_created_by_fkey(first_name, last_name), project_lead_staff:staff!projects_project_lead_id_fkey(first_name, last_name)'
+    )
     .lte('created_at', periodEndIso);
 
   if (error) throw error;
-  return (data ?? []) as ProjectRow[];
+
+  type RawRow = {
+    id: string;
+    name: string;
+    created_at: string;
+    completed_at: string | null;
+    created_by_staff: { first_name: string | null; last_name: string | null } | null;
+    project_lead_staff: { first_name: string | null; last_name: string | null } | null;
+  };
+  return (data ?? []) as RawRow[];
 }
 
 /**
@@ -394,6 +497,14 @@ function computeOpenProjectsByDay(
         id: p.id,
         name: p.name,
         link: { kind: 'project' as ReportEntityLink['kind'], projectId: p.id },
+        meta: {
+          createdBy: p.created_by_staff
+            ? staffName(p.created_by_staff.first_name, p.created_by_staff.last_name, '')
+            : undefined,
+          projectLead: p.project_lead_staff
+            ? staffName(p.project_lead_staff.first_name, p.project_lead_staff.last_name, '')
+            : undefined,
+        },
       })),
     };
   });
@@ -426,7 +537,12 @@ async function fetchStaffSessionsForReport(
   const { data, error } = await supabase
     .from('sessions_staff')
     .select(
-      'id, staff_id, session_id, planned_absence, planned_absence_logged_at, is_swapped, swapped_sessions_staff_id'
+      `
+      id, staff_id, session_id, planned_absence, planned_absence_logged_at, is_swapped, swapped_sessions_staff_id,
+      staff:staff!sessions_staff_staff_id_fkey(first_name, last_name),
+      session:sessions!sessions_staff_session_id_fkey(start_at, classes!sessions_class_id_fkey(day_of_week, start_time, subject:subjects(id, long_name, short_name))),
+      logged_by_staff:staff!sessions_staff_planned_absence_logged_by_fkey(first_name, last_name)
+    `
     )
     .gte('planned_absence_logged_at', startIso)
     .lte('planned_absence_logged_at', endIso)
@@ -442,24 +558,52 @@ async function fetchStaffSessionsForReport(
     planned_absence_logged_at: string | null;
     is_swapped: boolean;
     swapped_sessions_staff_id: string | null;
+    staff: { first_name: string | null; last_name: string | null } | null;
+    session: {
+      start_at: string | null;
+      classes: {
+        day_of_week: number | null;
+        start_time: string | null;
+        subject: { id: string; long_name: string | null; short_name: string | null } | null;
+      } | null;
+    } | null;
+    logged_by_staff: { first_name: string | null; last_name: string | null } | null;
   };
 
   const rows = (data ?? []) as RawRow[];
 
-  return rows.map((row) => ({
-    id: row.id,
-    staff_id: row.staff_id,
-    staff_first_name: null,
-    staff_last_name: null,
-    session_id: row.session_id,
-    session_start_at: null,
-    planned_absence: row.planned_absence,
-    planned_absence_logged_at: row.planned_absence_logged_at,
-    is_swapped: row.is_swapped,
-    swapped_sessions_staff_id: row.swapped_sessions_staff_id,
-    swapped_staff_first_name: null,
-    swapped_staff_last_name: null,
-  }));
+  return rows.map((row) => {
+    const cls = row.session?.classes;
+    const subject = cls?.subject;
+    const classShortName =
+      cls && subject
+        ? formatClassShortName(
+            { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
+              Tables<'classes'>,
+              'day_of_week' | 'start_time'
+            >,
+            subject as Tables<'subjects'>
+          )
+        : null;
+
+    return {
+      id: row.id,
+      staff_id: row.staff_id,
+      staff_first_name: row.staff?.first_name ?? null,
+      staff_last_name: row.staff?.last_name ?? null,
+      session_id: row.session_id,
+      session_start_at: row.session?.start_at ?? null,
+      planned_absence: row.planned_absence,
+      planned_absence_logged_at: row.planned_absence_logged_at,
+      is_swapped: row.is_swapped,
+      swapped_sessions_staff_id: row.swapped_sessions_staff_id,
+      swapped_staff_first_name: null,
+      swapped_staff_last_name: null,
+      class_short_name: classShortName,
+      logged_by_first_name: row.logged_by_staff?.first_name ?? null,
+      logged_by_last_name: row.logged_by_staff?.last_name ?? null,
+    };
+  });
 }
 
 export async function fetchStaffAbsencesReportData(
@@ -483,7 +627,7 @@ export async function fetchStaffAbsencesReportData(
     const index = indexByDate.get(dayStr);
     if (index === undefined) return;
 
-    const staffName =
+    const staffNameStr =
       row.staff_first_name || row.staff_last_name
         ? `${row.staff_first_name ?? ''} ${row.staff_last_name ?? ''}`.trim()
         : row.staff_id;
@@ -495,7 +639,7 @@ export async function fetchStaffAbsencesReportData(
       : null;
 
     const descriptionParts = [
-      staffName,
+      staffNameStr,
       sessionTime ? `Session at ${sessionTime}` : `Session ${row.session_id}`,
     ];
     if (row.is_swapped) {
@@ -526,6 +670,15 @@ export async function fetchStaffAbsencesReportData(
           kind: 'staff',
           staffId: row.staff_id,
           sessionId: row.session_id,
+        },
+        meta: {
+          staff: staffNameStr,
+          class: row.class_short_name ?? undefined,
+          absenceDate: formatMetaDate(row.planned_absence_logged_at),
+          loggedBy:
+            row.logged_by_first_name || row.logged_by_last_name
+              ? staffName(row.logged_by_first_name, row.logged_by_last_name, '')
+              : undefined,
         },
       },
     ];
@@ -578,11 +731,13 @@ async function fetchClassEnrollmentsForReport(
       `
       id,
       class_id,
-      class:classes(level),
+      class:classes(level, day_of_week, start_time, subject:subjects(id, long_name, short_name)),
       student_id,
       student:students(first_name, last_name),
       enrolled_at,
-      unenrolled_at
+      unenrolled_at,
+      enrolled_by_staff:staff!classes_students_enrolled_by_fkey(first_name, last_name),
+      unenrolled_by_staff:staff!classes_students_unenrolled_by_fkey(first_name, last_name)
     `
     )
     .or(`and(enrolled_at.gte.${startIso},enrolled_at.lte.${endIso}),and(unenrolled_at.gte.${startIso},unenrolled_at.lte.${endIso})`);
@@ -592,25 +747,49 @@ async function fetchClassEnrollmentsForReport(
   type RawRow = {
     id: string;
     class_id: string;
-    class: { level: string | null } | null;
+    class: {
+      level: string | null;
+      day_of_week: number | null;
+      start_time: string | null;
+      subject: { id: string; long_name: string | null; short_name: string | null } | null;
+    } | null;
     student_id: string;
     student: { first_name: string | null; last_name: string | null } | null;
     enrolled_at: string;
     unenrolled_at: string | null;
+    enrolled_by_staff: { first_name: string | null; last_name: string | null } | null;
+    unenrolled_by_staff: { first_name: string | null; last_name: string | null } | null;
   };
 
   const rows = (data ?? []) as RawRow[];
 
-  return rows.map((row) => ({
-    id: row.id,
-    class_id: row.class_id,
-    class_name: row.class?.level ?? null,
-    student_id: row.student_id,
-    student_first_name: row.student?.first_name ?? null,
-    student_last_name: row.student?.last_name ?? null,
-    enrolled_at: row.enrolled_at,
-    unenrolled_at: row.unenrolled_at,
-  }));
+  return rows.map((row) => {
+    const cls = row.class;
+    const subject = cls?.subject;
+    const classShortName =
+      cls && subject
+        ? formatClassShortName(
+            { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
+              Tables<'classes'>,
+              'day_of_week' | 'start_time'
+            >,
+            subject as Tables<'subjects'>
+          )
+        : row.class?.level ?? null;
+
+    return {
+      id: row.id,
+      class_id: row.class_id,
+      class_name: classShortName,
+      student_id: row.student_id,
+      student_first_name: row.student?.first_name ?? null,
+      student_last_name: row.student?.last_name ?? null,
+      enrolled_at: row.enrolled_at,
+      unenrolled_at: row.unenrolled_at,
+      enrolled_by_staff: row.enrolled_by_staff,
+      unenrolled_by_staff: row.unenrolled_by_staff,
+    };
+  });
 }
 
 async function fetchStudentSessionsForReport(
@@ -627,11 +806,12 @@ async function fetchStudentSessionsForReport(
       `
       id,
       session_id,
-      session:sessions(start_at),
+      session:sessions!sessions_students_session_id_fkey(start_at, class:classes(day_of_week, start_time, subject:subjects(id, long_name, short_name))),
       student_id,
       student:students(first_name, last_name),
       planned_absence,
       planned_absence_logged_at,
+      planned_absence_logged_by_staff:staff!sessions_students_planned_absence_logged_by_fkey(first_name, last_name),
       is_credited,
       credited_at,
       is_rescheduled,
@@ -651,11 +831,19 @@ async function fetchStudentSessionsForReport(
   type RawRow = {
     id: string;
     session_id: string;
-    session: { start_at: string | null } | null;
+    session: {
+      start_at: string | null;
+      class: {
+        day_of_week: number | null;
+        start_time: string | null;
+        subject: { id: string; long_name: string | null; short_name: string | null } | null;
+      } | null;
+    } | null;
     student_id: string;
     student: { first_name: string | null; last_name: string | null } | null;
     planned_absence: boolean;
     planned_absence_logged_at: string | null;
+    planned_absence_logged_by_staff: { first_name: string | null; last_name: string | null } | null;
     is_credited: boolean;
     credited_at: string | null;
     is_rescheduled: boolean;
@@ -664,20 +852,37 @@ async function fetchStudentSessionsForReport(
 
   const rows = (data ?? []) as RawRow[];
 
-  return rows.map((row) => ({
-    id: row.id,
-    session_id: row.session_id,
-    session_start_at: row.session?.start_at ?? null,
-    student_id: row.student_id,
-    student_first_name: row.student?.first_name ?? null,
-    student_last_name: row.student?.last_name ?? null,
-    planned_absence: row.planned_absence,
-    planned_absence_logged_at: row.planned_absence_logged_at,
-    is_credited: row.is_credited,
-    credited_at: row.credited_at,
-    is_rescheduled: row.is_rescheduled,
-    rescheduled_at: row.rescheduled_at,
-  }));
+  return rows.map((row) => {
+    const cls = row.session?.class;
+    const subject = cls?.subject;
+    const classShortName =
+      cls && subject
+        ? formatClassShortName(
+            { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
+              Tables<'classes'>,
+              'day_of_week' | 'start_time'
+            >,
+            subject as Tables<'subjects'>
+          )
+        : null;
+
+    return {
+      id: row.id,
+      session_id: row.session_id,
+      session_start_at: row.session?.start_at ?? null,
+      class_short_name: classShortName,
+      student_id: row.student_id,
+      student_first_name: row.student?.first_name ?? null,
+      student_last_name: row.student?.last_name ?? null,
+      planned_absence: row.planned_absence,
+      planned_absence_logged_at: row.planned_absence_logged_at,
+      planned_absence_logged_by_staff: row.planned_absence_logged_by_staff,
+      is_credited: row.is_credited,
+      credited_at: row.credited_at,
+      is_rescheduled: row.is_rescheduled,
+      rescheduled_at: row.rescheduled_at,
+    };
+  });
 }
 
 export async function fetchStudentStatsReportData(
@@ -800,6 +1005,14 @@ export async function fetchStudentStatsReportData(
             studentId: row.student_id,
             classId: row.class_id,
           },
+          meta: {
+            class: className,
+            student: studentName,
+            enrolledAt: formatMetaDate(row.enrolled_at),
+            enrolledBy: row.enrolled_by_staff
+              ? staffName(row.enrolled_by_staff.first_name, row.enrolled_by_staff.last_name, '')
+              : undefined,
+          },
         },
       ];
     }
@@ -828,6 +1041,14 @@ export async function fetchStudentStatsReportData(
               kind: 'unenrolment',
               studentId: row.student_id,
               classId: row.class_id,
+            },
+            meta: {
+              class: className,
+              student: studentName,
+              unenrolledAt: formatMetaDate(row.unenrolled_at),
+              unenrolledBy: row.unenrolled_by_staff
+                ? staffName(row.unenrolled_by_staff.first_name, row.unenrolled_by_staff.last_name, '')
+                : undefined,
             },
           },
         ];
@@ -884,6 +1105,19 @@ export async function fetchStudentStatsReportData(
           name: `${studentName} · ${timeLabel ? `Session at ${timeLabel}` : `Session ${row.session_id}`} · ${tags.join(
             ', '
           )}`,
+          link: {
+            kind: 'absence' as ReportEntityLink['kind'],
+            sessionId: row.session_id,
+            studentId: row.student_id,
+          },
+          meta: {
+            student: studentName,
+            class: row.class_short_name ?? undefined,
+            absenceDate: formatMetaDate(at),
+            loggedBy: row.planned_absence_logged_by_staff
+              ? staffName(row.planned_absence_logged_by_staff.first_name, row.planned_absence_logged_by_staff.last_name, '')
+              : undefined,
+          },
         },
       ];
     });
@@ -965,6 +1199,10 @@ export async function fetchMarketingStatsReportData(
           kind: 'registration',
           studentId: student.id,
         },
+        meta: {
+          student: `${student.first_name} ${student.last_name}`,
+          registeredAt: formatMetaDate(student.registered_at),
+        },
       },
     ];
   });
@@ -986,6 +1224,10 @@ export async function fetchMarketingStatsReportData(
         link: {
           kind: 'student',
           studentId: student.id,
+        },
+        meta: {
+          student: `${student.first_name} ${student.last_name}`,
+          discontinuedAt: formatMetaDate(student.discontinued_at),
         },
       },
     ];
@@ -1092,17 +1334,20 @@ async function fetchSessionsStudentsForPredictedRevenue(
   // Fetch sessions_students (excluding planned absences) for those sessions
   const { data: ssData, error: ssErr } = await supabase
     .from('sessions_students')
-    .select('id, session_id, student_id, planned_absence')
+    .select('id, session_id, student_id, planned_absence, student:students(first_name, last_name)')
     .in('session_id', sessionIds)
     .eq('planned_absence', false);
 
   if (ssErr) throw ssErr;
-  const ssRows = (ssData ?? []) as Array<{
+
+  type SsRawRow = {
     id: string;
     session_id: string;
     student_id: string;
     planned_absence: boolean;
-  }>;
+    student: { first_name: string | null; last_name: string | null } | null;
+  };
+  const ssRows = (ssData ?? []) as SsRawRow[];
 
   return ssRows
     .map((row) => {
@@ -1112,6 +1357,8 @@ async function fetchSessionsStudentsForPredictedRevenue(
         id: row.id,
         session_id: row.session_id,
         student_id: row.student_id,
+        student_first_name: row.student?.first_name ?? null,
+        student_last_name: row.student?.last_name ?? null,
         planned_absence: row.planned_absence,
         session: {
           start_at: session.start_at,
@@ -1137,12 +1384,16 @@ type SubsidyRow = {
 type EnrollmentWithSubjectRow = {
   student_id: string;
   subject_id: string;
+  class_id: string;
   enrolled_at: string;
   unenrolled_at: string | null;
+  class_short_name: string | null;
+  student_first_name: string | null;
+  student_last_name: string | null;
 };
 
 /**
- * Fetch class enrollments that overlap the period, with subject_id from the class.
+ * Fetch class enrollments that overlap the period, with subject and class details.
  * Used to determine which (student_id, subject_id) pairs are enrolled on a given day.
  */
 async function fetchEnrollmentsWithSubjectForReport(
@@ -1155,7 +1406,9 @@ async function fetchEnrollmentsWithSubjectForReport(
 
   const { data, error } = await supabase
     .from('classes_students')
-    .select('student_id, enrolled_at, unenrolled_at, class:classes(subject_id)')
+    .select(
+      'student_id, class_id, enrolled_at, unenrolled_at, class:classes(day_of_week, start_time, subject:subjects(id, long_name, short_name)), student:students(first_name, last_name)'
+    )
     .lte('enrolled_at', endIso)
     .or(`unenrolled_at.is.null,unenrolled_at.gte.${startIso}`);
 
@@ -1163,22 +1416,46 @@ async function fetchEnrollmentsWithSubjectForReport(
 
   type RawRow = {
     student_id: string;
+    class_id: string;
     enrolled_at: string;
     unenrolled_at: string | null;
-    class: { subject_id: string | null } | null;
+    class: {
+      day_of_week: number | null;
+      start_time: string | null;
+      subject: { id: string; long_name: string | null; short_name: string | null } | null;
+    } | null;
+    student: { first_name: string | null; last_name: string | null } | null;
   };
 
   const rows = (data ?? []) as RawRow[];
   return rows
-    .filter((row): row is RawRow & { class: { subject_id: string } } =>
-      row.class?.subject_id != null
+    .filter((row): row is RawRow & { class: { subject: NonNullable<RawRow['class']>['subject'] } } =>
+      row.class?.subject != null
     )
-    .map((row) => ({
-      student_id: row.student_id,
-      subject_id: row.class.subject_id,
-      enrolled_at: row.enrolled_at,
-      unenrolled_at: row.unenrolled_at,
-    }));
+    .map((row) => {
+      const cls = row.class!;
+      const subject = cls.subject!;
+      const classShortName =
+        cls && subject
+          ? formatClassShortName(
+              { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
+                Tables<'classes'>,
+                'day_of_week' | 'start_time'
+              >,
+              subject as Tables<'subjects'>
+            )
+          : null;
+      return {
+        student_id: row.student_id,
+        subject_id: subject.id,
+        class_id: row.class_id,
+        enrolled_at: row.enrolled_at,
+        unenrolled_at: row.unenrolled_at,
+        class_short_name: classShortName,
+        student_first_name: row.student?.first_name ?? null,
+        student_last_name: row.student?.last_name ?? null,
+      };
+    });
 }
 
 async function fetchSubsidiesForReport(): Promise<SubsidyRow[]> {
@@ -1300,6 +1577,25 @@ export async function fetchBillingStatsReportData(
     const point = predictedRevenueByDay[index];
     point.amountCents += priceResult.amount_cents;
     point.count = point.amountCents;
+    const studentName = staffName(row.student_first_name, row.student_last_name, row.student_id);
+    const sessionLabel = formatMetaDateTime(session.start_at);
+    point.entities = [
+      ...point.entities,
+      {
+        id: row.id,
+        name: sessionLabel,
+        link: {
+          kind: 'session' as ReportEntityLink['kind'],
+          sessionId: row.session_id,
+        },
+        meta: {
+          session: sessionLabel,
+          student: studentName,
+          sessionDate: formatMetaDate(session.start_at),
+          classPrice: `$${(priceResult.amount_cents / 100).toFixed(2)}`,
+        },
+      },
+    ];
   });
 
   // Actual revenue + refunds + voids
@@ -1323,6 +1619,7 @@ export async function fetchBillingStatsReportData(
             }`.trim()
           : invoice.student_id;
 
+      const netAmount = netAmountCents / 100;
       actualPoint.entities = [
         ...actualPoint.entities,
         {
@@ -1332,6 +1629,12 @@ export async function fetchBillingStatsReportData(
             kind: 'invoice' as ReportEntityLink['kind'],
             invoiceId: invoice.id,
             studentId: invoice.student_id,
+          },
+          meta: {
+            invoice: `Invoice ${invoice.id.slice(0, 8)}`,
+            student: studentName,
+            invoiceDate: formatMetaDate(invoice.invoice_date),
+            amount: `$${netAmount.toFixed(2)}`,
           },
         },
       ];
@@ -1352,18 +1655,21 @@ export async function fetchBillingStatsReportData(
               }`.trim()
             : invoice.student_id;
 
+        const refundAmount = (invoice.amount_due_cents - (invoice.fee_cents ?? 0)) / 100;
         refundPoint.entities = [
           ...refundPoint.entities,
           {
             id: invoice.id,
-            name: `Refund for invoice ${invoice.id.slice(
-              0,
-              8
-            )} · ${studentName}`,
+            name: `Refund for invoice ${invoice.id.slice(0, 8)} · ${studentName}`,
             link: {
               kind: 'refund' as ReportEntityLink['kind'],
               invoiceId: invoice.id,
               studentId: invoice.student_id,
+            },
+            meta: {
+              type: 'refund',
+              invoice: `Invoice ${invoice.id.slice(0, 8)}`,
+              amount: `$${refundAmount.toFixed(2)}`,
             },
           },
         ];
@@ -1385,6 +1691,7 @@ export async function fetchBillingStatsReportData(
               }`.trim()
             : invoice.student_id;
 
+        const voidAmount = (invoice.amount_due_cents - (invoice.fee_cents ?? 0)) / 100;
         voidPoint.entities = [
           ...voidPoint.entities,
           {
@@ -1394,6 +1701,11 @@ export async function fetchBillingStatsReportData(
               kind: 'invoice' as ReportEntityLink['kind'],
               invoiceId: invoice.id,
               studentId: invoice.student_id,
+            },
+            meta: {
+              type: 'void',
+              invoice: `Invoice ${invoice.id.slice(0, 8)}`,
+              amount: `$${voidAmount.toFixed(2)}`,
             },
           },
         ];
@@ -1421,29 +1733,43 @@ export async function fetchBillingStatsReportData(
           kind: 'credit',
           invoiceId: note.invoice_id,
         },
+        meta: {
+          type: 'credit',
+          invoice: `Invoice ${note.invoice_id.slice(0, 8)}`,
+          amount: `$${(note.amount_cents / 100).toFixed(2)}`,
+        },
       },
     ];
   });
 
   // Subsidies enrolled: count subsidies effective on each day where the student
-  // is enrolled in a class for that subject on that day.
+  // is enrolled in a class for that subject on that day. Build entities for table.
   const enrollmentKey = (studentId: string, subjectId: string) =>
     `${studentId}:${subjectId}`;
   subsidiesEnrolledByDay.forEach((point, i) => {
     const day = days[i];
     if (!day) return;
+    const dayStr = toDateOnlyString(day);
     const dayEnd = endOfDay(day);
 
+    // Enrollments active on this day: (student_id, subject_id):class_id -> enrollment
+    const activeEnrollmentsByKey = new Map<
+      string,
+      { enr: EnrollmentWithSubjectRow; key: string }
+    >();
     const enrolledSet = new Set<string>();
     for (const enr of enrollmentsWithSubject) {
       const enrolledAt = new Date(enr.enrolled_at);
       if (enrolledAt > dayEnd) continue;
       if (enr.unenrolled_at != null && new Date(enr.unenrolled_at) <= dayEnd)
         continue;
-      enrolledSet.add(enrollmentKey(enr.student_id, enr.subject_id));
+      const key = enrollmentKey(enr.student_id, enr.subject_id);
+      enrolledSet.add(key);
+      activeEnrollmentsByKey.set(`${key}:${enr.class_id}`, { enr, key });
     }
 
     let count = 0;
+    const countedSubsidyKeys = new Set<string>();
     for (const sub of subsidies) {
       const effectiveFrom = sub.effective_from ? new Date(sub.effective_from) : null;
       if (!effectiveFrom || effectiveFrom > dayEnd) continue;
@@ -1452,9 +1778,39 @@ export async function fetchBillingStatsReportData(
         new Date(sub.effective_until) <= dayEnd
       )
         continue;
-      if (!enrolledSet.has(enrollmentKey(sub.student_id, sub.subject_id)))
-        continue;
-      count += 1;
+      const subKey = enrollmentKey(sub.student_id, sub.subject_id);
+      if (!enrolledSet.has(subKey)) continue;
+      if (!countedSubsidyKeys.has(subKey)) {
+        countedSubsidyKeys.add(subKey);
+        count += 1;
+      }
+
+      // Add one entity per matching enrollment (student can be in multiple classes for same subject)
+      for (const [mapKey, { enr }] of activeEnrollmentsByKey) {
+        if (!mapKey.startsWith(`${subKey}:`)) continue;
+        const studentName = staffName(
+          enr.student_first_name,
+          enr.student_last_name,
+          enr.student_id
+        );
+        const entityId = `subsidy-${sub.student_id}-${sub.subject_id}-${enr.class_id}-${dayStr}`;
+        point.entities = [
+          ...point.entities,
+          {
+            id: entityId,
+            name: `${studentName} · ${enr.class_short_name ?? 'Class'} · $${(sub.price_cents / 100).toFixed(2)}`,
+            link: {
+              kind: 'student' as ReportEntityLink['kind'],
+              studentId: enr.student_id,
+            },
+            meta: {
+              student: studentName,
+              class: enr.class_short_name ?? '—',
+              price: `$${(sub.price_cents / 100).toFixed(2)}`,
+            },
+          },
+        ];
+      }
     }
     point.count = count;
   });

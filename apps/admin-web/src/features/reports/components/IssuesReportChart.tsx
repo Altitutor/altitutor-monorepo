@@ -1,6 +1,5 @@
 'use client';
 
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 import {
   BarChart,
   Bar,
@@ -12,6 +11,7 @@ import {
   Cell,
 } from 'recharts';
 import type { ReportDataPoint } from '../types';
+import { ReportsEntitiesTable, type ReportsEntitiesTableVariant } from './ReportsEntitiesTable';
 
 type ReportEntity = ReportDataPoint['entities'][number];
 
@@ -80,54 +80,22 @@ function getDeduplicatedEntities(data: ReportDataPoint[]): ReportDataPoint['enti
   return result;
 }
 
-function EntityDisplay({
-  entity,
-  onClick,
-}: {
-  entity: ReportEntity;
-  onClick?: (entity: ReportEntity) => void;
-}) {
-  const isClickable = !!onClick && (!!entity.link || entity.id);
-
-  const content = <span className="truncate">{entity.name ?? ''}</span>;
-
-  if (isClickable) {
-    return (
-      <button
-        type="button"
-        onClick={() => onClick?.(entity)}
-        className="w-full text-left text-sm text-brand-darkBlue hover:underline dark:text-brand-lightBlue truncate"
-        title={entity.name}
-      >
-        {content}
-      </button>
-    );
-  }
-
-  return (
-    <p className="text-sm truncate" title={entity.name}>
-      {content}
-    </p>
-  );
-}
-
 export function IssuesReportChart({
   data,
   title,
   barColor = CHART_PRIMARY,
   entityLabelSingular = 'issue',
   onEntityClick,
-}: IssuesReportChartProps) {
+  tableVariant,
+}: IssuesReportChartProps & { tableVariant: ReportsEntitiesTableVariant }) {
   const todayStr = new Date().toISOString().slice(0, 10);
   const highlightColor = CHART_PRIMARY;
 
   const deduplicatedEntities = getDeduplicatedEntities(data);
-  const aggregateCount = deduplicatedEntities.length;
-  const pluralized = pluralize(entityLabelSingular, aggregateCount);
 
   return (
-    <div className="flex gap-4">
-      <div className="h-[280px] flex-1 min-w-0">
+    <div className="space-y-4">
+      <div className="h-[280px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -157,28 +125,11 @@ export function IssuesReportChart({
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <Card className="w-64 shrink-0">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm font-medium">{title}</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-2xl font-bold">{aggregateCount}</p>
-          <p className="text-xs text-muted-foreground">
-            {aggregateCount} {pluralized} in range
-          </p>
-          {deduplicatedEntities.length > 0 && (
-            <div className="max-h-48 overflow-y-auto space-y-1">
-              {deduplicatedEntities.map((entity) => (
-                <EntityDisplay
-                  key={entity.id}
-                  entity={entity}
-                  onClick={onEntityClick}
-                />
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ReportsEntitiesTable
+        entities={deduplicatedEntities}
+        variant={tableVariant}
+        onEntityClick={onEntityClick}
+      />
     </div>
   );
 }

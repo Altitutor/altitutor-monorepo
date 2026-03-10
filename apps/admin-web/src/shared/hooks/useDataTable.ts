@@ -91,10 +91,12 @@ export function useDataTable({
     const filters = parseFiltersFromUrl();
 
     // Determine if we should use defaults or if we have an active state in the URL
-    // We consider it "no state" if there are absolutely no managed params
+    // We consider it "no state" if there are absolutely no managed params.
+    // Use defaults whenever URL is empty (not just on first load) to avoid race where
+    // router.replace hasn't updated searchParams yet, which would overwrite defaults with {}.
     const hasAnyParam = Array.from(searchParams.keys()).some((key) => isManagedKey(key));
     
-    if (isInitialLoad.current && !hasAnyParam) {
+    if (!hasAnyParam) {
       return {
         search: '',
         filters: defaultFilters,

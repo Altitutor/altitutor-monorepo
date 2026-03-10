@@ -49,6 +49,7 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   project: 'projects',
   topic: 'topics',
   file: 'files',
+  note: 'notes',
 };
 
 // Nav items matching layout.tsx - pages will be automatically searchable
@@ -250,6 +251,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
       { type: 'project', label: 'Projects' },
       { type: 'topic', label: 'Topics' },
       { type: 'file', label: 'Files' },
+      { type: 'note', label: 'Notes' },
     ];
   }, []);
 
@@ -268,7 +270,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             <Input
               ref={inputRef}
               type="text"
-              placeholder="Search commands, pages, students, staff, parents, classes, subjects, tasks, issues, projects, topics, files..."
+              placeholder="Search commands, pages, students, staff, parents, classes, subjects, tasks, issues, projects, topics, files, notes..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}

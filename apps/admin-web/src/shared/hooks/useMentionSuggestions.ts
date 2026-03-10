@@ -28,6 +28,7 @@ const DEFAULT_MENTION_TYPES = [
   'projects',
   'topics',
   'files',
+  'notes',
 ] as const;
 
 export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, memo, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   Table,
   TableBody,
@@ -28,10 +29,11 @@ interface StaffTableProps {
 }
 
 export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: StaffTableProps = {}) {
+  useSearchParams(); // Required for URL sync in useDataTable
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('staff');
   
-  const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
+  const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
   const defaultSort = useMemo(() => ({ field: 'role', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['status', 'role', 'first_name', 'last_name', 'classes'], []);
 

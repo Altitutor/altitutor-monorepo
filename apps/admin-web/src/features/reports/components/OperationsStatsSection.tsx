@@ -1,8 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
-import { AlertTriangle } from 'lucide-react';
 import {
   useIssuesReport,
   useTasksReport,
@@ -12,6 +10,7 @@ import { IssuesReportChart } from './IssuesReportChart';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
 import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
+import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
 
 interface OperationsStatsSectionProps {
   dateRange: ReportsDateRange;
@@ -23,6 +22,8 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
   const [isIssueDialogOpen, setIsIssueDialogOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isProjectDialogOpen, setIsProjectDialogOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isTaskDialogOpen, setIsTaskDialogOpen] = useState(false);
 
   const { data: issuesData, isLoading: issuesLoading, error: issuesError } = useIssuesReport(
     dateRange.start,
@@ -37,7 +38,10 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
     dateRange.end
   );
 
-  const handleEntityClick = (entity: { id: string; link?: { kind: string } }) => {
+  const handleEntityClick = (entity: {
+    id: string;
+    link?: { kind: string; taskId?: string | null };
+  }) => {
     const kind = entity.link?.kind ?? 'issue';
     if (kind === 'issue') {
       setSelectedIssueId(entity.id);
@@ -45,20 +49,16 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
     } else if (kind === 'project') {
       setSelectedProjectId(entity.id);
       setIsProjectDialogOpen(true);
+    } else if (kind === 'task') {
+      const taskId = entity.link?.taskId ?? entity.id;
+      setSelectedTaskId(taskId);
+      setIsTaskDialogOpen(true);
     }
-    // task: no dialog yet, ignore click
   };
 
   return (
     <>
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5" />
-          Operations
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-8">
+    <div className="space-y-8">
         {issuesError && (
           <p className="text-sm text-destructive">
             Failed to load issues report. Please try again.
@@ -95,6 +95,7 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       data={tasksData?.openByDay ?? []}
                       title="Open tasks"
                       entityLabelSingular="task"
+                      tableVariant="openTasks"
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -115,6 +116,7 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       data={tasksData?.completedByDay ?? []}
                       title="Completed tasks"
                       entityLabelSingular="task"
+                      tableVariant="completedTasks"
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -144,6 +146,7 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       data={issuesData?.openByDay ?? []}
                       title="Open issues"
                       entityLabelSingular="issue"
+                      tableVariant="openIssues"
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -164,6 +167,7 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                       data={issuesData?.resolvedByDay ?? []}
                       title="Resolved issues"
                       entityLabelSingular="issue"
+                      tableVariant="resolvedIssues"
                       onEntityClick={handleEntityClick}
                     />
                   )}
@@ -191,14 +195,14 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
                 data={projectsData?.openByDay ?? []}
                 title="Open projects"
                 entityLabelSingular="project"
+                tableVariant="openProjects"
                 onEntityClick={handleEntityClick}
               />
             )}
             </div>
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
 
     <EditIssueDialog
       isOpen={isIssueDialogOpen}
@@ -216,6 +220,14 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
         setSelectedProjectId(null);
       }}
       projectId={selectedProjectId}
+    />
+    <EditTaskDialog
+      isOpen={isTaskDialogOpen}
+      onClose={() => {
+        setIsTaskDialogOpen(false);
+        setSelectedTaskId(null);
+      }}
+      taskId={selectedTaskId}
     />
     </>
   );

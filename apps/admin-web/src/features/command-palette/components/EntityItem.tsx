@@ -22,6 +22,7 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
   project: 'projects',
   topic: 'topics',
   file: 'files',
+  note: 'notes',
 };
 
 interface EntityItemProps {

@@ -10,6 +10,7 @@ import { topicsFilesApi } from '@/features/topics/api/topics-files';
 import { tasksApi } from '@/features/tasks/api/tasks';
 import { issuesApi } from '@/features/issues/api/issues';
 import { projectsApi } from '@/features/projects/api/projects';
+import { notesApi } from '@/features/notes/api/notes';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
@@ -30,7 +31,7 @@ export function useEntitySearch({
   search, 
   enabled = true, 
   debounceMs = 250,
-  types = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files']
+  types = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files', 'notes']
 }: UseEntitySearchOptions) {
   const debouncedSearch = useDebounce(search, debounceMs);
   const trimmedSearch = debouncedSearch.trim();
@@ -200,6 +201,22 @@ export function useEntitySearch({
     staleTime: 30000,
   });
 
+  const notesQuery = useQuery({
+    queryKey: ['entity-search-notes', trimmedSearch],
+    queryFn: async () => {
+      const result = await notesApi.list({
+        search: trimmedSearch,
+      });
+      return result.slice(0, entityTypes.notes.limit).map((note) => ({
+        type: 'note' as const,
+        id: note.id,
+        data: note,
+      }));
+    },
+    enabled: shouldSearch && types.includes('notes'),
+    staleTime: 30000,
+  });
+
   const filesQuery = useQuery({
     queryKey: ['entity-search-files', trimmedSearch],
     queryFn: async () => {
@@ -244,6 +261,7 @@ export function useEntitySearch({
     ...(projectsQuery.data || []),
     ...(topicsQuery.data || []),
     ...(filesQuery.data || []),
+    ...(notesQuery.data || []),
   ];
 
   const isLoading = 
@@ -256,7 +274,8 @@ export function useEntitySearch({
     issuesQuery.isLoading ||
     projectsQuery.isLoading ||
     topicsQuery.isLoading ||
-    filesQuery.isLoading;
+    filesQuery.isLoading ||
+    notesQuery.isLoading;
 
   const hasError = 
     studentsQuery.isError ||
@@ -268,7 +287,8 @@ export function useEntitySearch({
     issuesQuery.isError ||
     projectsQuery.isError ||
     topicsQuery.isError ||
-    filesQuery.isError;
+    filesQuery.isError ||
+    notesQuery.isError;
 
   return {
     results: allResults,

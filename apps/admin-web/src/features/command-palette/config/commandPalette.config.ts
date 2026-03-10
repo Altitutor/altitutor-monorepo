@@ -235,6 +235,13 @@ export const entityTypes: Record<string, EntityTypeConfig> = {
     limit: 8,
     enabled: true,
   },
+  notes: {
+    id: 'notes',
+    label: 'Notes',
+    icon: FileText,
+    limit: 8,
+    enabled: true,
+  },
 };
 
 /**

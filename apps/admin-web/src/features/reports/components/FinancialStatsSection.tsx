@@ -1,16 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@altitutor/ui';
-import { CreditCard } from 'lucide-react';
 import type { ReportDataPoint, ReportEntityLink, RevenueReportDataPoint } from '../types';
 import { useBillingStatsReport } from '../hooks/useAdditionalReports';
 import { RevenueReportChart } from './RevenueReportChart';
+import { ReportsEntitiesTable } from './ReportsEntitiesTable';
 import {
   BarChart,
   Bar,
@@ -23,6 +17,7 @@ import {
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
 import { ViewInvoiceModal } from '@/features/billing';
 import { ViewStudentModal } from '@/features/students';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
 
 function getBillingErrorsDeduplicatedEntities(
   refundsByDay: ReportDataPoint[],
@@ -55,16 +50,63 @@ interface FinancialStatsSectionProps {
   visibleCharts: ReportsVisibleCharts['financial'];
 }
 
+function BillingErrorsTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    payload: { date: string; refunds?: number; credits?: number; voids?: number };
+  }>;
+}) {
+  if (!active || !payload?.length) return null;
+
+  const { date, refunds = 0, credits = 0, voids = 0 } = payload[0].payload;
+
+  return (
+    <div className="rounded-lg border bg-background dark:bg-brand-dark-bg px-3 py-2 shadow-md">
+      <p className="font-medium">{date}</p>
+      <p className="text-sm text-muted-foreground">
+        Refunds: {refunds}, Credits: {credits}, Voided invoices: {voids}
+      </p>
+    </div>
+  );
+}
+
+function SubsidiesTooltip({
+  active,
+  payload,
+}: {
+  active?: boolean;
+  payload?: Array<{
+    payload: { date: string; count: number };
+  }>;
+}) {
+  if (!active || !payload?.length) return null;
+
+  const { date, count } = payload[0].payload;
+
+  return (
+    <div className="rounded-lg border bg-background dark:bg-brand-dark-bg px-3 py-2 shadow-md">
+      <p className="font-medium">{date}</p>
+      <p className="text-sm text-muted-foreground">Subsidies: {count}</p>
+    </div>
+  );
+}
+
 export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialStatsSectionProps) {
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   const { data, isLoading, error } = useBillingStatsReport(dateRange.start, dateRange.end);
 
   const handleBillingEntityClick = (entity: { link?: ReportEntityLink }) => {
     const link = entity.link;
     if (!link) return;
-    if (
+    if (link.kind === 'session' && link.sessionId) {
+      setSelectedSessionId(link.sessionId);
+    } else if (
       (link.kind === 'invoice' ||
         link.kind === 'refund' ||
         link.kind === 'credit') &&
@@ -74,6 +116,11 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
     } else if (link.studentId) {
       setSelectedStudentId(link.studentId);
     }
+  };
+
+  const handleSubsidyEntityClick = (entity: { link?: ReportEntityLink }) => {
+    const link = entity.link;
+    if (link?.studentId) setSelectedStudentId(link.studentId);
   };
 
   const errorsChartData =
@@ -99,18 +146,10 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
         data.voidedInvoicesByDay
       )
     : [];
-  const billingErrorsCount = billingErrorsEntities.length;
 
   return (
     <>
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <CreditCard className="h-5 w-5" />
-          Financial
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-8">
+    <div className="space-y-8">
         {error && (
           <p className="text-sm text-destructive">
             Failed to load financial stats. Please try again.
@@ -133,6 +172,8 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               <RevenueReportChart
                 data={data?.predictedRevenueByDay ?? []}
                 title="Predicted revenue"
+                tableVariant="predictedRevenue"
+                onEntityClick={handleBillingEntityClick}
               />
             )}
           </div>
@@ -152,6 +193,7 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               <RevenueReportChart
                 data={data?.actualRevenueByDay ?? []}
                 title="Actual revenue"
+                tableVariant="actualRevenue"
                 onEntityClick={handleBillingEntityClick}
               />
             )}
@@ -160,106 +202,63 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
         </div>
 
         {visibleCharts.billingErrors && (
-        <div>
-          <h3 className="text-sm font-medium mb-2">Billing errors</h3>
-          <p className="text-xs text-muted-foreground mb-3">
-            Combined view of refunds, credits, and voided invoices per day.
-          </p>
-          {isLoading ? (
-            <div className="h-[220px] flex items-center justify-center bg-muted/30 rounded-lg">
-              <p className="text-sm text-muted-foreground">Loading...</p>
-            </div>
-          ) : (
-            <div className="flex gap-4">
-              <div className="h-[220px] flex-1 min-w-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={errorsChartData}
-                    margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                    <XAxis
-                      dataKey="date"
-                      tick={{ fontSize: 12 }}
-                      tickFormatter={(value) => {
-                        const date = new Date(value);
-                        return date.toLocaleDateString('en-AU', {
-                          weekday: 'short',
-                          day: 'numeric',
-                        });
-                      }}
-                    />
-                    <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                    <Tooltip
-                      formatter={(value, name) => [
-                        value ?? 0,
-                        name === 'refunds'
-                          ? 'Refunds'
-                          : name === 'credits'
-                          ? 'Credits'
-                          : 'Voided invoices',
-                      ]}
-                    />
-                    <Bar
-                      dataKey="refunds"
-                      stackId="errors"
-                      fill="hsl(var(--primary))"
-                    />
-                    <Bar
-                      dataKey="credits"
-                      stackId="errors"
-                      fill="hsl(var(--primary) / 0.7)"
-                    />
-                    <Bar
-                      dataKey="voids"
-                      stackId="errors"
-                      fill="hsl(var(--primary) / 0.4)"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
+          <div>
+            <h3 className="text-sm font-medium mb-2">Billing errors</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Combined view of refunds, credits, and voided invoices per day.
+            </p>
+            {isLoading ? (
+              <div className="h-[220px] flex items-center justify-center bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground">Loading...</p>
               </div>
-              <Card className="w-64 shrink-0">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium">Billing errors</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-2xl font-bold">{billingErrorsCount}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {billingErrorsCount === 1
-                      ? 'Refund, credit or void in range'
-                      : 'Refunds, credits and voids in range'}
-                  </p>
-                  {billingErrorsEntities.length > 0 && (
-                    <div className="max-h-48 overflow-y-auto space-y-1">
-                      {billingErrorsEntities.map((entity) => {
-                        const isClickable = !!entity.link;
-                        return isClickable ? (
-                          <button
-                            key={entity.id}
-                            type="button"
-                            onClick={() => handleBillingEntityClick(entity)}
-                            className="w-full text-left text-sm text-brand-darkBlue hover:underline dark:text-brand-lightBlue truncate"
-                            title={entity.name}
-                          >
-                            {entity.name}
-                          </button>
-                        ) : (
-                          <p
-                            key={entity.id}
-                            className="text-sm truncate"
-                            title={entity.name}
-                          >
-                            {entity.name}
-                          </p>
-                        );
-                      })}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={errorsChartData}
+                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-AU', {
+                            weekday: 'short',
+                            day: 'numeric',
+                          });
+                        }}
+                      />
+                      <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                      <Tooltip content={<BillingErrorsTooltip />} />
+                      <Bar
+                        dataKey="refunds"
+                        stackId="errors"
+                        fill="hsl(var(--primary))"
+                      />
+                      <Bar
+                        dataKey="credits"
+                        stackId="errors"
+                        fill="hsl(var(--primary) / 0.7)"
+                      />
+                      <Bar
+                        dataKey="voids"
+                        stackId="errors"
+                        fill="hsl(var(--primary) / 0.4)"
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <ReportsEntitiesTable
+                  entities={billingErrorsEntities}
+                  variant="billingErrors"
+                  onEntityClick={handleBillingEntityClick}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {visibleCharts.subsidiesEnrolled && (
@@ -274,8 +273,8 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
                 <p className="text-sm text-muted-foreground">Loading...</p>
               </div>
             ) : (
-              <div className="flex gap-4">
-                <div className="h-[220px] flex-1 min-w-0">
+              <div className="space-y-4">
+                <div className="h-[220px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart
                       data={data?.subsidiesEnrolledByDay ?? []}
@@ -294,42 +293,45 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
                         }}
                       />
                       <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
-                      <Tooltip />
-                    <Bar
-                      dataKey="count"
-                      name="Subsidies"
-                      fill="hsl(var(--primary))"
-                      radius={[4, 4, 0, 0]}
-                    />
+                      <Tooltip content={<SubsidiesTooltip />} />
+                      <Bar
+                        dataKey="count"
+                        name="Subsidies"
+                        fill="hsl(var(--primary))"
+                        radius={[4, 4, 0, 0]}
+                      />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
-                <Card className="w-64 shrink-0">
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      Subsidies (enrolled in class)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <p className="text-2xl font-bold">
-                      {data?.subsidiesEnrolledByDay?.length
-                        ? Math.max(
-                            ...data.subsidiesEnrolledByDay.map((d) => d.count),
-                            0
-                          )
-                        : 0}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Peak in range (max on a single day)
-                    </p>
-                  </CardContent>
-                </Card>
+                <ReportsEntitiesTable
+                  entities={
+                    (() => {
+                      const all = data?.subsidiesEnrolledByDay?.flatMap(
+                        (d) => d.entities
+                      ) ?? [];
+                      const seen = new Set<string>();
+                      return all.filter((e) => {
+                        const key = `${e.meta?.student ?? ''}-${e.meta?.class ?? ''}-${e.meta?.price ?? ''}`;
+                        if (seen.has(key)) return false;
+                        seen.add(key);
+                        return true;
+                      });
+                    })()
+                  }
+                  variant="subsidies"
+                  onEntityClick={handleSubsidyEntityClick}
+                />
               </div>
             )}
           </div>
         )}
-      </CardContent>
-    </Card>
+    </div>
+
+    <SessionModal
+      isOpen={!!selectedSessionId}
+      sessionId={selectedSessionId}
+      onClose={() => setSelectedSessionId(null)}
+    />
 
     <ViewInvoiceModal
       isOpen={!!selectedInvoiceId}

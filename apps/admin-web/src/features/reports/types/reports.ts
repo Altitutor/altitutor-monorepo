@@ -2,9 +2,44 @@
  * Report types for the reports feature
  */
 
+/**
+ * Optional display values for report entity table columns.
+ * Keys match ReportsEntitiesTable column keys (createdBy, assignee, etc.).
+ */
+export interface ReportEntityMeta {
+  createdBy?: string;
+  assignee?: string;
+  completedAt?: string;
+  completedBy?: string;
+  resolvedBy?: string;
+  resolvedAt?: string;
+  projectLead?: string;
+  registeredAt?: string;
+  discontinuedAt?: string;
+  discontinuedBy?: string;
+  absenceDate?: string;
+  loggedBy?: string;
+  class?: string;
+  staff?: string;
+  student?: string;
+  enrolledAt?: string;
+  enrolledBy?: string;
+  unenrolledAt?: string;
+  unenrolledBy?: string;
+  session?: string;
+  sessionDate?: string;
+  classPrice?: string;
+  invoiceDate?: string;
+  amount?: string;
+  type?: string;
+  invoice?: string;
+  price?: string;
+}
+
 export interface IssueReportEntity {
   id: string;
   name: string;
+  meta?: ReportEntityMeta;
 }
 
 export type ReportEntityKind =
@@ -20,7 +55,8 @@ export type ReportEntityKind =
   | 'credit'
   | 'staff'
   | 'task'
-  | 'project';
+  | 'project'
+  | 'session';
 
 export interface ReportEntityLink {
   kind: ReportEntityKind;
