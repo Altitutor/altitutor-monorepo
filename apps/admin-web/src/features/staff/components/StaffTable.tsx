@@ -31,7 +31,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('staff');
   
-  const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
+  const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
   const defaultSort = useMemo(() => ({ field: 'role', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['status', 'role', 'first_name', 'last_name', 'classes'], []);
 
