@@ -749,9 +749,11 @@ export type Database = {
           end_time: string
           id: string
           level: string | null
+          long_name: string | null
           room: string | null
           session_end_date: string | null
           session_start_date: string | null
+          short_name: string | null
           start_time: string
           status: string
           subject_id: string | null
@@ -764,9 +766,11 @@ export type Database = {
           end_time: string
           id: string
           level?: string | null
+          long_name?: string | null
           room?: string | null
           session_end_date?: string | null
           session_start_date?: string | null
+          short_name?: string | null
           start_time: string
           status: string
           subject_id?: string | null
@@ -779,9 +783,11 @@ export type Database = {
           end_time?: string
           id?: string
           level?: string | null
+          long_name?: string | null
           room?: string | null
           session_end_date?: string | null
           session_start_date?: string | null
+          short_name?: string | null
           start_time?: string
           status?: string
           subject_id?: string | null
@@ -4118,6 +4124,8 @@ export type Database = {
           created_at: string | null
           end_at: string | null
           id: string
+          long_name: string | null
+          short_name: string | null
           start_at: string | null
           status: string
           subject_id: string | null
@@ -4131,6 +4139,8 @@ export type Database = {
           created_at?: string | null
           end_at?: string | null
           id: string
+          long_name?: string | null
+          short_name?: string | null
           start_at?: string | null
           status?: string
           subject_id?: string | null
@@ -4144,6 +4154,8 @@ export type Database = {
           created_at?: string | null
           end_at?: string | null
           id?: string
+          long_name?: string | null
+          short_name?: string | null
           start_at?: string | null
           status?: string
           subject_id?: string | null
@@ -11651,6 +11663,7 @@ export type Database = {
       }
     }
     Functions: {
+      _format_date_ordinal: { Args: { ts: string }; Returns: string }
       add_enum_value: {
         Args: { enum_name: string; new_value: string }
         Returns: undefined
@@ -12155,31 +12168,17 @@ export type Database = {
         }
         Returns: Json
       }
-      search_parents_admin:
-        | {
-            Args: {
-              p_ascending?: boolean
-              p_email_contains?: string
-              p_include_relationships?: boolean
-              p_limit?: number
-              p_offset?: number
-              p_order_by?: string
-              p_phone?: string
-              p_search?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_ascending?: boolean
-              p_include_relationships?: boolean
-              p_limit?: number
-              p_offset?: number
-              p_order_by?: string
-              p_search?: string
-            }
-            Returns: Json
-          }
+      search_parents_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_include_relationships?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_search?: string
+        }
+        Returns: Json
+      }
       search_sessions_admin: {
         Args: {
           p_admin_shift_id?: string
@@ -12199,68 +12198,34 @@ export type Database = {
         }
         Returns: Json
       }
-      search_staff_admin:
-        | {
-            Args: {
-              p_ascending?: boolean
-              p_email_contains?: string
-              p_exclude_class_search?: boolean
-              p_include_relationships?: boolean
-              p_limit?: number
-              p_offset?: number
-              p_order_by?: string
-              p_phone?: string
-              p_search?: string
-              p_statuses?: string[]
-              p_subject_ids?: string[]
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_ascending?: boolean
-              p_exclude_class_search?: boolean
-              p_include_relationships?: boolean
-              p_limit?: number
-              p_offset?: number
-              p_order_by?: string
-              p_search?: string
-              p_statuses?: string[]
-              p_subject_ids?: string[]
-            }
-            Returns: Json
-          }
-      search_students_admin:
-        | {
-            Args: {
-              p_ascending?: boolean
-              p_email_contains?: string
-              p_exclude_class_search?: boolean
-              p_include_relationships?: boolean
-              p_limit?: number
-              p_offset?: number
-              p_order_by?: string
-              p_phone?: string
-              p_search?: string
-              p_statuses?: string[]
-              p_subject_ids?: string[]
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_ascending?: boolean
-              p_exclude_class_search?: boolean
-              p_include_relationships?: boolean
-              p_limit?: number
-              p_offset?: number
-              p_order_by?: string
-              p_search?: string
-              p_statuses?: string[]
-              p_subject_ids?: string[]
-            }
-            Returns: Json
-          }
+      search_staff_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_exclude_class_search?: boolean
+          p_include_relationships?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_search?: string
+          p_statuses?: string[]
+          p_subject_ids?: string[]
+        }
+        Returns: Json
+      }
+      search_students_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_exclude_class_search?: boolean
+          p_include_relationships?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_search?: string
+          p_statuses?: string[]
+          p_subject_ids?: string[]
+        }
+        Returns: Json
+      }
       search_subjects_admin: {
         Args: {
           p_ascending?: boolean
