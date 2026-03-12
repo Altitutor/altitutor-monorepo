@@ -102,6 +102,7 @@ export function InvoicesTable() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Invoice #</TableHead>
               <TableHead>Invoice Date</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
@@ -112,13 +113,16 @@ export function InvoicesTable() {
           <TableBody>
             {paginatedInvoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                   No invoices found
                 </TableCell>
               </TableRow>
             ) : (
               paginatedInvoices.map((invoice, index) => (
                 <TableRow key={invoice.id || `invoice-${index}`}>
+                  <TableCell>
+                    {invoice.stripe_invoice_number || invoice.id?.slice(0, 8) || '-'}
+                  </TableCell>
                   <TableCell>
                     {invoice.invoice_date ? formatInvoiceDate(invoice.invoice_date) : '-'}
                   </TableCell>

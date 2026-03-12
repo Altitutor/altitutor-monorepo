@@ -68,6 +68,11 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   const totalCents = invoice?.total_cents;
   const amountPaidFromBalanceCents = invoice?.amount_paid_from_balance_cents || 0;
   const hasCreditBalance = amountPaidFromBalanceCents > 0;
+  const isRefunded = !!invoice?.is_refunded;
+  const isFullyCredited =
+    !!invoice?.has_credit_notes &&
+    invoice.status === 'paid' &&
+    invoice.amount_due_cents === 0;
   
   // Extract last payment error from metadata
   type InvoiceMetadata = {
@@ -160,6 +165,32 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     }
   };
 
+  const canInvoiceAcceptCreditNote =
+    !!invoice &&
+    (invoice.status === 'open' || invoice.status === 'paid') &&
+    !!invoice.stripe_invoice_id;
+
+  const handleOpenCreditNoteDialog = () => {
+    if (!invoiceId || !invoice) return;
+    if (isRefunded) {
+      toast({
+        title: 'Cannot add credit note',
+        description: 'This invoice has already been refunded.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (isFullyCredited) {
+      toast({
+        title: 'Cannot add credit note',
+        description: 'This invoice has already been fully credited.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsCreditNoteOpen(true);
+  };
+
   // Centralized action handlers (must be after handler functions are defined)
   const invoiceActions = useInvoiceActions({
     invoiceId: invoiceId || '',
@@ -174,12 +205,15 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     onDownloadPdf: invoice?.invoice_pdf ? () => {
       window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
     } : undefined,
-    onSendInvoice: collectionMethod === 'send_invoice' && invoice?.status !== 'paid' ? handleSendInvoiceEmail : undefined,
-    onChargeCard: collectionMethod === 'charge_automatically' && invoice?.status !== 'paid' ? handleChargeCard : undefined,
-    onAddCreditNote:
-      invoice && (invoice.status === 'open' || invoice.status === 'paid') && invoice.stripe_invoice_id
-        ? () => setIsCreditNoteOpen(true)
+    onSendInvoice:
+      collectionMethod === 'send_invoice' && invoice?.status !== 'paid'
+        ? handleSendInvoiceEmail
         : undefined,
+    onChargeCard:
+      collectionMethod === 'charge_automatically' && invoice?.status !== 'paid'
+        ? handleChargeCard
+        : undefined,
+    onAddCreditNote: canInvoiceAcceptCreditNote ? handleOpenCreditNoteDialog : undefined,
     isLoadingAction,
   });
 
@@ -238,6 +272,12 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                       lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
                       status: invoice.status,
                     })}
+                    isAddCreditNoteDisabled={canInvoiceAcceptCreditNote && (isFullyCredited || isRefunded)}
+                    addCreditNoteDisabledReason={
+                      isRefunded
+                        ? 'This invoice has already been refunded.'
+                        : 'This invoice has already been fully credited.'
+                    }
                     {...invoiceActions}
                   />
                 )}

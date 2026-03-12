@@ -66,6 +66,12 @@ interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
   onSendInvoice?: () => void;
   onChargeCard?: () => void;
   onAddCreditNote?: () => void;
+  /**
+   * When true, visually disable the Add credit note item and show a toast instead
+   * of opening the dialog.
+   */
+  isAddCreditNoteDisabled?: boolean;
+  addCreditNoteDisabledReason?: string;
   isLoadingAction?: boolean;
 }
 
@@ -440,7 +446,23 @@ export function ActionsMenu(props: ActionsMenuProps) {
           {props.onAddCreditNote && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onAddCreditNote} disabled={props.isLoadingAction}>
+              <DropdownMenuItem
+                className={props.isAddCreditNoteDisabled ? 'opacity-60 text-muted-foreground' : undefined}
+                onClick={() => {
+                  if (props.isAddCreditNoteDisabled) {
+                    toast({
+                      title: 'Cannot add credit note',
+                      description:
+                        props.addCreditNoteDisabledReason ??
+                        'This invoice has already been fully credited.',
+                      variant: 'destructive',
+                    });
+                    return;
+                  }
+                  props.onAddCreditNote?.();
+                }}
+                disabled={props.isLoadingAction}
+              >
                 <Receipt className="h-4 w-4 mr-2" />
                 Add credit note
               </DropdownMenuItem>

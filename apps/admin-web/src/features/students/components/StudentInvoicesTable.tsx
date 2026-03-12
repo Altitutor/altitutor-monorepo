@@ -54,7 +54,10 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
 
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'invoice_date', direction: 'desc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['date', 'items', 'amount', 'status', 'actions'], []);
+  const defaultVisibleColumns = useMemo(
+    () => ['invoice_number', 'date', 'items', 'amount', 'status', 'actions'],
+    []
+  );
 
   const {
     state,
@@ -132,6 +135,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
   ];
 
   const columnDefinitions: DataTableColumnDefinition[] = [
+    { key: 'invoice_number', label: 'Invoice #' },
     { key: 'date', label: 'Session Date' },
     { key: 'items', label: 'Invoice Items' },
     { key: 'amount', label: 'Amount Due' },
@@ -238,6 +242,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
         <Table>
           <TableHeader>
             <TableRow>
+              {state.visibleColumns.includes('invoice_number') && <TableHead>Invoice #</TableHead>}
               {state.visibleColumns.includes('date') && <TableHead>Session Date</TableHead>}
               {state.visibleColumns.includes('items') && <TableHead>Invoice Items</TableHead>}
               {state.visibleColumns.includes('amount') && <TableHead>Amount Due</TableHead>}
@@ -273,6 +278,14 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                   lineItemDescriptions: items.map((item) => item.description || 'Invoice item'),
                   status: invoice.status,
                 });
+                const canInvoiceAcceptCreditNote =
+                  (invoice.status === 'open' || invoice.status === 'paid') &&
+                  !!invoice.stripe_invoice_id;
+                const isRefunded = invoice.is_refunded;
+                const isFullyCredited =
+                  invoice.has_credit_notes &&
+                  invoice.status === 'paid' &&
+                  invoice.amount_due_cents === 0;
 
                 return (
                   <TableRow
@@ -280,6 +293,11 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setActiveInvoiceId(invoice.id)}
                   >
+                    {state.visibleColumns.includes('invoice_number') && (
+                      <TableCell>
+                        #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                      </TableCell>
+                    )}
                     {state.visibleColumns.includes('date') && (
                       <TableCell>
                         <span>{sessionDate ? formatInvoiceDate(sessionDate.toISOString()) : '-'}</span>
@@ -339,9 +357,33 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                           onSendInvoice={invoice.collection_method === 'send_invoice' && invoice.status !== 'paid' ? () => handleSendInvoiceEmail(invoice.id) : undefined}
                           onChargeCard={invoice.collection_method === 'charge_automatically' && invoice.status !== 'paid' ? () => handleChargeCard(invoice.id) : undefined}
                           onAddCreditNote={
-                            (invoice.status === 'open' || invoice.status === 'paid') && invoice.stripe_invoice_id
-                              ? () => setCreditNoteInvoiceId(invoice.id)
+                            canInvoiceAcceptCreditNote
+                              ? () => {
+                                  if (isRefunded) {
+                                    toast({
+                                      title: 'Cannot add credit note',
+                                      description: 'This invoice has already been refunded.',
+                                      variant: 'destructive',
+                                    });
+                                    return;
+                                  }
+                                  if (isFullyCredited) {
+                                    toast({
+                                      title: 'Cannot add credit note',
+                                      description: 'This invoice has already been fully credited.',
+                                      variant: 'destructive',
+                                    });
+                                    return;
+                                  }
+                                  setCreditNoteInvoiceId(invoice.id);
+                                }
                               : undefined
+                          }
+                          isAddCreditNoteDisabled={canInvoiceAcceptCreditNote && (isFullyCredited || isRefunded)}
+                          addCreditNoteDisabledReason={
+                            isRefunded
+                              ? 'This invoice has already been refunded.'
+                              : 'This invoice has already been fully credited.'
                           }
                           isLoadingAction={isLoadingAction && actionInvoiceId === invoice.id}
                         />

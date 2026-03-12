@@ -1438,12 +1438,15 @@ async function fetchCreditNotesForReport(
 
   const { data, error } = await supabase
     .from('credit_notes')
-    .select('id, invoice_id, amount_cents, reason, created_at')
+    .select(
+      'id, invoice_id, amount_cents, reason, created_at, refund_amount_cents, credit_amount_cents, out_of_band_amount_cents'
+    )
     .gte('created_at', startIso)
     .lte('created_at', endIso);
 
   if (error) throw error;
-  return (data ?? []) as CreditNoteRow[];
+  // Cast via unknown to avoid Supabase's extended error typing when selecting new columns
+  return (data ?? []) as unknown as CreditNoteRow[];
 }
 
 async function fetchCreditBalanceTransactionsForReport(
@@ -1695,33 +1698,96 @@ export async function fetchBillingStatsReportData(
     }
   });
 
-  // Credits
+  // Credits + credit-note-based refunds/other
   creditNotes.forEach((note) => {
     const createdAt = new Date(note.created_at);
     const dayStr = toDateOnlyString(createdAt);
     const index = indexByDate.get(dayStr);
     if (index === undefined) return;
 
-    const point = creditsByDay[index];
-    point.amountCents += note.amount_cents;
-    point.count += 1;
+    // Settlement breakdown from DB (may not be present on older rows)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const refundAmountCents = ((note as any).refund_amount_cents as number | null) ?? 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const creditAmountCents = ((note as any).credit_amount_cents as number | null) ?? 0;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const outOfBandAmountCents =
+      ((note as any).out_of_band_amount_cents as number | null) ?? 0;
+
+    const hasRefund = refundAmountCents > 0;
+    const hasCredit = creditAmountCents > 0;
+    const hasOutOfBand = outOfBandAmountCents > 0;
+    const invoiceShortId = note.invoice_id.slice(0, 8);
     const reason = note.reason ? ` · ${note.reason}` : '';
-    point.entities = [
-      ...point.entities,
-      {
-        id: note.id,
-        name: `Credit note for invoice ${note.invoice_id}${reason}`,
-        link: {
-          kind: 'credit',
-          invoiceId: note.invoice_id,
+
+    // 1) Credit-note refunds: counted under refunds
+    if (hasRefund) {
+      const refundIndex = indexByDate.get(dayStr);
+      if (refundIndex !== undefined) {
+        const refundPoint = refundsByDay[refundIndex];
+        refundPoint.count += 1;
+        refundPoint.entities = [
+          ...refundPoint.entities,
+          {
+            id: `credit-refund-${note.id}`,
+            name: `Refund via credit note for invoice ${invoiceShortId}${reason}`,
+            link: {
+              kind: 'refund' as ReportEntityLink['kind'],
+              invoiceId: note.invoice_id,
+            },
+            meta: {
+              type: 'refund',
+              invoice: `Invoice ${invoiceShortId}`,
+              amount: `$${(refundAmountCents / 100).toFixed(2)}`,
+            },
+          },
+        ];
+      }
+    }
+
+    // 2) Credit-note credits: counted under credits
+    if (hasCredit) {
+      const point = creditsByDay[index];
+      point.amountCents += creditAmountCents;
+      point.count += 1;
+      point.entities = [
+        ...point.entities,
+        {
+          id: `credit-credit-${note.id}`,
+          name: `Credit note (balance credit) for invoice ${invoiceShortId}${reason}`,
+          link: {
+            kind: 'credit' as ReportEntityLink['kind'],
+            invoiceId: note.invoice_id,
+          },
+          meta: {
+            type: 'credit',
+            invoice: `Invoice ${invoiceShortId}`,
+            amount: `$${(creditAmountCents / 100).toFixed(2)}`,
+          },
         },
-        meta: {
-          type: 'credit',
-          invoice: `Invoice ${note.invoice_id.slice(0, 8)}`,
-          amount: `$${(note.amount_cents / 100).toFixed(2)}`,
+      ];
+    }
+
+    // 3) Out-of-band settlement: shown as "other" in billing errors table (does not affect counts)
+    if (hasOutOfBand) {
+      const point = creditsByDay[index];
+      point.entities = [
+        ...point.entities,
+        {
+          id: `credit-outofband-${note.id}`,
+          name: `Credit note (out-of-band) for invoice ${invoiceShortId}${reason}`,
+          link: {
+            kind: 'credit' as ReportEntityLink['kind'],
+            invoiceId: note.invoice_id,
+          },
+          meta: {
+            type: 'other',
+            invoice: `Invoice ${invoiceShortId}`,
+            amount: `$${(outOfBandAmountCents / 100).toFixed(2)}`,
+          },
         },
-      },
-    ];
+      ];
+    }
   });
 
   // Credit balance transactions (billing.credit_balance_transaction.created)
@@ -1768,7 +1834,8 @@ export async function fetchBillingStatsReportData(
           studentId: invoice?.student_id,
         },
         meta: {
-          type: `credit_balance_${typeLabel}`,
+          // Billing errors grouping: treat all customer balance updates as "credits"
+          type: 'credit',
           invoice: invoiceLabel,
           amount: amountLabel,
         },

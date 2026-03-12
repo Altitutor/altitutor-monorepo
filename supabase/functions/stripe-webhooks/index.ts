@@ -742,7 +742,19 @@ Deno.serve(async (req: Request) => {
 
       case 'credit_note.created': {
         // HIGH: Create or update credit_notes record (upsert: API may have already inserted)
-        const creditNote = event.data.object as { id: string; invoice: string; amount?: number; currency?: string; reason?: string; status?: string; metadata?: Record<string, unknown> };
+        // Includes settlement breakdown from Stripe: refund_amount, credit_amount, out_of_band_amount
+        const creditNote = event.data.object as {
+          id: string;
+          invoice: string;
+          amount?: number;
+          currency?: string;
+          reason?: string;
+          status?: string;
+          metadata?: Record<string, unknown>;
+          refund_amount?: number | null;
+          credit_amount?: number | null;
+          out_of_band_amount?: number | null;
+        };
         const invoiceId = creditNote.invoice as string;
 
         const { data: invoice, error: findErr } = await supabase
@@ -765,6 +777,9 @@ Deno.serve(async (req: Request) => {
                 reason: creditNote.reason ?? null,
                 status: creditNote.status ?? 'issued',
                 metadata: creditNote.metadata ?? {},
+                refund_amount_cents: creditNote.refund_amount ?? null,
+                credit_amount_cents: creditNote.credit_amount ?? null,
+                out_of_band_amount_cents: creditNote.out_of_band_amount ?? null,
               },
               { onConflict: 'stripe_credit_note_id' }
             );
@@ -797,8 +812,16 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'credit_note.updated': {
-        // HIGH: Update credit_notes status
-        const creditNote = event.data.object as { id: string; invoice?: string; status?: string; reason?: string };
+        // HIGH: Update credit_notes status and settlement breakdown
+        const creditNote = event.data.object as {
+          id: string;
+          invoice?: string;
+          status?: string;
+          reason?: string;
+          refund_amount?: number | null;
+          credit_amount?: number | null;
+          out_of_band_amount?: number | null;
+        };
         
         const { data: existing } = await supabase
           .from('credit_notes')
@@ -811,6 +834,9 @@ Deno.serve(async (req: Request) => {
           .update({
             status: creditNote.status,
             reason: creditNote.reason,
+            refund_amount_cents: creditNote.refund_amount ?? null,
+            credit_amount_cents: creditNote.credit_amount ?? null,
+            out_of_band_amount_cents: creditNote.out_of_band_amount ?? null,
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_credit_note_id', creditNote.id);
