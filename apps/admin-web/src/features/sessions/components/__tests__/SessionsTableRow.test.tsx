@@ -24,11 +24,12 @@ function createBaseSession(): Tables<'sessions'> {
     class_id: null,
     subject_id: null,
     billing_type: 'CLASS',
-    location_id: null,
     admin_shift_id: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  } as Tables<'sessions'>;
+    short_name: null,
+    long_name: null,
+  };
 }
 
 function createStudent(): SessionTableStudent {

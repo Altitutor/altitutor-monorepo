@@ -55,7 +55,10 @@ function getSessionName(
   if (!sessionId) return undefined;
   const session = relatedEntities.sessions?.[sessionId];
   if (!session) return undefined;
-  
+
+  if (session.long_name?.trim()) return session.long_name.trim();
+  if (session.short_name?.trim()) return session.short_name.trim();
+
   // Get subject short name directly from session
   let subjectShortName = '';
   const sessionWithSubjectId = session as Tables<'sessions'> & { subject_id?: string | null };

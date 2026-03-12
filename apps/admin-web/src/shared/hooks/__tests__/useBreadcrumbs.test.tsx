@@ -363,6 +363,8 @@ describe('useBreadcrumbs', () => {
         created_at: null,
         updated_at: null,
         created_by: null,
+        short_name: null,
+        long_name: null,
       },
       subject: {
         id: 'subject-1',

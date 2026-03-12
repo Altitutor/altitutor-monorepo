@@ -30,14 +30,17 @@ export function formatDate(dateString: string): string {
 }
 
 /**
- * Get short display name for a class from session data
+ * Get short display name for a class from session data.
+ * Prefers session.short_name or class.short_name from DB when present.
  */
 export function getClassShortDisplay(
   session: Tables<'sessions'>,
   classesById: Record<string, Tables<'classes'>>,
   subjectsById: Record<string, Tables<'subjects'>>
 ): string {
+  if (session.short_name?.trim()) return session.short_name.trim();
   const cls = session.class_id ? classesById[session.class_id] : undefined;
+  if (cls?.short_name?.trim()) return cls.short_name.trim();
   const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
   const parts: string[] = [];
   if (subj?.curriculum) parts.push(String(subj.curriculum));
@@ -48,14 +51,17 @@ export function getClassShortDisplay(
 }
 
 /**
- * Get full display name for a class from session data
+ * Get full display name for a class from session data.
+ * Prefers session.long_name or class.long_name from DB when present.
  */
 export function getClassDisplay(
   session: Tables<'sessions'>,
   classesById: Record<string, Tables<'classes'>>,
   subjectsById: Record<string, Tables<'subjects'>>
 ): string {
+  if (session.long_name?.trim()) return session.long_name.trim();
   const cls = session.class_id ? classesById[session.class_id] : undefined;
+  if (cls?.long_name?.trim()) return cls.long_name.trim();
   const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
   const parts: string[] = [];
   if (subj?.curriculum) parts.push(String(subj.curriculum));

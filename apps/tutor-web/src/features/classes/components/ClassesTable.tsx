@@ -82,6 +82,8 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       created_by: null, // Not available in vtutor_classes view
       session_start_date: null, // Not available in vtutor_classes view
       session_end_date: null, // Not available in vtutor_classes view
+      short_name: (cls as { short_name?: string | null }).short_name ?? null,
+      long_name: (cls as { long_name?: string | null }).long_name ?? null,
     }));
   
   // Build subject objects from flattened fields for compatibility

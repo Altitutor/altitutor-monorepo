@@ -155,13 +155,13 @@ export const activityApi = {
       classIds.size > 0
         ? supabase
             .from('classes')
-            .select('id, level, subject_id')
+            .select('id, level, subject_id, short_name, long_name')
             .in('id', Array.from(classIds))
         : Promise.resolve({ data: [], error: null }),
       sessionIds.size > 0
         ? supabase
             .from('sessions')
-            .select('id, start_at, type, class_id, subject_id')
+            .select('id, start_at, type, class_id, subject_id, short_name, long_name')
             .in('id', Array.from(sessionIds))
         : Promise.resolve({ data: [], error: null }),
       parentIds.size > 0
@@ -247,7 +247,7 @@ export const activityApi = {
     if (missingClassIds.length > 0) {
       const { data: additionalClassesData } = await supabase
         .from('classes')
-        .select('id, level, subject_id')
+        .select('id, level, subject_id, short_name, long_name')
         .in('id', missingClassIds);
       
       additionalClassesData?.forEach((class_) => {

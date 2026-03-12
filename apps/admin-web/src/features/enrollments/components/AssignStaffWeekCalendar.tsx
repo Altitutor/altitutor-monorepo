@@ -376,7 +376,7 @@ export function AssignStaffWeekCalendar({
                               cancellation_notes: null,
                               cancelled_at: null,
                               cancelled_by: null,
-                            } as Tables<'sessions'>;
+                            } as unknown as Tables<'sessions'>;
 
                             blocks.push(
                               <div

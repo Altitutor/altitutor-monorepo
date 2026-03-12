@@ -101,62 +101,68 @@ export function formatSubjectShortName(subject: Tables<'subjects'>): string {
   return subject.short_name || subject.long_name || subject.name || '';
 }
 
+/** Class-like shape for display; short_name/long_name optional for backward compatibility. */
+type ClassDisplayInput = Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 'end_time'> & {
+  long_name?: string | null;
+  short_name?: string | null;
+};
+
 /**
- * Format a class name for consistent display across the application
- * Format: {subject_long_name} {day} {start_time} - {end_time}
- * Example: "SACE 12 Mathematics Mon 2:00 PM - 4:00 PM"
+ * Format a class name for consistent display.
+ * Uses trigger-updated classes.long_name when present, otherwise builds from subject + class.
  */
 export function formatClassName(
-  classData: Tables<'classes'>,
+  classData: ClassDisplayInput,
   subject?: Tables<'subjects'> | null
 ): string {
+  if (classData.long_name?.trim()) {
+    return classData.long_name.trim();
+  }
   const parts: string[] = [];
-  
-  // Add subject long name from database column
-  if (subject?.long_name) {
-    parts.push(subject.long_name);
-  }
-  
-  // Add day name (short)
-  if (classData.day_of_week != null) {
-    parts.push(getDayShortName(classData.day_of_week));
-  }
-  
-  // Add time range
+  if (subject?.long_name) parts.push(subject.long_name);
+  if (classData.day_of_week != null) parts.push(getDayShortName(classData.day_of_week));
   if (classData.start_time && classData.end_time) {
     parts.push(`${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`);
   }
-  
   return parts.join(' ');
 }
 
 /**
- * Format a class short name for compact display
- * Format: {subject_short_name} {day} {start_time}
- * Example: "12MATH Mon 2:00 PM"
+ * Format a class short name for compact display.
+ * Uses trigger-updated classes.short_name when present, otherwise builds from subject + class.
  */
 export function formatClassShortName(
-  classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
+  classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time'> & { short_name?: string | null },
   subject?: Tables<'subjects'> | null
 ): string {
+  if (classData.short_name?.trim()) {
+    return classData.short_name.trim();
+  }
   const parts: string[] = [];
-  
-  // Add subject short name from database column
-  if (subject?.short_name) {
-    parts.push(subject.short_name);
-  }
-  
-  // Add day name (short)
-  if (classData.day_of_week != null) {
-    parts.push(getDayShortName(classData.day_of_week));
-  }
-  
-  // Add start time only
-  if (classData.start_time) {
-    parts.push(formatTime(classData.start_time));
-  }
-  
+  if (subject?.short_name) parts.push(subject.short_name);
+  if (classData.day_of_week != null) parts.push(getDayShortName(classData.day_of_week));
+  if (classData.start_time) parts.push(formatTime(classData.start_time));
   return parts.join(' ');
+}
+
+/**
+ * Session short display name (trigger-updated sessions.short_name).
+ * Fallback to empty string when not set.
+ */
+export function formatSessionShortName(
+  session: Pick<Tables<'sessions'>, 'short_name'>
+): string {
+  return session.short_name?.trim() ?? '';
+}
+
+/**
+ * Session long display name (trigger-updated sessions.long_name).
+ * Fallback to empty string when not set.
+ */
+export function formatSessionLongName(
+  session: Pick<Tables<'sessions'>, 'long_name'>
+): string {
+  return session.long_name?.trim() ?? '';
 }
 
 /**

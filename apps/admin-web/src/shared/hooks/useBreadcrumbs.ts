@@ -11,7 +11,7 @@ import { sessionsApi } from '@/features/sessions/api';
 import { subjectsApi } from '@/features/subjects/api';
 import { topicsApi } from '@/features/topics/api';
 import { useNote } from '@/features/notes/api/queries';
-import { formatClassShortName, formatSubjectShortName } from '@/shared/utils';
+import { formatClassShortName, formatSessionShortName, formatSubjectShortName } from '@/shared/utils';
 
 // Map of path segments to display labels
 const pathLabelMap: Record<string, string> = {
@@ -202,10 +202,14 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
         sessionIds.map(async (id) => {
           try {
             const sessionData = await sessionsApi.getSessionWithTutorLog(id);
-            if (sessionData.session?.class) {
-              const classData = await classesApi.getClassWithDetails(sessionData.session.class.id);
+            const session = sessionData.session;
+            if (session?.short_name?.trim()) {
+              results[id] = formatSessionShortName(session);
+              return;
+            }
+            if (session?.class) {
+              const classData = await classesApi.getClassWithDetails(session.class.id);
               if (classData.class && classData.subject) {
-                // Use formatClassShortName for session breadcrumb (same as class)
                 results[id] = formatClassShortName(classData.class, classData.subject);
               }
             }

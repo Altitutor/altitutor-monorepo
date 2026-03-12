@@ -118,6 +118,16 @@ type CreditNoteRow = {
   created_at: string;
 };
 
+type CreditBalanceTransactionRow = {
+  id: string;
+  invoice_id: string | null;
+  stripe_customer_id: string | null;
+  type: string | null;
+  amount_cents: number;
+  currency: string;
+  effective_at: string;
+};
+
 type PredictedRevenueSessionRow = {
   id: string;
   session_id: string;
@@ -540,7 +550,7 @@ async function fetchStaffSessionsForReport(
       `
       id, staff_id, session_id, planned_absence, planned_absence_logged_at, is_swapped, swapped_sessions_staff_id,
       staff:staff!sessions_staff_staff_id_fkey(first_name, last_name),
-      session:sessions!sessions_staff_session_id_fkey(start_at, classes!sessions_class_id_fkey(day_of_week, start_time, subject:subjects(id, long_name, short_name))),
+      session:sessions!sessions_staff_session_id_fkey(start_at, classes!sessions_class_id_fkey(short_name, day_of_week, start_time, subject:subjects(id, long_name, short_name))),
       logged_by_staff:staff!sessions_staff_planned_absence_logged_by_fkey(first_name, last_name)
     `
     )
@@ -562,6 +572,7 @@ async function fetchStaffSessionsForReport(
     session: {
       start_at: string | null;
       classes: {
+        short_name: string | null;
         day_of_week: number | null;
         start_time: string | null;
         subject: { id: string; long_name: string | null; short_name: string | null } | null;
@@ -576,7 +587,8 @@ async function fetchStaffSessionsForReport(
     const cls = row.session?.classes;
     const subject = cls?.subject;
     const classShortName =
-      cls && subject
+      cls?.short_name?.trim() ??
+      (cls && subject
         ? formatClassShortName(
             { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
               Tables<'classes'>,
@@ -584,7 +596,7 @@ async function fetchStaffSessionsForReport(
             >,
             subject as Tables<'subjects'>
           )
-        : null;
+        : null);
 
     return {
       id: row.id,
@@ -731,7 +743,7 @@ async function fetchClassEnrollmentsForReport(
       `
       id,
       class_id,
-      class:classes(level, day_of_week, start_time, subject:subjects(id, long_name, short_name)),
+      class:classes(short_name, level, day_of_week, start_time, subject:subjects(id, long_name, short_name)),
       student_id,
       student:students(first_name, last_name),
       enrolled_at,
@@ -748,6 +760,7 @@ async function fetchClassEnrollmentsForReport(
     id: string;
     class_id: string;
     class: {
+      short_name: string | null;
       level: string | null;
       day_of_week: number | null;
       start_time: string | null;
@@ -767,7 +780,8 @@ async function fetchClassEnrollmentsForReport(
     const cls = row.class;
     const subject = cls?.subject;
     const classShortName =
-      cls && subject
+      cls?.short_name?.trim() ??
+      (cls && subject
         ? formatClassShortName(
             { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
               Tables<'classes'>,
@@ -775,7 +789,9 @@ async function fetchClassEnrollmentsForReport(
             >,
             subject as Tables<'subjects'>
           )
-        : row.class?.level ?? null;
+        : null) ??
+      row.class?.level ??
+      null;
 
     return {
       id: row.id,
@@ -806,7 +822,7 @@ async function fetchStudentSessionsForReport(
       `
       id,
       session_id,
-      session:sessions!sessions_students_session_id_fkey(start_at, class:classes(day_of_week, start_time, subject:subjects(id, long_name, short_name))),
+      session:sessions!sessions_students_session_id_fkey(start_at, class:classes(short_name, day_of_week, start_time, subject:subjects(id, long_name, short_name))),
       student_id,
       student:students(first_name, last_name),
       planned_absence,
@@ -834,6 +850,7 @@ async function fetchStudentSessionsForReport(
     session: {
       start_at: string | null;
       class: {
+        short_name: string | null;
         day_of_week: number | null;
         start_time: string | null;
         subject: { id: string; long_name: string | null; short_name: string | null } | null;
@@ -856,7 +873,8 @@ async function fetchStudentSessionsForReport(
     const cls = row.session?.class;
     const subject = cls?.subject;
     const classShortName =
-      cls && subject
+      cls?.short_name?.trim() ??
+      (cls && subject
         ? formatClassShortName(
             { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
               Tables<'classes'>,
@@ -864,7 +882,7 @@ async function fetchStudentSessionsForReport(
             >,
             subject as Tables<'subjects'>
           )
-        : null;
+        : null);
 
     return {
       id: row.id,
@@ -941,13 +959,15 @@ export async function fetchStudentStatsReportData(
       entities: activeClasses.map((cls) => ({
         id: cls.id,
         name:
+          cls.short_name?.trim() ??
           formatClassShortName(
             {
               day_of_week: cls.day_of_week,
               start_time: cls.start_time,
             } as Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
             (cls.subject ?? null) as Tables<'subjects'> | null
-          ) || `Class ${cls.id}`,
+          ) ??
+          `Class ${cls.id}`,
         link: {
           kind: 'class' as ReportEntityLink['kind'],
           classId: cls.id,
@@ -970,13 +990,15 @@ export async function fetchStudentStatsReportData(
     const cls = classes.find((c) => c.id === classId);
     if (!cls) return classId ? `Class ${classId}` : 'Class';
     return (
+      cls.short_name?.trim() ??
       formatClassShortName(
         {
           day_of_week: cls.day_of_week,
           start_time: cls.start_time,
         } as Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
         (cls.subject ?? null) as Tables<'subjects'> | null
-      ) || `Class ${classId}`
+      ) ??
+      `Class ${classId}`
     );
   };
 
@@ -1407,7 +1429,7 @@ async function fetchEnrollmentsWithSubjectForReport(
   const { data, error } = await supabase
     .from('classes_students')
     .select(
-      'student_id, class_id, enrolled_at, unenrolled_at, class:classes(day_of_week, start_time, subject:subjects(id, long_name, short_name)), student:students(first_name, last_name)'
+      'student_id, class_id, enrolled_at, unenrolled_at, class:classes(short_name, day_of_week, start_time, subject:subjects(id, long_name, short_name)), student:students(first_name, last_name)'
     )
     .lte('enrolled_at', endIso)
     .or(`unenrolled_at.is.null,unenrolled_at.gte.${startIso}`);
@@ -1420,6 +1442,7 @@ async function fetchEnrollmentsWithSubjectForReport(
     enrolled_at: string;
     unenrolled_at: string | null;
     class: {
+      short_name: string | null;
       day_of_week: number | null;
       start_time: string | null;
       subject: { id: string; long_name: string | null; short_name: string | null } | null;
@@ -1436,7 +1459,8 @@ async function fetchEnrollmentsWithSubjectForReport(
       const cls = row.class!;
       const subject = cls.subject!;
       const classShortName =
-        cls && subject
+        cls.short_name?.trim() ??
+        (subject
           ? formatClassShortName(
               { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
                 Tables<'classes'>,
@@ -1444,7 +1468,7 @@ async function fetchEnrollmentsWithSubjectForReport(
               >,
               subject as Tables<'subjects'>
             )
-          : null;
+          : null);
       return {
         student_id: row.student_id,
         subject_id: subject.id,
@@ -1486,6 +1510,26 @@ async function fetchCreditNotesForReport(
   return (data ?? []) as CreditNoteRow[];
 }
 
+async function fetchCreditBalanceTransactionsForReport(
+  periodStart: Date,
+  periodEnd: Date
+): Promise<CreditBalanceTransactionRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const startIso = periodStart.toISOString();
+  const endIso = periodEnd.toISOString();
+
+  const { data, error } = await supabase
+    .from('credit_balance_transactions')
+    .select(
+      'id, invoice_id, stripe_customer_id, type, amount_cents, currency, effective_at'
+    )
+    .gte('effective_at', startIso)
+    .lte('effective_at', endIso);
+
+  if (error) throw error;
+  return (data ?? []) as CreditBalanceTransactionRow[];
+}
+
 export async function fetchBillingStatsReportData(
   periodStart: Date,
   periodEnd: Date
@@ -1495,6 +1539,7 @@ export async function fetchBillingStatsReportData(
     invoices,
     sessionsStudents,
     creditNotes,
+    creditBalanceTransactions,
     billingPricing,
     pricingOverrides,
     subsidies,
@@ -1503,6 +1548,7 @@ export async function fetchBillingStatsReportData(
     fetchInvoicesForReport(periodStart, periodEnd),
     fetchSessionsStudentsForPredictedRevenue(periodStart, periodEnd),
     fetchCreditNotesForReport(periodStart, periodEnd),
+    fetchCreditBalanceTransactionsForReport(periodStart, periodEnd),
     pricingApi.getBillingPricing(),
     subjectPricingOverridesApi.getAllSubjectOverrides(),
     fetchSubsidiesForReport(),
@@ -1737,6 +1783,58 @@ export async function fetchBillingStatsReportData(
           type: 'credit',
           invoice: `Invoice ${note.invoice_id.slice(0, 8)}`,
           amount: `$${(note.amount_cents / 100).toFixed(2)}`,
+        },
+      },
+    ];
+  });
+
+  // Credit balance transactions (billing.credit_balance_transaction.created)
+  creditBalanceTransactions.forEach((tx) => {
+    const effectiveAt = new Date(tx.effective_at);
+    if (Number.isNaN(effectiveAt.getTime())) return;
+
+    const dayStr = toDateOnlyString(effectiveAt);
+    const index = indexByDate.get(dayStr);
+    if (index === undefined) return;
+
+    const point = creditsByDay[index];
+    point.amountCents += tx.amount_cents;
+    point.count += 1;
+
+    const invoice = tx.invoice_id
+      ? invoices.find((inv) => inv.id === tx.invoice_id)
+      : undefined;
+
+    const studentName =
+      invoice && (invoice.student_first_name || invoice.student_last_name)
+        ? `${invoice.student_first_name ?? ''} ${
+            invoice.student_last_name ?? ''
+          }`.trim()
+        : invoice?.student_id ?? tx.stripe_customer_id ?? 'Customer';
+
+    const invoiceLabel = invoice
+      ? `Invoice ${invoice.id.slice(0, 8)}`
+      : tx.invoice_id
+        ? `Invoice ${tx.invoice_id.slice(0, 8)}`
+        : 'Credit balance';
+
+    const amountLabel = `$${(tx.amount_cents / 100).toFixed(2)}`;
+    const typeLabel = tx.type ?? 'unknown';
+
+    point.entities = [
+      ...point.entities,
+      {
+        id: `cbtxn-${tx.id}`,
+        name: `${invoiceLabel} · ${studentName} · ${typeLabel}`,
+        link: {
+          kind: 'credit',
+          invoiceId: invoice?.id ?? tx.invoice_id ?? undefined,
+          studentId: invoice?.student_id,
+        },
+        meta: {
+          type: `credit_balance_${typeLabel}`,
+          invoice: invoiceLabel,
+          amount: amountLabel,
         },
       },
     ];

@@ -29,6 +29,8 @@ describe('display utilities', () => {
       session_start_date: null,
       status: 'ACTIVE',
       updated_at: null,
+      short_name: null,
+      long_name: null,
     };
 
     const mockSubject: Tables<'subjects'> = {
@@ -92,6 +94,8 @@ describe('display utilities', () => {
       session_start_date: null,
       status: 'ACTIVE',
       updated_at: null,
+      short_name: null,
+      long_name: null,
     };
 
     const mockSubject: Tables<'subjects'> = {

@@ -29,6 +29,8 @@ describe('tutorLogsTableHelpers', () => {
         session_end_date: null,
         session_start_date: null,
         updated_at: null,
+        short_name: null,
+        long_name: null,
       },
     };
 

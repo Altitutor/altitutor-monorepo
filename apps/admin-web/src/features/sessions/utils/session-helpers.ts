@@ -17,13 +17,13 @@ export type SessionWithDetails = Tables<'sessions'> & {
 };
 
 /**
- * Generates a session title in the format:
- * {curriculum} {year_level} {subject_name} {class_level} {day_string} {start_time} - {end_time}
- * Example: "SACE Year 12 Mathematics Advanced Monday 14:00 - 16:00"
+ * Generates a session title.
+ * Prefers session.long_name from DB when present; otherwise builds from class/subject parts.
  */
 export function getSessionTitle(session: SessionWithDetails): string {
+  if (session.long_name?.trim()) return session.long_name.trim();
+
   const parts: string[] = [];
-  
   const classData = session.class;
   const subject = classData?.subject;
   
