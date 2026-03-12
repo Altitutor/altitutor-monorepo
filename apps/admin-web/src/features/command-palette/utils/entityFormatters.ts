@@ -5,8 +5,8 @@
  * This logic is used in multiple places and should be centralized.
  */
 
-import { formatClassShortName, formatClassName } from '@/shared/utils';
-import type { Tables } from '@altitutor/shared';
+import type { Enums, Tables } from '@altitutor/shared';
+import { getFileTypeLabel } from '@/shared/utils';
 import type { CommandPaletteEntityResult } from '../types';
 
 export interface EntityDisplayText {
@@ -54,11 +54,10 @@ export function getEntityDisplayText(result: CommandPaletteEntityResult): Entity
   }
 
   if (result.type === 'class') {
-    const classData = result.data;
-    const subject = classData.subject as Tables<'subjects'> | null | undefined;
+    const classData = result.data as Tables<'classes'>;
     return {
-      title: formatClassShortName(classData as Tables<'classes'>, subject),
-      subtitle: formatClassName(classData as Tables<'classes'>, subject),
+      title: classData.short_name?.trim() ?? '',
+      subtitle: classData.long_name?.trim() ?? null,
     };
   }
 
@@ -91,23 +90,35 @@ export function getEntityDisplayText(result: CommandPaletteEntityResult): Entity
   }
 
   if (result.type === 'topic') {
+    const subjectName =
+      result.data.subject?.long_name ||
+      result.data.subject?.short_name ||
+      result.data.subject?.name ||
+      '';
+    const topicCode = result.data.code || '';
+    const topicName = result.data.name || '';
+    const title = [subjectName, topicCode, topicName].filter(Boolean).join(' ').trim();
     return {
-      title: result.data.name || '',
-      subtitle:
-        result.data.subject?.long_name ||
-        result.data.subject?.short_name ||
-        result.data.subject?.name ||
-        null,
+      title,
+      subtitle: null,
     };
   }
 
   if (result.type === 'file') {
     const fileData = result.data;
-    const subjectShortName = fileData.subject.short_name || '';
-    const fileCode = fileData.code ? ` ${fileData.code}` : '';
+    const subjectName =
+      fileData.subject.short_name || fileData.subject.long_name || '';
+    const fileCode = fileData.code || '';
     const topicName = fileData.topic.name || '';
+    const fileTypeLabel = fileData.type
+      ? getFileTypeLabel(fileData.type as Enums<'resource_type'>)
+      : '';
+    const title = [subjectName, fileCode, topicName, fileTypeLabel]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
     return {
-      title: `${subjectShortName}${fileCode} ${topicName}`.trim(),
+      title,
       subtitle: fileData.file.filename,
     };
   }

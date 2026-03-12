@@ -2,7 +2,6 @@ import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import type { Tables } from '@altitutor/shared'
 import type React from 'react'
-import { formatTime, getDayShortName } from './datetime'
 
 /**
  * Safely extract error message from unknown error type
@@ -101,7 +100,7 @@ export function formatSubjectShortName(subject: Tables<'subjects'>): string {
   return subject.short_name || subject.long_name || subject.name || '';
 }
 
-/** Class-like shape for display; short_name/long_name optional for backward compatibility. */
+/** Class-like shape for display; uses DB short_name/long_name only. */
 type ClassDisplayInput = Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 'end_time'> & {
   long_name?: string | null;
   short_name?: string | null;
@@ -109,40 +108,24 @@ type ClassDisplayInput = Pick<Tables<'classes'>, 'day_of_week' | 'start_time' | 
 
 /**
  * Format a class name for consistent display.
- * Uses trigger-updated classes.long_name when present, otherwise builds from subject + class.
+ * Uses database classes.long_name only; no frontend building from subject/class parts.
  */
 export function formatClassName(
   classData: ClassDisplayInput,
-  subject?: Tables<'subjects'> | null
+  _subject?: Tables<'subjects'> | null
 ): string {
-  if (classData.long_name?.trim()) {
-    return classData.long_name.trim();
-  }
-  const parts: string[] = [];
-  if (subject?.long_name) parts.push(subject.long_name);
-  if (classData.day_of_week != null) parts.push(getDayShortName(classData.day_of_week));
-  if (classData.start_time && classData.end_time) {
-    parts.push(`${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`);
-  }
-  return parts.join(' ');
+  return classData.long_name?.trim() ?? '';
 }
 
 /**
  * Format a class short name for compact display.
- * Uses trigger-updated classes.short_name when present, otherwise builds from subject + class.
+ * Uses database classes.short_name only; no frontend building from subject/class parts.
  */
 export function formatClassShortName(
   classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time'> & { short_name?: string | null },
-  subject?: Tables<'subjects'> | null
+  _subject?: Tables<'subjects'> | null
 ): string {
-  if (classData.short_name?.trim()) {
-    return classData.short_name.trim();
-  }
-  const parts: string[] = [];
-  if (subject?.short_name) parts.push(subject.short_name);
-  if (classData.day_of_week != null) parts.push(getDayShortName(classData.day_of_week));
-  if (classData.start_time) parts.push(formatTime(classData.start_time));
-  return parts.join(' ');
+  return classData.short_name?.trim() ?? '';
 }
 
 /**

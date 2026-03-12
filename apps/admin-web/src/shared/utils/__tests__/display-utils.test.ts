@@ -18,7 +18,7 @@ describe('display utilities', () => {
     const mockClass: Tables<'classes'> = {
       id: 'class-1',
       subject_id: 'subject-1',
-      day_of_week: 1, // Monday
+      day_of_week: 1,
       start_time: '14:00:00',
       end_time: '16:00:00',
       level: null,
@@ -47,35 +47,26 @@ describe('display utilities', () => {
       updated_at: null,
     };
 
-    it('should format class name with all parts', () => {
+    it('should return class long_name from DB when present', () => {
+      const classWithLongName = { ...mockClass, long_name: 'SACE 12 Mathematics Mon 2:00 PM - 4:00 PM' };
+      const result = formatClassName(classWithLongName, mockSubject);
+      expect(result).toBe('SACE 12 Mathematics Mon 2:00 PM - 4:00 PM');
+    });
+
+    it('should return empty string when long_name is null', () => {
       const result = formatClassName(mockClass, mockSubject);
-      expect(result).toContain('SACE 12 Mathematics');
-      expect(result).toContain('Mon');
-      expect(result).toContain('2:00 PM');
-      expect(result).toContain('4:00 PM');
+      expect(result).toBe('');
     });
 
-    it('should format without subject', () => {
+    it('should return empty string without subject when long_name is null', () => {
       const result = formatClassName(mockClass, null);
-      expect(result).toContain('Mon');
-      expect(result).toContain('2:00 PM');
+      expect(result).toBe('');
     });
 
-    it('should handle missing day_of_week', () => {
-      const classNoDay: Tables<'classes'> = { ...mockClass, day_of_week: 0 };
-      // Function checks for day_of_week != null, so 0 should still work
-      // For actual null test, we'd need to cast, but function handles it gracefully
-      const result = formatClassName(classNoDay, mockSubject);
-      expect(result).toContain('SACE 12 Mathematics');
-    });
-
-    it('should handle missing times', () => {
-      // Note: start_time and end_time are required fields, but function checks for truthiness
-      // We'll test with empty strings which the function treats as falsy
-      const classNoTime: Tables<'classes'> = { ...mockClass, start_time: '', end_time: '' };
-      const result = formatClassName(classNoTime, mockSubject);
-      expect(result).toContain('SACE 12 Mathematics');
-      expect(result).not.toContain('PM');
+    it('should trim whitespace from long_name', () => {
+      const classWithSpaces = { ...mockClass, long_name: '  SACE 12 Math  ' };
+      const result = formatClassName(classWithSpaces, mockSubject);
+      expect(result).toBe('SACE 12 Math');
     });
   });
 
@@ -112,19 +103,21 @@ describe('display utilities', () => {
       updated_at: null,
     };
 
-    it('should format short class name', () => {
-      const result = formatClassShortName(mockClass, mockSubject);
-      expect(result).toContain('MATH');
-      expect(result).toContain('Mon');
-      expect(result).toContain('2:00 PM');
+    it('should return class short_name from DB when present', () => {
+      const classWithShortName = { ...mockClass, short_name: 'MATH Mon 2:00 PM' };
+      const result = formatClassShortName(classWithShortName, mockSubject);
+      expect(result).toBe('MATH Mon 2:00 PM');
     });
 
-    it('should use long_name if short_name not available', () => {
-      const subjectNoShort = { ...mockSubject, short_name: null };
-      const result = formatClassShortName(mockClass, subjectNoShort);
-      // Function falls back to long_name, then name, then empty string
-      expect(result).toContain('Mon'); // Day should always be present
-      // If short_name is null, it may fall back to long_name or name
+    it('should return empty string when short_name is null', () => {
+      const result = formatClassShortName(mockClass, mockSubject);
+      expect(result).toBe('');
+    });
+
+    it('should trim whitespace from short_name', () => {
+      const classWithSpaces = { ...mockClass, short_name: '  MATH  ' };
+      const result = formatClassShortName(classWithSpaces, mockSubject);
+      expect(result).toBe('MATH');
     });
   });
 

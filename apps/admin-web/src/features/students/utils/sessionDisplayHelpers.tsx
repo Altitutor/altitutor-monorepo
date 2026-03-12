@@ -30,45 +30,31 @@ export function formatDate(dateString: string): string {
 }
 
 /**
- * Get short display name for a class from session data.
- * Prefers session.short_name or class.short_name from DB when present.
+ * Short display name for a session/class from database only.
+ * Uses session.short_name, then class.short_name; no building from subject parts.
  */
 export function getClassShortDisplay(
   session: Tables<'sessions'>,
   classesById: Record<string, Tables<'classes'>>,
-  subjectsById: Record<string, Tables<'subjects'>>
+  _subjectsById: Record<string, Tables<'subjects'>>
 ): string {
   if (session.short_name?.trim()) return session.short_name.trim();
   const cls = session.class_id ? classesById[session.class_id] : undefined;
-  if (cls?.short_name?.trim()) return cls.short_name.trim();
-  const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
-  const parts: string[] = [];
-  if (subj?.curriculum) parts.push(String(subj.curriculum));
-  const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
-  const nickname = subj?.name ? subj.name.substring(0, 4).toUpperCase() : '';
-  if (yearLevel || nickname) parts.push(`${yearLevel}${nickname}`);
-  return parts.filter(Boolean).join(' ');
+  return cls?.short_name?.trim() ?? '';
 }
 
 /**
- * Get full display name for a class from session data.
- * Prefers session.long_name or class.long_name from DB when present.
+ * Full display name for a session/class from database only.
+ * Uses session.long_name, then class.long_name; no building from subject parts.
  */
 export function getClassDisplay(
   session: Tables<'sessions'>,
   classesById: Record<string, Tables<'classes'>>,
-  subjectsById: Record<string, Tables<'subjects'>>
+  _subjectsById: Record<string, Tables<'subjects'>>
 ): string {
   if (session.long_name?.trim()) return session.long_name.trim();
   const cls = session.class_id ? classesById[session.class_id] : undefined;
-  if (cls?.long_name?.trim()) return cls.long_name.trim();
-  const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
-  const parts: string[] = [];
-  if (subj?.curriculum) parts.push(String(subj.curriculum));
-  if (subj?.year_level != null) parts.push(String(subj.year_level));
-  if (subj?.name) parts.push(subj.name);
-  if (cls?.level) parts.push(String(cls.level));
-  return parts.join(' ');
+  return cls?.long_name?.trim() ?? '';
 }
 
 /**

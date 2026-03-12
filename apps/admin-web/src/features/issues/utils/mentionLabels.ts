@@ -2,7 +2,6 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { formatSessionType } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { formatInvoiceTagText } from '@/features/billing/utils/invoiceTagText';
-import { getSessionTitle, type SessionWithDetails } from '@/features/sessions/utils/session-helpers';
 import type { IssueTagInsert } from '../types';
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
@@ -160,16 +159,7 @@ export async function resolveTagLabels(tags: IssueTagDraft[]): Promise<Map<strin
         )
         .in('id', sessionIds);
       (data as SessionRow[] | null ?? []).forEach((row) => {
-        const title =
-          row.long_name?.trim() ||
-          (() => {
-            const sessionLike = {
-              id: row.id,
-              type: row.type,
-              class: row.class ?? undefined,
-            } as unknown as SessionWithDetails;
-            return getSessionTitle(sessionLike).trim();
-          })();
+        const title = row.long_name?.trim() || row.short_name?.trim() || '';
         if (title) {
           labelMap.set(`session:${row.id}`, title);
           return;

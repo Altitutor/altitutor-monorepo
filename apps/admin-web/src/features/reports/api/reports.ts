@@ -1,5 +1,4 @@
 import type { Database, Tables } from '@altitutor/shared';
-import { formatClassShortName } from '@/shared/utils';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -585,18 +584,7 @@ async function fetchStaffSessionsForReport(
 
   return rows.map((row) => {
     const cls = row.session?.classes;
-    const subject = cls?.subject;
-    const classShortName =
-      cls?.short_name?.trim() ??
-      (cls && subject
-        ? formatClassShortName(
-            { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
-              Tables<'classes'>,
-              'day_of_week' | 'start_time'
-            >,
-            subject as Tables<'subjects'>
-          )
-        : null);
+    const classShortName = cls?.short_name?.trim() ?? null;
 
     return {
       id: row.id,
@@ -778,20 +766,8 @@ async function fetchClassEnrollmentsForReport(
 
   return rows.map((row) => {
     const cls = row.class;
-    const subject = cls?.subject;
     const classShortName =
-      cls?.short_name?.trim() ??
-      (cls && subject
-        ? formatClassShortName(
-            { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
-              Tables<'classes'>,
-              'day_of_week' | 'start_time'
-            >,
-            subject as Tables<'subjects'>
-          )
-        : null) ??
-      row.class?.level ??
-      null;
+      cls?.short_name?.trim() ?? row.class?.level ?? null;
 
     return {
       id: row.id,
@@ -871,18 +847,7 @@ async function fetchStudentSessionsForReport(
 
   return rows.map((row) => {
     const cls = row.session?.class;
-    const subject = cls?.subject;
-    const classShortName =
-      cls?.short_name?.trim() ??
-      (cls && subject
-        ? formatClassShortName(
-            { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
-              Tables<'classes'>,
-              'day_of_week' | 'start_time'
-            >,
-            subject as Tables<'subjects'>
-          )
-        : null);
+    const classShortName = cls?.short_name?.trim() ?? null;
 
     return {
       id: row.id,
@@ -958,16 +923,7 @@ export async function fetchStudentStatsReportData(
       count: activeClasses.length,
       entities: activeClasses.map((cls) => ({
         id: cls.id,
-        name:
-          cls.short_name?.trim() ??
-          formatClassShortName(
-            {
-              day_of_week: cls.day_of_week,
-              start_time: cls.start_time,
-            } as Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
-            (cls.subject ?? null) as Tables<'subjects'> | null
-          ) ??
-          `Class ${cls.id}`,
+        name: cls.short_name?.trim() ?? `Class ${cls.id}`,
         link: {
           kind: 'class' as ReportEntityLink['kind'],
           classId: cls.id,
@@ -989,17 +945,7 @@ export async function fetchStudentStatsReportData(
   const getClassShortName = (classId: string): string => {
     const cls = classes.find((c) => c.id === classId);
     if (!cls) return classId ? `Class ${classId}` : 'Class';
-    return (
-      cls.short_name?.trim() ??
-      formatClassShortName(
-        {
-          day_of_week: cls.day_of_week,
-          start_time: cls.start_time,
-        } as Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
-        (cls.subject ?? null) as Tables<'subjects'> | null
-      ) ??
-      `Class ${classId}`
-    );
+    return cls.short_name?.trim() ?? `Class ${classId}`;
   };
 
   classEnrollments.forEach((row) => {
@@ -1458,17 +1404,7 @@ async function fetchEnrollmentsWithSubjectForReport(
     .map((row) => {
       const cls = row.class!;
       const subject = cls.subject!;
-      const classShortName =
-        cls.short_name?.trim() ??
-        (subject
-          ? formatClassShortName(
-              { day_of_week: cls.day_of_week ?? 0, start_time: cls.start_time ?? '' } as Pick<
-                Tables<'classes'>,
-                'day_of_week' | 'start_time'
-              >,
-              subject as Tables<'subjects'>
-            )
-          : null);
+      const classShortName = cls.short_name?.trim() ?? null;
       return {
         student_id: row.student_id,
         subject_id: subject.id,
