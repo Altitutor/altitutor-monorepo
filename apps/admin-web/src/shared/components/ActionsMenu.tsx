@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard, UserX, Plus, Copy } from 'lucide-react';
+import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard, UserX, Plus, Copy, Receipt } from 'lucide-react';
 import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 import type { IssueTagInsert } from '@/features/issues/types';
@@ -65,6 +65,7 @@ interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
   onDownloadPdf?: () => void;
   onSendInvoice?: () => void;
   onChargeCard?: () => void;
+  onAddCreditNote?: () => void;
   isLoadingAction?: boolean;
 }
 
@@ -433,6 +434,15 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <DropdownMenuItem onClick={props.onChargeCard} disabled={props.isLoadingAction}>
                 <CreditCard className="h-4 w-4 mr-2" />
                 Charge Card
+              </DropdownMenuItem>
+            </>
+          )}
+          {props.onAddCreditNote && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onAddCreditNote} disabled={props.isLoadingAction}>
+                <Receipt className="h-4 w-4 mr-2" />
+                Add credit note
               </DropdownMenuItem>
             </>
           )}

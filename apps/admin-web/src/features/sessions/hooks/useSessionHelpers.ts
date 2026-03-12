@@ -47,7 +47,7 @@ export function useSessionHelpers({
     
     // Cannot reschedule if any student has a paid invoice
     const hasPaidInvoice = Boolean(sessionsStudents?.some(
-      (ss: SessionsStudentWithInvoice) => ss.invoice_status === 'paid'
+      (ss: SessionsStudentWithInvoice) => ss.invoice_status === 'paid' || ss.invoice_status === 'paid_refunded'
     ));
     
     if (hasPaidInvoice) {

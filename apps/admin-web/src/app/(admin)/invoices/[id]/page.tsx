@@ -16,6 +16,7 @@ import {
   formatInvoiceAmount,
   calculateLineItemsSubtotal,
   formatInvoiceTagText,
+  CreditNoteDialog,
 } from '@/features/billing';
 import { useState } from 'react';
 import { useToast } from '@altitutor/ui';
@@ -30,6 +31,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isLoadingAction, setIsLoadingAction] = useState(false);
+  const [isCreditNoteOpen, setIsCreditNoteOpen] = useState(false);
 
   // Business logic hooks
   const invoiceData = useInvoiceData({
@@ -149,6 +151,10 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
     } : undefined,
     onSendInvoice: collectionMethod === 'send_invoice' && invoice?.status !== 'paid' ? handleSendInvoiceEmail : undefined,
     onChargeCard: collectionMethod === 'charge_automatically' && invoice?.status !== 'paid' ? handleChargeCard : undefined,
+    onAddCreditNote:
+      invoice && (invoice.status === 'open' || invoice.status === 'paid') && invoice.stripe_invoice_id
+        ? () => setIsCreditNoteOpen(true)
+        : undefined,
     isLoadingAction,
   });
 
@@ -244,7 +250,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
             <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
             
             <div className="text-sm font-medium text-muted-foreground">Status:</div>
-            <div className="text-sm">{getInvoiceStatusBadge(invoice.status, invoice.is_refunded)}</div>
+            <div className="text-sm">{getInvoiceStatusBadge(invoice.status, invoice.is_refunded || invoice.has_credit_notes)}</div>
             
             {subtotalCents !== null && subtotalCents !== undefined && (
               <>
@@ -449,6 +455,27 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
           isOpen={modals.sessionModalOpen}
           sessionId={modals.selectedSessionId}
           onClose={modals.closeSessionModal}
+        />
+      )}
+
+      {/* Credit Note Dialog */}
+      {invoice && isCreditNoteOpen && (
+        <CreditNoteDialog
+          isOpen={true}
+          onClose={() => setIsCreditNoteOpen(false)}
+          invoiceId={id}
+          invoice={{
+            stripe_invoice_id: invoice.stripe_invoice_id,
+            stripe_invoice_number: invoice.stripe_invoice_number,
+            amount_due_cents: invoice.amount_due_cents,
+            currency: invoice.currency,
+            status: invoice.status,
+          }}
+          invoiceItems={invoiceItems}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(id) });
+            queryClient.invalidateQueries({ queryKey: [...invoicesKeys.details(), id, 'credit-notes'] });
+          }}
         />
       )}
     </div>

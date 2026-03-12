@@ -20,6 +20,7 @@ import {
   formatInvoiceTagText,
   getInvoiceStatusBadge,
   ViewInvoiceModal,
+  CreditNoteDialog,
   invoicesKeys,
 } from '@/features/billing';
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared';
@@ -47,6 +48,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
   const { data: quickFilters = [] } = useQuickFilters('invoices');
 
   const [activeInvoiceId, setActiveInvoiceId] = useState<string | null>(null);
+  const [creditNoteInvoiceId, setCreditNoteInvoiceId] = useState<string | null>(null);
   const [isLoadingAction, setIsLoadingAction] = useState(false);
   const [actionInvoiceId, setActionInvoiceId] = useState<string | null>(null);
 
@@ -317,7 +319,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                       <TableCell>{`$${((invoice.amount_due_cents || 0) / 100).toFixed(2)}`}</TableCell>
                     )}
                     {state.visibleColumns.includes('status') && (
-                      <TableCell>{getInvoiceStatusBadge(invoice.status, invoice.is_refunded)}</TableCell>
+                      <TableCell>{getInvoiceStatusBadge(invoice.status, invoice.is_refunded || invoice.has_credit_notes)}</TableCell>
                     )}
                     {state.visibleColumns.includes('actions') && (
                       <TableCell onClick={(e) => e.stopPropagation()}>
@@ -336,6 +338,11 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                           } : undefined}
                           onSendInvoice={invoice.collection_method === 'send_invoice' && invoice.status !== 'paid' ? () => handleSendInvoiceEmail(invoice.id) : undefined}
                           onChargeCard={invoice.collection_method === 'charge_automatically' && invoice.status !== 'paid' ? () => handleChargeCard(invoice.id) : undefined}
+                          onAddCreditNote={
+                            (invoice.status === 'open' || invoice.status === 'paid') && invoice.stripe_invoice_id
+                              ? () => setCreditNoteInvoiceId(invoice.id)
+                              : undefined
+                          }
                           isLoadingAction={isLoadingAction && actionInvoiceId === invoice.id}
                         />
                       </TableCell>
@@ -362,6 +369,31 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
         invoiceId={activeInvoiceId}
         onClose={() => setActiveInvoiceId(null)}
       />
+
+      {creditNoteInvoiceId && (() => {
+        const selectedInvoice = invoices.find((i) => i.id === creditNoteInvoiceId);
+        const items = invoiceItemsMap[creditNoteInvoiceId] ?? [];
+        if (!selectedInvoice) return null;
+        return (
+          <CreditNoteDialog
+            isOpen={true}
+            onClose={() => setCreditNoteInvoiceId(null)}
+            invoiceId={creditNoteInvoiceId}
+            invoice={{
+              stripe_invoice_id: selectedInvoice.stripe_invoice_id,
+              stripe_invoice_number: selectedInvoice.stripe_invoice_number,
+              amount_due_cents: selectedInvoice.amount_due_cents,
+              currency: selectedInvoice.currency,
+              status: selectedInvoice.status,
+            }}
+            invoiceItems={items}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(creditNoteInvoiceId) });
+              queryClient.invalidateQueries({ queryKey: invoicesKeys.lists() });
+            }}
+          />
+        );
+      })()}
     </>
   );
 }

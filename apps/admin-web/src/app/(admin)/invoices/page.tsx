@@ -247,7 +247,7 @@ export default function InvoicesPage() {
                       <TableCell>{`$${((invoice.amount_due_cents || 0) / 100).toFixed(2)}`}</TableCell>
                     )}
                     {state.visibleColumns.includes('status') && (
-                      <TableCell>{getInvoiceStatusBadge(invoice.status, invoice.is_refunded)}</TableCell>
+                      <TableCell>{getInvoiceStatusBadge(invoice.status, invoice.is_refunded || invoice.has_credit_notes)}</TableCell>
                     )}
                     {state.visibleColumns.includes('actions') && (
                       <TableCell onClick={(e) => e.stopPropagation()}>

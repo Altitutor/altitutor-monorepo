@@ -26,8 +26,9 @@ export function getInvoiceStatusBadge(
 
   switch (status) {
     case 'paid':
+    case 'paid_refunded':
       variant = 'default';
-      label = isRefunded ? 'Paid (Refunded)' : 'Paid';
+      label = status === 'paid_refunded' || isRefunded ? 'Paid (Refunded)' : 'Paid';
       break;
     case 'draft':
       variant = 'outline';

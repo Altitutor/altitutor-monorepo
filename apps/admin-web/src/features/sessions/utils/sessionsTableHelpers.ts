@@ -1,4 +1,7 @@
 import type { Tables } from '@altitutor/shared';
+import { getClassDisplay, getClassShortDisplay } from '@/features/students/utils/sessionDisplayHelpers';
+
+export { getClassDisplay, getClassShortDisplay };
 
 /**
  * Format date for session table display
@@ -44,42 +47,6 @@ export function formatSessionTimeRange(session: Tables<'sessions'>): string {
   const endDate = new Date(session.end_at);
 
   return `${formatTime(startDate)} - ${formatTime(endDate)}`;
-}
-
-/**
- * Get class display name (full format)
- */
-export function getClassDisplay(
-  session: Tables<'sessions'>,
-  classesById: Record<string, Tables<'classes'>>,
-  subjectsById: Record<string, Tables<'subjects'>>
-): string {
-  const cls = session.class_id ? classesById[session.class_id] : undefined;
-  const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
-  const parts: string[] = [];
-  if (subj?.curriculum) parts.push(String(subj.curriculum));
-  if (subj?.year_level != null) parts.push(String(subj.year_level));
-  if (subj?.name) parts.push(subj.name);
-  if (cls?.level) parts.push(String(cls.level));
-  return parts.join(' ');
-}
-
-/**
- * Get class display name (short format)
- */
-export function getClassShortDisplay(
-  session: Tables<'sessions'>,
-  classesById: Record<string, Tables<'classes'>>,
-  subjectsById: Record<string, Tables<'subjects'>>
-): string {
-  const cls = session.class_id ? classesById[session.class_id] : undefined;
-  const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
-  const parts: string[] = [];
-  if (subj?.curriculum) parts.push(String(subj.curriculum));
-  const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
-  const nickname = subj?.name ? subj.name.substring(0, 4).toUpperCase() : '';
-  if (yearLevel || nickname) parts.push(`${yearLevel}${nickname}`);
-  return parts.filter(Boolean).join(' ');
 }
 
 /**
@@ -182,8 +149,8 @@ export function getInvoiceStatusBadgeVariant(
   if (status === 'draft' || status === 'open') {
     label = 'Sent';
     variant = 'secondary';
-  } else if (status === 'paid') {
-    label = 'Paid';
+  } else if (status === 'paid' || status === 'paid_refunded') {
+    label = status === 'paid_refunded' ? 'Paid (Refunded)' : 'Paid';
     variant = 'default';
   } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
     label = 'Failed';
@@ -233,7 +200,7 @@ export function getFirstStudentIdForReschedule(
   if (studentList.length > 0) {
     // Check if any student has a paid invoice
     const hasPaidInvoice = studentList.some(
-      (ss) => ss.invoice_status === 'paid'
+      (ss) => ss.invoice_status === 'paid' || ss.invoice_status === 'paid_refunded'
     );
     
     // Find first student without planned absence

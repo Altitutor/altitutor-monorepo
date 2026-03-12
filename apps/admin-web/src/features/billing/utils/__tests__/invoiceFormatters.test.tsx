@@ -44,6 +44,16 @@ describe('getInvoiceStatusBadge', () => {
     expect(getByText('Paid')).toBeInTheDocument();
   });
 
+  it('should return "Paid (Refunded)" for paid with isRefunded true', () => {
+    const { getByText } = render(getInvoiceStatusBadge('paid', true));
+    expect(getByText('Paid (Refunded)')).toBeInTheDocument();
+  });
+
+  it('should return "Paid (Refunded)" for paid_refunded status', () => {
+    const { getByText } = render(getInvoiceStatusBadge('paid_refunded'));
+    expect(getByText('Paid (Refunded)')).toBeInTheDocument();
+  });
+
   it('should return correct badge for "draft" status', () => {
     const { getByText } = render(getInvoiceStatusBadge('draft'));
     expect(getByText('Draft')).toBeInTheDocument();
