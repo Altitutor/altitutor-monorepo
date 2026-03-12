@@ -243,6 +243,7 @@ export function useEntitySearch({
           subject: {
             short_name: file.subject.short_name,
             long_name: file.subject.long_name,
+            color: file.subject.color ?? null,
           },
         },
       }));

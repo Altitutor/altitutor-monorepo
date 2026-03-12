@@ -136,13 +136,22 @@ export function getEntityDisplayText(result: CommandPaletteEntityResult): Entity
       .filter(Boolean)
       .join(' ')
       .trim();
-    // File search does not return subject.color; use default gray pill
+    // Use subject color from API (same as topics) for consistent pill styling
     const subjectLike = {
-      ...fileData.subject,
-      color: null as string | null,
+      id: '',
+      name: fileData.subject.short_name ?? fileData.subject.long_name ?? '',
+      short_name: fileData.subject.short_name,
+      long_name: fileData.subject.long_name,
+      color: fileData.subject.color ?? null,
+      curriculum: null,
+      discipline: null,
+      year_level: null,
+      level: null,
+      created_at: null,
+      updated_at: null,
     } as Tables<'subjects'>;
     const { style, textColorClass } = getSubjectColorStyle(subjectLike);
-    const defaultClass = 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
+    const defaultClass = !fileData.subject.color ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' : '';
     return {
       title,
       subtitle: fileData.file.filename,

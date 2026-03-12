@@ -419,6 +419,7 @@ describe('getEntityDisplayText', () => {
           subject: {
             short_name: 'Math',
             long_name: null,
+            color: '#3B82F6',
           },
           topic: {
             id: 'topic-1',
@@ -448,6 +449,7 @@ describe('getEntityDisplayText', () => {
           subject: {
             short_name: 'Eng',
             long_name: null,
+            color: null,
           },
           topic: {
             id: 'topic-2',
@@ -477,6 +479,7 @@ describe('getEntityDisplayText', () => {
           subject: {
             short_name: null,
             long_name: 'English',
+            color: null,
           },
           topic: {
             id: 'topic-3',
