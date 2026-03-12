@@ -1341,6 +1341,91 @@ export type Database = {
           },
         ]
       }
+      credit_balance_transactions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          credit_note_id: string | null
+          credit_type: string | null
+          currency: string
+          debit_type: string | null
+          description: string | null
+          effective_at: string
+          id: string
+          invoice_id: string | null
+          raw: Json
+          stripe_credit_balance_transaction_id: string
+          stripe_credit_grant_id: string
+          stripe_customer_id: string | null
+          stripe_invoice_id: string | null
+          stripe_invoice_line_item_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          credit_note_id?: string | null
+          credit_type?: string | null
+          currency?: string
+          debit_type?: string | null
+          description?: string | null
+          effective_at: string
+          id?: string
+          invoice_id?: string | null
+          raw: Json
+          stripe_credit_balance_transaction_id: string
+          stripe_credit_grant_id: string
+          stripe_customer_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_invoice_line_item_id?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          credit_note_id?: string | null
+          credit_type?: string | null
+          currency?: string
+          debit_type?: string | null
+          description?: string | null
+          effective_at?: string
+          id?: string
+          invoice_id?: string | null
+          raw?: Json
+          stripe_credit_balance_transaction_id?: string
+          stripe_credit_grant_id?: string
+          stripe_customer_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_invoice_line_item_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_balance_transactions_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_balance_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_balance_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_notes: {
         Row: {
           amount_cents: number
@@ -9323,17 +9408,29 @@ export type Database = {
       vtutor_class_detail: {
         Row: {
           class_id: string | null
+          class_level: string | null
           class_status: string | null
+          created_at: string | null
           day_of_week: number | null
           end_time: string | null
-          level: string | null
+          long_name: string | null
           room: string | null
+          short_name: string | null
           staff: Json | null
           start_time: string | null
           students: Json | null
           subject_color: string | null
+          subject_curriculum:
+            | Database["public"]["Enums"]["subject_curriculum"]
+            | null
+          subject_discipline:
+            | Database["public"]["Enums"]["subject_discipline"]
+            | null
           subject_id: string | null
+          subject_level: string | null
           subject_name: string | null
+          subject_year_level: number | null
+          updated_at: string | null
         }
         Relationships: [
           {
@@ -9366,7 +9463,9 @@ export type Database = {
           end_time: string | null
           id: string | null
           level: string | null
+          long_name: string | null
           room: string | null
+          short_name: string | null
           start_time: string | null
           status: string | null
           subject_color: string | null
@@ -11845,17 +11944,6 @@ export type Database = {
       format_class_full_name:
         | {
             Args: {
-              p_curriculum: string
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
               p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
               p_day_of_week: number
               p_end_time: string
@@ -11877,16 +11965,6 @@ export type Database = {
             Returns: string
           }
       format_class_short_name:
-        | {
-            Args: {
-              p_curriculum: string
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
         | {
             Args: {
               p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
