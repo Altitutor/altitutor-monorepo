@@ -27,7 +27,7 @@ function formatShortDate(dateString: string | null | undefined): string {
 
 type InvoiceLike = Pick<
   InvoiceRow,
-  'status' | 'paid_at' | 'refunded_at' | 'has_credit_notes'
+  'status' | 'paid_at' | 'refunded_at' | 'has_credit_notes' | 'is_refunded'
 > & {
   credit_notes?: { credit_amount_cents: number | null; created_at: string }[] | null;
 };
@@ -43,7 +43,6 @@ export function getInvoiceStatusBadge(
   // Backwards compatibility: allow calling with (status, isRefunded)
   if (typeof invoiceOrStatus === 'string') {
     const status = invoiceOrStatus;
-    const paidLabel = 'Paid';
     const refundedLabel = isRefundedLegacy ? 'Paid (Refunded)' : 'Paid';
 
     switch (status) {
@@ -111,7 +110,11 @@ export function getInvoiceStatusBadge(
     }
 
     // Refunded pill
-    const isRefunded = invoice.status === 'paid_refunded' || !!invoice.refunded_at || !!invoiceOrStatus.has_credit_notes;
+    const isRefunded =
+      invoice.status === 'paid_refunded' ||
+      !!invoice.refunded_at ||
+      !!invoice.has_credit_notes ||
+      !!invoice.is_refunded;
     if (isRefunded) {
       const refundDate = formatShortDate(invoice.refunded_at);
       const refundedLabel = refundDate ? `Refunded ${refundDate}` : 'Refunded';

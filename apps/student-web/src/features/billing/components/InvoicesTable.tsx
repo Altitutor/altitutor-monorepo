@@ -1,39 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Badge,
-  Button,
-  TablePagination,
-} from '@altitutor/ui';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, TablePagination } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
 import type { InvoiceItem } from '../api';
 import { formatInvoiceDate } from '../utils/invoiceFormatters';
-
-type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
-
-const getStatusVariant = (status: InvoiceStatus): 'default' | 'secondary' | 'destructive' => {
-  switch (status) {
-    case 'paid':
-      return 'default';
-    case 'draft':
-    case 'open':
-      return 'secondary';
-    case 'void':
-    case 'uncollectible':
-    case 'disputed':
-      return 'destructive';
-    default:
-      return 'secondary';
-  }
-};
 
 const formatAmount = (cents: number | null): string => {
   if (cents === null) return '-';

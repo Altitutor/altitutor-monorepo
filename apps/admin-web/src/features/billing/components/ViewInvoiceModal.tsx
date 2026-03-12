@@ -69,10 +69,28 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   const amountPaidFromBalanceCents = invoice?.amount_paid_from_balance_cents || 0;
   const hasCreditBalance = amountPaidFromBalanceCents > 0;
   const isRefunded = !!invoice?.is_refunded;
-  const isFullyCredited =
-    !!invoice?.has_credit_notes &&
-    invoice.status === 'paid' &&
-    invoice.amount_due_cents === 0;
+
+  const totalCreditSettlementCents = creditNotes
+    .filter((note) => note.status !== 'void')
+    .reduce((sum, note) => {
+      type CreditNoteWithSettlement = typeof note & {
+        refund_amount_cents?: number | null;
+        credit_amount_cents?: number | null;
+        out_of_band_amount_cents?: number | null;
+      };
+
+      const noteWithSettlement = note as CreditNoteWithSettlement;
+      const refund = noteWithSettlement.refund_amount_cents ?? 0;
+      const credit = noteWithSettlement.credit_amount_cents ?? 0;
+      const outOfBand = noteWithSettlement.out_of_band_amount_cents ?? 0;
+      const settlement = refund + credit + outOfBand;
+      return sum + (settlement > 0 ? settlement : note.amount_cents);
+    }, 0);
+
+  const invoiceTotalCents =
+    (invoice?.total_cents ?? invoice?.amount_due_cents ?? null) ?? 0;
+
+  const isFullyCredited = totalCreditSettlementCents >= invoiceTotalCents && invoiceTotalCents > 0;
   
   // Extract last payment error from metadata
   type InvoiceMetadata = {
@@ -315,6 +333,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                       paid_at: invoice.paid_at,
                       refunded_at: invoice.refunded_at,
                       has_credit_notes: invoice.has_credit_notes,
+                      is_refunded: invoice.is_refunded,
                     })}
                   </div>
                   
@@ -520,45 +539,68 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                     {/* Credit Notes */}
                     {creditNotes.length > 0 && (
                       <div className="space-y-3">
-                        {creditNotes.map((creditNote) => (
-                          <div
-                            key={creditNote.id}
-                            className={cn(
-                              "p-3 rounded-md border",
-                              creditNote.status === 'void' && "opacity-60 bg-muted/30"
-                            )}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Badge 
-                                    variant={creditNote.status === 'void' ? 'outline' : 'secondary'} 
-                                    className="text-xs"
-                                  >
-                                    Credit Note
-                                  </Badge>
-                                  {creditNote.status === 'void' && (
-                                    <Badge variant="outline" className="text-xs">Void</Badge>
-                                  )}
-                                  <span className="text-xs text-muted-foreground">
-                                    {format(new Date(creditNote.created_at), 'MMM d, yyyy')}
-                                  </span>
-                                </div>
-                                {creditNote.reason && (
-                                  <div className="text-sm text-muted-foreground mb-1">
-                                    {creditNote.reason}
+                        {creditNotes.map((creditNote) => {
+                          // Settlement breakdown fields may not be present on older rows; fall back gracefully.
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const anyNote = creditNote as any;
+                          const refundAmountCents: number = anyNote.refund_amount_cents ?? 0;
+                          const creditAmountCents: number = anyNote.credit_amount_cents ?? 0;
+                          const outOfBandAmountCents: number = anyNote.out_of_band_amount_cents ?? 0;
+
+                          let actionLabel: string | null = null;
+                          if (refundAmountCents > 0) {
+                            actionLabel = `Action: Refunded ${formatInvoiceAmount(refundAmountCents, creditNote.currency)}`;
+                          } else if (creditAmountCents > 0) {
+                            actionLabel = `Action: Credited to balance ${formatInvoiceAmount(creditAmountCents, creditNote.currency)}`;
+                          } else if (outOfBandAmountCents > 0) {
+                            actionLabel = `Action: Settled externally (out of band) ${formatInvoiceAmount(outOfBandAmountCents, creditNote.currency)}`;
+                          }
+
+                          return (
+                            <div
+                              key={creditNote.id}
+                              className={cn(
+                                "p-3 rounded-md border",
+                                creditNote.status === 'void' && "opacity-60 bg-muted/30"
+                              )}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge 
+                                      variant={creditNote.status === 'void' ? 'outline' : 'secondary'} 
+                                      className="text-xs"
+                                    >
+                                      Credit Note
+                                    </Badge>
+                                    {creditNote.status === 'void' && (
+                                      <Badge variant="outline" className="text-xs">Void</Badge>
+                                    )}
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(creditNote.created_at), 'MMM d, yyyy')}
+                                    </span>
                                   </div>
-                                )}
-                                <div className="text-xs text-muted-foreground">
-                                  Status: {creditNote.status}
+                                  {creditNote.reason && (
+                                    <div className="text-sm text-muted-foreground mb-1">
+                                      {creditNote.reason}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-muted-foreground">
+                                    Status: {creditNote.status}
+                                  </div>
+                                  {actionLabel && (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      {actionLabel}
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                              <div className="text-sm font-medium text-green-600 dark:text-green-400 ml-4">
-                                -{formatInvoiceAmount(creditNote.amount_cents, creditNote.currency)}
+                                <div className="text-sm font-medium text-green-600 dark:text-green-400 ml-4">
+                                  -{formatInvoiceAmount(creditNote.amount_cents, creditNote.currency)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

@@ -1706,13 +1706,17 @@ export async function fetchBillingStatsReportData(
     if (index === undefined) return;
 
     // Settlement breakdown from DB (may not be present on older rows)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const refundAmountCents = ((note as any).refund_amount_cents as number | null) ?? 0;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const creditAmountCents = ((note as any).credit_amount_cents as number | null) ?? 0;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const outOfBandAmountCents =
-      ((note as any).out_of_band_amount_cents as number | null) ?? 0;
+    type CreditNoteWithSettlement = typeof note & {
+      refund_amount_cents?: number | null;
+      credit_amount_cents?: number | null;
+      out_of_band_amount_cents?: number | null;
+    };
+
+    const noteWithSettlement = note as CreditNoteWithSettlement;
+
+    const refundAmountCents = noteWithSettlement.refund_amount_cents ?? 0;
+    const creditAmountCents = noteWithSettlement.credit_amount_cents ?? 0;
+    const outOfBandAmountCents = noteWithSettlement.out_of_band_amount_cents ?? 0;
 
     const hasRefund = refundAmountCents > 0;
     const hasCredit = creditAmountCents > 0;

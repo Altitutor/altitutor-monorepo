@@ -23,6 +23,7 @@ import {
   CreditNoteDialog,
   invoicesKeys,
 } from '@/features/billing';
+import { useCreditNotesByInvoice } from '@/features/billing/hooks/useCreditNotesByInvoice';
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared';
 import type { InvoiceRow } from '@/features/billing/api/billing';
 import { cn, getErrorMessage } from '@/shared/utils';
@@ -113,6 +114,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
   const total = data?.total || 0;
   const invoiceIds = useMemo(() => invoices.map((inv) => inv.id), [invoices]);
   const { data: invoiceItemsMap = {} } = useInvoiceItems(invoiceIds);
+  const { data: creditNotesMap = {} } = useCreditNotesByInvoice(invoiceIds);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     {
@@ -273,6 +275,8 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
               invoices.map((invoice) => {
                 const sessionDate = invoice.invoice_date ? new Date(invoice.invoice_date) : null;
                 const items = invoiceItemsMap[invoice.id] || [];
+                 // Credit notes for this invoice (if any)
+                const creditNotes = creditNotesMap[invoice.id] || [];
                 const invoiceTagText = formatInvoiceTagText({
                   invoiceDate: invoice.invoice_date,
                   lineItemDescriptions: items.map((item) => item.description || 'Invoice item'),
@@ -281,11 +285,27 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                 const canInvoiceAcceptCreditNote =
                   (invoice.status === 'open' || invoice.status === 'paid') &&
                   !!invoice.stripe_invoice_id;
+                const totalCreditSettlementCents = creditNotes
+                  .filter((note) => note.status !== 'void')
+                  .reduce((sum, note) => {
+                    type CreditNoteWithSettlement = typeof note & {
+                      refund_amount_cents?: number | null;
+                      credit_amount_cents?: number | null;
+                      out_of_band_amount_cents?: number | null;
+                    };
+
+                    const noteWithSettlement = note as CreditNoteWithSettlement;
+                    const refund = noteWithSettlement.refund_amount_cents ?? 0;
+                    const credit = noteWithSettlement.credit_amount_cents ?? 0;
+                    const outOfBand = noteWithSettlement.out_of_band_amount_cents ?? 0;
+                    const settlement = refund + credit + outOfBand;
+                    return sum + (settlement > 0 ? settlement : note.amount_cents);
+                  }, 0);
+                const invoiceTotalCents =
+                  (invoice.total_cents ?? invoice.amount_due_cents ?? null) ?? 0;
                 const isRefunded = invoice.is_refunded;
                 const isFullyCredited =
-                  invoice.has_credit_notes &&
-                  invoice.status === 'paid' &&
-                  invoice.amount_due_cents === 0;
+                  totalCreditSettlementCents >= invoiceTotalCents && invoiceTotalCents > 0;
 
                 return (
                   <TableRow
@@ -343,6 +363,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                           paid_at: invoice.paid_at,
                           refunded_at: invoice.refunded_at,
                           has_credit_notes: invoice.has_credit_notes,
+                          is_refunded: invoice.is_refunded,
                         })}
                       </TableCell>
                     )}

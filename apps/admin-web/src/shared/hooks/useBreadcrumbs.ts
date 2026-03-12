@@ -179,7 +179,15 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           try {
             const classData = await classesApi.getClassWithDetails(id);
             if (classData.class) {
-              results[id] = classData.class.short_name?.trim() ?? '';
+              const subjectName =
+                classData.subject?.short_name ??
+                classData.subject?.long_name ??
+                classData.subject?.name ??
+                '';
+
+              results[id] =
+                classData.class.short_name?.trim() ??
+                subjectName;
             }
           } catch {
             // Ignore errors
