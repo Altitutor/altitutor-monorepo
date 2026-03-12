@@ -164,6 +164,19 @@ export async function POST(
 
     const creditNote = await stripe.creditNotes.create(createParams, { idempotencyKey });
 
+    // Infer settlement breakdown from Stripe credit note payload.
+    // Newer Stripe API versions expose refund/credit/out-of-band via related fields rather than explicit *_amounts.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const cnAny = creditNote as any;
+    const hasRefund =
+      Boolean(cnAny.refund) ||
+      (Array.isArray(cnAny.refunds) && cnAny.refunds.length > 0);
+    const hasCustomerBalance = Boolean(cnAny.customer_balance_transaction);
+    const outOfBandAmount: number | null =
+      typeof cnAny.out_of_band_amount === 'number' ? cnAny.out_of_band_amount : null;
+
+    const totalAmount = creditNote.amount ?? null;
+
     // Persist credit note in DB immediately so UI shows it without waiting for webhook.
     // Webhook will upsert if it runs later (same stripe_credit_note_id).
     // @ts-expect-error - Supabase client table inference can resolve to never for credit_notes/invoices; schema is correct
@@ -171,19 +184,15 @@ export async function POST(
       {
         invoice_id: invoiceId,
         stripe_credit_note_id: creditNote.id,
-        amount_cents: creditNote.amount ?? 0,
+        amount_cents: totalAmount ?? 0,
         currency: creditNote.currency ?? 'aud',
         reason: creditNote.reason ?? null,
         status: creditNote.status ?? 'issued',
         metadata: creditNote.metadata ?? {},
-        // Settlement breakdown (mirrors Stripe payment_refund_amount / credit_amount / out_of_band_amount).
-        // Note: Stripe's TypeScript typings for CreditNote may not yet expose these fields; access via any.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        refund_amount_cents: (creditNote as any).payment_refund_amount ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        credit_amount_cents: (creditNote as any).credit_amount ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        out_of_band_amount_cents: (creditNote as any).out_of_band_amount ?? null,
+        // Map settlement based on how the credit note was applied.
+        refund_amount_cents: hasRefund ? totalAmount : null,
+        credit_amount_cents: hasCustomerBalance ? totalAmount : null,
+        out_of_band_amount_cents: outOfBandAmount,
       },
       { onConflict: 'stripe_credit_note_id' }
     );

@@ -742,7 +742,7 @@ Deno.serve(async (req: Request) => {
 
       case 'credit_note.created': {
         // HIGH: Create or update credit_notes record (upsert: API may have already inserted)
-        // Includes settlement breakdown from Stripe: refund_amount, credit_amount, out_of_band_amount
+        // Infer settlement breakdown from Stripe credit note object based on how it's applied.
         const creditNote = event.data.object as {
           id: string;
           invoice: string;
@@ -751,11 +751,20 @@ Deno.serve(async (req: Request) => {
           reason?: string;
           status?: string;
           metadata?: Record<string, unknown>;
-          payment_refund_amount?: number | null;
-          credit_amount?: number | null;
+          refund?: string | null;
+          refunds?: unknown[] | null;
+          customer_balance_transaction?: string | null;
           out_of_band_amount?: number | null;
         };
         const invoiceId = creditNote.invoice as string;
+
+        const totalAmount = creditNote.amount ?? null;
+        const hasRefund =
+          Boolean(creditNote.refund) ||
+          (Array.isArray(creditNote.refunds) && creditNote.refunds.length > 0);
+        const hasCustomerBalance = Boolean(creditNote.customer_balance_transaction);
+        const outOfBandAmount: number | null =
+          typeof creditNote.out_of_band_amount === 'number' ? creditNote.out_of_band_amount : null;
 
         const { data: invoice, error: findErr } = await supabase
           .from('invoices')
@@ -772,14 +781,14 @@ Deno.serve(async (req: Request) => {
               {
                 invoice_id: invoice.id,
                 stripe_credit_note_id: creditNote.id,
-                amount_cents: creditNote.amount ?? 0,
+                amount_cents: totalAmount ?? 0,
                 currency: creditNote.currency ?? 'aud',
                 reason: creditNote.reason ?? null,
                 status: creditNote.status ?? 'issued',
                 metadata: creditNote.metadata ?? {},
-                refund_amount_cents: creditNote.payment_refund_amount ?? null,
-                credit_amount_cents: creditNote.credit_amount ?? null,
-                out_of_band_amount_cents: creditNote.out_of_band_amount ?? null,
+                refund_amount_cents: hasRefund ? totalAmount : null,
+                credit_amount_cents: hasCustomerBalance ? totalAmount : null,
+                out_of_band_amount_cents: outOfBandAmount,
               },
               { onConflict: 'stripe_credit_note_id' }
             );
@@ -818,10 +827,20 @@ Deno.serve(async (req: Request) => {
           invoice?: string;
           status?: string;
           reason?: string;
-          payment_refund_amount?: number | null;
-          credit_amount?: number | null;
+          refund?: string | null;
+          refunds?: unknown[] | null;
+          customer_balance_transaction?: string | null;
           out_of_band_amount?: number | null;
+          amount?: number;
         };
+
+        const totalAmount = creditNote.amount ?? null;
+        const hasRefund =
+          Boolean(creditNote.refund) ||
+          (Array.isArray(creditNote.refunds) && creditNote.refunds.length > 0);
+        const hasCustomerBalance = Boolean(creditNote.customer_balance_transaction);
+        const outOfBandAmount: number | null =
+          typeof creditNote.out_of_band_amount === 'number' ? creditNote.out_of_band_amount : null;
         
         const { data: existing } = await supabase
           .from('credit_notes')
@@ -834,9 +853,9 @@ Deno.serve(async (req: Request) => {
           .update({
             status: creditNote.status,
             reason: creditNote.reason,
-            refund_amount_cents: creditNote.payment_refund_amount ?? null,
-            credit_amount_cents: creditNote.credit_amount ?? null,
-            out_of_band_amount_cents: creditNote.out_of_band_amount ?? null,
+            refund_amount_cents: hasRefund ? totalAmount : null,
+            credit_amount_cents: hasCustomerBalance ? totalAmount : null,
+            out_of_band_amount_cents: outOfBandAmount,
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_credit_note_id', creditNote.id);
