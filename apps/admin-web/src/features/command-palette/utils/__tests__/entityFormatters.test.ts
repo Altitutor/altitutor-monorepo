@@ -321,7 +321,7 @@ describe('getEntityDisplayText', () => {
   });
 
   describe('topic entities', () => {
-    it('should format topic as subject pill, topic code, topic name with no subtitle', () => {
+    it('should format topic with subject short_name in pill, title as code and name, no subtitle', () => {
       const result: CommandPaletteEntityResult = {
         type: 'topic',
         id: 'topic-1',
@@ -338,8 +338,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Mathematics 1.2 Algebra');
+      expect(display.title).toBe('1.2 Algebra');
       expect(display.subtitle).toBeNull();
+      expect(display.subjectPill?.shortName).toBe('Math');
     });
 
     it('should fallback to short_name when long_name is not available', () => {
@@ -359,8 +360,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Math 2 Geometry');
+      expect(display.title).toBe('2 Geometry');
       expect(display.subtitle).toBeNull();
+      expect(display.subjectPill?.shortName).toBe('Math');
     });
 
     it('should fallback to name when neither long_name nor short_name is available', () => {
@@ -380,8 +382,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('math 3.1 Calculus');
+      expect(display.title).toBe('3.1 Calculus');
       expect(display.subtitle).toBeNull();
+      expect(display.subjectPill?.shortName).toBe('math');
     });
 
     it('should handle topic without subject', () => {
@@ -399,11 +402,12 @@ describe('getEntityDisplayText', () => {
       const display = getEntityDisplayText(result);
       expect(display.title).toBe('4 Topic Name');
       expect(display.subtitle).toBeNull();
+      expect(display.subjectPill).toBeNull();
     });
   });
 
   describe('file entities', () => {
-    it('should format file title as subject, code, topic name, file type and subtitle as filename', () => {
+    it('should format file with subject pill, title as code topic name file type, subtitle as filename', () => {
       const result: CommandPaletteEntityResult = {
         type: 'file',
         id: 'file-1',
@@ -427,8 +431,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Math A1 Algebra Notes');
+      expect(display.title).toBe('A1 Algebra Notes');
       expect(display.subtitle).toBe('worksheet.pdf');
+      expect(display.subjectPill?.shortName).toBe('Math');
     });
 
     it('should handle file without code', () => {
@@ -455,8 +460,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Eng Grammar Practice Questions');
+      expect(display.title).toBe('Grammar Practice Questions');
       expect(display.subtitle).toBe('notes.pdf');
+      expect(display.subjectPill?.shortName).toBe('Eng');
     });
 
     it('should handle file without subject short_name', () => {
@@ -483,8 +489,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('English B2 Topic Test');
+      expect(display.title).toBe('B2 Topic Test');
       expect(display.subtitle).toBe('file.pdf');
+      expect(display.subjectPill?.shortName).toBe('English');
     });
   });
 });

@@ -45,7 +45,7 @@ export function EntityItem({
   if (!config) return null;
 
   const Icon = config.icon;
-  const { title, subtitle } = getEntityDisplayText(result);
+  const { title, subtitle, subjectPill } = getEntityDisplayText(result);
 
   const baseClasses = cn(
     'w-full flex items-start gap-3 px-4 py-3 rounded-md cursor-pointer transition-colors text-left',
@@ -67,13 +67,31 @@ export function EntityItem({
       onMouseEnter={onMouseEnter}
     >
       <Icon className="h-5 w-5 text-muted-foreground mt-0.5 flex-shrink-0" />
-      <div className="flex-1 min-w-0 text-left">
-        <div className="font-medium">{highlightText(title, searchQuery)}</div>
-        {subtitle && (
-          <div className="text-sm text-muted-foreground">
-            {highlightText(subtitle, searchQuery)}
-          </div>
+      <div className="flex-1 min-w-0 text-left flex flex-wrap items-baseline gap-2">
+        {subjectPill && (
+          <Badge
+            variant="secondary"
+            className={cn(
+              'text-xs px-2 py-0.5 flex-shrink-0',
+              subjectPill.defaultClass || subjectPill.textColorClass
+            )}
+            style={
+              subjectPill.style.backgroundColor
+                ? { backgroundColor: subjectPill.style.backgroundColor }
+                : undefined
+            }
+          >
+            {subjectPill.shortName}
+          </Badge>
         )}
+        <div className="min-w-0">
+          <span className="font-medium">{highlightText(title, searchQuery)}</span>
+          {subtitle != null && subtitle !== '' && (
+            <div className="text-sm text-muted-foreground">
+              {highlightText(subtitle, searchQuery)}
+            </div>
+          )}
+        </div>
       </div>
       <Badge variant="outline" className="text-xs flex-shrink-0">
         {config.label}

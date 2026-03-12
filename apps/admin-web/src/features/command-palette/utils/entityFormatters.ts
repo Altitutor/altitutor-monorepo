@@ -1,17 +1,27 @@
 /**
  * Entity Formatters for Command Palette
- * 
- * Extracts display text (title/subtitle) from entity results.
+ *
+ * Extracts display text (title/subtitle) and optional subject pill from entity results.
  * This logic is used in multiple places and should be centralized.
  */
 
 import type { Enums, Tables } from '@altitutor/shared';
-import { getFileTypeLabel } from '@/shared/utils';
+import { getFileTypeLabel, getSubjectColorStyle } from '@/shared/utils';
 import type { CommandPaletteEntityResult } from '../types';
+
+/** Style for subject pill badge (avoids pulling React into this module). */
+export interface SubjectPillStyle {
+  shortName: string;
+  style: { backgroundColor?: string };
+  textColorClass: string;
+  defaultClass: string;
+}
 
 export interface EntityDisplayText {
   title: string;
   subtitle: string | null;
+  /** When set, render a colored subject pill before the title (topic and file entities). */
+  subjectPill?: SubjectPillStyle | null;
 }
 
 /**
@@ -90,36 +100,60 @@ export function getEntityDisplayText(result: CommandPaletteEntityResult): Entity
   }
 
   if (result.type === 'topic') {
-    const subjectName =
-      result.data.subject?.long_name ||
-      result.data.subject?.short_name ||
-      result.data.subject?.name ||
-      '';
+    const subject = result.data.subject;
+    const shortName = subject
+      ? (subject.short_name ?? subject.long_name ?? subject.name ?? '')
+      : '';
     const topicCode = result.data.code || '';
     const topicName = result.data.name || '';
-    const title = [subjectName, topicCode, topicName].filter(Boolean).join(' ').trim();
+    const title = [topicCode, topicName].filter(Boolean).join(' ').trim();
+    const { style, textColorClass } = getSubjectColorStyle(subject ?? null);
+    const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200' : '';
     return {
       title,
       subtitle: null,
+      subjectPill: shortName
+        ? {
+            shortName,
+            style: { backgroundColor: style.backgroundColor },
+            textColorClass,
+            defaultClass,
+          }
+        : null,
     };
   }
 
   if (result.type === 'file') {
     const fileData = result.data;
-    const subjectName =
+    const shortName =
       fileData.subject.short_name || fileData.subject.long_name || '';
     const fileCode = fileData.code || '';
     const topicName = fileData.topic.name || '';
     const fileTypeLabel = fileData.type
       ? getFileTypeLabel(fileData.type as Enums<'resource_type'>)
       : '';
-    const title = [subjectName, fileCode, topicName, fileTypeLabel]
+    const title = [fileCode, topicName, fileTypeLabel]
       .filter(Boolean)
       .join(' ')
       .trim();
+    // File search does not return subject.color; use default gray pill
+    const subjectLike = {
+      ...fileData.subject,
+      color: null as string | null,
+    } as Tables<'subjects'>;
+    const { style, textColorClass } = getSubjectColorStyle(subjectLike);
+    const defaultClass = 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200';
     return {
       title,
       subtitle: fileData.file.filename,
+      subjectPill: shortName
+        ? {
+            shortName,
+            style: { backgroundColor: style.backgroundColor },
+            textColorClass,
+            defaultClass,
+          }
+        : null,
     };
   }
 
