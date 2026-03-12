@@ -71,10 +71,13 @@ export type SessionShortNameInput = {
 
 /**
  * Returns a short display name for a session (e.g. for dialogs).
- * Prefers getSessionTitle, then date+time from start_at/end_at, then class time.
+ * Prefers session.short_name, then session.long_name, then getSessionTitle, then date+time.
  */
 export function getShortSessionName(session: SessionShortNameInput | null | undefined): string {
   if (!session) return 'this session';
+  const s = session as SessionShortNameInput & { short_name?: string | null; long_name?: string | null };
+  if (s.short_name?.trim()) return s.short_name.trim();
+  if (s.long_name?.trim()) return s.long_name.trim();
   const fromTitle = getSessionTitle(session as SessionWithDetails);
   if (fromTitle) return fromTitle;
 
