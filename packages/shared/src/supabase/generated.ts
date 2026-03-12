@@ -1430,11 +1430,14 @@ export type Database = {
         Row: {
           amount_cents: number
           created_at: string
+          credit_amount_cents: number | null
           currency: string
           id: string
           invoice_id: string
           metadata: Json | null
+          out_of_band_amount_cents: number | null
           reason: string | null
+          refund_amount_cents: number | null
           status: string
           stripe_credit_note_id: string
           updated_at: string
@@ -1443,11 +1446,14 @@ export type Database = {
         Insert: {
           amount_cents: number
           created_at?: string
+          credit_amount_cents?: number | null
           currency?: string
           id?: string
           invoice_id: string
           metadata?: Json | null
+          out_of_band_amount_cents?: number | null
           reason?: string | null
+          refund_amount_cents?: number | null
           status?: string
           stripe_credit_note_id: string
           updated_at?: string
@@ -1456,11 +1462,14 @@ export type Database = {
         Update: {
           amount_cents?: number
           created_at?: string
+          credit_amount_cents?: number | null
           currency?: string
           id?: string
           invoice_id?: string
           metadata?: Json | null
+          out_of_band_amount_cents?: number | null
           reason?: string | null
+          refund_amount_cents?: number | null
           status?: string
           stripe_credit_note_id?: string
           updated_at?: string
