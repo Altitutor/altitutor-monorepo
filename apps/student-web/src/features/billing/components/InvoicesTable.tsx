@@ -131,9 +131,26 @@ export function InvoicesTable() {
                   </TableCell>
                   <TableCell>
                     {invoice.status ? (
-                      <Badge variant={getStatusVariant(invoice.status as InvoiceStatus)}>
-                        {invoice.status}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {(invoice.status === 'paid' || invoice.paid_at) && (
+                          <Badge variant="default">
+                            {invoice.paid_at
+                              ? `Paid ${new Date(invoice.paid_at).toLocaleDateString('en-AU')}`
+                              : 'Paid'}
+                          </Badge>
+                        )}
+                        {invoice.status === 'draft' && (
+                          <Badge variant="outline">Draft</Badge>
+                        )}
+                        {invoice.status === 'open' && (
+                          <Badge variant="secondary">Open</Badge>
+                        )}
+                        {['void', 'uncollectible', 'disputed'].includes(invoice.status) && (
+                          <Badge variant="destructive">
+                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                          </Badge>
+                        )}
+                      </div>
                     ) : (
                       '-'
                     )}

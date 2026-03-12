@@ -310,7 +310,12 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   
                   <div className="text-sm font-medium text-muted-foreground">Status:</div>
                   <div className="text-sm">
-                    {getInvoiceStatusBadge(invoice.status, invoice.is_refunded || invoice.has_credit_notes)}
+                    {getInvoiceStatusBadge({
+                      status: invoice.status,
+                      paid_at: invoice.paid_at,
+                      refunded_at: invoice.refunded_at,
+                      has_credit_notes: invoice.has_credit_notes,
+                    })}
                   </div>
                   
                   {subtotalCents !== null && subtotalCents !== undefined && (

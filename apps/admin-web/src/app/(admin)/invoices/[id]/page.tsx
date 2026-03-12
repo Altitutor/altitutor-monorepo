@@ -250,7 +250,14 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
             <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
             
             <div className="text-sm font-medium text-muted-foreground">Status:</div>
-            <div className="text-sm">{getInvoiceStatusBadge(invoice.status, invoice.is_refunded || invoice.has_credit_notes)}</div>
+            <div className="text-sm">
+              {getInvoiceStatusBadge({
+                status: invoice.status,
+                paid_at: invoice.paid_at,
+                refunded_at: invoice.refunded_at,
+                has_credit_notes: invoice.has_credit_notes,
+              })}
+            </div>
             
             {subtotalCents !== null && subtotalCents !== undefined && (
               <>
