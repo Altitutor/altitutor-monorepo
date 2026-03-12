@@ -176,10 +176,10 @@ export async function POST(
         reason: creditNote.reason ?? null,
         status: creditNote.status ?? 'issued',
         metadata: creditNote.metadata ?? {},
-        // Settlement breakdown (mirrors Stripe refund_amount / credit_amount / out_of_band_amount).
+        // Settlement breakdown (mirrors Stripe payment_refund_amount / credit_amount / out_of_band_amount).
         // Note: Stripe's TypeScript typings for CreditNote may not yet expose these fields; access via any.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        refund_amount_cents: (creditNote as any).refund_amount ?? null,
+        refund_amount_cents: (creditNote as any).payment_refund_amount ?? null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         credit_amount_cents: (creditNote as any).credit_amount ?? null,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

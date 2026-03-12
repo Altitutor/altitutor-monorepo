@@ -61,8 +61,12 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   });
 
   // Computed values
-  const totalAmount = invoice?.amount_due_cents || 0;
-  const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
+  const totalAmountForComparison = invoice?.amount_due_cents || 0;
+  const isPaidLike = invoice?.status === 'paid' || invoice?.status === 'paid_refunded';
+  const summaryAmountCents = isPaidLike
+    ? invoice?.amount_paid_cents ?? invoice?.amount_due_cents ?? 0
+    : invoice?.amount_due_cents ?? 0;
+  const summaryAmountFormatted = `$${(summaryAmountCents / 100).toFixed(2)}`;
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
   const subtotalCents = invoice?.subtotal_cents;
   const totalCents = invoice?.total_cents;
@@ -493,12 +497,14 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                       </div>
                     )}
                     <div className="flex items-center justify-between pt-2 border-t font-semibold">
-                      <div className="text-sm">Amount Due:</div>
-                      <div className="text-sm">{totalAmountFormatted}</div>
+                      <div className="text-sm">
+                        {isPaidLike ? 'Amount Paid:' : 'Amount Due:'}
+                      </div>
+                      <div className="text-sm">{summaryAmountFormatted}</div>
                     </div>
                     
                     {/* Show warning if line items don't match total (indicates missing items or data inconsistency) */}
-                    {Math.abs(totalAmount - lineItemsSubtotal) > 1 && (
+                    {Math.abs(totalAmountForComparison - lineItemsSubtotal) > 1 && (
                       <div className="text-xs text-muted-foreground mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
                         Note: Line items total (${(lineItemsSubtotal / 100).toFixed(2)}) differs from invoice total. 
                         This may indicate missing fee items or other charges not yet synced from Stripe.

@@ -43,18 +43,19 @@ export function getInvoiceStatusBadge(
   // Backwards compatibility: allow calling with (status, isRefunded)
   if (typeof invoiceOrStatus === 'string') {
     const status = invoiceOrStatus;
-    const refundedLabel = isRefundedLegacy ? 'Paid (Refunded)' : 'Paid';
+    const isRefunded = status === 'paid_refunded' || !!isRefundedLegacy;
+    const refundedLabel = isRefunded ? 'Paid (Refunded)' : 'Paid';
 
     switch (status) {
       case 'paid':
         return (
-          <Badge variant="default" className="text-xs">
+          <Badge variant={isRefunded ? 'destructive' : 'default'} className="text-xs">
             {refundedLabel}
           </Badge>
         );
       case 'paid_refunded':
         return (
-          <Badge variant="default" className="text-xs">
+          <Badge variant="destructive" className="text-xs">
             Paid (Refunded)
           </Badge>
         );
@@ -118,7 +119,7 @@ export function getInvoiceStatusBadge(
     if (isRefunded) {
       const refundDate = formatShortDate(invoice.refunded_at);
       const refundedLabel = refundDate ? `Refunded ${refundDate}` : 'Refunded';
-      pills.push({ key: 'refunded', label: refundedLabel, variant: 'default' });
+      pills.push({ key: 'refunded', label: refundedLabel, variant: 'destructive' });
     }
 
     // Credited pill – any non-void credit note with credit_amount_cents > 0

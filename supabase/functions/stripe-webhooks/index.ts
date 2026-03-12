@@ -751,7 +751,7 @@ Deno.serve(async (req: Request) => {
           reason?: string;
           status?: string;
           metadata?: Record<string, unknown>;
-          refund_amount?: number | null;
+          payment_refund_amount?: number | null;
           credit_amount?: number | null;
           out_of_band_amount?: number | null;
         };
@@ -777,7 +777,7 @@ Deno.serve(async (req: Request) => {
                 reason: creditNote.reason ?? null,
                 status: creditNote.status ?? 'issued',
                 metadata: creditNote.metadata ?? {},
-                refund_amount_cents: creditNote.refund_amount ?? null,
+                refund_amount_cents: creditNote.payment_refund_amount ?? null,
                 credit_amount_cents: creditNote.credit_amount ?? null,
                 out_of_band_amount_cents: creditNote.out_of_band_amount ?? null,
               },
@@ -818,7 +818,7 @@ Deno.serve(async (req: Request) => {
           invoice?: string;
           status?: string;
           reason?: string;
-          refund_amount?: number | null;
+          payment_refund_amount?: number | null;
           credit_amount?: number | null;
           out_of_band_amount?: number | null;
         };
@@ -834,7 +834,7 @@ Deno.serve(async (req: Request) => {
           .update({
             status: creditNote.status,
             reason: creditNote.reason,
-            refund_amount_cents: creditNote.refund_amount ?? null,
+            refund_amount_cents: creditNote.payment_refund_amount ?? null,
             credit_amount_cents: creditNote.credit_amount ?? null,
             out_of_band_amount_cents: creditNote.out_of_band_amount ?? null,
             updated_at: new Date().toISOString(),
