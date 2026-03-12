@@ -9,7 +9,7 @@ import { Loader2, Search, Filter, X } from 'lucide-react';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import { formatClassName, cn } from '@/shared/utils';
+import { cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { AssignStaffContext, StaffConflictInfo, ClassConflictInfo, StaffUnavailabilityInfo } from '../../types/enrollment';
 
@@ -143,7 +143,7 @@ export function AssignStaffStep1SelectClassOrStaff({
                 "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
                 "bg-primary/10 text-primary border-primary/20"
               )}>
-                {formatClassName(classData, classSubject)}
+                {classData.long_name?.trim() ?? ''}
               </span>
             ) : (
               <span className="inline-flex items-center px-2 py-1 rounded-md font-semibold border bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20">
@@ -161,12 +161,12 @@ export function AssignStaffStep1SelectClassOrStaff({
                       "bg-primary/10 text-primary border-primary/20"
                     )}
                   >
-                    {formatClassName(c, c.subject)}
+                    {c.long_name?.trim() ?? ''}
                     <button
                       type="button"
                       onClick={() => onToggleClass(c.id)}
                       className="rounded p-0.5 hover:bg-primary/20 focus:outline-none focus:ring-2 focus:ring-primary/40"
-                      aria-label={`Remove ${formatClassName(c, c.subject)}`}
+                      aria-label={`Remove ${c.long_name?.trim() ?? ''}`}
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -308,15 +308,7 @@ export function AssignStaffStep1SelectClassOrStaff({
                     {hasConflict && conflictInfo && (
                       <div className="absolute bottom-2 left-2 right-2 z-20 pointer-events-none">
                         <div className="bg-red-500 text-white text-xs px-2 py-1 rounded shadow-sm">
-                          Conflict with {formatClassName(
-                            {
-                              id: conflictInfo.conflictingClass.id,
-                              day_of_week: conflictInfo.conflictingClass.day_of_week,
-                              start_time: conflictInfo.conflictingClass.start_time,
-                              end_time: conflictInfo.conflictingClass.end_time,
-                            } as Tables<'classes'>,
-                            conflictInfo.conflictingClass.subject || null
-                          )}
+                          Conflict with {(conflictInfo.conflictingClass as { long_name?: string | null }).long_name?.trim() ?? ''}
                         </div>
                       </div>
                     )}

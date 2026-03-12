@@ -16,7 +16,7 @@ import { ChevronDown, ChevronRight, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { ReconciliationActions } from './ReconciliationActions';
 import { useSubjects } from '@/features/subjects';
-import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor, cn } from '@/shared/utils';
+import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor, cn } from '@/shared/utils';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import type { Tables } from '@altitutor/shared';
 import type {
@@ -318,7 +318,7 @@ export function UnloggedSessionsTable({
                     className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
                     style={style.backgroundColor ? style : undefined}
                   >
-                    {formatSubjectDisplay(subject)}
+                    {subject?.long_name ?? ''}
                   </Badge>
                 ) : (
                   <span>{item.subject_name || '—'}</span>
@@ -375,7 +375,7 @@ export function UnassignedClassesTable({
                   className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
                   style={style.backgroundColor ? style : undefined}
                 >
-                  {formatSubjectDisplay(subject)}
+                  {subject?.long_name ?? ''}
                 </Badge>
               ) : (
                 item.subject_name || '—'
@@ -612,7 +612,7 @@ export function StudentsWithoutClassesTable({
                 className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
                 style={style.backgroundColor ? style : undefined}
               >
-                {formatSubjectDisplay(subject)}
+                {subject?.long_name ?? ''}
               </Badge>
             </TableCell>
             <TableCell>

@@ -18,7 +18,7 @@ import { ParentCard } from '@/shared/components/ParentCard';
 import type { IssueWithTags, IssueTag } from '../../types';
 import type { Tables } from '@altitutor/shared';
 import { MessageSquare, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
-import { cn, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils';
+import { cn, getSubjectColorStyle } from '@/shared/utils';
 import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 
 const handleEntityClick = (type: string, id: string) => {
@@ -398,7 +398,7 @@ function SubjectPillWrapper({ subjectId }: { subjectId: string }) {
     return null;
   }
   
-  const shortName = formatSubjectShortName(subject as Tables<'subjects'>);
+  const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
   const { style, textColorClass } = getSubjectColorStyle(subject as Tables<'subjects'>);
   const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
 

@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react';
 import { Button } from '@altitutor/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
-import { getErrorMessage, formatSubjectDisplay } from '@/shared/utils';
+import { getErrorMessage } from '@/shared/utils';
 import { Loader2, RefreshCw, ChevronDown, ChevronUp, X } from 'lucide-react';
 import {
   Dialog,
@@ -231,7 +231,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
 
       options.push({
         id: `${class_id}-${subject.id}-${billing_type}`,
-        label: `${formatSubjectDisplay(subject)} (${billing_type})`,
+        label: `${subject?.long_name ?? ''} (${billing_type})`,
         amount_cents: grossCents,
         currency: priceResult.currency,
         subject_id: subject.id,

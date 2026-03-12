@@ -21,7 +21,7 @@ import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Loader2, Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
+import { cn, getSubjectColorStyle } from '@/shared/utils';
 import { useSubjectsList } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 
@@ -351,7 +351,7 @@ export function AdminTrialContactForm({
                             )}
                             style={style.backgroundColor ? style : undefined}
                           >
-                            {formatSubjectDisplay(subject)}
+                            {subject?.long_name ?? ''}
                             <button
                               type="button"
                               onClick={() => handleRemoveSubject(subject.id)}
@@ -403,7 +403,7 @@ export function AdminTrialContactForm({
                                   onClick={() => handleSelectSubject(subject)}
                                   className="w-full text-left px-3 py-2 text-sm hover:bg-muted rounded-md"
                                 >
-                                  {formatSubjectDisplay(subject)}
+                                  {subject?.long_name ?? ''}
                                 </button>
                               ))
                             )}

@@ -1,6 +1,5 @@
 import type { Tables } from '@altitutor/shared';
 import { getInviteUrlForStaff } from '@/shared/utils/invites';
-import { formatClassName } from '@/shared/utils';
 import { STAFF_VARIABLES } from './variableConfig';
 import { getStaffClassesWithStartDates } from '../api/bulk';
 
@@ -35,12 +34,14 @@ function formatDateWithOrdinal(date: Date): string {
 export async function replaceVariablesForStaff(
   template: string,
   staff: Tables<'staff'>,
-  classes: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>,
+  classes: Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>,
   senderName?: string | null,
   options?: {
     inviteToken?: string | null;
     forgotPasswordLink?: string | null;
-    classesWithStartDates?: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null, startDate: Date | null }> | null;
+    classesWithStartDates?:
+      | Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null; startDate: Date | null }>
+      | null;
   }
 ): Promise<string> {
   let result = template;
@@ -58,8 +59,8 @@ export async function replaceVariablesForStaff(
   // Replace {classes} with formatted list
   const classesText = classes.length > 0
     ? classes
-        .map(({ class: cls, subject }) => {
-          const className = formatClassName(cls, subject);
+        .map(({ class: cls, subject: _subject }) => {
+          const className = cls.long_name?.trim() ?? '';
           return `- ${className}`;
         })
         .join('\n')
@@ -71,8 +72,8 @@ export async function replaceVariablesForStaff(
   if (options?.classesWithStartDates) {
     const classesWithDatesText = options.classesWithStartDates.length > 0
       ? options.classesWithStartDates
-          .map(({ class: cls, subject, startDate }) => {
-            const className = formatClassName(cls, subject);
+          .map(({ class: cls, subject: _subject, startDate }) => {
+            const className = cls.long_name?.trim() ?? '';
             if (startDate) {
               const formattedDate = formatDateWithOrdinal(startDate);
               return `- ${className} starting on ${formattedDate}`;
@@ -89,8 +90,8 @@ export async function replaceVariablesForStaff(
       const classesWithDates = await getStaffClassesWithStartDates(staff.id);
       const classesWithDatesText = classesWithDates.length > 0
         ? classesWithDates
-            .map(({ class: cls, subject, startDate }) => {
-              const className = formatClassName(cls, subject);
+            .map(({ class: cls, subject: _subject, startDate }) => {
+              const className = cls.long_name?.trim() ?? '';
               if (startDate) {
                 const formattedDate = formatDateWithOrdinal(startDate);
                 return `- ${className} starting on ${formattedDate}`;

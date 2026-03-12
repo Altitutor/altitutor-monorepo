@@ -15,7 +15,7 @@ import {
 } from '@altitutor/ui';
 import { ArrowUpDown, Search } from 'lucide-react';
 import type { DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { cn, formatSessionType, formatSubjectDisplay } from '@/shared/utils/index';
+import { cn, formatSessionType } from '@/shared/utils/index';
 import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
@@ -208,8 +208,8 @@ export function SessionsTable({
         })
       : list;
     return filtered
-      .sort((a, b) => formatSubjectDisplay(a).localeCompare(formatSubjectDisplay(b)))
-      .map((s) => ({ label: formatSubjectDisplay(s), value: s.id }));
+      .sort((a, b) => (a.long_name ?? '').localeCompare(b.long_name ?? ''))
+      .map((s) => ({ label: s.long_name ?? '', value: s.id }));
   }, [subjectsById, subjectFilterSearch]);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [

@@ -7,7 +7,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
 import { formatDateTime } from '@/shared/utils';
-import { formatSubjectShortName } from '@/shared/utils';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useParentsForStudent } from '@/features/enrollments/hooks/useParentsForStudent';
@@ -29,7 +28,7 @@ function buildAbsenceMessageTemplate(params: {
     if (!session) continue;
 
     const sessionDateTime = session.start_at ? formatDateTime(session.start_at) : '';
-    const subjectShort = session.subject ? formatSubjectShortName(session.subject) : '-';
+    const subjectShort = session.subject ? (session.subject.short_name ?? session.subject.long_name ?? session.subject.name ?? '') : '-';
 
     let actionText: string;
     if (decision.action === 'credit') {

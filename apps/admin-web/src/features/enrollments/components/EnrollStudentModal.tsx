@@ -6,7 +6,6 @@ import { Button } from '@altitutor/ui';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
-import { formatSubjectDisplay } from '@/shared/utils';
 import {
   useEnrollmentFilters,
   useEnrollmentConflicts,
@@ -424,7 +423,7 @@ export function EnrollStudentModal({
             <AlertDialogDescription>
               {warningState.warningStudent && (
                 <p>
-                  This student is already enrolled in a class for {formatSubjectDisplay(warningState.warningStudent.subject)}. Do you want to proceed?
+                  This student is already enrolled in a class for {warningState.warningStudent.subject?.long_name ?? ''}. Do you want to proceed?
                 </p>
               )}
             </AlertDialogDescription>

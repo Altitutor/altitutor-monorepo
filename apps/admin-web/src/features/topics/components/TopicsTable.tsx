@@ -19,7 +19,7 @@ import {
 } from "@altitutor/ui";
 import { ChevronRight, ChevronDown } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { getSubjectColorHex, formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
+import { getSubjectColorHex } from '@/shared/utils/index';
 import { useSearchTopics, useChildTopics } from '../hooks/useTopicsQuery';
 import { useTopicFilesByTopic } from '../hooks/useTopicsFilesQuery';
 import { getFileTypeLabel } from '@/shared/utils/file-type-icons';
@@ -145,7 +145,7 @@ export function TopicsTable({
       {
         key: 'subject',
         label: 'Subject',
-        options: subjectSearchResults.map(s => ({ label: formatSubjectDisplay(s), value: s.id })),
+        options: subjectSearchResults.map(s => ({ label: s.long_name ?? '', value: s.id })),
       },
     ];
   }, [hideSubjectFilter, subjectSearchResults]);
@@ -452,7 +452,7 @@ function TopicRow({
                 color: subjectColorHex || undefined,
               }}
             >
-              {formatSubjectShortName(topic.subject)}
+              {topic.subject?.short_name ?? topic.subject?.long_name ?? topic.subject?.name ?? ''}
             </div>
           </TableCell>
         )}

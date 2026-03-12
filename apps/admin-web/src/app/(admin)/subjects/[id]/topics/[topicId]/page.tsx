@@ -20,7 +20,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useToast } from '@altitutor/ui';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import type { TablesUpdate } from '@altitutor/shared';
 import {
   useTopicById,
@@ -296,7 +296,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                   <SelectContent>
                     {subjects.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {formatSubjectDisplay(s)}
+                        {s?.long_name ?? ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -393,7 +393,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                         className={defaultClass || textColorClass}
                         style={style.backgroundColor ? style : undefined}
                       >
-                        {formatSubjectDisplay(subject)}
+                        {subject?.long_name ?? ''}
                       </Badge>
                     );
                   })() : (

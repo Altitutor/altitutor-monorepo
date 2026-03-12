@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { formatClassName, formatSubjectDisplay, formatDate, cn } from '@/shared/utils';
+import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
@@ -34,17 +34,17 @@ export function ChangeClassStep2SelectDate({
 
   // Get subject name
   const subjectName = oldClassSubject
-    ? formatSubjectDisplay(oldClassSubject)
+    ? (oldClassSubject?.long_name ?? '')
     : 'choose subject';
 
   // Get old class name
   const oldClassName = oldClass && oldClassSubject
-    ? formatClassName(oldClass, oldClassSubject)
+    ? (oldClass.long_name?.trim() ?? '')
     : 'choose class';
 
   // Get new class name
   const newClassName = selectedNewClass
-    ? formatClassName(selectedNewClass, selectedNewClass.subject)
+    ? (selectedNewClass.long_name?.trim() ?? '')
     : 'choose class';
 
   // Generate list of future session dates for the new class (next 16 weeks worth)

@@ -1,10 +1,6 @@
 import {
-  formatClassName,
-  formatClassShortName,
   formatSessionType,
   getSessionTypeBadgeColor,
-  formatSubjectDisplay,
-  formatSubjectShortName,
   getSubjectColorStyle,
   getSubjectColorHex,
   getIconStrokeColor,
@@ -14,113 +10,6 @@ import {
 import type { Tables } from '@altitutor/shared';
 
 describe('display utilities', () => {
-  describe('formatClassName', () => {
-    const mockClass: Tables<'classes'> = {
-      id: 'class-1',
-      subject_id: 'subject-1',
-      day_of_week: 1,
-      start_time: '14:00:00',
-      end_time: '16:00:00',
-      level: null,
-      created_at: null,
-      created_by: null,
-      room: null,
-      session_end_date: null,
-      session_start_date: null,
-      status: 'ACTIVE',
-      updated_at: null,
-      short_name: null,
-      long_name: null,
-    };
-
-    const mockSubject: Tables<'subjects'> = {
-      id: 'subject-1',
-      name: 'Mathematics',
-      short_name: 'MATH',
-      long_name: 'SACE 12 Mathematics',
-      curriculum: 'SACE',
-      discipline: 'MATHEMATICS',
-      year_level: 12,
-      level: null,
-      color: null,
-      created_at: null,
-      updated_at: null,
-    };
-
-    it('should return class long_name from DB when present', () => {
-      const classWithLongName = { ...mockClass, long_name: 'SACE 12 Mathematics Mon 2:00 PM - 4:00 PM' };
-      const result = formatClassName(classWithLongName, mockSubject);
-      expect(result).toBe('SACE 12 Mathematics Mon 2:00 PM - 4:00 PM');
-    });
-
-    it('should return empty string when long_name is null', () => {
-      const result = formatClassName(mockClass, mockSubject);
-      expect(result).toBe('');
-    });
-
-    it('should return empty string without subject when long_name is null', () => {
-      const result = formatClassName(mockClass, null);
-      expect(result).toBe('');
-    });
-
-    it('should trim whitespace from long_name', () => {
-      const classWithSpaces = { ...mockClass, long_name: '  SACE 12 Math  ' };
-      const result = formatClassName(classWithSpaces, mockSubject);
-      expect(result).toBe('SACE 12 Math');
-    });
-  });
-
-  describe('formatClassShortName', () => {
-    const mockClass: Tables<'classes'> = {
-      id: 'class-1',
-      subject_id: 'subject-1',
-      day_of_week: 1,
-      start_time: '14:00:00',
-      end_time: '16:00:00',
-      level: null,
-      created_at: null,
-      created_by: null,
-      room: null,
-      session_end_date: null,
-      session_start_date: null,
-      status: 'ACTIVE',
-      updated_at: null,
-      short_name: null,
-      long_name: null,
-    };
-
-    const mockSubject: Tables<'subjects'> = {
-      id: 'subject-1',
-      name: 'Mathematics',
-      short_name: 'MATH',
-      long_name: 'SACE 12 Mathematics',
-      curriculum: 'SACE',
-      discipline: 'MATHEMATICS',
-      year_level: 12,
-      level: null,
-      color: null,
-      created_at: null,
-      updated_at: null,
-    };
-
-    it('should return class short_name from DB when present', () => {
-      const classWithShortName = { ...mockClass, short_name: 'MATH Mon 2:00 PM' };
-      const result = formatClassShortName(classWithShortName, mockSubject);
-      expect(result).toBe('MATH Mon 2:00 PM');
-    });
-
-    it('should return empty string when short_name is null', () => {
-      const result = formatClassShortName(mockClass, mockSubject);
-      expect(result).toBe('');
-    });
-
-    it('should trim whitespace from short_name', () => {
-      const classWithSpaces = { ...mockClass, short_name: '  MATH  ' };
-      const result = formatClassShortName(classWithSpaces, mockSubject);
-      expect(result).toBe('MATH');
-    });
-  });
-
   describe('formatSessionType', () => {
     it('should format known session types', () => {
       expect(formatSessionType('CLASS')).toBe('Class');
@@ -162,67 +51,6 @@ describe('display utilities', () => {
 
     it('should return default gray for unknown types', () => {
       expect(getSessionTypeBadgeColor('UNKNOWN')).toBe('bg-gray-100 text-gray-800');
-    });
-  });
-
-  describe('formatSubjectDisplay', () => {
-    const mockSubject: Tables<'subjects'> = {
-      id: 'subject-1',
-      name: 'Mathematics',
-      short_name: 'MATH',
-      long_name: 'SACE 12 Mathematics',
-      curriculum: 'SACE',
-      discipline: 'MATHEMATICS',
-      year_level: 12,
-      level: null,
-      color: null,
-      created_at: null,
-      updated_at: null,
-    };
-
-    it('should return long_name when available', () => {
-      expect(formatSubjectDisplay(mockSubject)).toBe('SACE 12 Mathematics');
-    });
-
-    it('should return empty string when long_name not available', () => {
-      const subjectNoLong = { ...mockSubject, long_name: null };
-      expect(formatSubjectDisplay(subjectNoLong)).toBe('');
-    });
-  });
-
-  describe('formatSubjectShortName', () => {
-    const mockSubject: Tables<'subjects'> = {
-      id: 'subject-1',
-      name: 'Mathematics',
-      short_name: 'MATH',
-      long_name: 'SACE 12 Mathematics',
-      curriculum: 'SACE',
-      discipline: 'MATHEMATICS',
-      year_level: 12,
-      level: null,
-      color: null,
-      created_at: null,
-      updated_at: null,
-    };
-
-    it('should return short_name when available', () => {
-      expect(formatSubjectShortName(mockSubject)).toBe('MATH');
-    });
-
-    it('should fall back to long_name', () => {
-      const subjectNoShort = { ...mockSubject, short_name: null };
-      expect(formatSubjectShortName(subjectNoShort)).toBe('SACE 12 Mathematics');
-    });
-
-    it('should fall back to name', () => {
-      const subjectNoShortOrLong = { ...mockSubject, short_name: null, long_name: null };
-      expect(formatSubjectShortName(subjectNoShortOrLong)).toBe('Mathematics');
-    });
-
-    it('should return empty string when all names missing', () => {
-      // Note: name is required (non-nullable), so we use empty string instead
-      const subjectNoNames: Tables<'subjects'> = { ...mockSubject, short_name: null, long_name: null, name: '' };
-      expect(formatSubjectShortName(subjectNoNames)).toBe('');
     });
   });
 

@@ -5,7 +5,6 @@ import { Input } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
 import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
 import { Loader2, BookOpen, Plus, X, Search } from "lucide-react";
-import { formatSubjectDisplay } from "@/shared/utils";
 import { cn } from "@/shared/utils";
 import { ViewSubjectModal } from '@/features/subjects';
 
@@ -78,7 +77,7 @@ export function StudentSubjectsTab({
   const filteredAvailableSubjects = availableSubjects.filter(subject => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    return formatSubjectDisplay(subject).toLowerCase().includes(query);
+    return (subject?.long_name ?? '').toLowerCase().includes(query);
   });
 
   return (
@@ -146,7 +145,7 @@ export function StudentSubjectsTab({
                       >
                         <div className="flex items-center justify-between w-full">
                           <div className="flex flex-col items-start">
-                            <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                            <div className="font-medium">{(subject?.long_name ?? '')}</div>
                           </div>
                           {assigningSubjects.has(subject.id) && (
                             <Loader2 className="h-4 w-4 animate-spin" />
@@ -202,7 +201,7 @@ export function StudentSubjectsTab({
                         >
                           <div className="flex items-center justify-between w-full">
                             <div className="flex flex-col items-start">
-                              <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                              <div className="font-medium">{(subject?.long_name ?? '')}</div>
                             </div>
                             {assigningSubjects.has(subject.id) && (
                               <Loader2 className="h-4 w-4 animate-spin" />
@@ -232,7 +231,7 @@ export function StudentSubjectsTab({
                 >
                   <div className="flex-1">
                     <div className="font-medium text-muted-foreground">
-                      {formatSubjectDisplay(subject)}
+                      {(subject?.long_name ?? '')}
                     </div>
                     <div className="text-xs text-muted-foreground">Adding...</div>
                   </div>
@@ -246,7 +245,7 @@ export function StudentSubjectsTab({
             
             {/* Show assigned subjects */}
             {studentSubjects
-              .sort((a, b) => formatSubjectDisplay(a).localeCompare(formatSubjectDisplay(b)))
+              .sort((a, b) => (a?.long_name ?? '').localeCompare(b?.long_name ?? ''))
               .map((subject) => (
               <div 
                 key={subject.id} 
@@ -256,7 +255,7 @@ export function StudentSubjectsTab({
                 )}
               >
                 <div className="flex-1">
-                  <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                  <div className="font-medium">{(subject?.long_name ?? '')}</div>
                 </div>
                 
                 <div className="flex space-x-1">

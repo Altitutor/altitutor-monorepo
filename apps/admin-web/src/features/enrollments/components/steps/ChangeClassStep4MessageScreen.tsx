@@ -7,7 +7,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
 import { getChangeClassConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
-import { formatClassName } from '@/shared/utils';
 import { formatSessionDateTime } from '@/shared/utils/schedule';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -118,11 +117,11 @@ export function ChangeClassStep4MessageScreen({
 
     // Format class names
     const oldClassName = oldClassSubject
-      ? formatClassName(oldClass, oldClassSubject)
+      ? (oldClass.long_name?.trim() ?? '')
       : 'class';
     
     const newClassName = selectedNewClass.subject
-      ? formatClassName(selectedNewClass, selectedNewClass.subject)
+      ? (selectedNewClass.long_name?.trim() ?? '')
       : 'class';
     
     // Format session dates
@@ -184,11 +183,11 @@ export function ChangeClassStep4MessageScreen({
             </span>
             {'\'s class from '}
             <span className="font-semibold">
-              {oldClassSubject ? formatClassName(oldClass, oldClassSubject) : 'class'}
+              {oldClass.long_name?.trim() || 'class'}
             </span>
             {' to '}
             <span className="font-semibold">
-              {selectedNewClass.subject ? formatClassName(selectedNewClass, selectedNewClass.subject) : 'class'}
+              {selectedNewClass.long_name?.trim() || 'class'}
             </span>
           </p>
         </div>

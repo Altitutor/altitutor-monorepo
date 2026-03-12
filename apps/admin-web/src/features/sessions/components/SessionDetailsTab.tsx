@@ -13,7 +13,7 @@ import { Supabase } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
-import { formatSubjectDisplay, getSubjectColorStyle, formatClassName, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
+import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import {
   SessionInfoGrid,
@@ -329,7 +329,7 @@ export function SessionDetailsTab({
                           <SelectItem value="none">None</SelectItem>
                           {subjects.map((s) => (
                             <SelectItem key={s.id} value={s.id}>
-                              {formatSubjectDisplay(s)}
+                              {s?.long_name ?? ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -355,7 +355,7 @@ export function SessionDetailsTab({
                           <SelectItem value="none">None</SelectItem>
                           {classesForSubject.map((c) => (
                             <SelectItem key={c.id} value={c.id}>
-                              {formatClassName(c as unknown as Tables<'classes'>, c.subject ?? null)}
+                              {c.long_name?.trim() ?? ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -388,7 +388,7 @@ export function SessionDetailsTab({
                         className={defaultClass || textColorClass}
                         style={style.backgroundColor ? style : undefined}
                       >
-                        {formatSubjectDisplay(subject as unknown as Tables<'subjects'>)}
+                        {subject?.long_name ?? ''}
                       </Badge>
                     );
                   })()
@@ -403,7 +403,7 @@ export function SessionDetailsTab({
                     onClick={() => onOpenClass(classId)}
                     className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
                   >
-                    {formatClassName(classData as unknown as Tables<'classes'>, (subject ?? null) as unknown as Tables<'subjects'> | null)}
+                    {(classData as { long_name?: string | null }).long_name?.trim() ?? ''}
                   </button>
                 )
               : undefined

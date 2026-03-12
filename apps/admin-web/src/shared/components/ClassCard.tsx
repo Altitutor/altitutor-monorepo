@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altit
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
 import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
-import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
+import { getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -92,9 +92,9 @@ export function ClassCard({
   // Determine if we should use compact mode overall
   const shouldUseCompact = forceCompact || !iconVisible;
   const subjectDisplay = shouldUseCompact && subject 
-    ? formatSubjectShortName(subject) 
+    ? (subject?.short_name ?? subject?.long_name ?? subject?.name ?? '') 
     : subject 
-      ? formatSubjectDisplay(subject) 
+      ? (subject?.long_name ?? '') 
       : '-';
   const day = getDayOfWeek(classData.day_of_week);
   const timeRange = `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;

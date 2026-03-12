@@ -2,7 +2,7 @@
 
 import { useMemo, useEffect } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { formatClassName, formatDate, cn } from '@/shared/utils';
+import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
@@ -92,9 +92,9 @@ export function AssignStaffStep2SelectDate({
         : 'choose staff');
 
   const className = context === 'class' && classData && classSubject
-    ? formatClassName(classData, classSubject)
+    ? (classData.long_name?.trim() ?? '')
     : (selectedClasses && selectedClasses.length > 0
-        ? selectedClasses.map(c => formatClassName(c, c.subject)).join(', ')
+        ? selectedClasses.map(c => c.long_name?.trim() ?? '').join(', ')
         : 'choose class');
 
   const isDateChosen = !!assignmentDate && assignmentDate.trim() !== '' && futureSessionDates.length > 0;

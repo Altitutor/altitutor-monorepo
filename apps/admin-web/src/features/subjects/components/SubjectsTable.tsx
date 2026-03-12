@@ -33,7 +33,7 @@ import {
   Loader2
 } from 'lucide-react';
 import type { Enums, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { cn, getSubjectColorHex, getSubjectColorStyle, formatSubjectShortName } from '@/shared/utils/index';
+import { cn, getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils/index';
 import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -400,7 +400,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                 const subjectColorHex = getSubjectColorHex(subject);
                 const { style, textColorClass } = getSubjectColorStyle(subject);
                 const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                const shortName = formatSubjectShortName(subject);
+                const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
                 
                 return (
                   <TableRow 

@@ -30,7 +30,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@altitutor/ui';
-import { formatSubjectDisplay } from '@/shared/utils';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { 
   useTopicsBySubject, 
@@ -198,7 +197,7 @@ export function EditTopicFileModal({
           <div className="space-y-2">
             <Label>Subject</Label>
             <Input
-              value={currentSubject ? formatSubjectDisplay(currentSubject) : 'Loading...'}
+              value={currentSubject?.long_name ?? 'Loading...'}
               disabled
               className="bg-muted"
             />

@@ -23,7 +23,6 @@ import { Badge } from '@altitutor/ui';
 import { useCreateStaff } from '../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useAssignSubjectToStaff } from '../hooks/useStaffQuery';
-import { formatSubjectDisplay } from '@/shared/utils';
 // Use string literals for role/status
 import { useForm, Controller, SubmitHandler, type FieldValues, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -255,7 +254,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
   const filteredAvailableSubjects = availableSubjects.filter(subject => {
     if (!subjectSearchQuery) return true;
     const query = subjectSearchQuery.toLowerCase();
-    return formatSubjectDisplay(subject).toLowerCase().includes(query);
+    return (subject?.long_name ?? '').toLowerCase().includes(query);
   });
 
   return (
@@ -450,7 +449,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
                       variant="secondary"
                       className="flex items-center gap-1 pr-1"
                     >
-                      <span>{formatSubjectDisplay(subject)}</span>
+                      <span>{(subject?.long_name ?? '')}</span>
                       <button
                         type="button"
                         className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
@@ -501,7 +500,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
                             >
                               <div className="flex items-center justify-between w-full">
                                 <div className="flex flex-col items-start">
-                                  <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                                  <div className="font-medium">{(subject?.long_name ?? '')}</div>
                                 </div>
                               </div>
                             </Button>

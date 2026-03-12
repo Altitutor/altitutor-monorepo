@@ -1,5 +1,4 @@
 import type { Tables } from '@altitutor/shared';
-import { formatClassName } from '@/shared/utils';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
 
 /**
@@ -28,8 +27,10 @@ function formatDateWithOrdinal(date: Date): string {
  */
 export interface StudentWithClasses {
   student: Tables<'students'>;
-  classes: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>;
-  classesWithStartDates?: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null, startDate: Date | null }> | null;
+  classes: Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>;
+  classesWithStartDates?:
+    | Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null; startDate: Date | null }>
+    | null;
   linkTokens?: {
     registrationToken?: string | null;
     inviteToken?: string | null;
@@ -107,8 +108,8 @@ function replaceStudentVariable(
     case 'classes': {
       const classesText = classes.length > 0
         ? classes
-            .map(({ class: cls, subject }) => {
-              const className = formatClassName(cls, subject);
+            .map(({ class: cls, subject: _subject }) => {
+              const className = cls.long_name?.trim() ?? '';
               return `- ${className}`;
             })
             .join('\n')
@@ -119,8 +120,8 @@ function replaceStudentVariable(
     case 'classes_with_start_date': {
       if (classesWithStartDates && classesWithStartDates.length > 0) {
         const classesWithDatesText = classesWithStartDates
-          .map(({ class: cls, subject, startDate }) => {
-            const className = formatClassName(cls, subject);
+          .map(({ class: cls, subject: _subject, startDate }) => {
+            const className = cls.long_name?.trim() ?? '';
             if (startDate) {
               const formattedDate = formatDateWithOrdinal(startDate);
               return `- ${className} starting on ${formattedDate}`;
@@ -134,8 +135,8 @@ function replaceStudentVariable(
         // Fallback to regular classes
         const classesText = classes.length > 0
           ? classes
-              .map(({ class: cls, subject }) => {
-                const className = formatClassName(cls, subject);
+              .map(({ class: cls, subject: _subject }) => {
+                const className = cls.long_name?.trim() ?? '';
                 return `- ${className}`;
               })
               .join('\n')
@@ -173,13 +174,15 @@ function replaceStudentVariable(
 export async function replaceVariablesForParentLegacy(
   template: string,
   student: Tables<'students'>,
-  classes: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>,
+  classes: Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>,
   senderName?: string | null,
   options?: {
     registrationToken?: string | null;
     inviteToken?: string | null;
     forgotPasswordLink?: string | null;
-    classesWithStartDates?: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null, startDate: Date | null }> | null;
+    classesWithStartDates?:
+      | Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null; startDate: Date | null }>
+      | null;
   }
 ): Promise<string> {
   // For backward compatibility, create a parent object with student's name

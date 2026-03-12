@@ -8,7 +8,7 @@ import { Loader2, Search, Filter, X } from 'lucide-react';
 import { ScrollArea } from '@altitutor/ui';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import { formatClassName, formatSubjectDisplay, cn } from '@/shared/utils';
+import { cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 
 interface ChangeClassStep1SelectClassProps {
@@ -49,17 +49,17 @@ export function ChangeClassStep1SelectClass({
 
   // Get subject name
   const subjectName = oldClassSubject
-    ? formatSubjectDisplay(oldClassSubject)
+    ? (oldClassSubject?.long_name ?? '')
     : 'choose subject';
 
   // Get old class name
   const oldClassName = oldClass && oldClassSubject
-    ? formatClassName(oldClass, oldClassSubject)
+    ? (oldClass.long_name?.trim() ?? '')
     : 'choose class';
 
   // Get new class name
   const newClassName = selectedNewClass
-    ? formatClassName(selectedNewClass, selectedNewClass.subject)
+    ? (selectedNewClass.long_name?.trim() ?? '')
     : 'choose class';
 
   const isSubjectChosen = subjectName !== 'choose subject';

@@ -24,7 +24,7 @@ import {
 } from "@altitutor/ui";
 import type { Tables, Enums } from "@altitutor/shared";
 import { Pencil, Loader2, Trash2, X, Copy, Check, Mail, UserPlus } from 'lucide-react';
-import { getSubjectColorStyle, getSubjectCurriculumColor, getStudentStatusColor, formatSubjectShortName } from '@/shared/utils';
+import { getSubjectColorStyle, getSubjectCurriculumColor, getStudentStatusColor } from '@/shared/utils';
 import { PhoneInput } from '@altitutor/ui';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
@@ -237,7 +237,7 @@ export function DetailsTab({
                   {studentSubjects.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {studentSubjects.map((subject) => {
-                        const shortName = formatSubjectShortName(subject);
+                        const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
                         const { style, textColorClass } = getSubjectColorStyle(subject);
                         const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                         return (
@@ -683,7 +683,7 @@ export function DetailsTab({
           {studentSubjects.length > 0 ? (
             <div className="flex flex-wrap gap-2">
               {studentSubjects.map((subject) => {
-                const shortName = formatSubjectShortName(subject);
+                const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
                 const { style, textColorClass } = getSubjectColorStyle(subject);
                 const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                 return (

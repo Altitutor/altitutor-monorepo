@@ -7,7 +7,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
 import { getEnrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
-import { formatClassName } from '@/shared/utils';
 import { formatDate } from '@/shared/utils/datetime';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -108,7 +107,7 @@ export function Step4MessageScreen({
     if (!firstSessionDate) return;
 
     // Format class name with day and time
-    const className = formatClassName(selectedClass, selectedClass.subject);
+    const className = selectedClass.long_name?.trim() ?? '';
     
     // Format start date
     const startDate = formatDate(firstSessionDate);
@@ -166,7 +165,7 @@ export function Step4MessageScreen({
             </span>
             {' '}in{' '}
             <span className="font-semibold">
-              {selectedClass.subject ? formatClassName(selectedClass, selectedClass.subject) : 'class'}
+              {selectedClass.long_name?.trim() || 'class'}
             </span>
           </p>
         </div>

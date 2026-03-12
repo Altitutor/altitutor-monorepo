@@ -16,7 +16,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
 import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 type ViewMode = 'table' | 'calendar';
@@ -553,7 +553,7 @@ export function ClassesTab({
                   const subject = studentSubjects.find(s => s.id === subjectId);
                   if (!subject) return null;
                   
-                  const shortName = formatSubjectShortName(subject);
+                  const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
                   const { style, textColorClass } = getSubjectColorStyle(subject);
                   const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                   

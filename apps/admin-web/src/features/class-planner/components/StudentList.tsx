@@ -8,7 +8,7 @@ import { Search } from 'lucide-react';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 import { useClassPlan } from '../hooks/useClassPlansQuery';
 import { classPlansApi } from '../api/classPlans';
@@ -125,7 +125,7 @@ export function StudentList({ planId, onSubjectFilterChange, onDragStart, onDrag
           fullName.includes(searchLower) ||
           item.student.first_name?.toLowerCase().includes(searchLower) ||
           item.student.last_name?.toLowerCase().includes(searchLower) ||
-          formatSubjectDisplay(item.subject).toLowerCase().includes(searchLower)
+          (item.subject?.long_name ?? '').toLowerCase().includes(searchLower)
         );
       });
     }
@@ -194,7 +194,7 @@ export function StudentList({ planId, onSubjectFilterChange, onDragStart, onDrag
                   }`}
                   style={selectedSubjectId === subject.id ? style : undefined}
                 >
-                  {formatSubjectDisplay(subject)}
+                  {subject?.long_name ?? ''}
                 </button>
               );
             })}
@@ -250,7 +250,7 @@ export function StudentList({ planId, onSubjectFilterChange, onDragStart, onDrag
                   className="font-semibold text-sm px-2 py-1 rounded"
                   style={style}
                 >
-                  <span className={textColorClass}>{formatSubjectDisplay(subject)}</span>
+                  <span className={textColorClass}>{subject?.long_name ?? ''}</span>
                 </div>
                 <div className="space-y-1">
                   {items.map((item) => (

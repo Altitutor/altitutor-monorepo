@@ -7,7 +7,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
 import { getUnenrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
-import { formatClassName } from '@/shared/utils';
 import { formatSessionDateTime } from '@/shared/utils/schedule';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -108,7 +107,7 @@ export function UnenrollStep3MessageScreen({
 
     // Format class name with day and time
     const className = classSubject
-      ? formatClassName(classData, classSubject)
+      ? (classData.long_name?.trim() ?? '')
       : 'class';
     
     // Format final session date
@@ -167,7 +166,7 @@ export function UnenrollStep3MessageScreen({
             </span>
             {' '}from{' '}
             <span className="font-semibold">
-              {classSubject ? formatClassName(classData, classSubject) : 'class'}
+              {classData.long_name?.trim() || 'class'}
             </span>
           </p>
         </div>

@@ -9,7 +9,7 @@ import { Loader2, Search, Filter, X } from 'lucide-react';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import { cn, formatClassName } from '@/shared/utils';
+import { cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { EnrollmentContext, StudentWithEnrollmentInfo } from '../../types/enrollment';
 import type { ClassConflictInfo } from '../../hooks/useClassConflicts';
@@ -87,10 +87,10 @@ export function Step1SelectStudentOrClass({
   // Get class name for info card
   const className = context === 'student'
     ? (selectedClassId && filteredClasses.find(c => c.id === selectedClassId)
-        ? formatClassName(filteredClasses.find(c => c.id === selectedClassId)!, filteredClasses.find(c => c.id === selectedClassId)!.subject)
+        ? (filteredClasses.find(c => c.id === selectedClassId)?.long_name?.trim() ?? '')
         : 'choose class')
     : (classData && classSubject
-        ? formatClassName(classData, classSubject)
+        ? (classData.long_name?.trim() ?? '')
         : 'choose class');
 
   const isStudentChosen = studentName !== 'choose student';
@@ -235,15 +235,7 @@ export function Step1SelectStudentOrClass({
                     {hasConflict && conflictInfo && (
                       <div className="absolute bottom-2 left-2 right-2 z-20 pointer-events-none">
                         <div className="bg-red-500 text-white text-xs px-2 py-1 rounded shadow-sm">
-                          Conflict with {formatClassName(
-                            {
-                              id: conflictInfo.conflictingClass.id,
-                              day_of_week: conflictInfo.conflictingClass.day_of_week,
-                              start_time: conflictInfo.conflictingClass.start_time,
-                              end_time: conflictInfo.conflictingClass.end_time,
-                            } as Tables<'classes'>,
-                            conflictInfo.conflictingClass.subject || null
-                          )}
+                          Conflict with {(conflictInfo.conflictingClass as { long_name?: string | null }).long_name?.trim() ?? ''}
                         </div>
                       </div>
                     )}

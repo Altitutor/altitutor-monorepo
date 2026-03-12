@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { addDays } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { formatClassName, formatDate, cn } from '@/shared/utils';
+import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
@@ -38,7 +38,7 @@ export function UnenrollStep1DateAndReason({
 
   // Get class name
   const className = classData && classSubject
-    ? formatClassName(classData, classSubject)
+    ? (classData.long_name?.trim() ?? '')
     : 'choose class';
 
   // Generate list of future session dates (next 16 weeks worth)

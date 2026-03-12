@@ -5,7 +5,7 @@ import { Button } from '@altitutor/ui';
 import { Card } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import type { DraftClassPlanWithDetails } from '../api/classPlans';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { CreateDraftClassModal } from './CreateDraftClassModal';
 import { ClassBank } from './ClassBank';
@@ -319,7 +319,7 @@ export function WeekCalendarView({ plan, planId, selectedSubjectId, dragSubjectI
                           onDrop={(e) => handleDrop(e, cls.id, cls.subject_id || null)}
                         >
                           <div className="font-medium text-foreground">
-                            {subject ? formatSubjectDisplay(subject) : 'No Subject'}
+                            {subject?.long_name ?? 'No Subject'}
                           </div>
                           {cls.level && (
                             <div className="text-xs text-muted-foreground">{cls.level}</div>

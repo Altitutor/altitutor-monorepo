@@ -28,7 +28,7 @@ import {
 } from "@altitutor/ui";
 import { ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { cn, formatSubjectDisplay, formatClassName, formatClassShortName } from '@/shared/utils/index';
+import { cn } from '@/shared/utils/index';
 import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils';
 import { sortStudentsByStatus } from '@/shared/utils/tableSorting';
 import { AddStudentModal } from './AddStudentModal';
@@ -147,8 +147,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       key: 'subject',
       label: 'Subjects',
       options: allSubjects
-        .sort((a, b) => formatSubjectDisplay(a).localeCompare(formatSubjectDisplay(b)))
-        .map(s => ({ label: formatSubjectDisplay(s), value: s.id })),
+        .sort((a, b) => (a.long_name ?? '').localeCompare(b.long_name ?? ''))
+        .map(s => ({ label: s.long_name ?? '', value: s.id })),
     },
   ], [allSubjects]);
 
@@ -500,8 +500,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                               })
                               .map((cls) => {
                                 const clsTable = cls as unknown as Tables<'classes'>;
-                                const shortName = formatClassShortName(clsTable, cls.subject || null);
-                                const longName = formatClassName(clsTable, cls.subject || null);
+                                const shortName = clsTable.short_name?.trim() ?? '';
+                                const longName = clsTable.long_name?.trim() ?? '';
                                 
                                 return (
                                   <Button

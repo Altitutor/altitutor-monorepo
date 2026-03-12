@@ -28,7 +28,7 @@ import { Loader2, Pencil, Trash2, X, Copy, Check, Mail, UserPlus } from "lucide-
 import { Controller, useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import { useToast } from "@altitutor/ui";
 import { SendInviteDialog } from '../SendInviteDialog';
 
@@ -416,7 +416,7 @@ export function StaffDetailsTab({
                   {staffSubjects.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                       {staffSubjects.map((subject) => {
-                        const shortName = formatSubjectShortName(subject);
+                        const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
                         const { style, textColorClass } = getSubjectColorStyle(subject);
                         const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                         return (
@@ -814,7 +814,7 @@ export function StaffDetailsTab({
               {staffSubjects.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {staffSubjects.map((subject) => {
-                    const shortName = formatSubjectShortName(subject);
+                    const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
                     const { style, textColorClass } = getSubjectColorStyle(subject);
                     const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                     return (

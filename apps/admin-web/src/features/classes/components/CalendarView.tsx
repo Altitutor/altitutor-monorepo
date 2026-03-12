@@ -3,7 +3,6 @@
 import { useState, useMemo } from 'react';
 import { Card, Button, Input, Switch, Label } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { formatSubjectDisplay, formatSubjectShortName } from '@/shared/utils/index';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { AdminShiftCard } from '@/shared/components/AdminShiftCard';
 import { Search, X } from 'lucide-react';
@@ -84,7 +83,7 @@ export function CalendarView({
     const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
       const subject = classSubjects?.[classItem.id];
       if (subject) {
-        return formatSubjectDisplay(subject);
+        return subject?.long_name ?? '';
       }
       return '-';
     };
@@ -96,7 +95,7 @@ export function CalendarView({
         const subject = classSubjects?.[cls.id];
         
         // Search in subject short name
-        const subjectShortName = subject ? formatSubjectShortName(subject).toLowerCase() : '';
+        const subjectShortName = subject ? (subject.short_name ?? subject.long_name ?? subject.name ?? '').toLowerCase() : '';
         const subjectShortMatch = subjectShortName.includes(searchLower);
         
         // Search in subject long name (display name)

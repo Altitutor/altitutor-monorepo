@@ -8,15 +8,10 @@ export function formatStudentDisplay(student: Tables<'students'>): string {
 }
 
 /**
- * Format subject display name
+ * Subject display name from database (long_name).
  */
 export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
-  const parts = [
-    subject.curriculum,
-    subject.year_level ? `Year ${subject.year_level}` : '',
-    subject.name,
-  ].filter(Boolean);
-  return parts.join(' ');
+  return subject.long_name ?? '';
 }
 
 /**

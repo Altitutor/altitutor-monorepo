@@ -5,7 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
 import { calculateFirstSessionDate, calculateLastSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
-import { formatClassName, formatSubjectDisplay, formatDate, cn } from '@/shared/utils';
+import { formatDate, cn } from '@/shared/utils';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays } from 'date-fns';
 import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
@@ -188,17 +188,17 @@ export function ChangeClassStep3Summary({
 
   // Get subject name
   const subjectName = oldClassSubject
-    ? formatSubjectDisplay(oldClassSubject)
+    ? (oldClassSubject?.long_name ?? '')
     : 'choose subject';
 
   // Get old class name
   const oldClassName = oldClass && oldClassSubject
-    ? formatClassName(oldClass, oldClassSubject)
+    ? (oldClass.long_name?.trim() ?? '')
     : 'choose class';
 
   // Get new class name
   const newClassName = selectedNewClass
-    ? formatClassName(selectedNewClass, selectedNewClass.subject)
+    ? (selectedNewClass.long_name?.trim() ?? '')
     : 'choose class';
 
   // Format changeover date for display
