@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,7 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-
+import { useDialogHotkeys } from '@/shared/hooks';
 const formSchema = z.object({
   name: z.string().min(1, 'Folder name is required'),
   parentId: z.string().nullable().optional(),
@@ -55,7 +55,7 @@ export function CreateFolderDialog({
     },
   });
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = useCallback(async (data: FormData) => {
     setIsSubmitting(true);
     try {
       await createFolder.mutateAsync({
@@ -69,7 +69,18 @@ export function CreateFolderDialog({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [createFolder, defaultParentId, form, onClose]);
+
+  const handlePrimaryAction = useCallback(() => {
+    if (isSubmitting) return;
+    void form.handleSubmit(onSubmit)();
+  }, [form, isSubmitting, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: isSubmitting,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

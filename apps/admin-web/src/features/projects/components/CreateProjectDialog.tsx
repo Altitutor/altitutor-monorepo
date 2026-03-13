@@ -21,7 +21,7 @@ import type { SubmitHandler } from 'react-hook-form';
 import { ProjectTitleField } from './fields/ProjectTitleField';
 import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
 import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
-import { useCurrentStaff } from '@/shared/hooks';
+import { useCurrentStaff, useDialogHotkeys } from '@/shared/hooks';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -81,7 +81,7 @@ export function CreateProjectDialog({
     });
   }, [isOpen, initialStatus, initialPriority, initialProjectLeadId, form]);
 
-  const onSubmit = async (data: ProjectFormData) => {
+  const onSubmit = useCallback(async (data: ProjectFormData) => {
     try {
       const created = await createProject.mutateAsync({
         name: data.name,
@@ -98,7 +98,7 @@ export function CreateProjectDialog({
     } catch (error) {
       console.error('Failed to create project:', error);
     }
-  };
+  }, [createProject, currentStaff, onProjectCreated]);
 
   const handleClose = () => {
     form.reset();
@@ -111,6 +111,17 @@ export function CreateProjectDialog({
       editor.commands.focus();
     }
   }, []);
+
+  const handlePrimaryAction = useCallback(() => {
+    if (createProject.isPending) return;
+    void form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)();
+  }, [createProject.isPending, form, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: createProject.isPending,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

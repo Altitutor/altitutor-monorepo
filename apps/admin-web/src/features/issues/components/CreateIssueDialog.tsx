@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,7 +20,7 @@ import type { IssueFormData, IssueStatus, IssueTagInsert } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
 import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
-import { useEffect } from 'react';
+import { useDialogHotkeys } from '@/shared/hooks';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 import { getTagEntity, resolveTagLabels } from '../utils/mentionLabels';
 
@@ -116,7 +117,7 @@ export function CreateIssueDialog({
     };
   }, [isOpen, initialStatus, initialDueDate, initialTags, form]);
 
-  const onSubmit = async (data: IssueFormData) => {
+  const onSubmit = useCallback(async (data: IssueFormData) => {
     try {
       await createIssue.mutateAsync({
         issue: {
@@ -132,12 +133,23 @@ export function CreateIssueDialog({
     } catch (error) {
       console.error('Failed to create issue:', error);
     }
-  };
+  }, [createIssue, initialTags, onIssueCreated]);
 
   const handleClose = () => {
     form.reset();
     onClose();
   };
+
+  const handlePrimaryAction = useCallback(() => {
+    if (createIssue.isPending) return;
+    void form.handleSubmit(onSubmit as SubmitHandler<IssueFormData>)();
+  }, [createIssue.isPending, form, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: createIssue.isPending,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
