@@ -164,36 +164,8 @@ export async function POST(
 
     const creditNote = await stripe.creditNotes.create(createParams, { idempotencyKey });
 
-    // Persist credit note in DB immediately so UI shows it without waiting for webhook.
-    // Webhook will upsert if it runs later (same stripe_credit_note_id).
-    // @ts-expect-error - Supabase client table inference can resolve to never for credit_notes/invoices; schema is correct
-    const { error: insertErr } = await supabase.from('credit_notes').upsert(
-      {
-        invoice_id: invoiceId,
-        stripe_credit_note_id: creditNote.id,
-        amount_cents: creditNote.amount ?? 0,
-        currency: creditNote.currency ?? 'aud',
-        reason: creditNote.reason ?? null,
-        status: creditNote.status ?? 'issued',
-        metadata: creditNote.metadata ?? {},
-        // Settlement breakdown (mirrors Stripe payment_refund_amount / credit_amount / out_of_band_amount).
-        // Note: Stripe's TypeScript typings for CreditNote may not yet expose these fields; access via any.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        refund_amount_cents: (creditNote as any).payment_refund_amount ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        credit_amount_cents: (creditNote as any).credit_amount ?? null,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        out_of_band_amount_cents: (creditNote as any).out_of_band_amount ?? null,
-      },
-      { onConflict: 'stripe_credit_note_id' }
-    );
-    if (insertErr) {
-      console.error('[api/invoices/credit-note] Failed to upsert credit_notes:', insertErr);
-      // Don't fail the request; Stripe credit note was created. Webhook may still sync.
-    } else {
-      // @ts-expect-error - same Supabase table inference issue for invoices.update
-      await supabase.from('invoices').update({ has_credit_notes: true }).eq('id', invoiceId);
-    }
+    // Do not write to local credit_notes here; webhooks are the single source of truth.
+    // The stripe-webhooks edge function will upsert credit_notes and update invoices.has_credit_notes.
 
     return NextResponse.json({
       creditNoteId: creditNote.id,
