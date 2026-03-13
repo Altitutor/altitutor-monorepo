@@ -43,7 +43,10 @@ export default function InvoicesPage() {
 
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'invoice_date', direction: 'desc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['date', 'student', 'items', 'amount', 'status', 'actions'], []);
+  const defaultVisibleColumns = useMemo(
+    () => ['invoice_number', 'date', 'student', 'items', 'amount', 'status', 'actions'],
+    []
+  );
 
   const {
     state,
@@ -81,7 +84,17 @@ export default function InvoicesPage() {
     ascending: state.sortDirection === 'asc',
   });
 
-  const invoices = useMemo(() => data?.invoices || [], [data?.invoices]);
+  const invoices = useMemo(() => {
+    const rows = data?.invoices || [];
+    const rawSearch = state.search.trim();
+    if (!rawSearch) return rows;
+
+    const q = rawSearch.replace(/^#/, '').toLowerCase();
+    return rows.filter((invoice) => {
+      const invoiceNumber = (invoice.stripe_invoice_number || '').toLowerCase();
+      return invoiceNumber.includes(q);
+    });
+  }, [data?.invoices, state.search]);
   const total = data?.total || 0;
   const invoiceIds = useMemo(() => invoices.map((inv) => inv.id), [invoices]);
   const { data: invoiceItemsMap = {} } = useInvoiceItems(invoiceIds);
@@ -117,6 +130,7 @@ export default function InvoicesPage() {
   ];
 
   const columnDefinitions: DataTableColumnDefinition[] = [
+    { key: 'invoice_number', label: 'Invoice #' },
     { key: 'date', label: 'Session Date' },
     { key: 'student', label: 'Student' },
     { key: 'items', label: 'Invoice Items' },
@@ -156,6 +170,7 @@ export default function InvoicesPage() {
         <Table>
           <TableHeader>
             <TableRow>
+              {state.visibleColumns.includes('invoice_number') && <TableHead>Invoice #</TableHead>}
               {state.visibleColumns.includes('date') && <TableHead>Session Date</TableHead>}
               {state.visibleColumns.includes('student') && <TableHead>Student</TableHead>}
               {state.visibleColumns.includes('items') && <TableHead>Invoice Items</TableHead>}
@@ -199,6 +214,11 @@ export default function InvoicesPage() {
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => setActiveInvoiceId(invoice.id)}
                   >
+                    {state.visibleColumns.includes('invoice_number') && (
+                      <TableCell>
+                        #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                      </TableCell>
+                    )}
                     {state.visibleColumns.includes('date') && (
                       <TableCell>
                         <span>{sessionDate ? formatInvoiceDate(sessionDate.toISOString()) : '-'}</span>
