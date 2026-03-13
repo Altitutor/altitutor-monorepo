@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,7 +19,7 @@ import { useCreateTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
 import type { TaskFormData, TaskStatus } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
-import { useCurrentStaff } from '@/shared/hooks';
+import { useCurrentStaff, useDialogHotkeys } from '@/shared/hooks';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
 import type { Resolver } from 'react-hook-form';
@@ -88,7 +88,7 @@ export function CreateTaskDialog({
       description: null,
       status: defaultStatus || defaultValues?.status || 'todo',
       priority: defaultValues?.priority ?? 0,
-      assignedTo: defaultValues?.assignedTo || null,
+      assignedTo: defaultValues?.assignedTo ?? currentStaff?.id ?? null,
       issueId: defaultValues?.issueId || issue?.id || null,
       projectId: defaultValues?.projectId || project?.id || null,
       estimate: defaultValues?.estimate || null,
@@ -99,25 +99,31 @@ export function CreateTaskDialog({
   // Reset form when modal opens/closes or defaultStatus changes
   useEffect(() => {
     if (isOpen) {
+      const resolvedAssignedTo = defaultValues?.assignedTo ?? currentStaff?.id ?? null;
+
       form.reset({
         title: '',
         description: null,
         status: defaultStatus || defaultValues?.status || 'todo',
         priority: defaultValues?.priority ?? 0,
-        assignedTo: defaultValues?.assignedTo || null,
+        assignedTo: resolvedAssignedTo,
         issueId: defaultValues?.issueId || issue?.id || null,
         projectId: defaultValues?.projectId || project?.id || null,
         estimate: defaultValues?.estimate || null,
         dueDate: defaultValues?.dueDate || null,
       });
-      setSelectedAssignee(null);
+      setSelectedAssignee(
+        resolvedAssignedTo && currentStaff && resolvedAssignedTo === currentStaff.id
+          ? currentStaff
+          : null
+      );
       setSelectedIssue(issue ?? null);
       setSelectedProject(project ?? null);
       setCreatedTaskId(null);
     }
-  }, [isOpen, defaultStatus, defaultValues, form, issue, project]);
+  }, [isOpen, defaultStatus, defaultValues, form, issue, project, currentStaff]);
 
-  const onSubmit = async (data: TaskFormData): Promise<void> => {
+  const onSubmit = useCallback(async (data: TaskFormData): Promise<void> => {
     try {
       await createTask.mutateAsync({
         title: data.title,
@@ -138,13 +144,24 @@ export function CreateTaskDialog({
       // Error handling is done in the mutation
       console.error('Failed to create task:', error);
     }
-  };
+  }, [createTask, currentStaff, onTaskCreated]);
 
   const handleClose = () => {
     setCreatedTaskId(null);
     form.reset();
     onClose();
   };
+
+  const handlePrimaryAction = useCallback(() => {
+    if (createTask.isPending) return;
+    void form.handleSubmit(onSubmit as SubmitHandler<TaskFormData>)();
+  }, [createTask.isPending, form, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: createTask.isPending,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
