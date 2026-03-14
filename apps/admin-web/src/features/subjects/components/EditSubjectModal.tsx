@@ -26,6 +26,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { subjectsApi } from '../api';
+import { getErrorMessage } from '@/shared/utils';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { DraggableTopicsList } from '@/features/topics/components';
 import { useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
@@ -147,7 +148,7 @@ export function EditSubjectModal({
       console.error('Failed to update subject:', err);
       toast({
         title: 'Update failed',
-        description: 'There was an error updating the subject. Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
     } finally {

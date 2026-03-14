@@ -8,6 +8,7 @@ import { StaffCard } from '@/shared/components/StaffCard';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { useToast } from "@altitutor/ui";
+import { getErrorMessage } from '@/shared/utils';
 import { AssignStaffModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/shared/hooks';
 
@@ -66,10 +67,10 @@ export function ClassStaffTab({
         title: 'Success',
         description: 'Staff assigned to class successfully.',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       toast({
         title: 'Error',
-        description: 'Failed to assign staff. Please try again.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
       throw error;
