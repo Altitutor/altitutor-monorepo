@@ -22,7 +22,7 @@ import { pricingApi } from '../api/pricing';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
-import { cn } from '@/shared/utils';
+import { cn, getErrorMessage } from '@/shared/utils';
 import { useSessionDurationMinutes } from '../hooks/useBookingSettings';
 export interface BookDraftingSessionModalProps {
   isOpen: boolean;
@@ -222,10 +222,9 @@ export function BookDraftingSessionModal({
       setCurrentStep(4); // Move to success step
       onBookingCreated?.(sessionId);
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to create booking. Please try again.';
       toast({
         title: 'Booking Failed',
-        description: errorMessage,
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {

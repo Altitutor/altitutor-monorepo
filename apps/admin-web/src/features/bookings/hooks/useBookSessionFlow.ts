@@ -12,6 +12,7 @@ import { useStudentSubjects } from './useStudentSubjects';
 import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import type { AdminTrialContactFormValues } from '../components/AdminTrialContactForm';
 import { getBookingSteps, canProceedToNextStep, getSessionTypeLabel } from '../utils/bookingHelpers';
+import { getErrorMessage } from '@/shared/utils';
 import { isSlotInPast } from '../utils/dateTimeHelpers';
 
 export interface BookSessionFlowState {
@@ -375,7 +376,7 @@ export function useBookSessionFlow({
       } catch (error: unknown) {
         toast({
           title: 'Booking Failed',
-          description: error instanceof Error ? error.message : 'Failed to create booking. Please try again.',
+          description: getErrorMessage(error),
           variant: 'destructive',
         });
       } finally {
@@ -427,7 +428,7 @@ export function useBookSessionFlow({
     } catch (error: unknown) {
       toast({
         title: 'Booking Failed',
-        description: error instanceof Error ? error.message : 'Failed to create booking. Please try again.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
