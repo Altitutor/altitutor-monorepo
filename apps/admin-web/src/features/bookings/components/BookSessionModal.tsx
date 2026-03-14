@@ -27,6 +27,7 @@ import { formatSlotDateTime, getCurrentAdelaideTime } from '../utils/dateTimeHel
 import { StudentSelectionStep } from './steps/StudentSelectionStep';
 import { SubjectSelectionStep } from './steps/SubjectSelectionStep';
 import { ConfirmationStep } from './steps/ConfirmationStep';
+import { useDialogHotkeys } from '@/shared/hooks';
 
 export interface BookSessionModalProps {
   isOpen: boolean;
@@ -97,6 +98,17 @@ export function BookSessionModal({
     originalSubjectId,
     onBookingCreated,
     onClose,
+  });
+
+  const hasNextStep = currentStep < steps.length - 1;
+  const isFinalStep = currentStep === steps.length - 1;
+
+  useDialogHotkeys({
+    isOpen,
+    onNextStep: handleNext,
+    hasNextStep,
+    onPrimaryAction: isFinalStep ? handleConfirmBooking : undefined,
+    isActionDisabled: isSubmitting,
   });
 
   const renderStepContent = () => {

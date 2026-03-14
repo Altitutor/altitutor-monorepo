@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
@@ -20,6 +20,7 @@ import {
   Step4MessageScreen,
 } from './steps';
 import type { EnrollStudentModalProps, EnrollmentWarningState, StudentWithEnrollmentInfo } from '../types/enrollment';
+import { useDialogHotkeys } from '@/shared/hooks';
 
 export function EnrollStudentModal({
   isOpen,
@@ -187,6 +188,9 @@ export function EnrollStudentModal({
     onClose,
   });
 
+  const hasNextStep = useMemo(() => step === 1 || step === 2, [step]);
+  const isFinalStep = useMemo(() => step === 3, [step]);
+
   // Move to step 4 when enrollment succeeds
   useEffect(() => {
     if (enrollmentSuccess && step === 3) {
@@ -207,13 +211,13 @@ export function EnrollStudentModal({
     setWarningState({ showEnrolledWarning: false, warningStudent: null });
   }, [isOpen, resetFilters, defaultSubjectFilters, subjectId]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (step === 1 && (selectedStudentId || selectedClassId)) {
       setStep(2);
     } else if (step === 2 && enrollmentDate && enrollmentDate.trim() !== '') {
       setStep(3);
     }
-  };
+  }, [step, selectedStudentId, selectedClassId, enrollmentDate]);
 
   const handleBack = () => {
     if (step > 1) {
@@ -244,6 +248,14 @@ export function EnrollStudentModal({
   const handleWarningCancel = () => {
     setWarningState({ showEnrolledWarning: false, warningStudent: null });
   };
+
+  useDialogHotkeys({
+    isOpen,
+    onNextStep: handleNext,
+    hasNextStep,
+    onPrimaryAction: isFinalStep ? handleConfirm : undefined,
+    isActionDisabled: isEnrolling,
+  });
 
   return (
     <>

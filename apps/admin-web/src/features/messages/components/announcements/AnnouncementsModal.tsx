@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { CheckCircle2, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
@@ -12,6 +12,7 @@ import { MessagePreview } from '../bulk/MessagePreview';
 import { useAnnouncements } from '@/features/messages/hooks/useAnnouncements';
 import { useAvailableSenders } from '@/features/messages/api/queries';
 import type { AttachmentFile } from '../../hooks/useMessageAttachments';
+import { useDialogHotkeys } from '@/shared/hooks';
 
 type Step = 'select' | 'compose' | 'preview' | 'success';
 
@@ -37,6 +38,12 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     skipped: number;
   } | null>(null);
 
+  const isFinalStep = useMemo(() => step === 'preview', [step]);
+  const hasNextStep = useMemo(
+    () => step === 'select' || step === 'compose',
+    [step]
+  );
+
   // Set default sender when senders load
   useEffect(() => {
     if (availableSenders && availableSenders.length > 0 && !selectedSenderId) {
@@ -45,7 +52,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
     }
   }, [availableSenders, selectedSenderId]);
 
-  const handleSend = async () => {
+  const handleSend = useCallback(async () => {
     if (!selectedSenderId) {
       toast({
         title: 'Error',
@@ -72,7 +79,7 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
         variant: 'destructive',
       });
     }
-  };
+  }, [selectedSenderId, sendAnnouncements, selectedStudents, message, sendToParents, toast]);
 
   const handleClose = () => {
     // Reset state when closing
@@ -114,6 +121,22 @@ export function AnnouncementsModal({ isOpen, onClose }: AnnouncementsModalProps)
   };
 
   const TOTAL_STEPS = 3;
+
+  const handleNextStep = useCallback(() => {
+    if (step === 'select' && selectedStudents.length > 0) {
+      setStep('compose');
+    } else if (step === 'compose' && message.trim()) {
+      setStep('preview');
+    }
+  }, [step, selectedStudents.length, message]);
+
+  useDialogHotkeys({
+    isOpen,
+    onNextStep: handleNextStep,
+    hasNextStep,
+    onPrimaryAction: isFinalStep ? handleSend : undefined,
+    isActionDisabled: isSending,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>

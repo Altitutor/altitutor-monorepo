@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -18,6 +18,7 @@ import type { Tables } from '@altitutor/shared';
 import { staffApi } from '@/features/staff/api/staff';
 import { cn } from '@/shared/utils';
 import { StaffCard } from '@/shared/components/StaffCard';
+import { useDialogHotkeys } from '@/shared/hooks';
 
 type AddStaffToSessionModalProps = {
   isOpen: boolean;
@@ -82,7 +83,7 @@ export function AddStaffToSessionModal({
     onClose();
   };
 
-  const handleConfirm = async () => {
+  const handleConfirm = useCallback(async () => {
     if (!selectedStaff) return;
     try {
       await onConfirm(selectedStaff);
@@ -90,7 +91,23 @@ export function AddStaffToSessionModal({
     } catch {
       // Keep modal open if mutation fails so user can retry.
     }
-  };
+  }, [onConfirm, selectedStaff]);
+
+  const hasNextStep = step === 1;
+
+  const handleNextStep = useCallback(() => {
+    if (step === 1 && selectedStaff) {
+      setStep(2);
+    }
+  }, [step, selectedStaff]);
+
+  useDialogHotkeys({
+    isOpen,
+    onNextStep: handleNextStep,
+    hasNextStep,
+    onPrimaryAction: step === 2 ? handleConfirm : undefined,
+    isActionDisabled: isPending,
+  });
 
   const warningText = selectedStaff
     ? `${staffName} will only be added to a single session on ${sessionTime} ${sessionDay}, they will not be assigned to the class`

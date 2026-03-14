@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import type { JSONContent } from '@tiptap/core';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
@@ -13,6 +13,7 @@ import {
 } from './steps';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 import type { UnenrollStudentModalProps } from '../types/enrollment';
+import { useDialogHotkeys } from '@/shared/hooks';
 
 export function UnenrollStudentModal({
   isOpen,
@@ -57,11 +58,11 @@ export function UnenrollStudentModal({
     }
   }, [isOpen]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (step === 1 && unenrollmentDate && unenrollmentDate.trim() !== '') {
       setStep(2);
     }
-  };
+  }, [step, unenrollmentDate]);
 
   const getStepTitle = (step: 1 | 2 | 3): string => {
     switch (step) {
@@ -81,6 +82,17 @@ export function UnenrollStudentModal({
       setStep(1);
     }
   };
+
+  const hasNextStep = useMemo(() => step === 1, [step]);
+  const isFinalStep = useMemo(() => step === 2, [step]);
+
+  useDialogHotkeys({
+    isOpen,
+    onNextStep: handleNext,
+    hasNextStep,
+    onPrimaryAction: isFinalStep ? handleConfirm : undefined,
+    isActionDisabled: isUnenrolling || isTiptapContentEmpty(reason),
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
