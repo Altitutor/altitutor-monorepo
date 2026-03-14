@@ -62,16 +62,14 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
 
   // Computed values
   const totalAmountForComparison = invoice?.amount_due_cents || 0;
-  const isPaidLike = invoice?.status === 'paid' || invoice?.status === 'paid_refunded';
-  const summaryAmountCents = isPaidLike
-    ? invoice?.amount_paid_cents ?? invoice?.amount_due_cents ?? 0
-    : invoice?.amount_due_cents ?? 0;
-  const summaryAmountFormatted = `$${(summaryAmountCents / 100).toFixed(2)}`;
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
   const subtotalCents = invoice?.subtotal_cents;
   const totalCents = invoice?.total_cents;
   const amountPaidFromBalanceCents = invoice?.amount_paid_from_balance_cents || 0;
   const hasCreditBalance = amountPaidFromBalanceCents > 0;
+  const totalPaidCents = invoice?.amount_paid_cents || 0;
+  const paidFromCardCents = Math.max(0, totalPaidCents - amountPaidFromBalanceCents);
+  const hasAnyPayment = totalPaidCents > 0 || hasCreditBalance;
   const isRefunded = !!invoice?.is_refunded;
 
   const totalCreditSettlementCents = creditNotes
@@ -341,48 +339,6 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                     })}
                   </div>
                   
-                  {subtotalCents !== null && subtotalCents !== undefined && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Subtotal:</div>
-                      <div className="text-sm">
-                        {formatInvoiceAmount(subtotalCents, invoice.currency || 'AUD')}
-                      </div>
-                    </>
-                  )}
-                  
-                  {totalCents !== null && totalCents !== undefined && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Total:</div>
-                      <div className="text-sm">
-                        {formatInvoiceAmount(totalCents, invoice.currency || 'AUD')}
-                      </div>
-                    </>
-                  )}
-                  
-                  {hasCreditBalance && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Paid from Credit Balance:</div>
-                      <div className="text-sm text-green-600 dark:text-green-400">
-                        {formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
-                      </div>
-                    </>
-                  )}
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Amount Due:</div>
-                  <div className="text-sm font-semibold">
-                    {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
-                  </div>
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Amount Paid:</div>
-                  <div className="text-sm">
-                    {formatInvoiceAmount(invoice.amount_paid_cents, invoice.currency || 'AUD')}
-                    {hasCreditBalance && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ({formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')} from credit)
-                      </span>
-                    )}
-                  </div>
-                  
                   <div className="text-sm font-medium text-muted-foreground">Collection Method:</div>
                   <div className="text-sm">
                     <Badge variant="outline">
@@ -488,19 +444,11 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                         <div className="text-sm">{formatInvoiceAmount(totalCents, invoice.currency || 'AUD')}</div>
                       </div>
                     )}
-                    {hasCreditBalance && (
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-muted-foreground">Credit Applied:</div>
-                        <div className="text-sm text-green-600 dark:text-green-400">
-                          -{formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
-                        </div>
-                      </div>
-                    )}
                     <div className="flex items-center justify-between pt-2 border-t font-semibold">
+                      <div className="text-sm">Amount Due:</div>
                       <div className="text-sm">
-                        {isPaidLike ? 'Amount Paid:' : 'Amount Due:'}
+                        {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
                       </div>
-                      <div className="text-sm">{summaryAmountFormatted}</div>
                     </div>
                     
                     {/* Show warning if line items don't match total (indicates missing items or data inconsistency) */}
@@ -513,6 +461,38 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   </div>
                 )}
               </div>
+
+              {/* Amount Paid Breakdown */}
+              {hasAnyPayment && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Amount Paid</h3>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                      {hasCreditBalance && (
+                        <>
+                          <div className="text-sm font-medium text-muted-foreground">
+                            Paid from Credit Balance:
+                          </div>
+                          <div className="text-sm text-green-600 dark:text-green-400">
+                            {formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
+                          </div>
+                        </>
+                      )}
+                      {paidFromCardCents > 0 && (
+                        <>
+                          <div className="text-sm font-medium text-muted-foreground">
+                            Paid from Card:
+                          </div>
+                          <div className="text-sm">
+                            {formatInvoiceAmount(paidFromCardCents, invoice.currency || 'AUD')}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Credit Notes and Refunds */}
               {(creditNotes.length > 0 || invoice.is_refunded) && (

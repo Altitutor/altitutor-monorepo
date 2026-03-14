@@ -17,6 +17,7 @@ import {
   PopoverTrigger,
   ScrollArea,
 } from '@altitutor/ui';
+import { DatePickerPopover } from '@/shared/components/DatePickerPopover';
 import { Calendar, Check, Flag, User } from 'lucide-react';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
@@ -168,16 +169,21 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
         render={({ field }) => (
           <FormItem>
             <FormControl>
-              <label className="inline-flex items-center gap-1 rounded-full border bg-background px-3 h-8 text-xs cursor-pointer">
-                <Calendar className="h-3 w-3" />
-                <span>{field.value ? formatProjectDate(field.value) : 'Start'}</span>
-                <Input
-                  type="date"
-                  value={field.value || ''}
-                  onChange={(e) => field.onChange(e.target.value || null)}
-                  className="sr-only"
-                />
-              </label>
+              <DatePickerPopover
+                value={field.value}
+                onChange={(v) => field.onChange(v ? v.split('T')[0] : null)}
+                onBlur={field.onBlur}
+                name={field.name}
+                modal={false}
+              >
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border bg-background px-3 h-8 text-xs cursor-pointer"
+                >
+                  <Calendar className="h-3 w-3" />
+                  <span>{field.value ? formatProjectDate(field.value) : 'Start'}</span>
+                </button>
+              </DatePickerPopover>
             </FormControl>
           </FormItem>
         )}
@@ -189,16 +195,21 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
         render={({ field }) => (
           <FormItem>
             <FormControl>
-              <label className="inline-flex items-center gap-1 rounded-full border bg-background px-3 h-8 text-xs cursor-pointer">
-                <Flag className="h-3 w-3" />
-                <span>{field.value ? formatProjectDate(field.value) : 'Target'}</span>
-                <Input
-                  type="date"
-                  value={field.value || ''}
-                  onChange={(e) => field.onChange(e.target.value || null)}
-                  className="sr-only"
-                />
-              </label>
+              <DatePickerPopover
+                value={field.value}
+                onChange={(v) => field.onChange(v ? v.split('T')[0] : null)}
+                onBlur={field.onBlur}
+                name={field.name}
+                modal={false}
+              >
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1 rounded-full border bg-background px-3 h-8 text-xs cursor-pointer"
+                >
+                  <Flag className="h-3 w-3" />
+                  <span>{field.value ? formatProjectDate(field.value) : 'Target'}</span>
+                </button>
+              </DatePickerPopover>
             </FormControl>
           </FormItem>
         )}

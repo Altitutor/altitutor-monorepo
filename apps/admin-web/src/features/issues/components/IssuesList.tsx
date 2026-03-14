@@ -8,9 +8,8 @@ import {
   RichTextEditor,
 } from '@altitutor/ui';
 import { useIssues } from '../api/queries';
-import { useUpdateIssue } from '../api/mutations';
+import { useUpdateIssue, useCreateIssue } from '../api/mutations';
 import { EditIssueDialog } from './EditIssueDialog';
-import { CreateIssueDialog } from './CreateIssueDialog';
 import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
 import { cn } from '@/shared/utils';
 import { Circle, Clock, CheckCircle } from 'lucide-react';
@@ -32,13 +31,13 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
   const [filters, setFilters] = useState<Record<string, unknown[]>>(defaultFilters ?? {});
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [groupBy, setGroupBy] = useState<string | null>('status');
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
+  const createIssue = useCreateIssue();
 
   const handleStatusChange = useCallback(
     (issue: IssueWithTags, value: IssueStatus) => {
@@ -48,10 +47,20 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
   );
 
   const handleAdd = useCallback(
-    () => {
-      setIsCreateDialogOpen(true);
+    async (data: { name: string; description?: string } & Record<string, unknown>) => {
+      await createIssue.mutateAsync({
+        issue: {
+          name: data.name,
+          description: (data.description ?? null) as import('../types').IssueInsert['description'],
+          status: (data.status as IssueStatus) ?? 'open',
+          due_date:
+            data.due_date != null && data.due_date !== ''
+              ? new Date(data.due_date as string).toISOString()
+              : null,
+        },
+      });
     },
-    []
+    [createIssue]
   );
 
   const statusColumn: EntityListStatusColumn<IssueWithTags, unknown> = {
@@ -183,6 +192,8 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
           setIsEditDialogOpen(true);
         }}
         addButtonLabel="Add issue"
+        addButtonVariant="default"
+        addButtonShowLabel={true}
         emptyMessage="No issues match your filters"
         isLoading={isLoading}
         filters={filters}
@@ -212,11 +223,6 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
           issueId={selectedIssueId}
         />
       )}
-
-      <CreateIssueDialog
-        isOpen={isCreateDialogOpen}
-        onClose={() => setIsCreateDialogOpen(false)}
-      />
     </>
   );
 }

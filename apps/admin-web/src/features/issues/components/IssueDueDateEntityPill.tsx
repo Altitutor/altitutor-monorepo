@@ -2,9 +2,9 @@
 
 import { Button } from '@altitutor/ui';
 import { Calendar } from 'lucide-react';
-import { useRef, type MutableRefObject } from 'react';
 import { cn } from '@/shared/utils';
 import { formatIssueDueDate, isIssueOverdue } from '../utils/issueUtils';
+import { DatePickerPopover } from '@/shared/components/DatePickerPopover';
 
 interface IssueDueDateEntityPillProps {
   dueDate: string | null;
@@ -13,12 +13,11 @@ interface IssueDueDateEntityPillProps {
 }
 
 export function IssueDueDateEntityPill({ dueDate, collapsed, onChange }: IssueDueDateEntityPillProps) {
-  const dateInputRef = useRef<HTMLInputElement | null>(null) as MutableRefObject<HTMLInputElement | null>;
   const overdue = isIssueOverdue(dueDate);
   const displayValue = formatIssueDueDate(dueDate);
 
   return (
-    <>
+    <DatePickerPopover value={dueDate} onChange={onChange} modal={false} stopPropagation>
       <Button
         type="button"
         variant="outline"
@@ -27,11 +26,7 @@ export function IssueDueDateEntityPill({ dueDate, collapsed, onChange }: IssueDu
           collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto',
           overdue && 'border-red-500 text-red-700 dark:text-red-400'
         )}
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          dateInputRef.current?.click();
-        }}
+        onClick={(e) => e.stopPropagation()}
       >
         <Calendar className={cn('h-3 w-3 flex-shrink-0', !dueDate && 'text-muted-foreground opacity-40 group-hover:opacity-100')} />
         {!collapsed && (
@@ -40,14 +35,6 @@ export function IssueDueDateEntityPill({ dueDate, collapsed, onChange }: IssueDu
           </span>
         )}
       </Button>
-      <input
-        ref={dateInputRef}
-        type="date"
-        value={dueDate ? new Date(dueDate).toISOString().split('T')[0] : ''}
-        onChange={(e) => onChange(e.target.value || null)}
-        className="sr-only"
-        tabIndex={-1}
-      />
-    </>
+    </DatePickerPopover>
   );
 }

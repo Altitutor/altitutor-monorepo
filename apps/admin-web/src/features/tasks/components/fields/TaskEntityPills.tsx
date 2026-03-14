@@ -46,6 +46,8 @@ function getMatchScore(name: string | null, rawQuery: string): number {
   return 100 - index;
 }
 
+type AssigneeLike = { id: string; first_name: string | null; last_name: string | null };
+
 export function TaskAssigneeEntityPill({
   task,
   staffList,
@@ -59,7 +61,16 @@ export function TaskAssigneeEntityPill({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const assignee = task.assignee;
+  // Resolve assignee: task.assignee can be object (existing task) or id string (add-row draft)
+  const assignee: AssigneeLike | null = (() => {
+    const a = task.assignee;
+    if (a && typeof a === 'object' && 'first_name' in a) return a as AssigneeLike;
+    const id = (typeof a === 'string' ? a : (task as { assigned_to?: string | null }).assigned_to) ?? null;
+    if (!id) return null;
+    const staff = staffList.find((s) => s.id === id);
+    return staff ? { id: staff.id, first_name: staff.first_name, last_name: staff.last_name } : null;
+  })();
+  const assigneeId = assignee?.id ?? null;
   const initials = assignee ? getUserInitials(assignee.first_name, assignee.last_name) : null;
 
   return (
@@ -113,7 +124,7 @@ export function TaskAssigneeEntityPill({
                   setOpen(false);
                 }}
               >
-                {!assignee && <Check className="h-4 w-4" />}
+                {!assigneeId && <Check className="h-4 w-4" />}
                 <span>Unassigned</span>
               </button>
               {staffList
@@ -132,7 +143,7 @@ export function TaskAssigneeEntityPill({
                       setOpen(false);
                     }}
                   >
-                    {assignee?.id === s.id && <Check className="h-4 w-4" />}
+                    {assigneeId === s.id && <Check className="h-4 w-4" />}
                     <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs flex-shrink-0">
                       {getUserInitials(s.first_name, s.last_name)}
                     </div>
