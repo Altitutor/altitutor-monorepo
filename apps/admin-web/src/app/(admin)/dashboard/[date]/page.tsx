@@ -21,6 +21,7 @@ import { TodaySessionsView } from '@/features/sessions/components/TodaySessionsV
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { IssuesList } from '@/features/issues/components/IssuesList';
+import { ProjectsList } from '@/features/projects/components/ProjectsList';
 import { NoteEditor } from '@/features/notes/components/NoteEditor';
 import { NoteEditorBottomToolbar } from '@/features/notes/components/NoteEditorBottomToolbar';
 import { useDailyNote, useUpdateDailyNote } from '@/features/notes/api/dailyQueries';
@@ -155,6 +156,12 @@ export default function DashboardDatePage({ params }: { params: { date: string }
     () => ({ status: [...DASHBOARD_ISSUE_DEFAULT_STATUS] }),
     []
   );
+  const dashboardProjectFilters = useMemo(
+    () => ({
+      ...(currentStaff?.id ? { project_lead_id: [currentStaff.id] } : {}),
+    }),
+    [currentStaff?.id]
+  );
 
   useEffect(() => {
     if (!dateStr) {
@@ -252,6 +259,16 @@ export default function DashboardDatePage({ params }: { params: { date: string }
         </CardHeader>
         <CardContent className="p-0">
           <IssuesList defaultFilters={dashboardIssueFilters} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle>Projects</CardTitle>
+          <CardDescription>Projects you lead</CardDescription>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ProjectsList defaultFilters={dashboardProjectFilters} />
         </CardContent>
       </Card>
 

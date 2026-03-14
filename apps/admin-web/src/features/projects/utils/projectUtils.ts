@@ -80,6 +80,23 @@ export function getProjectPriorityColor(priority: ProjectPriority): string {
   }
 }
 
+/** Text color for priority icon in pills (no background) */
+export function getProjectPriorityIconColor(priority: ProjectPriority): string {
+  switch (priority) {
+    case 1:
+      return 'text-red-500 dark:text-red-400';
+    case 2:
+      return 'text-orange-500 dark:text-orange-400';
+    case 3:
+      return 'text-yellow-500 dark:text-yellow-400';
+    case 4:
+      return 'text-blue-500 dark:text-blue-400';
+    case 0:
+    default:
+      return 'text-muted-foreground';
+  }
+}
+
 export function formatProjectDate(date: string | null | undefined): string {
   if (!date) return '';
   return new Date(date).toLocaleDateString('en-US', {
