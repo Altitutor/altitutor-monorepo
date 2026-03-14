@@ -82,3 +82,65 @@ export function showEntityCreatedToast(params: EntityCreatedToastParams): void {
   });
 }
 
+type WorkItemType = 'task' | 'issue' | 'project';
+
+interface WorkItemCreatedToastParams {
+  toast: ToastFn;
+  entityType: WorkItemType;
+  entityId: string;
+  /**
+   * Optional override for the main message.
+   * Defaults to a generic "{Entity} created successfully." message.
+   */
+  message?: string;
+}
+
+function getWorkItemLabel(entityType: WorkItemType): string {
+  switch (entityType) {
+    case 'task':
+      return 'Edit task';
+    case 'issue':
+      return 'Edit issue';
+    case 'project':
+      return 'Edit project';
+    default:
+      return 'Edit';
+  }
+}
+
+export function showWorkItemCreatedToast(params: WorkItemCreatedToastParams): void {
+  const { toast, entityType, entityId, message } = params;
+
+  const label = getWorkItemLabel(entityType);
+  const defaultMessage =
+    message ??
+    (entityType === 'task'
+      ? 'Task created successfully.'
+      : entityType === 'issue'
+      ? 'Issue created successfully.'
+      : 'Project created successfully.');
+
+  toast({
+    title: 'Success',
+    description: (
+      <div className="flex items-center gap-2">
+        <span>{defaultMessage}</span>
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent('mentionClick', {
+                detail: { id: entityId, type: entityType },
+              })
+            );
+          }}
+        >
+          {label}
+        </Button>
+      </div>
+    ),
+  });
+}
+

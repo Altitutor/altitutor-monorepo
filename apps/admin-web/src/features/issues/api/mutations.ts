@@ -3,6 +3,7 @@ import { issuesApi } from './issues';
 import { issueKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { IssueInsert, IssueUpdate, IssueTagInsert } from '../types';
+import { showWorkItemCreatedToast } from '@/shared/utils';
 
 export function useCreateIssue() {
   const queryClient = useQueryClient();
@@ -10,9 +11,17 @@ export function useCreateIssue() {
 
   return useMutation({
     mutationFn: (data: { issue: IssueInsert, tags?: Omit<IssueTagInsert, 'issue_id'>[] }) => issuesApi.create(data),
-    onSuccess: () => {
+    onSuccess: (createdIssue) => {
       queryClient.invalidateQueries({ queryKey: issueKeys.lists() });
-      toast({ title: 'Issue created', description: 'The issue has been successfully created.' });
+      if (createdIssue?.id) {
+        showWorkItemCreatedToast({
+          toast,
+          entityType: 'issue',
+          entityId: createdIssue.id,
+        });
+      } else {
+        toast({ title: 'Issue created', description: 'The issue has been successfully created.' });
+      }
     },
     onError: (error: Error) => {
       toast({ 

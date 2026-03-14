@@ -3,6 +3,7 @@ import { tasksApi } from './tasks';
 import { tasksKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { TaskInsert, TaskUpdate } from '../types';
+import { showWorkItemCreatedToast } from '@/shared/utils';
 
 /**
  * Create a new task. Caller must pass created_by (e.g. from useCurrentStaff()).
@@ -13,13 +14,21 @@ export function useCreateTask() {
 
   return useMutation({
     mutationFn: async (task: TaskInsert) => tasksApi.create(task),
-    onSuccess: () => {
+    onSuccess: (createdTask) => {
       // Invalidate tasks list
       queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
-      toast({
-        title: 'Task created',
-        description: 'The task has been created successfully.',
-      });
+      if (createdTask?.id) {
+        showWorkItemCreatedToast({
+          toast,
+          entityType: 'task',
+          entityId: createdTask.id,
+        });
+      } else {
+        toast({
+          title: 'Task created',
+          description: 'The task has been created successfully.',
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
