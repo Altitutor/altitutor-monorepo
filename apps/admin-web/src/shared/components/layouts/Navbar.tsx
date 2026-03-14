@@ -23,7 +23,6 @@ import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 import { Search } from 'lucide-react';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
-import { NotepadButton } from '@/features/notepad';
 import { DashboardDatePicker } from './DashboardDatePicker';
 import { MessagesDropdown } from '@/features/messages/components/MessagesDropdown';
 
@@ -140,8 +139,6 @@ export function Navbar() {
             </Button>
           )}
 
-          {user && <NotepadButton variant="inline" />}
-          
           {/* Notifications Button */}
           {user && staffRecord?.id && (
             <NotificationsTray staffId={staffRecord.id} />
