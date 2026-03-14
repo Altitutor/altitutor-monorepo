@@ -393,7 +393,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                               />
                               <Button
                                 type="button"
-                                variant="outline"
+                                variant="default"
                                 size="icon"
                                 className="h-8 w-8 flex-shrink-0"
                                 disabled={createNote.isPending}
@@ -475,7 +475,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                                 />
                                 <Button
                                   type="button"
-                                  variant="outline"
+                                  variant="default"
                                   size="icon"
                                   className="h-8 w-8 flex-shrink-0"
                                   disabled={createNote.isPending}
