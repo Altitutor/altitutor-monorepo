@@ -1,34 +1,14 @@
 'use client';
 
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@altitutor/ui';
-import { Circle, AlertCircle, AlertTriangle, Info, Gauge } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import type { ProjectPriority } from '../../types';
-import { getProjectPriorityLabel, getProjectPriorityIconColor } from '../../utils/projectUtils';
-
-const PRIORITY_OPTIONS: { value: ProjectPriority; label: string }[] = [
-  { value: 0, label: 'No priority' },
-  { value: 1, label: 'Urgent' },
-  { value: 2, label: 'High' },
-  { value: 3, label: 'Medium' },
-  { value: 4, label: 'Low' },
-];
-
-function getPriorityIcon(priority: ProjectPriority) {
-  switch (priority) {
-    case 1:
-      return AlertCircle;
-    case 2:
-      return AlertTriangle;
-    case 3:
-      return Gauge;
-    case 4:
-      return Info;
-    case 0:
-    default:
-      return Circle;
-  }
-}
+import {
+  getProjectPriorityIcon,
+  getProjectPriorityLabel,
+  getProjectPriorityIconColor,
+  PRIORITY_OPTIONS,
+} from '../../utils/projectUtils';
 
 interface ProjectPriorityEntityPillProps {
   priority: ProjectPriority;
@@ -43,7 +23,7 @@ export function ProjectPriorityEntityPill({
 }: ProjectPriorityEntityPillProps) {
   const label = getProjectPriorityLabel(priority);
   const iconColor = getProjectPriorityIconColor(priority);
-  const Icon = getPriorityIcon(priority);
+  const Icon = getProjectPriorityIcon(priority);
   const isEmpty = priority === 0;
 
   return (
@@ -76,11 +56,18 @@ export function ProjectPriorityEntityPill({
         )}
       </SelectTrigger>
       <SelectContent>
-        {PRIORITY_OPTIONS.map((o) => (
-          <SelectItem key={o.value} value={String(o.value)}>
-            {o.label}
-          </SelectItem>
-        ))}
+        {PRIORITY_OPTIONS.map((opt) => {
+          const OptionIcon = getProjectPriorityIcon(opt.value);
+          const optionColor = getProjectPriorityIconColor(opt.value);
+          return (
+            <SelectItem key={opt.value} value={String(opt.value)}>
+              <div className={cn('flex items-center gap-2')}>
+                <OptionIcon className={cn('h-4 w-4', optionColor)} />
+                <span>{opt.label}</span>
+              </div>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );

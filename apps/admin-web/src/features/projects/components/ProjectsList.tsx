@@ -14,21 +14,17 @@ import { ProjectPriorityEntityPill } from './fields/ProjectPriorityEntityPill';
 import { ProjectDueDateEntityPill } from './fields/ProjectDueDateEntityPill';
 import { cn } from '@/shared/utils';
 import { useCurrentStaff } from '@/shared/hooks';
-import { Circle, Clock3, Flag, CheckCircle2 } from 'lucide-react';
 import type { ProjectWithLead, ProjectStatus, ProjectPriority } from '../types';
 import {
+  getProjectStatusIcon,
+  getProjectStatusIconColor,
   getProjectStatusLabel,
   getProjectStatusOrder,
   getProjectPriorityLabel,
   formatProjectDate,
+  PRIORITY_OPTIONS,
+  PROJECT_STATUS_OPTIONS,
 } from '../utils/projectUtils';
-
-const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'planned', label: 'Planned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-];
 
 export interface ProjectsListProps {
   /** Initial filter values (e.g. dashboard: projects where current user is lead) */
@@ -76,20 +72,21 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
     getValue: (p) => p.status as ProjectStatus,
     defaultValue: 'backlog',
     filterable: true,
-    options: STATUS_OPTIONS.map(opt => ({
-      ...opt,
-      icon: opt.value === 'backlog' ? Circle : opt.value === 'planned' ? Clock3 : opt.value === 'in_progress' ? Flag : CheckCircle2,
+    options: PROJECT_STATUS_OPTIONS.map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+      icon: getProjectStatusIcon(opt.value),
     })),
     renderBubble: (value: unknown, collapsed) => {
       const status = value as ProjectStatus;
-      const option = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
-      const Icon = status === 'backlog' ? Circle : status === 'planned' ? Clock3 : status === 'in_progress' ? Flag : CheckCircle2;
-      const color = status === 'backlog' ? 'text-muted-foreground' : status === 'planned' ? 'text-blue-500' : status === 'in_progress' ? 'text-yellow-500' : 'text-green-500';
+      const option = PROJECT_STATUS_OPTIONS.find((o) => o.value === status) ?? PROJECT_STATUS_OPTIONS[0];
+      const Icon = getProjectStatusIcon(status);
+      const iconColor = getProjectStatusIconColor(status);
 
-      if (collapsed) return <Icon className={cn('h-3 w-3', color)} />;
+      if (collapsed) return <Icon className={cn('h-3 w-3', iconColor)} />;
 
       return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', color)}>
+        <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
           <Icon className="h-3 w-3" />
           {option.label}
         </span>
@@ -100,13 +97,10 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
 
   const priorityFilterOptions = useMemo(
     () =>
-      [
-        { value: 0 as unknown, label: 'No priority' },
-        { value: 1 as unknown, label: 'Urgent' },
-        { value: 2 as unknown, label: 'High' },
-        { value: 3 as unknown, label: 'Medium' },
-        { value: 4 as unknown, label: 'Low' },
-      ],
+      PRIORITY_OPTIONS.map((opt) => ({
+        value: opt.value as unknown,
+        label: opt.label,
+      })),
     []
   );
 

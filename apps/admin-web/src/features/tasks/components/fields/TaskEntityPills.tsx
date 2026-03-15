@@ -12,9 +12,10 @@ import {
   Input,
   ScrollArea,
 } from '@altitutor/ui';
-import { User, Check, Circle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
+import { User, Check, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import {
+  getPriorityIcon,
   getPriorityLabel,
   getPriorityIconColor,
   getEstimateLabel,
@@ -171,8 +172,7 @@ export function TaskPriorityEntityPill({
 }) {
   const label = getPriorityLabel(value);
   const iconColor = getPriorityIconColor(value);
-  const Icon =
-    value === 0 ? Circle : value === 2 ? AlertTriangle : value === 4 ? Info : AlertCircle;
+  const Icon = getPriorityIcon(value);
   const isEmpty = value === 0;
 
   return (
@@ -193,11 +193,18 @@ export function TaskPriorityEntityPill({
         )}
       </SelectTrigger>
       <SelectContent>
-        {PRIORITY_OPTIONS.map((o: { value: TaskPriority; label: string }) => (
-          <SelectItem key={o.value} value={String(o.value)}>
-            {o.label}
-          </SelectItem>
-        ))}
+        {PRIORITY_OPTIONS.map((o) => {
+          const OptionIcon = getPriorityIcon(o.value);
+          const optionColor = getPriorityIconColor(o.value);
+          return (
+            <SelectItem key={o.value} value={String(o.value)}>
+              <div className="flex items-center gap-2">
+                <OptionIcon className={cn('h-4 w-4', optionColor)} />
+                <span>{o.label}</span>
+              </div>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );

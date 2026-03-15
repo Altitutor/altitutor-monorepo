@@ -18,25 +18,20 @@ import {
   Input,
   ScrollArea,
 } from '@altitutor/ui';
-import { Check, User, Calendar, Flag, Circle, Clock3, CheckCircle2 } from 'lucide-react';
+import { cn } from '@/shared/utils';
+import { Check, User, Calendar, Flag } from 'lucide-react';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
-import { getProjectPriorityLabel } from '../../utils/projectUtils';
-
-const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'planned', label: 'Planned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-];
-
-const PRIORITY_OPTIONS: { value: ProjectPriority; label: string }[] = [
-  { value: 0, label: 'No priority' },
-  { value: 1, label: 'Urgent' },
-  { value: 2, label: 'High' },
-  { value: 3, label: 'Medium' },
-  { value: 4, label: 'Low' },
-];
+import {
+  getProjectStatusIcon,
+  getProjectStatusIconColor,
+  getProjectStatusLabel,
+  getProjectPriorityIcon,
+  getProjectPriorityLabel,
+  getProjectPriorityIconColor,
+  PROJECT_STATUS_OPTIONS,
+  PRIORITY_OPTIONS,
+} from '../../utils/projectUtils';
 
 export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFormReturn<ProjectFormData>; enabled?: boolean }) {
   const [isLeadPopoverOpen, setIsLeadPopoverOpen] = useState(false);
@@ -56,21 +51,8 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
   }, [staffList, leadSearchQuery]);
 
   const selectedStatus = form.watch('status');
-  const selectedPriority = form.watch('priority');
-  const StatusIcon = selectedStatus === 'backlog'
-    ? Circle
-    : selectedStatus === 'planned'
-      ? Clock3
-      : selectedStatus === 'in_progress'
-        ? Flag
-        : CheckCircle2;
-  const statusIconColor = selectedStatus === 'backlog'
-    ? 'text-muted-foreground'
-    : selectedStatus === 'planned'
-      ? 'text-blue-500'
-      : selectedStatus === 'in_progress'
-        ? 'text-yellow-500'
-        : 'text-green-500';
+  const StatusIcon = getProjectStatusIcon(selectedStatus);
+  const statusIconColor = getProjectStatusIconColor(selectedStatus);
 
   return (
     <div className="space-y-6">
@@ -83,23 +65,24 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
               <Select value={field.value} onValueChange={(value) => field.onChange(value as ProjectStatus)}>
                 <SelectTrigger>
                   <div className="flex items-center gap-2 w-full min-w-0">
-                    {StatusIcon && <StatusIcon className={`h-4 w-4 ${statusIconColor}`} />}
+                    <StatusIcon className={cn('h-4 w-4', statusIconColor)} />
                     <span className="text-muted-foreground shrink-0">Status</span>
-                    <span className="truncate">{STATUS_OPTIONS.find((opt) => opt.value === field.value)?.label ?? 'Backlog'}</span>
+                    <span className="truncate">{getProjectStatusLabel(field.value)}</span>
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUS_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      <div className="flex items-center gap-2">
-                        {option.value === 'backlog' && <Circle className="h-4 w-4 text-muted-foreground" />}
-                        {option.value === 'planned' && <Clock3 className="h-4 w-4 text-blue-500" />}
-                        {option.value === 'in_progress' && <Flag className="h-4 w-4 text-yellow-500" />}
-                        {option.value === 'completed' && <CheckCircle2 className="h-4 w-4 text-green-500" />}
-                        <span>{option.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
+                  {PROJECT_STATUS_OPTIONS.map((opt) => {
+                    const OptionIcon = getProjectStatusIcon(opt.value);
+                    const optionColor = getProjectStatusIconColor(opt.value);
+                    return (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex items-center gap-2">
+                          <OptionIcon className={cn('h-4 w-4', optionColor)} />
+                          <span>{opt.label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </FormControl>
@@ -120,17 +103,33 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
               >
                 <SelectTrigger>
                   <div className="flex items-center gap-2 w-full min-w-0">
-                    <Flag className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-muted-foreground shrink-0">Priority</span>
-                    <span className="truncate">{getProjectPriorityLabel((selectedPriority ?? 0) as ProjectPriority)}</span>
+                    {(() => {
+                      const p = (field.value ?? 0) as ProjectPriority;
+                      const PriorityIcon = getProjectPriorityIcon(p);
+                      const priorityIconColor = getProjectPriorityIconColor(p);
+                      return (
+                        <>
+                          <PriorityIcon className={cn('h-4 w-4', priorityIconColor)} />
+                          <span className="text-muted-foreground shrink-0">Priority</span>
+                          <span className="truncate">{getProjectPriorityLabel(p)}</span>
+                        </>
+                      );
+                    })()}
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  {PRIORITY_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={String(option.value)}>
-                      {getProjectPriorityLabel(option.value)}
-                    </SelectItem>
-                  ))}
+                  {PRIORITY_OPTIONS.map((opt) => {
+                    const OptionIcon = getProjectPriorityIcon(opt.value);
+                    const optionColor = getProjectPriorityIconColor(opt.value);
+                    return (
+                      <SelectItem key={opt.value} value={String(opt.value)}>
+                        <div className="flex items-center gap-2">
+                          <OptionIcon className={cn('h-4 w-4', optionColor)} />
+                          <span>{opt.label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </FormControl>

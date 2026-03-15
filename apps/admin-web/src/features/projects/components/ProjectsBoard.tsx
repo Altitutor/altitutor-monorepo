@@ -14,26 +14,18 @@ import { EditProjectDialog } from './EditProjectDialog';
 import { CreateProjectDialog } from './CreateProjectDialog';
 import type { ProjectPriority, ProjectStatus, ProjectWithLead } from '../types';
 import { cn } from '@/shared/utils';
-import { Circle, Clock3, Flag, CheckCircle2 } from 'lucide-react';
-import { getProjectStatusLabel, getProjectPriorityLabel, formatProjectDate } from '../utils/projectUtils';
+import {
+  getProjectStatusIcon,
+  getProjectStatusIconColor,
+  getProjectStatusLabel,
+  getProjectPriorityLabel,
+  formatProjectDate,
+  PROJECT_STATUS_OPTIONS,
+  PRIORITY_OPTIONS,
+} from '../utils/projectUtils';
 import { formatShortDate } from '@/shared/utils/datetime';
 import { getUserInitials } from '@/shared/utils';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
-
-const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'planned', label: 'Planned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-];
-
-const PROJECT_PRIORITY_OPTIONS = [
-  { value: 0, label: 'No priority' },
-  { value: 1, label: 'Urgent' },
-  { value: 2, label: 'High' },
-  { value: 3, label: 'Medium' },
-  { value: 4, label: 'Low' },
-];
 
 export function ProjectsBoard() {
   const [activeColumnKey, setActiveColumnKey] = useState<string>('status');
@@ -82,14 +74,14 @@ export function ProjectsBoard() {
       key: 'status',
       label: 'Status',
       getValue: (p) => p.status,
-      options: STATUS_OPTIONS,
+      options: PROJECT_STATUS_OPTIONS,
       onValueChange: (p, v) => handleUpdate(p, { status: v as ProjectStatus }),
     },
     {
       key: 'priority',
       label: 'Priority',
       getValue: (p) => p.priority ?? 0,
-      options: PROJECT_PRIORITY_OPTIONS,
+      options: PRIORITY_OPTIONS,
       onValueChange: (p, v) => handleUpdate(p, { priority: v as number }),
     },
     {
@@ -119,7 +111,7 @@ export function ProjectsBoard() {
         visibleByDefault: true,
         getValue: (p) => p.status ?? null,
         defaultValue: null,
-        filterOptions: STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
+        filterOptions: PROJECT_STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
         groupable: true,
         sortable: true,
         filterable: true,
@@ -232,19 +224,20 @@ export function ProjectsBoard() {
     getValue: (p) => p.status,
     defaultValue: 'backlog',
     filterable: true,
-    options: STATUS_OPTIONS.map(opt => ({
-      ...opt,
-      icon: opt.value === 'backlog' ? Circle : opt.value === 'planned' ? Clock3 : opt.value === 'in_progress' ? Flag : CheckCircle2,
+    options: PROJECT_STATUS_OPTIONS.map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+      icon: getProjectStatusIcon(opt.value),
     })),
     renderBubble: (value: unknown, collapsed) => {
       const status = value as ProjectStatus;
-      const option = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
-      const Icon = status === 'backlog' ? Circle : status === 'planned' ? Clock3 : status === 'in_progress' ? Flag : CheckCircle2;
-      const color = status === 'backlog' ? 'text-muted-foreground' : status === 'planned' ? 'text-blue-500' : status === 'in_progress' ? 'text-yellow-500' : 'text-green-500';
+      const option = PROJECT_STATUS_OPTIONS.find((o) => o.value === status) ?? PROJECT_STATUS_OPTIONS[0];
+      const Icon = getProjectStatusIcon(status);
+      const iconColor = getProjectStatusIconColor(status);
 
-      if (collapsed) return <Icon className={cn('h-3 w-3', color)} />;
+      if (collapsed) return <Icon className={cn('h-3 w-3', iconColor)} />;
       return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', color)}>
+        <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
           <Icon className="h-3 w-3" />
           {option.label}
         </span>

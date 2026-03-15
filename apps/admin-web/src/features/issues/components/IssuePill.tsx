@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Circle, Clock } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
 import { useOpenIssuesByEntity } from '../api/queries';
 import { EditIssueDialog } from './EditIssueDialog';
 import { cn } from '@/shared/utils';
+import { getIssueStatusColor, getIssueStatusIcon } from '../utils/issueUtils';
 
 interface IssuePillProps {
   entityType: 'student' | 'staff' | 'parent' | 'class' | 'session' | 'invoice';
@@ -34,8 +34,9 @@ export function IssuePill({ entityType, entityId, enabled = true, className, tru
     <>
       <div className={cn('flex items-center gap-2 flex-wrap min-w-0', className)}>
         {issues.map((issue) => {
-          const Icon = issue.status === 'open' ? Circle : Clock;
-          const iconColor = issue.status === 'open' ? 'text-orange-500' : 'text-yellow-500';
+          const Icon = getIssueStatusIcon(issue.status as 'open' | 'awaiting_response' | 'resolved');
+          const colorClasses = getIssueStatusColor(issue.status as 'open' | 'awaiting_response' | 'resolved');
+          const iconColor = colorClasses.replace('bg-', 'text-');
 
           const badgeContent = (
             <>

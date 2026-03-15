@@ -8,22 +8,15 @@ import {
   getPriorityColor,
   getPriorityLabel,
   getStatusColor,
+  getStatusIcon,
   getStatusLabel,
   getUserInitials,
   getEstimateLabel,
 } from '../utils/taskUtils';
 import { formatShortDate, isOverdue } from '@/shared/utils/datetime';
-import { Calendar, Circle, Clock, Eye, CheckCircle, FolderKanban, Link2 } from 'lucide-react';
+import { Calendar, FolderKanban, Link2 } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-
-const TASK_STATUS_ICONS: Record<TaskStatus, typeof Circle> = {
-  backlog: Circle,
-  todo: Circle,
-  in_progress: Clock,
-  in_review: Eye,
-  done: CheckCircle,
-};
 
 interface TaskCardProps {
   task: TaskWithAssignee;
@@ -55,7 +48,7 @@ export function TaskCard({ task, onClick, visiblePillKeys = [] }: TaskCardProps)
 
   const overdue = isOverdue(task.due_date);
   const taskStatus = (task.status ?? 'backlog') as TaskStatus;
-  const StatusIcon = TASK_STATUS_ICONS[taskStatus];
+  const StatusIcon = getStatusIcon(taskStatus);
 
   return (
     <div

@@ -15,14 +15,13 @@ import { CreateIssueDialog } from './CreateIssueDialog';
 import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
 import type { IssueWithTags, IssueStatus, IssueUpdate } from '../types';
 import { cn } from '@/shared/utils';
-import { Circle, Clock, CheckCircle } from 'lucide-react';
-import { formatIssueDueDate, getIssueStatusLabel } from '../utils/issueUtils';
-
-const STATUS_OPTIONS: { value: IssueStatus; label: string }[] = [
-  { value: 'open', label: 'Open' },
-  { value: 'awaiting_response', label: 'Awaiting Response' },
-  { value: 'resolved', label: 'Resolved' },
-];
+import {
+  formatIssueDueDate,
+  getIssueStatusIcon,
+  getIssueStatusIconColor,
+  getIssueStatusLabel,
+  ISSUE_STATUS_OPTIONS,
+} from '../utils/issueUtils';
 
 export function IssuesBoard() {
   const [activeColumnKey, setActiveColumnKey] = useState<string>('status');
@@ -72,22 +71,25 @@ export function IssuesBoard() {
     [dueDateFilterOptions]
   );
 
-  const columnDefs: KanbanColumnDef<IssueWithTags, unknown>[] = useMemo(() => [
-    {
-      key: 'status',
-      label: 'Status',
-      getValue: (i) => i.status,
-      options: STATUS_OPTIONS,
-      onValueChange: (i, v) => handleUpdate(i, { status: v as IssueStatus }),
-    },
-    {
-      key: 'due_date',
-      label: 'Due date',
-      getValue: (i) => i.due_date ?? '__null__',
-      options: dueDateColumnOptions,
-      onValueChange: (i, v) => handleUpdate(i, { due_date: v === '__null__' ? null : (v as string) }),
-    },
-  ], [handleUpdate, dueDateColumnOptions]);
+  const columnDefs: KanbanColumnDef<IssueWithTags, unknown>[] = useMemo(
+    () => [
+      {
+        key: 'status',
+        label: 'Status',
+        getValue: (i) => i.status,
+        options: ISSUE_STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label })),
+        onValueChange: (i, v) => handleUpdate(i, { status: v as IssueStatus }),
+      },
+      {
+        key: 'due_date',
+        label: 'Due date',
+        getValue: (i) => i.due_date ?? '__null__',
+        options: dueDateColumnOptions,
+        onValueChange: (i, v) => handleUpdate(i, { due_date: v === '__null__' ? null : (v as string) }),
+      },
+    ],
+    [handleUpdate, dueDateColumnOptions]
+  );
 
   const rightPills: EntityListPillColumn<IssueWithTags, unknown>[] = useMemo(
     () => [
@@ -97,7 +99,7 @@ export function IssuesBoard() {
         visibleByDefault: true,
         getValue: (issue) => issue.status ?? null,
         defaultValue: null,
-        filterOptions: STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
+        filterOptions: ISSUE_STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
         groupable: true,
         sortable: true,
         filterable: true,
@@ -178,33 +180,37 @@ export function IssuesBoard() {
     setSortDirection(direction);
   }, []);
 
-  const statusColumn: EntityListStatusColumn<IssueWithTags, unknown> = {
-    key: 'status',
-    label: 'Status',
-    getValue: (i) => i.status as IssueStatus,
-    defaultValue: 'open',
-    filterable: true,
-    options: STATUS_OPTIONS.map(opt => ({
-      ...opt,
-      icon: opt.value === 'open' ? Circle : opt.value === 'awaiting_response' ? Clock : CheckCircle
-    })),
-    renderBubble: (value: unknown, collapsed) => {
-      const status = value as IssueStatus;
-      const option = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
-      const Icon = status === 'open' ? Circle : status === 'awaiting_response' ? Clock : CheckCircle;
-      const color = status === 'open' ? 'text-blue-500' : status === 'awaiting_response' ? 'text-yellow-500' : 'text-green-500';
+  const statusColumn: EntityListStatusColumn<IssueWithTags, unknown> = useMemo(
+    () => ({
+      key: 'status',
+      label: 'Status',
+      getValue: (i) => i.status as IssueStatus,
+      defaultValue: 'open',
+      filterable: true,
+      options: ISSUE_STATUS_OPTIONS.map((opt) => ({
+        value: opt.value,
+        label: opt.label,
+        icon: getIssueStatusIcon(opt.value),
+      })),
+      renderBubble: (value: unknown, collapsed) => {
+        const status = value as IssueStatus;
+        const option = ISSUE_STATUS_OPTIONS.find((o) => o.value === status) ?? ISSUE_STATUS_OPTIONS[0];
+        const Icon = getIssueStatusIcon(status);
+        const iconColor = getIssueStatusIconColor(status);
 
-      if (collapsed) return <Icon className={cn("h-3 w-3", color)} />;
+        if (collapsed) return <Icon className={cn('h-3 w-3', iconColor)} />;
 
-      return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', color)}>
-          <Icon className="h-3 w-3" />
-          {option.label}
-        </span>
-      );
-    },
-    onStatusChange: (issue, value) => handleUpdate(issue, { status: value as IssueStatus }),
-  };
+        return (
+          <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
+            <Icon className="h-3 w-3" />
+            {option.label}
+          </span>
+        );
+      },
+      onStatusChange: (issue, value) => handleUpdate(issue, { status: value as IssueStatus }),
+    }),
+    [handleUpdate]
+  );
 
   return (
     <>
