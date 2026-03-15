@@ -76,12 +76,12 @@ export function AddStaffToSessionModal({
     ? `${selectedStaff.first_name || ''} ${selectedStaff.last_name || ''}`.trim()
     : 'choose staff';
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setStep(1);
     setSearch('');
     setSelectedStaffId(null);
     onClose();
-  };
+  }, [onClose]);
 
   const handleConfirm = useCallback(async () => {
     if (!selectedStaff) return;
@@ -91,7 +91,7 @@ export function AddStaffToSessionModal({
     } catch {
       // Keep modal open if mutation fails so user can retry.
     }
-  }, [onConfirm, selectedStaff]);
+  }, [handleClose, onConfirm, selectedStaff]);
 
   const hasNextStep = step === 1;
 

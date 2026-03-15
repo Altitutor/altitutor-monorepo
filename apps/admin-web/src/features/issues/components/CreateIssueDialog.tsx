@@ -117,6 +117,11 @@ export function CreateIssueDialog({
     };
   }, [isOpen, initialStatus, initialDueDate, initialTags, form]);
 
+  const handleClose = useCallback(() => {
+    form.reset();
+    onClose();
+  }, [form, onClose]);
+
   const onSubmit = useCallback(async (data: IssueFormData) => {
     try {
       await createIssue.mutateAsync({
@@ -133,12 +138,7 @@ export function CreateIssueDialog({
     } catch (error) {
       console.error('Failed to create issue:', error);
     }
-  }, [createIssue, initialTags, onIssueCreated]);
-
-  const handleClose = () => {
-    form.reset();
-    onClose();
-  };
+  }, [createIssue, handleClose, initialTags, onIssueCreated]);
 
   const handlePrimaryAction = useCallback(() => {
     if (createIssue.isPending) return;

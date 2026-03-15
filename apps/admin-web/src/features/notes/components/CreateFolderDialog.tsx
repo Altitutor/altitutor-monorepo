@@ -69,7 +69,7 @@ export function CreateFolderDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }, [createFolder, defaultParentId, form, onClose]);
+  }, [createFolder, form, onClose]);
 
   const handlePrimaryAction = useCallback(() => {
     if (isSubmitting) return;

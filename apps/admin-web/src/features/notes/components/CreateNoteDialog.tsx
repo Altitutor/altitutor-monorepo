@@ -74,7 +74,7 @@ export function CreateNoteDialog({
     } finally {
       setIsSubmitting(false);
     }
-  }, [createNote, defaultFolderId, form, onClose, router]);
+  }, [createNote, form, onClose, router]);
 
   const handlePrimaryAction = useCallback(() => {
     if (isSubmitting) return;

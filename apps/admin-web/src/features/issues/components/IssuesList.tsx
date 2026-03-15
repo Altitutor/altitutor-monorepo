@@ -12,15 +12,15 @@ import { useUpdateIssue, useCreateIssue } from '../api/mutations';
 import { EditIssueDialog } from './EditIssueDialog';
 import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
 import { cn } from '@/shared/utils';
-import { Circle, Clock, CheckCircle } from 'lucide-react';
 import type { IssueWithTags, IssueStatus } from '../types';
-import { formatIssueDueDate, getIssueStatusLabel, getIssueStatusOrder } from '../utils/issueUtils';
-
-const STATUS_OPTIONS: { value: IssueStatus; label: string }[] = [
-  { value: 'open', label: 'Open' },
-  { value: 'awaiting_response', label: 'Awaiting Response' },
-  { value: 'resolved', label: 'Resolved' },
-];
+import {
+  formatIssueDueDate,
+  getIssueStatusColor,
+  getIssueStatusIcon,
+  getIssueStatusLabel,
+  getIssueStatusOrder,
+  ISSUE_STATUS_OPTIONS,
+} from '../utils/issueUtils';
 
 export interface IssuesListProps {
   /** Initial filter values (e.g. dashboard: open only) */
@@ -69,20 +69,25 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
     getValue: (i) => i.status as IssueStatus,
     defaultValue: 'open',
     filterable: true,
-    options: STATUS_OPTIONS.map(opt => ({
-      ...opt,
-      icon: opt.value === 'open' ? Circle : opt.value === 'awaiting_response' ? Clock : CheckCircle
+    options: ISSUE_STATUS_OPTIONS.map((opt) => ({
+      value: opt.value,
+      label: opt.label,
+      icon: () => {
+        const Icon = getIssueStatusIcon(opt.value);
+        const color = getIssueStatusColor(opt.value);
+        return <Icon className={cn('h-3 w-3', color.replace('bg-', 'text-'))} />;
+      },
     })),
     renderBubble: (value: unknown, collapsed) => {
       const status = value as IssueStatus;
-      const option = STATUS_OPTIONS.find(o => o.value === status) || STATUS_OPTIONS[0];
-      const Icon = status === 'open' ? Circle : status === 'awaiting_response' ? Clock : CheckCircle;
-      const color = status === 'open' ? 'text-blue-500' : status === 'awaiting_response' ? 'text-yellow-500' : 'text-green-500';
+      const option = ISSUE_STATUS_OPTIONS.find((o) => o.value === status) ?? ISSUE_STATUS_OPTIONS[0];
+      const Icon = getIssueStatusIcon(status);
+      const color = getIssueStatusColor(status);
 
-      if (collapsed) return <Icon className={cn("h-3 w-3", color)} />;
+      if (collapsed) return <Icon className={cn('h-3 w-3', color.replace('bg-', 'text-'))} />;
 
       return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', color)}>
+        <span className={cn('inline-flex items-center gap-1.5 text-xs', color.replace('bg-', 'text-'))}>
           <Icon className="h-3 w-3" />
           {option.label}
         </span>

@@ -81,6 +81,11 @@ export function CreateProjectDialog({
     });
   }, [isOpen, initialStatus, initialPriority, initialProjectLeadId, form]);
 
+  const handleClose = useCallback(() => {
+    form.reset();
+    onClose();
+  }, [form, onClose]);
+
   const onSubmit = useCallback(async (data: ProjectFormData) => {
     try {
       const created = await createProject.mutateAsync({
@@ -98,12 +103,7 @@ export function CreateProjectDialog({
     } catch (error) {
       console.error('Failed to create project:', error);
     }
-  }, [createProject, currentStaff, onProjectCreated]);
-
-  const handleClose = () => {
-    form.reset();
-    onClose();
-  };
+  }, [createProject, currentStaff, handleClose, onProjectCreated]);
 
   const handleTitleEnter = useCallback(() => {
     const editor = descriptionFieldRef.current?.getEditor();

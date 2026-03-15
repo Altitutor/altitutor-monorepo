@@ -123,6 +123,12 @@ export function CreateTaskDialog({
     }
   }, [isOpen, defaultStatus, defaultValues, form, issue, project, currentStaff]);
 
+  const handleClose = useCallback(() => {
+    setCreatedTaskId(null);
+    form.reset();
+    onClose();
+  }, [form, onClose]);
+
   const onSubmit = useCallback(async (data: TaskFormData): Promise<void> => {
     try {
       await createTask.mutateAsync({
@@ -144,13 +150,7 @@ export function CreateTaskDialog({
       // Error handling is done in the mutation
       console.error('Failed to create task:', error);
     }
-  }, [createTask, currentStaff, onTaskCreated]);
-
-  const handleClose = () => {
-    setCreatedTaskId(null);
-    form.reset();
-    onClose();
-  };
+  }, [createTask, currentStaff, handleClose, onTaskCreated]);
 
   const handlePrimaryAction = useCallback(() => {
     if (createTask.isPending) return;

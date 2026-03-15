@@ -390,6 +390,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
         const pill = rightPills.find((p) => p.key === columnKey);
         const statusVal = statusColumn?.key === columnKey ? statusColumn.getValue(item) : undefined;
         const value = pill ? pill.getValue(item) : statusVal;
+        const hasColumn = pill !== undefined || statusColumn?.key === columnKey;
+        if (!hasColumn) continue;
         const match = selected.some((v) => {
           if (v === value) return true;
           
