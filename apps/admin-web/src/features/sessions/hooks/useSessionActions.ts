@@ -19,14 +19,6 @@ interface UseSessionActionsProps {
    * Whether the session has a tutor log
    */
   hasTutorLog: boolean;
-  /**
-   * Optional callback for reschedule action
-   */
-  onReschedule?: () => void;
-  /**
-   * Whether the session can be rescheduled
-   */
-  canReschedule?: boolean;
 }
 
 /**
@@ -39,8 +31,6 @@ export function useSessionActions({
   onLogSession,
   onEditTutorLog,
   hasTutorLog,
-  onReschedule,
-  canReschedule,
 }: UseSessionActionsProps) {
   const router = useRouter();
 
@@ -57,7 +47,5 @@ export function useSessionActions({
     onLogSession: !hasTutorLog ? onLogSession : undefined,
     onEditTutorLog: hasTutorLog ? onEditTutorLog : undefined,
     hasTutorLog,
-    onReschedule: canReschedule ? onReschedule : undefined,
-    canReschedule,
   };
 }

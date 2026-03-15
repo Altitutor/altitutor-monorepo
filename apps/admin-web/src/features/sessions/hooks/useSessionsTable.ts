@@ -11,8 +11,6 @@ import {
   filterSessionsByStudents,
   filterSessionsByTutorLog,
   paginateSessions,
-  canRescheduleSession,
-  getFirstStudentIdForReschedule,
 } from '../utils/sessionsTableHelpers';
 
 export interface UseSessionsTableProps {
@@ -73,8 +71,6 @@ export interface UseSessionsTableReturn {
   getTimeRange: (session: Tables<'sessions'>) => string;
   getClassDisplayName: (session: Tables<'sessions'>) => string;
   getClassShortDisplayName: (session: Tables<'sessions'>) => string;
-  canReschedule: (session: Tables<'sessions'>) => boolean;
-  getRescheduleStudentId: (sessionId: string) => string | null;
 }
 
 export function useSessionsTable({
@@ -257,20 +253,6 @@ export function useSessionsTable({
     [classesById, subjectsById]
   );
 
-  const canReschedule = useCallback((session: Tables<'sessions'>) => {
-    const hasTutorLog = !!tutorLogs[session.id];
-    const rescheduleInfo = getFirstStudentIdForReschedule(session.id, sessionStudents);
-    return canRescheduleSession(session, hasTutorLog, rescheduleInfo.hasPaidInvoice);
-  }, [tutorLogs, sessionStudents]);
-
-  const getRescheduleStudentId = useCallback(
-    (sessionId: string) => {
-      const rescheduleInfo = getFirstStudentIdForReschedule(sessionId, sessionStudents);
-      return rescheduleInfo.studentId;
-    },
-    [sessionStudents]
-  );
-
   return {
     // Student search
     filteredStudents,
@@ -295,7 +277,5 @@ export function useSessionsTable({
     getTimeRange,
     getClassDisplayName,
     getClassShortDisplayName,
-    canReschedule,
-    getRescheduleStudentId,
   };
 }

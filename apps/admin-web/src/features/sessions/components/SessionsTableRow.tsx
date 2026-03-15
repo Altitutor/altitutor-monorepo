@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { Check, X, MoreVertical, ExternalLink, Copy, Calendar, CalendarX, CreditCard, RotateCcw, Trash2 } from 'lucide-react';
+import { Check, X, MoreVertical, ExternalLink, Copy, Calendar, CreditCard, RotateCcw, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
@@ -48,8 +48,6 @@ export interface SessionsTableRowProps {
   getTimeRange: (session: Tables<'sessions'>) => string;
   getClassDisplayName: (session: Tables<'sessions'>) => string;
   getClassShortDisplayName: (session: Tables<'sessions'>) => string;
-  canReschedule: (session: Tables<'sessions'>) => boolean;
-  getRescheduleStudentId: (sessionId: string) => string | null;
   onOpenSession?: (id: string) => void;
   onOpenStudent?: (id: string) => void;
   onOpenStaff?: (id: string) => void;
@@ -102,8 +100,6 @@ export function SessionsTableRow({
   getTimeRange,
   getClassDisplayName,
   getClassShortDisplayName,
-  canReschedule,
-  getRescheduleStudentId,
   onOpenSession,
   onOpenStudent,
   onOpenStaff,
@@ -403,8 +399,6 @@ export function SessionsTableRow({
             sessionShortName={sessionShortName}
             getClassShortDisplayName={getClassShortDisplayName}
             getShortSessionName={getShortSessionName}
-            canReschedule={canReschedule}
-            getRescheduleStudentId={getRescheduleStudentId}
             onOpenSession={onOpenSession}
             onUndoLogAbsenceStudent={onUndoLogAbsenceStudent}
             onRemoveStudentFromSession={onRemoveStudentFromSession}
@@ -424,8 +418,6 @@ export function SessionsTableRow({
             classesById={classesById}
             sessionShortName={sessionShortName}
             getClassShortDisplayName={getClassShortDisplayName}
-            canReschedule={canReschedule}
-            getRescheduleStudentId={getRescheduleStudentId}
             onOpenStaff={onOpenStaff}
             onUndoLogAbsenceStaff={onUndoLogAbsenceStaff}
             onRemoveStaffFromSession={onRemoveStaffFromSession}
@@ -451,8 +443,6 @@ interface SessionsTableRowStudentActionsProps {
   sessionShortName: string;
   getClassShortDisplayName: (session: Tables<'sessions'>) => string;
   getShortSessionName: (session: Parameters<typeof getShortSessionName>[0]) => string;
-  canReschedule: (session: Tables<'sessions'>) => boolean;
-  getRescheduleStudentId: (sessionId: string) => string | null;
   onOpenSession?: (id: string) => void;
   onUndoLogAbsenceStudent?: (payload: {
     studentId: string;
@@ -480,8 +470,6 @@ function SessionsTableRowStudentActions({
   sessionShortName,
   getClassShortDisplayName,
   getShortSessionName,
-  canReschedule,
-  getRescheduleStudentId,
   onOpenSession: _onOpenSession,
   onUndoLogAbsenceStudent,
   onRemoveStudentFromSession,
@@ -491,8 +479,6 @@ function SessionsTableRowStudentActions({
   router,
   toast,
 }: SessionsTableRowStudentActionsProps) {
-  const sessionCanReschedule = canReschedule(session);
-  const rescheduleStudentId = getRescheduleStudentId(session.id);
   const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
   const plannedStudentIds = new Set(studentList.filter((s) => s.sessions_students_id != null).map((s) => s.id));
   const attendance = selectedStudent
@@ -538,7 +524,6 @@ function SessionsTableRowStudentActions({
           : !onRemoveStudentFromSession
             ? 'Remove from session is not available here.'
             : 'Cannot remove this student from the session.';
-  const rescheduleReason = sessionCanReschedule && rescheduleStudentId ? '' : 'This session cannot be rescheduled.';
 
   return (
     <DropdownMenu>
@@ -559,20 +544,6 @@ function SessionsTableRowStudentActions({
         >
           <Copy className="h-4 w-4 mr-2" />
           Copy ID
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className={cn(!(sessionCanReschedule && rescheduleStudentId) && 'opacity-60 text-muted-foreground')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (sessionCanReschedule && rescheduleStudentId) {
-              modals.openRescheduleModal(session, rescheduleStudentId);
-            } else {
-              toast({ description: rescheduleReason, variant: 'destructive' });
-            }
-          }}
-        >
-          <CalendarX className="h-4 w-4 mr-2" />
-          Reschedule session
         </DropdownMenuItem>
         <DropdownMenuItem
           className={cn((!canLogAbsence || !canOpenAbsenceDialog) && 'opacity-60 text-muted-foreground')}
@@ -645,8 +616,6 @@ interface SessionsTableRowDefaultActionsProps {
   classesById: Record<string, Tables<'classes'>>;
   sessionShortName: string;
   getClassShortDisplayName: (session: Tables<'sessions'>) => string;
-  canReschedule: (session: Tables<'sessions'>) => boolean;
-  getRescheduleStudentId: (sessionId: string) => string | null;
   onOpenStaff?: (id: string) => void;
   onUndoLogAbsenceStaff?: (payload: {
     staffId: string;
@@ -671,8 +640,6 @@ function SessionsTableRowDefaultActions({
   tutorLogs,
   sessionShortName,
   getClassShortDisplayName,
-  canReschedule,
-  getRescheduleStudentId,
   onUndoLogAbsenceStaff,
   onRemoveStaffFromSession,
   modals,
@@ -680,8 +647,6 @@ function SessionsTableRowDefaultActions({
   router,
   toast,
 }: SessionsTableRowDefaultActionsProps) {
-  const sessionCanReschedule = canReschedule(session);
-  const rescheduleStudentId = getRescheduleStudentId(session.id);
   const selectedStaff = staffList.find((s) => s.id === staffId) || staffList[0];
   const staffAttendance = selectedStaff ? getStaffAttendanceStatus(selectedStaff, hasTutorLog) : null;
   const canUndoStaff =
@@ -691,7 +656,6 @@ function SessionsTableRowDefaultActions({
   const canRemoveStaff = !hasTutorLog && !!onRemoveStaffFromSession && !!selectedStaff;
   const undoStaffReason = canUndoStaff && selectedStaff && staffAttendance ? '' : 'No logged absence to undo for this staff.';
   const editTutorLogReason = hasTutorLog ? '' : 'Session has no tutor log to edit.';
-  const rescheduleReason = sessionCanReschedule && rescheduleStudentId ? '' : 'This session cannot be rescheduled.';
   const logSessionReason = !hasTutorLog ? '' : 'Session already has a tutor log.';
   const removeStaffReason = canRemoveStaff
     ? ''
@@ -771,20 +735,6 @@ function SessionsTableRowDefaultActions({
         >
           <ExternalLink className="h-4 w-4 mr-2" />
           Edit tutor log
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className={cn(!(sessionCanReschedule && rescheduleStudentId) && 'opacity-60 text-muted-foreground')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (sessionCanReschedule && rescheduleStudentId) {
-              modals.openRescheduleModal(session, rescheduleStudentId);
-            } else {
-              toast({ description: rescheduleReason, variant: 'destructive' });
-            }
-          }}
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Reschedule
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem

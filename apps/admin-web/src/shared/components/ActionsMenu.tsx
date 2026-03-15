@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CalendarX, CreditCard, UserX, Plus, Copy, Receipt } from 'lucide-react';
+import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, Plus, Copy, Receipt } from 'lucide-react';
 import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 import type { IssueTagInsert } from '@/features/issues/types';
@@ -50,8 +50,6 @@ interface SessionActionsMenuProps extends BaseActionsMenuProps {
   onLogSession?: () => void;
   hasTutorLog: boolean;
   onEditTutorLog?: () => void;
-  onReschedule?: () => void;
-  canReschedule?: boolean;
   /** Session type; 'CLASS' disables Send Booking Confirmation */
   sessionType?: string;
   /** Students in session; used for Send Booking Confirmation (pick recipient) */
@@ -300,7 +298,6 @@ export function ActionsMenu(props: ActionsMenuProps) {
   }
 
   if (props.type === 'session') {
-    const canReschedule = props.canReschedule && props.onReschedule;
     const canEditTutorLog = props.hasTutorLog && props.onEditTutorLog;
     const canLogSession = !props.hasTutorLog && props.onLogSession;
     const showEditTutorLog = canEditTutorLog;
@@ -358,16 +355,6 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <DropdownMenuSeparator />
             </>
           )}
-          <DropdownMenuItem
-            className={!canReschedule ? 'opacity-60 text-muted-foreground' : undefined}
-            onClick={() => {
-              if (canReschedule && props.onReschedule) props.onReschedule();
-              else toast({ description: 'This session cannot be rescheduled.', variant: 'destructive' });
-            }}
-          >
-            <CalendarX className="h-4 w-4 mr-2" />
-            Reschedule session
-          </DropdownMenuItem>
           {showEditTutorLog ? (
             <DropdownMenuItem onClick={props.onEditTutorLog}>
               <Pencil className="h-4 w-4 mr-2" />

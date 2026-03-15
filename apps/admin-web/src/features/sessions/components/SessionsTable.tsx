@@ -20,7 +20,6 @@ import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useRouter } from 'next/navigation';
-import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { useSessionsTable } from '../hooks/useSessionsTable';
 import { useSessionsTableModals } from '../hooks/useSessionsTableModals';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -166,8 +165,6 @@ export function SessionsTable({
     getTimeRange,
     getClassDisplayName,
     getClassShortDisplayName,
-    canReschedule,
-    getRescheduleStudentId,
     subjectsById,
   } = useSessionsTable({
     studentId,
@@ -446,8 +443,6 @@ export function SessionsTable({
                   getTimeRange={getTimeRange}
                   getClassDisplayName={getClassDisplayName}
                   getClassShortDisplayName={getClassShortDisplayName}
-                  canReschedule={canReschedule}
-                  getRescheduleStudentId={getRescheduleStudentId}
                   onOpenSession={onOpenSession}
                   onOpenStudent={onOpenStudent}
                   onOpenStaff={onOpenStaff}
@@ -510,29 +505,6 @@ export function SessionsTable({
           initialStudentId={studentId}
           initialSessionId={modals.studentAbsenceSessionId}
           allowPastSessions={true}
-        />
-      )}
-
-      {/* Reschedule Session Modal */}
-      {modals.selectedSessionForReschedule && modals.selectedStudentForReschedule && (
-        <BookSessionModal
-          isOpen={modals.isRescheduleModalOpen}
-          onClose={modals.closeRescheduleModal}
-          sessionType={modals.selectedSessionForReschedule.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
-          initialStudentId={modals.selectedStudentForReschedule}
-          originalSessionId={modals.selectedSessionForReschedule.id}
-          originalSubjectId={(() => {
-            const s = modals.selectedSessionForReschedule!;
-            if (s.subject_id) return s.subject_id;
-            if (s.class_id) {
-              const cls = classesById[s.class_id];
-              return cls?.subject_id || null;
-            }
-            return null;
-          })()}
-          onBookingCreated={(_newSessionId) => {
-            modals.closeRescheduleModal();
-          }}
         />
       )}
 
