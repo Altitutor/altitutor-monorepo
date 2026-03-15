@@ -18,7 +18,7 @@ import type { Tables } from '@altitutor/shared';
 import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { AttendanceCell } from './AttendanceCell';
-import { getInvoiceStatusBadgeVariant } from '../utils/sessionsTableHelpers';
+import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/sessionsTableAttendance';
 import { getShortSessionName } from '../utils/session-helpers';
 import type { SessionTableStudent, SessionTableStaff } from '../types/sessions-table';
@@ -221,14 +221,14 @@ export function SessionsTableRow({
             <div className="flex flex-col gap-1">
               {studentList.map((s) => {
                 const planned_absence = s.planned_absence === true;
-                const invoiceStatus = s.invoice_status;
+                const invoicePayload = s.invoice_status_payload;
                 const isExtra = s.is_extra === true;
                 const nameClass = planned_absence
                   ? 'text-muted-foreground line-through'
                   : isExtra
                     ? 'text-orange-600 dark:text-orange-400'
                     : '';
-                const badgeInfo = getInvoiceStatusBadgeVariant(invoiceStatus);
+                const badge = getInvoiceStatusBadge(invoicePayload);
                 return (
                   <div key={s.id} className="flex items-center gap-2 flex-wrap">
                     <Button
@@ -248,11 +248,7 @@ export function SessionsTableRow({
                       ) : (
                         <X className="h-3 w-3 text-red-600 flex-shrink-0" />
                       ))}
-                    {!hideBilling && badgeInfo && (
-                      <Badge variant={badgeInfo.variant} className="text-xs ml-1">
-                        {badgeInfo.label}
-                      </Badge>
-                    )}
+                    {!hideBilling && badge}
                   </div>
                 );
               })}
@@ -344,11 +340,11 @@ export function SessionsTableRow({
         <TableCell>
           {(() => {
             const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
-            const status = selectedStudent?.invoice_status || null;
-            if (status) {
-              const badgeInfo = getInvoiceStatusBadgeVariant(status);
-              if (!badgeInfo) return <span className="text-xs text-muted-foreground">-</span>;
-              return <Badge variant={badgeInfo.variant} className="text-xs">{badgeInfo.label}</Badge>;
+            const invoicePayload = selectedStudent?.invoice_status_payload ?? null;
+            if (invoicePayload) {
+              const badge = getInvoiceStatusBadge(invoicePayload);
+              if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
+              return badge;
             }
             const sessionsStudentsId = selectedStudent?.sessions_students_id;
             const isUninvoiced =
@@ -484,7 +480,7 @@ function SessionsTableRowStudentActions({
   const attendance = selectedStudent
     ? getStudentAttendanceStatus(selectedStudent, hasTutorLog, plannedStudentIds)
     : null;
-  const canLogAbsence = !!selectedStudent && !selectedStudent.invoice_status;
+  const canLogAbsence = !!selectedStudent && !selectedStudent.invoice_status_payload;
   const canOpenAbsenceDialog = !!currentStaff && !!studentId;
   const canUndoStudent =
     onUndoLogAbsenceStudent &&
@@ -501,13 +497,13 @@ function SessionsTableRowStudentActions({
     : undefined;
   const canRemoveStudent =
     !hasTutorLog &&
-    !selectedStudent?.invoice_status &&
+    !selectedStudent?.invoice_status_payload &&
     (attendance?.plannedStatus === 'attending-extra' || attendance?.plannedStatus === 'attending-extra-trial') &&
     !!onRemoveStudentFromSession &&
     !!selectedStudent;
   const logAbsenceReason = hasTutorLog
     ? 'Session already has a tutor log.'
-    : selectedStudent?.invoice_status
+    : selectedStudent?.invoice_status_payload
       ? 'Student has an invoice item for this session.'
       : !canLogAbsence
         ? 'No absence to log for this student.'
@@ -517,7 +513,7 @@ function SessionsTableRowStudentActions({
     ? ''
     : hasTutorLog
       ? 'Session has a tutor log; cannot remove student.'
-      : selectedStudent?.invoice_status
+      : selectedStudent?.invoice_status_payload
         ? 'Student has an invoice item for this session.'
         : attendance?.plannedStatus !== 'attending-extra' && attendance?.plannedStatus !== 'attending-extra-trial'
           ? 'Only extra or trial students can be removed from a session.'

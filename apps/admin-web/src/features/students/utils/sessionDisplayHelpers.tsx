@@ -1,5 +1,4 @@
 import type { Tables } from '@altitutor/shared';
-import { Badge } from '@altitutor/ui';
 
 /**
  * Get today's date in local timezone (YYYY-MM-DD format)
@@ -66,28 +65,3 @@ export function getTimeRange(session: Tables<'sessions'>): string {
   return s && e ? `${s}–${e}` : s || e || '-';
 }
 
-/**
- * Get invoice status badge component
- */
-export function getInvoiceStatusBadge(status: string | null | undefined): JSX.Element | null {
-  if (!status) return null;
-  
-  let label = '';
-  let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-  
-  if (status === 'draft' || status === 'open') {
-    label = 'Sent';
-    variant = 'secondary';
-  } else if (status === 'paid') {
-    label = 'Paid';
-    variant = 'default';
-  } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-    label = 'Failed';
-    variant = 'destructive';
-  } else {
-    label = status;
-    variant = 'outline';
-  }
-  
-  return <Badge variant={variant} className="text-xs ml-1">{label}</Badge>;
-}

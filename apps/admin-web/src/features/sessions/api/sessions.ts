@@ -29,7 +29,7 @@ type SearchSessionsRpcResponse = {
     planned_absence?: boolean;
     actual_attended?: boolean | null;
     actual_was_trial?: boolean | null;
-    invoice_status?: string | null;
+    invoice_status_payload?: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
     sessions_students_id?: string | null;
     is_extra?: boolean;
     was_trial?: boolean;
@@ -73,11 +73,6 @@ type RescheduledSessionRow = {
   session: (Tables<'sessions'> & {
     class: Tables<'classes'> | null;
   }) | null;
-};
-
-type InvoiceItemRow = {
-  sessions_students_id: string;
-  invoice: { status: string } | null;
 };
 
 type EnrollmentRow = {
@@ -178,7 +173,7 @@ export const sessionsApi = {
       planned_absence?: boolean;
       actual_attended?: boolean | null;
       actual_was_trial?: boolean | null;
-      invoice_status?: string | null;
+      invoice_status_payload?: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
       sessions_students_id?: string | null;
       is_extra?: boolean;
       was_trial?: boolean;
@@ -268,7 +263,7 @@ export const sessionsApi = {
         planned_absence?: boolean;
         actual_attended?: boolean | null;
         actual_was_trial?: boolean | null;
-        invoice_status?: string | null;
+        invoice_status_payload?: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
         sessions_students_id?: string | null;
         is_extra?: boolean;
         was_trial?: boolean;
@@ -313,7 +308,7 @@ export const sessionsApi = {
             planned_absence: s.planned_absence ?? false,
             actual_attended: s.actual_attended ?? null,
             actual_was_trial: studentWithExtra.actual_was_trial ?? null,
-            invoice_status: s.invoice_status ?? null,
+            invoice_status_payload: (s as { invoice_status_payload?: unknown }).invoice_status_payload ?? null,
             sessions_students_id: studentWithExtra.sessions_students_id ?? null,
             is_extra: s.is_extra ?? false,
             was_trial: studentWithExtra.was_trial ?? false,
@@ -326,7 +321,7 @@ export const sessionsApi = {
           planned_absence?: boolean;
           actual_attended?: boolean | null;
           actual_was_trial?: boolean | null;
-          invoice_status?: string | null;
+          invoice_status_payload?: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
           sessions_students_id?: string | null;
           is_extra?: boolean;
           was_trial?: boolean;
@@ -799,17 +794,36 @@ export const sessionsApi = {
       const { data: invoiceItemsData, error: invoiceItemsError } = sessionsStudentsIds.length > 0
         ? await supabase
             .from('invoice_items')
-            .select('sessions_students_id, invoice:invoices(status)')
+            .select('sessions_students_id, invoice:invoices(status, paid_at, refunded_at, refunded_via_cn_at, credited_at)')
             .in('sessions_students_id', sessionsStudentsIds)
         : { data: [], error: null };
-      
+
       if (invoiceItemsError) throw invoiceItemsError;
 
-      // Build invoice status map: sessions_students_id -> invoice.status
-      const invoiceStatusMap: Record<string, string | null> = {};
-      (invoiceItemsData as InvoiceItemRow[] | null)?.forEach((row) => {
+      // Build invoice_status_payload map for centralized badge display
+      type InvoicePayload = {
+        status: string;
+        paid_at?: string | null;
+        refunded_at?: string | null;
+        refunded_via_cn_at?: string | null;
+        credited_at?: string | null;
+      };
+      const invoiceStatusPayloadMap: Record<string, InvoicePayload | null> = {};
+      (
+        invoiceItemsData as Array<{
+          sessions_students_id?: string | null;
+          invoice?: { status?: string; paid_at?: string | null; refunded_at?: string | null; refunded_via_cn_at?: string | null; credited_at?: string | null } | null;
+        }> | null
+      )?.forEach((row) => {
         if (row.sessions_students_id && row.invoice) {
-          invoiceStatusMap[row.sessions_students_id] = row.invoice.status || null;
+          const inv = row.invoice;
+          invoiceStatusPayloadMap[row.sessions_students_id] = {
+            status: inv.status ?? 'draft',
+            paid_at: inv.paid_at ?? null,
+            refunded_at: inv.refunded_at ?? null,
+            refunded_via_cn_at: inv.refunded_via_cn_at ?? null,
+            credited_at: inv.credited_at ?? null,
+          };
         }
       });
 
@@ -865,7 +879,7 @@ export const sessionsApi = {
         rescheduled_session: ss.rescheduled_sessions_students_id
           ? rescheduledSessionsMap[ss.rescheduled_sessions_students_id]
           : null,
-        invoice_status: invoiceStatusMap[ss.id] || null,
+        invoice_status_payload: invoiceStatusPayloadMap[ss.id] || null,
         is_extra: isExtraMap[ss.id] || false,
       }));
       
@@ -883,7 +897,7 @@ export const sessionsApi = {
         planned_absence: boolean;
         is_extra: boolean;
         sessions_students_id: null;
-        invoice_status: null;
+        invoice_status_payload: null;
         rescheduled_session: null;
       };
       const unplannedStudents: UnplannedStudent[] = [];
@@ -909,7 +923,7 @@ export const sessionsApi = {
                 planned_absence: false,
                 is_extra: true, // These are always extra since they're not planned
                 sessions_students_id: null, // Explicitly null to mark as unplanned
-                invoice_status: null,
+                invoice_status_payload: null,
                 rescheduled_session: null,
               });
             }

@@ -27,7 +27,7 @@ import {
   useToast,
 } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
-import { getInvoiceStatusBadge, formatInvoiceAmount } from '../utils/invoiceFormatters';
+import { getInvoiceStatusBadge, formatInvoiceAmount, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
 import type { InvoiceItemRow } from '../types';
 import type { CreateCreditNoteRequest } from '../types';
 import { getErrorMessage } from '@/shared/utils';
@@ -229,7 +229,8 @@ export function CreditNoteDialog({
                 #{invoice.stripe_invoice_number ?? invoiceId.slice(0, 8)} for{' '}
                 {formatInvoiceAmount(invoice.amount_due_cents, currency)}
               </span>
-              {invoice.status && getInvoiceStatusBadge(invoice.status)}
+              {invoice.status &&
+                getInvoiceStatusBadge(toInvoiceStatusPayload({ status: invoice.status }))}
             </div>
           </div>
 

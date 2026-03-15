@@ -40,49 +40,68 @@ describe('formatInvoiceDate', () => {
 
 describe('getInvoiceStatusBadge', () => {
   it('should return correct badge for "paid" status', () => {
-    const { getByText } = render(getInvoiceStatusBadge('paid'));
+    const { getByText } = render(getInvoiceStatusBadge({ status: 'paid' }));
     expect(getByText('Paid')).toBeInTheDocument();
   });
 
-  it('should return "Paid (Refunded)" for paid with isRefunded true', () => {
-    const { getByText } = render(getInvoiceStatusBadge('paid', true));
-    expect(getByText('Paid (Refunded)')).toBeInTheDocument();
+  it('should return "Paid (date)" when paid_at present', () => {
+    const { getByText } = render(
+      getInvoiceStatusBadge({ status: 'paid', paid_at: '2024-01-15T00:00:00Z' })
+    );
+    expect(getByText(/Paid \(15\/01\/2024\)/)).toBeInTheDocument();
   });
 
-  it('should return "Paid (Refunded)" for paid_refunded status', () => {
-    const { getByText } = render(getInvoiceStatusBadge('paid_refunded'));
-    expect(getByText('Paid (Refunded)')).toBeInTheDocument();
+  it('should return "Refunded (date)" when refunded_at present', () => {
+    const { getByText } = render(
+      getInvoiceStatusBadge({
+        status: 'paid',
+        paid_at: '2024-01-15T00:00:00Z',
+        refunded_at: '2024-01-20T00:00:00Z',
+      })
+    );
+    expect(getByText(/Paid \(15\/01\/2024\)/)).toBeInTheDocument();
+    expect(getByText(/Refunded \(20\/01\/2024\)/)).toBeInTheDocument();
+  });
+
+  it('should return "Credited (date)" when credited_at present', () => {
+    const { getByText } = render(
+      getInvoiceStatusBadge({
+        status: 'paid',
+        paid_at: '2024-01-15T00:00:00Z',
+        credited_at: '2024-01-18T00:00:00Z',
+      })
+    );
+    expect(getByText(/Credited \(18\/01\/2024\)/)).toBeInTheDocument();
   });
 
   it('should return correct badge for "draft" status', () => {
-    const { getByText } = render(getInvoiceStatusBadge('draft'));
+    const { getByText } = render(getInvoiceStatusBadge({ status: 'draft' }));
     expect(getByText('Draft')).toBeInTheDocument();
   });
 
   it('should return correct badge for "open" status', () => {
-    const { getByText } = render(getInvoiceStatusBadge('open'));
+    const { getByText } = render(getInvoiceStatusBadge({ status: 'open' }));
     expect(getByText('Open')).toBeInTheDocument();
   });
 
   it('should return destructive badge for "void" status', () => {
-    const { getByText } = render(getInvoiceStatusBadge('void'));
+    const { getByText } = render(getInvoiceStatusBadge({ status: 'void' }));
     expect(getByText('Void')).toBeInTheDocument();
   });
 
   it('should return destructive badge for "uncollectible" status', () => {
-    const { getByText } = render(getInvoiceStatusBadge('uncollectible'));
+    const { getByText } = render(getInvoiceStatusBadge({ status: 'uncollectible' }));
     expect(getByText('Uncollectible')).toBeInTheDocument();
   });
 
   it('should return destructive badge for "disputed" status', () => {
-    const { getByText } = render(getInvoiceStatusBadge('disputed'));
+    const { getByText } = render(getInvoiceStatusBadge({ status: 'disputed' }));
     expect(getByText('Disputed')).toBeInTheDocument();
   });
 
-  it('should handle unknown status gracefully', () => {
-    const { container } = render(getInvoiceStatusBadge('unknown'));
-    // Badge should still render, just check it's a valid React element
-    expect(container.firstChild).toBeTruthy();
+  it('should return null for null/undefined', () => {
+    expect(getInvoiceStatusBadge(null)).toBeNull();
+    expect(getInvoiceStatusBadge(undefined)).toBeNull();
   });
 });
 

@@ -10,6 +10,7 @@ import {
   formatInvoiceDate,
   formatInvoiceTagText,
   getInvoiceStatusBadge,
+  toInvoiceStatusPayload,
 } from '@/features/billing';
 import {
   Table,
@@ -268,13 +269,7 @@ export default function InvoicesPage() {
                     )}
                     {state.visibleColumns.includes('status') && (
                       <TableCell>
-                        {getInvoiceStatusBadge({
-                          status: invoice.status,
-                          paid_at: invoice.paid_at,
-                          refunded_at: invoice.refunded_at,
-                          has_credit_notes: invoice.has_credit_notes,
-                          is_refunded: invoice.is_refunded,
-                        })}
+                        {getInvoiceStatusBadge(toInvoiceStatusPayload(invoice))}
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('actions') && (

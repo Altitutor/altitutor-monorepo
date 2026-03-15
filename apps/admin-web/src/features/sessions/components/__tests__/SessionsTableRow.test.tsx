@@ -38,7 +38,7 @@ function createStudent(): SessionTableStudent {
     first_name: 'John',
     last_name: 'Doe',
     planned_absence: false,
-    invoice_status: null,
+    invoice_status_payload: null,
     sessions_students_id: 'ss-1',
   } as SessionTableStudent;
 }

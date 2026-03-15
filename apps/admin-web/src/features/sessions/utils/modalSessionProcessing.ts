@@ -19,7 +19,7 @@ export type ProcessedStudentSessionData = {
   plannedStatus: StudentPlannedStatus;
   actualStatus: StudentActualStatus;
   rescheduledDate: string;
-  invoiceStatus: string | null;
+  invoiceStatus: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
 };
 
 export type ProcessedStaffSessionData = {
@@ -37,7 +37,7 @@ type SessionStudentDataItem = {
   id: string;
   planned_absence?: boolean;
   actual_attended?: boolean | null;
-  invoice_status?: string | null;
+  invoice_status_payload?: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
   sessions_students_id?: string | null;
   is_extra?: boolean;
   was_trial?: boolean;
@@ -86,7 +86,7 @@ export function processStudentSessionData(
     plannedStatus: attendanceStatus.plannedStatus,
     actualStatus: attendanceStatus.actualStatus,
     rescheduledDate: attendanceStatus.rescheduledDate,
-    invoiceStatus: studentData.invoice_status || null,
+    invoiceStatus: studentData.invoice_status_payload || null,
   };
 }
 

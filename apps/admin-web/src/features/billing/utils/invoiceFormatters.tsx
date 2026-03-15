@@ -1,6 +1,5 @@
 import { format } from 'date-fns';
 import { Badge } from '@altitutor/ui';
-import type { InvoiceRow } from '../types';
 
 /**
  * Format invoice date
@@ -25,73 +24,36 @@ function formatShortDate(dateString: string | null | undefined): string {
   }
 }
 
-type InvoiceLike = Pick<
-  InvoiceRow,
-  'status' | 'paid_at' | 'refunded_at' | 'has_credit_notes' | 'is_refunded'
-> & {
-  credit_notes?: { credit_amount_cents: number | null; created_at: string }[] | null;
+/** Invoice-like data for status badge display. Supports both full invoice and RPC payload. */
+export type InvoiceStatusPayload = {
+  status: string;
+  paid_at?: string | null;
+  refunded_at?: string | null;
+  refunded_via_cn_at?: string | null;
+  credited_at?: string | null;
+  credit_notes?: Array<{
+    refund_amount_cents?: number | null;
+    credit_amount_cents?: number | null;
+    created_at: string;
+  }> | null;
 };
 
 /**
- * Get status badges for an invoice, including dated Paid / Refunded / Credited pills.
- * Supports multiple statuses (e.g. Paid and Refunded) rendered as separate badges.
+ * Get status badges for an invoice. Centralized display everywhere.
+ *
+ * Behaviour:
+ * - draft/open/void/uncollectible/disputed: single pill
+ * - paid: if paid_at present → "Paid ({date})"
+ * - refunded: if credit note with refund_amount_cents > 0 OR refunded_at → "Refunded ({date})"
+ * - credited: if credit note with credit_amount_cents > 0 → "Credited ({date})"
+ * - Shows as many pills as criteria are met
  */
-export function getInvoiceStatusBadge(
-  invoiceOrStatus: InvoiceLike | string,
-  isRefundedLegacy?: boolean
-) {
-  // Backwards compatibility: allow calling with (status, isRefunded)
-  if (typeof invoiceOrStatus === 'string') {
-    const status = invoiceOrStatus;
-    const isRefunded = status === 'paid_refunded' || !!isRefundedLegacy;
-    const refundedLabel = isRefunded ? 'Paid (Refunded)' : 'Paid';
+export function getInvoiceStatusBadge(invoice: InvoiceStatusPayload | null | undefined): React.ReactNode {
+  if (!invoice) return null;
 
-    switch (status) {
-      case 'paid':
-        return (
-          <Badge variant={isRefunded ? 'destructive' : 'default'} className="text-xs">
-            {refundedLabel}
-          </Badge>
-        );
-      case 'paid_refunded':
-        return (
-          <Badge variant="destructive" className="text-xs">
-            Paid (Refunded)
-          </Badge>
-        );
-      case 'draft':
-        return (
-          <Badge variant="outline" className="text-xs">
-            Draft
-          </Badge>
-        );
-      case 'open':
-        return (
-          <Badge variant="secondary" className="text-xs">
-            Open
-          </Badge>
-        );
-      case 'void':
-      case 'uncollectible':
-      case 'disputed':
-        return (
-          <Badge variant="destructive" className="text-xs">
-            {status.charAt(0).toUpperCase() + status.slice(1)}
-          </Badge>
-        );
-      default:
-        return (
-          <Badge variant="outline" className="text-xs">
-            {status}
-          </Badge>
-        );
-    }
-  }
-
-  const invoice = invoiceOrStatus;
   const pills: { key: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }[] = [];
 
-  // Draft/open/terminal statuses behave as before (single pill, no dates)
+  // Simple statuses: single pill, no dates
   if (invoice.status === 'draft') {
     pills.push({ key: 'draft', label: 'Draft', variant: 'outline' });
   } else if (invoice.status === 'open') {
@@ -103,40 +65,39 @@ export function getInvoiceStatusBadge(
       variant: 'destructive',
     });
   } else {
-    // Paid pill
-    if (invoice.status === 'paid' || invoice.status === 'paid_refunded' || invoice.paid_at) {
-      const paidDate = formatShortDate(invoice.paid_at);
-      const paidLabel = paidDate ? `Paid ${paidDate}` : 'Paid';
+    // Paid pill: if paid_at present
+    const paidAt = invoice.paid_at;
+    if (invoice.status === 'paid' || paidAt) {
+      const paidLabel = paidAt ? `Paid (${formatShortDate(paidAt)})` : 'Paid';
       pills.push({ key: 'paid', label: paidLabel, variant: 'default' });
     }
 
-    // Refunded pill
-    const isRefunded =
-      invoice.status === 'paid_refunded' ||
-      !!invoice.refunded_at ||
-      !!invoice.has_credit_notes ||
-      !!invoice.is_refunded;
+    // Refunded pill: credit note with refund_amount_cents > 0 OR refunded_at
+    const hasRefundCn = (invoice.credit_notes ?? []).some((cn) => (cn.refund_amount_cents ?? 0) > 0);
+    const refundedAt = invoice.refunded_at ?? invoice.refunded_via_cn_at ?? null;
+    const isRefunded = !!refundedAt || hasRefundCn;
     if (isRefunded) {
-      const refundDate = formatShortDate(invoice.refunded_at);
-      const refundedLabel = refundDate ? `Refunded ${refundDate}` : 'Refunded';
+      const dateForRefund =
+        refundedAt ??
+        (invoice.credit_notes ?? []).find((cn) => (cn.refund_amount_cents ?? 0) > 0)?.created_at;
+      const refundedLabel = dateForRefund ? `Refunded (${formatShortDate(dateForRefund)})` : 'Refunded';
       pills.push({ key: 'refunded', label: refundedLabel, variant: 'destructive' });
     }
 
-    // Credited pill – any non-void credit note with credit_amount_cents > 0
-    const creditNotes = invoice.credit_notes || [];
-    const creditNoteForBalance = creditNotes.find(
-      (cn) => (cn.credit_amount_cents ?? 0) > 0
-    );
-    if (creditNoteForBalance) {
-      const creditedDate = formatShortDate(creditNoteForBalance.created_at);
-      const creditedLabel = creditedDate ? `Credited ${creditedDate}` : 'Credited';
+    // Credited pill: credit note with credit_amount_cents > 0
+    const hasCreditCn = (invoice.credit_notes ?? []).some((cn) => (cn.credit_amount_cents ?? 0) > 0);
+    const creditedAt = invoice.credited_at ?? null;
+    const isCredited = !!creditedAt || hasCreditCn;
+    if (isCredited) {
+      const dateForCredit =
+        creditedAt ??
+        (invoice.credit_notes ?? []).find((cn) => (cn.credit_amount_cents ?? 0) > 0)?.created_at;
+      const creditedLabel = dateForCredit ? `Credited (${formatShortDate(dateForCredit)})` : 'Credited';
       pills.push({ key: 'credited', label: creditedLabel, variant: 'outline' });
     }
   }
 
-  if (pills.length === 0) {
-    return null;
-  }
+  if (pills.length === 0) return null;
 
   return (
     <div className="flex flex-wrap gap-1">
@@ -147,6 +108,28 @@ export function getInvoiceStatusBadge(
       ))}
     </div>
   );
+}
+
+/**
+ * Build InvoiceStatusPayload from invoice row (for list/detail views with refunded_via_cn_at, credited_at).
+ */
+export function toInvoiceStatusPayload(invoice: {
+  status: string;
+  paid_at?: string | null;
+  refunded_at?: string | null;
+  refunded_via_cn_at?: string | null;
+  credited_at?: string | null;
+  credit_notes?: InvoiceStatusPayload['credit_notes'];
+} | null): InvoiceStatusPayload | null {
+  if (!invoice) return null;
+  return {
+    status: invoice.status,
+    paid_at: invoice.paid_at ?? null,
+    refunded_at: invoice.refunded_at ?? null,
+    refunded_via_cn_at: invoice.refunded_via_cn_at ?? null,
+    credited_at: invoice.credited_at ?? null,
+    credit_notes: invoice.credit_notes ?? null,
+  };
 }
 
 /**

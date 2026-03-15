@@ -3,7 +3,11 @@ import type { Tables } from '@altitutor/shared';
 
 type SessionWithSubject = Tables<'sessions'> & { subject?: Tables<'subjects'> | null; class?: { subject?: Tables<'subjects'> | null } | null };
 /** Minimal shape for session student - supports both full rows and UnplannedStudent */
-type SessionsStudentWithInvoice = { student_id?: string; planned_absence?: boolean; invoice_status?: string | null };
+type SessionsStudentWithInvoice = {
+  student_id?: string;
+  planned_absence?: boolean;
+  invoice_status_payload?: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
+};
 type SessionsStaffRow = Tables<'sessions_staff'>;
 
 interface UseSessionHelpersProps {

@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Separat
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getInvoiceStatusBadge } from '../utils/invoiceFormatters';
+import { getInvoiceStatusBadge, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -330,13 +330,16 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   
                   <div className="text-sm font-medium text-muted-foreground">Status:</div>
                   <div className="text-sm">
-                    {getInvoiceStatusBadge({
-                      status: invoice.status,
-                      paid_at: invoice.paid_at,
-                      refunded_at: invoice.refunded_at,
-                      has_credit_notes: invoice.has_credit_notes,
-                      is_refunded: invoice.is_refunded,
-                    })}
+                    {getInvoiceStatusBadge(
+                      toInvoiceStatusPayload({
+                        ...invoice,
+                        credit_notes: creditNotes.map((cn) => ({
+                          refund_amount_cents: cn.refund_amount_cents,
+                          credit_amount_cents: cn.credit_amount_cents,
+                          created_at: cn.created_at,
+                        })),
+                      })
+                    )}
                   </div>
                   
                   <div className="text-sm font-medium text-muted-foreground">Collection Method:</div>

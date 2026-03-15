@@ -182,7 +182,7 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending-extra',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          invoiceStatus: 'paid',
+          invoiceStatus: { status: 'paid' },
           plannedAbsence: false,
           hasInvoiceItems: true,
         },

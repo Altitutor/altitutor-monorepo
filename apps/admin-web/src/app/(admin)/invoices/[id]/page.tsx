@@ -13,6 +13,7 @@ import {
   useInvoiceActions,
   formatInvoiceDate,
   getInvoiceStatusBadge,
+  toInvoiceStatusPayload,
   formatInvoiceAmount,
   calculateLineItemsSubtotal,
   formatInvoiceTagText,
@@ -251,13 +252,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
             
             <div className="text-sm font-medium text-muted-foreground">Status:</div>
             <div className="text-sm">
-              {getInvoiceStatusBadge({
-                status: invoice.status,
-                paid_at: invoice.paid_at,
-                refunded_at: invoice.refunded_at,
-                has_credit_notes: invoice.has_credit_notes,
-                is_refunded: invoice.is_refunded,
-              })}
+              {getInvoiceStatusBadge(toInvoiceStatusPayload(invoice))}
             </div>
             
             {subtotalCents !== null && subtotalCents !== undefined && (

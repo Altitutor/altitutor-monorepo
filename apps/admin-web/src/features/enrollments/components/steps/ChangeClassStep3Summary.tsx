@@ -12,7 +12,7 @@ import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
 import { fetchStudentSubsidies } from '@/features/students/api/subsidies';
-import { formatInvoiceDate, getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
+import { formatInvoiceDate, getInvoiceStatusBadge, toInvoiceStatusPayload } from '@/features/billing/utils/invoiceFormatters';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { Database } from '@altitutor/shared';
@@ -271,7 +271,7 @@ export function ChangeClassStep3Summary({
                   <div className="mt-2 space-y-1">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-medium">Status:</span>
-                      {getInvoiceStatusBadge(lastSessionData.status)}
+                      {getInvoiceStatusBadge(toInvoiceStatusPayload(lastSessionData))}
                     </div>
                     {lastSessionData.invoice_date && (
                       <p className="text-xs text-muted-foreground">

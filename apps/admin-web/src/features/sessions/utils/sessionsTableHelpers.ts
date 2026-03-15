@@ -135,31 +135,4 @@ export function paginateSessions(
   return sessions.slice(start, end);
 }
 
-/**
- * Get invoice status badge variant
- */
-export function getInvoiceStatusBadgeVariant(
-  status: string | null | undefined
-): { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' } | null {
-  if (!status) return null;
-
-  let label = '';
-  let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-
-  if (status === 'draft' || status === 'open') {
-    label = 'Sent';
-    variant = 'secondary';
-  } else if (status === 'paid' || status === 'paid_refunded') {
-    label = status === 'paid_refunded' ? 'Paid (Refunded)' : 'Paid';
-    variant = 'default';
-  } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-    label = 'Failed';
-    variant = 'destructive';
-  } else {
-    label = status;
-    variant = 'outline';
-  }
-
-  return { label, variant };
-}
 

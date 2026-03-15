@@ -14,6 +14,7 @@ import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
+import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { formatTime } from '@/shared/utils/datetime';
 import {
   SessionInfoGrid,
@@ -86,7 +87,7 @@ type SessionDetailsTabProps = {
     actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     rescheduledDate: string;
     rescheduledSessionId?: string;
-    invoiceStatus: string | null;
+    invoiceStatus: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
     plannedAbsence: boolean;
     hasInvoiceItems: boolean;
   }>;
@@ -517,27 +518,9 @@ export function SessionDetailsTab({
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const status = data.invoiceStatus;
-                        if (!status) return <span className="text-xs text-muted-foreground">-</span>;
-                        
-                        let label = '';
-                        let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-                        
-                        if (status === 'draft' || status === 'open') {
-                          label = 'Sent';
-                          variant = 'secondary';
-                        } else if (status === 'paid') {
-                          label = 'Paid';
-                          variant = 'default';
-                        } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-                          label = 'Failed';
-                          variant = 'destructive';
-                        } else {
-                          label = status;
-                          variant = 'outline';
-                        }
-                        
-                        return <Badge variant={variant} className="text-xs">{label}</Badge>;
+                        const badge = getInvoiceStatusBadge(data.invoiceStatus);
+                        if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
+                        return badge;
                       })()}
                     </TableCell>
                     <TableCell>
