@@ -22,7 +22,7 @@ export function StatsCard({ data }: StatsCardProps) {
   const mocksCompleted = data.mockAttempts.length
 
   return (
-    <Card>
+    <Card className="border-border">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-base font-medium">Stats</CardTitle>
         <Link
@@ -33,31 +33,31 @@ export function StatsCard({ data }: StatsCardProps) {
           <ChevronRight className="h-4 w-4" />
         </Link>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div className="rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-2xl font-semibold">{questionsCompleted}</p>
-            <p className="text-xs text-muted-foreground">Questions completed</p>
+      <CardContent className="space-y-4 min-w-0 overflow-hidden">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
+            <p className="text-2xl font-semibold tabular-nums">{questionsCompleted}</p>
+            <p className="text-xs text-muted-foreground break-words">Questions completed</p>
           </div>
-          <div className="rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-2xl font-semibold">{setsCompleted}</p>
-            <p className="text-xs text-muted-foreground">Sets completed</p>
+          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
+            <p className="text-2xl font-semibold tabular-nums">{setsCompleted}</p>
+            <p className="text-xs text-muted-foreground break-words">Sets completed</p>
           </div>
-          <div className="rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-2xl font-semibold">{mocksCompleted}</p>
-            <p className="text-xs text-muted-foreground">Mocks completed</p>
+          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
+            <p className="text-2xl font-semibold tabular-nums">{mocksCompleted}</p>
+            <p className="text-xs text-muted-foreground break-words">Mocks completed</p>
           </div>
         </div>
         {data.sectionProgress.length > 0 ? (
-          <div>
+          <div className="min-w-0">
             <p className="mb-2 text-xs font-medium text-muted-foreground">
-              Section avg (EMA)
+              Average section scores
             </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 lg:grid-cols-4">
               {data.sectionProgress.map((section) => (
                 <div
                   key={section.sectionId}
-                  className="rounded-lg border border-border bg-muted/20 px-3 py-2"
+                  className="min-w-0 rounded-lg border border-border bg-muted/20 px-3 py-2 overflow-hidden"
                 >
                   <p className="truncate text-xs text-muted-foreground">
                     {section.sectionName}
