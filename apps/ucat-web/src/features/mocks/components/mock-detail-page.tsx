@@ -2,8 +2,10 @@
 
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { UcatPagePlaceholder } from '@altitutor/ui'
-import { useMocks } from '@/features/mocks'
+import { NotebookText } from 'lucide-react'
+import { UcatPageHeader } from '@/features/layout'
+import type { MockAttemptSectionScore, MockAttemptWithBreakdown } from '@/features/mocks/api/mocks-api'
+import { useMockAttemptsWithBreakdown, useMocks } from '@/features/mocks'
 
 type MockDetailPageProps = {
   mockId: string
@@ -11,6 +13,7 @@ type MockDetailPageProps = {
 
 export function MockDetailPage({ mockId }: MockDetailPageProps) {
   const { data: mocks, isLoading, error } = useMocks()
+  const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId)
 
   const mock = useMemo(
     () => (mocks ?? []).find((item) => item.id === mockId),
@@ -19,51 +22,59 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
 
   if (isLoading) {
     return (
-      <UcatPagePlaceholder title="Mock" description="Full-length UCAT mock exam details.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Mock"
+          description="Full-length UCAT mock exam details."
+          backHref="/mocks"
+          backLabel="Back to all mocks"
+        />
         <p className="text-sm text-muted-foreground">Loading mock...</p>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <UcatPagePlaceholder title="Mock" description="Full-length UCAT mock exam details.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Mock"
+          description="Full-length UCAT mock exam details."
+          backHref="/mocks"
+          backLabel="Back to all mocks"
+        />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : 'Failed to load mock'}
         </p>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
   if (!mocks || mocks.length === 0) {
     return (
-      <UcatPagePlaceholder title="Mock" description="Full-length UCAT mock exam details.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Mock"
+          description="Full-length UCAT mock exam details."
+          backHref="/mocks"
+          backLabel="Back to all mocks"
+        />
         <p className="text-sm text-muted-foreground">No mocks available.</p>
-        <div className="mt-4">
-          <Link
-            href="/mocks"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-card border border-border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Back to all mocks
-          </Link>
-        </div>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
   if (!mock) {
     return (
-      <UcatPagePlaceholder title="Mock" description="Full-length UCAT mock exam details.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Mock"
+          description="Full-length UCAT mock exam details."
+          backHref="/mocks"
+          backLabel="Back to all mocks"
+        />
         <p className="text-sm text-red-600 dark:text-red-400">Mock not found.</p>
-        <div className="mt-4">
-          <Link
-            href="/mocks"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-card border border-border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Back to all mocks
-          </Link>
-        </div>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
@@ -73,17 +84,20 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
   const updatedAt =
     mock.updated_at != null ? new Date(mock.updated_at).toLocaleString(undefined, { dateStyle: 'medium' }) : null
 
-  return (
-    <UcatPagePlaceholder title="Mock" description="Review this full-length UCAT mock before starting.">
-      <div className="space-y-6">
-        <header className="space-y-2">
-          <h1 className="text-xl font-semibold tracking-tight">{mock.name ?? 'Mock exam'}</h1>
-          <p className="text-sm text-muted-foreground">
-            This mock exam will launch the full UCAT question engine using all sets included in this mock.
-          </p>
-        </header>
+  const sectionColumns = attempts.length > 0 && attempts[0].sectionScores.length > 0
+    ? attempts[0].sectionScores
+    : []
 
-        <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
+  return (
+    <div className="space-y-6">
+      <UcatPageHeader
+        title={mock.name ?? 'Mock exam'}
+        description="This mock exam will launch the full UCAT question engine using all sets included in this mock."
+        backHref="/mocks"
+        backLabel="Back to all mocks"
+      />
+
+      <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             {createdAt ? (
               <div>
@@ -100,22 +114,66 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
           </dl>
         </section>
 
-        <div className="flex flex-wrap gap-3">
+        {attempts.length > 0 ? (
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
+              <NotebookText className="h-4 w-4" />
+              Previous attempts
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[400px] text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Date</th>
+                    {sectionColumns.map((sec: MockAttemptSectionScore) => (
+                      <th key={sec.sectionNumber} className="pb-2 pr-3 text-right font-medium text-muted-foreground">
+                        {sec.sectionName}
+                      </th>
+                    ))}
+                    <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">Score</th>
+                    <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">Total</th>
+                    <th className="pb-2 text-right font-medium text-muted-foreground">Scaled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attempts.map((a: MockAttemptWithBreakdown) => (
+                    <tr key={a.id} className="border-b border-border/50 last:border-0">
+                      <td className="py-2 pr-4">
+                        {new Date(a.attemptedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                      </td>
+                      {a.sectionScores.map((sec: MockAttemptSectionScore) => (
+                        <td key={sec.sectionNumber} className="py-2 pr-3 text-right">
+                          {sec.scorePoints != null && sec.totalPoints != null
+                            ? `${sec.scorePoints}/${sec.totalPoints}`
+                            : '—'}
+                        </td>
+                      ))}
+                      <td className="py-2 pr-4 text-right">
+                        {a.scorePoints != null ? a.scorePoints : '—'}
+                      </td>
+                      <td className="py-2 pr-4 text-right">
+                        {a.totalPoints != null ? a.totalPoints : '—'}
+                      </td>
+                      <td className="py-2 text-right">
+                        {a.scaledScore != null ? a.scaledScore : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
+        <div className="flex justify-end">
           <Link
             href={`/exam/mocks?id=${encodeURIComponent(mock.id)}`}
             className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground"
           >
             Launch mock
           </Link>
-          <Link
-            href="/mocks"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-card border border-border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Back to all mocks
-          </Link>
         </div>
-      </div>
-    </UcatPagePlaceholder>
+    </div>
   )
 }
 
