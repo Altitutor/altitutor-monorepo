@@ -91,7 +91,7 @@ export function SetAttemptDetailPage({
   const points = data.scorePoints ?? 0
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       <UcatPageHeader
         title={data.questionSetName ?? 'Set attempt'}
         description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}
@@ -150,13 +150,13 @@ export function SetAttemptDetailPage({
         </CardContent>
       </Card>
 
-      <Card className="rounded-xl border-border">
+      <Card className="overflow-hidden rounded-xl border-border">
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
             Question attempts
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="min-w-0 overflow-hidden">
           <SetAttemptAnalysisChart data={data.questionAttempts} />
         </CardContent>
       </Card>

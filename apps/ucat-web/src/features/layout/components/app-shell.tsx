@@ -118,8 +118,8 @@ export function AppShell({ children }: AppShellProps) {
               />
               <main
                 className={cn(
-                  'flex-1 min-h-0 transition-[margin] duration-200',
-                  'min-h-screen pt-16 p-6',
+                  'flex-1 min-h-0 min-w-0 transition-[margin] duration-200',
+                  'min-h-screen pt-16 p-6 overflow-x-hidden',
                   sidebarExpanded ? 'md:ml-[240px]' : 'ml-0'
                 )}
               >
