@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       activity_events: {
@@ -5237,6 +5232,7 @@ export type Database = {
           id: string
           is_flagged: boolean
           is_submitted: boolean
+          mode: string | null
           question_answer_option_id: string | null
           question_id: string
           score: number
@@ -5244,6 +5240,7 @@ export type Database = {
           student_question_set_attempt_id: string | null
           student_question_speed: number | null
           time_spent_seconds: number | null
+          was_timed: boolean
         }
         Insert: {
           answer_snapshot?: Json | null
@@ -5251,6 +5248,7 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           is_submitted?: boolean
+          mode?: string | null
           question_answer_option_id?: string | null
           question_id: string
           score?: number
@@ -5258,6 +5256,7 @@ export type Database = {
           student_question_set_attempt_id?: string | null
           student_question_speed?: number | null
           time_spent_seconds?: number | null
+          was_timed?: boolean
         }
         Update: {
           answer_snapshot?: Json | null
@@ -5265,6 +5264,7 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           is_submitted?: boolean
+          mode?: string | null
           question_answer_option_id?: string | null
           question_id?: string
           score?: number
@@ -5272,6 +5272,7 @@ export type Database = {
           student_question_set_attempt_id?: string | null
           student_question_speed?: number | null
           time_spent_seconds?: number | null
+          was_timed?: boolean
         }
         Relationships: [
           {
@@ -5363,6 +5364,7 @@ export type Database = {
           student_ucat_mock_attempt_id: string | null
           time_taken_seconds: number | null
           total_points: number | null
+          was_timed: boolean
         }
         Insert: {
           attempted_at?: string
@@ -5380,6 +5382,7 @@ export type Database = {
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
+          was_timed?: boolean
         }
         Update: {
           attempted_at?: string
@@ -5397,6 +5400,7 @@ export type Database = {
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
+          was_timed?: boolean
         }
         Relationships: [
           {
@@ -5742,7 +5746,7 @@ export type Database = {
           discontinued_at?: string | null
           email?: string | null
           first_name: string
-          id?: string
+          id: string
           invite_token?: string | null
           last_name: string
           phone?: string | null
@@ -8728,6 +8732,7 @@ export type Database = {
           id: string | null
           is_flagged: boolean | null
           is_submitted: boolean | null
+          mode: string | null
           question_answer_option_id: string | null
           question_id: string | null
           question_index: number | null
@@ -8747,6 +8752,7 @@ export type Database = {
           time_burden_seconds: number | null
           time_spent_seconds: number | null
           ucat_section_id: string | null
+          was_timed: boolean | null
         }
         Relationships: [
           {
@@ -11554,6 +11560,7 @@ export type Database = {
           id: string | null
           is_flagged: boolean | null
           is_submitted: boolean | null
+          mode: string | null
           question_answer_option_id: string | null
           question_id: string | null
           score: number | null
@@ -11563,6 +11570,7 @@ export type Database = {
           student_question_set_attempt_id: string | null
           student_question_speed: number | null
           time_spent_seconds: number | null
+          was_timed: boolean | null
         }
         Relationships: [
           {
@@ -11656,6 +11664,7 @@ export type Database = {
           student_set_speed: number | null
           time_taken_seconds: number | null
           total_points: number | null
+          was_timed: boolean | null
         }
         Relationships: [
           {
@@ -11740,6 +11749,7 @@ export type Database = {
           student_name: string | null
           student_set_speed: number | null
           total_points: number | null
+          was_timed: boolean | null
         }
         Relationships: [
           {
@@ -11810,6 +11820,10 @@ export type Database = {
     }
     Functions: {
       _format_date_ordinal: { Args: { ts: string }; Returns: string }
+      add_enum_value: {
+        Args: { enum_name: string; new_value: string }
+        Returns: undefined
+      }
       assign_staff_to_booking: {
         Args: {
           p_available_staff_ids: string[]
@@ -12137,7 +12151,9 @@ export type Database = {
         Args: { student_id: string }
         Returns: boolean
       }
+      is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       is_ucat_student: { Args: never; Returns: boolean }
@@ -12170,8 +12186,6 @@ export type Database = {
         Args: { logged_by_student_id: string; operations: Json }
         Returns: Json
       }
-      map_day_to_number: { Args: { day_string: string }; Returns: number }
-      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -12397,10 +12411,6 @@ export type Database = {
         }
         Returns: Json
       }
-      set_claim: {
-        Args: { claim: string; uid: string; value: Json }
-        Returns: undefined
-      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -12473,6 +12483,7 @@ export type Database = {
       tutor_ucat_upsert_mock:
         | {
             Args: {
+              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -12482,7 +12493,6 @@ export type Database = {
           }
         | {
             Args: {
-              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -12525,6 +12535,7 @@ export type Database = {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
       }
+      user_role: { Args: never; Returns: string }
       validate_all_topic_codes: {
         Args: never
         Returns: {
@@ -12544,7 +12555,6 @@ export type Database = {
         }[]
       }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
-      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
@@ -12738,3 +12748,4 @@ export const Constants = {
     },
   },
 } as const
+
