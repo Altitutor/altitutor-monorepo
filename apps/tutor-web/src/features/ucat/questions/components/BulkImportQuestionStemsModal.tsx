@@ -11,6 +11,8 @@ import {
   DialogTitle,
 } from '@altitutor/ui'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { ExpandButton } from '@/shared/components/expandable-dialog'
+import { cn } from '@/shared/utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
   useBulkImportWizard,
@@ -41,6 +43,7 @@ import {
 import {
   parseDecisionMakingFromDoc,
   mapParsedDecisionMakingToFormValues,
+  getDecisionMakingStemCategoryName,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 import {
   parseQuantitativeReasoningFromDoc,
@@ -49,6 +52,7 @@ import {
 import {
   parseSituationalJudgementFromDoc,
   mapParsedSituationalJudgementToFormValues,
+  getSituationalJudgementStemCategoryName,
 } from '@/features/ucat/questions/lib/parsers/situationalJudgement'
 import {
   parseAnswersTable,
@@ -92,6 +96,7 @@ export function BulkImportQuestionStemsModal({
   const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
   const [addToSetEnabled, setAddToSetEnabled] = useState(false)
   const [addToSetConfig, setAddToSetConfig] = useState<AddToSetConfig | null>(null)
+  const [expanded, setExpanded] = useState(false)
   const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
     questionIndicator: 'dot',
     answerOptionIndicator: 'paren',
@@ -221,6 +226,13 @@ export function BulkImportQuestionStemsModal({
         const forms = mapParsedDecisionMakingToFormValues(parsed, {
           sectionId,
           isPrivate: false,
+          getCategoryIdForStem: (stem) => {
+            const name = getDecisionMakingStemCategoryName(stem)
+            const category = categories.find(
+              (c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name
+            )
+            return category?.id ?? null
+          },
         })
 
         if (forms.length === 0) {
@@ -275,6 +287,14 @@ export function BulkImportQuestionStemsModal({
         const forms = mapParsedSituationalJudgementToFormValues(parsed, {
           sectionId,
           isPrivate: false,
+          getCategoryIdForStem: (stem) => {
+            const name = getSituationalJudgementStemCategoryName(stem)
+            if (!name) return null
+            const category = categories.find(
+              (c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name
+            )
+            return category?.id ?? null
+          },
         })
 
         if (forms.length === 0) {
@@ -574,6 +594,7 @@ export function BulkImportQuestionStemsModal({
       return (
         <Step3SetAnswers
           stems={wizard.state.stems}
+          categories={categories}
           onUpdateStem={wizard.updateStemForm}
         />
       )
@@ -601,7 +622,13 @@ export function BulkImportQuestionStemsModal({
 
   return (
     <Dialog open={open} onOpenChange={(next) => (!next ? handleRequestClose() : undefined)}>
-      <DialogContent className="w-full md:max-w-5xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-5xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          expanded &&
+            '!fixed !inset-4 !left-4 !right-4 !top-4 !bottom-4 !translate-x-0 !translate-y-0 !max-w-none !w-auto !h-auto'
+        )}
+      >
         {/* Header */}
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
@@ -621,6 +648,7 @@ export function BulkImportQuestionStemsModal({
                   <DialogDescription>{description}</DialogDescription>
                 </div>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </DialogHeader>
 

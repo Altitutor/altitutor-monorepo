@@ -33,10 +33,12 @@ export {
   parseDecisionMakingFromDoc,
   parseDecisionMakingPlainText,
   isSyllogismQuestionText,
+  getDecisionMakingStemCategoryName,
   mapParsedDecisionMakingToFormValues,
   type ParsedDecisionMakingStem,
   type ParsedDecisionMakingQuestion,
   type ParsedDecisionMakingOption,
+  type DecisionMakingCategoryName,
   type DecisionMakingToFormOptions,
 } from './decisionMaking'
 
@@ -54,7 +56,9 @@ export {
   parseSituationalJudgementFromDoc,
   parseSituationalJudgementFromLines,
   parseSituationalJudgementPlainText,
+  getSituationalJudgementStemCategoryName,
   mapParsedSituationalJudgementToFormValues,
   type SituationalJudgementParserConfig,
+  type SituationalJudgementCategoryName,
   type SituationalJudgementToFormOptions,
 } from './situationalJudgement'

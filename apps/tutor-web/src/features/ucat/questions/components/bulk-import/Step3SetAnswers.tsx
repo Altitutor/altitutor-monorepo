@@ -32,12 +32,15 @@ function truncateOneLine(text: string, maxLen: number): string {
   return `${oneLine.slice(0, maxLen)}…`
 }
 
+type CategoryOption = { id?: string | null; name?: string | null }
+
 export type AnswerRow = {
   stemId: string
   stemIndex: number
   questionIndex: number
   globalQuestionNumber: number
   questionText: string
+  categoryName: string
   optionCount: number
   optionTexts: string[]
   correctOptionIndex: number
@@ -231,10 +234,18 @@ function QuestionEditForm({
   )
 }
 
-function buildAnswerRows(stems: BulkImportStemDraft[]): AnswerRow[] {
+function buildAnswerRows(
+  stems: BulkImportStemDraft[],
+  categories: CategoryOption[]
+): AnswerRow[] {
   const rows: AnswerRow[] = []
   let globalNumber = 0
   stems.forEach((stem, stemIndex) => {
+    const categoryId = stem.values.categoryId ?? null
+    const category = categoryId
+      ? categories.find((c) => (c.id ?? null) === categoryId)
+      : null
+    const categoryName = (category?.name ?? '').trim() || '—'
     const questions = stem.values.questions ?? []
     questions.forEach((q, questionIndex) => {
       globalNumber += 1
@@ -260,6 +271,7 @@ function buildAnswerRows(stems: BulkImportStemDraft[]): AnswerRow[] {
           proseMirrorToPlainText(q.questionText ?? null)?.trim() ?? '',
           QUESTION_TEXT_MAX
         ),
+        categoryName,
         optionCount: options.length,
         optionTexts,
         correctOptionIndex: resolvedCorrect,
@@ -276,11 +288,12 @@ function buildAnswerRows(stems: BulkImportStemDraft[]): AnswerRow[] {
 
 type Step3SetAnswersProps = {
   stems: BulkImportStemDraft[]
+  categories?: CategoryOption[]
   onUpdateStem?: (stemId: string, values: UcatQuestionStemFormValues) => void
 }
 
-export function Step3SetAnswers({ stems, onUpdateStem }: Step3SetAnswersProps) {
-  const rows = useMemo(() => buildAnswerRows(stems), [stems])
+export function Step3SetAnswers({ stems, categories = [], onUpdateStem }: Step3SetAnswersProps) {
+  const rows = useMemo(() => buildAnswerRows(stems, categories), [stems, categories])
   const [expandedRowKey, setExpandedRowKey] = useState<string | null>(null)
   const [editingRowKey, setEditingRowKey] = useState<string | null>(null)
 
@@ -289,7 +302,7 @@ export function Step3SetAnswers({ stems, onUpdateStem }: Step3SetAnswersProps) {
     [rows]
   )
   const optionLabelsToShow = OPTION_LABELS.slice(0, maxOptionCount)
-  const totalCols = 4 + maxOptionCount + 3 // Stem + # + Question + A..E + Correct + Explanation + Actions
+  const totalCols = 5 + maxOptionCount + 3 // Stem + # + Question + Category + A..E + Correct + Explanation + Actions
 
   const toggleExpanded = useCallback((key: string) => {
     setExpandedRowKey((current) => {
@@ -347,6 +360,7 @@ export function Step3SetAnswers({ stems, onUpdateStem }: Step3SetAnswersProps) {
               <TableHead className="w-14">Stem</TableHead>
               <TableHead className="w-14">Q#</TableHead>
               <TableHead className="min-w-[200px]">Question</TableHead>
+              <TableHead className="min-w-[120px]">Category</TableHead>
               {optionLabelsToShow.map((label) => (
                 <TableHead key={label} className="min-w-[100px]">
                   {label}
@@ -379,6 +393,9 @@ export function Step3SetAnswers({ stems, onUpdateStem }: Step3SetAnswersProps) {
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate" title={row.questionText}>
                       {row.questionText}
+                    </TableCell>
+                    <TableCell className="max-w-[120px] truncate text-muted-foreground">
+                      {row.categoryName}
                     </TableCell>
                     {optionLabelsToShow.map((label, idx) => (
                       <TableCell

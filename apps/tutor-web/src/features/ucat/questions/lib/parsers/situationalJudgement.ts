@@ -16,6 +16,24 @@ export { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parser
 
 export type SituationalJudgementParserConfig = ParserConfig
 
+export type SituationalJudgementCategoryName = 'How important' | 'How appropriate'
+
+/**
+ * Get Situational Judgement category name from stem content.
+ * Rules: "How important" if question text contains it; "How appropriate" if question text contains it.
+ * Case insensitive. First match wins. Returns null if neither matches.
+ */
+export function getSituationalJudgementStemCategoryName(
+  stem: ParsedStem
+): SituationalJudgementCategoryName | null {
+  for (const q of stem.questions) {
+    const qLower = q.text.toLowerCase()
+    if (qLower.includes('how important')) return 'How important'
+    if (qLower.includes('how appropriate')) return 'How appropriate'
+  }
+  return null
+}
+
 function toRichText(text: string): Json {
   return tokenizedPlainTextToProseMirror(text) as Json
 }
@@ -23,6 +41,7 @@ function toRichText(text: string): Json {
 export type SituationalJudgementToFormOptions = {
   sectionId: string
   categoryId?: string | null
+  getCategoryIdForStem?: (stem: ParsedStem) => string | null
   isPrivate?: boolean
 }
 
@@ -59,7 +78,7 @@ export function mapParsedSituationalJudgementToFormValues(
   stems: ParsedStem[],
   options: SituationalJudgementToFormOptions
 ): UcatQuestionStemFormValues[] {
-  const { sectionId, categoryId = null, isPrivate = false } = options
+  const { sectionId, categoryId = null, getCategoryIdForStem, isPrivate = false } = options
 
   const result: UcatQuestionStemFormValues[] = []
 
@@ -84,9 +103,12 @@ export function mapParsedSituationalJudgementToFormValues(
 
     if (questions.length === 0) continue
 
+    const resolvedCategoryId =
+      getCategoryIdForStem != null ? getCategoryIdForStem(stem) : categoryId
+
     result.push({
       sectionId,
-      categoryId: categoryId ?? null,
+      categoryId: resolvedCategoryId ?? null,
       stemText: tokenizedPlainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
       isPrivate,
       questions,

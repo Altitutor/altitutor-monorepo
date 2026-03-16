@@ -94,9 +94,68 @@ function toRichText(text: string): Json {
   return tokenizedPlainTextToProseMirror(text) as Json
 }
 
+export type DecisionMakingCategoryName =
+  | 'Syllogisms'
+  | 'Recognising Assumptions'
+  | 'Venn Diagrams'
+  | 'Drawing Conclusions'
+  | 'Probabilistic and Statistical Reasoning'
+  | 'Logical Puzzles'
+
+/**
+ * Get Decision Making category name from stem content.
+ * Rules applied in order: Syllogisms, Recognising Assumptions, Venn Diagrams,
+ * Drawing Conclusions, Probabilistic and Statistical Reasoning, Logical Puzzles.
+ */
+export function getDecisionMakingStemCategoryName(
+  stem: ParsedDecisionMakingStem
+): DecisionMakingCategoryName {
+  const stemLower = stem.stemText.toLowerCase()
+  const hasDiagramInStem = stemLower.includes('diagram')
+  const hasProbabilityInStem = stemLower.includes('probability')
+
+  const containsImage = (text: string): boolean => text.includes('[[IMG:')
+
+  const stemHasImage = containsImage(stem.stemText)
+
+  for (const q of stem.questions) {
+    const qLower = q.text.toLowerCase()
+    const questionHasImage = containsImage(q.text)
+    const anyOptionHasImage = q.options.some((opt) => containsImage(opt.text))
+
+    if (q.questionType === 'syllogism') {
+      return 'Syllogisms'
+    }
+    if (qLower.includes('argument')) {
+      return 'Recognising Assumptions'
+    }
+    if (
+      (hasDiagramInStem || qLower.includes('diagram')) &&
+      (stemHasImage || questionHasImage || anyOptionHasImage)
+    ) {
+      return 'Venn Diagrams'
+    }
+    if (qLower.includes('concluded') || qLower.includes('conclusion')) {
+      return 'Drawing Conclusions'
+    }
+  }
+
+  if (hasProbabilityInStem) {
+    return 'Probabilistic and Statistical Reasoning'
+  }
+  for (const q of stem.questions) {
+    if (q.text.toLowerCase().includes('probability')) {
+      return 'Probabilistic and Statistical Reasoning'
+    }
+  }
+
+  return 'Logical Puzzles'
+}
+
 export type DecisionMakingToFormOptions = {
   sectionId: string
   categoryId?: string | null
+  getCategoryIdForStem?: (stem: ParsedDecisionMakingStem) => string | null
   isPrivate?: boolean
 }
 
@@ -108,7 +167,7 @@ export function mapParsedDecisionMakingToFormValues(
   stems: ParsedDecisionMakingStem[],
   options: DecisionMakingToFormOptions
 ): UcatQuestionStemFormValues[] {
-  const { sectionId, categoryId = null, isPrivate = false } = options
+  const { sectionId, categoryId = null, getCategoryIdForStem, isPrivate = false } = options
 
   return stems
     .filter(
@@ -133,9 +192,12 @@ export function mapParsedDecisionMakingToFormValues(
           isAnswer: false,
         })),
       }))
+      const resolvedCategoryId =
+        getCategoryIdForStem != null ? getCategoryIdForStem(stem) : categoryId
+
       return {
         sectionId,
-        categoryId: categoryId ?? null,
+        categoryId: resolvedCategoryId ?? null,
         stemText: tokenizedPlainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
         isPrivate,
         questions,
