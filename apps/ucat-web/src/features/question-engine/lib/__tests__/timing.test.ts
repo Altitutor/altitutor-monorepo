@@ -28,6 +28,8 @@ function createBaseState(overrides: Partial<QuestionEngineState> = {}): Question
     showEndExamDialog: false,
     reviewFilter: null,
     reviewFilterIndex: 0,
+    reviewFilterIndicesSnapshot: null,
+    showNoFlaggedDialog: false,
     showReviewInstructionsDialog: false,
     showEndReviewDialog: false,
     viewingQuestionIndex: null,

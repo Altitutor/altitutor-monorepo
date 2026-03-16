@@ -31,6 +31,7 @@ import {
 import { MockScoreBody } from '@/features/question-engine/components/mock-score-body'
 import { ResultsQuestionViewer } from '@/features/question-engine/components/results-question-viewer'
 import { ReviewBody } from '@/features/question-engine/components/review-body'
+import { NoFlaggedDialog } from '@/features/question-engine/components/no-flagged-dialog'
 import { ReviewInstructionsDialog } from '@/features/question-engine/components/review-instructions-dialog'
 import { TimeExpiredDialog } from '@/features/question-engine/components/time-expired-dialog'
 import { getIncompleteCount } from '@/features/question-engine/lib/review'
@@ -220,6 +221,18 @@ export function QuestionEnginePage({
     }
   }, [])
 
+  const hasPreviousQuestion =
+    state.phase === 'question' &&
+    (exam?.sourceType === 'mock'
+      ? (() => {
+          const seg = getCurrentMockSegment(exam, state)
+          if (seg?.type === 'questions') {
+            return state.currentIndex > seg.questionStartIndex
+          }
+          return state.currentIndex > 0
+        })()
+      : state.currentIndex > 0)
+
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
   useEffect(() => {
     const preventDefault = (event: Event) => {
@@ -254,6 +267,7 @@ export function QuestionEnginePage({
         state.showTimeExpiredDialog ||
         state.showEndReviewDialog ||
         state.showExitResultsDialog ||
+        state.showNoFlaggedDialog ||
         state.showReviewInstructionsDialog
       const isQuestionView =
         (state.phase === 'question' || (state.phase === 'review' && state.reviewFilter)) &&
@@ -314,14 +328,11 @@ export function QuestionEnginePage({
         return
       }
 
-      // When in instructions phase (and no Ready dialog), only Next/Previous apply
+      // When in instructions phase (and no Ready dialog), only Next applies (no Previous)
       if (state.phase === 'instructions') {
         if (shortcutKey === 'alt+n') {
           event.preventDefault()
           goNext()
-        } else if (shortcutKey === 'alt+p' && state.instructionsIndex > 0) {
-          event.preventDefault()
-          goPrevious()
         }
         return
       }
@@ -384,9 +395,11 @@ export function QuestionEnginePage({
           })
           break
         case 'previousQuestion':
-          void runWithLag(() => {
-            goPrevious()
-          })
+          if (hasPreviousQuestion) {
+            void runWithLag(() => {
+              goPrevious()
+            })
+          }
           break
         case 'openNavigator': {
           // Only allow when navigator button is visible (question or intro phase)
@@ -444,6 +457,7 @@ export function QuestionEnginePage({
     state.showTimeExpiredDialog,
     state.showEndReviewDialog,
     state.showExitResultsDialog,
+    state.showNoFlaggedDialog,
     state.showReviewInstructionsDialog,
     state.flaggedIds,
     state.currentIndex,
@@ -460,6 +474,7 @@ export function QuestionEnginePage({
     handlePracticeSubmit,
     isPracticeMode,
     isLastQuestionOfCurrentUnit,
+    hasPreviousQuestion,
     questions,
     mode,
     runWithLag,
@@ -506,17 +521,34 @@ export function QuestionEnginePage({
       return `${displayIndex} of ${questions.length}`
     }
     if (isReviewMode && reviewFilterIndices.length > 0) {
+      if (exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+        const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+        if (summary) {
+          const posInSet = effectiveCurrentIndex - summary.questionStartIndex + 1
+          const setSize = summary.questionEndIndex - summary.questionStartIndex
+          return `${posInSet} of ${setSize}`
+        }
+      }
       return `${effectiveCurrentIndex + 1} of ${questions.length}`
+    }
+    if (exam?.sourceType === 'mock' && state.phase === 'question') {
+      const seg = getCurrentMockSegment(exam, state)
+      if (seg?.type === 'questions') {
+        const posInSet = state.currentIndex - seg.questionStartIndex + 1
+        const setSize = seg.questionEndIndex - seg.questionStartIndex
+        return `${posInSet} of ${setSize}`
+      }
     }
     return `${Math.min(effectiveCurrentIndex + 1, questions.length)} of ${questions.length}`
   })()
-  const hasPreviousInstructions = state.instructionsIndex > 0
+  const hasPreviousInstructions = false
   const showReadyToBeginDialog = state.phase === 'intro' || state.showReadyDialog
   const overlayActive =
     showReadyToBeginDialog ||
     state.showTimeExpiredDialog ||
     state.showEndReviewDialog ||
     state.showExitResultsDialog ||
+    state.showNoFlaggedDialog ||
     state.showReviewInstructionsDialog
 
   const incompleteCount = (() => {
@@ -553,6 +585,7 @@ export function QuestionEnginePage({
             showEndReviewDialog: false,
             reviewFilter: null,
             reviewFilterIndex: 0,
+            reviewFilterIndicesSnapshot: null,
             mockCurrentSetIndex: current.mockCurrentSetIndex! + 1,
           }
           if (nextSeg.type === 'instructions') {
@@ -577,6 +610,7 @@ export function QuestionEnginePage({
       showEndReviewDialog: false,
       reviewFilter: null,
       reviewFilterIndex: 0,
+      reviewFilterIndicesSnapshot: null,
       viewingQuestionIndex: null,
     }))
   }
@@ -592,6 +626,7 @@ export function QuestionEnginePage({
           phase: 'marking',
           reviewFilter: null,
           reviewFilterIndex: 0,
+          reviewFilterIndicesSnapshot: null,
           viewingQuestionIndex: null,
           showExitResultsDialog: false,
         }))
@@ -608,6 +643,7 @@ export function QuestionEnginePage({
           phase: 'mockScore',
           reviewFilter: null,
           reviewFilterIndex: 0,
+          reviewFilterIndicesSnapshot: null,
           viewingQuestionIndex: null,
           showExitResultsDialog: false,
         }))
@@ -727,6 +763,18 @@ export function QuestionEnginePage({
               onCancel={() =>
                 void runWithLag(() =>
                   setState((current) => ({ ...current, showEndReviewDialog: false }))
+                )
+              }
+            />
+          </div>
+        ) : null}
+
+        {state.showNoFlaggedDialog ? (
+          <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
+            <NoFlaggedDialog
+              onClose={() =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, showNoFlaggedDialog: false }))
                 )
               }
             />
@@ -1045,18 +1093,20 @@ export function QuestionEnginePage({
             </UcatExamActionButton>
           ) : (
             <>
-              <UcatExamActionButton
-                onClick={() =>
-                  void runWithLag(() => {
-                    goPrevious()
-                  })
-                }
-                icon={<ArrowLeft className="h-4 w-4" />}
-              >
-                <span className="text-[14pt]">
-                  <span className="underline">P</span>revious
-                </span>
-              </UcatExamActionButton>
+              {hasPreviousQuestion ? (
+                <UcatExamActionButton
+                  onClick={() =>
+                    void runWithLag(() => {
+                      goPrevious()
+                    })
+                  }
+                  icon={<ArrowLeft className="h-4 w-4" />}
+                >
+                  <span className="text-[14pt]">
+                    <span className="underline">P</span>revious
+                  </span>
+                </UcatExamActionButton>
+              ) : null}
               {!isPracticeMode ? (
                 <UcatExamActionButton
                   onClick={() =>
@@ -1219,15 +1269,48 @@ export function QuestionEnginePage({
         <div className="fixed inset-0 z-50 pointer-events-none">
           <div className="absolute left-1/2 top-24 -translate-x-1/2 pointer-events-auto">
             <NavigatorPanel
-              questions={questions}
-              currentIndex={state.currentIndex}
+              questions={
+                exam?.sourceType === 'mock' && state.phase === 'question'
+                  ? (() => {
+                      const seg = getCurrentMockSegment(exam, state)
+                      if (seg?.type === 'questions') {
+                        return questions.slice(
+                          seg.questionStartIndex,
+                          seg.questionEndIndex
+                        )
+                      }
+                      return questions
+                    })()
+                  : questions
+              }
+              currentIndex={
+                exam?.sourceType === 'mock' && state.phase === 'question'
+                  ? (() => {
+                      const seg = getCurrentMockSegment(exam, state)
+                      if (seg?.type === 'questions') {
+                        return state.currentIndex - seg.questionStartIndex
+                      }
+                      return state.currentIndex
+                    })()
+                  : state.currentIndex
+              }
               flaggedIds={state.flaggedIds}
               selectedAnswers={state.selectedAnswers}
               visitedQuestionIds={state.visitedQuestionIds}
               syllogismSnapshots={state.syllogismSnapshots}
               onSelect={(index: number) =>
                 void runWithLag(() => {
-                  setQuestionByIndex(index)
+                  const globalIndex =
+                    exam?.sourceType === 'mock' && state.phase === 'question'
+                      ? (() => {
+                          const seg = getCurrentMockSegment(exam, state)
+                          if (seg?.type === 'questions') {
+                            return seg.questionStartIndex + index
+                          }
+                          return index
+                        })()
+                      : index
+                  setQuestionByIndex(globalIndex)
                 })
               }
               onClose={() =>

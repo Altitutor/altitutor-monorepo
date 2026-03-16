@@ -193,6 +193,10 @@ export type QuestionEngineState = {
   reviewFilter: ReviewFilter | null
   /** Index into the filtered list when in review mode. Only relevant when reviewFilter !== null. */
   reviewFilterIndex: number
+  /** Snapshot of indices when entering review filter mode. List stays fixed until returning to review screen. */
+  reviewFilterIndicesSnapshot: number[] | null
+  /** When true, show "There are no flagged questions" dialog. */
+  showNoFlaggedDialog: boolean
   showReviewInstructionsDialog: boolean
   showEndReviewDialog: boolean
   /** When phase === 'marking': index of question being viewed in fullscreen, or null for results table. */

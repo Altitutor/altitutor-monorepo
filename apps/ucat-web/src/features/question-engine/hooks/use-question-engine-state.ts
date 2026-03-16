@@ -9,6 +9,7 @@ import type {
 import {
   getCurrentSegmentTimeLimitSeconds,
   getCurrentMockSegment,
+  getNextMockSegment,
   isLastQuestionOfCurrentMockSet,
 } from '@/features/question-engine/lib/timing'
 import {
@@ -38,6 +39,8 @@ const initialState: QuestionEngineState = {
   showEndExamDialog: false,
   reviewFilter: null,
   reviewFilterIndex: 0,
+  reviewFilterIndicesSnapshot: null,
+  showNoFlaggedDialog: false,
   showReviewInstructionsDialog: false,
   showEndReviewDialog: false,
   viewingQuestionIndex: null,
@@ -150,9 +153,12 @@ export function useQuestionEngineState(
       const index = exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries
         ? (exam.mockSetSummaries[state.mockCurrentSetIndex]?.questionStartIndex ?? 0) + idx
         : idx
+      const displayNumber =
+        exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null ? idx + 1 : undefined
       return {
         question,
         index,
+        displayNumber,
         status: getReviewQuestionStatus(
           question,
           state.visitedQuestionIds,
@@ -219,6 +225,22 @@ export function useQuestionEngineState(
 
   function goNext() {
     if (state.phase === 'instructions' && exam) {
+      if (exam.sourceType === 'mock') {
+        const nextSeg = getNextMockSegment(exam, state)
+        if (nextSeg?.type === 'questions') {
+          setState((current) => ({ ...current, showReadyDialog: true }))
+          return
+        }
+        if (nextSeg?.type === 'instructions') {
+          setState((current) => ({
+            ...current,
+            instructionsIndex: nextSeg.instructionsIndex,
+          }))
+          return
+        }
+        setState((current) => ({ ...current, showReadyDialog: true }))
+        return
+      }
       const screens = ('instructionsScreens' in exam && exam.instructionsScreens) || []
       if (state.instructionsIndex < screens.length - 1) {
         setState((current) => ({ ...current, instructionsIndex: current.instructionsIndex + 1 }))
@@ -331,6 +353,7 @@ export function useQuestionEngineState(
       ...current,
       reviewFilter: null,
       reviewFilterIndex: 0,
+      reviewFilterIndicesSnapshot: null,
     }))
   }
 
@@ -352,7 +375,7 @@ export function useQuestionEngineState(
   }
 
   function startReviewFilter(filter: ReviewFilter) {
-    const indices = getReviewFilterIndices(
+    let indices = getReviewFilterIndices(
       questions,
       filter,
       state.visitedQuestionIds,
@@ -360,11 +383,24 @@ export function useQuestionEngineState(
       state.flaggedIds,
       state.syllogismSnapshots
     )
+    if (exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      if (summary) {
+        indices = indices.filter(
+          (i) => i >= summary.questionStartIndex && i < summary.questionEndIndex
+        )
+      }
+    }
+    if (filter === 'flagged' && indices.length === 0) {
+      setState((current) => ({ ...current, showNoFlaggedDialog: true }))
+      return
+    }
     const firstIndex = indices[0] ?? 0
     setState((current) => ({
       ...current,
       reviewFilter: filter,
       reviewFilterIndex: 0,
+      reviewFilterIndicesSnapshot: indices,
       currentIndex: firstIndex,
     }))
   }
