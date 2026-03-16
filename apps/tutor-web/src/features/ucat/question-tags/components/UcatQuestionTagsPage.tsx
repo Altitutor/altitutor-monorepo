@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
+  useToast,
 } from '@altitutor/ui'
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -85,6 +86,7 @@ function buildTagTree(
 export function UcatQuestionTagsPage() {
   const access = useUcatAccess()
   const tags = useUcatQuestionTags()
+  const { toast } = useToast()
   const createTag = useCreateUcatQuestionTag()
   const updateTag = useUpdateUcatQuestionTag()
   const deleteTag = useDeleteUcatQuestionTag()
@@ -151,13 +153,40 @@ export function UcatQuestionTagsPage() {
   if (!access.data) return <UcatAccessDenied />
 
   async function create() {
-    await createTag.mutateAsync({
+    const result = await createTag.mutateAsync({
       name: draft.name,
       description: draft.description,
       parentTagId: draft.parentTagId === 'none' ? null : draft.parentTagId,
     })
+    const tagName = draft.name.trim() || 'Untitled'
+    const createdRow: TagRow = {
+      id: result.id,
+      name: draft.name,
+      parent_id: draft.parentTagId === 'none' ? null : draft.parentTagId,
+      description: draft.description,
+      question_count: 0,
+    }
     setCreateOpen(false)
     setDraft(emptyDraft)
+    toast({
+      title: `Tag ${tagName} created`,
+      description: (
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(createdRow)
+            setDraft({
+              name: createdRow.name,
+              parentTagId: createdRow.parent_id ?? 'none',
+              description: createdRow.description,
+            })
+          }}
+          className="underline font-medium hover:no-underline text-left"
+        >
+          View tag
+        </button>
+      ),
+    })
   }
 
   async function saveEdit() {

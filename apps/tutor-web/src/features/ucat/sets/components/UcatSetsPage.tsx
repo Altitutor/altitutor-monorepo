@@ -238,6 +238,7 @@ export function UcatSetsPage() {
       stemIds: [],
     }
     const result = await createSet.mutateAsync(payload)
+    const setName = form.name.trim() || 'Untitled'
     setOpenCreate(false)
     setForm({
       name: '',
@@ -248,6 +249,18 @@ export function UcatSetsPage() {
       isStudentGenerated: false,
     })
     if (result.id) setEditingSetId(result.id)
+    toast({
+      title: `Set ${setName} created`,
+      description: (
+        <button
+          type="button"
+          onClick={() => setEditingSetId(result.id)}
+          className="underline font-medium hover:no-underline text-left"
+        >
+          View set
+        </button>
+      ),
+    })
   }
 
   if (access.isLoading || sets.isLoading) return <UcatPageSkeleton rows={8} />

@@ -14,6 +14,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  useToast,
 } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -120,6 +121,7 @@ export function UcatSectionsPage() {
   const access = useUcatAccess()
   const queryClient = useQueryClient()
   const sections = useUcatSections()
+  const { toast } = useToast()
   const createSection = useCreateUcatSection()
   const updateSection = useUpdateUcatSection()
   const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
@@ -283,7 +285,7 @@ export function UcatSectionsPage() {
   if (!access.data) return <UcatAccessDenied />
 
   async function create() {
-    await createSection.mutateAsync({
+    const result = await createSection.mutateAsync({
       sectionNumber: Number(draft.sectionNumber),
       name: draft.name,
       displayColumns: Number(draft.displayColumns) as 1 | 2,
@@ -292,8 +294,51 @@ export function UcatSectionsPage() {
       numberOfQuestions: draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions),
       instructionsTimeLimitSeconds: minutesSecondsToTotal(draft.instructionsTimeLimitMinutes, draft.instructionsTimeLimitSeconds),
     })
+    const sectionName = draft.name.trim() || 'Untitled'
+    const timeLimitSeconds = minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds)
+    const instructionsTimeLimitSeconds = minutesSecondsToTotal(draft.instructionsTimeLimitMinutes, draft.instructionsTimeLimitSeconds)
+    const numberOfQuestions = draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions)
+    const createdRow: SectionRow = {
+      id: result.id,
+      section_number: Number(draft.sectionNumber),
+      name: draft.name,
+      display_columns: Number(draft.displayColumns) as 1 | 2,
+      instructions_text: draft.instructionsText,
+      time_limit_seconds: timeLimitSeconds,
+      number_of_questions: numberOfQuestions,
+      time_per_question:
+        timeLimitSeconds != null && numberOfQuestions != null && numberOfQuestions > 0
+          ? timeLimitSeconds / numberOfQuestions
+          : null,
+      instructions_time_limit_seconds: instructionsTimeLimitSeconds,
+    }
     setCreateOpen(false)
     setDraft(emptyDraft)
+    toast({
+      title: `Section ${sectionName} created`,
+      description: (
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(createdRow)
+            setDraft({
+              sectionNumber: String(createdRow.section_number),
+              name: createdRow.name,
+              displayColumns: String(createdRow.display_columns) as '1' | '2',
+              instructionsText: createdRow.instructions_text,
+              timeLimitMinutes: String(Math.floor((createdRow.time_limit_seconds ?? 0) / 60)),
+              timeLimitSeconds: String(Math.floor((createdRow.time_limit_seconds ?? 0) % 60)),
+              numberOfQuestions: createdRow.number_of_questions != null ? String(createdRow.number_of_questions) : '',
+              instructionsTimeLimitMinutes: String(Math.floor((createdRow.instructions_time_limit_seconds ?? 0) / 60)),
+              instructionsTimeLimitSeconds: String(Math.floor((createdRow.instructions_time_limit_seconds ?? 0) % 60)),
+            })
+          }}
+          className="underline font-medium hover:no-underline text-left"
+        >
+          View section
+        </button>
+      ),
+    })
   }
 
   async function saveEdit() {
