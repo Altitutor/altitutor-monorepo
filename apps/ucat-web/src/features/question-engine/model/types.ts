@@ -150,8 +150,8 @@ export function mapQuestionsToItems(questions: QuestionEngineQuestion[]): Questi
 export type ReviewFilter = 'all' | 'incomplete' | 'flagged'
 
 export type QuestionEngineState = {
-  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' (marking = results table, Next closes) */
-  phase: 'instructions' | 'intro' | 'question' | 'review' | 'marking'
+  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'practiceAnswer' | 'practiceComplete' */
+  phase: 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'practiceAnswer' | 'practiceComplete'
   /** Which instructions screen (0-based). Only relevant when phase === 'instructions'. */
   instructionsIndex: number
   /** When true, Ready to Begin dialog is shown on top of current screen (e.g. instructions). No = dismiss only. */
@@ -182,4 +182,7 @@ export type QuestionEngineState = {
   viewingQuestionIndex: number | null
   /** When true, show Exit Results confirmation dialog. */
   showExitResultsDialog: boolean
+  /** Practice mode only: unit being reviewed. viewingQuestionIndex is the current question in this range. */
+  practiceAnswerUnitStartIndex?: number
+  practiceAnswerUnitEndIndex?: number
 }

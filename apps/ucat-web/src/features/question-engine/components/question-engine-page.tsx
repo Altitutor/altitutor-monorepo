@@ -42,6 +42,7 @@ import {
 } from '@/features/question-engine/lib/timing'
 import type { QuestionEngineMode, QuestionEngineQuestion, QuestionStemWithQuestions } from '@/features/question-engine/model/types'
 import { mapQuestionStemsToItems, mapQuestionsToItems } from '@/features/question-engine/model/types'
+import { getStemBoundaries } from '@/features/question-engine/lib/practice'
 import { QUESTION_ENGINE_SHORTCUT_MAP } from '@/features/question-engine/model/shortcuts'
 import { useQuestionEnginePersistence } from '@/features/question-engine/hooks/use-question-engine-persistence'
 
@@ -50,17 +51,28 @@ export function QuestionEnginePage({
   sourceId,
   questionStems,
   standaloneQuestions,
+  practice = false,
 }: {
   mode: QuestionEngineMode
   sourceId?: string
   questionStems?: QuestionStemWithQuestions[]
   standaloneQuestions?: QuestionEngineQuestion[]
+  /** When true (questions/questionStem mode only): submit after each question/stem, show answer immediately, no final review phase. */
+  practice?: boolean
 }) {
   const query = useQuestionEngineData({
     mode,
     setId: mode === 'set' ? sourceId : undefined,
     mockId: mode === 'mock' ? sourceId : undefined,
   })
+
+  // #region agent log
+  useEffect(() => {
+    if (mode === 'set' || mode === 'mock') {
+      fetch('http://127.0.0.1:7242/ingest/24632b4e-be12-493d-ae6c-866e439d0cb6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a7e8c'},body:JSON.stringify({sessionId:'2a7e8c',location:'question-engine-page.tsx:query',message:'Question engine query state',data:{mode,sourceId:sourceId??null,queryStatus:query.status,hasData:!!query.data,error:query.error?.message},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+    }
+  }, [mode, sourceId, query.status, query.data, query.error]);
+  // #endregion
 
   const exam = useMemo(
     () =>
@@ -93,11 +105,14 @@ export function QuestionEnginePage({
     currentQuestion,
     questions,
     isLastQuestion,
+    isLastQuestionOfCurrentUnit,
+    isPracticeMode,
     effectiveCurrentIndex,
     reviewFilterIndices,
     reviewListRows,
     goNext,
     goPrevious,
+    handlePracticeSubmit,
     setQuestionByIndex,
     toggleFlagCurrent,
     toggleFlagById,
@@ -106,13 +121,13 @@ export function QuestionEnginePage({
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
     setSyllogismSnapshot,
-  } = useQuestionEngineState(exam)
+  } = useQuestionEngineState(exam, { practice })
   const router = useRouter()
   const { isLagging, runWithLag } = useUcatLag()
   const [, setTick] = useState(0)
   const timeExpiredFiredRef = useRef<string | null>(null)
 
-  const { recordAnswer, handleExamCompleted } = useQuestionEnginePersistence({
+  const { recordAnswer, recordAnswersForUnit, handleExamCompleted } = useQuestionEnginePersistence({
     mode,
     exam,
     state,
@@ -392,7 +407,17 @@ export function QuestionEnginePage({
         }
         case 'nextQuestion':
           void runWithLag(() => {
-            goNext()
+            if (isPracticeMode && isLastQuestionOfCurrentUnit) {
+              const { startIndex, endIndex } = getStemBoundaries(
+                questions,
+                state.currentIndex,
+                mode as 'questions' | 'questionStem'
+              )
+              recordAnswersForUnit(startIndex, endIndex)
+              handlePracticeSubmit()
+            } else {
+              goNext()
+            }
           })
           break
         case 'reviewScreen':
@@ -427,15 +452,22 @@ export function QuestionEnginePage({
     state.showExitResultsDialog,
     state.showReviewInstructionsDialog,
     state.flaggedIds,
+    state.currentIndex,
     currentQuestion,
     setState,
     setAnswer,
     recordAnswer,
+    recordAnswersForUnit,
     goNext,
     goPrevious,
     toggleFlagCurrent,
     goToReviewScreen,
     startReviewFilter,
+    handlePracticeSubmit,
+    isPracticeMode,
+    isLastQuestionOfCurrentUnit,
+    questions,
+    mode,
     runWithLag,
     router,
     instructionsScreens.length,
@@ -459,13 +491,22 @@ export function QuestionEnginePage({
   const isInstructionsPhase = state.phase === 'instructions'
   const isReviewPhase = state.phase === 'review'
   const isMarkingPhase = state.phase === 'marking'
+  const isPracticeAnswerPhase = state.phase === 'practiceAnswer'
+  const isPracticeCompletePhase = state.phase === 'practiceComplete'
   const isReviewScreen = isReviewPhase && !state.reviewFilter
   const isReviewMode = isReviewPhase && state.reviewFilter
   const questionLabel = (() => {
-    if (isMarkingPhase && state.viewingQuestionIndex != null) {
-      // In individual answer review, show the actual question number (1-based) for that question.
-      const q = questions[state.viewingQuestionIndex]
-      const displayIndex = q ? q.index + 1 : state.viewingQuestionIndex + 1
+    if ((isMarkingPhase || isPracticeAnswerPhase) && state.viewingQuestionIndex != null) {
+      const viewing = state.viewingQuestionIndex
+      const unitStart = state.practiceAnswerUnitStartIndex ?? viewing
+      const unitEnd = state.practiceAnswerUnitEndIndex ?? viewing
+      if (isPracticeAnswerPhase) {
+        const posInUnit = viewing - unitStart + 1
+        const unitSize = unitEnd - unitStart + 1
+        return `${posInUnit} of ${unitSize}`
+      }
+      const q = questions[viewing]
+      const displayIndex = q ? q.index + 1 : viewing + 1
       return `${displayIndex} of ${questions.length}`
     }
     if (isReviewMode && reviewFilterIndices.length > 0) {
@@ -690,11 +731,13 @@ export function QuestionEnginePage({
     <>
       <UcatExamShell
         sectionTitle={
-          isMarkingPhase
-            ? `${exam.title} – Results`
-            : isReviewScreen
-              ? exam.title
-              : (currentQuestion?.sectionName ?? exam.title)
+          isPracticeCompletePhase
+            ? `${exam.title} – Complete`
+            : isMarkingPhase
+              ? `${exam.title} – Results`
+              : isReviewScreen
+                ? exam.title
+                : (currentQuestion?.sectionName ?? exam.title)
         }
         sectionTitleRight={
           isReviewScreen
@@ -736,7 +779,7 @@ export function QuestionEnginePage({
           )
         }
         toolRight={
-          isMarkingPhase || isReviewScreen || isInstructionsPhase ? null : (
+          isMarkingPhase || isReviewScreen || isInstructionsPhase || isPracticeAnswerPhase || isPracticeCompletePhase ? null : (
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
@@ -815,7 +858,28 @@ export function QuestionEnginePage({
           ) : isInstructionsPhase ? null : null
         }
         footerRight={
-          isMarkingPhase ? (
+          isPracticeAnswerPhase ? (
+            <>
+              {(state.viewingQuestionIndex ?? 0) > (state.practiceAnswerUnitStartIndex ?? 0) ? (
+                <UcatExamActionButton
+                  onClick={() => void runWithLag(() => goPrevious())}
+                  icon={<ArrowLeft className="h-4 w-4" />}
+                >
+                  <span className="text-[14pt]">Previous</span>
+                </UcatExamActionButton>
+              ) : null}
+              <UcatExamActionButton
+                onClick={() => void runWithLag(() => goNext())}
+                variant="highlight"
+                icon={<ArrowRight className="h-4 w-4" />}
+                iconRight
+              >
+                <span className="text-[14pt]">
+                  <span className="underline">N</span>ext
+                </span>
+              </UcatExamActionButton>
+            </>
+          ) : isMarkingPhase ? (
             state.viewingQuestionIndex != null ? (
               <>
                 {state.viewingQuestionIndex > 0 ? (
@@ -937,6 +1001,15 @@ export function QuestionEnginePage({
                 </span>
               </UcatExamActionButton>
             </>
+          ) : isPracticeCompletePhase ? (
+            <UcatExamActionButton
+              onClick={() => void runWithLag(() => router.back())}
+              variant="highlight"
+              icon={<ArrowRight className="h-4 w-4" />}
+              iconRight
+            >
+              <span className="text-[14pt]">Done</span>
+            </UcatExamActionButton>
           ) : (
             <>
               <UcatExamActionButton
@@ -951,29 +1024,43 @@ export function QuestionEnginePage({
                   <span className="underline">P</span>revious
                 </span>
               </UcatExamActionButton>
-              <UcatExamActionButton
-                onClick={() =>
-                  void runWithLag(() =>
-                    setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
-                  )
-                }
-                icon={<Navigation className="h-4 w-4" />}
-              >
-                <span className="text-[14pt]">
-                  Na<span className="underline">v</span>igator
-                </span>
-              </UcatExamActionButton>
+              {!isPracticeMode ? (
+                <UcatExamActionButton
+                  onClick={() =>
+                    void runWithLag(() =>
+                      setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
+                    )
+                  }
+                  icon={<Navigation className="h-4 w-4" />}
+                >
+                  <span className="text-[14pt]">
+                    Na<span className="underline">v</span>igator
+                  </span>
+                </UcatExamActionButton>
+              ) : null}
               <UcatExamActionButton
                 onClick={() =>
                   void runWithLag(() => {
-                    goNext()
+                    if (isPracticeMode && isLastQuestionOfCurrentUnit) {
+                      const { startIndex, endIndex } = getStemBoundaries(
+                        questions,
+                        state.currentIndex,
+                        mode as 'questions' | 'questionStem'
+                      )
+                      recordAnswersForUnit(startIndex, endIndex)
+                      handlePracticeSubmit()
+                    } else {
+                      goNext()
+                    }
                   })
                 }
                 variant="highlight"
                 icon={<ArrowRight className="h-4 w-4" />}
                 iconRight
               >
-                {isLastQuestion ? (
+                {isPracticeMode && isLastQuestionOfCurrentUnit ? (
+                  <span className="text-[14pt]">Submit</span>
+                ) : isLastQuestion && !isPracticeMode ? (
                   <span className="text-[14pt]">Review</span>
                 ) : (
                   <span className="text-[14pt]">
@@ -988,7 +1075,14 @@ export function QuestionEnginePage({
       >
         {isInstructionsPhase && currentInstructionsScreen ? (
           <InstructionsContent screen={currentInstructionsScreen} />
-        ) : isMarkingPhase ? (
+        ) : isPracticeCompletePhase ? (
+          <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+            <p className="text-[14pt]">Practice complete.</p>
+            <p className="text-[12pt] text-muted-foreground">
+              You have reviewed all questions.
+            </p>
+          </div>
+        ) : isPracticeAnswerPhase || isMarkingPhase ? (
           state.viewingQuestionIndex != null &&
           questions[state.viewingQuestionIndex] ? (
             <ResultsQuestionViewer
