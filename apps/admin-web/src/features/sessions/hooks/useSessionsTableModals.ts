@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import type { Tables } from '@altitutor/shared';
 
 export interface UseSessionsTableModalsReturn {
   // Log session
@@ -14,13 +13,6 @@ export interface UseSessionsTableModalsReturn {
   isLogAbsenceDialogOpen: boolean;
   openLogAbsenceDialog: (sessionId: string) => void;
   closeLogAbsenceDialog: () => Promise<void>;
-
-  // Reschedule
-  selectedSessionForReschedule: Tables<'sessions'> | null;
-  selectedStudentForReschedule: string | null;
-  isRescheduleModalOpen: boolean;
-  openRescheduleModal: (session: Tables<'sessions'>, studentId: string) => void;
-  closeRescheduleModal: () => Promise<void>;
 
   // Class modal
   selectedClassId: string | null;
@@ -40,9 +32,6 @@ export function useSessionsTableModals(refetch: () => void | Promise<unknown>): 
   const [studentAbsenceSessionId, setStudentAbsenceSessionId] = useState<string | null>(null);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
-  const [isRescheduleModalOpen, setIsRescheduleModalOpen] = useState(false);
-  const [selectedSessionForReschedule, setSelectedSessionForReschedule] = useState<Tables<'sessions'> | null>(null);
-  const [selectedStudentForReschedule, setSelectedStudentForReschedule] = useState<string | null>(null);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [selectedTutorLogId, setSelectedTutorLogId] = useState<string | null>(null);
@@ -67,19 +56,6 @@ export function useSessionsTableModals(refetch: () => void | Promise<unknown>): 
   const closeLogAbsenceDialog = useCallback(async () => {
     setIsLogAbsenceDialogOpen(false);
     setStudentAbsenceSessionId(null);
-    await refetch();
-  }, [refetch]);
-
-  const openRescheduleModal = useCallback((session: Tables<'sessions'>, studentId: string) => {
-    setSelectedStudentForReschedule(studentId);
-    setSelectedSessionForReschedule(session);
-    setIsRescheduleModalOpen(true);
-  }, []);
-
-  const closeRescheduleModal = useCallback(async () => {
-    setIsRescheduleModalOpen(false);
-    setSelectedSessionForReschedule(null);
-    setSelectedStudentForReschedule(null);
     await refetch();
   }, [refetch]);
 
@@ -115,11 +91,6 @@ export function useSessionsTableModals(refetch: () => void | Promise<unknown>): 
     isLogAbsenceDialogOpen,
     openLogAbsenceDialog,
     closeLogAbsenceDialog,
-    selectedSessionForReschedule,
-    selectedStudentForReschedule,
-    isRescheduleModalOpen,
-    openRescheduleModal,
-    closeRescheduleModal,
     selectedClassId,
     isClassModalOpen,
     openClassModal,

@@ -25,7 +25,6 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useCreateTopic, useTopicsBySubject } from '../hooks';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
-import { formatSubjectDisplay } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 
 const formSchema = z.object({
@@ -124,7 +123,7 @@ export function AddTopicModal({
     
     const query = subjectSearchQuery.toLowerCase();
     return subjects.filter((subject) => {
-      const displayText = formatSubjectDisplay(subject).toLowerCase();
+      const displayText = (subject?.long_name ?? '').toLowerCase();
       return displayText.includes(query) || subject.name.toLowerCase().includes(query);
     });
   }, [subjects, subjectSearchQuery]);
@@ -165,7 +164,7 @@ export function AddTopicModal({
                 </div>
                 {filteredSubjects.map((subject) => (
                   <SelectItem key={subject.id} value={subject.id}>
-                    {formatSubjectDisplay(subject)}
+                    {(subject?.long_name ?? '')}
                   </SelectItem>
                 ))}
               </SelectContent>

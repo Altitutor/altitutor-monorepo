@@ -4,72 +4,45 @@ import {
   FormControl,
   FormField,
   FormItem,
-  Button,
+  Input,
 } from '@altitutor/ui';
 import { Calendar } from 'lucide-react';
-import { useRef, type MutableRefObject } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { formatIssueDueDate } from '../../utils/issueUtils';
 import type { IssueFormData } from '../../types';
+
+function toInputValue(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
 
 interface IssueDueDatePillProps {
   form: UseFormReturn<IssueFormData>;
 }
 
 export function IssueDueDatePill({ form }: IssueDueDatePillProps) {
-  const dateInputRef = useRef<HTMLInputElement | null>(null) as MutableRefObject<HTMLInputElement | null>;
-
   return (
     <FormField
       control={form.control}
       name="dueDate"
       render={({ field }) => {
-        const dueDateValue = field.value;
-        const dateValue = dueDateValue
-          ? typeof dueDateValue === 'string'
-            ? dueDateValue
-            : new Date(dueDateValue).toISOString().split('T')[0]
-          : null;
+        const dateValue = toInputValue(field.value);
 
         return (
           <FormItem>
             <FormControl>
-              <Button
-                type="button"
-                variant="outline"
-                className="h-8 px-3 text-xs border rounded-full"
-                onClick={(e) => {
-                  e.preventDefault();
-                  dateInputRef.current?.click();
-                }}
-              >
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                  <span>{formatIssueDueDate(dueDateValue) || 'Due date'}</span>
-                </div>
-              </Button>
+              <div className="relative flex items-center h-8 min-w-[100px] rounded-full border bg-background">
+                <Calendar className="h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                <Input
+                  type="date"
+                  value={dateValue}
+                  onChange={(e) => field.onChange(e.target.value || null)}
+                  onBlur={field.onBlur}
+                  className="h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                />
+              </div>
             </FormControl>
-            <input
-              ref={(el) => {
-                dateInputRef.current = el;
-                if (field.ref) {
-                  if (typeof field.ref === 'function') {
-                    field.ref(el);
-                  } else if ('current' in field.ref) {
-                    (field.ref as MutableRefObject<HTMLInputElement | null>).current = el;
-                  }
-                }
-              }}
-              type="date"
-              name={field.name}
-              onBlur={field.onBlur}
-              value={dateValue || ''}
-              onChange={(e) => {
-                field.onChange(e.target.value || null);
-              }}
-              className="sr-only"
-              tabIndex={-1}
-            />
           </FormItem>
         );
       }}

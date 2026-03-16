@@ -26,6 +26,13 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { subjectsApi } from '../api';
+import { getErrorMessage } from '@/shared/utils';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { DraggableTopicsList } from '@/features/topics/components';
 import { useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
@@ -59,6 +66,11 @@ export function EditSubjectModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Topics are not used in this component
   // const { data: allTopics = [] } = useTopics();
@@ -147,7 +159,7 @@ export function EditSubjectModal({
       console.error('Failed to update subject:', err);
       toast({
         title: 'Update failed',
-        description: 'There was an error updating the subject. Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
     } finally {
@@ -165,12 +177,23 @@ export function EditSubjectModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[600px] max-h-[90vh] overflow-y-auto',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Edit Subject</DialogTitle>
-          <DialogDescription>
-            Update subject details and reorder root-level topics.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Edit Subject</DialogTitle>
+              <DialogDescription>
+                Update subject details and reorder root-level topics.
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         {loading ? (

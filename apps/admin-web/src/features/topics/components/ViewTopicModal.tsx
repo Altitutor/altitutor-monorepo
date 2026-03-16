@@ -36,7 +36,7 @@ import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import {
   useTopicById,
   useTopics,
@@ -306,7 +306,7 @@ export function ViewTopicModal({
                         <SelectContent>
                           {subjects.map((subject) => (
                             <SelectItem key={subject.id} value={subject.id}>
-                              {formatSubjectDisplay(subject)}
+                              {subject?.long_name ?? ''}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -409,7 +409,7 @@ export function ViewTopicModal({
                             className={defaultClass || textColorClass}
                             style={style.backgroundColor ? style : undefined}
                           >
-                            {formatSubjectDisplay(subject)}
+                            {subject?.long_name ?? ''}
                           </Badge>
                         );
                       })() : (

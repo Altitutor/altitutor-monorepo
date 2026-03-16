@@ -12,7 +12,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { getSubjectColorStyle } from "@/shared/utils";
 import { ClassStatusBadge } from "@altitutor/ui";
-import { formatSubjectDisplay } from "@/shared/utils";
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
 import { calculateSessionChanges } from '../../../utils/calculateSessionChanges';
 import { sessionsApi } from '@/features/sessions/api/sessions';
@@ -366,7 +365,7 @@ export function ClassInfoTab({
                         <SelectItem value="none">None</SelectItem>
                         {subjects?.map((subj) => (
                           <SelectItem key={subj.id} value={subj.id}>
-                            {formatSubjectDisplay(subj)}
+                            {(subj?.long_name ?? '')}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -517,7 +516,7 @@ export function ClassInfoTab({
                 className={defaultClass || textColorClass}
                 style={style.backgroundColor ? style : undefined}
               >
-                {formatSubjectDisplay(subject)}
+                {subject?.long_name ?? ''}
               </Badge>
             );
           })() : (

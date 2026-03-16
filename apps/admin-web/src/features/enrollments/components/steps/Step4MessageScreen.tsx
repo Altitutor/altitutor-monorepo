@@ -6,8 +6,10 @@ import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
-import { getEnrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
-import { formatClassName } from '@/shared/utils';
+import {
+  getEnrollmentConfirmationMessageForClient,
+  getSenderNameFromStaff,
+} from '@/features/messages/api/systemTemplates';
 import { formatDate } from '@/shared/utils/datetime';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -95,42 +97,48 @@ export function Step4MessageScreen({
 
   // Pre-populate message with enrollment template when recipient changes
   useEffect(() => {
-    if (!selectedRecipient || !selectedClass || !selectedStudent || !enrollmentDate || !currentStaff) return;
+    if (!selectedRecipient || !selectedClass || !selectedStudent || !enrollmentDate || !currentStaff)
+      return;
 
     // Calculate first session date
-    const firstSessionDate = selectedClass.day_of_week !== undefined && selectedClass.start_time
-      ? calculateFirstSessionDate(
-          { day_of_week: selectedClass.day_of_week, start_time: selectedClass.start_time },
-          getMidnightAdelaide(new Date(enrollmentDate))
-        )
-      : null;
+    const firstSessionDate =
+      selectedClass.day_of_week !== undefined && selectedClass.start_time
+        ? calculateFirstSessionDate(
+            { day_of_week: selectedClass.day_of_week, start_time: selectedClass.start_time },
+            getMidnightAdelaide(new Date(enrollmentDate))
+          )
+        : null;
 
     if (!firstSessionDate) return;
 
     // Format class name with day and time
-    const className = formatClassName(selectedClass, selectedClass.subject);
-    
+    const className = selectedClass.long_name?.trim() ?? '';
+
     // Format start date
     const startDate = formatDate(firstSessionDate);
 
     // Get recipient name
-    const recipientName = selectedRecipient.type === 'parent'
-      ? parents.find(p => p.id === selectedRecipient.id)?.first_name || 'there'
-      : selectedStudent.first_name || 'there';
+    const recipientName =
+      selectedRecipient.type === 'parent'
+        ? parents.find((p) => p.id === selectedRecipient.id)?.first_name || 'there'
+        : selectedStudent.first_name || 'there';
 
-    // Get sender name
-    const senderName = `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim();
+    const senderName = getSenderNameFromStaff(currentStaff);
 
-    // Generate template
-    const template = getEnrollmentConfirmationSmsTemplate({
-      name: recipientName,
-      className,
-      startDate,
-      senderName,
-    });
-
-    // Set template when recipient changes (reset draft)
-    setComposerDraft(template);
+    let cancelled = false;
+    (async () => {
+      const template = await getEnrollmentConfirmationMessageForClient({
+        name: recipientName,
+        className,
+        startDate,
+        senderName,
+      });
+      if (cancelled) return;
+      setComposerDraft(template);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedRecipient, selectedClass, selectedStudent, enrollmentDate, currentStaff, parents]);
 
   // Build recipient options for dropdown
@@ -166,7 +174,7 @@ export function Step4MessageScreen({
             </span>
             {' '}in{' '}
             <span className="font-semibold">
-              {selectedClass.subject ? formatClassName(selectedClass, selectedClass.subject) : 'class'}
+              {selectedClass.long_name?.trim() || 'class'}
             </span>
           </p>
         </div>

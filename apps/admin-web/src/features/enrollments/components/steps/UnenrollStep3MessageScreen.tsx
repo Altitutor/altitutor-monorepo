@@ -6,8 +6,10 @@ import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
-import { getUnenrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
-import { formatClassName } from '@/shared/utils';
+import {
+  getUnenrollmentConfirmationMessageForClient,
+  getSenderNameFromStaff,
+} from '@/features/messages/api/systemTemplates';
 import { formatSessionDateTime } from '@/shared/utils/schedule';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -107,31 +109,33 @@ export function UnenrollStep3MessageScreen({
     if (!lastSessionDate) return;
 
     // Format class name with day and time
-    const className = classSubject
-      ? formatClassName(classData, classSubject)
-      : 'class';
-    
+    const className = classSubject ? (classData.long_name?.trim() ?? '') : 'class';
+
     // Format final session date
     const finalSessionDate = formatSessionDateTime(lastSessionDate);
 
     // Get recipient name
-    const recipientName = selectedRecipient.type === 'parent'
-      ? parents.find(p => p.id === selectedRecipient.id)?.first_name || 'there'
-      : student.first_name || 'there';
+    const recipientName =
+      selectedRecipient.type === 'parent'
+        ? parents.find((p) => p.id === selectedRecipient.id)?.first_name || 'there'
+        : student.first_name || 'there';
 
-    // Get sender name
-    const senderName = `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim();
+    const senderName = getSenderNameFromStaff(currentStaff);
 
-    // Generate template
-    const template = getUnenrollmentConfirmationSmsTemplate({
-      name: recipientName,
-      className,
-      finalSessionDate,
-      senderName,
-    });
-
-    // Set template when recipient changes (reset draft)
-    setComposerDraft(template);
+    let cancelled = false;
+    (async () => {
+      const template = await getUnenrollmentConfirmationMessageForClient({
+        name: recipientName,
+        className,
+        finalSessionDate,
+        senderName,
+      });
+      if (cancelled) return;
+      setComposerDraft(template);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [selectedRecipient, classData, student, unenrollmentDate, currentStaff, classSubject, parents]);
 
   // Build recipient options for dropdown
@@ -167,7 +171,7 @@ export function UnenrollStep3MessageScreen({
             </span>
             {' '}from{' '}
             <span className="font-semibold">
-              {classSubject ? formatClassName(classData, classSubject) : 'class'}
+              {classData.long_name?.trim() || 'class'}
             </span>
           </p>
         </div>

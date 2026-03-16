@@ -14,9 +14,12 @@ import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { ChevronDown, ChevronRight, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
+import { useQueryClient } from '@tanstack/react-query';
 import { ReconciliationActions } from './ReconciliationActions';
+import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
+import { reconciliationKeys } from '../api/queryKeys';
 import { useSubjects } from '@/features/subjects';
-import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor, cn } from '@/shared/utils';
+import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor, cn } from '@/shared/utils';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import type { Tables } from '@altitutor/shared';
 import type {
@@ -24,11 +27,15 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
+  UnassignedTask,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
 } from '../types';
+import { AssignTaskDropdown } from './AssignTaskDropdown';
+import { getStatusLabel } from '@/features/tasks/utils/taskUtils';
+import type { TaskStatus } from '@/features/tasks/types';
 import { useConversationsByContact } from '@/features/messages/api/queries';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useChatStore } from '@/features/messages/state/chatStore';
@@ -318,7 +325,7 @@ export function UnloggedSessionsTable({
                     className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
                     style={style.backgroundColor ? style : undefined}
                   >
-                    {formatSubjectDisplay(subject)}
+                    {subject?.long_name ?? ''}
                   </Badge>
                 ) : (
                   <span>{item.subject_name || '—'}</span>
@@ -338,6 +345,68 @@ export function UnloggedSessionsTable({
         );
       }}
     />
+  );
+}
+
+export function UnassignedTasksTable({
+  items,
+  isLoading,
+}: {
+  items: UnassignedTask[];
+  isLoading?: boolean;
+}) {
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const queryClient = useQueryClient();
+
+  return (
+    <>
+      <ReconciliationTable
+        title="Unassigned tasks"
+        items={items}
+        isLoading={isLoading}
+        columns={['Title', 'Status', 'Issue/Project', 'Due date']}
+        renderRow={(item, _index) => (
+          <TableRow key={item.id}>
+            <TableCell className="font-medium max-w-xs truncate" title={item.title}>
+              {item.title}
+            </TableCell>
+            <TableCell>
+              <Badge variant="secondary">
+                {getStatusLabel((item.status ?? 'backlog') as TaskStatus)}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              {item.issue?.name ?? item.project?.name ?? '—'}
+            </TableCell>
+            <TableCell>
+              {item.due_date ? format(new Date(item.due_date), 'MMM d, yyyy') : '—'}
+            </TableCell>
+            <TableCell>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setSelectedTaskId(item.id)}
+                >
+                  View task
+                </Button>
+                <AssignTaskDropdown taskId={item.id} />
+              </div>
+            </TableCell>
+          </TableRow>
+        )}
+      />
+      {selectedTaskId && (
+        <EditTaskDialog
+          isOpen={!!selectedTaskId}
+          onClose={() => setSelectedTaskId(null)}
+          taskId={selectedTaskId}
+          onTaskUpdated={() => {
+            queryClient.invalidateQueries({ queryKey: reconciliationKeys.unassignedTasks() });
+          }}
+        />
+      )}
+    </>
   );
 }
 
@@ -375,7 +444,7 @@ export function UnassignedClassesTable({
                   className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
                   style={style.backgroundColor ? style : undefined}
                 >
-                  {formatSubjectDisplay(subject)}
+                  {subject?.long_name ?? ''}
                 </Badge>
               ) : (
                 item.subject_name || '—'
@@ -612,7 +681,7 @@ export function StudentsWithoutClassesTable({
                 className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
                 style={style.backgroundColor ? style : undefined}
               >
-                {formatSubjectDisplay(subject)}
+                {subject?.long_name ?? ''}
               </Badge>
             </TableCell>
             <TableCell>

@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { sendEmail } from '@/shared/lib/email';
 import { getInviteEmailTemplate } from '@/shared/lib/email-templates';
-import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
+import { getStudentRegistrationInviteMessage } from '@/features/messages/api/systemTemplates';
 
 export async function POST(request: NextRequest) {
   try {
@@ -343,12 +343,14 @@ export async function POST(request: NextRequest) {
               conversationId = newConvo.id;
             }
 
-            const messageBody = getInviteSmsTemplate({
-              firstName: r.first_name || 'there',
-              inviteUrl: registrationUrl,
-              linkType: 'registration',
-              studentName: `${student.first_name} ${student.last_name}`,
-            });
+            const messageBody = await getStudentRegistrationInviteMessage(
+              supabaseAdmin,
+              {
+                firstName: r.first_name || 'there',
+                inviteUrl: registrationUrl,
+                studentName: `${student.first_name} ${student.last_name}`,
+              }
+            );
             
             const { data: message, error: messageError } = await supabaseAdmin
               .from('messages')
@@ -594,14 +596,14 @@ export async function POST(request: NextRequest) {
         }
 
         // Create message body - use custom message if provided, otherwise use template
-        const messageBody = customMessage && customMessage.trim() 
-          ? customMessage.trim()
-          : getInviteSmsTemplate({
-              firstName: recipient.first_name || 'there',
-              inviteUrl: registrationUrl,
-              linkType: 'registration',
-              studentName: `${student.first_name} ${student.last_name}`,
-            });
+        const messageBody =
+          customMessage && customMessage.trim()
+            ? customMessage.trim()
+            : await getStudentRegistrationInviteMessage(supabaseAdmin, {
+                firstName: recipient.first_name || 'there',
+                inviteUrl: registrationUrl,
+                studentName: `${student.first_name} ${student.last_name}`,
+              });
 
         // Create message record
         const { data: message, error: messageError } = await supabaseAdmin

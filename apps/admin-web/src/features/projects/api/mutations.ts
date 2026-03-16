@@ -3,6 +3,7 @@ import { projectsApi } from './projects';
 import { projectKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { ProjectInsert, ProjectUpdate } from '../types';
+import { showWorkItemCreatedToast } from '@/shared/utils';
 
 export function useCreateProject() {
   const queryClient = useQueryClient();
@@ -10,9 +11,17 @@ export function useCreateProject() {
 
   return useMutation({
     mutationFn: (project: ProjectInsert) => projectsApi.create(project),
-    onSuccess: () => {
+    onSuccess: (createdProject) => {
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
-      toast({ title: 'Project created', description: 'The project has been successfully created.' });
+      if (createdProject?.id) {
+        showWorkItemCreatedToast({
+          toast,
+          entityType: 'project',
+          entityId: createdProject.id,
+        });
+      } else {
+        toast({ title: 'Project created', description: 'The project has been successfully created.' });
+      }
     },
     onError: (error: unknown) => {
       toast({

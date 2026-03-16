@@ -97,3 +97,15 @@ export function useTrialStudentsNotSignedUp() {
     gcTime: 1000 * 60 * 5, // 5 minutes
   });
 }
+
+/**
+ * Get unassigned tasks
+ */
+export function useUnassignedTasks() {
+  return useQuery({
+    queryKey: reconciliationKeys.unassignedTasks(),
+    queryFn: () => reconciliationApi.getUnassignedTasks(),
+    staleTime: 1000 * 60 * 2, // 2 minutes
+    gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}

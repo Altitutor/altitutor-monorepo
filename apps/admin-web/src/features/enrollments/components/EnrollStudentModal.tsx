@@ -1,12 +1,17 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
-import { formatSubjectDisplay } from '@/shared/utils';
 import {
   useEnrollmentFilters,
   useEnrollmentConflicts,
@@ -21,6 +26,7 @@ import {
   Step4MessageScreen,
 } from './steps';
 import type { EnrollStudentModalProps, EnrollmentWarningState, StudentWithEnrollmentInfo } from '../types/enrollment';
+import { useDialogHotkeys } from '@/shared/hooks';
 
 export function EnrollStudentModal({
   isOpen,
@@ -51,6 +57,11 @@ export function EnrollStudentModal({
     showEnrolledWarning: false,
     warningStudent: null,
   });
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Fetch data
   const { students, classes, isFetching } = useEnrollmentData({
@@ -188,6 +199,9 @@ export function EnrollStudentModal({
     onClose,
   });
 
+  const hasNextStep = useMemo(() => step === 1 || step === 2, [step]);
+  const isFinalStep = useMemo(() => step === 3, [step]);
+
   // Move to step 4 when enrollment succeeds
   useEffect(() => {
     if (enrollmentSuccess && step === 3) {
@@ -208,13 +222,13 @@ export function EnrollStudentModal({
     setWarningState({ showEnrolledWarning: false, warningStudent: null });
   }, [isOpen, resetFilters, defaultSubjectFilters, subjectId]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (step === 1 && (selectedStudentId || selectedClassId)) {
       setStep(2);
     } else if (step === 2 && enrollmentDate && enrollmentDate.trim() !== '') {
       setStep(3);
     }
-  };
+  }, [step, selectedStudentId, selectedClassId, enrollmentDate]);
 
   const handleBack = () => {
     if (step > 1) {
@@ -246,10 +260,24 @@ export function EnrollStudentModal({
     setWarningState({ showEnrolledWarning: false, warningStudent: null });
   };
 
+  useDialogHotkeys({
+    isOpen,
+    onNextStep: handleNext,
+    hasNextStep,
+    onPrimaryAction: isFinalStep ? handleConfirm : undefined,
+    isActionDisabled: isEnrolling,
+  });
+
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+        <DialogContent
+          className={cn(
+            'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           {/* Header */}
           <div className="flex-shrink-0 border-b bg-background">
             <DialogHeader className="px-6 pt-6 pb-4">
@@ -272,6 +300,7 @@ export function EnrollStudentModal({
                     </DialogDescription>
                   </div>
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               </div>
             </DialogHeader>
 
@@ -424,7 +453,7 @@ export function EnrollStudentModal({
             <AlertDialogDescription>
               {warningState.warningStudent && (
                 <p>
-                  This student is already enrolled in a class for {formatSubjectDisplay(warningState.warningStudent.subject)}. Do you want to proceed?
+                  This student is already enrolled in a class for {warningState.warningStudent.subject?.long_name ?? ''}. Do you want to proceed?
                 </p>
               )}
             </AlertDialogDescription>

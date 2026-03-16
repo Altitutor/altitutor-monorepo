@@ -7,6 +7,7 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
+  UnassignedTask,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -71,7 +72,11 @@ describe('useReconciliationData', () => {
     mockQueries.useUnassignedClasses.mockReturnValue(
       createMockQueryResult<UnassignedClass[]>([])
     );
-    
+
+    mockQueries.useUnassignedTasks.mockReturnValue(
+      createMockQueryResult<UnassignedTask[]>([])
+    );
+
     mockQueries.useFailedDeliveryMessages.mockReturnValue(
       createMockQueryResult<FailedDeliveryMessage[]>([])
     );
@@ -96,6 +101,7 @@ describe('useReconciliationData', () => {
     expect(result.current).toHaveProperty('unpaidInvoices');
     expect(result.current).toHaveProperty('unloggedSessions');
     expect(result.current).toHaveProperty('unassignedClasses');
+    expect(result.current).toHaveProperty('unassignedTasks');
     expect(result.current).toHaveProperty('failedDeliveryMessages');
     expect(result.current).toHaveProperty('studentsWithoutClasses');
     expect(result.current).toHaveProperty('studentsWithoutPaymentMethod');

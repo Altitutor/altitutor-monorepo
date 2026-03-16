@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@altitutor/ui';
 import { Download, Loader2, Edit, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { 
@@ -27,6 +27,12 @@ import {
   Label,
 } from '@altitutor/ui';
 import { getFileTypeIcon, getFileTypeLabel } from '@/shared/utils/file-type-icons';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import { FilePreviewModal } from './FilePreviewModal';
 import type { Enums, Tables } from '@altitutor/shared';
@@ -94,6 +100,11 @@ export function FileCard({
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!showRenameDialog) setExpanded(false);
+  }, [showRenameDialog]);
 
   // Use junctionTableId if provided, otherwise fall back to topicFileId for backward compatibility
   const effectiveJunctionTableId = junctionTableId || topicFileId;
@@ -279,12 +290,22 @@ export function FileCard({
 
       {/* Rename Dialog */}
       <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
-        <DialogContent>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Rename File</DialogTitle>
-            <DialogDescription>
-              Enter a new name for this file.
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Rename File</DialogTitle>
+                <DialogDescription>
+                  Enter a new name for this file.
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

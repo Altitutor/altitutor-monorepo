@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -21,7 +21,13 @@ import type { SubmitHandler } from 'react-hook-form';
 import { ProjectTitleField } from './fields/ProjectTitleField';
 import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
 import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
-import { useCurrentStaff } from '@/shared/hooks';
+import { useCurrentStaff, useDialogHotkeys } from '@/shared/hooks';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -54,6 +60,11 @@ export function CreateProjectDialog({
   const { data: currentStaff } = useCurrentStaff();
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
     resolver: zodResolver(formSchema) as Resolver<ProjectFormData>,
@@ -81,7 +92,12 @@ export function CreateProjectDialog({
     });
   }, [isOpen, initialStatus, initialPriority, initialProjectLeadId, form]);
 
-  const onSubmit = async (data: ProjectFormData) => {
+  const handleClose = useCallback(() => {
+    form.reset();
+    onClose();
+  }, [form, onClose]);
+
+  const onSubmit = useCallback(async (data: ProjectFormData) => {
     try {
       const created = await createProject.mutateAsync({
         name: data.name,
@@ -98,12 +114,7 @@ export function CreateProjectDialog({
     } catch (error) {
       console.error('Failed to create project:', error);
     }
-  };
-
-  const handleClose = () => {
-    form.reset();
-    onClose();
-  };
+  }, [createProject, currentStaff, handleClose, onProjectCreated]);
 
   const handleTitleEnter = useCallback(() => {
     const editor = descriptionFieldRef.current?.getEditor();
@@ -112,9 +123,26 @@ export function CreateProjectDialog({
     }
   }, []);
 
+  const handlePrimaryAction = useCallback(() => {
+    if (createProject.isPending) return;
+    void form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)();
+  }, [createProject.isPending, form, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: createProject.isPending,
+  });
+
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <Form {...form}>
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
             <div className="flex items-center justify-between gap-4 w-full">
@@ -124,6 +152,7 @@ export function CreateProjectDialog({
                 </Button>
                 <DialogTitle>Create Project</DialogTitle>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </DialogHeader>
 

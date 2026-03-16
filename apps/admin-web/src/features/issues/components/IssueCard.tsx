@@ -1,11 +1,11 @@
 'use client';
 
-import { Calendar, Circle, Clock, CheckCircle } from 'lucide-react';
+import { Calendar } from 'lucide-react';
 import type { IssueWithTags, IssueStatus } from '../types';
 import { cn } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { formatShortDate, isOverdue } from '@/shared/utils/datetime';
-import { getIssueStatusColor, getIssueStatusLabel } from '../utils/issueUtils';
+import { getIssueStatusColor, getIssueStatusIcon, getIssueStatusLabel } from '../utils/issueUtils';
 
 interface IssueCardProps {
   issue: IssueWithTags;
@@ -15,7 +15,7 @@ interface IssueCardProps {
 
 export function IssueCard({ issue, onClick, visiblePillKeys = [] }: IssueCardProps) {
   const status = issue.status as IssueStatus;
-  const Icon = status === 'open' ? Circle : status === 'awaiting_response' ? Clock : CheckCircle;
+  const Icon = getIssueStatusIcon(status);
   const overdue = isOverdue(issue.due_date);
 
   return (

@@ -47,13 +47,14 @@ export type FlattenedSessionDetail = {
 };
 
 /**
- * Generates a session title in the format:
- * {curriculum} {year_level} {subject_name} {class_level} {day_string} {start_time} - {end_time}
- * Example: "SACE Year 12 Mathematics Advanced Monday 14:00 - 16:00"
+ * Generates a session title.
+ * Prefers session long_name when present (e.g. from view); otherwise builds from parts.
  */
 export function getSessionTitle(session: FlattenedSessionDetail): string {
+  const withLongName = session as { long_name?: string | null };
+  if (withLongName.long_name?.trim()) return withLongName.long_name.trim();
+
   const parts: string[] = [];
-  
   // Add curriculum
   if (session.subject_curriculum) {
     parts.push(session.subject_curriculum);

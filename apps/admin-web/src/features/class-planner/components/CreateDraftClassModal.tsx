@@ -9,6 +9,12 @@ import { classPlansApi } from '../api/classPlans';
 import { useQueryClient } from '@tanstack/react-query';
 import { classPlansKeys } from '../hooks/useClassPlansQuery';
 import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 
 interface CreateDraftClassModalProps {
@@ -35,7 +41,12 @@ export function CreateDraftClassModal({
   const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   // Form state
   const [level, setLevel] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState<string>(defaultDayOfWeek?.toString() || '');
@@ -121,12 +132,23 @@ export function CreateDraftClassModal({
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[550px]',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Create Draft Class</DialogTitle>
-          <DialogDescription>
-            Create a new draft class. Leave day and time empty to create an unassigned class in the class bank.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Create Draft Class</DialogTitle>
+              <DialogDescription>
+                Create a new draft class. Leave day and time empty to create an unassigned class in the class bank.
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

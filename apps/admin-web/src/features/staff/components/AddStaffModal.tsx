@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Dialog,
@@ -23,12 +23,17 @@ import { Badge } from '@altitutor/ui';
 import { useCreateStaff } from '../hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useAssignSubjectToStaff } from '../hooks/useStaffQuery';
-import { formatSubjectDisplay } from '@/shared/utils';
 // Use string literals for role/status
 import { useForm, Controller, SubmitHandler, type FieldValues, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Loader2, AlertTriangle, Plus, X } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import type { Tables, TablesInsert } from '@altitutor/shared';
 import { showEntityCreatedToast } from '@/shared/utils';
 
@@ -91,7 +96,12 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
   const [isAddSubjectPopoverOpen, setIsAddSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
-  
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   const { 
     control, 
     register, 
@@ -255,17 +265,28 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
   const filteredAvailableSubjects = availableSubjects.filter(subject => {
     if (!subjectSearchQuery) return true;
     const query = subjectSearchQuery.toLowerCase();
-    return formatSubjectDisplay(subject).toLowerCase().includes(query);
+    return (subject?.long_name ?? '').toLowerCase().includes(query);
   });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseModal}>
-      <DialogContent className="w-full md:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-2xl max-h-[90vh] overflow-y-auto',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Add New Staff Member</DialogTitle>
-          <DialogDescription>
-            Enter the staff member's information below to add them to the system.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Add New Staff Member</DialogTitle>
+              <DialogDescription>
+                Enter the staff member's information below to add them to the system.
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         
         {errorMessage && (
@@ -450,7 +471,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
                       variant="secondary"
                       className="flex items-center gap-1 pr-1"
                     >
-                      <span>{formatSubjectDisplay(subject)}</span>
+                      <span>{(subject?.long_name ?? '')}</span>
                       <button
                         type="button"
                         className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
@@ -501,7 +522,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
                             >
                               <div className="flex items-center justify-between w-full">
                                 <div className="flex flex-col items-start">
-                                  <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                                  <div className="font-medium">{(subject?.long_name ?? '')}</div>
                                 </div>
                               </div>
                             </Button>

@@ -30,6 +30,12 @@ import type { Enums } from '@altitutor/shared';
 import { useFileItems, useFileUploadFlow, useFileDragAndDrop } from '../hooks';
 import { validateFileSizes } from '../utils/fileItemHelpers';
 import { FileDropzone } from './AddResourceFileModal/FileDropzone';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { DroppableColumn } from './AddResourceFileModal/DroppableColumn';
 import { DroppableSolutionSlot } from './AddResourceFileModal/DroppableSolutionSlot';
 import { ResourceFileMetadata } from './AddResourceFileModal/ResourceFileMetadata';
@@ -61,6 +67,11 @@ export function AddResourceFileModal({
   const [isSolutions, setIsSolutions] = useState(false);
   const [selectedSolutionOfId, setSelectedSolutionOfId] = useState<string | null>(null);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const {
     fileItems,
@@ -151,12 +162,23 @@ export function AddResourceFileModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>Add Resource File</DialogTitle>
-          <DialogDescription>
-            Upload a file and link it to a topic. Maximum file size: 10MB.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Add Resource File</DialogTitle>
+              <DialogDescription>
+                Upload a file and link it to a topic. Maximum file size: 10MB.
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden min-h-0">

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
-import { formatClassName, formatDate, cn } from '@/shared/utils';
+import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
@@ -89,10 +89,10 @@ export function Step2SelectEnrollmentDate({
   // Get class name for info card
   const className = context === 'student'
     ? (selectedClass
-        ? formatClassName(selectedClass, selectedClass.subject)
+        ? (selectedClass.long_name?.trim() ?? '')
         : 'choose class')
     : (classData && classSubject
-        ? formatClassName(classData, classSubject)
+        ? (classData.long_name?.trim() ?? '')
         : 'choose class');
 
   const isStudentChosen = studentName !== 'choose student';

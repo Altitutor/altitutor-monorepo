@@ -8,7 +8,6 @@ import { ScrollArea } from '@altitutor/ui';
 import { Loader2, Check } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { subjectsApi } from '../api/subjects';
-import { formatSubjectDisplay } from '@/shared/utils';
 
 interface SubjectSelectPopoverProps {
   selectedSubject: Tables<'subjects'> | null;
@@ -81,7 +80,7 @@ export function SubjectSelectPopover({
 
   const defaultTrigger = (
     <Button variant="outline" className="w-full justify-start">
-      {selectedSubject ? formatSubjectDisplay(selectedSubject) : placeholder}
+      {selectedSubject?.long_name ?? placeholder}
     </Button>
   );
 
@@ -133,7 +132,7 @@ export function SubjectSelectPopover({
                       {selectedSubject?.id === subject.id && <Check className="h-4 w-4" />}
                       <div className="flex flex-col items-start flex-1">
                         <div className={selectedSubject?.id === subject.id ? 'font-medium' : ''}>
-                          {formatSubjectDisplay(subject)}
+                          {subject?.long_name ?? ''}
                         </div>
                         {subject.level && (
                           <div className="text-xs text-muted-foreground">

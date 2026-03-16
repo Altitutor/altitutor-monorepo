@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -26,6 +26,12 @@ import { getErrorMessage } from '@/shared/utils';
 import { StudentSearchPopover } from '@/features/students/components/StudentSearchPopover';
 import { studentsApi } from '@/features/students/api/students';
 import { useQueryClient } from '@tanstack/react-query';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface AddParentModalProps {
   isOpen: boolean;
@@ -58,7 +64,12 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedStudents, setSelectedStudents] = useState<Tables<'students'>[]>([]);
-  
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   // Get all students for the search popover
   const { data: allStudents = [] } = useStudents();
   
@@ -143,13 +154,24 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleCloseModal}>
-      <DialogContent className="w-full md:max-w-2xl max-h-[90vh] overflow-y-auto">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleCloseModal()}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-2xl max-h-[90vh] overflow-y-auto',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Add New Parent</DialogTitle>
-          <DialogDescription>
-            Enter the parent's information below to add them to the system.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Add New Parent</DialogTitle>
+              <DialogDescription>
+                Enter the parent's information below to add them to the system.
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         
         {errorMessage && (

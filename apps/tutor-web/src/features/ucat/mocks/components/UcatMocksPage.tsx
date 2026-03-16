@@ -290,11 +290,24 @@ export function UcatMocksPage() {
 
   async function onCreate() {
     const result = await createMock.mutateAsync({ name, isPrivate, setIds: [], instructionsText: instructionsText ?? undefined })
+    const mockName = name.trim() || 'Untitled'
     setOpenCreate(false)
     setName('')
     setIsPrivate(false)
     setInstructionsText(null)
     if (result.id) setEditingMockId(result.id)
+    toast({
+      title: `Mock ${mockName} created`,
+      description: (
+        <button
+          type="button"
+          onClick={() => setEditingMockId(result.id)}
+          className="underline font-medium hover:no-underline text-left"
+        >
+          View mock
+        </button>
+      ),
+    })
   }
 
   function closeCreateDialog() {

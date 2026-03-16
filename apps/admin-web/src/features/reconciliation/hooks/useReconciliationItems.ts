@@ -4,6 +4,7 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
+  UnassignedTask,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -15,6 +16,7 @@ interface ReconciliationQueries {
   unpaidInvoices: { data?: UnpaidInvoice[] };
   unloggedSessions: { data?: UnloggedSession[] };
   unassignedClasses: { data?: UnassignedClass[] };
+  unassignedTasks: { data?: UnassignedTask[] };
   failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
@@ -35,6 +37,7 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     const schedulingItems = [
       ...(queries.unloggedSessions.data ?? []),
       ...(queries.unassignedClasses.data ?? []),
+      ...(queries.unassignedTasks.data ?? []),
       ...(queries.studentsWithoutClasses.data ?? []),
     ];
 
@@ -58,6 +61,7 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     queries.unpaidInvoices.data,
     queries.unloggedSessions.data,
     queries.unassignedClasses.data,
+    queries.unassignedTasks.data,
     queries.failedDeliveryMessages.data,
     queries.studentsWithoutClasses.data,
     queries.studentsWithoutPaymentMethod.data,

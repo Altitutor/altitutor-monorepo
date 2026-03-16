@@ -4,6 +4,12 @@ import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from '../hooks';
 import { sessionsApi } from '@/features/sessions/api/sessions';
@@ -40,6 +46,7 @@ export function LogSessionModal({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   const createMutation = useCreateTutorLog();
 
@@ -51,6 +58,11 @@ export function LogSessionModal({
       setCurrentStep(0); // Will be treated as Step 1 (Staff Attendance) in renderStep
     }
   }, [isOpen, preselectedSessionId]);
+
+  // Reset expanded when modal closes
+  useEffect(() => {
+    if (!isOpen) setExpanded(false)
+  }, [isOpen])
 
   // Reset state when modal closes
   useEffect(() => {
@@ -322,7 +334,13 @@ export function LogSessionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         {/* Header */}
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
@@ -343,6 +361,7 @@ export function LogSessionModal({
                   </DialogDescription>
                 </div>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </DialogHeader>
 

@@ -6,18 +6,6 @@ import { getEntityDisplayText } from '../entityFormatters';
 import type { CommandPaletteEntityResult } from '../../types';
 import type { Tables } from '@altitutor/shared';
 
-// Mock the formatClassShortName and formatClassName utilities
-jest.mock('@/shared/utils', () => ({
-  formatClassShortName: jest.fn((classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>, subject: Tables<'subjects'> | null | undefined) => {
-    const subjectName = subject?.name || '';
-    return `Short ${subjectName}`;
-  }),
-  formatClassName: jest.fn((classData: Tables<'classes'>, subject: Tables<'subjects'> | null | undefined) => {
-    const subjectName = subject?.name || '';
-    return `Full ${subjectName}`;
-  }),
-}));
-
 describe('getEntityDisplayText', () => {
   describe('student entities', () => {
     it('should format student with first and last name', () => {
@@ -217,21 +205,62 @@ describe('getEntityDisplayText', () => {
   });
 
   describe('class entities', () => {
-    it('should format class using formatClassShortName and formatClassName', () => {
+    it('should use class short_name as title and long_name as subtitle from DB', () => {
       const result: CommandPaletteEntityResult = {
         type: 'class',
         id: 'class-1',
         data: {
           id: 'class-1',
-          subject: {
-            name: 'Math',
-          },
+          short_name: 'MATH Mon',
+          long_name: 'SACE 12 Mathematics Monday 2:00 PM - 4:00 PM',
+          subject_id: 'subject-1',
+          day_of_week: 1,
+          start_time: '14:00:00',
+          end_time: '16:00:00',
+          level: null,
+          created_at: null,
+          created_by: null,
+          room: null,
+          session_end_date: null,
+          session_start_date: null,
+          status: 'ACTIVE',
+          updated_at: null,
+          subject: null,
         } as Extract<CommandPaletteEntityResult, { type: 'class' }>['data'],
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Short Math');
-      expect(display.subtitle).toBe('Full Math');
+      expect(display.title).toBe('MATH Mon');
+      expect(display.subtitle).toBe('SACE 12 Mathematics Monday 2:00 PM - 4:00 PM');
+    });
+
+    it('should use empty title and null subtitle when class has no short_name or long_name', () => {
+      const result: CommandPaletteEntityResult = {
+        type: 'class',
+        id: 'class-2',
+        data: {
+          id: 'class-2',
+          short_name: null,
+          long_name: null,
+          subject_id: 'subject-1',
+          day_of_week: 1,
+          start_time: '14:00:00',
+          end_time: '16:00:00',
+          level: null,
+          created_at: null,
+          created_by: null,
+          room: null,
+          session_end_date: null,
+          session_start_date: null,
+          status: 'ACTIVE',
+          updated_at: null,
+          subject: null,
+        } as Extract<CommandPaletteEntityResult, { type: 'class' }>['data'],
+      };
+
+      const display = getEntityDisplayText(result);
+      expect(display.title).toBe('');
+      expect(display.subtitle).toBeNull();
     });
   });
 
@@ -292,12 +321,13 @@ describe('getEntityDisplayText', () => {
   });
 
   describe('topic entities', () => {
-    it('should format topic with name and subject', () => {
+    it('should format topic with subject short_name in pill, title as code and name, no subtitle', () => {
       const result: CommandPaletteEntityResult = {
         type: 'topic',
         id: 'topic-1',
         data: {
           id: 'topic-1',
+          code: '1.2',
           name: 'Algebra',
           subject: {
             long_name: 'Mathematics',
@@ -308,8 +338,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Algebra');
-      expect(display.subtitle).toBe('Mathematics');
+      expect(display.title).toBe('1.2 Algebra');
+      expect(display.subtitle).toBeNull();
+      expect(display.subjectPill?.shortName).toBe('Math');
     });
 
     it('should fallback to short_name when long_name is not available', () => {
@@ -318,6 +349,7 @@ describe('getEntityDisplayText', () => {
         id: 'topic-2',
         data: {
           id: 'topic-2',
+          code: '2',
           name: 'Geometry',
           subject: {
             long_name: null,
@@ -328,8 +360,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Geometry');
-      expect(display.subtitle).toBe('Math');
+      expect(display.title).toBe('2 Geometry');
+      expect(display.subtitle).toBeNull();
+      expect(display.subjectPill?.shortName).toBe('Math');
     });
 
     it('should fallback to name when neither long_name nor short_name is available', () => {
@@ -338,6 +371,7 @@ describe('getEntityDisplayText', () => {
         id: 'topic-3',
         data: {
           id: 'topic-3',
+          code: '3.1',
           name: 'Calculus',
           subject: {
             long_name: null,
@@ -348,8 +382,9 @@ describe('getEntityDisplayText', () => {
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Calculus');
-      expect(display.subtitle).toBe('math');
+      expect(display.title).toBe('3.1 Calculus');
+      expect(display.subtitle).toBeNull();
+      expect(display.subjectPill?.shortName).toBe('math');
     });
 
     it('should handle topic without subject', () => {
@@ -358,40 +393,48 @@ describe('getEntityDisplayText', () => {
         id: 'topic-4',
         data: {
           id: 'topic-4',
+          code: '4',
           name: 'Topic Name',
           subject: null,
         } as unknown as Extract<CommandPaletteEntityResult, { type: 'topic' }>['data'],
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Topic Name');
+      expect(display.title).toBe('4 Topic Name');
       expect(display.subtitle).toBeNull();
+      expect(display.subjectPill).toBeNull();
     });
   });
 
   describe('file entities', () => {
-    it('should format file with subject, code, topic name, and filename', () => {
+    it('should format file with subject pill, title as code topic name file type, subtitle as filename', () => {
       const result: CommandPaletteEntityResult = {
         type: 'file',
         id: 'file-1',
         data: {
           id: 'file-1',
+          topic_id: 'topic-1',
           code: 'A1',
+          type: 'NOTES',
           subject: {
             short_name: 'Math',
+            long_name: null,
+            color: '#3B82F6',
           },
           topic: {
+            id: 'topic-1',
             name: 'Algebra',
           },
           file: {
             filename: 'worksheet.pdf',
           },
-        } as { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } },
+        },
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Math A1 Algebra');
+      expect(display.title).toBe('A1 Algebra Notes');
       expect(display.subtitle).toBe('worksheet.pdf');
+      expect(display.subjectPill?.shortName).toBe('Math');
     });
 
     it('should handle file without code', () => {
@@ -400,22 +443,28 @@ describe('getEntityDisplayText', () => {
         id: 'file-2',
         data: {
           id: 'file-2',
+          topic_id: 'topic-2',
           code: null,
+          type: 'PRACTICE_QUESTIONS',
           subject: {
             short_name: 'Eng',
+            long_name: null,
+            color: null,
           },
           topic: {
+            id: 'topic-2',
             name: 'Grammar',
           },
           file: {
             filename: 'notes.pdf',
           },
-        } as { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } },
+        },
       };
 
       const display = getEntityDisplayText(result);
-      expect(display.title).toBe('Eng Grammar');
+      expect(display.title).toBe('Grammar Practice Questions');
       expect(display.subtitle).toBe('notes.pdf');
+      expect(display.subjectPill?.shortName).toBe('Eng');
     });
 
     it('should handle file without subject short_name', () => {
@@ -424,23 +473,28 @@ describe('getEntityDisplayText', () => {
         id: 'file-3',
         data: {
           id: 'file-3',
+          topic_id: 'topic-3',
           code: 'B2',
+          type: 'TEST',
           subject: {
             short_name: null,
+            long_name: 'English',
+            color: null,
           },
           topic: {
+            id: 'topic-3',
             name: 'Topic',
           },
           file: {
             filename: 'file.pdf',
           },
-        } as { id: string; topic_id: string; code: string | null; file: { filename: string }; topic: { id: string; name: string }; subject: { short_name: string | null; long_name: string | null } },
+        },
       };
 
       const display = getEntityDisplayText(result);
-      // trim() removes leading space, so we expect "B2 Topic"
-      expect(display.title).toBe('B2 Topic');
+      expect(display.title).toBe('B2 Topic Test');
       expect(display.subtitle).toBe('file.pdf');
+      expect(display.subjectPill?.shortName).toBe('English');
     });
   });
 });

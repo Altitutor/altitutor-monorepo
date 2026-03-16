@@ -754,9 +754,11 @@ export type Database = {
           end_time: string
           id: string
           level: string | null
+          long_name: string | null
           room: string | null
           session_end_date: string | null
           session_start_date: string | null
+          short_name: string | null
           start_time: string
           status: string
           subject_id: string | null
@@ -769,9 +771,11 @@ export type Database = {
           end_time: string
           id: string
           level?: string | null
+          long_name?: string | null
           room?: string | null
           session_end_date?: string | null
           session_start_date?: string | null
+          short_name?: string | null
           start_time: string
           status: string
           subject_id?: string | null
@@ -784,9 +788,11 @@ export type Database = {
           end_time?: string
           id?: string
           level?: string | null
+          long_name?: string | null
           room?: string | null
           session_end_date?: string | null
           session_start_date?: string | null
+          short_name?: string | null
           start_time?: string
           status?: string
           subject_id?: string | null
@@ -1340,15 +1346,103 @@ export type Database = {
           },
         ]
       }
+      credit_balance_transactions: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          credit_note_id: string | null
+          credit_type: string | null
+          currency: string
+          debit_type: string | null
+          description: string | null
+          effective_at: string
+          id: string
+          invoice_id: string | null
+          raw: Json
+          stripe_credit_balance_transaction_id: string
+          stripe_credit_grant_id: string | null
+          stripe_customer_id: string | null
+          stripe_invoice_id: string | null
+          stripe_invoice_line_item_id: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          credit_note_id?: string | null
+          credit_type?: string | null
+          currency?: string
+          debit_type?: string | null
+          description?: string | null
+          effective_at: string
+          id?: string
+          invoice_id?: string | null
+          raw: Json
+          stripe_credit_balance_transaction_id: string
+          stripe_credit_grant_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_invoice_line_item_id?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          credit_note_id?: string | null
+          credit_type?: string | null
+          currency?: string
+          debit_type?: string | null
+          description?: string | null
+          effective_at?: string
+          id?: string
+          invoice_id?: string | null
+          raw?: Json
+          stripe_credit_balance_transaction_id?: string
+          stripe_credit_grant_id?: string | null
+          stripe_customer_id?: string | null
+          stripe_invoice_id?: string | null
+          stripe_invoice_line_item_id?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_balance_transactions_credit_note_id_fkey"
+            columns: ["credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_balance_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_balance_transactions_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_notes: {
         Row: {
           amount_cents: number
           created_at: string
+          credit_amount_cents: number | null
           currency: string
           id: string
           invoice_id: string
           metadata: Json | null
+          out_of_band_amount_cents: number | null
           reason: string | null
+          refund_amount_cents: number | null
           status: string
           stripe_credit_note_id: string
           updated_at: string
@@ -1357,11 +1451,14 @@ export type Database = {
         Insert: {
           amount_cents: number
           created_at?: string
+          credit_amount_cents?: number | null
           currency?: string
           id?: string
           invoice_id: string
           metadata?: Json | null
+          out_of_band_amount_cents?: number | null
           reason?: string | null
+          refund_amount_cents?: number | null
           status?: string
           stripe_credit_note_id: string
           updated_at?: string
@@ -1370,11 +1467,14 @@ export type Database = {
         Update: {
           amount_cents?: number
           created_at?: string
+          credit_amount_cents?: number | null
           currency?: string
           id?: string
           invoice_id?: string
           metadata?: Json | null
+          out_of_band_amount_cents?: number | null
           reason?: string | null
+          refund_amount_cents?: number | null
           status?: string
           stripe_credit_note_id?: string
           updated_at?: string
@@ -1956,6 +2056,7 @@ export type Database = {
           auto_advance: boolean | null
           collection_method: string | null
           created_at: string
+          credited_at: string | null
           currency: string
           dispute_amount_cents: number | null
           dispute_created_at: string | null
@@ -1967,6 +2068,7 @@ export type Database = {
           dispute_updated_at: string | null
           fee_cents: number | null
           finalized_at: string | null
+          has_credit_notes: boolean
           hosted_invoice_url: string | null
           id: string
           invoice_date: string
@@ -1977,6 +2079,7 @@ export type Database = {
           paid_at: string | null
           receipt_url: string | null
           refunded_at: string | null
+          refunded_via_cn_at: string | null
           status: string
           stripe_charge_id: string | null
           stripe_invoice_id: string
@@ -1995,6 +2098,7 @@ export type Database = {
           auto_advance?: boolean | null
           collection_method?: string | null
           created_at?: string
+          credited_at?: string | null
           currency?: string
           dispute_amount_cents?: number | null
           dispute_created_at?: string | null
@@ -2006,6 +2110,7 @@ export type Database = {
           dispute_updated_at?: string | null
           fee_cents?: number | null
           finalized_at?: string | null
+          has_credit_notes?: boolean
           hosted_invoice_url?: string | null
           id?: string
           invoice_date: string
@@ -2016,6 +2121,7 @@ export type Database = {
           paid_at?: string | null
           receipt_url?: string | null
           refunded_at?: string | null
+          refunded_via_cn_at?: string | null
           status?: string
           stripe_charge_id?: string | null
           stripe_invoice_id: string
@@ -2034,6 +2140,7 @@ export type Database = {
           auto_advance?: boolean | null
           collection_method?: string | null
           created_at?: string
+          credited_at?: string | null
           currency?: string
           dispute_amount_cents?: number | null
           dispute_created_at?: string | null
@@ -2045,6 +2152,7 @@ export type Database = {
           dispute_updated_at?: string | null
           fee_cents?: number | null
           finalized_at?: string | null
+          has_credit_notes?: boolean
           hosted_invoice_url?: string | null
           id?: string
           invoice_date?: string
@@ -2055,6 +2163,7 @@ export type Database = {
           paid_at?: string | null
           receipt_url?: string | null
           refunded_at?: string | null
+          refunded_via_cn_at?: string | null
           status?: string
           stripe_charge_id?: string | null
           stripe_invoice_id?: string
@@ -2398,6 +2507,7 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
+          template_key: string | null
           updated_at: string | null
           variables: Json | null
         }
@@ -2408,6 +2518,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
+          template_key?: string | null
           updated_at?: string | null
           variables?: Json | null
         }
@@ -2418,6 +2529,7 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
+          template_key?: string | null
           updated_at?: string | null
           variables?: Json | null
         }
@@ -3088,6 +3200,27 @@ export type Database = {
           },
         ]
       }
+      policies: {
+        Row: {
+          content: Json | null
+          id: string
+          key: string
+          updated_at: string
+        }
+        Insert: {
+          content?: Json | null
+          id?: string
+          key: string
+          updated_at?: string
+        }
+        Update: {
+          content?: Json | null
+          id?: string
+          key?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           completed_at: string | null
@@ -3549,6 +3682,13 @@ export type Database = {
             foreignKeyName: "question_stem_categories_parent_question_stem_category_id_fkey"
             columns: ["parent_question_stem_category_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_parent_question_stem_category_id_fkey"
+            columns: ["parent_question_stem_category_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stem_categories"
             referencedColumns: ["id"]
           },
@@ -3670,6 +3810,13 @@ export type Database = {
             columns: ["question_stem_category_id"]
             isOneToOne: false
             referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
             referencedColumns: ["id"]
           },
           {
@@ -4123,6 +4270,8 @@ export type Database = {
           created_at: string | null
           end_at: string | null
           id: string
+          long_name: string | null
+          short_name: string | null
           start_at: string | null
           status: string
           subject_id: string | null
@@ -4136,6 +4285,8 @@ export type Database = {
           created_at?: string | null
           end_at?: string | null
           id: string
+          long_name?: string | null
+          short_name?: string | null
           start_at?: string | null
           status?: string
           subject_id?: string | null
@@ -4149,6 +4300,8 @@ export type Database = {
           created_at?: string | null
           end_at?: string | null
           id?: string
+          long_name?: string | null
+          short_name?: string | null
           start_at?: string | null
           status?: string
           subject_id?: string | null
@@ -5098,6 +5251,7 @@ export type Database = {
           id: string
           is_flagged: boolean
           is_submitted: boolean
+          mode: string | null
           question_answer_option_id: string | null
           question_id: string
           score: number
@@ -5105,6 +5259,7 @@ export type Database = {
           student_question_set_attempt_id: string | null
           student_question_speed: number | null
           time_spent_seconds: number | null
+          was_timed: boolean
         }
         Insert: {
           answer_snapshot?: Json | null
@@ -5112,6 +5267,7 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           is_submitted?: boolean
+          mode?: string | null
           question_answer_option_id?: string | null
           question_id: string
           score?: number
@@ -5119,6 +5275,7 @@ export type Database = {
           student_question_set_attempt_id?: string | null
           student_question_speed?: number | null
           time_spent_seconds?: number | null
+          was_timed?: boolean
         }
         Update: {
           answer_snapshot?: Json | null
@@ -5126,6 +5283,7 @@ export type Database = {
           id?: string
           is_flagged?: boolean
           is_submitted?: boolean
+          mode?: string | null
           question_answer_option_id?: string | null
           question_id?: string
           score?: number
@@ -5133,6 +5291,7 @@ export type Database = {
           student_question_set_attempt_id?: string | null
           student_question_speed?: number | null
           time_spent_seconds?: number | null
+          was_timed?: boolean
         }
         Relationships: [
           {
@@ -5224,6 +5383,7 @@ export type Database = {
           student_ucat_mock_attempt_id: string | null
           time_taken_seconds: number | null
           total_points: number | null
+          was_timed: boolean
         }
         Insert: {
           attempted_at?: string
@@ -5241,6 +5401,7 @@ export type Database = {
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
+          was_timed?: boolean
         }
         Update: {
           attempted_at?: string
@@ -5258,6 +5419,7 @@ export type Database = {
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
+          was_timed?: boolean
         }
         Relationships: [
           {
@@ -5464,9 +5626,13 @@ export type Database = {
           attempted_at: string
           completed_at: string | null
           id: string
+          mock_time_limit_at_exam_speed_seconds: number | null
+          mock_time_limit_seconds: number | null
           scaled_score: number | null
           score_points: number | null
           student_id: string
+          student_mock_speed: number | null
+          time_taken: number | null
           total_points: number | null
           ucat_mock_id: string
         }
@@ -5474,9 +5640,13 @@ export type Database = {
           attempted_at?: string
           completed_at?: string | null
           id?: string
+          mock_time_limit_at_exam_speed_seconds?: number | null
+          mock_time_limit_seconds?: number | null
           scaled_score?: number | null
           score_points?: number | null
           student_id: string
+          student_mock_speed?: number | null
+          time_taken?: number | null
           total_points?: number | null
           ucat_mock_id: string
         }
@@ -5484,9 +5654,13 @@ export type Database = {
           attempted_at?: string
           completed_at?: string | null
           id?: string
+          mock_time_limit_at_exam_speed_seconds?: number | null
+          mock_time_limit_seconds?: number | null
           scaled_score?: number | null
           score_points?: number | null
           student_id?: string
+          student_mock_speed?: number | null
+          time_taken?: number | null
           total_points?: number | null
           ucat_mock_id?: string
         }
@@ -8462,6 +8636,8 @@ export type Database = {
       vstudent_ucat_mocks: {
         Row: {
           created_at: string | null
+          created_by: string | null
+          has_timed_sets: boolean | null
           id: string | null
           name: string | null
           set_count: number | null
@@ -8469,6 +8645,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string | null
+          created_by?: string | null
+          has_timed_sets?: never
           id?: string | null
           name?: string | null
           set_count?: never
@@ -8476,12 +8654,29 @@ export type Database = {
         }
         Update: {
           created_at?: string | null
+          created_by?: string | null
+          has_timed_sets?: never
           id?: string | null
           name?: string | null
           set_count?: never
           updated_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ucat_mocks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_mocks_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vstudent_ucat_my_mock_attempts: {
         Row: {
@@ -8586,12 +8781,15 @@ export type Database = {
         Row: {
           answer_snapshot: Json | null
           attempted_at: string | null
+          category_name: string | null
           id: string | null
           is_flagged: boolean | null
           is_submitted: boolean | null
+          mode: string | null
           question_answer_option_id: string | null
           question_id: string | null
           question_index: number | null
+          question_stem_category_id: string | null
           question_stem_id: string | null
           question_text: Json | null
           question_type:
@@ -8608,8 +8806,30 @@ export type Database = {
           time_burden_seconds: number | null
           time_spent_seconds: number | null
           ucat_section_id: string | null
+          was_timed: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "student_question_attempts_question_answer_option_id_fkey"
             columns: ["question_answer_option_id"]
@@ -8725,10 +8945,16 @@ export type Database = {
           question_set_id: string | null
           scaled_score: number | null
           score_points: number | null
+          set_speed: number | null
+          set_time_limit_at_exam_speed_seconds: number | null
+          set_time_limit_seconds: number | null
+          student_exam_speed: number | null
           student_id: string | null
+          student_set_speed: number | null
           student_ucat_mock_attempt_id: string | null
           time_taken_seconds: number | null
           total_points: number | null
+          was_timed: boolean | null
         }
         Insert: {
           attempted_at?: string | null
@@ -8737,10 +8963,16 @@ export type Database = {
           question_set_id?: string | null
           scaled_score?: number | null
           score_points?: number | null
+          set_speed?: number | null
+          set_time_limit_at_exam_speed_seconds?: number | null
+          set_time_limit_seconds?: number | null
+          student_exam_speed?: number | null
           student_id?: string | null
+          student_set_speed?: number | null
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
+          was_timed?: boolean | null
         }
         Update: {
           attempted_at?: string | null
@@ -8749,10 +8981,16 @@ export type Database = {
           question_set_id?: string | null
           scaled_score?: number | null
           score_points?: number | null
+          set_speed?: number | null
+          set_time_limit_at_exam_speed_seconds?: number | null
+          set_time_limit_seconds?: number | null
+          student_exam_speed?: number | null
           student_id?: string | null
+          student_set_speed?: number | null
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
+          was_timed?: boolean | null
         }
         Relationships: [
           {
@@ -8848,6 +9086,64 @@ export type Database = {
           },
         ]
       }
+      vstudent_ucat_public_question_counts: {
+        Row: {
+          question_stem_category_id: string | null
+          section_id: string | null
+          total_questions: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_question_attempts"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vstudent_ucat_question_set_detail: {
         Row: {
           created_at: string | null
@@ -8920,6 +9216,53 @@ export type Database = {
         }
         Relationships: []
       }
+      vstudent_ucat_question_stem_categories: {
+        Row: {
+          id: string | null
+          name: string | null
+          ucat_section_id: string | null
+        }
+        Insert: {
+          id?: string | null
+          name?: string | null
+          ucat_section_id?: string | null
+        }
+        Update: {
+          id?: string | null
+          name?: string | null
+          ucat_section_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_stem_categories_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_question_attempts"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vstudent_ucat_question_stem_detail: {
         Row: {
           created_at: string | null
@@ -8942,6 +9285,13 @@ export type Database = {
             columns: ["question_stem_category_id"]
             isOneToOne: false
             referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
             referencedColumns: ["id"]
           },
           {
@@ -8999,6 +9349,13 @@ export type Database = {
             columns: ["question_stem_category_id"]
             isOneToOne: false
             referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
             referencedColumns: ["id"]
           },
           {
@@ -9316,17 +9673,29 @@ export type Database = {
       vtutor_class_detail: {
         Row: {
           class_id: string | null
+          class_level: string | null
           class_status: string | null
+          created_at: string | null
           day_of_week: number | null
           end_time: string | null
-          level: string | null
+          long_name: string | null
           room: string | null
+          short_name: string | null
           staff: Json | null
           start_time: string | null
           students: Json | null
           subject_color: string | null
+          subject_curriculum:
+            | Database["public"]["Enums"]["subject_curriculum"]
+            | null
+          subject_discipline:
+            | Database["public"]["Enums"]["subject_discipline"]
+            | null
           subject_id: string | null
+          subject_level: string | null
           subject_name: string | null
+          subject_year_level: number | null
+          updated_at: string | null
         }
         Relationships: [
           {
@@ -9359,7 +9728,9 @@ export type Database = {
           end_time: string | null
           id: string | null
           level: string | null
+          long_name: string | null
           room: string | null
+          short_name: string | null
           start_time: string | null
           status: string | null
           subject_color: string | null
@@ -10634,6 +11005,13 @@ export type Database = {
             foreignKeyName: "question_stem_categories_parent_question_stem_category_id_fkey"
             columns: ["parent_question_stem_category_id"]
             isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stem_categories_parent_question_stem_category_id_fkey"
+            columns: ["parent_question_stem_category_id"]
+            isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stem_categories"
             referencedColumns: ["id"]
           },
@@ -10734,6 +11112,13 @@ export type Database = {
             columns: ["question_stem_category_id"]
             isOneToOne: false
             referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
             referencedColumns: ["id"]
           },
           {
@@ -10845,6 +11230,13 @@ export type Database = {
             columns: ["question_stem_category_id"]
             isOneToOne: false
             referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
             referencedColumns: ["id"]
           },
           {
@@ -11401,6 +11793,7 @@ export type Database = {
           id: string | null
           is_flagged: boolean | null
           is_submitted: boolean | null
+          mode: string | null
           question_answer_option_id: string | null
           question_id: string | null
           score: number | null
@@ -11410,6 +11803,7 @@ export type Database = {
           student_question_set_attempt_id: string | null
           student_question_speed: number | null
           time_spent_seconds: number | null
+          was_timed: boolean | null
         }
         Relationships: [
           {
@@ -11503,6 +11897,7 @@ export type Database = {
           student_set_speed: number | null
           time_taken_seconds: number | null
           total_points: number | null
+          was_timed: boolean | null
         }
         Relationships: [
           {
@@ -11587,6 +11982,7 @@ export type Database = {
           student_name: string | null
           student_set_speed: number | null
           total_points: number | null
+          was_timed: boolean | null
         }
         Relationships: [
           {
@@ -11857,17 +12253,6 @@ export type Database = {
             }
             Returns: string
           }
-        | {
-            Args: {
-              p_curriculum: string
-              p_day_of_week: number
-              p_end_time: string
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
       format_class_short_name:
         | {
             Args: {
@@ -11882,16 +12267,6 @@ export type Database = {
         | {
             Args: {
               p_curriculum: Database["public"]["Enums"]["subject_curriculum"]
-              p_day_of_week: number
-              p_name: string
-              p_start_time: string
-              p_year_level: number
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_curriculum: string
               p_day_of_week: number
               p_name: string
               p_start_time: string

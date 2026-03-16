@@ -2,7 +2,7 @@
 
 import { Badge } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 
 interface TopicCardProps {
   topic: Tables<'topics'>;
@@ -29,7 +29,7 @@ export function TopicCard({ topic, subject, parentTopic }: TopicCardProps) {
               className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
               style={style.backgroundColor ? style : undefined}
             >
-              {formatSubjectDisplay(subject)}
+              {subject?.long_name ?? ''}
             </Badge>
           )}
           {parentTopic && (

@@ -249,6 +249,7 @@ Deno.serve(async (req: Request) => {
 
     const studentId = sessionStudent.student_id;
     const invoiceDate = getAdelaideDateString(session.start_at); // Session date in Australia/Adelaide (YYYY-MM-DD)
+    const sessionDate = new Date(session.start_at);
 
     // Load all required data
     const [

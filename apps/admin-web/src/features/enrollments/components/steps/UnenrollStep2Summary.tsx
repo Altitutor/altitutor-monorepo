@@ -2,7 +2,7 @@
 
 import { calculateLastSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
-import { formatClassName, formatDate, cn } from '@/shared/utils';
+import { formatDate, cn } from '@/shared/utils';
 import { NotesEditorWithMentions } from '@/shared/components/NotesEditorWithMentions';
 import type { Tables } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
@@ -38,7 +38,7 @@ export function UnenrollStep2Summary({
 
   // Get class name
   const className = classData && classSubject
-    ? formatClassName(classData, classSubject)
+    ? (classData.long_name?.trim() ?? '')
     : 'choose class';
 
   // Format final session date for display

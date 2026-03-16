@@ -29,4 +29,5 @@ export const DATE_TIME_FORMAT = 'dd MMM yyyy HH:mm';
 export const THEME_LOCAL_STORAGE_KEY = 'altitutor-theme';
 
 // Quick Actions
-export * from './quickActions'; 
+export * from './quickActions';
+export * from './entity-properties';

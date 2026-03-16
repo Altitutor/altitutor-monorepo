@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,12 @@ import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { useQuery } from '@tanstack/react-query';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface ApplyPlanDialogProps {
   isOpen: boolean;
@@ -47,6 +53,11 @@ export function ApplyPlanDialog({
   const today = new Date();
   
   const [sessionStartDate, setSessionStartDate] = useState<Date>(today);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Check for unassigned students_subjects - must be called before early return
   const { data: allStudentsWithSubjects } = useQuery({
@@ -112,12 +123,23 @@ export function ApplyPlanDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[500px]',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Apply Class Plan</DialogTitle>
-          <DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Apply Class Plan</DialogTitle>
+              <DialogDescription>
             This will replace all existing classes for {planYear} and create new classes, enrollments, staff assignments, and sessions.
           </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

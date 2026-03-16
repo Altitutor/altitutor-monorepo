@@ -26,6 +26,12 @@ import type {
   StudentSession,
 } from '../../types/absence';
 import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
 import type { Tables } from '@altitutor/shared';
@@ -54,7 +60,12 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   const [processedSessionsForMessage, setProcessedSessionsForMessage] = useState<StudentSession[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
-  
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   // Student search and pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
@@ -579,7 +590,13 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -596,6 +613,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
                 <DialogDescription>{getStepDescription()}</DialogDescription>
               </div>
             </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>
         </DialogHeader>
 

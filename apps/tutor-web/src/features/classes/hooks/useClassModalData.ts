@@ -114,6 +114,8 @@ export function useClassModalData({
         created_by: null,
         session_start_date: null,
         session_end_date: null,
+        short_name: (classDetail as { short_name?: string | null }).short_name ?? null,
+        long_name: (classDetail as { long_name?: string | null }).long_name ?? null,
       }
     : null;
 

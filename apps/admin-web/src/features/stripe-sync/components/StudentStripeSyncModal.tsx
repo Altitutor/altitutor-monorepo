@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,12 @@ import { Loader2, Search, CreditCard, X, Check, RefreshCw } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
 import { type StripeCustomer } from '../api/stripe-sync';
 import { useStripeSyncData } from '../hooks/useStripeSyncData';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface StudentStripeSyncModalProps {
   isOpen: boolean;
@@ -34,6 +40,12 @@ export function StudentStripeSyncModal({
   allStudents = [],
 }: StudentStripeSyncModalProps) {
   // Use hook for all Stripe sync data and operations
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   const {
     student,
     linkedCustomerId,
@@ -103,14 +115,25 @@ export function StudentStripeSyncModal({
         onClose(false);
       }
     }}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>
-            {student ? `Sync Stripe Customer: ${student.name}` : 'Sync Stripe Customer'}
-          </DialogTitle>
-          <DialogDescription>
-            {student?.email && `Student email: ${student.email}`}
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>
+                {student ? `Sync Stripe Customer: ${student.name}` : 'Sync Stripe Customer'}
+              </DialogTitle>
+              <DialogDescription>
+                {student?.email && `Student email: ${student.email}`}
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         <div className="flex-1 overflow-hidden min-h-0 flex">

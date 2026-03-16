@@ -4,7 +4,7 @@ import { Separator } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import type { TutorLogFormData } from '../../types';
 import { formatSessionDate } from '@/features/sessions/utils/session-helpers';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import { format } from 'date-fns';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { StaffCard } from '@/shared/components/StaffCard';
@@ -102,7 +102,7 @@ export function Step9Confirmation({
                   className={defaultClass || textColorClass}
                   style={style.backgroundColor ? style : undefined}
                 >
-                  {formatSubjectDisplay(subject)}
+                  {subject?.long_name ?? ''}
                 </Badge>
               );
             })() : (

@@ -4,6 +4,23 @@ import type { Tables } from '@altitutor/shared'
 import type React from 'react'
 
 /**
+ * Safely extract error message from unknown error type.
+ * Use this in catch blocks so API/server messages surface in toasts.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  if (typeof error === 'string') {
+    return error;
+  }
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return 'An unknown error occurred';
+}
+
+/**
  * Combines class names with Tailwind's merge utility
  */
 export function cn(...inputs: ClassValue[]) {

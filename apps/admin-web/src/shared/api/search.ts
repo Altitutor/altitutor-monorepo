@@ -24,6 +24,8 @@ export type ClassSummary = {
   level: string | null;
   subject_id: string | null;
   subject: SubjectSummary | null;
+  short_name?: string | null;
+  long_name?: string | null;
 };
 
 export type StudentSummary = {

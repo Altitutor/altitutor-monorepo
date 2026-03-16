@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { FilePreview } from './FilePreview';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
@@ -18,6 +24,11 @@ export interface FilePreviewModalProps {
 export function FilePreviewModal({ isOpen, fileId, onClose }: FilePreviewModalProps) {
   const [file, setFile] = useState<Tables<'files'> | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false)
+  }, [isOpen])
 
   useEffect(() => {
     const loadFile = async () => {
@@ -65,9 +76,18 @@ export function FilePreviewModal({ isOpen, fileId, onClose }: FilePreviewModalPr
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={cn(
+          'max-w-4xl max-h-[90vh] overflow-y-auto',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>File Preview</DialogTitle>
+          <div className="flex items-start justify-between gap-4">
+            <DialogTitle>File Preview</DialogTitle>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">Loading...</div>

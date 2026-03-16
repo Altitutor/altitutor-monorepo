@@ -30,6 +30,8 @@ export async function POST(request: NextRequest) {
     answerSnapshot?: Json | null
     timeSpentSeconds?: number | null
     isFlagged?: boolean
+    wasTimed?: boolean
+    mode?: 'question' | 'question_stem' | 'set' | 'mock'
   }
 
   if (!body.questionId) {
@@ -78,6 +80,8 @@ export async function POST(request: NextRequest) {
       is_submitted: boolean
       time_spent_seconds?: number | null
       is_flagged?: boolean
+      was_timed?: boolean
+      mode?: 'question' | 'question_stem' | 'set' | 'mock'
     } = {
       question_answer_option_id: body.questionAnswerOptionId,
       answer_snapshot: body.answerSnapshot ?? null,
@@ -90,6 +94,13 @@ export async function POST(request: NextRequest) {
 
     if (hasFlag) {
       updatePayload.is_flagged = body.isFlagged ?? false
+    }
+
+    if (typeof body.wasTimed === 'boolean') {
+      updatePayload.was_timed = body.wasTimed
+    }
+    if (body.mode) {
+      updatePayload.mode = body.mode
     }
 
     const { error: updateError } = await supabaseAdmin
@@ -114,6 +125,8 @@ export async function POST(request: NextRequest) {
     is_flagged: boolean
     is_submitted: boolean
     time_spent_seconds: number | null
+    was_timed: boolean
+    mode: 'question' | 'question_stem' | 'set' | 'mock' | null
   } = {
     student_id: student.id,
     student_question_set_attempt_id: body.studentQuestionSetAttemptId,
@@ -123,6 +136,8 @@ export async function POST(request: NextRequest) {
     is_flagged: hasFlag ? body.isFlagged ?? false : false,
     is_submitted: false,
     time_spent_seconds: hasTime ? body.timeSpentSeconds ?? null : null,
+    was_timed: body.wasTimed ?? false,
+    mode: body.mode ?? null,
   }
 
   const { data: inserted, error: insertError } = await supabaseAdmin

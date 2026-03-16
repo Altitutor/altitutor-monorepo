@@ -7,10 +7,11 @@ import type { Database, Tables, TablesInsert, TablesUpdate } from '@altitutor/sh
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 // Query keys
-const templatesKeys = {
+export const templatesKeys = {
   all: ['message-templates'] as const,
   list: () => [...templatesKeys.all, 'list'] as const,
   detail: (id: string) => [...templatesKeys.all, 'detail', id] as const,
+  system: (templateKey: string) => [...templatesKeys.all, 'system', templateKey] as const,
 };
 
 /**
@@ -100,7 +101,10 @@ export function useUpdateTemplate() {
   const qc = useQueryClient();
 
   return useMutation({
-    mutationFn: async (params: { id: string; updates: { name?: string; content?: string; is_active?: boolean } }) => {
+    mutationFn: async (params: {
+      id: string;
+      updates: { name?: string; content?: string; variables?: TablesUpdate<'message_templates'>['variables']; is_active?: boolean };
+    }) => {
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
       
       const updateData: TablesUpdate<'message_templates'> = params.updates;
@@ -148,8 +152,26 @@ export function useDeleteTemplate() {
   });
 }
 
+/**
+ * Fetch system templates (template_key IS NOT NULL)
+ */
+export function useSystemTemplates() {
+  return useQuery({
+    queryKey: [...templatesKeys.all, 'system-list'] as const,
+    queryFn: async () => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data, error } = await supabase
+        .from('message_templates')
+        .select('*')
+        .not('template_key', 'is', null)
+        .eq('is_active', true)
+        .order('name', { ascending: true });
 
-
+      if (error) throw error;
+      return data as Tables<'message_templates'>[];
+    },
+  });
+}
 
 
 

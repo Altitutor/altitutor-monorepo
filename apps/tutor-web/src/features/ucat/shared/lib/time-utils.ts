@@ -28,6 +28,19 @@ export function minutesSecondsToTotal(minutes: string, seconds: string): number 
 }
 
 /**
+ * Decompose total seconds into minutes and seconds strings for mm:ss inputs.
+ */
+export function secondsToMinutesAndSeconds(seconds: number | null | undefined): {
+  minutes: string
+  seconds: string
+} {
+  if (seconds == null || seconds < 0) return { minutes: '', seconds: '' }
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return { minutes: String(m), seconds: String(s) }
+}
+
+/**
  * Format seconds as mm:ss for display in time inputs.
  */
 export function secondsToTimeString(seconds: number | null | undefined): string {

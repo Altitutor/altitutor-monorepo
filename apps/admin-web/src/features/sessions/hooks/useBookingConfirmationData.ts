@@ -16,6 +16,7 @@ export interface BookingConfirmationSession {
   id: string;
   start_at: string | null;
   end_at: string | null;
+  type?: string | null;
 }
 
 export interface BookingConfirmationData {
@@ -45,7 +46,7 @@ async function fetchBookingConfirmationData(
     supabase.from('students').select('*').eq('id', studentId).single(),
     supabase.from('parents_students').select('parent_id, parents(id, first_name, last_name, email, phone)').eq('student_id', studentId),
     sessionId
-      ? supabase.from('sessions').select('id, start_at, end_at').eq('id', sessionId).single()
+      ? supabase.from('sessions').select('id, start_at, end_at, type').eq('id', sessionId).single()
       : Promise.resolve({ data: null, error: null }),
   ]);
 
@@ -77,6 +78,7 @@ async function fetchBookingConfirmationData(
           id: sessionResult.data.id,
           start_at: sessionResult.data.start_at,
           end_at: sessionResult.data.end_at,
+          type: (sessionResult.data as { type?: string | null }).type,
         }
       : null;
 

@@ -25,6 +25,12 @@ import { formatDateRange } from '../utils/dateTimeHelpers';
 import { getStaffNameFromBlockout } from '../utils/blockoutHelpers';
 import type { Tables } from '@altitutor/shared';
 import { StaffSelectorPopover } from './StaffSelectorPopover';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface BlockoutDatesTableProps {
   blockouts: BlockoutRow[];
@@ -36,6 +42,16 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
   const [editingBlockout, setEditingBlockout] = useState<BlockoutRow | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState<Tables<'staff'> | null>(null);
+  const [editExpanded, setEditExpanded] = useState(false);
+  const [addExpanded, setAddExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!editingBlockout) setEditExpanded(false);
+  }, [editingBlockout]);
+
+  useEffect(() => {
+    if (!isAddDialogOpen) setAddExpanded(false);
+  }, [isAddDialogOpen]);
 
   const {
     staffId,
@@ -166,12 +182,22 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
       {/* Edit Dialog */}
       {editingBlockout && (
         <Dialog open={!!editingBlockout} onOpenChange={(open) => !open && handleCloseEdit()}>
-          <DialogContent>
+          <DialogContent
+            className={cn(
+              EXPANDABLE_DIALOG_TRANSITION,
+              editExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+            )}
+          >
             <DialogHeader>
-              <DialogTitle>Edit Blockout</DialogTitle>
-              <DialogDescription>
-                Update blockout date range
-              </DialogDescription>
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <DialogTitle>Edit Blockout</DialogTitle>
+                  <DialogDescription>
+                    Update blockout date range
+                  </DialogDescription>
+                </div>
+                <ExpandButton expanded={editExpanded} onToggle={() => setEditExpanded((e) => !e)} />
+              </div>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
@@ -233,12 +259,22 @@ export function BlockoutDatesTable({ blockouts, onUpdate, onCreateTrigger }: Blo
 
       {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={(open) => !open && handleCloseAdd()}>
-        <DialogContent>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            addExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Add Blockout</DialogTitle>
-            <DialogDescription>
-              Create a new blockout date range for a staff member
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Add Blockout</DialogTitle>
+                <DialogDescription>
+                  Create a new blockout date range for a staff member
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={addExpanded} onToggle={() => setAddExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

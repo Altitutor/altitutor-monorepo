@@ -26,6 +26,7 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
+  UnassignedTask,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -112,6 +113,7 @@ interface ReconciliationActionsProps {
     | UnpaidInvoice
     | UnloggedSession
     | UnassignedClass
+    | UnassignedTask
     | FailedDeliveryMessage
     | StudentWithoutClasses
     | StudentWithoutPaymentMethod

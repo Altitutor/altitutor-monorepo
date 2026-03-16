@@ -80,7 +80,9 @@ export function parseVerbalReasoningFromDoc(
   doc: Json | null | undefined,
   configOverrides?: Partial<ParserConfig>
 ): ParsedStem[] {
-  const logicalLines = collectLogicalLinesFromDoc(doc)
+  const logicalLines = collectLogicalLinesFromDoc(doc, {
+    detectNestedQuestionTables: true,
+  })
   return parseFromLines(logicalLines, configOverrides)
 }
 

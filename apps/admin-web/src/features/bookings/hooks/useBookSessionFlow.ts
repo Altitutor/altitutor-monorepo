@@ -12,6 +12,8 @@ import { useStudentSubjects } from './useStudentSubjects';
 import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import type { AdminTrialContactFormValues } from '../components/AdminTrialContactForm';
 import { getBookingSteps, canProceedToNextStep, getSessionTypeLabel } from '../utils/bookingHelpers';
+import { showSessionBookedToast } from '@/shared/utils/toastHelpers';
+import { getErrorMessage } from '@/shared/utils';
 import { isSlotInPast } from '../utils/dateTimeHelpers';
 
 export interface BookSessionFlowState {
@@ -64,6 +66,7 @@ export function useBookSessionFlow({
   const [trialFormValid, setTrialFormValid] = useState(false);
   const [showPastDateWarning, setShowPastDateWarning] = useState(false);
   const [pendingNextStep, setPendingNextStep] = useState(false);
+  const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
 
   // Calculate steps
   const steps = useMemo(() => getBookingSteps(sessionType, originalSessionId), [sessionType, originalSessionId]);
@@ -208,9 +211,19 @@ export function useBookSessionFlow({
       setTrialFormValid(false);
       setShowPastDateWarning(false);
       setPendingNextStep(false);
+      setCreatedSessionId(null);
       onClose();
     }
   }, [isSubmitting, onClose]);
+
+  const handleDoneNotifyStep = useCallback(
+    (sessionId: string) => {
+      setCreatedSessionId(null);
+      onBookingCreated?.(sessionId);
+      onClose();
+    },
+    [onBookingCreated, onClose]
+  );
 
   const handleSlotSelect = useCallback((startAt: string, endAt: string, availableStaffIds: string[]) => {
     setSelectedSlot({ startAt, endAt, availableStaffIds });
@@ -365,17 +378,17 @@ export function useBookSessionFlow({
           },
         });
 
-        toast({
-          title: 'Booking Created',
-          description: `${getSessionTypeLabel(sessionType)} has been booked successfully`,
+        showSessionBookedToast({
+          toast,
+          sessionId,
+          message: `${getSessionTypeLabel(sessionType)} has been booked successfully`,
         });
 
-        onBookingCreated?.(sessionId);
-        handleClose();
+        setCreatedSessionId(sessionId);
       } catch (error: unknown) {
         toast({
           title: 'Booking Failed',
-          description: error instanceof Error ? error.message : 'Failed to create booking. Please try again.',
+          description: getErrorMessage(error),
           variant: 'destructive',
         });
       } finally {
@@ -417,17 +430,20 @@ export function useBookSessionFlow({
         original_session_id: originalSessionId || undefined,
       });
 
-      toast({
-        title: originalSessionId ? 'Session Rescheduled' : 'Booking Created',
-        description: `${originalSessionId ? 'Session has been rescheduled' : `${getSessionTypeLabel(sessionType)} has been booked successfully`}`,
+      showSessionBookedToast({
+        toast,
+        sessionId,
+        message: originalSessionId
+          ? 'Session has been rescheduled'
+          : `${getSessionTypeLabel(sessionType)} has been booked successfully`,
+        isReschedule: !!originalSessionId,
       });
 
-      onBookingCreated?.(sessionId);
-      handleClose();
+      setCreatedSessionId(sessionId);
     } catch (error: unknown) {
       toast({
         title: 'Booking Failed',
-        description: error instanceof Error ? error.message : 'Failed to create booking. Please try again.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {
@@ -442,8 +458,6 @@ export function useBookSessionFlow({
     selectedSubjectId,
     originalSessionId,
     createBooking,
-    onBookingCreated,
-    handleClose,
     toast,
   ]);
 
@@ -528,5 +542,7 @@ export function useBookSessionFlow({
     handlePastDateWarningConfirm,
     handlePastDateWarningCancel,
     canGoNext,
+    createdSessionId,
+    handleDoneNotifyStep,
   };
 }

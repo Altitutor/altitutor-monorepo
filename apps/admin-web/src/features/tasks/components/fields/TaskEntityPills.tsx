@@ -12,9 +12,10 @@ import {
   Input,
   ScrollArea,
 } from '@altitutor/ui';
-import { User, Check, Circle, AlertCircle, AlertTriangle, Info, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
+import { User, Check, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import {
+  getPriorityIcon,
   getPriorityLabel,
   getPriorityIconColor,
   getEstimateLabel,
@@ -46,6 +47,8 @@ function getMatchScore(name: string | null, rawQuery: string): number {
   return 100 - index;
 }
 
+type AssigneeLike = { id: string; first_name: string | null; last_name: string | null };
+
 export function TaskAssigneeEntityPill({
   task,
   staffList,
@@ -59,7 +62,16 @@ export function TaskAssigneeEntityPill({
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
-  const assignee = task.assignee;
+  // Resolve assignee: task.assignee can be object (existing task) or id string (add-row draft)
+  const assignee: AssigneeLike | null = (() => {
+    const a = task.assignee;
+    if (a && typeof a === 'object' && 'first_name' in a) return a as AssigneeLike;
+    const id = (typeof a === 'string' ? a : (task as { assigned_to?: string | null }).assigned_to) ?? null;
+    if (!id) return null;
+    const staff = staffList.find((s) => s.id === id);
+    return staff ? { id: staff.id, first_name: staff.first_name, last_name: staff.last_name } : null;
+  })();
+  const assigneeId = assignee?.id ?? null;
   const initials = assignee ? getUserInitials(assignee.first_name, assignee.last_name) : null;
 
   return (
@@ -113,7 +125,7 @@ export function TaskAssigneeEntityPill({
                   setOpen(false);
                 }}
               >
-                {!assignee && <Check className="h-4 w-4" />}
+                {!assigneeId && <Check className="h-4 w-4" />}
                 <span>Unassigned</span>
               </button>
               {staffList
@@ -132,7 +144,7 @@ export function TaskAssigneeEntityPill({
                       setOpen(false);
                     }}
                   >
-                    {assignee?.id === s.id && <Check className="h-4 w-4" />}
+                    {assigneeId === s.id && <Check className="h-4 w-4" />}
                     <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs flex-shrink-0">
                       {getUserInitials(s.first_name, s.last_name)}
                     </div>
@@ -160,8 +172,7 @@ export function TaskPriorityEntityPill({
 }) {
   const label = getPriorityLabel(value);
   const iconColor = getPriorityIconColor(value);
-  const Icon =
-    value === 0 ? Circle : value === 2 ? AlertTriangle : value === 4 ? Info : AlertCircle;
+  const Icon = getPriorityIcon(value);
   const isEmpty = value === 0;
 
   return (
@@ -182,11 +193,18 @@ export function TaskPriorityEntityPill({
         )}
       </SelectTrigger>
       <SelectContent>
-        {PRIORITY_OPTIONS.map((o: { value: TaskPriority; label: string }) => (
-          <SelectItem key={o.value} value={String(o.value)}>
-            {o.label}
-          </SelectItem>
-        ))}
+        {PRIORITY_OPTIONS.map((o) => {
+          const OptionIcon = getPriorityIcon(o.value);
+          const optionColor = getPriorityIconColor(o.value);
+          return (
+            <SelectItem key={o.value} value={String(o.value)}>
+              <div className="flex items-center gap-2">
+                <OptionIcon className={cn('h-4 w-4', optionColor)} />
+                <span>{o.label}</span>
+              </div>
+            </SelectItem>
+          );
+        })}
       </SelectContent>
     </Select>
   );

@@ -34,8 +34,8 @@ export function Navbar() {
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(profile?.id ?? '');
 
-  // Hide navbar on booking/trial-session route
-  if (pathname === '/booking/trial-session') {
+  // Hide navbar on booking/trial-session and register routes
+  if (pathname === '/booking/trial-session' || pathname.startsWith('/register/')) {
     return null;
   }
 

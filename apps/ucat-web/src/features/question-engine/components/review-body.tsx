@@ -8,6 +8,8 @@ import type { ReviewQuestionStatus } from '@/features/question-engine/lib/review
 export type ReviewListRow = {
   question: QuestionItem
   index: number
+  /** 1-based display number (e.g. "Question 1"). When set, used instead of index + 1 for mock per-set review. */
+  displayNumber?: number
   status: ReviewQuestionStatus
   flagged: boolean
 }
@@ -87,7 +89,9 @@ export function ReviewBody({
                   className="flex-1 text-left py-1 hover:underline"
                   title="Double-click to go to this question"
                 >
-                  <span>Question {row.index + 1}</span>
+                  <span>
+                    Question {row.displayNumber ?? row.index + 1}
+                  </span>
                 </button>
                 {statusLabel ? (
                   <span className="shrink-0 text-red-600" style={{ color: UCAT_COLORS.statusRed }}>

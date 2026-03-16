@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow,
   Textarea,
+  useToast,
 } from '@altitutor/ui'
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -93,6 +94,7 @@ export function UcatQuestionStemCategoriesPage() {
   const access = useUcatAccess()
   const categories = useUcatQuestionStemCategories()
   const sections = useUcatSections()
+  const { toast } = useToast()
   const createCategory = useCreateUcatQuestionStemCategory()
   const updateCategory = useUpdateUcatQuestionStemCategory()
   const deleteCategory = useDeleteUcatQuestionStemCategory()
@@ -184,14 +186,44 @@ export function UcatQuestionStemCategoriesPage() {
   if (!access.data) return <UcatAccessDenied />
 
   async function create() {
-    await createCategory.mutateAsync({
+    const result = await createCategory.mutateAsync({
       name: draft.name,
       description: draft.description,
       sectionId: draft.sectionId === 'none' ? null : draft.sectionId,
       parentCategoryId: draft.parentCategoryId === 'none' ? null : draft.parentCategoryId,
     })
+    const categoryName = draft.name.trim() || 'Untitled'
+    const createdRow: CategoryRow = {
+      id: result.id,
+      name: draft.name,
+      section_id: draft.sectionId === 'none' ? null : draft.sectionId,
+      section_name: sectionNameMap.get(draft.sectionId === 'none' ? '' : draft.sectionId) ?? '-',
+      parent_id: draft.parentCategoryId === 'none' ? null : draft.parentCategoryId,
+      description: draft.description,
+      question_stem_count: 0,
+    }
     setCreateOpen(false)
     setDraft(emptyDraft)
+    toast({
+      title: `Category ${categoryName} created`,
+      description: (
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(createdRow)
+            setDraft({
+              name: createdRow.name,
+              sectionId: createdRow.section_id ?? 'none',
+              parentCategoryId: createdRow.parent_id ?? 'none',
+              description: createdRow.description,
+            })
+          }}
+          className="underline font-medium hover:no-underline text-left"
+        >
+          View category
+        </button>
+      ),
+    })
   }
 
   async function saveEdit() {

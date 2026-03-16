@@ -83,6 +83,19 @@ export function getRemainingSeconds(
 }
 
 /**
+ * For mock question phase: true if currentIndex is the last question of the current set.
+ */
+export function isLastQuestionOfCurrentMockSet(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState
+): boolean {
+  if (exam.sourceType !== 'mock' || state.phase !== 'question') return false
+  const seg = getCurrentMockSegment(exam, state)
+  if (!seg || seg.type !== 'questions') return false
+  return state.currentIndex >= seg.questionEndIndex - 1
+}
+
+/**
  * For mock: get the next segment after the current one. Returns null if at end.
  */
 export function getNextMockSegment(
@@ -94,6 +107,28 @@ export function getNextMockSegment(
   if (!current || !segments || current.segmentIndex >= segments.length - 1) return null
   const next = segments[current.segmentIndex + 1]
   return { ...next, segmentIndex: current.segmentIndex + 1 }
+}
+
+/**
+ * For mock mode when in review: get the first segment of the next set.
+ * Returns null if we're on the last set.
+ */
+export function getNextSetSegmentFromReview(
+  exam: QuestionEngineExam,
+  mockCurrentSetIndex: number
+): (MockTimingSegment & { segmentIndex: number }) | null {
+  const segments = exam.mockTimingSegments
+  if (!segments?.length) return null
+  const nextSetIndex = mockCurrentSetIndex + 1
+  const questionsSegIdx = segments.findIndex(
+    (s) => s.type === 'questions' && s.setIndex === nextSetIndex
+  )
+  if (questionsSegIdx < 0) return null
+  const prevSeg = segments[questionsSegIdx - 1]
+  if (prevSeg?.type === 'instructions') {
+    return { ...prevSeg, segmentIndex: questionsSegIdx - 1 }
+  }
+  return { ...segments[questionsSegIdx], segmentIndex: questionsSegIdx }
 }
 
 /**

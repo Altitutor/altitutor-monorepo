@@ -15,6 +15,12 @@ import {
 import { classPlansApi } from '../api/classPlans';
 import { useQueryClient } from '@tanstack/react-query';
 import { classPlansKeys } from '../hooks/useClassPlansQuery';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface AddSlotModalProps {
   isOpen: boolean;
@@ -44,7 +50,12 @@ export function AddSlotModal({
   const qc = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   // Form state
   const [dayOfWeek, setDayOfWeek] = useState<string>(defaultDayOfWeek?.toString() || '1');
   const [startTime, setStartTime] = useState('09:00');
@@ -102,12 +113,23 @@ export function AddSlotModal({
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[450px]">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[450px]',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Add Time Slot</DialogTitle>
-          <DialogDescription>
-            Add a new time slot for a day of the week
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Add Time Slot</DialogTitle>
+              <DialogDescription>
+                Add a new time slot for a day of the week
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

@@ -9,7 +9,6 @@ import {
 } from '@altitutor/ui';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useTopicsBySubject, useAvailableSolutionLinks } from '../../hooks';
-import { formatSubjectDisplay } from '@/shared/utils';
 import type { Enums } from '@altitutor/shared';
 
 const RESOURCE_TYPES: Enums<'resource_type'>[] = [
@@ -69,7 +68,7 @@ export function ResourceFileMetadata({
   const filteredSubjects = subjects.filter((subject) => {
     if (!subjectSearchQuery) return true;
     const query = subjectSearchQuery.toLowerCase();
-    const displayText = formatSubjectDisplay(subject).toLowerCase();
+    const displayText = (subject?.long_name ?? '').toLowerCase();
     return displayText.includes(query) || subject.name.toLowerCase().includes(query);
   });
 
@@ -102,7 +101,7 @@ export function ResourceFileMetadata({
             </div>
             {filteredSubjects.map((subject) => (
               <SelectItem key={subject.id} value={subject.id}>
-                {formatSubjectDisplay(subject)}
+                {(subject?.long_name ?? '')}
               </SelectItem>
             ))}
           </SelectContent>

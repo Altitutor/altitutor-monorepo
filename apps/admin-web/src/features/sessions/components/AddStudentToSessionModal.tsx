@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -18,6 +18,11 @@ import type { Tables } from '@altitutor/shared';
 import { studentsApi } from '@/features/students/api/students';
 import { cn } from '@/shared/utils';
 import { StudentCard } from '@/shared/components/StudentCard';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
 
 type AddStudentToSessionModalProps = {
   isOpen: boolean;
@@ -43,6 +48,11 @@ export function AddStudentToSessionModal({
   const [step, setStep] = useState<1 | 2>(1);
   const [search, setSearch] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const { data: students = [], isLoading } = useQuery({
     queryKey: ['add-student-to-session', isOpen, search],
@@ -100,7 +110,13 @@ export function AddStudentToSessionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="w-full md:max-w-3xl h-[80vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-3xl h-[80vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
@@ -114,6 +130,7 @@ export function AddStudentToSessionModal({
                     Step {step} of 2: {step === 1 ? 'Select Student' : 'Confirm'}
                   </DialogDescription>
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               </div>
             </div>
           </DialogHeader>

@@ -1,39 +1,11 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Badge,
-  Button,
-  TablePagination,
-} from '@altitutor/ui';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, TablePagination } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
 import type { InvoiceItem } from '../api';
 import { formatInvoiceDate } from '../utils/invoiceFormatters';
-
-type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
-
-const getStatusVariant = (status: InvoiceStatus): 'default' | 'secondary' | 'destructive' => {
-  switch (status) {
-    case 'paid':
-      return 'default';
-    case 'draft':
-    case 'open':
-      return 'secondary';
-    case 'void':
-    case 'uncollectible':
-    case 'disputed':
-      return 'destructive';
-    default:
-      return 'secondary';
-  }
-};
 
 const formatAmount = (cents: number | null): string => {
   if (cents === null) return '-';
@@ -102,6 +74,7 @@ export function InvoicesTable() {
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead>Invoice #</TableHead>
               <TableHead>Invoice Date</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
@@ -112,13 +85,16 @@ export function InvoicesTable() {
           <TableBody>
             {paginatedInvoices.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
                   No invoices found
                 </TableCell>
               </TableRow>
             ) : (
               paginatedInvoices.map((invoice, index) => (
                 <TableRow key={invoice.id || `invoice-${index}`}>
+                  <TableCell>
+                    {invoice.stripe_invoice_number || invoice.id?.slice(0, 8) || '-'}
+                  </TableCell>
                   <TableCell>
                     {invoice.invoice_date ? formatInvoiceDate(invoice.invoice_date) : '-'}
                   </TableCell>
@@ -127,9 +103,26 @@ export function InvoicesTable() {
                   </TableCell>
                   <TableCell>
                     {invoice.status ? (
-                      <Badge variant={getStatusVariant(invoice.status as InvoiceStatus)}>
-                        {invoice.status}
-                      </Badge>
+                      <div className="flex flex-wrap gap-1">
+                        {(invoice.status === 'paid' || invoice.paid_at) && (
+                          <Badge variant="default">
+                            {invoice.paid_at
+                              ? `Paid ${new Date(invoice.paid_at).toLocaleDateString('en-AU')}`
+                              : 'Paid'}
+                          </Badge>
+                        )}
+                        {invoice.status === 'draft' && (
+                          <Badge variant="outline">Draft</Badge>
+                        )}
+                        {invoice.status === 'open' && (
+                          <Badge variant="secondary">Open</Badge>
+                        )}
+                        {['void', 'uncollectible', 'disputed'].includes(invoice.status) && (
+                          <Badge variant="destructive">
+                            {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+                          </Badge>
+                        )}
+                      </div>
                     ) : (
                       '-'
                     )}

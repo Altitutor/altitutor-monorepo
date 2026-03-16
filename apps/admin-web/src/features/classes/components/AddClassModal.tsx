@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, useToast } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
@@ -17,6 +17,12 @@ import { useCreateClass } from '../hooks/useClassesQuery';
 import type { TablesInsert, Tables } from '@altitutor/shared';
 import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
 import { showEntityCreatedToast } from '@/shared/utils';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface AddClassModalProps {
   isOpen: boolean;
@@ -30,7 +36,12 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   // Form state
   const [level, setLevel] = useState('');
   const [dayOfWeek, setDayOfWeek] = useState<string>('');
@@ -154,12 +165,23 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[550px]',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Add New Class</DialogTitle>
-          <DialogDescription>
-            Create a new class with schedule, subject, and session details.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Add New Class</DialogTitle>
+              <DialogDescription>
+                Create a new class with schedule, subject, and session details.
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

@@ -11,7 +11,6 @@ import { sessionsApi } from '@/features/sessions/api';
 import { subjectsApi } from '@/features/subjects/api';
 import { topicsApi } from '@/features/topics/api';
 import { useNote } from '@/features/notes/api/queries';
-import { formatClassShortName, formatSubjectShortName } from '@/shared/utils';
 
 // Map of path segments to display labels
 const pathLabelMap: Record<string, string> = {
@@ -179,8 +178,16 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
         classIds.map(async (id) => {
           try {
             const classData = await classesApi.getClassWithDetails(id);
-            if (classData.class && classData.subject) {
-              results[id] = formatClassShortName(classData.class, classData.subject);
+            if (classData.class) {
+              const subjectName =
+                classData.subject?.short_name ??
+                classData.subject?.long_name ??
+                classData.subject?.name ??
+                '';
+
+              results[id] =
+                classData.class.short_name?.trim() ??
+                subjectName;
             }
           } catch {
             // Ignore errors
@@ -202,11 +209,15 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
         sessionIds.map(async (id) => {
           try {
             const sessionData = await sessionsApi.getSessionWithTutorLog(id);
-            if (sessionData.session?.class) {
-              const classData = await classesApi.getClassWithDetails(sessionData.session.class.id);
-              if (classData.class && classData.subject) {
-                // Use formatClassShortName for session breadcrumb (same as class)
-                results[id] = formatClassShortName(classData.class, classData.subject);
+            const session = sessionData.session;
+            if (session?.short_name?.trim()) {
+              results[id] = session.short_name.trim();
+              return;
+            }
+            if (session?.class) {
+              const classData = await classesApi.getClassWithDetails(session.class.id);
+              if (classData.class) {
+                results[id] = classData.class.short_name?.trim() ?? '';
               }
             }
           } catch {
@@ -230,7 +241,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           try {
             const subject = await subjectsApi.getSubject(id);
             if (subject) {
-              results[id] = formatSubjectShortName(subject);
+              results[id] = subject.short_name ?? subject.long_name ?? subject.name ?? '';
             }
           } catch {
             // Ignore errors

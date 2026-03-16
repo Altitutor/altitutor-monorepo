@@ -5,7 +5,7 @@ import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 
 interface StaffCardProps {
   staff: Tables<'staff'>;
@@ -118,7 +118,7 @@ export function StaffCard({
                   className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
                   style={style.backgroundColor ? style : undefined}
                 >
-                  {formatSubjectShortName(subject)}
+                  {subject?.short_name ?? subject?.long_name ?? subject?.name ?? ''}
                 </Badge>
               );
             })}

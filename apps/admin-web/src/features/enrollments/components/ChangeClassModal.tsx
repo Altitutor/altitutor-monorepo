@@ -4,6 +4,12 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { useChangeClassData, useChangeClassFlow } from '../hooks';
 import { filterClassesForChange } from '../utils/changeClassFilters';
 import {
@@ -32,6 +38,7 @@ export function ChangeClassModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [dayFilters, setDayFilters] = useState<number[]>([]);
   const [timeOverlapWarning, setTimeOverlapWarning] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   // Fetch data using RPC (no search query passed - we filter client-side)
   const { classes, isFetching } = useChangeClassData({
@@ -78,6 +85,11 @@ export function ChangeClassModal({
       setStep(4);
     }
   }, [changeSuccess, step]);
+
+  // Reset expanded when modal closes
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Reset state when modal opens/closes
   useEffect(() => {
@@ -144,7 +156,13 @@ export function ChangeClassModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         {/* Header */}
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
@@ -165,6 +183,7 @@ export function ChangeClassModal({
                   </DialogDescription>
                 </div>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </DialogHeader>
 

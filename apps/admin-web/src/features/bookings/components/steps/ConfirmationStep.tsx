@@ -1,5 +1,5 @@
 import { BookingConfirmationCalendar } from '../BookingConfirmationCalendar';
-import { formatSubjectDisplay, formatStudentDisplay } from '../../utils/bookingHelpers';
+import { formatStudentDisplay } from '../../utils/bookingHelpers';
 import { formatSlotDateTime } from '../../utils/dateTimeHelpers';
 import type { Tables } from '@altitutor/shared';
 import type { AdminTrialContactFormValues } from '../AdminTrialContactForm';
@@ -96,7 +96,7 @@ export function ConfirmationStep({
                     {trialContactData.subject_ids
                       .map((id) => {
                         const subject = subjects.find((s) => s.id === id);
-                        return subject ? formatSubjectDisplay(subject) : null;
+                        return subject?.long_name ?? null;
                       })
                       .filter(Boolean)
                       .join(', ')}
@@ -149,7 +149,7 @@ export function ConfirmationStep({
               {selectedSubject && (
                 <>
                   <div className="text-sm font-medium text-muted-foreground">Subject:</div>
-                  <div className="text-sm">{formatSubjectDisplay(selectedSubject)}</div>
+                  <div className="text-sm">{selectedSubject?.long_name ?? ''}</div>
                 </>
               )}
             </>

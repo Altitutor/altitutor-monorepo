@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
-import { formatSubjectDisplay, formatSubjectShortName, getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
+import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -87,9 +87,9 @@ export function SessionsCard({
   const shouldUseCompact = forceCompact || !iconVisible;
   
   const subjectDisplay = shouldUseCompact && subject 
-    ? formatSubjectShortName(subject) 
+    ? (subject?.short_name ?? subject?.long_name ?? subject?.name ?? '') 
     : subject 
-      ? formatSubjectDisplay(subject) 
+      ? (subject?.long_name ?? '') 
       : formatSessionType(session.type);
   const sessionDate = session.start_at ? new Date(session.start_at) : null;
   const dateDisplay = sessionDate ? formatDate(sessionDate) : '';

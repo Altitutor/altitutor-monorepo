@@ -335,6 +335,7 @@ export const topicsFilesApi = {
         name: string;
         short_name: string | null;
         long_name: string | null;
+        color: string | null;
       };
     }>;
     total: number;
@@ -379,6 +380,7 @@ export const topicsFilesApi = {
           name: string;
           short_name: string | null;
           long_name: string | null;
+          color: string | null;
         };
       }>;
       total: number;

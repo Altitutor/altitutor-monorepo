@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-
+import { useDialogHotkeys } from '@/shared/hooks';
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   folderId: z.string().nullable().optional(),
@@ -57,7 +57,7 @@ export function CreateNoteDialog({
     },
   });
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = useCallback(async (data: FormData) => {
     setIsSubmitting(true);
     try {
       const createdNote = await createNote.mutateAsync({
@@ -74,7 +74,18 @@ export function CreateNoteDialog({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [createNote, form, onClose, router]);
+
+  const handlePrimaryAction = useCallback(() => {
+    if (isSubmitting) return;
+    void form.handleSubmit(onSubmit)();
+  }, [form, isSubmitting, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: isSubmitting,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

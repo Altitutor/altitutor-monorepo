@@ -1,5 +1,4 @@
 import type { Tables } from '@altitutor/shared';
-import { Badge } from '@altitutor/ui';
 
 /**
  * Get today's date in local timezone (YYYY-MM-DD format)
@@ -30,39 +29,31 @@ export function formatDate(dateString: string): string {
 }
 
 /**
- * Get short display name for a class from session data
+ * Short display name for a session/class from database only.
+ * Uses session.short_name, then class.short_name; no building from subject parts.
  */
 export function getClassShortDisplay(
   session: Tables<'sessions'>,
   classesById: Record<string, Tables<'classes'>>,
-  subjectsById: Record<string, Tables<'subjects'>>
+  _subjectsById: Record<string, Tables<'subjects'>>
 ): string {
+  if (session.short_name?.trim()) return session.short_name.trim();
   const cls = session.class_id ? classesById[session.class_id] : undefined;
-  const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
-  const parts: string[] = [];
-  if (subj?.curriculum) parts.push(String(subj.curriculum));
-  const yearLevel = subj?.year_level != null ? String(subj.year_level) : '';
-  const nickname = subj?.name ? subj.name.substring(0, 4).toUpperCase() : '';
-  if (yearLevel || nickname) parts.push(`${yearLevel}${nickname}`);
-  return parts.filter(Boolean).join(' ');
+  return cls?.short_name?.trim() ?? '';
 }
 
 /**
- * Get full display name for a class from session data
+ * Full display name for a session/class from database only.
+ * Uses session.long_name, then class.long_name; no building from subject parts.
  */
 export function getClassDisplay(
   session: Tables<'sessions'>,
   classesById: Record<string, Tables<'classes'>>,
-  subjectsById: Record<string, Tables<'subjects'>>
+  _subjectsById: Record<string, Tables<'subjects'>>
 ): string {
+  if (session.long_name?.trim()) return session.long_name.trim();
   const cls = session.class_id ? classesById[session.class_id] : undefined;
-  const subj = cls?.subject_id ? subjectsById[cls.subject_id] : undefined;
-  const parts: string[] = [];
-  if (subj?.curriculum) parts.push(String(subj.curriculum));
-  if (subj?.year_level != null) parts.push(String(subj.year_level));
-  if (subj?.name) parts.push(subj.name);
-  if (cls?.level) parts.push(String(cls.level));
-  return parts.join(' ');
+  return cls?.long_name?.trim() ?? '';
 }
 
 /**
@@ -74,28 +65,3 @@ export function getTimeRange(session: Tables<'sessions'>): string {
   return s && e ? `${s}–${e}` : s || e || '-';
 }
 
-/**
- * Get invoice status badge component
- */
-export function getInvoiceStatusBadge(status: string | null | undefined): JSX.Element | null {
-  if (!status) return null;
-  
-  let label = '';
-  let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-  
-  if (status === 'draft' || status === 'open') {
-    label = 'Sent';
-    variant = 'secondary';
-  } else if (status === 'paid') {
-    label = 'Paid';
-    variant = 'default';
-  } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-    label = 'Failed';
-    variant = 'destructive';
-  } else {
-    label = status;
-    variant = 'outline';
-  }
-  
-  return <Badge variant={variant} className="text-xs ml-1">{label}</Badge>;
-}

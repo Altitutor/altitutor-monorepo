@@ -2,7 +2,6 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { formatSessionType } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { formatInvoiceTagText } from '@/features/billing/utils/invoiceTagText';
-import { getSessionTitle, type SessionWithDetails } from '@/features/sessions/utils/session-helpers';
 import type { IssueTagInsert } from '../types';
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
@@ -111,16 +110,21 @@ export async function resolveTagLabels(tags: IssueTagDraft[]): Promise<Map<strin
         start_time: string | null;
         subject: { short_name?: string | null; long_name?: string | null; name?: string | null } | null;
       };
+      type ClassRowWithShort = ClassRow & { short_name?: string | null };
       const { data } = await supabase
         .from('classes')
-        .select('id, day_of_week, start_time, subject:subjects(short_name, long_name, name)')
+        .select('id, short_name, day_of_week, start_time, subject:subjects(short_name, long_name, name)')
         .in('id', classIds);
-      (data as ClassRow[] | null ?? []).forEach((row) => {
-        const subject = row.subject;
-        const subjectShort = subject?.short_name || subject?.long_name || subject?.name || '';
-        const day = typeof row.day_of_week === 'number' ? getDayShortName(row.day_of_week) : '';
-        const time = formatTime(row.start_time);
-        const label = [subjectShort, day, time].filter(Boolean).join(' ') || row.id;
+      (data as ClassRowWithShort[] | null ?? []).forEach((row) => {
+        const label =
+          row.short_name?.trim() ||
+          (() => {
+            const subject = row.subject;
+            const subjectShort = subject?.short_name || subject?.long_name || subject?.name || '';
+            const day = typeof row.day_of_week === 'number' ? getDayShortName(row.day_of_week) : '';
+            const time = formatTime(row.start_time);
+            return [subjectShort, day, time].filter(Boolean).join(' ') || row.id;
+          })();
         labelMap.set(`class:${row.id}`, label);
       });
     })(),
@@ -130,6 +134,8 @@ export async function resolveTagLabels(tags: IssueTagDraft[]): Promise<Map<strin
         id: string;
         type: string | null;
         start_at: string | null;
+        short_name: string | null;
+        long_name: string | null;
         class:
           | {
               day_of_week: number | null;
@@ -149,17 +155,11 @@ export async function resolveTagLabels(tags: IssueTagDraft[]): Promise<Map<strin
       const { data } = await supabase
         .from('sessions')
         .select(
-          'id, type, start_at, class:classes(day_of_week, start_time, end_time, level, subject:subjects(curriculum, year_level, name, short_name, long_name))'
+          'id, type, start_at, short_name, long_name, class:classes(day_of_week, start_time, end_time, level, subject:subjects(curriculum, year_level, name, short_name, long_name))'
         )
         .in('id', sessionIds);
       (data as SessionRow[] | null ?? []).forEach((row) => {
-        const sessionLike = {
-          id: row.id,
-          type: row.type,
-          class: row.class ?? undefined,
-        } as unknown as SessionWithDetails;
-
-        const title = getSessionTitle(sessionLike).trim();
+        const title = row.long_name?.trim() || row.short_name?.trim() || '';
         if (title) {
           labelMap.set(`session:${row.id}`, title);
           return;

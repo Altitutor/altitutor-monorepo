@@ -87,7 +87,9 @@ export const bookingsApi = {
         p_staff_id: input.staff_id ?? undefined,
       });
       
-      if (error) throw error;
+      if (error) {
+        throw new Error(error.message ?? 'Failed to create trial booking');
+      }
       if (!data) throw new Error('Failed to create trial booking: no data returned');
       
       // The function returns JSONB with session_id
@@ -111,7 +113,9 @@ export const bookingsApi = {
       p_created_by: user.id,
     });
     
-    if (error) throw error;
+    if (error) {
+      throw new Error(error.message ?? 'Failed to create booking');
+    }
     return data as string; // Returns session_id
   },
 };

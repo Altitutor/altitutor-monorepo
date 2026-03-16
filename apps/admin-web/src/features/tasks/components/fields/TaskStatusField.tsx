@@ -1,16 +1,15 @@
 'use client';
 
-import {
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage,
-} from '@altitutor/ui';
+import { FormControl, FormField, FormItem, FormMessage } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger } from '@altitutor/ui';
-import { Clock, Circle, CheckCircle, Eye } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
-import { getStatusLabel, getStatusIconColor } from '../../utils/taskUtils';
+import {
+  getStatusIcon,
+  getStatusLabel,
+  getStatusIconColor,
+  TASK_STATUS_OPTIONS,
+} from '../../utils/taskUtils';
 import type { TaskFormData, TaskStatus } from '../../types';
 
 interface TaskStatusFieldProps {
@@ -24,7 +23,8 @@ export function TaskStatusField({ form, taskStatus }: TaskStatusFieldProps) {
       control={form.control}
       name="status"
       render={({ field }) => {
-        const selectValue = field.value || taskStatus || 'backlog';
+        const selectValue = (field.value || taskStatus || 'backlog') as TaskStatus;
+        const StatusIcon = getStatusIcon(selectValue);
         const displayValue = getStatusLabel(selectValue);
         const iconColor = getStatusIconColor(selectValue);
 
@@ -43,7 +43,7 @@ export function TaskStatusField({ form, taskStatus }: TaskStatusFieldProps) {
               <FormControl>
                 <SelectTrigger className="w-full">
                   <div className="flex items-center gap-2 flex-1">
-                    <Clock className={cn('h-4 w-4', iconColor)} />
+                    <StatusIcon className={cn('h-4 w-4', iconColor)} />
                     <span className={cn(!field.value && 'text-muted-foreground')}>
                       {displayValue}
                     </span>
@@ -51,36 +51,18 @@ export function TaskStatusField({ form, taskStatus }: TaskStatusFieldProps) {
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value="backlog">
-                  <div className="flex items-center gap-2">
-                    <Circle className="h-4 w-4 text-gray-500 dark:text-gray-400" />
-                    <span>Backlog</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="todo">
-                  <div className="flex items-center gap-2">
-                    <Circle className="h-4 w-4 text-blue-500 dark:text-blue-400" />
-                    <span>Todo</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="in_progress">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
-                    <span>In Progress</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="in_review">
-                  <div className="flex items-center gap-2">
-                    <Eye className="h-4 w-4 text-purple-500 dark:text-purple-400" />
-                    <span>In Review</span>
-                  </div>
-                </SelectItem>
-                <SelectItem value="done">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500 dark:text-green-400" />
-                    <span>Done</span>
-                  </div>
-                </SelectItem>
+                {TASK_STATUS_OPTIONS.map((opt) => {
+                  const OptionIcon = getStatusIcon(opt.value);
+                  const optionColor = getStatusIconColor(opt.value);
+                  return (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      <div className="flex items-center gap-2">
+                        <OptionIcon className={cn('h-4 w-4', optionColor)} />
+                        <span>{opt.label}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
             <FormMessage />

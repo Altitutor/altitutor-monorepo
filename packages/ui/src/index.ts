@@ -41,6 +41,7 @@ export * from './components/toast';
 export * from './components/toaster';
 export * from './components/toast-provider';
 export * from './components/payment-method-card';
+export * from './components/policy-viewer';
 export * from './components/booking-calendar-view';
 export * from './components/date-range-picker';
 export * from './components/kanban-board';

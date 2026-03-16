@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
@@ -14,10 +14,16 @@ import {
   Input,
 } from '@altitutor/ui';
 import { Loader2, Search, X, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
 import type { Tables } from '@altitutor/shared';
 import { staffApi } from '@/features/staff/api/staff';
 import { cn } from '@/shared/utils';
 import { StaffCard } from '@/shared/components/StaffCard';
+import { useDialogHotkeys } from '@/shared/hooks';
 
 type AddStaffToSessionModalProps = {
   isOpen: boolean;
@@ -43,6 +49,11 @@ export function AddStaffToSessionModal({
   const [step, setStep] = useState<1 | 2>(1);
   const [search, setSearch] = useState('');
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const { data: staff = [], isLoading } = useQuery({
     queryKey: ['add-staff-to-session', isOpen, search],
@@ -75,14 +86,14 @@ export function AddStaffToSessionModal({
     ? `${selectedStaff.first_name || ''} ${selectedStaff.last_name || ''}`.trim()
     : 'choose staff';
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setStep(1);
     setSearch('');
     setSelectedStaffId(null);
     onClose();
-  };
+  }, [onClose]);
 
-  const handleConfirm = async () => {
+  const handleConfirm = useCallback(async () => {
     if (!selectedStaff) return;
     try {
       await onConfirm(selectedStaff);
@@ -90,7 +101,23 @@ export function AddStaffToSessionModal({
     } catch {
       // Keep modal open if mutation fails so user can retry.
     }
-  };
+  }, [handleClose, onConfirm, selectedStaff]);
+
+  const hasNextStep = step === 1;
+
+  const handleNextStep = useCallback(() => {
+    if (step === 1 && selectedStaff) {
+      setStep(2);
+    }
+  }, [step, selectedStaff]);
+
+  useDialogHotkeys({
+    isOpen,
+    onNextStep: handleNextStep,
+    hasNextStep,
+    onPrimaryAction: step === 2 ? handleConfirm : undefined,
+    isActionDisabled: isPending,
+  });
 
   const warningText = selectedStaff
     ? `${staffName} will only be added to a single session on ${sessionTime} ${sessionDay}, they will not be assigned to the class`
@@ -98,7 +125,13 @@ export function AddStaffToSessionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="w-full md:max-w-3xl h-[80vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-3xl h-[80vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
@@ -113,6 +146,7 @@ export function AddStaffToSessionModal({
                   </DialogDescription>
                 </div>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </DialogHeader>
           <div className="px-6 pb-4">

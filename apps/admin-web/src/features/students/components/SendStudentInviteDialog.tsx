@@ -17,7 +17,11 @@ import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
+import {
+  getStudentInviteMessageForClient,
+  getStudentRegistrationInviteMessageForClient,
+  getSenderNameFromStaff,
+} from '@/features/messages/api/systemTemplates';
 import { useAvailableSenders } from '@/features/messages/api/queries';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
 import { MessageThread } from '@/features/messages/components/MessageThread';
@@ -28,6 +32,12 @@ import { templateContainsLinkVariables } from '@/features/messages/utils/generat
 import { generateLinkTokensForStudent } from '@/features/messages/utils/generateLinkTokens';
 import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveButtons';
 import { useStudentInviteData, studentInviteDataKeys } from '../hooks/useStudentInviteData';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { useStudentClassesForTemplate } from '@/features/messages/hooks/useTemplatePreviewData';
 import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 import type { Tables } from '@altitutor/shared';
@@ -59,7 +69,12 @@ export function SendStudentInviteDialog({
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [composerDraft, setComposerDraft] = useState<string>('');
+  const [expanded, setExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
   const emailComposerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
 
@@ -138,43 +153,58 @@ export function SendStudentInviteDialog({
   // Pre-populate message with SMS template when inviteUrl and recipient are ready
   useEffect(() => {
     if (!inviteUrl || !selectedRecipient) return;
-    
-    const firstName = selectedRecipient.type === 'parent' 
-      ? parents.find(p => p.id === selectedRecipient.id)?.first_name || 'there'
-      : student.first_name || 'there';
-    
-    const studentName = linkType === 'registration' && selectedRecipient.type === 'parent'
-      ? `${student.first_name} ${student.last_name}`
-      : undefined;
-    
-    const template = getInviteSmsTemplate({
-      firstName,
-      inviteUrl,
-      linkType,
-      studentName,
-    });
-    
-    // Set template in appropriate place based on method
-    if (selectedRecipient.method === 'phone') {
-      // Only set if draft is empty (don't overwrite user edits)
-      if (!composerDraft) {
-        setComposerDraft(template);
-      }
-      // Clear email message when switching to phone
-      if (customMessage) {
+
+    const firstName =
+      selectedRecipient.type === 'parent'
+        ? parents.find((p) => p.id === selectedRecipient.id)?.first_name || 'there'
+        : student.first_name || 'there';
+
+    const studentName =
+      linkType === 'registration' && selectedRecipient.type === 'parent'
+        ? `${student.first_name} ${student.last_name}`
+        : '';
+
+    const senderName = getSenderNameFromStaff(currentStaff);
+
+    let cancelled = false;
+    (async () => {
+      const template =
+        linkType === 'registration'
+          ? await getStudentRegistrationInviteMessageForClient({
+              firstName,
+              inviteUrl,
+              studentName,
+              senderName,
+            })
+          : await getStudentInviteMessageForClient({
+              firstName,
+              inviteUrl,
+              senderName,
+            });
+      if (cancelled) return;
+
+      if (selectedRecipient.method === 'phone') {
+        setComposerDraft((prev) => (prev ? prev : template));
         setCustomMessage('');
-      }
-    } else {
-      // Only set if message is empty (don't overwrite user edits)
-      if (!customMessage) {
-        setCustomMessage(template);
-      }
-      // Clear composer draft when switching to email
-      if (composerDraft) {
+      } else {
+        setCustomMessage((prev) => (prev ? prev : template));
         setComposerDraft('');
       }
-    }
-  }, [inviteUrl, linkType, student.first_name, student.last_name, selectedRecipient, parents, composerDraft, customMessage]);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    inviteUrl,
+    linkType,
+    student.first_name,
+    student.last_name,
+    selectedRecipient,
+    parents,
+    currentStaff,
+    composerDraft,
+    customMessage,
+  ]);
 
   // Auto-expand textarea
   useEffect(() => {
@@ -518,7 +548,13 @@ export function SendStudentInviteDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="md:max-w-4xl h-[90vh] flex flex-col [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'md:max-w-4xl h-[90vh] flex flex-col [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -537,6 +573,7 @@ export function SendStudentInviteDialog({
                 </DialogDescription>
               </div>
             </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>
         </DialogHeader>
 

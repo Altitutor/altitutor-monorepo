@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap, Phone, Users } from 'lucide-react';
+import { Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap, Phone, Users, FileCheck } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
 export default function SettingsPage() {
@@ -90,6 +90,12 @@ export default function SettingsPage() {
     {
       title: 'System',
       items: [
+        {
+          title: 'Policies',
+          description: 'Configure billing policy and other policy documents',
+          href: '/settings/policies',
+          icon: FileCheck,
+        },
         {
           title: 'Quick Filters',
           description: 'Manage global and personal quick filters',

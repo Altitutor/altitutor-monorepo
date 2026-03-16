@@ -6,12 +6,21 @@ import type {
   QuestionEngineState,
   ReviewFilter,
 } from '@/features/question-engine/model/types'
-import { getCurrentSegmentTimeLimitSeconds } from '@/features/question-engine/lib/timing'
+import {
+  getCurrentSegmentTimeLimitSeconds,
+  getCurrentMockSegment,
+  getNextMockSegment,
+  isLastQuestionOfCurrentMockSet,
+} from '@/features/question-engine/lib/timing'
 import {
   getReviewFilterIndices,
   getReviewQuestionStatus,
   type ReviewQuestionStatus,
 } from '@/features/question-engine/lib/review'
+import {
+  getStemBoundaries,
+  isLastQuestionOfUnit,
+} from '@/features/question-engine/lib/practice'
 
 const initialState: QuestionEngineState = {
   phase: 'intro',
@@ -30,13 +39,23 @@ const initialState: QuestionEngineState = {
   showEndExamDialog: false,
   reviewFilter: null,
   reviewFilterIndex: 0,
+  reviewFilterIndicesSnapshot: null,
+  showNoFlaggedDialog: false,
   showReviewInstructionsDialog: false,
   showEndReviewDialog: false,
   viewingQuestionIndex: null,
   showExitResultsDialog: false,
 }
 
-export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
+export function useQuestionEngineState(
+  exam: QuestionEngineExam | undefined,
+  options?: { practice?: boolean }
+) {
+  const practice = options?.practice ?? false
+  const mode = exam?.sourceType
+  const isPracticeMode =
+    practice && (mode === 'questions' || mode === 'questionStem')
+
   const [state, setState] = useState<QuestionEngineState>(initialState)
 
   const questions = useMemo(() => exam?.questions ?? [], [exam?.questions])
@@ -65,7 +84,11 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
 
   const reviewFilterIndices = useMemo(() => {
     if (state.phase !== 'review' || !state.reviewFilter) return []
-    return getReviewFilterIndices(
+    // Use snapshot when in incomplete/flagged mode so the list stays fixed while navigating
+    if (state.reviewFilterIndicesSnapshot != null) {
+      return state.reviewFilterIndicesSnapshot
+    }
+    let indices = getReviewFilterIndices(
       questions,
       state.reviewFilter,
       state.visitedQuestionIds,
@@ -73,39 +96,74 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
       state.flaggedIds,
       state.syllogismSnapshots
     )
+    if (exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      if (summary) {
+        indices = indices.filter(
+          (i) => i >= summary.questionStartIndex && i < summary.questionEndIndex
+        )
+      }
+    }
+    return indices
   }, [
     state.phase,
     state.reviewFilter,
+    state.reviewFilterIndicesSnapshot,
+    state.mockCurrentSetIndex,
     state.visitedQuestionIds,
     state.selectedAnswers,
     state.flaggedIds,
     state.syllogismSnapshots,
     questions,
+    exam?.sourceType,
+    exam?.mockSetSummaries,
   ])
 
   const effectiveCurrentIndex =
-    state.phase === 'review' && state.reviewFilter && reviewFilterIndices.length > 0
-      ? reviewFilterIndices[
-          Math.min(state.reviewFilterIndex, reviewFilterIndices.length - 1)
-        ] ?? state.currentIndex
-      : state.currentIndex
+    state.phase === 'practiceAnswer' && state.viewingQuestionIndex != null
+      ? state.viewingQuestionIndex
+      : state.phase === 'review' && state.reviewFilter && reviewFilterIndices.length > 0
+        ? reviewFilterIndices[
+            Math.min(state.reviewFilterIndex, reviewFilterIndices.length - 1)
+          ] ?? state.currentIndex
+        : state.currentIndex
 
   const currentQuestion = questions[effectiveCurrentIndex]
   const isLastQuestion =
-    state.phase === 'review' && state.reviewFilter
-      ? state.reviewFilterIndex >= Math.max(reviewFilterIndices.length - 1, 0)
-      : state.currentIndex >= Math.max(questions.length - 1, 0)
+    state.phase === 'practiceAnswer'
+      ? (state.viewingQuestionIndex ?? 0) >= (state.practiceAnswerUnitEndIndex ?? 0)
+      : state.phase === 'review' && state.reviewFilter
+        ? state.reviewFilterIndex >= Math.max(reviewFilterIndices.length - 1, 0)
+        : state.currentIndex >= Math.max(questions.length - 1, 0)
+
+  const isLastQuestionOfCurrentUnit =
+    isPracticeMode &&
+    currentQuestion &&
+    isLastQuestionOfUnit(questions, state.currentIndex, mode as 'questions' | 'questionStem')
 
   const submittedCount = useMemo(
     () => Object.keys(state.selectedAnswers).length,
     [state.selectedAnswers]
   )
 
-  const reviewListRows = useMemo(
-    () =>
-      questions.map((question, index) => ({
+  const reviewListRows = useMemo(() => {
+    let qs = questions
+    if (exam?.sourceType === 'mock' && state.phase === 'review' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      if (summary) {
+        qs = questions.slice(summary.questionStartIndex, summary.questionEndIndex)
+      }
+    }
+    return qs.map((question, idx) => {
+      const index = exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries
+        ? (exam.mockSetSummaries[state.mockCurrentSetIndex]?.questionStartIndex ?? 0) + idx
+        : idx
+      const displayNumber =
+        exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null ? idx + 1 : undefined
+      return {
         question,
         index,
+        displayNumber,
         status: getReviewQuestionStatus(
           question,
           state.visitedQuestionIds,
@@ -113,9 +171,19 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
           state.syllogismSnapshots
         ) as ReviewQuestionStatus,
         flagged: state.flaggedIds.includes(question.id),
-      })),
-    [questions, state.visitedQuestionIds, state.selectedAnswers, state.flaggedIds, state.syllogismSnapshots]
-  )
+      }
+    })
+  }, [
+    questions,
+    state.phase,
+    state.mockCurrentSetIndex,
+    state.visitedQuestionIds,
+    state.selectedAnswers,
+    state.flaggedIds,
+    state.syllogismSnapshots,
+    exam?.sourceType,
+    exam?.mockSetSummaries,
+  ])
 
   useEffect(() => {
     if (state.phase !== 'question' && !(state.phase === 'review' && state.reviewFilter)) return
@@ -135,6 +203,17 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
       return
     }
     if (state.phase === 'intro') return
+    if (state.phase === 'practiceAnswer') {
+      const unitStart = state.practiceAnswerUnitStartIndex ?? 0
+      const viewing = state.viewingQuestionIndex ?? 0
+      if (viewing > unitStart) {
+        setState((current) => ({
+          ...current,
+          viewingQuestionIndex: viewing - 1,
+        }))
+      }
+      return
+    }
     if (state.phase === 'review' && state.reviewFilter) {
       if (state.reviewFilterIndex > 0) {
         const prevIndex = reviewFilterIndices[state.reviewFilterIndex - 1]
@@ -151,6 +230,22 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
 
   function goNext() {
     if (state.phase === 'instructions' && exam) {
+      if (exam.sourceType === 'mock') {
+        const nextSeg = getNextMockSegment(exam, state)
+        if (nextSeg?.type === 'questions') {
+          setState((current) => ({ ...current, showReadyDialog: true }))
+          return
+        }
+        if (nextSeg?.type === 'instructions') {
+          setState((current) => ({
+            ...current,
+            instructionsIndex: nextSeg.instructionsIndex,
+          }))
+          return
+        }
+        setState((current) => ({ ...current, showReadyDialog: true }))
+        return
+      }
       const screens = ('instructionsScreens' in exam && exam.instructionsScreens) || []
       if (state.instructionsIndex < screens.length - 1) {
         setState((current) => ({ ...current, instructionsIndex: current.instructionsIndex + 1 }))
@@ -165,14 +260,68 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
       return
     }
 
-    if (state.phase === 'question' && state.currentIndex >= Math.max(questions.length - 1, 0)) {
-      setState((current) => ({
-        ...current,
-        phase: 'review',
-        reviewFilter: null,
-        reviewFilterIndex: 0,
-        showNavigator: false,
-      }))
+    if (state.phase === 'question' && !isPracticeMode) {
+      const goToReview = () =>
+        setState((current) => {
+          const next: QuestionEngineState = {
+            ...current,
+            phase: 'review',
+            reviewFilter: null,
+            reviewFilterIndex: 0,
+            showNavigator: false,
+          }
+          if (exam?.sourceType === 'mock') {
+            const seg = getCurrentMockSegment(exam, current)
+            if (seg?.type === 'questions') {
+              next.mockCurrentSetIndex = seg.setIndex
+            }
+          }
+          return next
+        })
+
+      if (exam?.sourceType === 'mock' && isLastQuestionOfCurrentMockSet(exam, state)) {
+        goToReview()
+        return
+      }
+      if (
+        exam?.sourceType !== 'mock' &&
+        state.currentIndex >= Math.max(questions.length - 1, 0)
+      ) {
+        goToReview()
+        return
+      }
+    }
+
+    if (state.phase === 'practiceAnswer') {
+      const unitEnd = state.practiceAnswerUnitEndIndex ?? 0
+      const viewing = state.viewingQuestionIndex ?? 0
+      if (viewing < unitEnd) {
+        setState((current) => ({
+          ...current,
+          viewingQuestionIndex: viewing + 1,
+        }))
+      } else {
+        const nextQuestionIndex = unitEnd + 1
+        if (nextQuestionIndex >= questions.length) {
+          setState((current) => ({
+            ...current,
+            phase: 'practiceComplete',
+            currentIndex: nextQuestionIndex,
+            viewingQuestionIndex: null,
+            practiceAnswerUnitStartIndex: undefined,
+            practiceAnswerUnitEndIndex: undefined,
+          }))
+        } else {
+          setState((current) => ({
+            ...current,
+            phase: 'question',
+            currentIndex: nextQuestionIndex,
+            viewingQuestionIndex: null,
+            practiceAnswerUnitStartIndex: undefined,
+            practiceAnswerUnitEndIndex: undefined,
+          }))
+        }
+      }
       return
     }
 
@@ -209,22 +358,54 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
       ...current,
       reviewFilter: null,
       reviewFilterIndex: 0,
+      reviewFilterIndicesSnapshot: null,
+    }))
+  }
+
+  function handlePracticeSubmit() {
+    if (!isPracticeMode || !currentQuestion) return
+    const { startIndex, endIndex } = getStemBoundaries(
+      questions,
+      state.currentIndex,
+      mode as 'questions' | 'questionStem'
+    )
+    setState((current) => ({
+      ...current,
+      phase: 'practiceAnswer',
+      practiceAnswerUnitStartIndex: startIndex,
+      practiceAnswerUnitEndIndex: endIndex,
+      viewingQuestionIndex: startIndex,
+      showNavigator: false,
     }))
   }
 
   function startReviewFilter(filter: ReviewFilter) {
-    const indices = getReviewFilterIndices(
+    let indices = getReviewFilterIndices(
       questions,
       filter,
       state.visitedQuestionIds,
       state.selectedAnswers,
-      state.flaggedIds
+      state.flaggedIds,
+      state.syllogismSnapshots
     )
+    if (exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      if (summary) {
+        indices = indices.filter(
+          (i) => i >= summary.questionStartIndex && i < summary.questionEndIndex
+        )
+      }
+    }
+    if (filter === 'flagged' && indices.length === 0) {
+      setState((current) => ({ ...current, showNoFlaggedDialog: true }))
+      return
+    }
     const firstIndex = indices[0] ?? 0
     setState((current) => ({
       ...current,
       reviewFilter: filter,
       reviewFilterIndex: 0,
+      reviewFilterIndicesSnapshot: indices,
       currentIndex: firstIndex,
     }))
   }
@@ -235,7 +416,8 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
       'all',
       state.visitedQuestionIds,
       state.selectedAnswers,
-      state.flaggedIds
+      state.flaggedIds,
+      state.syllogismSnapshots
     )
     const pos = indices.indexOf(globalIndex)
     const reviewFilterIndex = pos >= 0 ? pos : 0
@@ -294,6 +476,8 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
     currentQuestion,
     questions,
     isLastQuestion,
+    isLastQuestionOfCurrentUnit,
+    isPracticeMode,
     submittedCount,
     effectiveCurrentIndex,
     reviewFilterIndices,
@@ -301,6 +485,7 @@ export function useQuestionEngineState(exam: QuestionEngineExam | undefined) {
     setState,
     goPrevious,
     goNext,
+    handlePracticeSubmit,
     setQuestionByIndex,
     toggleFlagCurrent,
     toggleFlagById,

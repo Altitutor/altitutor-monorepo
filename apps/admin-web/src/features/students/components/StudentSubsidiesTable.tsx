@@ -16,7 +16,7 @@ import { useToast } from '@altitutor/ui';
 import { getErrorMessage } from '@/shared/utils';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatDate } from '@/shared/utils';
-import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import type { StudentSubsidyRow } from '../api/subsidies';
 import { deleteSubsidy } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
@@ -104,7 +104,7 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
                       className={defaultClass || `text-xs px-2 py-0.5 ${textColorClass}`}
                       style={style.backgroundColor ? style : undefined}
                     >
-                      {formatSubjectShortName(subsidy.subject)}
+                      {subsidy.subject?.short_name ?? subsidy.subject?.long_name ?? subsidy.subject?.name ?? ''}
                     </Badge>
                   </TableCell>
                   <TableCell>{subsidy.billing_type}</TableCell>

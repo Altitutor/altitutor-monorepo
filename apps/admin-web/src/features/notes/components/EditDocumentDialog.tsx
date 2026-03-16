@@ -38,6 +38,12 @@ import { NotePropertyPills } from './NotePropertyPills';
 import { NoteTableOfContents } from './NoteTableOfContents';
 import type { NoteFormData, NoteUpdate } from '../types';
 import type { Resolver } from 'react-hook-form';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface AutoSaveManagerProps {
   form: UseFormReturn<NoteFormData>;
@@ -80,6 +86,11 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const isUpdatingFromServerRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const handleEditorReady = useCallback((editor: Editor) => {
     setEditorInstance(editor);
@@ -146,8 +157,14 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   if (!noteId || !isOpen) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-center justify-between gap-4 w-full">
             <div className="flex items-center gap-3 flex-1">
@@ -156,6 +173,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
               </Button>
               <DialogTitle>{isLoading ? 'Loading...' : 'Edit Document'}</DialogTitle>
             </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">

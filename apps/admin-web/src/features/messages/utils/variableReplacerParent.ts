@@ -1,5 +1,4 @@
 import type { Tables } from '@altitutor/shared';
-import { formatClassName } from '@/shared/utils';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
 
 /**
@@ -7,20 +6,66 @@ import { getInviteUrlForStudent } from '@/shared/utils/invites';
  */
 function formatDateWithOrdinal(date: Date): string {
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  
+  const monthNames = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ];
+
   const dayName = dayNames[date.getDay()];
   const day = date.getDate();
   const month = monthNames[date.getMonth()];
-  
-  // Add ordinal suffix (1st, 2nd, 3rd, 4th, etc.)
+
   const getOrdinal = (n: number): string => {
-    const s = ['th', 'st', 'nd', 'rd'];
+    const suffixes = ['th', 'st', 'nd', 'rd'];
     const v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+    return `${n}${suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]}`;
   };
-  
+
   return `${dayName} ${getOrdinal(day)} ${month}`;
+}
+
+function formatDayOfWeek(dayOfWeek: number | null): string {
+  const dayNames: Record<number, string> = {
+    1: 'Mon',
+    2: 'Tue',
+    3: 'Wed',
+    4: 'Thu',
+    5: 'Fri',
+    6: 'Sat',
+    7: 'Sun',
+  };
+
+  return (dayOfWeek && dayNames[dayOfWeek]) || '';
+}
+
+function formatTimeRange(startTime: string | null, endTime: string | null): string {
+  if (!startTime || !endTime) {
+    return '';
+  }
+
+  const formatTime = (time: string): string => {
+    const [hourStr, minuteStr] = time.split(':');
+    const hour = Number.parseInt(hourStr, 10);
+    const minute = Number.parseInt(minuteStr, 10);
+
+    const isPm = hour >= 12;
+    const displayHour = ((hour + 11) % 12) + 1; // 0 -> 12, 13 -> 1, etc.
+    const suffix = isPm ? 'PM' : 'AM';
+
+    return `${displayHour}:${minute.toString().padStart(2, '0')} ${suffix}`;
+  };
+
+  return `${formatTime(startTime)} - ${formatTime(endTime)}`;
 }
 
 /**
@@ -28,8 +73,10 @@ function formatDateWithOrdinal(date: Date): string {
  */
 export interface StudentWithClasses {
   student: Tables<'students'>;
-  classes: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>;
-  classesWithStartDates?: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null, startDate: Date | null }> | null;
+  classes: Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>;
+  classesWithStartDates?:
+    | Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null; startDate: Date | null }>
+    | null;
   linkTokens?: {
     registrationToken?: string | null;
     inviteToken?: string | null;
@@ -105,14 +152,29 @@ function replaceStudentVariable(
       return student.last_name || '';
     
     case 'classes': {
-      const classesText = classes.length > 0
-        ? classes
-            .map(({ class: cls, subject }) => {
-              const className = formatClassName(cls, subject);
-              return `- ${className}`;
-            })
-            .join('\n')
-        : 'No classes enrolled';
+      if (classes.length === 0) {
+        return 'No classes enrolled';
+      }
+
+      const classesText = classes
+        .map(({ class: cls, subject }) => {
+          const subjectName =
+            subject?.long_name ??
+            subject?.short_name ??
+            subject?.name ??
+            cls.long_name?.trim() ??
+            '';
+          const day = formatDayOfWeek(cls.day_of_week ?? null);
+          const timeRange = formatTimeRange(cls.start_time ?? null, cls.end_time ?? null);
+
+          const scheduleParts = [day, timeRange].filter(Boolean).join(' ');
+
+          return scheduleParts
+            ? `- ${subjectName} ${scheduleParts}`.trim()
+            : `- ${subjectName}`.trim();
+        })
+        .join('\n');
+
       return classesText;
     }
     
@@ -120,26 +182,55 @@ function replaceStudentVariable(
       if (classesWithStartDates && classesWithStartDates.length > 0) {
         const classesWithDatesText = classesWithStartDates
           .map(({ class: cls, subject, startDate }) => {
-            const className = formatClassName(cls, subject);
+            const subjectName =
+              subject?.long_name ??
+              subject?.short_name ??
+              subject?.name ??
+              cls.long_name?.trim() ??
+              '';
+            const day = formatDayOfWeek(cls.day_of_week ?? null);
+            const timeRange = formatTimeRange(cls.start_time ?? null, cls.end_time ?? null);
+            const scheduleParts = [day, timeRange].filter(Boolean).join(' ');
+
+            const baseText = scheduleParts
+              ? `- ${subjectName} ${scheduleParts}`.trim()
+              : `- ${subjectName}`.trim();
+
             if (startDate) {
               const formattedDate = formatDateWithOrdinal(startDate);
-              return `- ${className} starting on ${formattedDate}`;
-            } else {
-              return `- ${className}`;
+              return `${baseText} starting on ${formattedDate}`;
             }
+
+            return baseText;
           })
           .join('\n');
         return classesWithDatesText;
       } else {
         // Fallback to regular classes
-        const classesText = classes.length > 0
-          ? classes
-              .map(({ class: cls, subject }) => {
-                const className = formatClassName(cls, subject);
-                return `- ${className}`;
-              })
-              .join('\n')
-          : 'No classes enrolled';
+        if (classes.length === 0) {
+          return 'No classes enrolled';
+        }
+
+        const classesText = classes
+          .map(({ class: cls, subject }) => {
+            const subjectName =
+              subject?.long_name ??
+              subject?.short_name ??
+              subject?.name ??
+              cls.long_name?.trim() ??
+              '';
+            const day = formatDayOfWeek(cls.day_of_week ?? null);
+            const timeRange = formatTimeRange(cls.start_time ?? null, cls.end_time ?? null);
+            const scheduleParts = [day, timeRange].filter(Boolean).join(' ');
+
+            const baseText = scheduleParts
+              ? `- ${subjectName} ${scheduleParts}`.trim()
+              : `- ${subjectName}`.trim();
+
+            return baseText;
+          })
+          .join('\n');
+
         return classesText;
       }
     }
@@ -173,13 +264,15 @@ function replaceStudentVariable(
 export async function replaceVariablesForParentLegacy(
   template: string,
   student: Tables<'students'>,
-  classes: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null }>,
+  classes: Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>,
   senderName?: string | null,
   options?: {
     registrationToken?: string | null;
     inviteToken?: string | null;
     forgotPasswordLink?: string | null;
-    classesWithStartDates?: Array<{ class: Tables<'classes'>, subject: Tables<'subjects'> | null, startDate: Date | null }> | null;
+    classesWithStartDates?:
+      | Array<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null; startDate: Date | null }>
+      | null;
   }
 ): Promise<string> {
   // For backward compatibility, create a parent object with student's name

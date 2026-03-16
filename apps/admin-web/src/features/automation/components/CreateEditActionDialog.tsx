@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -33,6 +33,12 @@ import type { Tables } from '@altitutor/shared';
 import type { AutomationAction, ActionType, ActivityEntityType } from '../types';
 import { TemplateVariablesPicker } from './TemplateVariablesPicker';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 // Entity types that have class_id available in activity events
 const ENTITY_TYPES_WITH_CLASS_ID: ActivityEntityType[] = [
@@ -142,6 +148,12 @@ export function CreateEditActionDialog({
   staffList,
 }: CreateEditActionDialogProps) {
   const isEditing = !!action;
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   const createMutation = useCreateAutomationAction();
   const updateMutation = useUpdateAutomationAction();
   const { data: availableSenders, isLoading: isLoadingSenders } = useAvailableSenders();
@@ -431,12 +443,23 @@ export function CreateEditActionDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="w-full md:max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-2xl max-h-[90vh] overflow-y-auto',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>{isEditing ? 'Edit Action' : 'Create Action'}</DialogTitle>
-          <DialogDescription>
-            Configure an action to execute when the rule matches an activity event
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>{isEditing ? 'Edit Action' : 'Create Action'}</DialogTitle>
+              <DialogDescription>
+                Configure an action to execute when the rule matches an activity event
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         <Form {...form}>

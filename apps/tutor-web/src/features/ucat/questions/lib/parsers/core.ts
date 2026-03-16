@@ -140,60 +140,355 @@ function nodeToText(node: PMNode | null | undefined): string {
   return node.content.map((child) => nodeToText(child)).join(' ')
 }
 
-function collectLogicalLinesFromNode(node: PMNode, lines: string[]): void {
+/** Matches option labels: A. B. a) b) etc. (label only) */
+const OPTION_LABEL_RE = /^\s*([A-Ea-e])[\.\)]\s*$/
+/** Matches label + text in same cell: A. $180 or a) option text */
+const OPTION_LABEL_WITH_TEXT_RE = /^\s*([A-Ea-e])[\.\)]\s*(.+)$/
+/** Matches question number: 1. 2. 10. etc. */
+const QUESTION_NUMBER_RE = /^\s*(\d+)\.\s*$/
+
+/**
+ * Extract question number, question text, and option lines from a table row
+ * where cell1 = "N.", cell2 = [question text paragraphs] + [nested options table].
+ * Returns null if the row doesn't match this pattern.
+ */
+function extractQuestionRowFromNestedTable(
+  row: PMNode
+): { qNum: string; qText: string; optionLines: string[] } | null {
+  const rowContent = (row as PMNode)?.content
+  const cells = Array.isArray(rowContent) ? rowContent : []
+  if (cells.length < 2) return null
+  const cell1 = cells[0] as PMNode
+  const cell2 = cells[1] as PMNode
+  const cell1Text = nodeToText(cell1).trim()
+  const qNumMatch = QUESTION_NUMBER_RE.exec(cell1Text)
+  if (!qNumMatch) return null
+
+  const cell2Content = Array.isArray(cell2?.content) ? cell2.content : []
+  let qText = ''
+  let nestedTable: PMNode | null = null
+  for (const child of cell2Content) {
+    const c = child as PMNode
+    if (c?.type === 'table') {
+      nestedTable = c
+      break
+    }
+    if (c?.type === 'paragraph') {
+      const t = nodeToText(c).trim()
+      if (t.length > 0) qText += (qText ? ' ' : '') + t
+    }
+  }
+  if (!nestedTable) return null
+
+  const nestedRows = Array.isArray(nestedTable.content)
+    ? (nestedTable.content as PMNode[]).map((r) => {
+        const rContent = (r as PMNode)?.content
+        const rowCells = Array.isArray(rContent) ? rContent : []
+        return rowCells.map((cell) => nodeToText(cell).trim())
+      })
+    : []
+  if (!isOptionsTable(nestedRows)) return null
+
+  const optionLines = extractOptionLinesFromTable(nestedRows)
+  return { qNum: qNumMatch[1] ?? '', qText: qText.trim(), optionLines }
+}
+
+/**
+ * Returns true if the table is a "question table": each row has 2 cells,
+ * cell1 = question number (1. 2. etc.), cell2 contains question text + nested options table.
+ */
+function isQuestionTableWithNestedOptions(tableNode: PMNode): boolean {
+  const rows = Array.isArray(tableNode.content) ? tableNode.content : []
+  if (rows.length === 0) return false
+  return rows.every((row) => extractQuestionRowFromNestedTable(row as PMNode) !== null)
+}
+
+/**
+ * Returns true if the table looks like an options table: 2-6 rows, each with
+ * a label (A. B. C. or a) b) c) etc.) and option text (in same or adjacent cell).
+ */
+function isOptionsTable(rows: string[][]): boolean {
+  if (rows.length < 2 || rows.length > 6) return false
+  for (const row of rows) {
+    const hasLabelOrCombined = row.some(
+      (cell) =>
+        OPTION_LABEL_RE.test(cell.trim()) ||
+        OPTION_LABEL_WITH_TEXT_RE.test(cell.trim())
+    )
+    if (!hasLabelOrCombined) return false
+  }
+  return true
+}
+
+/**
+ * Extract option lines from an options table. Supports label and text in
+ * separate cells or combined (e.g. "A. $180"). Returns lines like "A) option text".
+ */
+function extractOptionLinesFromTable(rows: string[][]): string[] {
+  const lines: string[] = []
+  for (const row of rows) {
+    let labelChar = ''
+    let textCell = ''
+    for (const cell of row) {
+      const trimmed = cell.trim()
+      const combined = OPTION_LABEL_WITH_TEXT_RE.exec(trimmed)
+      if (combined) {
+        labelChar = (combined[1] ?? '').toUpperCase()
+        textCell = (combined[2] ?? '').trim()
+        break
+      }
+      const labelOnly = OPTION_LABEL_RE.exec(trimmed)
+      if (labelOnly) {
+        labelChar = (labelOnly[1] ?? '').toUpperCase()
+      } else if (trimmed.length > 0) {
+        textCell = trimmed
+      }
+    }
+    if (labelChar && textCell) {
+      lines.push(`${labelChar}) ${textCell}`)
+    }
+  }
+  return lines
+}
+
+type CollectState = {
+  prefixForNextLine?: string
+  /** When true (Verbal Reasoning), detect nested question tables and emit structured lines. */
+  detectNestedQuestionTables?: boolean
+}
+
+function collectLogicalLinesFromNode(
+  node: PMNode,
+  lines: string[],
+  state?: CollectState
+): void {
   if (!node) return
+  const st = state ?? {}
 
   if (node.type === 'image') {
     const text = nodeToText(node).trim()
     if (text.length > 0) {
-      lines.push(text)
+      lines.push((st.prefixForNextLine ?? '') + text)
+      st.prefixForNextLine = undefined
     }
     return
   }
 
   if (node.type === 'table') {
     const rows = Array.isArray(node.content) ? node.content : []
-    for (const row of rows) {
-      const cells = Array.isArray(row.content) ? row.content : []
+    if (st.detectNestedQuestionTables) {
+      for (let r = 0; r < rows.length; r += 1) {
+        const row = rows[r] as PMNode
+        const extracted = extractQuestionRowFromNestedTable(row)
+        if (extracted) {
+          const { qNum, qText, optionLines } = extracted
+          lines.push((st.prefixForNextLine ?? '') + `${qNum}.`)
+          st.prefixForNextLine = undefined
+          if (qText.length > 0) lines.push(qText)
+          for (const opt of optionLines) lines.push(opt)
+          continue
+        }
+        const cells = Array.isArray(row?.content) ? row.content : []
+        const cell1Text = (cells[0] ? nodeToText(cells[0] as PMNode).trim() : '')
+        const cell2Text = (cells[1] ? nodeToText(cells[1] as PMNode).trim() : '')
+        if (cell1Text.length === 0 && cell2Text.length > 0) {
+          lines.push((st.prefixForNextLine ?? '') + cell2Text)
+          st.prefixForNextLine = undefined
+        }
+      }
+      return
+    }
+    for (let r = 0; r < rows.length; r += 1) {
+      const row = rows[r]
+      const cells = Array.isArray(row?.content) ? row.content : []
       for (const cell of cells) {
         const text = nodeToText(cell).trim()
-        if (text.length > 0) lines.push(text)
+        if (text.length > 0) {
+          lines.push((st.prefixForNextLine ?? '') + text)
+          st.prefixForNextLine = undefined
+        }
       }
+    }
+    return
+  }
+
+  if (node.type === 'orderedList') {
+    const items = Array.isArray(node.content) ? node.content : []
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i]
+      if (!item) continue
+      st.prefixForNextLine = `${i + 1}. `
+      collectLogicalLinesFromNode(item, lines, st)
     }
     return
   }
 
   if (node.type === 'paragraph') {
     const text = nodeToText(node).trim()
-    if (text.length > 0) lines.push(text)
+    if (text.length > 0) {
+      lines.push((st.prefixForNextLine ?? '') + text)
+      st.prefixForNextLine = undefined
+    }
     return
   }
 
   if (Array.isArray(node.content)) {
     for (const child of node.content) {
-      collectLogicalLinesFromNode(child, lines)
+      collectLogicalLinesFromNode(child, lines, st)
     }
   }
+}
+
+export type CollectLogicalLinesOptions = {
+  /** When true (Verbal Reasoning), detect nested question tables and emit structured lines. */
+  detectNestedQuestionTables?: boolean
 }
 
 /**
  * Extract logical lines from a ProseMirror JSON document (paragraphs and table cells).
  * Used by both Verbal Reasoning and Decision Making.
  */
-export function collectLogicalLinesFromDoc(doc: Json | null | undefined): string[] {
+export function collectLogicalLinesFromDoc(
+  doc: Json | null | undefined,
+  options?: CollectLogicalLinesOptions
+): string[] {
   if (!doc || typeof doc !== 'object') return []
   const root = doc as PMNode
   const lines: string[] = []
+  const state: CollectState = {
+    detectNestedQuestionTables: options?.detectNestedQuestionTables,
+  }
 
   if (root.type === 'doc' && Array.isArray(root.content)) {
     for (const child of root.content) {
-      collectLogicalLinesFromNode(child, lines)
+      collectLogicalLinesFromNode(child, lines, state)
     }
   } else {
-    collectLogicalLinesFromNode(root, lines)
+    collectLogicalLinesFromNode(root, lines, state)
   }
 
   return lines
+}
+
+export type QuantitativeReasoningDocBlocks = {
+  logicalLines: string[]
+  tableMap: Map<string, Json>
+}
+
+let tablePlaceholderCounter = 0
+
+function collectBlocksFromNodeForQR(
+  node: PMNode,
+  lines: string[],
+  tableMap: Map<string, Json>,
+  state?: CollectState
+): void {
+  if (!node) return
+  const st = state ?? {}
+
+  if (node.type === 'image') {
+    const text = nodeToText(node).trim()
+    if (text.length > 0) {
+      lines.push((st.prefixForNextLine ?? '') + text)
+      st.prefixForNextLine = undefined
+    }
+    return
+  }
+
+  if (node.type === 'table') {
+    if (isQuestionTableWithNestedOptions(node)) {
+      const tableRows = Array.isArray(node.content) ? node.content : []
+      for (let i = 0; i < tableRows.length; i += 1) {
+        const row = tableRows[i] as PMNode
+        const extracted = extractQuestionRowFromNestedTable(row)
+        if (!extracted) continue
+        const { qNum, qText, optionLines } = extracted
+        lines.push((st.prefixForNextLine ?? '') + `${qNum}.`)
+        st.prefixForNextLine = undefined
+        if (qText.length > 0) lines.push(qText)
+        for (const opt of optionLines) lines.push(opt)
+      }
+      return
+    }
+
+    const rows = Array.isArray(node.content)
+      ? (node.content as PMNode[]).map((row) => {
+          const rowContent = (row as PMNode)?.content
+          const cells = Array.isArray(rowContent) ? rowContent : []
+          return cells.map((cell) => nodeToText(cell).trim())
+        })
+      : []
+    if (isOptionsTable(rows)) {
+      const optionLines = extractOptionLinesFromTable(rows)
+      for (let i = 0; i < optionLines.length; i += 1) {
+        const line = optionLines[i] ?? ''
+        if (i === 0 && st.prefixForNextLine) {
+          lines.push(st.prefixForNextLine + line)
+          st.prefixForNextLine = undefined
+        } else {
+          lines.push(line)
+        }
+      }
+      return
+    }
+    const id = `t${(tablePlaceholderCounter += 1)}`
+    tableMap.set(id, node as unknown as Json)
+    lines.push((st.prefixForNextLine ?? '') + `[[TABLE:${id}]]`)
+    st.prefixForNextLine = undefined
+    return
+  }
+
+  if (node.type === 'orderedList') {
+    const items = Array.isArray(node.content) ? node.content : []
+    for (let i = 0; i < items.length; i += 1) {
+      const item = items[i]
+      if (!item) continue
+      st.prefixForNextLine = `${i + 1}. `
+      collectBlocksFromNodeForQR(item, lines, tableMap, st)
+    }
+    return
+  }
+
+  if (node.type === 'paragraph') {
+    const text = nodeToText(node).trim()
+    if (text.length > 0) {
+      lines.push((st.prefixForNextLine ?? '') + text)
+      st.prefixForNextLine = undefined
+    }
+    return
+  }
+
+  if (Array.isArray(node.content)) {
+    for (const child of node.content) {
+      collectBlocksFromNodeForQR(child, lines, tableMap, st)
+    }
+  }
+}
+
+/**
+ * Extract logical lines from a ProseMirror document while preserving tables as placeholders.
+ * Used by Quantitative Reasoning where tables and images must be preserved in the output.
+ */
+export function collectBlocksFromDocForQuantitativeReasoning(
+  doc: Json | null | undefined
+): QuantitativeReasoningDocBlocks {
+  tablePlaceholderCounter = 0
+  const lines: string[] = []
+  const tableMap = new Map<string, Json>()
+
+  if (!doc || typeof doc !== 'object') return { logicalLines: lines, tableMap }
+
+  const root = doc as PMNode
+
+  if (root.type === 'doc' && Array.isArray(root.content)) {
+    for (const child of root.content) {
+      collectBlocksFromNodeForQR(child, lines, tableMap)
+    }
+  } else {
+    collectBlocksFromNodeForQR(root, lines, tableMap)
+  }
+
+  return { logicalLines: lines, tableMap }
 }
 
 /**

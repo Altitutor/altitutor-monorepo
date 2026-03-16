@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -24,7 +24,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@altitutor/ui';
-
+import { useDialogHotkeys } from '@/shared/hooks';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 const formSchema = z.object({
   name: z.string().min(1, 'Folder name is required'),
   parentId: z.string().nullable().optional(),
@@ -46,6 +52,11 @@ export function CreateFolderDialog({
   const createFolder = useCreateFolder();
   const { data: folders } = useFolders();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -55,7 +66,7 @@ export function CreateFolderDialog({
     },
   });
 
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = useCallback(async (data: FormData) => {
     setIsSubmitting(true);
     try {
       await createFolder.mutateAsync({
@@ -69,14 +80,35 @@ export function CreateFolderDialog({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [createFolder, form, onClose]);
+
+  const handlePrimaryAction = useCallback(() => {
+    if (isSubmitting) return;
+    void form.handleSubmit(onSubmit)();
+  }, [form, isSubmitting, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: isSubmitting,
+  });
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className={cn(
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Create Folder</DialogTitle>
-          <DialogDescription>Create a new folder to organize your notes.</DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Create Folder</DialogTitle>
+              <DialogDescription>Create a new folder to organize your notes.</DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

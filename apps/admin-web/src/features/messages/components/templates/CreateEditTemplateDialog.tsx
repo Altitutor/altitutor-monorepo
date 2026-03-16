@@ -13,7 +13,13 @@ import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
-import { X } from 'lucide-react';
+import { X, Settings2 } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import {
   Select,
   SelectContent,
@@ -27,6 +33,7 @@ import { useSampleStudents, useStudentClassesForTemplate } from '../../hooks/use
 import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
+import { replaceVariables } from '../../utils/variableReplacer';
 
 interface CreateEditTemplateDialogProps {
   isOpen: boolean;
@@ -44,17 +51,31 @@ export function CreateEditTemplateDialog({
   const { toast } = useToast();
   const createMutation = useCreateTemplate();
   const updateMutation = useUpdateTemplate();
-  useCurrentStaff(); // Reserved for template variable replacement
+  const { data: currentStaff } = useCurrentStaff();
 
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [previewMessage, setPreviewMessage] = useState('');
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const { data: sampleStudents = [], isLoading: isLoadingStudents } = useSampleStudents(isOpen);
-  const { isLoading: isLoadingClasses } = useStudentClassesForTemplate(selectedStudentId || null);
+  const { data: studentClasses = [], isLoading: isLoadingClasses } = useStudentClassesForTemplate(selectedStudentId || null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const isSystemTemplate = !!(template && template.template_key);
+  const systemVariables = useMemo(() => {
+    if (!template?.variables) return null;
+    const v = template.variables;
+    if (Array.isArray(v)) return v as string[];
+    return null;
+  }, [template?.variables]);
 
   // Initialize form when dialog opens or template changes
   useEffect(() => {
@@ -167,18 +188,51 @@ export function CreateEditTemplateDialog({
     return sampleStudents.find(s => s.id === selectedStudentId);
   }, [sampleStudents, selectedStudentId]);
 
-  const previewMessage = useMemo(() => {
-    if (!selectedStudent || !content) return content;
-    // Note: Variable replacement happens elsewhere; return content as-is for now
-    return content;
-  }, [content, selectedStudent]);
+  const senderName = useMemo(() => {
+    if (!currentStaff) return null;
+    return `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() || null;
+  }, [currentStaff]);
+
+  // Update preview when content, student, classes, or sender change
+  useEffect(() => {
+    const updatePreview = async () => {
+      if (!content) {
+        setPreviewMessage('');
+        return;
+      }
+      if (!selectedStudent || isLoadingClasses) {
+        setPreviewMessage(content);
+        return;
+      }
+      try {
+        const replaced = await replaceVariables(
+          content,
+          selectedStudent,
+          studentClasses,
+          senderName
+        );
+        setPreviewMessage(replaced);
+      } catch (error) {
+        console.error('Error replacing template variables:', error);
+        setPreviewMessage(content);
+      }
+    };
+    updatePreview();
+  }, [content, selectedStudent, studentClasses, senderName, isLoadingClasses]);
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const characterCount = content.length;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden" onKeyDown={handleKeyDown}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+        onKeyDown={handleKeyDown}
+      >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -191,20 +245,29 @@ export function CreateEditTemplateDialog({
                 <X className="h-4 w-4" />
               </Button>
               <div className="flex-1">
-                <DialogTitle>{template ? 'Edit Template' : 'Create Template'}</DialogTitle>
+                <div className="flex items-center gap-2">
+                  <DialogTitle>{template ? 'Edit Template' : 'Create Template'}</DialogTitle>
+                  {isSystemTemplate && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+                      <Settings2 className="h-3 w-3" />
+                      System template
+                    </span>
+                  )}
+                </div>
                 <DialogDescription>
-                  {template 
+                  {template
                     ? 'Update your message template. Variables will be replaced when sending messages.'
                     : 'Create a new message template. Use variables to personalize messages for each student.'}
                 </DialogDescription>
               </div>
             </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>
         </DialogHeader>
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[60%_40%] gap-6 overflow-hidden min-h-0 px-6 py-4">
-          {/* Left Panel - Main editing area */}
-          <div className="flex flex-col space-y-4 overflow-hidden">
+        <div className="flex-1 overflow-hidden min-h-0 flex flex-col lg:flex-row">
+          {/* Left Panel - Main editing area (independently scrollable) */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 lg:border-r min-w-0">
             <div className="space-y-2">
               <Label htmlFor="template-name">Template Name</Label>
               <Input
@@ -217,7 +280,7 @@ export function CreateEditTemplateDialog({
               />
             </div>
 
-            <div className="flex-1 flex flex-col space-y-2 overflow-hidden">
+            <div className="space-y-2">
               <Label htmlFor="template-content">Content</Label>
               <Textarea
                 id="template-content"
@@ -225,76 +288,33 @@ export function CreateEditTemplateDialog({
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Type your message here. Use variables like {first_name}, {last_name}, {classes}, {sender_name}, {registration_link}, {invite_link}, {forgot_password_link}..."
-                className="flex-1 min-h-[300px] resize-none"
+                className="min-h-[300px] resize-none"
                 disabled={isLoading}
               />
               
               {/* Variable insertion buttons */}
               <div className="space-y-2">
                 <div className="flex gap-2 flex-wrap">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('first_name')}
-                    disabled={isLoading}
-                  >
-                    {'{first_name}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('last_name')}
-                    disabled={isLoading}
-                  >
-                    {'{last_name}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('classes')}
-                    disabled={isLoading}
-                  >
-                    {'{classes}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('sender_name')}
-                    disabled={isLoading}
-                  >
-                    {'{sender_name}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('registration_link')}
-                    disabled={isLoading}
-                  >
-                    {'{registration_link}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('invite_link')}
-                    disabled={isLoading}
-                  >
-                    {'{invite_link}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('forgot_password_link')}
-                    disabled={isLoading}
-                  >
-                    {'{forgot_password_link}'}
-                  </Button>
+                  {(systemVariables ?? [
+                    'first_name',
+                    'last_name',
+                    'classes',
+                    'sender_name',
+                    'registration_link',
+                    'invite_link',
+                    'forgot_password_link',
+                  ]).map((variable) => (
+                    <Button
+                      key={variable}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleInsertVariable(variable)}
+                      disabled={isLoading}
+                    >
+                      {`{${variable}}`}
+                    </Button>
+                  ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Click to insert variables at cursor position
@@ -309,8 +329,8 @@ export function CreateEditTemplateDialog({
             </div>
           </div>
 
-          {/* Right Panel - Preview */}
-          <div className="flex flex-col space-y-4 overflow-hidden border-l pl-6">
+          {/* Right Panel - Preview (independently scrollable) */}
+          <div className="flex-1 lg:flex-[0_0_40%] overflow-y-auto p-6 space-y-6 lg:border-l min-w-0">
             <div className="space-y-2">
               <Label>Preview with Sample Data</Label>
               <Select
@@ -335,11 +355,11 @@ export function CreateEditTemplateDialog({
               </Select>
             </div>
 
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Label className="mb-2">Preview</Label>
-              <div className="flex-1 bg-muted/20 rounded-lg p-4 overflow-y-auto border">
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div className="bg-muted/20 rounded-lg p-4 border min-h-[200px]">
                 {isLoadingClasses ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  <div className="flex items-center justify-center min-h-[120px] text-muted-foreground text-sm">
                     Loading preview...
                   </div>
                 ) : (

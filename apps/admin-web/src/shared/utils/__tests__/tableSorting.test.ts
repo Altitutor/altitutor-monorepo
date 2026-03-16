@@ -154,6 +154,8 @@ describe('filterClassesBySearch', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
     {
       id: 'class-2',
@@ -169,6 +171,8 @@ describe('filterClassesBySearch', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
   ];
 
@@ -216,6 +220,8 @@ describe('filterClassesByDay', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
     {
       id: 'class-2',
@@ -231,6 +237,8 @@ describe('filterClassesByDay', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
     {
       id: 'class-3',
@@ -246,6 +254,8 @@ describe('filterClassesByDay', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
   ];
 
@@ -287,6 +297,8 @@ describe('sortClassesByDayAndTime', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
     {
       id: 'class-2',
@@ -302,6 +314,8 @@ describe('sortClassesByDayAndTime', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
     {
       id: 'class-3',
@@ -317,6 +331,8 @@ describe('sortClassesByDayAndTime', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
     {
       id: 'class-4',
@@ -332,6 +348,8 @@ describe('sortClassesByDayAndTime', () => {
       created_at: null,
       updated_at: null,
       created_by: null,
+      short_name: null,
+      long_name: null,
     },
   ];
 
@@ -376,6 +394,8 @@ describe('sortClassesByDayAndTime', () => {
         created_at: null,
         updated_at: null,
         created_by: null,
+        short_name: null,
+        long_name: null,
       },
       {
         id: 'class-2',
@@ -391,6 +411,8 @@ describe('sortClassesByDayAndTime', () => {
         created_at: null,
         updated_at: null,
         created_by: null,
+        short_name: null,
+        long_name: null,
       },
     ];
 

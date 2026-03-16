@@ -2,9 +2,11 @@
 
 import Link from 'next/link'
 import { useMemo } from 'react'
-import { UcatPagePlaceholder } from '@altitutor/ui'
+import { ListChecks } from 'lucide-react'
+import { UcatPageHeader } from '@/features/layout'
 import { extractTextFromRichJson, type JsonLike } from '@/features/question-engine/model/rich-text'
-import { useSets } from '@/features/sets'
+import type { SetAttemptRow } from '@/features/sets/api/sets-api'
+import { useSetAttempts, useSets } from '@/features/sets'
 
 type SetDetailPageProps = {
   setId: string
@@ -12,6 +14,7 @@ type SetDetailPageProps = {
 
 export function SetDetailPage({ setId }: SetDetailPageProps) {
   const { data: sets, isLoading, error } = useSets()
+  const { data: attempts = [] } = useSetAttempts(setId)
 
   const set = useMemo(
     () => (sets ?? []).find((item) => item.id === setId),
@@ -20,51 +23,59 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
 
   if (isLoading) {
     return (
-      <UcatPagePlaceholder title="Set" description="Practice question set details.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Set"
+          description="Practice question set details."
+          backHref="/sets"
+          backLabel="Back to all sets"
+        />
         <p className="text-sm text-muted-foreground">Loading set...</p>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <UcatPagePlaceholder title="Set" description="Practice question set details.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Set"
+          description="Practice question set details."
+          backHref="/sets"
+          backLabel="Back to all sets"
+        />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : 'Failed to load set'}
         </p>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
   if (!sets || sets.length === 0) {
     return (
-      <UcatPagePlaceholder title="Set" description="Practice question set details.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Set"
+          description="Practice question set details."
+          backHref="/sets"
+          backLabel="Back to all sets"
+        />
         <p className="text-sm text-muted-foreground">No sets available.</p>
-        <div className="mt-4">
-          <Link
-            href="/sets"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-card border border-border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Back to all sets
-          </Link>
-        </div>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
   if (!set) {
     return (
-      <UcatPagePlaceholder title="Set" description="Practice question set details.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Set"
+          description="Practice question set details."
+          backHref="/sets"
+          backLabel="Back to all sets"
+        />
         <p className="text-sm text-red-600 dark:text-red-400">Set not found.</p>
-        <div className="mt-4">
-          <Link
-            href="/sets"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-card border border-border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Back to all sets
-          </Link>
-        </div>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
@@ -89,14 +100,15 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
     set.updated_at != null ? new Date(set.updated_at).toLocaleString(undefined, { dateStyle: 'medium' }) : null
 
   return (
-    <UcatPagePlaceholder title="Set" description="Review this practice set before starting.">
-      <div className="space-y-6">
-        <header className="space-y-2">
-          <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-          {description ? <p className="text-sm text-muted-foreground">{description}</p> : null}
-        </header>
+    <div className="space-y-6">
+      <UcatPageHeader
+        title={title}
+        description={description ?? 'Review this practice set before starting.'}
+        backHref="/sets"
+        backLabel="Back to all sets"
+      />
 
-        <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
+      <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <div>
               <dt className="font-medium text-muted-foreground">Time limit</dt>
@@ -121,22 +133,52 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
           </dl>
         </section>
 
-        <div className="flex flex-wrap gap-3">
+        {attempts.length > 0 ? (
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
+              <ListChecks className="h-4 w-4" />
+              Previous attempts
+            </h2>
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[320px] text-sm">
+                <thead>
+                  <tr className="border-b border-border">
+                    <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">Date</th>
+                    <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">Score</th>
+                    <th className="pb-2 text-right font-medium text-muted-foreground">Scaled</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {attempts.map((a: SetAttemptRow) => (
+                    <tr key={a.id} className="border-b border-border/50 last:border-0">
+                      <td className="py-2 pr-4">
+                        {new Date(a.attemptedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
+                      </td>
+                      <td className="py-2 pr-4 text-right">
+                        {a.scorePoints != null && a.totalPoints != null
+                          ? `${a.scorePoints} / ${a.totalPoints}`
+                          : '—'}
+                      </td>
+                      <td className="py-2 text-right">
+                        {a.scaledScore != null ? a.scaledScore : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        ) : null}
+
+        <div className="flex justify-end">
           <Link
             href={`/exam/sets?id=${encodeURIComponent(set.id)}`}
             className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground"
           >
             Launch set
           </Link>
-          <Link
-            href="/sets"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-card border border-border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Back to all sets
-          </Link>
         </div>
-      </div>
-    </UcatPagePlaceholder>
+    </div>
   )
 }
 

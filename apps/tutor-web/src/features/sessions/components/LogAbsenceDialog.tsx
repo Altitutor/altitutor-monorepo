@@ -23,6 +23,12 @@ import type {
 import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import { filterStudentsBySearch } from '@/shared/utils/filtering';
 import { Search, Loader2 } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { Input } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
 import type { Tables } from '@altitutor/shared';
@@ -37,6 +43,7 @@ interface LogAbsenceDialogProps {
 
 export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogProps) {
   const [step, setStep] = useState<WizardStep>('select-student');
+  const [expanded, setExpanded] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<AbsenceDecision[]>([]);
@@ -71,6 +78,11 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
 
   // Log absences mutation
   const logAbsencesMutation = useLogAbsences();
+
+  // Reset expanded when dialog closes
+  useEffect(() => {
+    if (!isOpen) setExpanded(false)
+  }, [isOpen])
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -479,10 +491,21 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={cn(
+          'max-w-2xl max-h-[90vh] overflow-y-auto',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>{getStepTitle()}</DialogTitle>
-          <DialogDescription>{getStepDescription()}</DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>{getStepTitle()}</DialogTitle>
+              <DialogDescription>{getStepDescription()}</DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         <div className="py-4">{renderStepContent()}</div>

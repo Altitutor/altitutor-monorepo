@@ -1,4 +1,5 @@
 import type { Tables } from '@altitutor/shared';
+import type { InvoiceStatusPayload } from '@/features/billing/utils/invoiceFormatters';
 import type {
   StudentPlannedStatus,
   StudentActualStatus,
@@ -24,7 +25,7 @@ export type ProcessedStudentData = {
   actualStatus: StudentActualStatus;
   rescheduledDate: string;
   rescheduledSessionId?: string;
-  invoiceStatus: string | null;
+  invoiceStatus: InvoiceStatusPayload | null;
   plannedAbsence: boolean;
   hasInvoiceItems: boolean;
 };
@@ -52,7 +53,7 @@ type SessionStudentItem = {
   was_trial?: boolean;
   is_rescheduled?: boolean;
   is_credited?: boolean;
-  invoice_status?: string | null;
+  invoice_status_payload?: InvoiceStatusPayload | null;
   rescheduled_session?: {
     session?: {
       id: string;
@@ -130,9 +131,9 @@ export function processSessionStudents(
       actualStatus: attendanceStatus.actualStatus,
       rescheduledDate: attendanceStatus.rescheduledDate,
       rescheduledSessionId: attendanceStatus.rescheduledSessionId,
-      invoiceStatus: ss.invoice_status || null,
+      invoiceStatus: ss.invoice_status_payload || null,
       plannedAbsence: ss.planned_absence || false,
-      hasInvoiceItems: !!ss.invoice_status,
+      hasInvoiceItems: !!ss.invoice_status_payload,
     };
   });
 }

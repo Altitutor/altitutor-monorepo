@@ -17,7 +17,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { staffApi } from '@/features/staff/api/staff';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { useSubjectsList } from '@/features/subjects/hooks/useSubjectsQuery';
-import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import { getDayOfWeek } from '@/shared/utils/datetime';
 import { AssignStaffModal } from '@/features/enrollments';
 
@@ -269,7 +269,7 @@ export function ClassesTab({
           <div className="flex flex-wrap gap-2">
             {displaySubjects.length > 0 ? (
               displaySubjects.map((subject) => {
-                const shortName = formatSubjectShortName(subject);
+                const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
                 const { style, textColorClass } = getSubjectColorStyle(subject);
                 const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                 return (
@@ -390,7 +390,7 @@ export function ClassesTab({
         <div className="flex flex-wrap gap-2">
           {displaySubjects.length > 0 ? (
             displaySubjects.map((subject) => {
-              const shortName = formatSubjectShortName(subject);
+              const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
               const { style, textColorClass } = getSubjectColorStyle(subject);
               const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
               return (

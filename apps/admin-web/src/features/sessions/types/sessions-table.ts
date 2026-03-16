@@ -14,7 +14,7 @@ export type SessionTableStudent = Tables<'students'> & {
   planned_absence?: boolean;
   actual_attended?: boolean | null;
   actual_was_trial?: boolean | null;
-  invoice_status?: string | null;
+  invoice_status_payload?: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
   sessions_students_id?: string | null;
   is_extra?: boolean;
   was_trial?: boolean;

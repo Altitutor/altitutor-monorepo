@@ -30,17 +30,11 @@ export function computeRawScore(params: {
   }
 
   // Process syllogism stems
+  // correctCount: count of correct answers across ALL questions in stem (unattempted = wrong)
   for (const [, stemQuestions] of syllogismStems) {
-    const stemAttempts = stemQuestions
-      .map((q) => {
-        const attempt = attemptByQuestion.get(q.id)
-        if (!attempt) return null
-        const isCorrect = attempt.selectedOptionId === q.correctOptionId
-        return { questionId: q.id, isCorrect }
-      })
-      .filter((a): a is { questionId: string; isCorrect: boolean } => a !== null)
-
-    const correctCount = stemAttempts.filter((a) => a.isCorrect).length
+    const correctCount = stemQuestions.filter(
+      (q) => attemptByQuestion.get(q.id)?.selectedOptionId === q.correctOptionId
+    ).length
     const stemPoints = SYLLOGISM_POINTS[correctCount] ?? 0
 
     // Distribute stem points across correct questions only (so total = stemPoints)

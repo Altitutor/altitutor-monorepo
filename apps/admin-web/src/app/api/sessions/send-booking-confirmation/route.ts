@@ -3,7 +3,7 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { sendEmail } from '@/shared/lib/email';
 import { getBookingConfirmationEmailTemplate } from '@/shared/lib/email-templates';
-import { getBookingConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
+import { getBookingConfirmationMessage } from '@/features/messages/api/systemTemplates';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
 import { format } from 'date-fns';
 
@@ -17,16 +17,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user is admin and get staff name for sender_name
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('role')
+      .select('role, first_name, last_name')
       .eq('user_id', user.id)
-      .single<{ role: string }>();
+      .single<{ role: string; first_name: string | null; last_name: string | null }>();
 
     if (staffError || !staffData || (staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
+
+    const senderName = `${staffData.first_name ?? ''} ${staffData.last_name ?? ''}`.trim();
 
     // Verify admin client is available
     if (!supabaseAdmin) {
@@ -55,10 +57,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch session to get date/time info
+    // Fetch session to get date/time and type
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('sessions')
-      .select('id, start_at, end_at')
+      .select('id, start_at, end_at, type')
       .eq('id', sessionId)
       .single();
 
@@ -277,12 +279,17 @@ export async function POST(request: NextRequest) {
             conversationId = newConvo.id;
           }
 
-          const messageBody = getBookingConfirmationSmsTemplate({
-            firstName: recipient.first_name || 'there',
-            bookingUrl,
-            sessionDate,
-            sessionTime,
-          });
+          const messageBody = await getBookingConfirmationMessage(
+            supabaseAdmin,
+            {
+              firstName: recipient.first_name || 'there',
+              bookingUrl,
+              sessionDate,
+              sessionTime,
+              sessionType: session.type,
+              senderName,
+            }
+          );
 
           const { data: message, error: messageError } = await supabaseAdmin
             .from('messages')

@@ -1,5 +1,6 @@
 'use client';
 
+import { useCallback, useEffect, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -14,12 +15,18 @@ import {
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
 import { X } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { useCreateIssue } from '../api/mutations';
 import type { IssueFormData, IssueStatus, IssueTagInsert } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
 import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
-import { useEffect } from 'react';
+import { useDialogHotkeys } from '@/shared/hooks';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 import { getTagEntity, resolveTagLabels } from '../utils/mentionLabels';
 
@@ -82,7 +89,12 @@ export function CreateIssueDialog({
   initialDueDate = null,
   initialTags 
 }: CreateIssueDialogProps) {
+  const [expanded, setExpanded] = useState(false);
   const createIssue = useCreateIssue();
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const form = useForm<IssueFormData, unknown, IssueFormData>({
     resolver: zodResolver(formSchema) as Resolver<IssueFormData>,
@@ -116,7 +128,12 @@ export function CreateIssueDialog({
     };
   }, [isOpen, initialStatus, initialDueDate, initialTags, form]);
 
-  const onSubmit = async (data: IssueFormData) => {
+  const handleClose = useCallback(() => {
+    form.reset();
+    onClose();
+  }, [form, onClose]);
+
+  const onSubmit = useCallback(async (data: IssueFormData) => {
     try {
       await createIssue.mutateAsync({
         issue: {
@@ -132,16 +149,28 @@ export function CreateIssueDialog({
     } catch (error) {
       console.error('Failed to create issue:', error);
     }
-  };
+  }, [createIssue, handleClose, initialTags, onIssueCreated]);
 
-  const handleClose = () => {
-    form.reset();
-    onClose();
-  };
+  const handlePrimaryAction = useCallback(() => {
+    if (createIssue.isPending) return;
+    void form.handleSubmit(onSubmit as SubmitHandler<IssueFormData>)();
+  }, [createIssue.isPending, form, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: createIssue.isPending,
+  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <Form {...form}>
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
             <div className="flex items-center justify-between gap-4 w-full">
@@ -158,6 +187,7 @@ export function CreateIssueDialog({
                   <DialogTitle>Create Issue</DialogTitle>
                 </div>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </DialogHeader>
 

@@ -182,6 +182,8 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
       admin_shift_id: null,
       created_at: null,
       updated_at: null,
+      short_name: (session as { short_name?: string | null }).short_name ?? null,
+      long_name: (session as { long_name?: string | null }).long_name ?? null,
       class: session.class_id ? {
         id: session.class_id,
         day_of_week: session.day_of_week,
@@ -193,6 +195,8 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
         subject_id: session.subject_id,
         created_at: null,
         updated_at: null,
+        short_name: (session as { class_short_name?: string | null }).class_short_name ?? null,
+        long_name: (session as { class_long_name?: string | null }).class_long_name ?? null,
       } as Tables<'classes'> : null,
       subject: session.subject_id ? {
         id: session.subject_id,
@@ -204,6 +208,8 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
         year_level: sessionExt.subject_year_level ?? null,
         created_at: null,
         updated_at: null,
+        short_name: session.subject_short_name ?? null,
+        long_name: session.subject_long_name ?? null,
       } as Tables<'subjects'> : null,
       sessionsStudentsId: session.session_student_id,
     } : null;

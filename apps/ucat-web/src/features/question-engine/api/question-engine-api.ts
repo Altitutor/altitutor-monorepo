@@ -253,6 +253,7 @@ async function buildSetExam(setId: string): Promise<QuestionEngineExam> {
 }
 
 type SetPayloadWithTiming = {
+  name: string
   questions: QuestionItem[]
   setTimeLimitSeconds: number | null
   instructionsTimeLimitSeconds: number | null
@@ -266,7 +267,7 @@ async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
   const setIds = (mockDetail.sets || []).map((set) => set.id) as string[]
 
   const setPayloadsWithTiming = await Promise.all(
-    setIds.map(async (setId) => {
+    setIds.map(async (setId, idx) => {
       const setDetail = await loadSetDetail(setId)
       const stemIds = (setDetail.stems || []).map((stem) => stem.stem_id)
       const stemDetails = await loadStemDetails(stemIds)
@@ -286,6 +287,7 @@ async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
           ? (firstStem.section_instructions_text as Record<string, unknown>)
           : null
       return {
+        name: (setDetail.name && typeof setDetail.name === 'string' ? setDetail.name : null) ?? `Set ${idx + 1}`,
         questions,
         setTimeLimitSeconds,
         instructionsTimeLimitSeconds,
@@ -297,6 +299,7 @@ async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
 
   const instructionsScreens: QuestionEngineExam['instructionsScreens'] = []
   const mockTimingSegments: NonNullable<QuestionEngineExam['mockTimingSegments']> = []
+  const mockSetSummaries: NonNullable<QuestionEngineExam['mockSetSummaries']> = []
   let instructionsIndex = 0
   let questionOffset = 0
 
@@ -335,6 +338,12 @@ async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
       questionEndIndex: end,
       timeLimitSeconds: setTimeLimitSeconds,
     })
+    mockSetSummaries.push({
+      setIndex,
+      name: set.name,
+      questionStartIndex: start,
+      questionEndIndex: end,
+    })
   }
 
   const questions = setPayloadsWithTiming.flatMap((s) => s.questions)
@@ -346,6 +355,7 @@ async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
     questions,
     instructionsScreens,
     mockTimingSegments,
+    mockSetSummaries,
   }
 }
 

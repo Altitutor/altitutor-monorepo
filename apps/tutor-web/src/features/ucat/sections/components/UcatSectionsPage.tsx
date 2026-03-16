@@ -14,6 +14,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
+  useToast,
 } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -44,6 +46,7 @@ type SectionDraft = {
   name: string
   displayColumns: '1' | '2'
   instructionsText: Json | null
+  isTimed: boolean
   timeLimitMinutes: string
   timeLimitSeconds: string
   numberOfQuestions: string
@@ -109,6 +112,7 @@ const emptyDraft: SectionDraft = {
   name: '',
   displayColumns: '2',
   instructionsText: null,
+  isTimed: true,
   timeLimitMinutes: '',
   timeLimitSeconds: '',
   numberOfQuestions: '',
@@ -120,6 +124,7 @@ export function UcatSectionsPage() {
   const access = useUcatAccess()
   const queryClient = useQueryClient()
   const sections = useUcatSections()
+  const { toast } = useToast()
   const createSection = useCreateUcatSection()
   const updateSection = useUpdateUcatSection()
   const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
@@ -261,6 +266,7 @@ export function UcatSectionsPage() {
                       name: row.original.name,
                       displayColumns: String(row.original.display_columns) as '1' | '2',
                       instructionsText: row.original.instructions_text,
+                      isTimed: sec > 0,
                       timeLimitMinutes: String(Math.floor(sec / 60)),
                       timeLimitSeconds: String(Math.floor(sec % 60)),
                       numberOfQuestions: row.original.number_of_questions != null ? String(row.original.number_of_questions) : '',
@@ -283,21 +289,70 @@ export function UcatSectionsPage() {
   if (!access.data) return <UcatAccessDenied />
 
   async function create() {
-    await createSection.mutateAsync({
+    const timeLimitSeconds = draft.isTimed
+      ? minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds)
+      : null
+    const result = await createSection.mutateAsync({
       sectionNumber: Number(draft.sectionNumber),
       name: draft.name,
       displayColumns: Number(draft.displayColumns) as 1 | 2,
       instructionsText: draft.instructionsText,
-      timeLimitSeconds: minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds),
+      timeLimitSeconds,
       numberOfQuestions: draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions),
       instructionsTimeLimitSeconds: minutesSecondsToTotal(draft.instructionsTimeLimitMinutes, draft.instructionsTimeLimitSeconds),
     })
+    const sectionName = draft.name.trim() || 'Untitled'
+    const instructionsTimeLimitSeconds = minutesSecondsToTotal(draft.instructionsTimeLimitMinutes, draft.instructionsTimeLimitSeconds)
+    const numberOfQuestions = draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions)
+    const createdRow: SectionRow = {
+      id: result.id,
+      section_number: Number(draft.sectionNumber),
+      name: draft.name,
+      display_columns: Number(draft.displayColumns) as 1 | 2,
+      instructions_text: draft.instructionsText,
+      time_limit_seconds: timeLimitSeconds,
+      number_of_questions: numberOfQuestions,
+      time_per_question:
+        timeLimitSeconds != null && numberOfQuestions != null && numberOfQuestions > 0
+          ? timeLimitSeconds / numberOfQuestions
+          : null,
+      instructions_time_limit_seconds: instructionsTimeLimitSeconds,
+    }
     setCreateOpen(false)
     setDraft(emptyDraft)
+    toast({
+      title: `Section ${sectionName} created`,
+      description: (
+        <button
+          type="button"
+          onClick={() => {
+            setEditing(createdRow)
+            setDraft({
+              sectionNumber: String(createdRow.section_number),
+              name: createdRow.name,
+              displayColumns: String(createdRow.display_columns) as '1' | '2',
+              instructionsText: createdRow.instructions_text,
+              isTimed: (createdRow.time_limit_seconds ?? 0) > 0,
+              timeLimitMinutes: String(Math.floor((createdRow.time_limit_seconds ?? 0) / 60)),
+              timeLimitSeconds: String(Math.floor((createdRow.time_limit_seconds ?? 0) % 60)),
+              numberOfQuestions: createdRow.number_of_questions != null ? String(createdRow.number_of_questions) : '',
+              instructionsTimeLimitMinutes: String(Math.floor((createdRow.instructions_time_limit_seconds ?? 0) / 60)),
+              instructionsTimeLimitSeconds: String(Math.floor((createdRow.instructions_time_limit_seconds ?? 0) % 60)),
+            })
+          }}
+          className="underline font-medium hover:no-underline text-left"
+        >
+          View section
+        </button>
+      ),
+    })
   }
 
   async function saveEdit() {
     if (!editing) return
+    const timeLimitSeconds = draft.isTimed
+      ? minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds)
+      : null
     await updateSection.mutateAsync({
       id: editing.id,
       payload: {
@@ -305,7 +360,7 @@ export function UcatSectionsPage() {
         name: draft.name,
         displayColumns: Number(draft.displayColumns) as 1 | 2,
         instructionsText: draft.instructionsText,
-        timeLimitSeconds: minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds),
+        timeLimitSeconds,
         numberOfQuestions: draft.numberOfQuestions.trim() === '' ? null : Number(draft.numberOfQuestions),
         instructionsTimeLimitSeconds: minutesSecondsToTotal(draft.instructionsTimeLimitMinutes, draft.instructionsTimeLimitSeconds),
       },
@@ -354,7 +409,11 @@ export function UcatSectionsPage() {
         subtitle="Add a new UCAT section"
         onSave={create}
         saveLabel="Create"
-        saveDisabled={createSection.isPending}
+        saveDisabled={
+          createSection.isPending ||
+          (draft.isTimed &&
+            ((t) => t == null || t <= 0)(minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds)))
+        }
         isSaving={createSection.isPending}
       >
         <div className="p-6 overflow-y-auto h-full">
@@ -371,7 +430,11 @@ export function UcatSectionsPage() {
         title="Edit Section"
         subtitle="Update section metadata"
         onSave={saveEdit}
-        saveDisabled={updateSection.isPending}
+        saveDisabled={
+          updateSection.isPending ||
+          (draft.isTimed &&
+            ((t) => t == null || t <= 0)(minutesSecondsToTotal(draft.timeLimitMinutes, draft.timeLimitSeconds)))
+        }
         isSaving={updateSection.isPending}
       >
         <div className="p-6 overflow-y-auto h-full">
@@ -419,27 +482,46 @@ function SectionForm({
         </Select>
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-medium">Time limit (mm:ss)</span>
-        <div className="flex items-center gap-2">
-          <Input
-            type="number"
-            min={0}
-            placeholder="0"
-            className="w-20"
-            value={draft.timeLimitMinutes}
-            onChange={(e) => setDraft((prev) => ({ ...prev, timeLimitMinutes: e.target.value }))}
-          />
-          <span className="text-muted-foreground font-medium">:</span>
-          <Input
-            type="number"
-            min={0}
-            max={59}
-            placeholder="0"
-            className="w-20"
-            value={draft.timeLimitSeconds}
-            onChange={(e) => setDraft((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))}
-          />
+        <div className="mb-2 flex items-center justify-between">
+          <span className="font-medium">Time limit</span>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Untimed</span>
+            <Switch
+              checked={draft.isTimed}
+              onCheckedChange={(v) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  isTimed: v,
+                  ...(v ? {} : { timeLimitMinutes: '', timeLimitSeconds: '' }),
+                }))
+              }
+            />
+            <span className="text-xs text-muted-foreground">Timed</span>
+          </div>
         </div>
+        {draft.isTimed && (
+          <div className="flex items-center gap-2">
+            <Input
+              type="number"
+              min={0}
+              placeholder="0"
+              className="w-20"
+              value={draft.timeLimitMinutes}
+              onChange={(e) => setDraft((prev) => ({ ...prev, timeLimitMinutes: e.target.value }))}
+            />
+            <span className="text-muted-foreground font-medium">:</span>
+            <Input
+              type="number"
+              min={0}
+              max={59}
+              placeholder="0"
+              className="w-20"
+              value={draft.timeLimitSeconds}
+              onChange={(e) => setDraft((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))}
+            />
+            <span className="text-muted-foreground text-xs">min : sec</span>
+          </div>
+        )}
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Number of questions</span>

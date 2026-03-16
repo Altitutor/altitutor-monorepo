@@ -68,6 +68,13 @@ export type QuestionEngineExam = {
   setModeTiming?: SetModeTiming | null
   /** Mock mode only. Ordered segments for timer and expiry. */
   mockTimingSegments?: MockTimingSegment[]
+  /** Mock mode only. Per-set summaries for mock score display. */
+  mockSetSummaries?: Array<{
+    setIndex: number
+    name: string
+    questionStartIndex: number
+    questionEndIndex: number
+  }>
 }
 
 export type QuestionStemWithQuestions = {
@@ -150,8 +157,18 @@ export function mapQuestionsToItems(questions: QuestionEngineQuestion[]): Questi
 export type ReviewFilter = 'all' | 'incomplete' | 'flagged'
 
 export type QuestionEngineState = {
-  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' (marking = results table, Next closes) */
-  phase: 'instructions' | 'intro' | 'question' | 'review' | 'marking'
+  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'mockScore' | 'practiceAnswer' | 'practiceComplete' */
+  phase:
+    | 'instructions'
+    | 'intro'
+    | 'question'
+    | 'review'
+    | 'marking'
+    | 'mockScore'
+    | 'practiceAnswer'
+    | 'practiceComplete'
+  /** Mock only: which set we're in (0-based). Used when in review to scope to current set. */
+  mockCurrentSetIndex?: number
   /** Which instructions screen (0-based). Only relevant when phase === 'instructions'. */
   instructionsIndex: number
   /** When true, Ready to Begin dialog is shown on top of current screen (e.g. instructions). No = dismiss only. */
@@ -176,10 +193,17 @@ export type QuestionEngineState = {
   reviewFilter: ReviewFilter | null
   /** Index into the filtered list when in review mode. Only relevant when reviewFilter !== null. */
   reviewFilterIndex: number
+  /** Snapshot of indices when entering review filter mode. List stays fixed until returning to review screen. */
+  reviewFilterIndicesSnapshot: number[] | null
+  /** When true, show "There are no flagged questions" dialog. */
+  showNoFlaggedDialog: boolean
   showReviewInstructionsDialog: boolean
   showEndReviewDialog: boolean
   /** When phase === 'marking': index of question being viewed in fullscreen, or null for results table. */
   viewingQuestionIndex: number | null
   /** When true, show Exit Results confirmation dialog. */
   showExitResultsDialog: boolean
+  /** Practice mode only: unit being reviewed. viewingQuestionIndex is the current question in this range. */
+  practiceAnswerUnitStartIndex?: number
+  practiceAnswerUnitEndIndex?: number
 }

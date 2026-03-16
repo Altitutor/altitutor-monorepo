@@ -20,7 +20,7 @@ import { TablePagination } from '@/shared/components/TablePagination';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useSessionsTable } from '@/features/sessions/hooks/useSessionsTable';
 import { useDataTable } from '@/shared/hooks/useDataTable';
-import { getInvoiceStatusBadgeVariant } from '@/features/sessions/utils/sessionsTableHelpers';
+import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { processStudentSessionData } from '@/features/sessions/utils/modalSessionProcessing';
 import { LogAbsenceDialog } from '@/features/sessions/components/absences/LogAbsenceDialog';
@@ -267,15 +267,11 @@ export function StudentModalSessionsTable({
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const badgeInfo = getInvoiceStatusBadgeVariant(processed.invoiceStatus);
-                        if (!badgeInfo) {
+                        const badge = getInvoiceStatusBadge(processed.invoiceStatus);
+                        if (!badge) {
                           return <span className="text-xs text-muted-foreground">-</span>;
                         }
-                        return (
-                          <Badge variant={badgeInfo.variant} className="text-xs">
-                            {badgeInfo.label}
-                          </Badge>
-                        );
+                        return badge;
                       })()}
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>

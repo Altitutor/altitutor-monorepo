@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
@@ -12,6 +12,12 @@ import { useCreateClassPlan } from '../hooks/useClassPlansQuery';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface CreatePlanModalProps {
   isOpen: boolean;
@@ -42,6 +48,11 @@ export function CreatePlanModal({ isOpen, onClose }: CreatePlanModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showWarning, setShowWarning] = useState(true);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Form state
   const [planName, setPlanName] = useState('');
@@ -188,12 +199,23 @@ export function CreatePlanModal({ isOpen, onClose }: CreatePlanModalProps) {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[700px] max-h-[90vh] overflow-y-auto',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Create Class Plan</DialogTitle>
-          <DialogDescription>
-            Set up a new class plan with time slots for each day of the week
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Create Class Plan</DialogTitle>
+              <DialogDescription>
+                Set up a new class plan with time slots for each day of the week
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         {showWarning && (

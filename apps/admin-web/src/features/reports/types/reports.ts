@@ -160,7 +160,8 @@ export interface BillingStatsReportData {
    */
   refundsByDay: ReportDataPoint[];
   /**
-   * Credit given over time. Each entity is the credit note with reason.
+   * Credit given over time. Each entity is a credit-related event (credit notes and
+   * credit balance transactions) with reason and amount for drill-down.
    */
   creditsByDay: RevenueReportDataPoint[];
   /**

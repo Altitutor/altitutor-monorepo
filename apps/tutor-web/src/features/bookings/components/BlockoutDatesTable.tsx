@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -19,6 +19,12 @@ import {
   Label,
 } from '@altitutor/ui';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { blockoutsApi, type BlockoutRow, type CreateBlockoutInput, type UpdateBlockoutInput } from '../api/blockouts';
 
 interface BlockoutDatesTableProps {
@@ -174,6 +180,10 @@ function utcToAdelaideDate(utcString: string): string {
 export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTableProps) {
   const [editingBlockout, setEditingBlockout] = useState<BlockoutRow | null>(null);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!editingBlockout && !isAddDialogOpen) setExpanded(false)
+  }, [editingBlockout, isAddDialogOpen])
   
   // Form state - using date ranges instead of date + times
   const [startDate, setStartDate] = useState<string>(() => {
@@ -356,12 +366,22 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
 
       {/* Edit Dialog */}
       <Dialog open={!!editingBlockout} onOpenChange={() => setEditingBlockout(null)}>
-        <DialogContent>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Edit Blockout</DialogTitle>
-            <DialogDescription>
-              Update your blockout date range
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Edit Blockout</DialogTitle>
+                <DialogDescription>
+                  Update your blockout date range
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">
@@ -410,12 +430,22 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
 
       {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Add Blockout</DialogTitle>
-            <DialogDescription>
-              Create a new blockout date range when you are unavailable
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Add Blockout</DialogTitle>
+                <DialogDescription>
+                  Create a new blockout date range when you are unavailable
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="grid grid-cols-2 gap-4">

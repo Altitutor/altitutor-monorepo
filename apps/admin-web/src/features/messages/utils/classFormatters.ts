@@ -1,4 +1,3 @@
-import { formatClassName } from '@/shared/utils';
 import { formatShortDateWithDay } from './formatDate';
 import type { Tables } from '@altitutor/shared';
 
@@ -20,8 +19,8 @@ export function formatClassesList(
 ): string {
   if (classes.length === 0) return emptyMessage;
   return classes
-    .map(({ class: cls, subject }) => {
-      const className = formatClassName(cls, subject);
+    .map(({ class: cls }) => {
+      const className = cls.long_name?.trim() ?? '';
       return `- ${className}`;
     })
     .join('\n');
@@ -37,8 +36,8 @@ export function formatClassesWithStartDatesList(
 ): string {
   if (classesWithDates.length === 0) return emptyMessage;
   return classesWithDates
-    .map(({ class: cls, subject, startDate }) => {
-      const className = formatClassName(cls, subject);
+    .map(({ class: cls, startDate }) => {
+      const className = cls.long_name?.trim() ?? '';
       if (startDate) {
         const formattedDate = formatShortDateWithDay(startDate);
         return `- ${className} starting on ${formattedDate}`;

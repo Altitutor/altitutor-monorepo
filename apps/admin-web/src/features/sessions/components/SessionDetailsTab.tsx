@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Separator, Button, Input, Label } from '@altitutor/ui';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
@@ -13,7 +13,8 @@ import { Supabase } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
-import { formatSubjectDisplay, getSubjectColorStyle, formatClassName, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
+import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
+import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { formatTime } from '@/shared/utils/datetime';
 import {
   SessionInfoGrid,
@@ -34,36 +35,45 @@ import {
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import type { SessionDetailsSession, SessionDetailsTutorLog } from '../types';
-import { useSubjects } from '@/features/subjects';
-import { useClassesMinimal } from '@/features/classes/hooks/useClassesQuery';
+import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
+import { ClassSelectPopover } from '@/features/classes/components/ClassSelectPopover';
+import type { MinimalClass } from '@/features/classes/api/classes';
 
 const SESSION_TYPES = Supabase.Constants.public.Enums.session_type;
 
 const sessionEditSchema = z
   .object({
     type: z.enum([...SESSION_TYPES] as [string, ...string[]]),
-    startAtLocal: z.string().min(1, 'Start date/time is required'),
-    endAtLocal: z.string().min(1, 'End date/time is required'),
+    date: z.string().min(1, 'Date is required'),
+    startTime: z.string().min(1, 'Start time is required'),
+    endTime: z.string().min(1, 'End time is required'),
     subjectId: z.string().optional().nullable(),
     classId: z.string().optional().nullable(),
   })
-  .refine((data) => data.endAtLocal > data.startAtLocal, {
-    message: 'End must be after start',
-    path: ['endAtLocal'],
+  .refine((data) => data.endTime > data.startTime, {
+    message: 'End time must be after start time',
+    path: ['endTime'],
   });
 
 export type SessionEditFormData = z.infer<typeof sessionEditSchema>;
 
-/** Convert ISO string to datetime-local value (YYYY-MM-DDTHH:mm) */
-function toLocalDateTimeString(iso: string | null | undefined): string {
+/** Extract date (YYYY-MM-DD) from ISO string */
+function toLocalDateString(iso: string | null | undefined): string {
   if (!iso) return '';
   const d = new Date(iso);
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Extract time (HH:mm) from ISO string */
+function toLocalTimeString(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
   const h = String(d.getHours()).padStart(2, '0');
   const min = String(d.getMinutes()).padStart(2, '0');
-  return `${y}-${m}-${day}T${h}:${min}`;
+  return `${h}:${min}`;
 }
 
 type SessionDetailsTabProps = {
@@ -77,7 +87,7 @@ type SessionDetailsTabProps = {
     actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     rescheduledDate: string;
     rescheduledSessionId?: string;
-    invoiceStatus: string | null;
+    invoiceStatus: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
     plannedAbsence: boolean;
     hasInvoiceItems: boolean;
   }>;
@@ -170,26 +180,50 @@ export function SessionDetailsTab({
   const hasTutorLog = !!tutorLog;
   const subject = session?.subject ?? session?.class?.subject;
   const classData = session?.class;
-  const classId = session?.class_id ?? null;
 
-  const { data: subjects = [] } = useSubjects();
-  const { data: classesData } = useClassesMinimal(
-    isEditing ? { limit: 300 } : undefined
-  );
-  const classesList = classesData?.classes ?? [];
+  const [selectedSubject, setSelectedSubject] = useState<Tables<'subjects'> | null>(null);
+  const [selectedClass, setSelectedClass] = useState<MinimalClass | null>(null);
+
+  const defaultValues = useMemo((): SessionEditFormData => {
+    if (isEditing && session) {
+      return {
+        type: (session.type ?? 'CLASS') as SessionEditFormData['type'],
+        date: toLocalDateString(session.start_at ?? null),
+        startTime: toLocalTimeString(session.start_at ?? null),
+        endTime: toLocalTimeString(session.end_at ?? null),
+        subjectId: session.subject?.id ?? session.class?.subject?.id ?? session.subject_id ?? null,
+        classId: session.class_id ?? null,
+      };
+    }
+    return {
+      type: 'CLASS',
+      date: '',
+      startTime: '',
+      endTime: '',
+      subjectId: null,
+      classId: null,
+    };
+  }, [isEditing, session]);
 
   const form = useForm<SessionEditFormData>({
     resolver: zodResolver(sessionEditSchema),
-    defaultValues: {
-      type: 'CLASS',
-      startAtLocal: '',
-      endAtLocal: '',
-      subjectId: null,
-      classId: null,
-    },
+    defaultValues,
   });
   const formType = form.watch('type');
   const hasResetRef = useRef(false);
+
+  const formSubjectId = form.watch('subjectId');
+  const formClassId = form.watch('classId');
+  const displaySubject =
+    selectedSubject ??
+    (formSubjectId && session?.subject?.id === formSubjectId
+      ? (session.subject as Tables<'subjects'>)
+      : formSubjectId && session?.class?.subject?.id === formSubjectId
+        ? (session.class?.subject as Tables<'subjects'>)
+        : null);
+  const displayClass =
+    selectedClass ??
+    (formClassId && session?.class?.id === formClassId ? (session?.class as MinimalClass) : null);
 
   useEffect(() => {
     if (formType !== 'CLASS') {
@@ -201,13 +235,20 @@ export function SessionDetailsTab({
   useEffect(() => {
     if (isEditing && session && !hasResetRef.current) {
       const type = (session.type ?? 'CLASS') as SessionEditFormData['type'];
+      const subjectId = session.subject?.id ?? session.class?.subject?.id ?? session.subject_id ?? null;
+      const classId = session.class_id ?? null;
+      const subjectForReset = session.subject ?? session.class?.subject ?? null;
+      const classForReset = session.class as MinimalClass | null;
       form.reset({
         type,
-        startAtLocal: toLocalDateTimeString(session.start_at ?? null),
-        endAtLocal: toLocalDateTimeString(session.end_at ?? null),
-        subjectId: session.subject?.id ?? session.class?.subject?.id ?? session.subject_id ?? null,
-        classId: session.class_id ?? null,
+        date: toLocalDateString(session.start_at ?? null),
+        startTime: toLocalTimeString(session.start_at ?? null),
+        endTime: toLocalTimeString(session.end_at ?? null),
+        subjectId,
+        classId,
       }, { keepDefaultValues: false });
+      setSelectedSubject(subjectForReset as Tables<'subjects'> | null);
+      setSelectedClass(classForReset);
       hasResetRef.current = true;
     } else if (!isEditing) {
       hasResetRef.current = false;
@@ -215,10 +256,6 @@ export function SessionDetailsTab({
     // session refs above are sufficient; including full session would reset form on every session field change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, session?.id, session?.start_at, session?.end_at, session?.type, session?.subject_id, session?.class_id, session?.subject?.id, session?.class?.subject?.id, form]);
-
-  const classesForSubject = formType === 'CLASS' && form.watch('subjectId')
-    ? classesList.filter((c) => c.subject_id === form.watch('subjectId'))
-    : classesList;
 
   if (!session) return null;
 
@@ -271,41 +308,59 @@ export function SessionDetailsTab({
                 )}
               />
             </div>
+            <div>
+              <Label htmlFor="session-date">Date</Label>
+              <Controller
+                control={form.control}
+                name="date"
+                render={({ field }) => (
+                  <Input
+                    id="session-date"
+                    type="date"
+                    {...field}
+                    disabled={isUpdating}
+                  />
+                )}
+              />
+              {form.formState.errors.date && (
+                <p className="text-sm text-destructive mt-0.5">{form.formState.errors.date.message}</p>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="session-start">Start</Label>
+                <Label htmlFor="session-start-time">Start time</Label>
                 <Controller
                   control={form.control}
-                  name="startAtLocal"
+                  name="startTime"
                   render={({ field }) => (
                     <Input
-                      id="session-start"
-                      type="datetime-local"
+                      id="session-start-time"
+                      type="time"
                       {...field}
                       disabled={isUpdating}
                     />
                   )}
                 />
-                {form.formState.errors.startAtLocal && (
-                  <p className="text-sm text-destructive mt-0.5">{form.formState.errors.startAtLocal.message}</p>
+                {form.formState.errors.startTime && (
+                  <p className="text-sm text-destructive mt-0.5">{form.formState.errors.startTime.message}</p>
                 )}
               </div>
               <div>
-                <Label htmlFor="session-end">End</Label>
+                <Label htmlFor="session-end-time">End time</Label>
                 <Controller
                   control={form.control}
-                  name="endAtLocal"
+                  name="endTime"
                   render={({ field }) => (
                     <Input
-                      id="session-end"
-                      type="datetime-local"
+                      id="session-end-time"
+                      type="time"
                       {...field}
                       disabled={isUpdating}
                     />
                   )}
                 />
-                {form.formState.errors.endAtLocal && (
-                  <p className="text-sm text-destructive mt-0.5">{form.formState.errors.endAtLocal.message}</p>
+                {form.formState.errors.endTime && (
+                  <p className="text-sm text-destructive mt-0.5">{form.formState.errors.endTime.message}</p>
                 )}
               </div>
             </div>
@@ -317,23 +372,21 @@ export function SessionDetailsTab({
                     control={form.control}
                     name="subjectId"
                     render={({ field }) => (
-                      <Select
-                        value={field.value ?? 'none'}
-                        onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
-                        disabled={isUpdating}
-                      >
-                        <SelectTrigger id="session-subject">
-                          <SelectValue placeholder="Subject" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          {subjects.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {formatSubjectDisplay(s)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <SubjectSelectPopover
+                        selectedSubject={displaySubject}
+                        onSelectSubject={(s) => {
+                          setSelectedSubject(s);
+                          field.onChange(s?.id ?? null);
+                          setSelectedClass(null);
+                          form.setValue('classId', null, { shouldValidate: false });
+                        }}
+                        placeholder="Select subject"
+                        trigger={
+                          <Button variant="outline" className="w-full justify-start" disabled={isUpdating}>
+                            {displaySubject?.long_name ?? 'Select subject'}
+                          </Button>
+                        }
+                      />
                     )}
                   />
                 </div>
@@ -343,23 +396,16 @@ export function SessionDetailsTab({
                     control={form.control}
                     name="classId"
                     render={({ field }) => (
-                      <Select
-                        value={field.value ?? 'none'}
-                        onValueChange={(v) => field.onChange(v === 'none' ? null : v)}
+                      <ClassSelectPopover
+                        selectedClass={displayClass}
+                        onSelectClass={(c) => {
+                          setSelectedClass(c);
+                          field.onChange(c?.id ?? null);
+                        }}
+                        subjectId={formSubjectId ?? null}
+                        placeholder="Select class"
                         disabled={isUpdating}
-                      >
-                        <SelectTrigger id="session-class">
-                          <SelectValue placeholder="Class" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
-                          {classesForSubject.map((c) => (
-                            <SelectItem key={c.id} value={c.id}>
-                              {formatClassName(c as unknown as Tables<'classes'>, c.subject ?? null)}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      />
                     )}
                   />
                 </div>
@@ -388,7 +434,7 @@ export function SessionDetailsTab({
                         className={defaultClass || textColorClass}
                         style={style.backgroundColor ? style : undefined}
                       >
-                        {formatSubjectDisplay(subject as unknown as Tables<'subjects'>)}
+                        {subject?.long_name ?? ''}
                       </Badge>
                     );
                   })()
@@ -396,14 +442,14 @@ export function SessionDetailsTab({
               : undefined
           }
           classNode={
-            session.type === 'CLASS' && classData && classId
+            session.type === 'CLASS' && classData && session.class_id
               ? (
                   <button
                     type="button"
-                    onClick={() => onOpenClass(classId)}
+                    onClick={() => onOpenClass(session.class_id!)}
                     className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
                   >
-                    {formatClassName(classData as unknown as Tables<'classes'>, (subject ?? null) as unknown as Tables<'subjects'> | null)}
+                    {(classData as { long_name?: string | null }).long_name?.trim() ?? ''}
                   </button>
                 )
               : undefined
@@ -472,27 +518,9 @@ export function SessionDetailsTab({
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const status = data.invoiceStatus;
-                        if (!status) return <span className="text-xs text-muted-foreground">-</span>;
-                        
-                        let label = '';
-                        let variant: 'default' | 'secondary' | 'destructive' | 'outline' = 'secondary';
-                        
-                        if (status === 'draft' || status === 'open') {
-                          label = 'Sent';
-                          variant = 'secondary';
-                        } else if (status === 'paid') {
-                          label = 'Paid';
-                          variant = 'default';
-                        } else if (status === 'void' || status === 'uncollectible' || status === 'disputed') {
-                          label = 'Failed';
-                          variant = 'destructive';
-                        } else {
-                          label = status;
-                          variant = 'outline';
-                        }
-                        
-                        return <Badge variant={variant} className="text-xs">{label}</Badge>;
+                        const badge = getInvoiceStatusBadge(data.invoiceStatus);
+                        if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
+                        return badge;
                       })()}
                     </TableCell>
                     <TableCell>

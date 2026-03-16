@@ -30,8 +30,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@altitutor/ui';
-import { formatSubjectDisplay } from '@/shared/utils';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { 
   useTopicsBySubject, 
   useUpdateTopicFile, 
@@ -77,6 +82,11 @@ export function EditTopicFileModal({
   const [topicSearchQuery, setTopicSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const { toast } = useToast();
   const { data: subjects = [] } = useSubjects();
@@ -188,9 +198,20 @@ export function EditTopicFileModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[500px]',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Edit File</DialogTitle>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Edit File</DialogTitle>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -198,7 +219,7 @@ export function EditTopicFileModal({
           <div className="space-y-2">
             <Label>Subject</Label>
             <Input
-              value={currentSubject ? formatSubjectDisplay(currentSubject) : 'Loading...'}
+              value={currentSubject?.long_name ?? 'Loading...'}
               disabled
               className="bg-muted"
             />

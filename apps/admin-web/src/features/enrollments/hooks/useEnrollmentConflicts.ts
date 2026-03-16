@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { getEnrollmentConflicts, getMidnightAdelaide } from '@/shared/utils/enrollment';
-import { formatSubjectDisplay } from '@/shared/utils';
 import { studentsApi } from '@/features/students/api';
 import type { EnrollmentContext, EnrollmentConflicts } from '../types/enrollment';
 
@@ -83,7 +82,7 @@ export function useEnrollmentConflicts({
               if (hasClassWithSameSubject && !cancelled) {
                 const existingClass = enrolledClasses.find(c => c.subject_id === selectedClassSubjectId);
                 if (existingClass?.subject) {
-                  const subjectDisplay = formatSubjectDisplay(existingClass.subject);
+                  const subjectDisplay = existingClass.subject?.long_name ?? '';
                   duplicateSubjectWarning = `${student.first_name} ${student.last_name} is already enrolled in a ${subjectDisplay} class. Do you want to proceed?`;
                 }
               }

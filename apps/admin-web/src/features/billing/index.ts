@@ -8,6 +8,7 @@ export * from './hooks/useBillingPreferences';
 export * from './hooks/useBillingPricing';
 export * from './components/AddPaymentMethodModal';
 export * from './components/ViewInvoiceModal';
+export * from './components/CreditNoteDialog';
 export * from './components/BillingSettingsTable';
 export * from './hooks/useInvoicesQuery';
 export * from './hooks/useInvoiceItems';

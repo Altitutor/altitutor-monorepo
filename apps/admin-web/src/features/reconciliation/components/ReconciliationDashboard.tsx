@@ -7,6 +7,7 @@ import {
   UnpaidInvoicesTable,
   UnloggedSessionsTable,
   UnassignedClassesTable,
+  UnassignedTasksTable,
   FailedDeliveryMessagesTable,
   UnreadMessagesTable,
   MessagesToFollowUpTable,
@@ -113,6 +114,7 @@ export function ReconciliationDashboard() {
           <SkeletonTable rows={3} columns={5} />
           <SkeletonTable rows={3} columns={4} />
           <SkeletonTable rows={3} columns={4} />
+          <SkeletonTable rows={3} columns={4} />
         </div>
 
         {/* Communication Reconciliation */}
@@ -188,6 +190,10 @@ export function ReconciliationDashboard() {
           <UnassignedClassesTable
             items={reconciliationData.unassignedClasses.data ?? []}
             isLoading={reconciliationData.unassignedClasses.isLoading}
+          />
+          <UnassignedTasksTable
+            items={reconciliationData.unassignedTasks.data ?? []}
+            isLoading={reconciliationData.unassignedTasks.isLoading}
           />
           <StudentsWithoutClassesTable
             items={reconciliationData.studentsWithoutClasses.data ?? []}

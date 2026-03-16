@@ -5,7 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Separat
 import { X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getInvoiceStatusBadge } from '../utils/invoiceFormatters';
+import { getInvoiceStatusBadge, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -17,6 +17,7 @@ import { getErrorMessage } from '@/shared/utils';
 import { useInvoiceData } from '../hooks/useInvoiceData';
 import { useInvoiceModals } from '../hooks/useInvoiceModals';
 import { useInvoiceActions } from '../hooks/useInvoiceActions';
+import { CreditNoteDialog } from './CreditNoteDialog';
 import { formatInvoiceDate, formatInvoiceAmount, calculateLineItemsSubtotal } from '../utils/invoiceFormatters';
 import { formatInvoiceTagText } from '../utils/invoiceTagText';
 import { invoicesKeys } from '../hooks/useInvoicesQuery';
@@ -31,6 +32,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   const router = useRouter();
   const { toast } = useToast();
   const [isLoadingAction, setIsLoadingAction] = useState(false);
+  const [isCreditNoteOpen, setIsCreditNoteOpen] = useState(false);
 
   // Business logic hooks
   const invoiceData = useInvoiceData({
@@ -59,13 +61,38 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   });
 
   // Computed values
-  const totalAmount = invoice?.amount_due_cents || 0;
-  const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
+  const totalAmountForComparison = invoice?.amount_due_cents || 0;
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
   const subtotalCents = invoice?.subtotal_cents;
   const totalCents = invoice?.total_cents;
   const amountPaidFromBalanceCents = invoice?.amount_paid_from_balance_cents || 0;
   const hasCreditBalance = amountPaidFromBalanceCents > 0;
+  const totalPaidCents = invoice?.amount_paid_cents || 0;
+  const paidFromCardCents = Math.max(0, totalPaidCents - amountPaidFromBalanceCents);
+  const hasAnyPayment = totalPaidCents > 0 || hasCreditBalance;
+  const isRefunded = !!invoice?.is_refunded;
+
+  const totalCreditSettlementCents = creditNotes
+    .filter((note) => note.status !== 'void')
+    .reduce((sum, note) => {
+      type CreditNoteWithSettlement = typeof note & {
+        refund_amount_cents?: number | null;
+        credit_amount_cents?: number | null;
+        out_of_band_amount_cents?: number | null;
+      };
+
+      const noteWithSettlement = note as CreditNoteWithSettlement;
+      const refund = noteWithSettlement.refund_amount_cents ?? 0;
+      const credit = noteWithSettlement.credit_amount_cents ?? 0;
+      const outOfBand = noteWithSettlement.out_of_band_amount_cents ?? 0;
+      const settlement = refund + credit + outOfBand;
+      return sum + (settlement > 0 ? settlement : note.amount_cents);
+    }, 0);
+
+  const invoiceTotalCents =
+    (invoice?.total_cents ?? invoice?.amount_due_cents ?? null) ?? 0;
+
+  const isFullyCredited = totalCreditSettlementCents >= invoiceTotalCents && invoiceTotalCents > 0;
   
   // Extract last payment error from metadata
   type InvoiceMetadata = {
@@ -158,6 +185,32 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     }
   };
 
+  const canInvoiceAcceptCreditNote =
+    !!invoice &&
+    (invoice.status === 'open' || invoice.status === 'paid') &&
+    !!invoice.stripe_invoice_id;
+
+  const handleOpenCreditNoteDialog = () => {
+    if (!invoiceId || !invoice) return;
+    if (isRefunded) {
+      toast({
+        title: 'Cannot add credit note',
+        description: 'This invoice has already been refunded.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (isFullyCredited) {
+      toast({
+        title: 'Cannot add credit note',
+        description: 'This invoice has already been fully credited.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setIsCreditNoteOpen(true);
+  };
+
   // Centralized action handlers (must be after handler functions are defined)
   const invoiceActions = useInvoiceActions({
     invoiceId: invoiceId || '',
@@ -172,8 +225,15 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     onDownloadPdf: invoice?.invoice_pdf ? () => {
       window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
     } : undefined,
-    onSendInvoice: collectionMethod === 'send_invoice' && invoice?.status !== 'paid' ? handleSendInvoiceEmail : undefined,
-    onChargeCard: collectionMethod === 'charge_automatically' && invoice?.status !== 'paid' ? handleChargeCard : undefined,
+    onSendInvoice:
+      collectionMethod === 'send_invoice' && invoice?.status !== 'paid'
+        ? handleSendInvoiceEmail
+        : undefined,
+    onChargeCard:
+      collectionMethod === 'charge_automatically' && invoice?.status !== 'paid'
+        ? handleChargeCard
+        : undefined,
+    onAddCreditNote: canInvoiceAcceptCreditNote ? handleOpenCreditNoteDialog : undefined,
     isLoadingAction,
   });
 
@@ -232,6 +292,12 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                       lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
                       status: invoice.status,
                     })}
+                    isAddCreditNoteDisabled={canInvoiceAcceptCreditNote && (isFullyCredited || isRefunded)}
+                    addCreditNoteDisabledReason={
+                      isRefunded
+                        ? 'This invoice has already been refunded.'
+                        : 'This invoice has already been fully credited.'
+                    }
                     {...invoiceActions}
                   />
                 )}
@@ -264,48 +330,15 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   
                   <div className="text-sm font-medium text-muted-foreground">Status:</div>
                   <div className="text-sm">
-                    {getInvoiceStatusBadge(invoice.status, invoice.is_refunded)}
-                  </div>
-                  
-                  {subtotalCents !== null && subtotalCents !== undefined && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Subtotal:</div>
-                      <div className="text-sm">
-                        {formatInvoiceAmount(subtotalCents, invoice.currency || 'AUD')}
-                      </div>
-                    </>
-                  )}
-                  
-                  {totalCents !== null && totalCents !== undefined && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Total:</div>
-                      <div className="text-sm">
-                        {formatInvoiceAmount(totalCents, invoice.currency || 'AUD')}
-                      </div>
-                    </>
-                  )}
-                  
-                  {hasCreditBalance && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Paid from Credit Balance:</div>
-                      <div className="text-sm text-green-600 dark:text-green-400">
-                        {formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
-                      </div>
-                    </>
-                  )}
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Amount Due:</div>
-                  <div className="text-sm font-semibold">
-                    {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
-                  </div>
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Amount Paid:</div>
-                  <div className="text-sm">
-                    {formatInvoiceAmount(invoice.amount_paid_cents, invoice.currency || 'AUD')}
-                    {hasCreditBalance && (
-                      <span className="text-xs text-muted-foreground ml-2">
-                        ({formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')} from credit)
-                      </span>
+                    {getInvoiceStatusBadge(
+                      toInvoiceStatusPayload({
+                        ...invoice,
+                        credit_notes: creditNotes.map((cn) => ({
+                          refund_amount_cents: cn.refund_amount_cents,
+                          credit_amount_cents: cn.credit_amount_cents,
+                          created_at: cn.created_at,
+                        })),
+                      })
                     )}
                   </div>
                   
@@ -414,21 +447,15 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                         <div className="text-sm">{formatInvoiceAmount(totalCents, invoice.currency || 'AUD')}</div>
                       </div>
                     )}
-                    {hasCreditBalance && (
-                      <div className="flex items-center justify-between">
-                        <div className="text-sm text-muted-foreground">Credit Applied:</div>
-                        <div className="text-sm text-green-600 dark:text-green-400">
-                          -{formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
-                        </div>
-                      </div>
-                    )}
                     <div className="flex items-center justify-between pt-2 border-t font-semibold">
                       <div className="text-sm">Amount Due:</div>
-                      <div className="text-sm">{totalAmountFormatted}</div>
+                      <div className="text-sm">
+                        {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
+                      </div>
                     </div>
                     
                     {/* Show warning if line items don't match total (indicates missing items or data inconsistency) */}
-                    {Math.abs(totalAmount - lineItemsSubtotal) > 1 && (
+                    {Math.abs(totalAmountForComparison - lineItemsSubtotal) > 1 && (
                       <div className="text-xs text-muted-foreground mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
                         Note: Line items total (${(lineItemsSubtotal / 100).toFixed(2)}) differs from invoice total. 
                         This may indicate missing fee items or other charges not yet synced from Stripe.
@@ -437,6 +464,38 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                   </div>
                 )}
               </div>
+
+              {/* Amount Paid Breakdown */}
+              {hasAnyPayment && (
+                <>
+                  <Separator />
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Amount Paid</h3>
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                      {hasCreditBalance && (
+                        <>
+                          <div className="text-sm font-medium text-muted-foreground">
+                            Paid from Credit Balance:
+                          </div>
+                          <div className="text-sm text-green-600 dark:text-green-400">
+                            {formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
+                          </div>
+                        </>
+                      )}
+                      {paidFromCardCents > 0 && (
+                        <>
+                          <div className="text-sm font-medium text-muted-foreground">
+                            Paid from Card:
+                          </div>
+                          <div className="text-sm">
+                            {formatInvoiceAmount(paidFromCardCents, invoice.currency || 'AUD')}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
 
               {/* Credit Notes and Refunds */}
               {(creditNotes.length > 0 || invoice.is_refunded) && (
@@ -469,45 +528,68 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                     {/* Credit Notes */}
                     {creditNotes.length > 0 && (
                       <div className="space-y-3">
-                        {creditNotes.map((creditNote) => (
-                          <div
-                            key={creditNote.id}
-                            className={cn(
-                              "p-3 rounded-md border",
-                              creditNote.status === 'void' && "opacity-60 bg-muted/30"
-                            )}
-                          >
-                            <div className="flex items-start justify-between">
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Badge 
-                                    variant={creditNote.status === 'void' ? 'outline' : 'secondary'} 
-                                    className="text-xs"
-                                  >
-                                    Credit Note
-                                  </Badge>
-                                  {creditNote.status === 'void' && (
-                                    <Badge variant="outline" className="text-xs">Void</Badge>
-                                  )}
-                                  <span className="text-xs text-muted-foreground">
-                                    {format(new Date(creditNote.created_at), 'MMM d, yyyy')}
-                                  </span>
-                                </div>
-                                {creditNote.reason && (
-                                  <div className="text-sm text-muted-foreground mb-1">
-                                    {creditNote.reason}
+                        {creditNotes.map((creditNote) => {
+                          // Settlement breakdown fields may not be present on older rows; fall back gracefully.
+                          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                          const anyNote = creditNote as any;
+                          const refundAmountCents: number = anyNote.refund_amount_cents ?? 0;
+                          const creditAmountCents: number = anyNote.credit_amount_cents ?? 0;
+                          const outOfBandAmountCents: number = anyNote.out_of_band_amount_cents ?? 0;
+
+                          let actionLabel: string | null = null;
+                          if (refundAmountCents > 0) {
+                            actionLabel = `Action: Refunded ${formatInvoiceAmount(refundAmountCents, creditNote.currency)}`;
+                          } else if (creditAmountCents > 0) {
+                            actionLabel = `Action: Credited to balance ${formatInvoiceAmount(creditAmountCents, creditNote.currency)}`;
+                          } else if (outOfBandAmountCents > 0) {
+                            actionLabel = `Action: Settled externally (out of band) ${formatInvoiceAmount(outOfBandAmountCents, creditNote.currency)}`;
+                          }
+
+                          return (
+                            <div
+                              key={creditNote.id}
+                              className={cn(
+                                "p-3 rounded-md border",
+                                creditNote.status === 'void' && "opacity-60 bg-muted/30"
+                              )}
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <Badge 
+                                      variant={creditNote.status === 'void' ? 'outline' : 'secondary'} 
+                                      className="text-xs"
+                                    >
+                                      Credit Note
+                                    </Badge>
+                                    {creditNote.status === 'void' && (
+                                      <Badge variant="outline" className="text-xs">Void</Badge>
+                                    )}
+                                    <span className="text-xs text-muted-foreground">
+                                      {format(new Date(creditNote.created_at), 'MMM d, yyyy')}
+                                    </span>
                                   </div>
-                                )}
-                                <div className="text-xs text-muted-foreground">
-                                  Status: {creditNote.status}
+                                  {creditNote.reason && (
+                                    <div className="text-sm text-muted-foreground mb-1">
+                                      {creditNote.reason}
+                                    </div>
+                                  )}
+                                  <div className="text-xs text-muted-foreground">
+                                    Status: {creditNote.status}
+                                  </div>
+                                  {actionLabel && (
+                                    <div className="text-xs text-muted-foreground mt-1">
+                                      {actionLabel}
+                                    </div>
+                                  )}
                                 </div>
-                              </div>
-                              <div className="text-sm font-medium text-green-600 dark:text-green-400 ml-4">
-                                -{formatInvoiceAmount(creditNote.amount_cents, creditNote.currency)}
+                                <div className="text-sm font-medium text-green-600 dark:text-green-400 ml-4">
+                                  -{formatInvoiceAmount(creditNote.amount_cents, creditNote.currency)}
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -533,6 +615,26 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
           isOpen={modals.sessionModalOpen}
           sessionId={modals.selectedSessionId}
           onClose={modals.closeSessionModal}
+        />
+      )}
+
+      {invoiceId && invoice && isCreditNoteOpen && (
+        <CreditNoteDialog
+          isOpen={true}
+          onClose={() => setIsCreditNoteOpen(false)}
+          invoiceId={invoiceId}
+          invoice={{
+            stripe_invoice_id: invoice.stripe_invoice_id,
+            stripe_invoice_number: invoice.stripe_invoice_number,
+            amount_due_cents: invoice.amount_due_cents,
+            currency: invoice.currency,
+            status: invoice.status,
+          }}
+          invoiceItems={invoiceItems}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
+            queryClient.invalidateQueries({ queryKey: [...invoicesKeys.details(), invoiceId, 'credit-notes'] });
+          }}
         />
       )}
     </>

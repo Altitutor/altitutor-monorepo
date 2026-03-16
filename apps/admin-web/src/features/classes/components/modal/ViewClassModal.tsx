@@ -26,7 +26,6 @@ import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useUpdateClass } from '../../hooks/useClassesQuery';
-import { formatClassName, formatClassShortName } from '@/shared/utils';
 import type { TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
@@ -291,7 +290,7 @@ export function ViewClassModal({
                     </SheetTitle>
                     <SheetDescription className="text-lg font-medium">
                       <div className="flex items-center gap-2 flex-wrap">
-                        {formatClassName(classData, subject)}
+                        {classData.long_name?.trim() ?? ''}
                         <IssuePill
                           entityType="class"
                           entityId={classId}
@@ -305,7 +304,7 @@ export function ViewClassModal({
                   <ActionsMenu
                     type="class"
                     entityId={classId}
-                    copyTagDisplayText={formatClassShortName(classData, subject)}
+                    copyTagDisplayText={classData.short_name?.trim() ?? ''}
                     {...classActions}
                   />
                 )}

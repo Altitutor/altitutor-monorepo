@@ -29,8 +29,19 @@ export function MentionModalProvider({ children }: { children: React.ReactNode }
       }
     };
 
+    const handleOpenSessionModal = (event: Event) => {
+      const { id } = (event as CustomEvent<{ id: string }>).detail ?? {};
+      if (id) {
+        setSelectedEntity({ id, type: 'session' });
+      }
+    };
+
     window.addEventListener('mentionClick', handleMentionClick);
-    return () => window.removeEventListener('mentionClick', handleMentionClick);
+    window.addEventListener('open-session-modal', handleOpenSessionModal as EventListener);
+    return () => {
+      window.removeEventListener('mentionClick', handleMentionClick);
+      window.removeEventListener('open-session-modal', handleOpenSessionModal as EventListener);
+    };
   }, []);
 
   const closeModals = () => setSelectedEntity(null);

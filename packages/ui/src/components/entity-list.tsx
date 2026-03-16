@@ -174,6 +174,10 @@ export interface EntityListProps<TItem> {
   hideToolbar?: boolean;
   noPadding?: boolean;
   compact?: boolean;
+  /** Add button: 'default' = filled, 'ghost' = transparent (default) */
+  addButtonVariant?: 'ghost' | 'default';
+  /** When true, show "+ Add" text next to the icon in the add button */
+  addButtonShowLabel?: boolean;
   /** Custom add row (e.g. with task-search autocomplete). Receives same props as default add row plus state/refs. */
   renderAddRow?: (props: EntityListAddRowRenderProps<TItem>) => React.ReactNode;
 }
@@ -184,6 +188,8 @@ export interface EntityListAddRowRenderProps<TItem> {
   rightPills: EntityListPillColumn<TItem, unknown>[];
   visiblePillKeys: string[];
   addButtonLabel: string;
+  addButtonVariant?: 'ghost' | 'default';
+  addButtonShowLabel?: boolean;
   descriptionConfig?: EntityListProps<TItem>['descriptionConfig'];
   compact: boolean;
   addName: string;
@@ -268,6 +274,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     hideToolbar = false,
     noPadding = false,
     compact = false,
+    addButtonVariant,
+    addButtonShowLabel = false,
     renderAddRow,
   } = props;
 
@@ -382,6 +390,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
         const pill = rightPills.find((p) => p.key === columnKey);
         const statusVal = statusColumn?.key === columnKey ? statusColumn.getValue(item) : undefined;
         const value = pill ? pill.getValue(item) : statusVal;
+        const hasColumn = pill !== undefined || statusColumn?.key === columnKey;
+        if (!hasColumn) continue;
         const match = selected.some((v) => {
           if (v === value) return true;
           
@@ -747,6 +757,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
           rightPills,
           visiblePillKeys,
           addButtonLabel,
+          addButtonVariant,
+          addButtonShowLabel,
           descriptionConfig,
           compact,
           addName,
@@ -775,6 +787,8 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
     rightPills,
     visiblePillKeys,
     addButtonLabel,
+    addButtonVariant = 'ghost',
+    addButtonShowLabel = false,
     descriptionConfig,
     compact = false,
     addName,
@@ -800,17 +814,6 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
       )}
     >
       <div className="flex items-center gap-3 p-2 w-full min-w-0 overflow-hidden">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="text-muted-foreground hover:text-foreground h-8 w-8 p-0 flex-shrink-0"
-          aria-label={addButtonLabel}
-          onClick={handleAddSubmit}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
-
         {statusColumn && (
           <div className="flex-shrink-0">
             <EntityListStatusBubble
@@ -829,6 +832,10 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
           placeholder={`${addButtonLabel}`}
           value={addName}
           onChange={(e) => setAddName(e.target.value)}
+          onKeyDownCapture={(e) => {
+            // Prevent @ from reaching document so mention/entity popups don't open in title (only in body/ProseMirror)
+            if (e.key === '@') e.stopPropagation();
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter') {
               e.preventDefault();
@@ -868,6 +875,22 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
             </div>
           ))}
         </div>
+
+        <Button
+          type="button"
+          variant={addButtonVariant}
+          size="sm"
+          className={cn(
+            'h-8 flex-shrink-0',
+            addButtonShowLabel ? 'gap-1.5 px-2' : 'w-8 p-0',
+            addButtonVariant === 'ghost' && 'text-muted-foreground hover:text-foreground'
+          )}
+          aria-label={addButtonLabel}
+          onClick={handleAddSubmit}
+        >
+          <Plus className="h-4 w-4" />
+          {addButtonShowLabel && <span>Add</span>}
+        </Button>
       </div>
 
       {descriptionConfig?.enabled && (isDescriptionVisible || (typeof addDescription === 'string' ? addDescription.trim() !== '' : !!addDescription)) && (

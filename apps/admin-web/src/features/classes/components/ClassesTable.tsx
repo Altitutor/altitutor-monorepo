@@ -30,7 +30,7 @@ import { Loader2 } from 'lucide-react';
 import { useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
 import type { MinimalClass } from '../api/classes';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { cn, formatClassShortName, formatSubjectDisplay, formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
+import { cn, getSubjectColorStyle } from '@/shared/utils/index';
 import { AddClassModal } from './AddClassModal';
 import { EditClassModal } from './EditClassModal';
 import { ViewClassModal } from './modal';
@@ -151,7 +151,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   type ClassWithSubject = MinimalClass;
   const getSubjectDisplay = (classItem: ClassWithSubject): string => {
     const subject = classItem.subject;
-    return subject ? formatSubjectDisplay(subject) : '-';
+    return subject?.long_name ?? '-';
   };
 
   const getSubjectBadgeStyle = (classItem: ClassWithSubject): { style: React.CSSProperties; textColorClass: string; defaultClass: string } => {
@@ -338,7 +338,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                             {/* Default to short names, only show full on 2xl+ screens */}
                             <span className="2xl:hidden">{(() => {
                               const subject = (cls as ClassWithSubject).subject;
-                              return subject ? formatSubjectShortName(subject) : '-';
+                              return subject?.short_name ?? subject?.long_name ?? subject?.name ?? '-';
                             })()}</span>
                             <span className="hidden 2xl:inline">{getSubjectDisplay(cls)}</span>
                           </Badge>
@@ -390,7 +390,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                         <ActionsMenu
                           type="class"
                           entityId={cls.id}
-                          copyTagDisplayText={formatClassShortName(cls, cls.subject ?? null)}
+                          copyTagDisplayText={cls.short_name?.trim() ?? ''}
                           onOpenInPage={() => {
                             router.push(`/classes/${cls.id}`);
                           }}

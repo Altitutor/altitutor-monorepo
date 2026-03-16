@@ -14,11 +14,18 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@altitutor/ui'
+import { Button, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { SortableRow } from '@/features/ucat/shared/drag-list'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { formatSecondsToDuration, secondsToMinutesAndSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { Pencil, Plus } from 'lucide-react'
+
+export type UcatSectionForTimeLimit = {
+  id: string
+  name: string | null
+  time_limit_seconds: number | null
+}
 import React from 'react'
 
 const STEMS_DROP_ID = 'stems-in-set-drop'
@@ -26,6 +33,7 @@ const STEMS_DROP_ID = 'stems-in-set-drop'
 type UcatSetEditorContentProps = {
   draftName: string
   draftDescription: string
+  draftIsTimed: boolean
   draftTimeLimitMinutes: string
   draftTimeLimitSeconds: string
   draftPrivate: boolean
@@ -40,9 +48,11 @@ type UcatSetEditorContentProps = {
   onEditStem: (id: string) => void
   onChangeName: (value: string) => void
   onChangeDescription: (value: string) => void
+  onChangeIsTimed: (value: boolean) => void
   onChangeTimeLimitMinutes: (value: string) => void
   onChangeTimeLimitSeconds: (value: string) => void
   onChangePrivate: (value: boolean) => void
+  sections?: UcatSectionForTimeLimit[]
 }
 
 function DraggableStemItem({
@@ -94,6 +104,7 @@ function DraggableStemItem({
 export function UcatSetEditorContent({
   draftName,
   draftDescription,
+  draftIsTimed,
   draftTimeLimitMinutes,
   draftTimeLimitSeconds,
   draftPrivate,
@@ -108,10 +119,16 @@ export function UcatSetEditorContent({
   onEditStem,
   onChangeName,
   onChangeDescription,
+  onChangeIsTimed,
   onChangeTimeLimitMinutes,
   onChangeTimeLimitSeconds,
   onChangePrivate,
+  sections = [],
 }: UcatSetEditorContentProps) {
+  const sectionsWithTimeLimit = React.useMemo(
+    () => sections.filter((s) => s.time_limit_seconds != null && s.time_limit_seconds > 0),
+    [sections]
+  )
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: STEMS_DROP_ID })
@@ -217,28 +234,61 @@ export function UcatSetEditorContent({
                 <Textarea className="min-h-24" value={draftDescription} onChange={(e) => onChangeDescription(e.target.value)} />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block font-medium">Time limit (mm:ss)</span>
-                <div className="flex items-center gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    className="w-20"
-                    value={draftTimeLimitMinutes}
-                    onChange={(e) => onChangeTimeLimitMinutes(e.target.value)}
-                  />
-                  <span className="text-muted-foreground font-medium">:</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={59}
-                    placeholder="0"
-                    className="w-20"
-                    value={draftTimeLimitSeconds}
-                    onChange={(e) => onChangeTimeLimitSeconds(e.target.value)}
-                  />
-                  <span className="text-muted-foreground text-xs">min : sec</span>
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-medium">Time limit</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Untimed</span>
+                    <Switch checked={draftIsTimed} onCheckedChange={onChangeIsTimed} />
+                    <span className="text-xs text-muted-foreground">Timed</span>
+                  </div>
                 </div>
+                {draftIsTimed && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="0"
+                      className="w-20"
+                      value={draftTimeLimitMinutes}
+                      onChange={(e) => onChangeTimeLimitMinutes(e.target.value)}
+                    />
+                    <span className="text-muted-foreground font-medium">:</span>
+                    <Input
+                      type="number"
+                      min={0}
+                      max={59}
+                      placeholder="0"
+                      className="w-20"
+                      value={draftTimeLimitSeconds}
+                      onChange={(e) => onChangeTimeLimitSeconds(e.target.value)}
+                    />
+                    <span className="text-muted-foreground text-xs">min : sec</span>
+                    {sectionsWithTimeLimit.length > 0 && (
+                      <Select
+                        value=""
+                        onValueChange={(value) => {
+                          const sec = sectionsWithTimeLimit.find((s) => s.id === value)
+                          if (sec?.time_limit_seconds != null) {
+                            const { minutes, seconds } = secondsToMinutesAndSeconds(sec.time_limit_seconds)
+                            onChangeTimeLimitMinutes(minutes)
+                            onChangeTimeLimitSeconds(seconds)
+                          }
+                        }}
+                      >
+                        <SelectTrigger className="w-[180px]">
+                          <SelectValue placeholder="Use section time" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sectionsWithTimeLimit.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name ?? 'Unknown'} ({formatSecondsToDuration(s.time_limit_seconds)})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                  </div>
+                )}
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>

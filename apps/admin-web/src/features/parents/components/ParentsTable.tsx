@@ -27,7 +27,7 @@ import {
 } from "@altitutor/ui";
 import { ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
-import { cn } from '@/shared/utils/index';
+import { cn, getErrorMessage } from '@/shared/utils/index';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { useParentsList, useDeleteParent } from '../hooks/useParentsQuery';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -365,10 +365,10 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                     title: 'Parent deleted',
                     description: 'Parent has been deleted successfully.',
                   });
-                } catch {
+                } catch (error: unknown) {
                   toast({
                     title: 'Delete failed',
-                    description: 'There was an error deleting the parent. Please try again.',
+                    description: getErrorMessage(error),
                     variant: 'destructive',
                   });
                 }

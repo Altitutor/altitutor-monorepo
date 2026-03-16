@@ -40,7 +40,7 @@ export function useEntitySearch({
   const studentsQuery = useQuery({
     queryKey: ['entity-search-students', trimmedSearch],
     queryFn: async () => {
-      const results = await studentsApi.searchStudents(trimmedSearch, ['ACTIVE', 'TRIAL'], true);
+      const results = await studentsApi.searchStudents(trimmedSearch, ['ACTIVE', 'TRIAL', 'DISCONTINUED'], true);
       return results.slice(0, entityTypes.students.limit).map((student) => ({
         type: 'student' as const,
         id: student.id,
@@ -232,6 +232,7 @@ export function useEntitySearch({
           id: file.id,
           topic_id: file.topic_id,
           code: file.code,
+          type: file.type,
           file: {
             filename: file.file.filename,
           },
@@ -242,6 +243,7 @@ export function useEntitySearch({
           subject: {
             short_name: file.subject.short_name,
             long_name: file.subject.long_name,
+            color: file.subject.color ?? null,
           },
         },
       }));

@@ -17,7 +17,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
 import { SessionDetailsTab } from '@/features/sessions/components/SessionDetailsTab';
 import { SendBookingConfirmationDialog } from '@/features/sessions/components/SendBookingConfirmationDialog';
-import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import {
   useSessionData,
   useSessionModals,
@@ -61,13 +60,6 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
     sessionId: id,
     onLogSession: modals.openLogSessionModal,
     hasTutorLog: helpers.hasTutorLog,
-    onReschedule: () => {
-      const studentId = helpers.getFirstStudentIdForReschedule();
-      if (studentId) {
-        modals.openRescheduleModal(studentId);
-      }
-    },
-    canReschedule: helpers.canReschedule,
   });
 
   // Navigation handlers
@@ -269,23 +261,6 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
         />
       )}
 
-      {/* Reschedule Session Modal */}
-      {modals.selectedStudentForReschedule && helpers.canReschedule && (
-        <BookSessionModal
-          isOpen={modals.isRescheduleModalOpen}
-          onClose={async () => {
-            modals.closeRescheduleModal();
-            await sessionData.refresh();
-          }}
-          sessionType={session.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
-          initialStudentId={modals.selectedStudentForReschedule}
-          originalSessionId={id}
-          originalSubjectId={helpers.subject?.id || null}
-          onBookingCreated={(_newSessionId) => {
-            modals.closeRescheduleModal();
-          }}
-        />
-      )}
     </div>
   );
 }

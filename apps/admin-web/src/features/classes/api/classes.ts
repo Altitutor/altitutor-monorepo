@@ -6,7 +6,7 @@ import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 
 export type MinimalClass = Pick<
   Tables<'classes'>,
-  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level'
+  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name'
 > & {
   subject?: Tables<'subjects'> | null;
   studentCount?: number;
@@ -38,6 +38,7 @@ export const classesApi = {
    */
   listMinimal: async (params?: {
     search?: string;
+    subjectIds?: string[];
     dayOfWeek?: number | number[];
     daysOfWeek?: number[];
     limit?: number;
@@ -53,6 +54,7 @@ export const classesApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const {
       search = '',
+      subjectIds,
       dayOfWeek,
       daysOfWeek = [],
       limit = 50,
@@ -76,6 +78,7 @@ export const classesApi = {
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
       p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: ['ACTIVE'],
+      p_subject_ids: subjectIds && subjectIds.length > 0 ? subjectIds : undefined,
       p_include_relationships: true,
       p_exclude_student_search: excludeStudentSearch,
       p_exclude_staff_search: excludeStaffSearch,
@@ -97,6 +100,8 @@ export const classesApi = {
       room?: string | null;
       subject_id?: string | null;
       level?: string | null;
+      short_name?: string | null;
+      long_name?: string | null;
     }
     const rpcData = rpcResult as unknown as {
       classes: RpcClassRow[];
@@ -127,6 +132,8 @@ export const classesApi = {
         room: cls.room,
         subject_id: cls.subject_id,
         level: cls.level,
+        short_name: cls.short_name ?? null,
+        long_name: cls.long_name ?? null,
         subject,
         studentCount: students.length,
         students,
@@ -183,6 +190,8 @@ export const classesApi = {
         room?: string | null;
         subject_id?: string | null;
         level?: string | null;
+        short_name?: string | null;
+        long_name?: string | null;
         created_at?: string | null;
         updated_at?: string | null;
       }
@@ -213,6 +222,8 @@ export const classesApi = {
           room: cls.room || null,
           subject_id: cls.subject_id || null,
           level: cls.level || null,
+          short_name: cls.short_name ?? null,
+          long_name: cls.long_name ?? null,
           created_at: cls.created_at || null,
           updated_at: cls.updated_at || null,
         } as Tables<'classes'>;
@@ -1068,6 +1079,8 @@ export const classesApi = {
       room: string | null;
       subject_id: string | null;
       level: string | null;
+      short_name: string | null;
+      long_name: string | null;
     }
     
     interface RPCSubject {
@@ -1112,6 +1125,8 @@ export const classesApi = {
       room: c.room,
       level: c.level,
       subject_id: c.subject_id,
+      short_name: c.short_name ?? null,
+      long_name: c.long_name ?? null,
       created_at: null,
       updated_at: null,
       created_by: null,

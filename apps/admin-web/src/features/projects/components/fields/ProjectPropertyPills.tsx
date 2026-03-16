@@ -17,25 +17,20 @@ import {
   PopoverTrigger,
   ScrollArea,
 } from '@altitutor/ui';
-import { Calendar, Check, Flag, User } from 'lucide-react';
+import { cn } from '@/shared/utils';
+import { Calendar, Check, User, Flag } from 'lucide-react';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
-import { getProjectPriorityLabel, getProjectStatusLabel, formatProjectDate } from '../../utils/projectUtils';
-
-const STATUS_OPTIONS: { value: ProjectStatus; label: string }[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'planned', label: 'Planned' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'completed', label: 'Completed' },
-];
-
-const PRIORITY_OPTIONS: { value: ProjectPriority; label: string }[] = [
-  { value: 0, label: 'No priority' },
-  { value: 1, label: 'Urgent' },
-  { value: 2, label: 'High' },
-  { value: 3, label: 'Medium' },
-  { value: 4, label: 'Low' },
-];
+import {
+  getProjectStatusIcon,
+  getProjectStatusIconColor,
+  getProjectStatusLabel,
+  getProjectPriorityIcon,
+  getProjectPriorityLabel,
+  getProjectPriorityIconColor,
+  PROJECT_STATUS_OPTIONS,
+  PRIORITY_OPTIONS,
+} from '../../utils/projectUtils';
 
 export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormReturn<ProjectFormData>; enabled?: boolean }) {
   const [isLeadPopoverOpen, setIsLeadPopoverOpen] = useState(false);
@@ -59,48 +54,80 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
       <FormField
         control={form.control}
         name="status"
-        render={({ field }) => (
-          <FormItem>
-            <Select value={field.value} onValueChange={(value) => field.onChange(value as ProjectStatus)}>
-              <FormControl>
-                <SelectTrigger className="h-8 rounded-full px-3 text-xs w-auto">
-                  {getProjectStatusLabel(field.value)}
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {STATUS_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const status = field.value;
+          const StatusIcon = getProjectStatusIcon(status);
+          const statusIconColor = getProjectStatusIconColor(status);
+          return (
+            <FormItem>
+              <Select value={status} onValueChange={(value) => field.onChange(value as ProjectStatus)}>
+                <FormControl>
+                  <SelectTrigger className="h-8 rounded-full px-3 text-xs w-auto">
+                    <div className="flex items-center gap-1.5">
+                      <StatusIcon className={cn('h-3 w-3', statusIconColor)} />
+                      <span>{getProjectStatusLabel(status)}</span>
+                    </div>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {PROJECT_STATUS_OPTIONS.map((opt) => {
+                    const OptionIcon = getProjectStatusIcon(opt.value);
+                    const optionColor = getProjectStatusIconColor(opt.value);
+                    return (
+                      <SelectItem key={opt.value} value={opt.value}>
+                        <div className="flex items-center gap-2">
+                          <OptionIcon className={cn('h-4 w-4', optionColor)} />
+                          <span>{opt.label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </FormItem>
+          );
+        }}
       />
 
       <FormField
         control={form.control}
         name="priority"
-        render={({ field }) => (
-          <FormItem>
-            <Select
-              value={String(field.value)}
-              onValueChange={(value) => field.onChange(Number(value) as ProjectPriority)}
-            >
-              <FormControl>
-                <SelectTrigger className="h-8 rounded-full px-3 text-xs w-auto">
-                  {getProjectPriorityLabel((field.value ?? 0) as ProjectPriority)}
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {PRIORITY_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={String(option.value)}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const priority = (field.value ?? 0) as ProjectPriority;
+          const PriorityIcon = getProjectPriorityIcon(priority);
+          const priorityIconColor = getProjectPriorityIconColor(priority);
+          return (
+            <FormItem>
+              <Select
+                value={String(priority)}
+                onValueChange={(value) => field.onChange(Number(value) as ProjectPriority)}
+              >
+                <FormControl>
+                  <SelectTrigger className="h-8 rounded-full px-3 text-xs w-auto">
+                    <div className="flex items-center gap-1.5">
+                      <PriorityIcon className={cn('h-3 w-3', priorityIconColor)} />
+                      <span>{getProjectPriorityLabel(priority)}</span>
+                    </div>
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {PRIORITY_OPTIONS.map((opt) => {
+                    const OptionIcon = getProjectPriorityIcon(opt.value);
+                    const optionColor = getProjectPriorityIconColor(opt.value);
+                    return (
+                      <SelectItem key={opt.value} value={String(opt.value)}>
+                        <div className="flex items-center gap-2">
+                          <OptionIcon className={cn('h-4 w-4', optionColor)} />
+                          <span>{opt.label}</span>
+                        </div>
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </FormItem>
+          );
+        }}
       />
 
       <Popover open={isLeadPopoverOpen} onOpenChange={setIsLeadPopoverOpen}>
@@ -165,43 +192,49 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
       <FormField
         control={form.control}
         name="startDate"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <label className="inline-flex items-center gap-1 rounded-full border bg-background px-3 h-8 text-xs cursor-pointer">
-                <Calendar className="h-3 w-3" />
-                <span>{field.value ? formatProjectDate(field.value) : 'Start'}</span>
-                <Input
-                  type="date"
-                  value={field.value || ''}
-                  onChange={(e) => field.onChange(e.target.value || null)}
-                  className="sr-only"
-                />
-              </label>
-            </FormControl>
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const dateValue = field.value ? (typeof field.value === 'string' ? field.value.split('T')[0] : new Date(field.value).toISOString().split('T')[0]) : '';
+          return (
+            <FormItem>
+              <FormControl>
+                <div className="relative flex items-center h-8 min-w-[90px] rounded-full border bg-background">
+                  <Calendar className="h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={dateValue}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    onBlur={field.onBlur}
+                    className="h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </FormControl>
+            </FormItem>
+          );
+        }}
       />
 
       <FormField
         control={form.control}
         name="targetDate"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <label className="inline-flex items-center gap-1 rounded-full border bg-background px-3 h-8 text-xs cursor-pointer">
-                <Flag className="h-3 w-3" />
-                <span>{field.value ? formatProjectDate(field.value) : 'Target'}</span>
-                <Input
-                  type="date"
-                  value={field.value || ''}
-                  onChange={(e) => field.onChange(e.target.value || null)}
-                  className="sr-only"
-                />
-              </label>
-            </FormControl>
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const dateValue = field.value ? (typeof field.value === 'string' ? field.value.split('T')[0] : new Date(field.value).toISOString().split('T')[0]) : '';
+          return (
+            <FormItem>
+              <FormControl>
+                <div className="relative flex items-center h-8 min-w-[90px] rounded-full border bg-background">
+                  <Flag className="h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={dateValue}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    onBlur={field.onBlur}
+                    className="h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </FormControl>
+            </FormItem>
+          );
+        }}
       />
     </div>
   );

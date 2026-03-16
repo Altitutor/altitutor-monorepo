@@ -1,37 +1,35 @@
 import type { ProjectPriority, ProjectStatus } from '../types';
+import {
+  getPriorityColor as getSharedPriorityColor,
+  getPriorityIcon as getSharedPriorityIcon,
+  getPriorityIconColor as getSharedPriorityIconColor,
+  getPriorityLabel as getSharedPriorityLabel,
+  getProjectStatusColor as getSharedProjectStatusColor,
+  getProjectStatusIcon as getSharedProjectStatusIcon,
+  getProjectStatusIconColor as getSharedProjectStatusIconColor,
+  getProjectStatusLabel as getSharedProjectStatusLabel,
+  PRIORITY_OPTIONS as SHARED_PRIORITY_OPTIONS,
+  PROJECT_STATUS_OPTIONS as SHARED_PROJECT_STATUS_OPTIONS,
+} from '@/shared/constants';
 
-/**
- * Get badge color classes for project status (for consistent card display)
- */
-export function getProjectStatusColor(status: ProjectStatus): string {
-  switch (status) {
-    case 'backlog':
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-    case 'planned':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-    case 'in_progress':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-    case 'completed':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-  }
-}
+export const PROJECT_STATUS_OPTIONS = SHARED_PROJECT_STATUS_OPTIONS;
 
-export function getProjectStatusLabel(status: ProjectStatus): string {
-  switch (status) {
-    case 'backlog':
-      return 'Backlog';
-    case 'planned':
-      return 'Planned';
-    case 'in_progress':
-      return 'In Progress';
-    case 'completed':
-      return 'Completed';
-    default:
-      return status;
-  }
-}
+export const PRIORITY_OPTIONS = SHARED_PRIORITY_OPTIONS.map(({ value, label }) => ({
+  value: value as ProjectPriority,
+  label,
+}));
+
+export const getProjectStatusColor = (status: ProjectStatus): string =>
+  getSharedProjectStatusColor(status);
+
+export const getProjectStatusLabel = (status: ProjectStatus): string =>
+  getSharedProjectStatusLabel(status);
+
+export const getProjectStatusIconColor = (status: ProjectStatus): string =>
+  getSharedProjectStatusIconColor(status);
+
+export const getProjectStatusIcon = (status: ProjectStatus) =>
+  getSharedProjectStatusIcon(status);
 
 export function getProjectStatusOrder(status: string): number {
   const order: Record<string, number> = {
@@ -46,39 +44,17 @@ export function getProjectStatusOrder(status: string): number {
 }
 
 export function getProjectPriorityLabel(priority: ProjectPriority): string {
-  switch (priority) {
-    case 1:
-      return 'Urgent';
-    case 2:
-      return 'High';
-    case 3:
-      return 'Medium';
-    case 4:
-      return 'Low';
-    case 0:
-    default:
-      return 'No priority';
-  }
+  return getSharedPriorityLabel(priority);
 }
 
-/**
- * Get badge color classes for project priority (matches task priority styling)
- */
-export function getProjectPriorityColor(priority: ProjectPriority): string {
-  switch (priority) {
-    case 1:
-      return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
-    case 2:
-      return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300';
-    case 3:
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-    case 4:
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-    case 0:
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-  }
-}
+export const getProjectPriorityColor = (priority: ProjectPriority): string =>
+  getSharedPriorityColor(priority);
+
+export const getProjectPriorityIconColor = (priority: ProjectPriority): string =>
+  getSharedPriorityIconColor(priority);
+
+export const getProjectPriorityIcon = (priority: ProjectPriority) =>
+  getSharedPriorityIcon(priority);
 
 export function formatProjectDate(date: string | null | undefined): string {
   if (!date) return '';

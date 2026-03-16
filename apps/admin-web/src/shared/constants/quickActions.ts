@@ -20,7 +20,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
-export type BookingSessionType = 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
+export type BookingSessionType = 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW';
 
 export interface QuickActionConfig {
   id: string;
@@ -63,6 +63,14 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: Calendar,
     keywords: ['drafting', 'draft', 'book'],
     bookingSessionType: 'DRAFTING',
+  },
+  {
+    id: 'staff-interview',
+    title: 'Staff interview',
+    description: 'Book a staff interview',
+    icon: Calendar,
+    keywords: ['staff', 'interview', 'book', 'hire'],
+    bookingSessionType: 'STAFF_INTERVIEW',
   },
   // Other actions
   {

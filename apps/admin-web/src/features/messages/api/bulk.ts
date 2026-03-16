@@ -1,7 +1,6 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Tables, Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { formatClassShortName, formatClassName } from '@/shared/utils';
 import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
 /**
@@ -62,13 +61,9 @@ export async function searchStudents(searchQuery: string, limit: number = 50): P
       const subject = cls?.subject_details;
       
       if (cls && subject) {
-        // Use utility functions to format class names consistently with UI
-        // Cast cls to Tables<'classes'> for the utility functions
-        const classForFormatting = cls as unknown as Tables<'classes'>;
-        // Cast subject to Tables<'subjects'> for the utility functions
-        const subjectForFormatting = subject as unknown as Tables<'subjects'>;
-        const shortName = formatClassShortName(classForFormatting, subjectForFormatting).toLowerCase();
-        const fullName = formatClassName(classForFormatting, subjectForFormatting).toLowerCase();
+        const clsWithNames = cls as { short_name?: string | null; long_name?: string | null };
+        const shortName = (clsWithNames.short_name?.trim() ?? '').toLowerCase();
+        const fullName = (clsWithNames.long_name?.trim() ?? '').toLowerCase();
         
         // Check if search term matches short name or full name
         if (shortName.includes(searchLower) || fullName.includes(searchLower)) {

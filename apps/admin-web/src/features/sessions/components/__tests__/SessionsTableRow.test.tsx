@@ -24,11 +24,12 @@ function createBaseSession(): Tables<'sessions'> {
     class_id: null,
     subject_id: null,
     billing_type: 'CLASS',
-    location_id: null,
     admin_shift_id: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  } as Tables<'sessions'>;
+    short_name: null,
+    long_name: null,
+  };
 }
 
 function createStudent(): SessionTableStudent {
@@ -37,7 +38,7 @@ function createStudent(): SessionTableStudent {
     first_name: 'John',
     last_name: 'Doe',
     planned_absence: false,
-    invoice_status: null,
+    invoice_status_payload: null,
     sessions_students_id: 'ss-1',
   } as SessionTableStudent;
 }
@@ -56,11 +57,6 @@ function createBaseProps(overrides: Partial<SessionsTableRowProps> = {}): Sessio
     isLogAbsenceDialogOpen: false,
     openLogAbsenceDialog: () => {},
     closeLogAbsenceDialog: () => Promise.resolve(),
-    selectedSessionForReschedule: null,
-    selectedStudentForReschedule: null,
-    isRescheduleModalOpen: false,
-    openRescheduleModal: () => {},
-    closeRescheduleModal: () => Promise.resolve(),
     selectedClassId: null,
     isClassModalOpen: false,
     openClassModal: () => {},
@@ -96,8 +92,6 @@ function createBaseProps(overrides: Partial<SessionsTableRowProps> = {}): Sessio
     getTimeRange: () => '10:00am - 11:00am',
     getClassDisplayName: () => 'Class',
     getClassShortDisplayName: () => 'Class',
-    canReschedule: () => false,
-    getRescheduleStudentId: () => null,
     onOpenSession: () => {},
     onOpenStudent: () => {},
     onOpenStaff: () => {},

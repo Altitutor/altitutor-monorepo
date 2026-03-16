@@ -16,6 +16,33 @@ export type InvoiceItemRow = Tables<'invoice_items'>;
 export type CreditNoteRow = Tables<'credit_notes'>;
 
 /**
+ * Request body for creating a credit note via API
+ */
+export interface CreateCreditNoteRequest {
+  reason: 'duplicate' | 'product_unsatisfactory' | 'order_change' | 'fraudulent' | 'other';
+  lines: Array<{
+    stripeInvoiceItemId: string;
+    quantity?: number;
+    amount_cents?: number;
+  }>;
+  memo?: string;
+  effective_at?: string;
+  refund_amount_cents?: number;
+  credit_amount_cents?: number;
+  out_of_band_amount_cents?: number;
+  email_type?: 'credit_note' | 'none';
+  internal_note?: string;
+}
+
+/**
+ * Response from create credit note API
+ */
+export interface CreateCreditNoteResponse {
+  creditNoteId: string;
+  stripeCreditNoteId: string;
+}
+
+/**
  * Missing payment obligation type
  * TODO: Replace with proper type when views are added to generated types
  * This represents data from a database view that isn't yet in the generated types

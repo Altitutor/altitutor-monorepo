@@ -34,13 +34,7 @@ import { classesApi } from '@/features/classes/api/classes';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { 
-  formatSubjectDisplay, 
-  formatClassName, 
-  formatClassShortName,
-  getSubjectCurriculumColor,
-  cn,
-} from '@/shared/utils';
+import { getSubjectCurriculumColor, cn } from '@/shared/utils';
 import { useQuery } from '@tanstack/react-query';
 
 interface StudentSelectorProps {
@@ -713,7 +707,7 @@ export function StudentSelector({
                           onClick={() => handleAddBySubject(subject.id)}
                           disabled={isLoading}
                         >
-                          <div className="font-medium">{formatSubjectDisplay(subject)}</div>
+                          <div className="font-medium">{subject?.long_name ?? ''}</div>
                         </Button>
                       ))
                     )}
@@ -751,7 +745,7 @@ export function StudentSelector({
                         {classSearchQuery ? 'No classes match your search' : 'No classes found'}
                       </div>
                     ) : (
-                      filteredClasses.map(({ class: cls, subject }) => (
+                      filteredClasses.map(({ class: cls }) => (
                         <Button
                           key={cls.id}
                           variant="ghost"
@@ -759,7 +753,7 @@ export function StudentSelector({
                           onClick={() => handleAddByClass(cls.id)}
                           disabled={isLoading}
                         >
-                          <div className="font-medium">{formatClassName(cls, subject)}</div>
+                          <div className="font-medium">{cls?.long_name?.trim() ?? ''}</div>
                         </Button>
                       ))
                     )}
@@ -963,10 +957,7 @@ export function StudentSelector({
                             {classes
                               .sort((a, b) => a.day_of_week - b.day_of_week || a.start_time.localeCompare(b.start_time))
                               .map((cls) => {
-                                const shortName = formatClassShortName({
-                                  day_of_week: cls.day_of_week,
-                                  start_time: cls.start_time,
-                                } as Tables<'classes'>, cls.subject || null);
+                                const shortName = (cls as { short_name?: string | null }).short_name?.trim() ?? '';
                                 return (
                                   <span key={cls.id} className="text-xs">
                                     {shortName}

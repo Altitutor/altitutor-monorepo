@@ -8,7 +8,6 @@ import type { Tables } from '@altitutor/shared';
 import { useSessionHelpers } from '../useSessionHelpers';
 
 type SessionWithSubject = Tables<'sessions'> & { subject?: Tables<'subjects'> | null; class?: { subject?: Tables<'subjects'> | null } | null };
-type SessionsStudentWithInvoice = { student_id?: string; planned_absence?: boolean; invoice_status?: string | null };
 
 describe('useSessionHelpers', () => {
   const mockSession: Partial<Tables<'sessions'>> = {
@@ -114,64 +113,6 @@ describe('useSessionHelpers', () => {
     });
   });
 
-  describe('canReschedule', () => {
-    it('should return true for DRAFTING session', () => {
-      const { result } = renderHook(() =>
-        useSessionHelpers({
-          session: { ...mockSession, type: 'DRAFTING' } as SessionWithSubject,
-          sessionsStudents: [],
-          sessionsStaff: [],
-          tutorLog: null,
-          firstClassStaffId: null,
-        })
-      );
-
-      expect(result.current.canReschedule).toBe(true);
-    });
-
-    it('should return true for TRIAL_SESSION', () => {
-      const { result } = renderHook(() =>
-        useSessionHelpers({
-          session: { ...mockSession, type: 'TRIAL_SESSION' } as SessionWithSubject,
-          sessionsStudents: [],
-          sessionsStaff: [],
-          tutorLog: null,
-          firstClassStaffId: null,
-        })
-      );
-
-      expect(result.current.canReschedule).toBe(true);
-    });
-
-    it('should return true for SUBSIDY_INTERVIEW', () => {
-      const { result } = renderHook(() =>
-        useSessionHelpers({
-          session: { ...mockSession, type: 'SUBSIDY_INTERVIEW' } as SessionWithSubject,
-          sessionsStudents: [],
-          sessionsStaff: [],
-          tutorLog: null,
-          firstClassStaffId: null,
-        })
-      );
-
-      expect(result.current.canReschedule).toBe(true);
-    });
-
-    it('should return false for CLASS session', () => {
-      const { result } = renderHook(() =>
-        useSessionHelpers({
-          session: { ...mockSession, type: 'CLASS' } as SessionWithSubject,
-          sessionsStudents: [],
-          sessionsStaff: [],
-          tutorLog: null,
-          firstClassStaffId: null,
-        })
-      );
-
-      expect(result.current.canReschedule).toBe(false);
-    });
-  });
-
   describe('subject', () => {
     it('should return subject from session.subject', () => {
       const subject = { id: 'subject-1', name: 'Math' };
@@ -225,61 +166,6 @@ describe('useSessionHelpers', () => {
       );
 
       expect(result.current.subject).toBeNull();
-    });
-  });
-
-  describe('getFirstStudentIdForReschedule', () => {
-    it('should return first student ID without planned absence', () => {
-      const sessionsStudents = [
-        { student_id: 'student-1', planned_absence: true },
-        { student_id: 'student-2', planned_absence: false },
-        { student_id: 'student-3', planned_absence: false },
-      ];
-
-      const { result } = renderHook(() =>
-        useSessionHelpers({
-          session: mockSession as SessionWithSubject,
-          sessionsStudents: sessionsStudents as SessionsStudentWithInvoice[],
-          sessionsStaff: [],
-          tutorLog: null,
-          firstClassStaffId: null,
-        })
-      );
-
-      expect(result.current.getFirstStudentIdForReschedule()).toBe('student-2');
-    });
-
-    it('should return null when all students have planned absence', () => {
-      const sessionsStudents = [
-        { student_id: 'student-1', planned_absence: true },
-        { student_id: 'student-2', planned_absence: true },
-      ];
-
-      const { result } = renderHook(() =>
-        useSessionHelpers({
-          session: mockSession as SessionWithSubject,
-          sessionsStudents: sessionsStudents as SessionsStudentWithInvoice[],
-          sessionsStaff: [],
-          tutorLog: null,
-          firstClassStaffId: null,
-        })
-      );
-
-      expect(result.current.getFirstStudentIdForReschedule()).toBeNull();
-    });
-
-    it('should return null when sessionsStudents is empty', () => {
-      const { result } = renderHook(() =>
-        useSessionHelpers({
-          session: mockSession as SessionWithSubject,
-          sessionsStudents: [],
-          sessionsStaff: [],
-          tutorLog: null,
-          firstClassStaffId: null,
-        })
-      );
-
-      expect(result.current.getFirstStudentIdForReschedule()).toBeNull();
     });
   });
 

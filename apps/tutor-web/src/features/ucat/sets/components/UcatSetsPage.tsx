@@ -28,6 +28,7 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  Switch,
   TablePagination,
   Textarea,
   useToast,
@@ -130,6 +131,7 @@ export function UcatSetsPage() {
   const [form, setForm] = useState({
     name: '',
     description: '',
+    isTimed: true,
     timeLimitMinutes: '',
     timeLimitSeconds: '',
     isPrivate: false,
@@ -229,25 +231,42 @@ export function UcatSetsPage() {
   }
 
   async function onCreate() {
+    const timeLimitSeconds = form.isTimed
+      ? minutesSecondsToTotal(form.timeLimitMinutes, form.timeLimitSeconds)
+      : null
     const payload: UcatQuestionSetPayload = {
       name: plainTextToProseMirror(form.name),
       description: form.description,
-      timeLimitSeconds: minutesSecondsToTotal(form.timeLimitMinutes, form.timeLimitSeconds),
+      timeLimitSeconds,
       isPrivate: form.isPrivate,
       isStudentGenerated: false,
       stemIds: [],
     }
     const result = await createSet.mutateAsync(payload)
+    const setName = form.name.trim() || 'Untitled'
     setOpenCreate(false)
     setForm({
       name: '',
       description: '',
+      isTimed: true,
       timeLimitMinutes: '',
       timeLimitSeconds: '',
       isPrivate: false,
       isStudentGenerated: false,
     })
     if (result.id) setEditingSetId(result.id)
+    toast({
+      title: `Set ${setName} created`,
+      description: (
+        <button
+          type="button"
+          onClick={() => setEditingSetId(result.id)}
+          className="underline font-medium hover:no-underline text-left"
+        >
+          View set
+        </button>
+      ),
+    })
   }
 
   if (access.isLoading || sets.isLoading) return <UcatPageSkeleton rows={8} />
@@ -448,7 +467,11 @@ export function UcatSetsPage() {
         subtitle="Create a new UCAT set"
         onSave={onCreate}
         saveLabel="Create"
-        saveDisabled={createSet.isPending}
+        saveDisabled={
+          createSet.isPending ||
+          (form.isTimed &&
+            ((t) => t == null || t <= 0)(minutesSecondsToTotal(form.timeLimitMinutes, form.timeLimitSeconds)))
+        }
         isSaving={createSet.isPending}
       >
         <div className="p-6 overflow-y-auto h-full space-y-4">
@@ -461,28 +484,46 @@ export function UcatSetsPage() {
             <Textarea className="min-h-20" value={form.description} onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))} />
           </label>
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Time limit (mm:ss)</span>
-            <div className="flex items-center gap-2">
-              <Input
-                type="number"
-                min={0}
-                placeholder="0"
-                className="w-20"
-                value={form.timeLimitMinutes}
-                onChange={(e) => setForm((prev) => ({ ...prev, timeLimitMinutes: e.target.value }))}
-              />
-              <span className="text-muted-foreground font-medium">:</span>
-              <Input
-                type="number"
-                min={0}
-                max={59}
-                placeholder="0"
-                className="w-20"
-                value={form.timeLimitSeconds}
-                onChange={(e) => setForm((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))}
-              />
-              <span className="text-muted-foreground text-xs">min : sec</span>
+            <div className="mb-2 flex items-center justify-between">
+              <span className="font-medium">Time limit</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Untimed</span>
+                <Switch
+                  checked={form.isTimed}
+                  onCheckedChange={(v) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      isTimed: v,
+                      ...(v ? {} : { timeLimitMinutes: '', timeLimitSeconds: '' }),
+                    }))
+                  }
+                />
+                <span className="text-xs text-muted-foreground">Timed</span>
+              </div>
             </div>
+            {form.isTimed && (
+              <div className="flex items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="0"
+                  className="w-20"
+                  value={form.timeLimitMinutes}
+                  onChange={(e) => setForm((prev) => ({ ...prev, timeLimitMinutes: e.target.value }))}
+                />
+                <span className="text-muted-foreground font-medium">:</span>
+                <Input
+                  type="number"
+                  min={0}
+                  max={59}
+                  placeholder="0"
+                  className="w-20"
+                  value={form.timeLimitSeconds}
+                  onChange={(e) => setForm((prev) => ({ ...prev, timeLimitSeconds: e.target.value }))}
+                />
+                <span className="text-muted-foreground text-xs">min : sec</span>
+              </div>
+            )}
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>

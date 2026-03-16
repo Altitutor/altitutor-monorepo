@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
-import { formatClassName, cn } from '@/shared/utils';
+import { cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays, isBefore, startOfDay } from 'date-fns';
@@ -132,7 +132,7 @@ export function Step3SummaryAndConfirm({
 
   // Get class name for info card
   const className = selectedClass
-    ? formatClassName(selectedClass, selectedClass.subject)
+    ? (selectedClass.long_name?.trim() ?? '')
     : 'choose class';
 
   // Format enrollment date for display

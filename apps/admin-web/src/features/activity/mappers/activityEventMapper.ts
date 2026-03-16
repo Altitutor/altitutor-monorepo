@@ -1,8 +1,6 @@
 import type { ActivityEvent, ActivityEventDisplay, ActivityEventsResponse, ChangedField } from '../types';
 import { getActivityTemplate, getGroupedActivityTemplate, FIELD_LABELS } from './activityMessageTemplates';
 import { coalesceRelatedEvents } from './activityEventCoalescer';
-import type { Tables } from '@altitutor/shared';
-import { formatClassName, formatSubjectShortName } from '@/shared/utils';
 import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
 import { formatDate, formatActivityTimestamp } from '@/shared/utils/datetime';
 
@@ -33,7 +31,7 @@ function getStudentName(
 }
 
 /**
- * Get class name from related entities
+ * Get class name from related entities (database long_name/short_name only).
  */
 function getClassName(
   classId: string | null | undefined,
@@ -42,11 +40,11 @@ function getClassName(
   if (!classId) return undefined;
   const class_ = relatedEntities.classes?.[classId];
   if (!class_) return undefined;
-  return formatClassName(class_);
+  return class_.long_name?.trim() ?? class_.short_name?.trim() ?? undefined;
 }
 
 /**
- * Get session name from related entities
+ * Get session name from related entities (database long_name/short_name only).
  */
 function getSessionName(
   sessionId: string | null | undefined,
@@ -55,30 +53,21 @@ function getSessionName(
   if (!sessionId) return undefined;
   const session = relatedEntities.sessions?.[sessionId];
   if (!session) return undefined;
-  
-  // Get subject short name directly from session
-  let subjectShortName = '';
-  const sessionWithSubjectId = session as Tables<'sessions'> & { subject_id?: string | null };
-  if (sessionWithSubjectId.subject_id) {
-    const subject = relatedEntities.subjects?.[sessionWithSubjectId.subject_id];
-    if (subject) {
-      subjectShortName = formatSubjectShortName(subject);
-    }
-  }
-  
+
+  if (session.long_name?.trim()) return session.long_name.trim();
+  if (session.short_name?.trim()) return session.short_name.trim();
+
   if (session.start_at) {
     const date = new Date(session.start_at);
-    // Use the Date object's local time methods instead of extracting UTC string
     const hours = date.getHours();
     const minutes = date.getMinutes();
     const ampm = hours >= 12 ? 'PM' : 'AM';
     const hour12 = hours % 12 || 12;
     const paddedMinutes = minutes.toString().padStart(2, '0');
     const timeStr = `${hour12}:${paddedMinutes} ${ampm}`;
-    const datetimeStr = `${formatDate(date.toISOString())} ${timeStr}`;
-    return subjectShortName ? `${subjectShortName} ${datetimeStr}` : datetimeStr;
+    return `${formatDate(date.toISOString())} ${timeStr}`;
   }
-  return `Session ${session.type || ''}`;
+  return session.type ? `Session ${session.type}` : undefined;
 }
 
 /**

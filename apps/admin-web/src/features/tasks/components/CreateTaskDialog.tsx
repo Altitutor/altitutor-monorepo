@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -19,7 +19,13 @@ import { useCreateTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
 import type { TaskFormData, TaskStatus } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
-import { useCurrentStaff } from '@/shared/hooks';
+import { useCurrentStaff, useDialogHotkeys } from '@/shared/hooks';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
 import type { Resolver } from 'react-hook-form';
@@ -73,6 +79,11 @@ export function CreateTaskDialog({
   const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string | null } | null>(project ?? null);
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Fetch notes for created task
   const { data: notesData } = useNotes('tasks', createdTaskId || '', !!createdTaskId);
@@ -88,7 +99,7 @@ export function CreateTaskDialog({
       description: null,
       status: defaultStatus || defaultValues?.status || 'todo',
       priority: defaultValues?.priority ?? 0,
-      assignedTo: defaultValues?.assignedTo || null,
+      assignedTo: defaultValues?.assignedTo ?? currentStaff?.id ?? null,
       issueId: defaultValues?.issueId || issue?.id || null,
       projectId: defaultValues?.projectId || project?.id || null,
       estimate: defaultValues?.estimate || null,
@@ -99,25 +110,37 @@ export function CreateTaskDialog({
   // Reset form when modal opens/closes or defaultStatus changes
   useEffect(() => {
     if (isOpen) {
+      const resolvedAssignedTo = defaultValues?.assignedTo ?? currentStaff?.id ?? null;
+
       form.reset({
         title: '',
         description: null,
         status: defaultStatus || defaultValues?.status || 'todo',
         priority: defaultValues?.priority ?? 0,
-        assignedTo: defaultValues?.assignedTo || null,
+        assignedTo: resolvedAssignedTo,
         issueId: defaultValues?.issueId || issue?.id || null,
         projectId: defaultValues?.projectId || project?.id || null,
         estimate: defaultValues?.estimate || null,
         dueDate: defaultValues?.dueDate || null,
       });
-      setSelectedAssignee(null);
+      setSelectedAssignee(
+        resolvedAssignedTo && currentStaff && resolvedAssignedTo === currentStaff.id
+          ? currentStaff
+          : null
+      );
       setSelectedIssue(issue ?? null);
       setSelectedProject(project ?? null);
       setCreatedTaskId(null);
     }
-  }, [isOpen, defaultStatus, defaultValues, form, issue, project]);
+  }, [isOpen, defaultStatus, defaultValues, form, issue, project, currentStaff]);
 
-  const onSubmit = async (data: TaskFormData): Promise<void> => {
+  const handleClose = useCallback(() => {
+    setCreatedTaskId(null);
+    form.reset();
+    onClose();
+  }, [form, onClose]);
+
+  const onSubmit = useCallback(async (data: TaskFormData): Promise<void> => {
     try {
       await createTask.mutateAsync({
         title: data.title,
@@ -138,17 +161,28 @@ export function CreateTaskDialog({
       // Error handling is done in the mutation
       console.error('Failed to create task:', error);
     }
-  };
+  }, [createTask, currentStaff, handleClose, onTaskCreated]);
 
-  const handleClose = () => {
-    setCreatedTaskId(null);
-    form.reset();
-    onClose();
-  };
+  const handlePrimaryAction = useCallback(() => {
+    if (createTask.isPending) return;
+    void form.handleSubmit(onSubmit as SubmitHandler<TaskFormData>)();
+  }, [createTask.isPending, form, onSubmit]);
+
+  useDialogHotkeys({
+    isOpen,
+    onPrimaryAction: handlePrimaryAction,
+    isActionDisabled: createTask.isPending,
+  });
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -163,6 +197,7 @@ export function CreateTaskDialog({
               <div className="flex-1">
                 <DialogTitle>Create Task</DialogTitle>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </div>
         </DialogHeader>

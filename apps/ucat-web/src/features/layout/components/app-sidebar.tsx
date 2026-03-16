@@ -12,15 +12,18 @@ import { cn } from '@/lib/utils'
 export function AppSidebar({
   collapsed,
   mobileOpen,
+  isMobile,
   onCloseMobile,
 }: {
   collapsed: boolean
   mobileOpen: boolean
+  isMobile: boolean
   onCloseMobile: () => void
 }) {
   const pathname = usePathname()
   const { showComingSoonModal } = useComingSoon()
-  const isVisible = mobileOpen || !collapsed
+  // On mobile, visibility is driven only by mobileOpen. On desktop, by !collapsed.
+  const isVisible = isMobile ? mobileOpen : !collapsed
   const logoSrc = '/images/logo-banner-dark.svg'
 
   return (

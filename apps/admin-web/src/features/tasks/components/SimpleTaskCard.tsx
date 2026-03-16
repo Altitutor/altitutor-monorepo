@@ -10,27 +10,25 @@ import {
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
 import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
-import { getPriorityColor, getPriorityLabel, getStatusColor, getStatusLabel, getStatusIconColor, isOverdue, formatDueDate, getUserInitials, getEstimateLabel } from '../utils/taskUtils';
-import { Calendar, Circle, Clock, Eye, CheckCircle } from 'lucide-react';
+import {
+  getPriorityColor,
+  getPriorityLabel,
+  getStatusColor,
+  getStatusIcon,
+  getStatusLabel,
+  getStatusIconColor,
+  isOverdue,
+  formatDueDate,
+  getUserInitials,
+  getEstimateLabel,
+  TASK_STATUS_OPTIONS,
+} from '../utils/taskUtils';
+import { Calendar } from 'lucide-react';
 import { useUpdateTask } from '../api/mutations';
-import type { LucideIcon } from 'lucide-react';
 
 interface SimpleTaskCardProps {
   task: TaskWithAssignee;
   onClick?: () => void;
-}
-
-const STATUS_OPTIONS: { value: TaskStatus; label: string; icon: LucideIcon }[] = [
-  { value: 'backlog', label: 'Backlog', icon: Circle },
-  { value: 'todo', label: 'Todo', icon: Circle },
-  { value: 'in_progress', label: 'In Progress', icon: Clock },
-  { value: 'in_review', label: 'In Review', icon: Eye },
-  { value: 'done', label: 'Done', icon: CheckCircle },
-];
-
-function getStatusIcon(status: TaskStatus): LucideIcon {
-  const option = STATUS_OPTIONS.find((opt) => opt.value === status);
-  return option?.icon || Circle;
 }
 
 export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
@@ -119,19 +117,19 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            {STATUS_OPTIONS.map((status) => {
-              const StatusIcon = status.icon;
+            {TASK_STATUS_OPTIONS.map((status) => {
+              const StatusIconLocal = getStatusIcon(status.value);
               const iconColor = getStatusIconColor(status.value);
               return (
                 <DropdownMenuItem
                   key={status.value}
-                  onClick={(e) => handleStatusChange(status.value, e)}
+                  onClick={(e) => handleStatusChange(status.value as TaskStatus, e)}
                   className={cn(
                     'flex items-center gap-2',
                     task.status === status.value && 'bg-muted'
                   )}
                 >
-                  <StatusIcon className={cn('h-4 w-4', iconColor)} />
+                  <StatusIconLocal className={cn('h-4 w-4', iconColor)} />
                   <span>{status.label}</span>
                 </DropdownMenuItem>
               );

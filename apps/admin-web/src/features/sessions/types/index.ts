@@ -28,7 +28,7 @@ export type {
 export type StudentWithAttendance = Tables<'students'> & {
   planned_absence?: boolean;
   actual_attended?: boolean | null;
-  invoice_status?: string | null;
+  invoice_status_payload?: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
   sessions_students_id?: string;
   was_trial?: boolean;
 };

@@ -124,7 +124,7 @@ describe('processSessionStudents', () => {
         is_extra: false,
         is_rescheduled: false,
         is_credited: false,
-        invoice_status: null,
+        invoice_status_payload: null,
       },
     ];
 
@@ -146,7 +146,7 @@ describe('processSessionStudents', () => {
         is_extra: false,
         is_rescheduled: false,
         is_credited: false,
-        invoice_status: null,
+        invoice_status_payload: null,
       },
     ];
 
@@ -173,7 +173,7 @@ describe('processSessionStudents', () => {
             class: { start_time: '10:00' },
           },
         },
-        invoice_status: null,
+        invoice_status_payload: null,
       },
     ];
 
@@ -194,7 +194,7 @@ describe('processSessionStudents', () => {
         is_extra: false,
         is_rescheduled: false,
         is_credited: true,
-        invoice_status: null,
+        invoice_status_payload: null,
       },
     ];
 
@@ -213,7 +213,7 @@ describe('processSessionStudents', () => {
         is_extra: true,
         is_rescheduled: false,
         is_credited: false,
-        invoice_status: null,
+        invoice_status_payload: null,
       },
     ];
 
@@ -232,7 +232,7 @@ describe('processSessionStudents', () => {
         is_extra: false,
         is_rescheduled: false,
         is_credited: false,
-        invoice_status: null,
+        invoice_status_payload: null,
       },
     ];
 
@@ -255,7 +255,7 @@ describe('processSessionStudents', () => {
         is_extra: false,
         is_rescheduled: false,
         is_credited: false,
-        invoice_status: null,
+        invoice_status_payload: null,
       },
     ];
 
@@ -269,6 +269,7 @@ describe('processSessionStudents', () => {
   });
 
   it('should handle invoice status', () => {
+    const payload = { status: 'paid', paid_at: '2024-01-15T00:00:00Z' };
     const sessionsStudents = [
       {
         student_id: 'student-1',
@@ -278,13 +279,13 @@ describe('processSessionStudents', () => {
         is_extra: false,
         is_rescheduled: false,
         is_credited: false,
-        invoice_status: 'paid',
+        invoice_status_payload: payload,
       },
     ];
 
     const result = processSessionStudents(sessionsStudents, {}, false);
 
-    expect(result[0].invoiceStatus).toBe('paid');
+    expect(result[0].invoiceStatus).toEqual(payload);
     expect(result[0].hasInvoiceItems).toBe(true);
   });
 });

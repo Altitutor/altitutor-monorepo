@@ -741,41 +741,77 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'credit_note.created': {
-        // HIGH: Create credit_notes record for refunds
-        const creditNote = event.data.object as { id: string; invoice: string; amount?: number; currency?: string; reason?: string; status?: string; metadata?: Record<string, unknown> };
+        // HIGH: Create or update credit_notes record (upsert: API may have already inserted).
+        // Stripe does NOT send payment_refund_amount/credit_amount in webhook; use refund/refunds and customer_balance_transaction.
+        const creditNote = event.data.object as {
+          id: string;
+          invoice: string;
+          amount?: number;
+          currency?: string;
+          reason?: string;
+          status?: string;
+          metadata?: Record<string, unknown>;
+          refund?: string | null;
+          refunds?: Array<{ amount_refunded?: number }> | null;
+          customer_balance_transaction?: string | null;
+          out_of_band_amount?: number | null;
+        };
         const invoiceId = creditNote.invoice as string;
-        
-        // Find invoice by stripe_invoice_id
+        const totalCents = creditNote.amount ?? 0;
+        const hasRefund = Boolean(creditNote.refund) || (Array.isArray(creditNote.refunds) && creditNote.refunds.length > 0);
+        const refundCents = hasRefund
+          ? (creditNote.refunds?.[0]?.amount_refunded ?? totalCents)
+          : null;
+        const creditCents = creditNote.customer_balance_transaction ? totalCents : null;
+        const outOfBandCents = typeof creditNote.out_of_band_amount === 'number' ? creditNote.out_of_band_amount : null;
+
         const { data: invoice, error: findErr } = await supabase
           .from('invoices')
           .select('id')
           .eq('stripe_invoice_id', invoiceId)
           .maybeSingle();
-        
+
         if (findErr) {
           console.error('[webhook] Error finding invoice for credit note:', findErr);
         } else if (invoice) {
-          const { error: insertErr } = await supabase
+          const { error: upsertErr } = await supabase
             .from('credit_notes')
-            .insert({
-              invoice_id: invoice.id,
-              stripe_credit_note_id: creditNote.id,
-              amount_cents: creditNote.amount,
-              currency: creditNote.currency,
-              reason: creditNote.reason,
-              status: creditNote.status,
-              metadata: creditNote.metadata || {},
-            });
-          
-          if (insertErr) {
-            console.error('[webhook] Error creating credit note:', insertErr);
+            .upsert(
+              {
+                invoice_id: invoice.id,
+                stripe_credit_note_id: creditNote.id,
+                amount_cents: totalCents,
+                currency: creditNote.currency ?? 'aud',
+                reason: creditNote.reason ?? null,
+                status: creditNote.status ?? 'issued',
+                metadata: creditNote.metadata ?? {},
+                refund_amount_cents: refundCents,
+                credit_amount_cents: creditCents,
+                out_of_band_amount_cents: outOfBandCents,
+              },
+              { onConflict: 'stripe_credit_note_id' }
+            );
+
+          if (upsertErr) {
+            console.error('[webhook] Error upserting credit note:', upsertErr);
           } else {
-            console.log('[webhook] Credit note created:', creditNote.id, 'for invoice:', invoice.id);
+            console.log('[webhook] Credit note synced:', creditNote.id, 'for invoice:', invoice.id);
+            // Keep invoice.has_credit_notes in sync for "Paid (Refunded)" display
+            const { data: nonVoid } = await supabase
+              .from('credit_notes')
+              .select('id')
+              .eq('invoice_id', invoice.id)
+              .neq('status', 'void')
+              .limit(1);
+            await supabase
+              .from('invoices')
+              .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
+              .eq('id', invoice.id);
           }
         } else {
           console.warn('[webhook] No invoice found for credit note:', invoiceId);
         }
-        
+
         await supabase
           .from('stripe_webhook_events')
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -784,17 +820,56 @@ Deno.serve(async (req: Request) => {
       }
 
       case 'credit_note.updated': {
-        // HIGH: Update credit_notes status
-        const creditNote = event.data.object as { id: string; status?: string; reason?: string };
+        // HIGH: Update credit_notes status and settlement breakdown (same field mapping as created).
+        const creditNote = event.data.object as {
+          id: string;
+          invoice?: string;
+          status?: string;
+          reason?: string;
+          amount?: number;
+          refund?: string | null;
+          refunds?: Array<{ amount_refunded?: number }> | null;
+          customer_balance_transaction?: string | null;
+          out_of_band_amount?: number | null;
+        };
+        const totalCents = creditNote.amount ?? null;
+        const hasRefund = Boolean(creditNote.refund) || (Array.isArray(creditNote.refunds) && creditNote.refunds.length > 0);
+        const refundCents = hasRefund && totalCents != null
+          ? (creditNote.refunds?.[0]?.amount_refunded ?? totalCents)
+          : null;
+        const creditCents = creditNote.customer_balance_transaction && totalCents != null ? totalCents : null;
+        const outOfBandCents = typeof creditNote.out_of_band_amount === 'number' ? creditNote.out_of_band_amount : null;
+
+        const { data: existing } = await supabase
+          .from('credit_notes')
+          .select('invoice_id')
+          .eq('stripe_credit_note_id', creditNote.id)
+          .maybeSingle();
         
         await supabase
           .from('credit_notes')
           .update({
             status: creditNote.status,
             reason: creditNote.reason,
+            refund_amount_cents: refundCents,
+            credit_amount_cents: creditCents,
+            out_of_band_amount_cents: outOfBandCents,
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_credit_note_id', creditNote.id);
+        
+        if (existing?.invoice_id) {
+          const { data: nonVoid } = await supabase
+            .from('credit_notes')
+            .select('id')
+            .eq('invoice_id', existing.invoice_id)
+            .neq('status', 'void')
+            .limit(1);
+          await supabase
+            .from('invoices')
+            .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
+            .eq('id', existing.invoice_id);
+        }
         
         await supabase
           .from('stripe_webhook_events')
@@ -807,6 +882,12 @@ Deno.serve(async (req: Request) => {
         // HIGH: Update credit_notes status to 'void'
         const creditNote = event.data.object as { id: string };
         
+        const { data: existing } = await supabase
+          .from('credit_notes')
+          .select('invoice_id')
+          .eq('stripe_credit_note_id', creditNote.id)
+          .maybeSingle();
+        
         await supabase
           .from('credit_notes')
           .update({
@@ -815,6 +896,19 @@ Deno.serve(async (req: Request) => {
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_credit_note_id', creditNote.id);
+        
+        if (existing?.invoice_id) {
+          const { data: nonVoid } = await supabase
+            .from('credit_notes')
+            .select('id')
+            .eq('invoice_id', existing.invoice_id)
+            .neq('status', 'void')
+            .limit(1);
+          await supabase
+            .from('invoices')
+            .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
+            .eq('id', existing.invoice_id);
+        }
         
         await supabase
           .from('stripe_webhook_events')

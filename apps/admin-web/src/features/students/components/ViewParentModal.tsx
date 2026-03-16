@@ -25,6 +25,7 @@ import { StudentSearchPopover } from './StudentSearchPopover';
 import { useQueryClient } from '@tanstack/react-query';
 import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { getErrorMessage } from '@/shared/utils';
 import { useRouter } from 'next/navigation';
 import { useParentDetails, parentsKeys, useDeleteParent } from '@/features/parents/hooks/useParentsQuery';
 import {
@@ -125,10 +126,10 @@ export function ViewParentModal({
         title: 'Parent deleted',
         description: 'Parent has been deleted successfully.',
       });
-    } catch {
+    } catch (error: unknown) {
       toast({
         title: 'Delete failed',
-        description: 'There was an error deleting the parent. Please try again.',
+        description: getErrorMessage(error),
         variant: 'destructive',
       });
     } finally {

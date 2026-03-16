@@ -1,33 +1,25 @@
 import type { IssueStatus } from '../types';
+import {
+  getIssueStatusColor as getSharedIssueStatusColor,
+  getIssueStatusLabel as getSharedIssueStatusLabel,
+  getIssueStatusIcon as getSharedIssueStatusIcon,
+  getIssueStatusIconColor as getSharedIssueStatusIconColor,
+  ISSUE_STATUS_OPTIONS as SHARED_ISSUE_STATUS_OPTIONS,
+} from '@/shared/constants';
 
-/**
- * Get badge color classes for issue status (for consistent card display)
- */
-export function getIssueStatusColor(status: IssueStatus): string {
-  switch (status) {
-    case 'open':
-      return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
-    case 'awaiting_response':
-      return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300';
-    case 'resolved':
-      return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
-    default:
-      return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
-  }
-}
+export const ISSUE_STATUS_OPTIONS = SHARED_ISSUE_STATUS_OPTIONS;
 
-export function getIssueStatusLabel(status: IssueStatus): string {
-  switch (status) {
-    case 'open':
-      return 'Open';
-    case 'awaiting_response':
-      return 'Awaiting Response';
-    case 'resolved':
-      return 'Resolved';
-    default:
-      return status;
-  }
-}
+export const getIssueStatusColor = (status: IssueStatus): string =>
+  getSharedIssueStatusColor(status);
+
+export const getIssueStatusLabel = (status: IssueStatus): string =>
+  getSharedIssueStatusLabel(status);
+
+export const getIssueStatusIcon = (status: IssueStatus) =>
+  getSharedIssueStatusIcon(status);
+
+export const getIssueStatusIconColor = (status: IssueStatus): string =>
+  getSharedIssueStatusIconColor(status);
 
 export function getIssueStatusOrder(status: string): number {
   const order: Record<string, number> = {

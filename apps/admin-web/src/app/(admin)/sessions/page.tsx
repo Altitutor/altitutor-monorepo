@@ -7,15 +7,15 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { Tabs, TabsList, TabsTrigger, useToast, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
+import { Tabs, TabsList, TabsTrigger, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components';
+import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
 import { ChevronDown } from 'lucide-react';
 
 export default function SessionsPage() {
   const search = useSearchParams();
   const router = useRouter();
-  const { toast } = useToast();
   const viewParam = search.get('view') || 'calendar';
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
@@ -23,7 +23,7 @@ export default function SessionsPage() {
   const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
-  const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null>(null);
+  const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
 
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
@@ -112,6 +112,14 @@ export default function SessionsPage() {
               >
                 Drafting
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setBookingSessionType('STAFF_INTERVIEW');
+                  setBookingModalOpen(true);
+                }}
+              >
+                Staff interview
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -162,24 +170,33 @@ export default function SessionsPage() {
         onClose={() => setActiveFileId(null)}
       />
 
-      {bookingSessionType && (
-        <BookSessionModal
+      {bookingSessionType === 'STAFF_INTERVIEW' ? (
+        <StaffInterviewBookSessionModal
           isOpen={bookingModalOpen}
           onClose={() => {
             setBookingModalOpen(false);
             setBookingSessionType(null);
           }}
-          sessionType={bookingSessionType}
           onBookingCreated={() => {
-            toast({
-              title: 'Success',
-              description: 'Session booked successfully',
-            });
-            // Optionally refresh the sessions list or navigate to the new session
             setBookingModalOpen(false);
             setBookingSessionType(null);
           }}
         />
+      ) : (
+        bookingSessionType && (
+          <BookSessionModal
+            isOpen={bookingModalOpen}
+            onClose={() => {
+              setBookingModalOpen(false);
+              setBookingSessionType(null);
+            }}
+            sessionType={bookingSessionType}
+            onBookingCreated={() => {
+              setBookingModalOpen(false);
+              setBookingSessionType(null);
+            }}
+          />
+        )
       )}
     </div>
   );

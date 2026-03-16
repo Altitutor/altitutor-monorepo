@@ -83,7 +83,7 @@ describe('formatStudentDisplay', () => {
 });
 
 describe('formatSubjectDisplay', () => {
-  it('should format subject with all parts', () => {
+  it('should return long_name when set', () => {
     const subject: Tables<'subjects'> = {
       id: 'subject-1',
       name: 'Mathematics',
@@ -92,16 +92,16 @@ describe('formatSubjectDisplay', () => {
       color: null,
       discipline: 'MATHEMATICS',
       level: null,
-      long_name: null,
+      long_name: 'IB Year 10 Mathematics',
       short_name: null,
       created_at: null,
       updated_at: null,
     };
-    
+
     expect(formatSubjectDisplay(subject)).toBe('IB Year 10 Mathematics');
   });
 
-  it('should format subject without year level', () => {
+  it('should return empty string when long_name is null', () => {
     const subject: Tables<'subjects'> = {
       id: 'subject-1',
       name: 'English',
@@ -115,26 +115,8 @@ describe('formatSubjectDisplay', () => {
       created_at: null,
       updated_at: null,
     };
-    
-    expect(formatSubjectDisplay(subject)).toBe('SACE English');
-  });
 
-  it('should format subject with only name when other fields are missing', () => {
-    const subject: Tables<'subjects'> = {
-      id: 'subject-1',
-      name: 'Science',
-      curriculum: null,
-      year_level: null,
-      color: null,
-      discipline: null,
-      level: null,
-      long_name: null,
-      short_name: null,
-      created_at: null,
-      updated_at: null,
-    };
-    
-    expect(formatSubjectDisplay(subject)).toBe('Science');
+    expect(formatSubjectDisplay(subject)).toBe('');
   });
 });
 

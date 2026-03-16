@@ -26,6 +26,10 @@ interface UseInvoiceActionsProps {
    */
   onChargeCard?: () => void;
   /**
+   * Optional callback for add credit note action
+   */
+  onAddCreditNote?: () => void;
+  /**
    * Whether an action is currently loading
    */
   isLoadingAction?: boolean;
@@ -43,6 +47,7 @@ export function useInvoiceActions({
   onDownloadPdf,
   onSendInvoice,
   onChargeCard,
+  onAddCreditNote,
   isLoadingAction,
 }: UseInvoiceActionsProps) {
   const router = useRouter();
@@ -77,6 +82,7 @@ export function useInvoiceActions({
     onDownloadPdf: invoice?.invoice_pdf ? handleDownloadPdf : undefined,
     onSendInvoice,
     onChargeCard,
+    onAddCreditNote,
     isLoadingAction,
   };
 }

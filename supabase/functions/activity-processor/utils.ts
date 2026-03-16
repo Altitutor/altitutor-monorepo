@@ -199,11 +199,12 @@ export function formatDateTime(timestamp: string): string {
   }
 }
 
-// Format class name for display
+// Format class name for display (prefer DB long_name when present)
 interface ClassDataLike {
   day_of_week?: number | null;
   start_time?: string | null;
   end_time?: string | null;
+  long_name?: string | null;
 }
 
 interface SubjectLike {
@@ -211,20 +212,19 @@ interface SubjectLike {
 }
 
 export function formatClassName(classData: ClassDataLike, subject: SubjectLike | null | undefined): string {
+  if (classData.long_name?.trim()) {
+    return classData.long_name.trim();
+  }
   const parts: string[] = [];
-  
   if (subject?.long_name) {
     parts.push(subject.long_name);
   }
-  
   if (classData.day_of_week != null) {
     parts.push(formatDayOfWeek(classData.day_of_week));
   }
-  
   if (classData.start_time && classData.end_time) {
     parts.push(`${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`);
   }
-  
   return parts.join(' ');
 }
 

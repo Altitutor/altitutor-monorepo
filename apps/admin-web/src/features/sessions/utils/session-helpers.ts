@@ -2,8 +2,6 @@ import type { Tables } from '@altitutor/shared';
 import { formatSessionDate } from '@altitutor/shared';
 import { formatTime } from '@/shared/utils/datetime';
 
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
 export { formatSessionDate };
 
 /**
@@ -17,47 +15,11 @@ export type SessionWithDetails = Tables<'sessions'> & {
 };
 
 /**
- * Generates a session title in the format:
- * {curriculum} {year_level} {subject_name} {class_level} {day_string} {start_time} - {end_time}
- * Example: "SACE Year 12 Mathematics Advanced Monday 14:00 - 16:00"
+ * Session title from database only.
+ * Uses session.long_name; no frontend building from class/subject parts.
  */
 export function getSessionTitle(session: SessionWithDetails): string {
-  const parts: string[] = [];
-  
-  const classData = session.class;
-  const subject = classData?.subject;
-  
-  // Add curriculum
-  if (subject?.curriculum) {
-    parts.push(subject.curriculum);
-  }
-  
-  // Add year level
-  if (subject?.year_level != null) {
-    parts.push(`Year ${subject.year_level}`);
-  }
-  
-  // Add subject name
-  if (subject?.name) {
-    parts.push(subject.name);
-  }
-  
-  // Add class level
-  if (classData?.level) {
-    parts.push(classData.level);
-  }
-  
-  // Add day name
-  if (classData?.day_of_week != null) {
-    parts.push(DAY_NAMES[classData.day_of_week]);
-  }
-  
-  // Add time range
-  if (classData?.start_time && classData?.end_time) {
-    parts.push(`${classData.start_time} - ${classData.end_time}`);
-  }
-  
-  return parts.join(' ');
+  return session.long_name?.trim() ?? '';
 }
 
 /**
@@ -70,13 +32,14 @@ export type SessionShortNameInput = {
 } & Partial<SessionWithDetails>;
 
 /**
- * Returns a short display name for a session (e.g. for dialogs).
- * Prefers getSessionTitle, then date+time from start_at/end_at, then class time.
+ * Short display name for a session (e.g. for dialogs).
+ * Uses session.short_name, then session.long_name from DB; then date+time or "this session".
  */
 export function getShortSessionName(session: SessionShortNameInput | null | undefined): string {
   if (!session) return 'this session';
-  const fromTitle = getSessionTitle(session as SessionWithDetails);
-  if (fromTitle) return fromTitle;
+  const s = session as SessionShortNameInput & { short_name?: string | null; long_name?: string | null };
+  if (s.short_name?.trim()) return s.short_name.trim();
+  if (s.long_name?.trim()) return s.long_name.trim();
 
   if (session.start_at && session.end_at) {
     const start = new Date(session.start_at);

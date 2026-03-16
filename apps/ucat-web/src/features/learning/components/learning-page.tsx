@@ -1,5 +1,9 @@
-import { UcatPagePlaceholder } from '@altitutor/ui'
+import { UcatPageHeader } from '@/features/layout'
 
 export function LearningPage() {
-  return <UcatPagePlaceholder title="Learn" description="LMS homepage placeholder." />
+  return (
+    <div className="space-y-6">
+      <UcatPageHeader title="Learn" description="LMS homepage placeholder." />
+    </div>
+  )
 }

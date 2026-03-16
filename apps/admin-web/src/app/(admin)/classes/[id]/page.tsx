@@ -27,7 +27,6 @@ import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
 import { useUpdateClass } from '@/features/classes/hooks/useClassesQuery';
-import { formatClassName, formatClassShortName } from '@/shared/utils';
 import type { TablesUpdate } from '@altitutor/shared';
 import { ClassInfoTab, ClassInfoFormData } from '@/features/classes/components/modal/tabs/ClassInfoTab';
 import { ClassStudentsTab } from '@/features/classes/components/modal/tabs/ClassStudentsTab';
@@ -218,13 +217,13 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
             {isEditing ? 'Edit Class' : 'Class Details'}
           </h1>
           <p className="text-lg text-muted-foreground mt-1">
-            {formatClassName(classData, subject)}
+            {classData.long_name?.trim() ?? ''}
           </p>
         </div>
         <ActionsMenu
           type="class"
           entityId={classData.id}
-          copyTagDisplayText={formatClassShortName(classData, subject)}
+          copyTagDisplayText={classData.short_name?.trim() ?? ''}
           {...classActions}
         />
       </div>

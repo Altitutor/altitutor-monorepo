@@ -20,11 +20,13 @@ import { EditTaskDialog } from './EditTaskDialog';
 import { CreateTaskDialog } from './CreateTaskDialog';
 import {
   getStatusLabel,
+  getStatusIcon,
   getStatusIconColor,
   getPriorityLabel,
   getEstimateLabel,
   ESTIMATE_OPTIONS,
   PRIORITY_OPTIONS,
+  TASK_STATUS_OPTIONS,
 } from '../utils/taskUtils';
 import {
   TaskAssigneeEntityPill,
@@ -36,15 +38,6 @@ import {
 import { TaskDueDateEntityPill } from './fields/TaskDueDateEntityPill';
 import type { TaskWithAssignee, TaskStatus, TaskPriority, TaskFilters, TaskUpdate, TaskFormData } from '../types';
 import { cn } from '@/shared/utils';
-import { Circle, Clock, Eye, CheckCircle } from 'lucide-react';
-
-const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'todo', label: 'Todo' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'in_review', label: 'In Review' },
-  { value: 'done', label: 'Done' },
-];
 
 interface TasksBoardProps {
   filters?: {
@@ -116,32 +109,39 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     [projects]
   );
 
-  const statusColumn: EntityListStatusColumn<TaskWithAssignee, TaskStatus> = useMemo(() => ({
-    key: 'status',
-    label: 'Status',
-    getValue: (t) => t.status as TaskStatus,
-    defaultValue: 'todo',
-    filterable: true,
-    options: STATUS_OPTIONS.map(opt => ({
-      ...opt,
-      icon: opt.value === 'backlog' ? Circle : opt.value === 'todo' ? Circle : opt.value === 'in_progress' ? Clock : opt.value === 'in_review' ? Eye : CheckCircle,
-    })),
-    renderBubble: (value, collapsed) => {
-      const label = getStatusLabel(value);
-      const iconColor = getStatusIconColor(value);
-      const Icon = value === 'backlog' ? Circle : value === 'todo' ? Circle : value === 'in_progress' ? Clock : value === 'in_review' ? Eye : CheckCircle;
+  const statusColumn: EntityListStatusColumn<TaskWithAssignee, TaskStatus> = useMemo(
+    () => ({
+      key: 'status',
+      label: 'Status',
+      getValue: (t) => t.status as TaskStatus,
+      defaultValue: 'todo',
+      filterable: true,
+      options: TASK_STATUS_OPTIONS.map((opt) => ({
+        value: opt.value,
+        label: opt.label,
+        icon: () => {
+          const Icon = getStatusIcon(opt.value);
+          return <Icon className="h-3 w-3" />;
+        },
+      })),
+      renderBubble: (value, collapsed) => {
+        const label = getStatusLabel(value);
+        const iconColor = getStatusIconColor(value);
+        const Icon = getStatusIcon(value);
 
-      if (collapsed) return <Icon className={cn('h-3 w-3', iconColor)} />;
+        if (collapsed) return <Icon className={cn('h-3 w-3', iconColor)} />;
 
-      return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
-          <Icon className="h-3 w-3" />
-          {label}
-        </span>
-      );
-    },
-    onStatusChange: (task, value) => handleUpdate(task, { status: value }),
-  }), [handleUpdate]);
+        return (
+          <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
+            <Icon className="h-3 w-3" />
+            {label}
+          </span>
+        );
+      },
+      onStatusChange: (task, value) => handleUpdate(task, { status: value }),
+    }),
+    [handleUpdate]
+  );
 
   const dueDateFilterOptions = useMemo(
     () =>
@@ -158,7 +158,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       visibleByDefault: true,
       getValue: (t) => t.status ?? null,
       defaultValue: null,
-      filterOptions: STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
+      filterOptions: TASK_STATUS_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
       groupable: true,
       sortable: true,
       filterable: true,
@@ -322,7 +322,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       key: 'status',
       label: 'Status',
       getValue: (t) => t.status,
-      options: STATUS_OPTIONS,
+      options: TASK_STATUS_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
       onValueChange: (t, v) => handleUpdate(t, { status: v as TaskStatus }),
     },
     {

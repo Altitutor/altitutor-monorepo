@@ -3,7 +3,7 @@
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
 import { getDayOfWeek } from '@/shared/utils/datetime';
-import { formatClassName, formatDate, cn } from '@/shared/utils';
+import { formatDate, cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { AssignStaffContext, StaffConflictInfo, ClassConflictInfo, StaffUnavailabilityInfo } from '../../types/enrollment';
 
@@ -89,9 +89,9 @@ export function AssignStaffStep3Summary({
         : '—');
 
   const className = context === 'class' && classData && classSubject
-    ? formatClassName(classData, classSubject)
+    ? (classData.long_name?.trim() ?? '')
     : (selectedClasses && selectedClasses.length > 0
-        ? selectedClasses.map(c => formatClassName(c, c.subject)).join(', ')
+        ? selectedClasses.map(c => c.long_name?.trim() ?? '').join(', ')
         : '—');
 
   const dateDisplay = assignmentDate

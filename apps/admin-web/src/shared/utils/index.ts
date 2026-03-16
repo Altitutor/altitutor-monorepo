@@ -2,7 +2,6 @@ import { type ClassValue, clsx } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import type { Tables } from '@altitutor/shared'
 import type React from 'react'
-import { formatTime, getDayShortName } from './datetime'
 
 /**
  * Safely extract error message from unknown error type
@@ -79,84 +78,6 @@ export function formatDateTime(date: Date | string): string {
     hour: '2-digit',
     minute: '2-digit',
   });
-}
-
-/**
- * Format a subject for consistent display across the application
- * Combines curriculum, year level, name, and level in a standardized format
- */
-/**
- * Get subject long name from database column
- * Falls back to empty string if not available
- */
-export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
-  return subject.long_name || '';
-}
-
-/**
- * Get subject short name from database column
- * Falls back to long_name, then name, then empty string if not available
- */
-export function formatSubjectShortName(subject: Tables<'subjects'>): string {
-  return subject.short_name || subject.long_name || subject.name || '';
-}
-
-/**
- * Format a class name for consistent display across the application
- * Format: {subject_long_name} {day} {start_time} - {end_time}
- * Example: "SACE 12 Mathematics Mon 2:00 PM - 4:00 PM"
- */
-export function formatClassName(
-  classData: Tables<'classes'>,
-  subject?: Tables<'subjects'> | null
-): string {
-  const parts: string[] = [];
-  
-  // Add subject long name from database column
-  if (subject?.long_name) {
-    parts.push(subject.long_name);
-  }
-  
-  // Add day name (short)
-  if (classData.day_of_week != null) {
-    parts.push(getDayShortName(classData.day_of_week));
-  }
-  
-  // Add time range
-  if (classData.start_time && classData.end_time) {
-    parts.push(`${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`);
-  }
-  
-  return parts.join(' ');
-}
-
-/**
- * Format a class short name for compact display
- * Format: {subject_short_name} {day} {start_time}
- * Example: "12MATH Mon 2:00 PM"
- */
-export function formatClassShortName(
-  classData: Pick<Tables<'classes'>, 'day_of_week' | 'start_time'>,
-  subject?: Tables<'subjects'> | null
-): string {
-  const parts: string[] = [];
-  
-  // Add subject short name from database column
-  if (subject?.short_name) {
-    parts.push(subject.short_name);
-  }
-  
-  // Add day name (short)
-  if (classData.day_of_week != null) {
-    parts.push(getDayShortName(classData.day_of_week));
-  }
-  
-  // Add start time only
-  if (classData.start_time) {
-    parts.push(formatTime(classData.start_time));
-  }
-  
-  return parts.join(' ');
 }
 
 /**

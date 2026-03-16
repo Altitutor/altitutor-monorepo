@@ -49,6 +49,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const [search, setSearch] = useState('')
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState('')
+  const [draftIsTimed, setDraftIsTimed] = useState(true)
   const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
   const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
   const [draftPrivate, setDraftPrivate] = useState(false)
@@ -65,6 +66,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     setDraftName(proseMirrorToPlainText(current.name ?? null))
     setDraftDescription(proseMirrorToPlainText(current.description))
     const sec = current.time_limit_seconds ?? 0
+    setDraftIsTimed(sec > 0)
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
     setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
     setDraftPrivate(!!current.is_private)
@@ -86,17 +88,21 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const stemDetail = useUcatQuestionDetail(editingStemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
 
+  const timeLimitSeconds = draftIsTimed
+    ? minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
+    : null
+  const isTimeLimitValid = !draftIsTimed || (timeLimitSeconds != null && timeLimitSeconds > 0)
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
       name: draftName,
       description: draftDescription,
-      time: minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds),
+      time: timeLimitSeconds,
       isPrivate: draftPrivate,
       isStudentGenerated: false,
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
-  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, draftTimeLimitMinutes, draftTimeLimitSeconds])
+  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, timeLimitSeconds])
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => {
     const base: DataTableFilterDefinition[] = [
@@ -177,7 +183,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         id: setId,
         name: plainTextToProseMirror(draftName),
         description: draftDescription,
-        timeLimitSeconds: minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds),
+        timeLimitSeconds,
         isPrivate: draftPrivate,
         isStudentGenerated: false,
         stemIds: draftStemIds,
@@ -210,7 +216,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           },
         ]}
         actions={
-          <Button onClick={save} disabled={!isDirty || updateSet.isPending}>
+          <Button onClick={save} disabled={!isDirty || !isTimeLimitValid || updateSet.isPending}>
             {updateSet.isPending ? 'Saving...' : 'Save changes'}
           </Button>
         }
@@ -220,6 +226,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         <UcatSetEditorContent
           draftName={draftName}
           draftDescription={draftDescription}
+          draftIsTimed={draftIsTimed}
           draftTimeLimitMinutes={draftTimeLimitMinutes}
           draftTimeLimitSeconds={draftTimeLimitSeconds}
           draftPrivate={draftPrivate}
@@ -234,9 +241,21 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           onEditStem={(id) => setEditingStemId(id)}
           onChangeName={setDraftName}
           onChangeDescription={setDraftDescription}
+          onChangeIsTimed={(v) => {
+            setDraftIsTimed(v)
+            if (!v) {
+              setDraftTimeLimitMinutes('')
+              setDraftTimeLimitSeconds('')
+            }
+          }}
           onChangeTimeLimitMinutes={setDraftTimeLimitMinutes}
           onChangeTimeLimitSeconds={setDraftTimeLimitSeconds}
           onChangePrivate={(value) => setDraftPrivate(value)}
+          sections={(sectionsQuery.data ?? []).map((s) => ({
+            id: s.id ?? '',
+            name: s.name ?? null,
+            time_limit_seconds: s.time_limit_seconds ?? null,
+          }))}
         />
       </div>
 

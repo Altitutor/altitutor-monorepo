@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,12 @@ import {
   AlertDialogTitle,
 } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { StaffSelector } from './StaffSelector';
 import { AdminTrialContactForm } from './AdminTrialContactForm';
@@ -27,6 +34,8 @@ import { formatSlotDateTime, getCurrentAdelaideTime } from '../utils/dateTimeHel
 import { StudentSelectionStep } from './steps/StudentSelectionStep';
 import { SubjectSelectionStep } from './steps/SubjectSelectionStep';
 import { ConfirmationStep } from './steps/ConfirmationStep';
+import { BookSessionNotifyStep } from './BookSessionNotifyStep';
+import { useDialogHotkeys } from '@/shared/hooks';
 
 export interface BookSessionModalProps {
   isOpen: boolean;
@@ -47,7 +56,12 @@ export function BookSessionModal({
   originalSessionId = null,
   originalSubjectId = null,
 }: BookSessionModalProps) {
+  const [expanded, setExpanded] = useState(false);
   const { data: durationMinutes = 60 } = useSessionDurationMinutes(sessionType);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const {
     // State
@@ -89,6 +103,8 @@ export function BookSessionModal({
     handlePastDateWarningConfirm,
     handlePastDateWarningCancel,
     canGoNext,
+    createdSessionId,
+    handleDoneNotifyStep,
   } = useBookSessionFlow({
     isOpen,
     sessionType,
@@ -99,7 +115,28 @@ export function BookSessionModal({
     onClose,
   });
 
+  const isNotifyStep = !!createdSessionId;
+  const hasNextStep = !isNotifyStep && currentStep < steps.length - 1;
+  const isFinalStep = !isNotifyStep && currentStep === steps.length - 1;
+
+  useDialogHotkeys({
+    isOpen,
+    onNextStep: handleNext,
+    hasNextStep,
+    onPrimaryAction: isFinalStep ? handleConfirmBooking : undefined,
+    isActionDisabled: isSubmitting,
+  });
+
   const renderStepContent = () => {
+    if (createdSessionId) {
+      return (
+        <BookSessionNotifyStep
+          sessionId={createdSessionId}
+          sessionType={sessionType}
+          successMessage={`${getSessionTypeLabel(sessionType)} has been booked successfully`}
+        />
+      );
+    }
     switch (currentStepId) {
       case 'student':
         return (
@@ -198,7 +235,13 @@ export function BookSessionModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+        <DialogContent
+          className={cn(
+            'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           {/* Header */}
           <div className="flex-shrink-0 border-b bg-background">
             <DialogHeader className="px-6 pt-6 pb-4">
@@ -219,28 +262,33 @@ export function BookSessionModal({
                         : `Book ${getSessionTypeLabel(sessionType)}`}
                     </DialogTitle>
                     <DialogDescription>
-                      Step {currentStep + 1} of {steps.length}: {currentStepData?.title}
+                      {createdSessionId
+                        ? 'Notify the student/parent or staff about the booking'
+                        : `Step ${currentStep + 1} of ${steps.length}: ${currentStepData?.title}`}
                     </DialogDescription>
                   </div>
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               </div>
             </DialogHeader>
 
             {/* Progress Indicator */}
             <div className="px-6 pb-4">
               <div className="flex items-center gap-2">
-                {Array.from({ length: steps.length }).map((_, index) => (
-                  <div
-                    key={index}
-                    className={`flex-1 h-2 rounded-full transition-colors ${
-                      index < currentStep
-                        ? 'bg-primary'
-                        : index === currentStep
-                        ? 'bg-primary/50'
-                        : 'bg-muted'
-                    }`}
-                  />
-                ))}
+                {createdSessionId
+                  ? null
+                  : Array.from({ length: steps.length }).map((_, index) => (
+                      <div
+                        key={index}
+                        className={`flex-1 h-2 rounded-full transition-colors ${
+                          index < currentStep
+                            ? 'bg-primary'
+                            : index === currentStep
+                              ? 'bg-primary/50'
+                              : 'bg-muted'
+                        }`}
+                      />
+                    ))}
               </div>
             </div>
           </div>
@@ -258,7 +306,7 @@ export function BookSessionModal({
           <div className="flex justify-between px-6 py-4 border-t bg-background">
             <div className="flex gap-2">
               {/* Disable back button when rescheduling - user should not go back to earlier steps */}
-              {currentStep > 0 && !originalSessionId && (
+              {!createdSessionId && currentStep > 0 && !originalSessionId && (
                 <Button
                   variant="outline"
                   onClick={handleBack}
@@ -271,7 +319,11 @@ export function BookSessionModal({
             </div>
             
             <div className="flex gap-2">
-              {currentStep < steps.length - 1 ? (
+              {createdSessionId ? (
+                <Button onClick={() => handleDoneNotifyStep(createdSessionId)}>
+                  Done
+                </Button>
+              ) : currentStep < steps.length - 1 ? (
                 <Button onClick={handleNext} disabled={!canGoNext() || isSubmitting}>
                   Next
                   <ChevronRight className="h-4 w-4 ml-2" />

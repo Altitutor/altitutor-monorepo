@@ -16,7 +16,8 @@ interface MessageTemplatesPickerProps {
 export function MessageTemplatesPicker({ onSelect, disabled, expanded = false }: MessageTemplatesPickerProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const { data: templates = [], isLoading } = useMessageTemplates();
+  const { data: allTemplates = [], isLoading } = useMessageTemplates();
+  const templates = allTemplates.filter((t) => !t.template_key);
 
   const handleSelect = (template: Tables<'message_templates'>) => {
     onSelect(template);

@@ -4,7 +4,6 @@ import { memo, useCallback, useState } from 'react';
 import { TableCell, TableRow, Button, Label, Input } from "@altitutor/ui";
 import type { Tables } from '@altitutor/shared';
 import { StaffRoleBadge, StaffStatusBadge } from '@altitutor/ui';
-import { formatClassName, formatClassShortName } from '@/shared/utils';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useRouter } from 'next/navigation';
 import { useCurrentStaff } from '../hooks/useStaffQuery';
@@ -153,11 +152,11 @@ export const StaffTableRow = memo(function StaffTableRow({
                     event.stopPropagation();
                     onClassClick(cls.id);
                   }}
-                  title={formatClassName(cls, cls.subject)}
+                  title={cls.long_name?.trim() ?? ''}
                 >
                   {/* Default to short names, only show full on 2xl+ screens */}
-                  <span className="2xl:hidden">{formatClassShortName(cls, cls.subject)}</span>
-                  <span className="hidden 2xl:inline">{formatClassName(cls, cls.subject)}</span>
+<span className="2xl:hidden">{cls.short_name?.trim() ?? ''}</span>
+                    <span className="hidden 2xl:inline">{cls.long_name?.trim() ?? ''}</span>
                 </Button>
               ))}
           </div>

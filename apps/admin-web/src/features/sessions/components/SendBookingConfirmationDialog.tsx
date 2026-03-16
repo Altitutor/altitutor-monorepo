@@ -18,7 +18,10 @@ import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } 
 import { Skeleton } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
-import { getBookingConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
+import {
+  getBookingConfirmationMessageForClient,
+  getSenderNameFromStaff,
+} from '@/features/messages/api/systemTemplates';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
@@ -29,6 +32,12 @@ import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveBut
 import { useStudentClassesForTemplate } from '@/features/messages/hooks/useTemplatePreviewData';
 import { useBookingConfirmationData } from '../hooks/useBookingConfirmationData';
 import type { Tables } from '@altitutor/shared';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface SendBookingConfirmationDialogProps {
   isOpen: boolean;
@@ -59,6 +68,7 @@ export function SendBookingConfirmationDialog({
   } | null>(null);
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [composerDraft, setComposerDraft] = useState<string>('');
+  const [expanded, setExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emailComposerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
@@ -148,6 +158,10 @@ export function SendBookingConfirmationDialog({
   }, [student, parents]);
 
   useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
+  useEffect(() => {
     if (isOpen && isError) {
       toast({
         title: 'Error',
@@ -184,37 +198,42 @@ export function SendBookingConfirmationDialog({
         ? parents.find((p) => p.id === selectedRecipient.id)?.first_name || 'there'
         : student.first_name || 'there';
 
-    const template = getBookingConfirmationSmsTemplate({
-      firstName,
-      bookingUrl,
-      sessionDate,
-      sessionTime,
-    });
+    const senderName = getSenderNameFromStaff(currentStaff);
 
-    if (selectedRecipient.method === 'phone') {
-      if (!composerDraft) {
-        setComposerDraft(template);
-      }
-      if (customMessage) {
+    let cancelled = false;
+    (async () => {
+      const template = await getBookingConfirmationMessageForClient({
+        firstName,
+        bookingUrl: bookingUrl ?? '',
+        sessionDate,
+        sessionTime,
+        sessionType: session?.type ?? null,
+        senderName,
+      });
+      if (cancelled) return;
+
+      if (selectedRecipient.method === 'phone') {
+        setComposerDraft((prev) => (prev ? prev : template));
         setCustomMessage('');
-      }
-    } else {
-      if (!customMessage) {
-        setCustomMessage(template);
-      }
-      if (composerDraft) {
+      } else {
+        setCustomMessage((prev) => (prev ? prev : template));
         setComposerDraft('');
       }
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [
     bookingUrl,
     sessionDate,
     sessionTime,
+    session?.type,
     student,
     parents,
     selectedRecipient,
     composerDraft,
     customMessage,
+    currentStaff,
   ]);
 
   useEffect(() => {
@@ -357,8 +376,14 @@ export function SendBookingConfirmationDialog({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="md:max-w-4xl h-[90vh] flex flex-col [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className={cn(
+          'md:max-w-4xl h-[90vh] flex flex-col [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -377,6 +402,7 @@ export function SendBookingConfirmationDialog({
                   {student?.first_name} {student?.last_name}&apos;s parent(s)
                 </DialogDescription>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </div>
         </DialogHeader>

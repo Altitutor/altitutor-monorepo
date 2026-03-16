@@ -31,6 +31,12 @@ import {
 } from '../api/call-routing';
 import { staffApi } from '@/features/staff/api/staff';
 import type { Tables } from '@altitutor/shared';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 const DAY_NAMES = [
   { value: 0, label: 'Sunday' },
@@ -58,6 +64,16 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [staffList, setStaffList] = useState<Tables<'staff'>[]>([]);
+  const [editExpanded, setEditExpanded] = useState(false);
+  const [addExpanded, setAddExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!editingSchedule) setEditExpanded(false);
+  }, [editingSchedule]);
+
+  useEffect(() => {
+    if (!isAddDialogOpen) setAddExpanded(false);
+  }, [isAddDialogOpen]);
 
   useEffect(() => {
     const loadStaff = async () => {
@@ -242,13 +258,23 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
       )}
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingSchedule} onOpenChange={() => setEditingSchedule(null)}>
-        <DialogContent>
+      <Dialog open={!!editingSchedule} onOpenChange={(open) => !open && setEditingSchedule(null)}>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            editExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Edit On-Call Schedule</DialogTitle>
-            <DialogDescription>
-              Update the on-call schedule for {editingSchedule && getStaffName(editingSchedule.staff_id)}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Edit On-Call Schedule</DialogTitle>
+                <DialogDescription>
+                  Update the on-call schedule for {editingSchedule && getStaffName(editingSchedule.staff_id)}
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={editExpanded} onToggle={() => setEditExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -308,13 +334,23 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
       </Dialog>
 
       {/* Add Dialog */}
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent>
+      <Dialog open={isAddDialogOpen} onOpenChange={(open) => setIsAddDialogOpen(open)}>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            addExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Add On-Call Schedule</DialogTitle>
-            <DialogDescription>
-              Set a recurring weekly on-call schedule for a staff member
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Add On-Call Schedule</DialogTitle>
+                <DialogDescription>
+                  Set a recurring weekly on-call schedule for a staff member
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={addExpanded} onToggle={() => setAddExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

@@ -5,7 +5,7 @@ import { useClassPlan } from '../hooks/useClassPlansQuery';
 import { Card } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
-import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
+import { getSubjectColorStyle } from '@/shared/utils';
 import { StudentAvatar } from '@/features/sessions/components/StudentAvatar';
 import { classPlansApi } from '../api/classPlans';
 import { useQueryClient } from '@tanstack/react-query';
@@ -232,7 +232,7 @@ export function ClassBank({ planId, onCreateClass, selectedSubjectId, dragSubjec
                 }}
               >
                 <div className="font-medium text-sm text-foreground">
-                  {subject ? formatSubjectDisplay(subject) : 'No Subject'}
+                  {subject?.long_name ?? 'No Subject'}
                 </div>
                 {cls.level && (
                   <div className="text-xs text-muted-foreground mt-1">{cls.level}</div>

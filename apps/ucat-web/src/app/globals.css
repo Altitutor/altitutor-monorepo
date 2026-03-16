@@ -6,6 +6,8 @@
   --background: 220 20% 95%;
   --foreground: 224 20% 12%;
   --border: 220 20% 88%;
+  --input: 220 20% 88%;
+  --ring: 212 86% 14%;
   --muted: 220 18% 92%;
   --muted-foreground: 220 10% 44%;
   --card: 0 0% 100%;
@@ -26,6 +28,8 @@
   --background: 220 16% 10%;
   --foreground: 220 20% 96%;
   --border: 220 14% 24%;
+  --input: 220 14% 24%;
+  --ring: 198 29% 67%;
   --muted: 220 14% 16%;
   --muted-foreground: 220 12% 74%;
   --card: 220 14% 16%;
@@ -50,4 +54,13 @@ body {
 body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
+}
+
+/* Progress page: pagination uses accent for active page button */
+.ucat-pagination button.bg-primary {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+.ucat-pagination button.bg-primary:hover:not(:disabled) {
+  background-color: hsl(var(--accent) / 0.9) !important;
 }

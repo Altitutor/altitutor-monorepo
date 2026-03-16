@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger, useToast } from '@altitutor/ui';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, Tabs, TabsContent, TabsList, TabsTrigger, useToast, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { useSessionActions } from '../hooks/useSessionActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
@@ -19,7 +19,6 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { SendBookingConfirmationDialog } from './SendBookingConfirmationDialog';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
 import { SessionDetailsTab, type SessionEditFormData } from './SessionDetailsTab';
-import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { AddStudentToSessionModal } from './AddStudentToSessionModal';
 import { AddStaffToSessionModal } from './AddStaffToSessionModal';
 import { RemoveFromSessionConfirmDialog } from './RemoveFromSessionConfirmDialog';
@@ -96,6 +95,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const [activeTab, setActiveTab] = useState('details');
   const [undoTarget, setUndoTarget] = useState<UndoTarget | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [pendingSaveData, setPendingSaveData] = useState<SessionEditFormData | null>(null);
 
   // Reset modals when modal closes
   useEffect(() => {
@@ -103,6 +103,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       modals.reset();
       setUndoTarget(null);
       setIsEditing(false);
+      setPendingSaveData(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -110,16 +111,19 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const handleSessionUpdate = async (data: SessionEditFormData) => {
     if (!sessionId) return;
     try {
+      const startAtLocal = `${data.date}T${data.startTime}`;
+      const endAtLocal = `${data.date}T${data.endTime}`;
       const update: TablesUpdate<'sessions'> = {
         type: data.type as TablesUpdate<'sessions'>['type'],
-        start_at: new Date(data.startAtLocal).toISOString(),
-        end_at: new Date(data.endAtLocal).toISOString(),
+        start_at: new Date(startAtLocal).toISOString(),
+        end_at: new Date(endAtLocal).toISOString(),
         subject_id: data.type === 'CLASS' ? (data.subjectId ?? null) : null,
         class_id: data.type === 'CLASS' ? (data.classId ?? null) : null,
       };
       await updateSessionMutation.mutateAsync({ id: sessionId, data: update });
       await sessionData.refresh();
       setIsEditing(false);
+      setPendingSaveData(null);
       toast({
         title: 'Session updated',
         description: 'Session has been updated successfully.',
@@ -133,6 +137,10 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       });
       throw err;
     }
+  };
+
+  const handleSessionFormSubmit = async (data: SessionEditFormData) => {
+    setPendingSaveData(data);
   };
 
   const handleOpenSession = (id: string) => {
@@ -224,13 +232,6 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     onLogSession: modals.openLogSessionModal,
     onEditTutorLog: modals.openEditTutorLogModal,
     hasTutorLog: helpers.hasTutorLog,
-    onReschedule: () => {
-      const studentId = helpers.getFirstStudentIdForReschedule();
-      if (studentId) {
-        modals.openRescheduleModal(studentId);
-      }
-    },
-    canReschedule: helpers.canReschedule,
   });
 
   // Always render the Sheet to allow exit animation
@@ -346,6 +347,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
                 <div className="p-6">
                   <SessionDetailsTab
+                    key={`session-details-${sessionId ?? ''}-${isEditing}`}
                     session={session}
                     studentsData={studentsData}
                     staffData={staffData}
@@ -367,7 +369,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     isEditing={isEditing}
                     onEdit={() => setIsEditing(true)}
                     onCancelEdit={() => setIsEditing(false)}
-                    onSubmit={handleSessionUpdate}
+                    onSubmit={handleSessionFormSubmit}
                     isUpdating={updateSessionMutation.isPending}
                     onUndoLogAbsenceStudent={(payload) => {
                       type SessionsStudentRowWithId = { sessions_students_id?: string; id?: string; rescheduled_session?: { session?: unknown } };
@@ -453,6 +455,33 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         </SheetContent>
       </Sheet>
       
+      {/* Save confirmation dialog */}
+      <AlertDialog open={!!pendingSaveData} onOpenChange={(open) => !open && setPendingSaveData(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save session changes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to save these changes to the session? This will update the session type, date, time, subject, and/or class.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async (e) => {
+                e.preventDefault();
+                if (pendingSaveData) {
+                  await handleSessionUpdate(pendingSaveData);
+                }
+              }}
+              disabled={updateSessionMutation.isPending}
+            >
+              {updateSessionMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save changes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Student Modal */}
       {modals.selectedStudentId && (
         <ViewStudentModal
@@ -725,26 +754,6 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           initialStaffId={modals.selectedStaffForAbsence}
           initialSessionId={sessionId}
           allowPastSessions={true}
-        />
-      )}
-
-      {/* Reschedule Session Modal */}
-      {modals.selectedStudentForReschedule && sessionId && helpers.canReschedule && (
-        <BookSessionModal
-          isOpen={modals.isRescheduleModalOpen}
-          onClose={async () => {
-            modals.closeRescheduleModal();
-            if (sessionId && isOpen) {
-              await sessionData.refresh();
-            }
-          }}
-          sessionType={session.type as 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'}
-          initialStudentId={modals.selectedStudentForReschedule}
-          originalSessionId={sessionId}
-          originalSubjectId={helpers.subject?.id ?? session?.subject_id ?? null}
-          onBookingCreated={(_newSessionId) => {
-            modals.closeRescheduleModal();
-          }}
         />
       )}
 

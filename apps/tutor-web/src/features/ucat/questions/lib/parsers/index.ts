@@ -4,15 +4,19 @@
  * - core: collectLogicalLinesFromDoc, parseFromLines, ParsedStem / ParsedQuestion / ParsedOption
  * - verbalReasoning: parseVerbalReasoningFromDoc, getVerbalReasoningStemCategoryName, mapParsedVerbalReasoningToFormValues
  * - decisionMaking: parseDecisionMakingFromDoc, isSyllogismQuestionText, mapParsedDecisionMakingToFormValues
+ * - quantitativeReasoning: parseQuantitativeReasoningFromDoc, mapParsedQuantitativeReasoningToFormValues (preserves tables/images)
+ * - situationalJudgement: parseSituationalJudgementFromDoc, mapParsedSituationalJudgementToFormValues
  */
 
 export {
   collectLogicalLinesFromDoc,
+  collectBlocksFromDocForQuantitativeReasoning,
   parseFromLines,
   type ParsedStem,
   type ParsedQuestion,
   type ParsedOption,
   type ParserConfig,
+  type QuantitativeReasoningDocBlocks,
 } from './core'
 
 export {
@@ -29,9 +33,32 @@ export {
   parseDecisionMakingFromDoc,
   parseDecisionMakingPlainText,
   isSyllogismQuestionText,
+  getDecisionMakingStemCategoryName,
   mapParsedDecisionMakingToFormValues,
   type ParsedDecisionMakingStem,
   type ParsedDecisionMakingQuestion,
   type ParsedDecisionMakingOption,
+  type DecisionMakingCategoryName,
   type DecisionMakingToFormOptions,
 } from './decisionMaking'
+
+export {
+  parseQuantitativeReasoningFromDoc,
+  parseQuantitativeReasoningFromLines,
+  parseQuantitativeReasoningPlainText,
+  mapParsedQuantitativeReasoningToFormValues,
+  type QuantitativeReasoningParserConfig,
+  type QuantitativeReasoningToFormOptions,
+  type ParseQuantitativeReasoningResult,
+} from './quantitativeReasoning'
+
+export {
+  parseSituationalJudgementFromDoc,
+  parseSituationalJudgementFromLines,
+  parseSituationalJudgementPlainText,
+  getSituationalJudgementStemCategoryName,
+  mapParsedSituationalJudgementToFormValues,
+  type SituationalJudgementParserConfig,
+  type SituationalJudgementCategoryName,
+  type SituationalJudgementToFormOptions,
+} from './situationalJudgement'

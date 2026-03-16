@@ -28,6 +28,7 @@ export async function POST(request: NextRequest) {
   const body = (await request.json()) as {
     questionSetId: string
     mockAttemptId?: string | null
+    wasTimed?: boolean
   }
 
   if (!body.questionSetId) {
@@ -52,6 +53,7 @@ export async function POST(request: NextRequest) {
     student_id: student.id,
     question_set_id: body.questionSetId,
     student_ucat_mock_attempt_id: body.mockAttemptId ?? null,
+    was_timed: body.wasTimed ?? false,
   }
 
   const { data: inserted, error: insertError } = await supabaseAdmin

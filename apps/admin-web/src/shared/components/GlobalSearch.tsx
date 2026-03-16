@@ -13,7 +13,7 @@ import { Search, Loader2, GraduationCap, Users, Calendar } from 'lucide-react';
 import { Input, Badge, Button } from '@altitutor/ui';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useGlobalSearch, flattenGlobalSearchResults } from '@/shared/hooks/useGlobalSearch';
-import { formatClassShortName, formatClassName, getSubjectColorStyle, cn } from '@/shared/utils';
+import { getSubjectColorStyle, cn } from '@/shared/utils';
 import { ViewStudentModal } from '@/features/students/components';
 import { ViewStaffModal } from '@/features/staff/components/modal';
 import { ViewClassModal } from '@/features/classes/components';
@@ -151,27 +151,8 @@ export function GlobalSearch() {
   );
 
   const buildClassLabels = useCallback((classData: ClassSummary) => {
-    if (!classData.subject) {
-      const fallback = classData.level ?? 'Class';
-      return { shortName: fallback, fullName: fallback };
-    }
-
-    const shortName = formatClassShortName(
-      {
-        day_of_week: classData.day_of_week ?? 0,
-        start_time: classData.start_time ?? '00:00',
-      } as Parameters<typeof formatClassShortName>[0],
-      classData.subject as Parameters<typeof formatClassShortName>[1]
-    );
-    const fullName = formatClassName(
-      {
-        day_of_week: classData.day_of_week ?? 0,
-        start_time: classData.start_time ?? '00:00',
-        end_time: classData.end_time ?? classData.start_time ?? '00:00',
-      } as Parameters<typeof formatClassName>[0],
-      classData.subject as Parameters<typeof formatClassName>[1]
-    );
-
+    const shortName = classData.short_name?.trim() ?? classData.level ?? 'Class';
+    const fullName = classData.long_name?.trim() ?? classData.level ?? 'Class';
     return { shortName, fullName };
   }, []);
 
