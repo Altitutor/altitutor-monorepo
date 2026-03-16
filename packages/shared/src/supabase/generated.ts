@@ -8887,10 +8887,16 @@ export type Database = {
           question_set_id: string | null
           scaled_score: number | null
           score_points: number | null
+          set_speed: number | null
+          set_time_limit_at_exam_speed_seconds: number | null
+          set_time_limit_seconds: number | null
+          student_exam_speed: number | null
           student_id: string | null
+          student_set_speed: number | null
           student_ucat_mock_attempt_id: string | null
           time_taken_seconds: number | null
           total_points: number | null
+          was_timed: boolean | null
         }
         Insert: {
           attempted_at?: string | null
@@ -8899,10 +8905,16 @@ export type Database = {
           question_set_id?: string | null
           scaled_score?: number | null
           score_points?: number | null
+          set_speed?: number | null
+          set_time_limit_at_exam_speed_seconds?: number | null
+          set_time_limit_seconds?: number | null
+          student_exam_speed?: number | null
           student_id?: string | null
+          student_set_speed?: number | null
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
+          was_timed?: boolean | null
         }
         Update: {
           attempted_at?: string | null
@@ -8911,10 +8923,16 @@ export type Database = {
           question_set_id?: string | null
           scaled_score?: number | null
           score_points?: number | null
+          set_speed?: number | null
+          set_time_limit_at_exam_speed_seconds?: number | null
+          set_time_limit_seconds?: number | null
+          student_exam_speed?: number | null
           student_id?: string | null
+          student_set_speed?: number | null
           student_ucat_mock_attempt_id?: string | null
           time_taken_seconds?: number | null
           total_points?: number | null
+          was_timed?: boolean | null
         }
         Relationships: [
           {
