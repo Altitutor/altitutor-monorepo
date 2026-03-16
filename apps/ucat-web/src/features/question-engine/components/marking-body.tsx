@@ -147,50 +147,55 @@ export function MarkingBody({
   result,
   onViewQuestion,
   syllogismSnapshots,
+  hideHeader = false,
 }: {
   result: MarkingResult
   onViewQuestion?: (index: number) => void
   syllogismSnapshots?: Record<string, Record<string, boolean>>
+  /** When true, omit the score header (e.g. when embedded in a card with its own header). */
+  hideHeader?: boolean
 }) {
   const { rows, totalRawScore, maxRawScore, scaledScore } = result
   const rawPercent = maxRawScore > 0 ? (totalRawScore / maxRawScore) * 100 : 0
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
-      <div
-        className="shrink-0 p-4 border-b border-[#9ba9bd]"
-        style={{ fontFamily: UCAT_FONTS.message }}
-      >
+      {!hideHeader && (
         <div
-          className="rounded-lg border border-[#9ba9bd] bg-white p-4 shadow-sm"
-          style={{ fontSize: '12pt' }}
+          className="shrink-0 p-4 border-b border-[#9ba9bd]"
+          style={{ fontFamily: UCAT_FONTS.message }}
         >
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-            <span>
-              <strong>Raw score:</strong> {totalRawScore.toFixed(1)} / {maxRawScore}
-            </span>
-            {scaledScore != null && (
+          <div
+            className="rounded-lg border border-[#9ba9bd] bg-white p-4 shadow-sm"
+            style={{ fontSize: '12pt' }}
+          >
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
               <span>
-                <strong>Scaled score:</strong> {scaledScore}
+                <strong>Raw score:</strong> {totalRawScore.toFixed(1)} / {maxRawScore}
               </span>
-            )}
-          </div>
-          <div className="mt-3">
-            <div
-              className="h-4 w-full overflow-hidden rounded-full bg-[#e8ecf0]"
-              title={`${rawPercent.toFixed(0)}%`}
-            >
+              {scaledScore != null && (
+                <span>
+                  <strong>Scaled score:</strong> {scaledScore}
+                </span>
+              )}
+            </div>
+            <div className="mt-3">
               <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${Math.min(100, rawPercent)}%`,
-                  backgroundColor: UCAT_COLORS.primaryBlue,
-                }}
-              />
+                className="h-4 w-full overflow-hidden rounded-full bg-[#e8ecf0]"
+                title={`${rawPercent.toFixed(0)}%`}
+              >
+                <div
+                  className="h-full rounded-full transition-all"
+                  style={{
+                    width: `${Math.min(100, rawPercent)}%`,
+                    backgroundColor: UCAT_COLORS.primaryBlue,
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
       <div className="flex-1 min-h-0 overflow-auto">
         <table
           className="w-full border-collapse text-left"
@@ -239,7 +244,7 @@ export function MarkingBody({
                       ? 'Y'
                       : snapshot[opt.id] === false
                         ? 'N'
-                        : 'N'
+                        : '-'
                   )
                   .join('')
 

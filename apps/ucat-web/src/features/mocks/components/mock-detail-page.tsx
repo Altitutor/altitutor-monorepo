@@ -131,7 +131,6 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
                       </th>
                     ))}
                     <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">Score</th>
-                    <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">Total</th>
                     <th className="pb-2 text-right font-medium text-muted-foreground">Scaled</th>
                   </tr>
                 </thead>
@@ -149,10 +148,9 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
                         </td>
                       ))}
                       <td className="py-2 pr-4 text-right">
-                        {a.scorePoints != null ? a.scorePoints : '—'}
-                      </td>
-                      <td className="py-2 pr-4 text-right">
-                        {a.totalPoints != null ? a.totalPoints : '—'}
+                        {a.scorePoints != null && a.totalPoints != null
+                          ? `${a.scorePoints} / ${a.totalPoints}`
+                          : '—'}
                       </td>
                       <td className="py-2 text-right">
                         {a.scaledScore != null ? a.scaledScore : '—'}

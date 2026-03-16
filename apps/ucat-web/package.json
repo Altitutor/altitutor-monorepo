@@ -17,9 +17,9 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@altitutor/shared": "workspace:*",
     "@altitutor/ucat-marking": "workspace:*",
     "@altitutor/ui": "workspace:*",
-    "@altitutor/shared": "workspace:*",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.4",
     "@tanstack/react-query": "^5.77.2",
@@ -29,7 +29,8 @@
     "next": "^14.2.35",
     "next-themes": "^0.2.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "recharts": "^3.7.0"
   },
   "devDependencies": {
     "@swc/core": "^1.11.21",
