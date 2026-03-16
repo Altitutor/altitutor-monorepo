@@ -31,6 +31,8 @@ export type SetAttemptRow = {
   studentSetSpeed: number | null
   studentExamSpeed: number | null
   wasTimed: boolean
+  /** First section ID for sets with sections (for filtering by section) */
+  sectionId: string | null
 }
 
 export type MockAttemptRow = {
@@ -206,6 +208,10 @@ export async function GET() {
     ])
   )
 
+  const sectionByNumber = new Map(
+    sectionProgress.map((s) => [s.sectionNumber, s.sectionId])
+  )
+
   const setAttempts: SetAttemptRow[] = ((setAttemptsRaw ?? []) as SetAttemptRaw[]).map((row) => {
     const timeTaken = row.time_taken_seconds ?? null
     let setTimeLimit = row.set_time_limit_seconds ?? null
@@ -237,6 +243,14 @@ export async function GET() {
       ? extractTextFromRichJson(details.name as JsonLike) || null
       : null
 
+    const sectionsArr = details?.sections
+    const firstSectionNum =
+      Array.isArray(sectionsArr) && sectionsArr.length > 0
+        ? sectionsArr[0]?.section_number
+        : undefined
+    const sectionId =
+      firstSectionNum != null ? sectionByNumber.get(firstSectionNum) ?? null : null
+
     return {
       id: row.id ?? '',
       attemptedAt: row.attempted_at ?? '',
@@ -253,11 +267,12 @@ export async function GET() {
       studentSetSpeed,
       studentExamSpeed,
       wasTimed: row.was_timed ?? false,
+      sectionId,
     }
   })
 
   // Compute average and weighted average (EMA) scaled score per section from standalone set attempts
-  const sectionByNumber = new Map(
+  const sectionByNumberForEma = new Map(
     sectionProgress.map((s) => [s.sectionNumber, s.sectionId])
   )
   const sectionScaledSums = new Map<string, { sum: number; count: number }>()
@@ -281,7 +296,9 @@ export async function GET() {
           ? sectionsArr[0]?.section_number
           : undefined
       const sectionId =
-        firstSectionNum != null ? sectionByNumber.get(firstSectionNum) : undefined
+        firstSectionNum != null
+          ? sectionByNumberForEma.get(firstSectionNum)
+          : undefined
       return sectionId != null
     })
     .map((a) => {
@@ -294,7 +311,9 @@ export async function GET() {
           ? sectionsArr[0]?.section_number
           : undefined
       const sectionId =
-        firstSectionNum != null ? sectionByNumber.get(firstSectionNum) : undefined
+        firstSectionNum != null
+          ? sectionByNumberForEma.get(firstSectionNum)
+          : undefined
       return {
         sectionId: sectionId!,
         scaledScore: a.scaledScore!,

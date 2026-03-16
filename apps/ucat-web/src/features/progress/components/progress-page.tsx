@@ -51,15 +51,8 @@ export function ProgressPage() {
         description="Track your performance across sections, set attempts, and mock exams."
       />
 
-      <SectionProgressCards sections={data.sectionProgress} />
-      <QuestionAttemptsCard
-        attempts={data.questionAttempts}
-        sections={data.sectionProgress.map((s) => ({
-          id: s.sectionId,
-          name: s.sectionName,
-          sectionNumber: s.sectionNumber,
-        }))}
-      />
+      <SectionProgressCards sections={data.sectionProgress} linkToSection />
+      <QuestionAttemptsCard attempts={data.questionAttempts} />
       <SetAttemptsCard attempts={data.setAttempts} />
       <MockAttemptsCard attempts={data.mockAttempts} />
     </div>

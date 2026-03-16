@@ -19,7 +19,6 @@ import type { QuestionAttemptRow } from '@/app/api/ucat/progress/route'
 
 type QuestionAttemptsCardProps = {
   attempts: QuestionAttemptRow[]
-  sections: { id: string; name: string; sectionNumber: number }[]
 }
 
 const DATE_RANGES = [
@@ -36,17 +35,13 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
   { value: 'question_speed', label: 'Question speed' },
 ]
 
-export function QuestionAttemptsCard({
-  attempts,
-  sections,
-}: QuestionAttemptsCardProps) {
+export function QuestionAttemptsCard({ attempts }: QuestionAttemptsCardProps) {
   const [dateRangeDays, setDateRangeDays] = useState<string>('30')
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('percentage')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
   const [wasTimedFilter, setWasTimedFilter] = useState<'all' | 'timed' | 'untimed'>(
     'all'
   )
-  const [sectionFilter, setSectionFilter] = useState<string>('all')
 
   const filteredAttempts = useMemo(() => {
     let result = attempts
@@ -55,11 +50,8 @@ export function QuestionAttemptsCard({
     } else if (wasTimedFilter === 'untimed') {
       result = result.filter((a) => !a.wasTimed)
     }
-    if (sectionFilter !== 'all') {
-      result = result.filter((a) => a.ucatSectionId === sectionFilter)
-    }
     return result
-  }, [attempts, wasTimedFilter, sectionFilter])
+  }, [attempts, wasTimedFilter])
 
   const { graphData, dateRangeLabel } = useMemo(() => {
     const days = parseInt(dateRangeDays, 10) || 30
@@ -122,14 +114,6 @@ export function QuestionAttemptsCard({
     }
   }, [filteredAttempts, dateRangeDays, graphDataType])
 
-  const sectionOptions = useMemo(
-    () =>
-      [...sections]
-        .sort((a, b) => a.sectionNumber - b.sectionNumber)
-        .map((s) => ({ value: s.id, label: s.name })),
-    [sections]
-  )
-
   return (
     <Card className="rounded-xl border-border">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -143,19 +127,6 @@ export function QuestionAttemptsCard({
               <SelectItem value="untimed">Untimed only</SelectItem>
               <SelectItem value="timed">Timed only</SelectItem>
               <SelectItem value="all">All</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={sectionFilter} onValueChange={setSectionFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Section" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All sections</SelectItem>
-              {sectionOptions.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
             </SelectContent>
           </Select>
           <Select value={dateRangeDays} onValueChange={setDateRangeDays}>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { cn } from '@/lib/utils'
 import { SegmentedControl } from './segmented-control'
@@ -8,12 +9,15 @@ import type { SectionProgress } from '@/app/api/ucat/progress/route'
 
 type SectionProgressCardsProps = {
   sections: SectionProgress[]
+  /** When true, cards link to section detail page */
+  linkToSection?: boolean
 }
 
 function CircularProgress({
   percentage,
   correct,
   total,
+  showQuestionsCompletedOnly = false,
   size = 120,
   strokeWidth = 10,
   className,
@@ -21,6 +25,8 @@ function CircularProgress({
   percentage: number
   correct: number
   total: number
+  /** When true, show "{total} questions completed" instead of "{correct} / {total}" */
+  showQuestionsCompletedOnly?: boolean
   size?: number
   strokeWidth?: number
   className?: string
@@ -28,6 +34,10 @@ function CircularProgress({
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (percentage / 100) * circumference
+
+  const sublabel = showQuestionsCompletedOnly
+    ? `${total} questions completed`
+    : `${correct} / ${total}`
 
   return (
     <div
@@ -65,7 +75,7 @@ function CircularProgress({
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-lg font-semibold tabular-nums">{percentage}%</span>
         <span className="text-xs text-muted-foreground tabular-nums">
-          {correct} / {total}
+          {sublabel}
         </span>
       </div>
     </div>
@@ -74,7 +84,10 @@ function CircularProgress({
 
 type ScaledScoreMode = 'average' | 'weighted'
 
-export function SectionProgressCards({ sections }: SectionProgressCardsProps) {
+export function SectionProgressCards({
+  sections,
+  linkToSection = false,
+}: SectionProgressCardsProps) {
   const [scaledScoreMode, setScaledScoreMode] =
     useState<ScaledScoreMode>('weighted')
 
@@ -103,8 +116,14 @@ export function SectionProgressCards({ sections }: SectionProgressCardsProps) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sections.map((section) => {
           const score = getScaledScore(section)
-          return (
-            <Card key={section.sectionId} className="rounded-xl border-border">
+          const card = (
+            <Card
+              key={section.sectionId}
+              className={cn(
+                'rounded-xl border-border',
+                linkToSection && 'transition-colors hover:bg-muted/50'
+              )}
+            >
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">
                   {section.sectionName}
@@ -137,11 +156,19 @@ export function SectionProgressCards({ sections }: SectionProgressCardsProps) {
                     }
                     correct={section.correctScore}
                     total={section.maxScore}
+                    showQuestionsCompletedOnly={scaledScoreMode === 'weighted'}
                     className="text-accent"
                   />
                 </div>
               </CardContent>
             </Card>
+          )
+          return linkToSection ? (
+            <Link key={section.sectionId} href={`/progress/${section.sectionId}`}>
+              {card}
+            </Link>
+          ) : (
+            card
           )
         })}
       </div>
