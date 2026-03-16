@@ -2,7 +2,7 @@
 
 import { Fragment, useCallback, useMemo, useState } from 'react'
 import type { Json } from '@altitutor/shared'
-import { ChevronDown, ChevronUp, Pencil, X } from 'lucide-react'
+import { Eye, EyeOff, Pencil } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -222,11 +222,10 @@ function QuestionEditForm({
         />
       </div>
       <div className="flex justify-end gap-2 pt-2">
-        <Button type="button" variant="outline" size="sm" onClick={onCancel}>
-          <X className="h-4 w-4 mr-1.5" />
+        <Button type="button" variant="outline" size="sm" className="h-9" onClick={onCancel}>
           Cancel
         </Button>
-        <Button type="button" size="sm" onClick={handleSave}>
+        <Button type="button" size="sm" className="h-9" onClick={handleSave}>
           Save
         </Button>
       </div>
@@ -416,16 +415,22 @@ export function Step3SetAnswers({ stems, categories = [], onUpdateStem }: Step3S
                     <TableCell className="p-1">
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        aria-label={isExpanded ? 'Collapse question' : 'Expand question'}
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        aria-label={isExpanded ? 'Hide question' : 'View question'}
                         onClick={() => toggleExpanded(rowKey)}
                       >
                         {isExpanded ? (
-                          <ChevronUp className="h-4 w-4" />
+                          <>
+                            <EyeOff className="h-4 w-4" />
+                            Hide
+                          </>
                         ) : (
-                          <ChevronDown className="h-4 w-4" />
+                          <>
+                            <Eye className="h-4 w-4" />
+                            View
+                          </>
                         )}
                       </Button>
                     </TableCell>
@@ -445,18 +450,20 @@ export function Step3SetAnswers({ stems, categories = [], onUpdateStem }: Step3S
                               onCancel={() => setEditingRowKey(null)}
                             />
                           ) : (
-                            <>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="absolute right-2 top-2 z-10 h-8 gap-1.5"
-                                onClick={() => onUpdateStem && setEditingRowKey(rowKey)}
-                                disabled={!onUpdateStem}
-                              >
-                                <Pencil className="h-4 w-4" />
-                                Edit
-                              </Button>
+                            <div className="flex flex-col gap-3">
+                              <div className="flex justify-end">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 gap-1.5"
+                                  onClick={() => onUpdateStem && setEditingRowKey(rowKey)}
+                                  disabled={!onUpdateStem}
+                                >
+                                  <Pencil className="h-4 w-4" />
+                                  Edit
+                                </Button>
+                              </div>
                               <QuestionPreviewContent
                                 questionNumber={row.globalQuestionNumber}
                                 stemTextJson={stem.values.stemText}
@@ -467,7 +474,7 @@ export function Step3SetAnswers({ stems, categories = [], onUpdateStem }: Step3S
                                 isSyllogism={row.isSyllogism}
                                 syllogismPattern={row.syllogismPattern}
                               />
-                            </>
+                            </div>
                           )}
                         </div>
                       </TableCell>
