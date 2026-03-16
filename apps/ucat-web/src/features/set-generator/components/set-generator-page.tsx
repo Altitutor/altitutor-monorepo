@@ -10,8 +10,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-  UcatPagePlaceholder,
 } from '@altitutor/ui'
+import { UcatPageHeader } from '@/features/layout'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { sectionLabels, SECTION_KEY_TO_NUMBER } from '@/features/set-generator/model/mock-data'
 import type { SectionKey, SetGeneratorInput, TimeMode } from '@/features/set-generator/model/types'
@@ -170,10 +170,11 @@ export function SetGeneratorPage() {
           : '—'
 
   return (
-    <UcatPagePlaceholder
-      title="Set Generator"
-      description="Build a targeted practice set from section, timing, and performance filters."
-    >
+    <div className="space-y-6">
+      <UcatPageHeader
+        title="Set Generator"
+        description="Build a targeted practice set from section, timing, and performance filters."
+      />
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="space-y-4 rounded-xl bg-card text-card-foreground p-4 shadow-sm">
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Filters</h2>
@@ -334,6 +335,6 @@ export function SetGeneratorPage() {
           </button>
         </section>
       </div>
-    </UcatPagePlaceholder>
+    </div>
   )
 }

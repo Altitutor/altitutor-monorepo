@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ListChecks, NotebookText } from 'lucide-react'
-import { UcatPagePlaceholder } from '@altitutor/ui'
+import { UcatPageHeader } from '@/features/layout'
 import { useStudentUcatSessionResources } from '@/features/sessions/hooks/use-sessions'
 import { extractTextFromRichJson, type JsonLike } from '@/features/question-engine/model/rich-text'
 import { useSets } from '@/features/sets'
@@ -19,35 +19,45 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
 
   if (isLoading) {
     return (
-      <UcatPagePlaceholder title="Session resources" description="Sets and mocks linked to this session.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Session resources"
+          description="Sets and mocks linked to this session."
+          backHref="/sessions"
+          backLabel="Back to sessions"
+        />
         <p className="text-sm text-muted-foreground">Loading session resources...</p>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <UcatPagePlaceholder title="Session resources" description="Sets and mocks linked to this session.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Session resources"
+          description="Sets and mocks linked to this session."
+          backHref="/sessions"
+          backLabel="Back to sessions"
+        />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : 'Failed to load session resources'}
         </p>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
   if (!resources || resources.length === 0) {
     return (
-      <UcatPagePlaceholder title="Session resources" description="Sets and mocks linked to this session.">
+      <div className="space-y-6">
+        <UcatPageHeader
+          title="Session resources"
+          description="Sets and mocks linked to this session."
+          backHref="/sessions"
+          backLabel="Back to sessions"
+        />
         <p className="text-sm text-muted-foreground">No UCAT sets or mocks have been attached to this session yet.</p>
-        <div className="mt-4">
-          <Link
-            href="/sessions"
-            className="inline-flex h-10 items-center justify-center rounded-lg bg-card border border-border px-4 text-sm font-medium hover:bg-muted"
-          >
-            Back to sessions
-          </Link>
-        </div>
-      </UcatPagePlaceholder>
+      </div>
     )
   }
 
@@ -59,18 +69,15 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
   )
 
   return (
-    <UcatPagePlaceholder title="Session resources" description="Launch the sets and mocks linked to this class session.">
-      <div className="space-y-4">
-        <div className="flex flex-wrap gap-3">
-          <Link
-            href="/sessions"
-            className="inline-flex h-9 items-center justify-center rounded-lg bg-card border border-border px-3 text-xs font-medium hover:bg-muted"
-          >
-            Back to sessions
-          </Link>
-        </div>
+    <div className="space-y-6">
+      <UcatPageHeader
+        title="Session resources"
+        description="Launch the sets and mocks linked to this class session."
+        backHref="/sessions"
+        backLabel="Back to sessions"
+      />
 
-        <ul className="space-y-2">
+      <ul className="space-y-2">
           {resources.map((resource) => {
             if (resource.type === 'set') {
               const set = setsById.get(resource.question_set_id)
@@ -121,8 +128,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
             )
           })}
         </ul>
-      </div>
-    </UcatPagePlaceholder>
+    </div>
   )
 }
 
