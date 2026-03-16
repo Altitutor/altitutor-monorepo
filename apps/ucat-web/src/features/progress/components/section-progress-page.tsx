@@ -273,6 +273,7 @@ function SectionProgressContent({
         description={`Progress for ${section.sectionName}`}
         backHref="/progress"
         backLabel="Back to progress"
+        breadcrumbOverrides={{ 2: section.sectionName }}
       />
 
       <ProgressModeSelector

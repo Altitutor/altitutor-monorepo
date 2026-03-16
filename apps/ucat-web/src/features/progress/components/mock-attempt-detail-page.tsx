@@ -68,6 +68,7 @@ export function MockAttemptDetailPage({
         description={`Attempted ${attemptedDate}`}
         backHref="/progress"
         backLabel="Back to progress"
+        breadcrumbOverrides={{ 2: data.mockName ?? 'Mock' }}
       />
 
       <Card className="rounded-xl border-border max-w-sm">

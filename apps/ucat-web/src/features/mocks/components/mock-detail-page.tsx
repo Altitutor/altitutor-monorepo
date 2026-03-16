@@ -95,6 +95,7 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         description="This mock exam will launch the full UCAT question engine using all sets included in this mock."
         backHref="/mocks"
         backLabel="Back to all mocks"
+        breadcrumbOverrides={{ 1: mock.name ?? 'Mock' }}
       />
 
       <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
