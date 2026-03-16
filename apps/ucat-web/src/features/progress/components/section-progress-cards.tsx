@@ -16,18 +16,15 @@ type SectionProgressCardsProps = {
 
 function CircularProgress({
   percentage,
-  correct,
   total,
-  showQuestionsCompletedOnly = false,
+  totalPublic,
   size = 120,
   strokeWidth = 10,
   className,
 }: {
   percentage: number
-  correct: number
   total: number
-  /** When true, show "{total} questions completed" instead of "{correct} / {total}" */
-  showQuestionsCompletedOnly?: boolean
+  totalPublic?: number
   size?: number
   strokeWidth?: number
   className?: string
@@ -36,49 +33,52 @@ function CircularProgress({
   const circumference = 2 * Math.PI * radius
   const offset = circumference - (percentage / 100) * circumference
 
-  const sublabel = showQuestionsCompletedOnly
-    ? `${total} questions completed`
-    : `${correct} / ${total}`
-
   return (
     <div
-      className={cn('relative inline-flex flex-col items-center justify-center', className)}
-      style={{ width: size, height: size }}
+      className={cn(
+        'flex flex-col items-center justify-center gap-2',
+        className
+      )}
     >
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90"
-        aria-label={`${percentage}% progress`}
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          className="text-muted/30"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-accent transition-[stroke-dashoffset] duration-700 ease-out"
-        />
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-lg font-semibold tabular-nums">{percentage}%</span>
-        <span className="text-xs text-muted-foreground tabular-nums">
-          {sublabel}
-        </span>
+      <div className="relative" style={{ width: size, height: size }}>
+        <svg
+          width={size}
+          height={size}
+          className="-rotate-90"
+          aria-label={`${percentage}% progress`}
+        >
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={strokeWidth}
+            className="text-muted/30"
+          />
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={strokeWidth}
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            strokeLinecap="round"
+            className="text-accent transition-[stroke-dashoffset] duration-700 ease-out"
+          />
+        </svg>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="text-lg font-semibold tabular-nums">
+            {percentage}%
+          </span>
+        </div>
       </div>
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {totalPublic != null ? `${total} / ${totalPublic}` : total} questions
+        completed
+      </span>
     </div>
   )
 }
@@ -98,8 +98,6 @@ export function SectionProgressCards({
     mode === 'weighted' && section.weightedAveragePercentage != null
       ? Math.round(section.weightedAveragePercentage)
       : section.percentage
-
-  const showQuestionsCompletedOnly = mode === 'weighted'
 
   return (
     <div className="flex flex-col gap-4">
@@ -139,9 +137,8 @@ export function SectionProgressCards({
                   </div>
                   <CircularProgress
                     percentage={getPercentage(section)}
-                    correct={section.correctScore}
                     total={section.maxScore}
-                    showQuestionsCompletedOnly={showQuestionsCompletedOnly}
+                    totalPublic={section.totalPublicQuestions}
                     className="text-accent"
                   />
                 </div>

@@ -13,6 +13,8 @@ export type SectionProgress = {
   averageScaledScore: number | null
   weightedAverageScaledScore: number | null
   weightedAveragePercentage: number | null
+  /** Total public question points in this section (syllogism=2, else=1) */
+  totalPublicQuestions?: number
 }
 
 export type SetAttemptRow = {
@@ -72,6 +74,8 @@ export type SectionCategoryProgress = {
   maxScore: number
   percentage: number
   weightedAveragePercentage: number | null
+  /** Total public question points in this category (syllogism=2, else=1) */
+  totalPublicQuestions?: number
 }
 
 export type ProgressResponse = {
@@ -403,6 +407,51 @@ export async function GET() {
     ),
   }))
 
+  // Fetch total public question counts per section and category
+  // View added in migration 20260316190000; types generated after migration applied
+  type PublicCountRow = {
+    section_id: string
+    question_stem_category_id: string | null
+    total_questions: number
+  }
+  const sectionIdsForCounts = sectionProgress.map((s) => s.sectionId)
+  const { data: publicCountsRaw } =
+    sectionIdsForCounts.length > 0
+      ? await (
+          supabase as unknown as {
+            from: (r: string) => {
+              select: (c: string) => {
+                in: (
+                  col: string,
+                  vals: string[]
+                ) => Promise<{ data: PublicCountRow[] | null }>
+              }
+            }
+          }
+        )
+          .from('vstudent_ucat_public_question_counts')
+          .select('section_id, question_stem_category_id, total_questions')
+          .in('section_id', sectionIdsForCounts)
+      : { data: [] as PublicCountRow[] | null }
+  const publicCounts = publicCountsRaw ?? []
+  const sectionTotalPublic = new Map<string, number>()
+  const categoryTotalPublic = new Map<string, number>()
+  for (const row of publicCounts) {
+    const sectionId = row.section_id
+    if (!sectionId) continue
+    const catId = row.question_stem_category_id ?? '__uncategorized__'
+    const total = row.total_questions ?? 0
+    sectionTotalPublic.set(
+      sectionId,
+      (sectionTotalPublic.get(sectionId) ?? 0) + total
+    )
+    categoryTotalPublic.set(`${sectionId}:${catId}`, total)
+  }
+  sectionProgress = sectionProgress.map((s) => ({
+    ...s,
+    totalPublicQuestions: sectionTotalPublic.get(s.sectionId),
+  }))
+
   // Compute per-section, per-category stats (all-time and weighted %)
   const sectionCategorySums = new Map<string, { correct: number; max: number }>()
   const qaBySectionCategoryDate = new Map<
@@ -473,6 +522,7 @@ export async function GET() {
     list.push({ id: catId, name: c.name ?? 'Unknown' })
     categoriesBySection.set(sid, list)
   }
+
   const sectionCategoryProgress: Record<string, SectionCategoryProgress[]> = {}
   for (const s of sectionProgress) {
     const cats = categoriesBySection.get(s.sectionId) ?? []
@@ -491,6 +541,7 @@ export async function GET() {
         maxScore: max,
         percentage: max > 0 ? Math.round((correct / max) * 100) : 0,
         weightedAveragePercentage: computeEma(dailyPcts),
+        totalPublicQuestions: categoryTotalPublic.get(sumKey),
       })
     }
     const uncatSum = sectionCategorySums.get(`${s.sectionId}:__uncategorized__`)
@@ -506,6 +557,9 @@ export async function GET() {
         maxScore: uncatSum.max,
         percentage: Math.round((uncatSum.correct / uncatSum.max) * 100),
         weightedAveragePercentage: computeEma(dailyPcts),
+        totalPublicQuestions: categoryTotalPublic.get(
+          `${s.sectionId}:__uncategorized__`
+        ),
       })
     }
     sectionCategoryProgress[s.sectionId] = result.sort((a, b) =>

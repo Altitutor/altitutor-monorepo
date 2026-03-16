@@ -161,6 +161,7 @@ export function computeCategoryProgressFromFiltered(
         maxScore: max,
         percentage,
         weightedAveragePercentage: percentage,
+        totalPublicQuestions: cat.totalPublicQuestions,
       }
     })
   }

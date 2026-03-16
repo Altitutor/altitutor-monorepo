@@ -211,6 +211,7 @@ export function SectionProgressPage({ sectionId }: SectionProgressPageProps) {
       section={section}
       score={score}
       percentage={percentage}
+      totalPublicQuestions={section.totalPublicQuestions}
       filteredQuestionAttempts={filteredQuestionAttempts}
       filteredSetAttempts={filteredSetAttempts}
       categoryProgress={categoryProgress}
@@ -223,6 +224,7 @@ function SectionProgressContent({
   section,
   score,
   percentage,
+  totalPublicQuestions,
   filteredQuestionAttempts,
   filteredSetAttempts,
   categoryProgress,
@@ -231,6 +233,7 @@ function SectionProgressContent({
   section: { sectionId: string; sectionName: string }
   score: number | null
   percentage: number
+  totalPublicQuestions?: number
   filteredQuestionAttempts: QuestionAttemptRow[]
   filteredSetAttempts: SetAttemptRow[]
   categoryProgress: SectionCategoryProgress[]
@@ -280,102 +283,115 @@ function SectionProgressContent({
       />
 
       <div className="flex flex-col gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Card className="rounded-xl border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">
-                {section.sectionName}
+                Scaled score
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div
+                className={cn(
+                  'text-3xl font-bold tabular-nums',
+                  score == null && 'text-muted-foreground'
+                )}
+              >
+                {score != null ? Math.round(score) : '—'}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-xl border-border">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base font-medium">
+                Percentage correct
               </CardTitle>
             </CardHeader>
             <CardContent className="flex flex-col gap-4">
-              <div>
-                <div className="text-xs font-medium text-muted-foreground">
-                  Scaled score
-                </div>
-                <div
-                  className={cn(
-                    'text-3xl font-bold tabular-nums',
-                    score == null && 'text-muted-foreground'
-                  )}
-                >
-                  {score != null ? Math.round(score) : '—'}
-                </div>
-              </div>
-              <div className="flex flex-col gap-2">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Percentage correct
-                </div>
+              <div className="flex flex-col items-center gap-2">
                 <CircularProgress
                   percentage={percentage}
                   className="text-accent"
                 />
+                <span className="text-sm text-muted-foreground tabular-nums">
+                  {stats.correct} / {stats.completed} correct
+                </span>
               </div>
+              {categoryProgress.length > 0 ? (
+                <div className="border-t border-border pt-3">
+                  <div className="text-xs font-medium text-muted-foreground mb-2">
+                    Category breakdown
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {categoryProgress.map((cat) => (
+                      <div
+                        key={cat.categoryId}
+                        className="flex justify-between text-sm tabular-nums"
+                      >
+                        <span className="text-muted-foreground truncate mr-2">
+                          {cat.categoryName}
+                        </span>
+                        <span className="shrink-0">
+                          {cat.maxScore > 0
+                            ? `${cat.correctScore} / ${cat.maxScore}`
+                            : '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
+
           <Card className="rounded-xl border-border">
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">
-                Question stats
+                Total questions completed
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Total questions completed
-                  </span>
-                  <span className="font-medium tabular-nums">
-                    {stats.completed}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Total questions correct
-                  </span>
-                  <span className="font-medium tabular-nums text-green-600">
-                    {stats.correct}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">
-                    Total questions incorrect
-                  </span>
-                  <span className="font-medium tabular-nums text-destructive">
-                    {stats.incorrect}
-                  </span>
-                </div>
+            <CardContent className="flex flex-col gap-4">
+              <div>
+                <span className="text-2xl font-bold tabular-nums">
+                  {stats.completed}
+                  {totalPublicQuestions != null
+                    ? ` / ${totalPublicQuestions}`
+                    : ''}
+                </span>
+                <span className="text-muted-foreground text-sm ml-1">
+                  {totalPublicQuestions != null
+                    ? 'of public questions'
+                    : 'question attempts'}
+                </span>
               </div>
+              {categoryProgress.length > 0 ? (
+                <div className="border-t border-border pt-3">
+                  <div className="text-xs font-medium text-muted-foreground mb-2">
+                    Category breakdown
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    {categoryProgress.map((cat) => (
+                      <div
+                        key={cat.categoryId}
+                        className="flex justify-between text-sm tabular-nums"
+                      >
+                        <span className="text-muted-foreground truncate mr-2">
+                          {cat.categoryName}
+                        </span>
+                        <span className="shrink-0">
+                          {cat.totalPublicQuestions != null
+                            ? `${cat.maxScore} / ${cat.totalPublicQuestions}`
+                            : `${cat.maxScore} questions`}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </CardContent>
           </Card>
         </div>
-        {categoryProgress.length > 0 ? (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {categoryProgress.map((cat) => {
-              const pct =
-                progressMode.mode === 'weighted' &&
-                cat.weightedAveragePercentage != null
-                  ? Math.round(cat.weightedAveragePercentage)
-                  : cat.percentage
-              return (
-                <Card
-                  key={cat.categoryId}
-                  className="rounded-xl border-border"
-                >
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium">
-                      {cat.categoryName}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold tabular-nums">
-                      {pct}%
-                    </div>
-                  </CardContent>
-                </Card>
-              )
-            })}
-          </div>
-        ) : null}
       </div>
 
       <QuestionAttemptsCard
