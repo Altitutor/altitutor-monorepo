@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
+import { tasksApi } from '@/features/tasks/api/tasks';
 import type {
   UninvoicedSession,
   UnloggedSession,
@@ -10,6 +11,7 @@ import type {
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
+  UnassignedTask,
 } from '../types';
 
 // Helper type for querying views
@@ -285,6 +287,27 @@ export const reconciliationApi = {
     return unassignedClasses;
   },
 
+
+  /**
+   * Get unassigned tasks (tasks with no assignee)
+   */
+  getUnassignedTasks: async (): Promise<UnassignedTask[]> => {
+    const tasks = await tasksApi.list({
+      unassignedOnly: true,
+      status: ['backlog', 'todo', 'in_progress', 'in_review'],
+    });
+    return tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      priority: t.priority,
+      due_date: t.due_date,
+      created_at: t.created_at ?? '',
+      updated_at: t.updated_at ?? '',
+      issue: t.issue ?? null,
+      project: t.project ?? null,
+    }));
+  },
 
   /**
    * Get failed delivery messages

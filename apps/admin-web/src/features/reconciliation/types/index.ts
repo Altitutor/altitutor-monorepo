@@ -167,11 +167,25 @@ export interface UnpaidInvoice {
 // Reconciliation Category Types
 export type ReconciliationCategory = 'financial' | 'scheduling' | 'communication';
 
+// Unassigned Task (task with no assignee)
+export interface UnassignedTask {
+  id: string;
+  title: string;
+  status: string;
+  priority: number | null;
+  due_date: string | null;
+  created_at: string;
+  updated_at: string;
+  issue?: { id: string; name: string | null } | null;
+  project?: { id: string; name: string | null } | null;
+}
+
 export type ReconciliationItemType =
   | 'uninvoiced_sessions'
   | 'unpaid_invoices'
   | 'unlogged_sessions'
   | 'unassigned_classes'
+  | 'unassigned_tasks'
   | 'failed_delivery_messages'
   | 'students_without_classes'
   | 'students_without_payment_method'
@@ -184,6 +198,7 @@ export interface ReconciliationCategoryData {
     unpaid_invoices?: UnpaidInvoice[];
     unlogged_sessions?: UnloggedSession[];
     unassigned_classes?: UnassignedClass[];
+    unassigned_tasks?: UnassignedTask[];
     failed_delivery_messages?: FailedDeliveryMessage[];
     students_without_classes?: StudentWithoutClasses[];
     students_without_payment_method?: StudentWithoutPaymentMethod[];
@@ -194,6 +209,7 @@ export interface ReconciliationCategoryData {
     unpaid_invoices: number;
     unlogged_sessions: number;
     unassigned_classes: number;
+    unassigned_tasks: number;
     failed_delivery_messages: number;
     students_without_classes: number;
     students_without_payment_method: number;

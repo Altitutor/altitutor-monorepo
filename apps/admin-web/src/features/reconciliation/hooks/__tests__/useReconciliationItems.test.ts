@@ -5,6 +5,7 @@ import type {
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
+  UnassignedTask,
   FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
@@ -16,6 +17,7 @@ type ReconciliationQueries = {
   unpaidInvoices: { data?: UnpaidInvoice[] };
   unloggedSessions: { data?: UnloggedSession[] };
   unassignedClasses: { data?: UnassignedClass[] };
+  unassignedTasks: { data?: UnassignedTask[] };
   failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
@@ -27,6 +29,7 @@ const createMockQueries = (overrides?: Partial<ReconciliationQueries>): Reconcil
   unpaidInvoices: { data: [] as UnpaidInvoice[] },
   unloggedSessions: { data: [] as UnloggedSession[] },
   unassignedClasses: { data: [] as UnassignedClass[] },
+  unassignedTasks: { data: [] as UnassignedTask[] },
   failedDeliveryMessages: { data: [] as FailedDeliveryMessage[] },
   studentsWithoutClasses: { data: [] as StudentWithoutClasses[] },
   studentsWithoutPaymentMethod: { data: [] as StudentWithoutPaymentMethod[] },
@@ -52,12 +55,13 @@ describe('useReconciliationItems', () => {
     const queries = createMockQueries({
       unloggedSessions: { data: [{ session_id: '1' } as UnloggedSession] },
       unassignedClasses: { data: [{ class_id: '1' } as UnassignedClass] },
+      unassignedTasks: { data: [{ id: '1' } as UnassignedTask] },
       studentsWithoutClasses: { data: [{ student_id: '1' } as StudentWithoutClasses] },
     });
 
     const { result } = renderHook(() => useReconciliationItems(queries));
 
-    expect(result.current.schedulingItems).toHaveLength(3);
+    expect(result.current.schedulingItems).toHaveLength(4);
     expect(result.current.hasAnyItems).toBe(true);
   });
 
@@ -101,6 +105,7 @@ describe('useReconciliationItems', () => {
       unpaidInvoices: { data: undefined },
       unloggedSessions: { data: undefined },
       unassignedClasses: { data: undefined },
+      unassignedTasks: { data: undefined },
       failedDeliveryMessages: { data: undefined },
       studentsWithoutClasses: { data: undefined },
       studentsWithoutPaymentMethod: { data: undefined },

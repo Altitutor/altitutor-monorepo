@@ -54,6 +54,7 @@ export interface TaskFilters {
   assignedTo?: string | string[]; // Support both single and array for backward compatibility
   assignee?: string | string[];   // Support UI key
   assigned_to?: string | string[]; // Support database column name key
+  unassignedOnly?: boolean; // When true, filter for tasks with assigned_to IS NULL
   issue_id?: string | string[];
   project_id?: string | string[];
   priority?: TaskPriority | TaskPriority[]; // Support both single and array for backward compatibility
