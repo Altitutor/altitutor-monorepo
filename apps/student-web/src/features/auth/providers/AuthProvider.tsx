@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Session } from '@supabase/supabase-js';
+import { useQueryClient } from '@tanstack/react-query';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 
@@ -19,6 +20,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = useSupabaseClient();
+  const queryClient = useQueryClient();
   const { setUser, setLoading } = useAuthStore();
 
   useEffect(() => {
@@ -55,6 +57,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Only validate if session user is missing (shouldn't happen, but safety check)
         if (session) {
           setSession(session);
+          // Invalidate profile so it refetches with new auth (fixes stale null after sign-in)
+          queryClient.invalidateQueries({ queryKey: ['student', 'profile'] });
           // Use session.user directly - it's already validated by Supabase
           // Only call getUser() if session.user is missing (edge case)
           if (session.user) {
@@ -86,7 +90,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       subscription.unsubscribe();
     };
-  }, [supabase.auth, setUser, setLoading]);
+  }, [supabase.auth, setUser, setLoading, queryClient]);
 
   return (
     <AuthContext.Provider value={{ session, isLoading, supabase }}>
