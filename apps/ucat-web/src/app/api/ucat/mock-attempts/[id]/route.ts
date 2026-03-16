@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { supabaseAdmin } from '@/lib/supabase/admin'
 
 export async function PATCH(
   request: NextRequest,
@@ -26,13 +27,31 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unsupported operation' }, { status: 400 })
   }
 
+  if (!supabaseAdmin) {
+    return NextResponse.json({ error: 'Server write client not configured' }, { status: 500 })
+  }
+
+  const { data: student, error: studentError } = await supabaseAdmin
+    .from('students')
+    .select('id')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (studentError) {
+    return NextResponse.json({ error: studentError.message }, { status: 500 })
+  }
+
+  if (!student) {
+    return NextResponse.json({ error: 'No student profile found' }, { status: 404 })
+  }
+
   const attemptId = params.id
 
-  const { data: attempt, error: attemptError } = await supabase
+  const { data: attempt, error: attemptError } = await supabaseAdmin
     .from('student_ucat_mock_attempts')
     .select('attempted_at')
     .eq('id', attemptId)
-    .eq('student_id', user.id)
+    .eq('student_id', student.id)
     .maybeSingle()
 
   if (attemptError) {
@@ -45,13 +64,13 @@ export async function PATCH(
 
   const now = new Date()
 
-  const { data: setAttempts, error: setAttemptsError } = await supabase
+  const { data: setAttempts, error: setAttemptsError } = await supabaseAdmin
     .from('student_question_set_attempts')
     .select(
       'score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds'
     )
     .eq('student_ucat_mock_attempt_id', attemptId)
-    .eq('student_id', user.id)
+    .eq('student_id', student.id)
 
   if (setAttemptsError) {
     return NextResponse.json({ error: setAttemptsError.message }, { status: 500 })
@@ -75,7 +94,7 @@ export async function PATCH(
       ? mockTimeLimitSeconds / timeTaken
       : null
 
-  const { error: updateError } = await supabase
+  const { error: updateError } = await supabaseAdmin
     .from('student_ucat_mock_attempts')
     .update({
       completed_at: now.toISOString(),
@@ -89,7 +108,7 @@ export async function PATCH(
       student_mock_speed: studentMockSpeed,
     })
     .eq('id', attemptId)
-    .eq('student_id', user.id)
+    .eq('student_id', student.id)
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 })
