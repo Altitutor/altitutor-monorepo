@@ -1,10 +1,16 @@
 'use client';
 
-import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
 import { Calendar } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { formatShortDate, isOverdue } from '@/shared/utils/datetime';
-import { DatePickerPopover } from '@/shared/components/DatePickerPopover';
+import { isOverdue } from '@/shared/utils/datetime';
+
+function toInputValue(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
 
 interface ProjectDueDateEntityPillProps {
   targetDate: string | null;
@@ -18,41 +24,33 @@ export function ProjectDueDateEntityPill({
   onChange,
 }: ProjectDueDateEntityPillProps) {
   const overdue = isOverdue(targetDate);
-  const displayValue = formatShortDate(targetDate);
+  const dateValue = toInputValue(targetDate);
 
   return (
-    <DatePickerPopover
-      value={targetDate}
-      onChange={onChange}
-      modal={false}
-      stopPropagation
+    <div
+      className={cn(
+        'relative flex items-center rounded-full border bg-background',
+        collapsed ? 'h-8 w-[72px]' : 'h-8 min-w-[100px]',
+        overdue && 'border-red-500'
+      )}
+      onClick={(e) => e.stopPropagation()}
     >
-      <Button
-        type="button"
-        variant="outline"
+      <Calendar
         className={cn(
-          'h-8 border rounded-full bg-background group gap-1.5',
-          collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto',
-          overdue && 'border-red-500 text-red-700 dark:text-red-400'
+          'h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground',
+          !targetDate && 'opacity-40'
         )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Calendar
-          className={cn(
-            'h-3 w-3 flex-shrink-0',
-            !targetDate && 'text-muted-foreground opacity-40 group-hover:opacity-100'
-          )}
-        />
-        {!collapsed && (
-          <span
-            className={cn(
-              !targetDate && 'text-muted-foreground opacity-40 group-hover:opacity-100'
-            )}
-          >
-            {displayValue || 'Due date'}
-          </span>
+      />
+      <Input
+        type="date"
+        value={dateValue}
+        onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
+        className={cn(
+          'h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0',
+          collapsed ? 'w-full' : 'min-w-0',
+          overdue && 'text-red-700 dark:text-red-400'
         )}
-      </Button>
-    </DatePickerPopover>
+      />
+    </div>
   );
 }

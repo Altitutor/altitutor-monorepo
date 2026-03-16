@@ -17,7 +17,6 @@ import {
   PopoverTrigger,
   ScrollArea,
 } from '@altitutor/ui';
-import { DatePickerPopover } from '@/shared/components/DatePickerPopover';
 import { cn } from '@/shared/utils';
 import { Calendar, Check, User, Flag } from 'lucide-react';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
@@ -29,7 +28,6 @@ import {
   getProjectPriorityIcon,
   getProjectPriorityLabel,
   getProjectPriorityIconColor,
-  formatProjectDate,
   PROJECT_STATUS_OPTIONS,
   PRIORITY_OPTIONS,
 } from '../../utils/projectUtils';
@@ -194,53 +192,49 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
       <FormField
         control={form.control}
         name="startDate"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <DatePickerPopover
-                value={field.value}
-                onChange={(v) => field.onChange(v ? v.split('T')[0] : null)}
-                onBlur={field.onBlur}
-                name={field.name}
-                modal={false}
-              >
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-full border bg-background px-3 h-8 text-xs cursor-pointer"
-                >
-                  <Calendar className="h-3 w-3" />
-                  <span>{field.value ? formatProjectDate(field.value) : 'Start'}</span>
-                </button>
-              </DatePickerPopover>
-            </FormControl>
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const dateValue = field.value ? (typeof field.value === 'string' ? field.value.split('T')[0] : new Date(field.value).toISOString().split('T')[0]) : '';
+          return (
+            <FormItem>
+              <FormControl>
+                <div className="relative flex items-center h-8 min-w-[90px] rounded-full border bg-background">
+                  <Calendar className="h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={dateValue}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    onBlur={field.onBlur}
+                    className="h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </FormControl>
+            </FormItem>
+          );
+        }}
       />
 
       <FormField
         control={form.control}
         name="targetDate"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <DatePickerPopover
-                value={field.value}
-                onChange={(v) => field.onChange(v ? v.split('T')[0] : null)}
-                onBlur={field.onBlur}
-                name={field.name}
-                modal={false}
-              >
-                <button
-                  type="button"
-                  className="inline-flex items-center gap-1 rounded-full border bg-background px-3 h-8 text-xs cursor-pointer"
-                >
-                  <Flag className="h-3 w-3" />
-                  <span>{field.value ? formatProjectDate(field.value) : 'Target'}</span>
-                </button>
-              </DatePickerPopover>
-            </FormControl>
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const dateValue = field.value ? (typeof field.value === 'string' ? field.value.split('T')[0] : new Date(field.value).toISOString().split('T')[0]) : '';
+          return (
+            <FormItem>
+              <FormControl>
+                <div className="relative flex items-center h-8 min-w-[90px] rounded-full border bg-background">
+                  <Flag className="h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
+                  <Input
+                    type="date"
+                    value={dateValue}
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    onBlur={field.onBlur}
+                    className="h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
+              </FormControl>
+            </FormItem>
+          );
+        }}
       />
     </div>
   );
