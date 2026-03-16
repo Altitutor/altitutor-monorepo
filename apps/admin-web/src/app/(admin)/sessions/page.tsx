@@ -7,7 +7,7 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { Tabs, TabsList, TabsTrigger, useToast, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
+import { Tabs, TabsList, TabsTrigger, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components';
 import { ChevronDown } from 'lucide-react';
@@ -15,7 +15,6 @@ import { ChevronDown } from 'lucide-react';
 export default function SessionsPage() {
   const search = useSearchParams();
   const router = useRouter();
-  const { toast } = useToast();
   const viewParam = search.get('view') || 'calendar';
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
@@ -171,11 +170,6 @@ export default function SessionsPage() {
           }}
           sessionType={bookingSessionType}
           onBookingCreated={() => {
-            toast({
-              title: 'Success',
-              description: 'Session booked successfully',
-            });
-            // Optionally refresh the sessions list or navigate to the new session
             setBookingModalOpen(false);
             setBookingSessionType(null);
           }}

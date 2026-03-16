@@ -12,6 +12,7 @@ import { useStudentSubjects } from './useStudentSubjects';
 import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import type { AdminTrialContactFormValues } from '../components/AdminTrialContactForm';
 import { getBookingSteps, canProceedToNextStep, getSessionTypeLabel } from '../utils/bookingHelpers';
+import { showSessionBookedToast } from '@/shared/utils/toastHelpers';
 import { getErrorMessage } from '@/shared/utils';
 import { isSlotInPast } from '../utils/dateTimeHelpers';
 
@@ -366,9 +367,10 @@ export function useBookSessionFlow({
           },
         });
 
-        toast({
-          title: 'Booking Created',
-          description: `${getSessionTypeLabel(sessionType)} has been booked successfully`,
+        showSessionBookedToast({
+          toast,
+          sessionId,
+          message: `${getSessionTypeLabel(sessionType)} has been booked successfully`,
         });
 
         onBookingCreated?.(sessionId);
@@ -418,9 +420,13 @@ export function useBookSessionFlow({
         original_session_id: originalSessionId || undefined,
       });
 
-      toast({
-        title: originalSessionId ? 'Session Rescheduled' : 'Booking Created',
-        description: `${originalSessionId ? 'Session has been rescheduled' : `${getSessionTypeLabel(sessionType)} has been booked successfully`}`,
+      showSessionBookedToast({
+        toast,
+        sessionId,
+        message: originalSessionId
+          ? 'Session has been rescheduled'
+          : `${getSessionTypeLabel(sessionType)} has been booked successfully`,
+        isReschedule: !!originalSessionId,
       });
 
       onBookingCreated?.(sessionId);

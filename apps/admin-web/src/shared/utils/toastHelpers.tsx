@@ -144,3 +144,36 @@ export function showWorkItemCreatedToast(params: WorkItemCreatedToastParams): vo
   });
 }
 
+interface SessionBookedToastParams {
+  toast: ToastFn;
+  sessionId: string;
+  message: string;
+  /** Whether this was a reschedule (vs new booking) */
+  isReschedule?: boolean;
+}
+
+export function showSessionBookedToast(params: SessionBookedToastParams): void {
+  const { toast, sessionId, message, isReschedule } = params;
+
+  toast({
+    title: isReschedule ? 'Session Rescheduled' : 'Booking Created',
+    description: (
+      <div className="flex items-center gap-2">
+        <span>{message}</span>
+        <Button
+          variant="link"
+          size="sm"
+          className="h-auto p-0"
+          onClick={() => {
+            window.dispatchEvent(
+              new CustomEvent('open-session-modal', { detail: { id: sessionId } })
+            );
+          }}
+        >
+          View session
+        </Button>
+      </div>
+    ),
+  });
+}
+
