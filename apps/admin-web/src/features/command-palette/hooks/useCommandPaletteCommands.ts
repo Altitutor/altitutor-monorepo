@@ -10,6 +10,7 @@ interface CommandActions {
   openTrialSession: () => void;
   openSubsidyInterview: () => void;
   openDrafting: () => void;
+  openStaffInterview: () => void;
   openTutorLog: () => void;
   openLogStudentAbsence: () => void;
   openLogStaffAbsence: () => void;
@@ -43,6 +44,9 @@ export function useCommandPaletteCommands({
           break;
         case 'drafting':
           action = commandActions.openDrafting;
+          break;
+        case 'staff-interview':
+          action = commandActions.openStaffInterview;
           break;
         case 'tutor-log':
           action = commandActions.openTutorLog;

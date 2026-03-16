@@ -40,6 +40,13 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     }
   }, [onClose, quickActions]);
 
+  const openStaffInterview = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openBookingModal('STAFF_INTERVIEW');
+    }
+  }, [onClose, quickActions]);
+
   const openTutorLog = useCallback(() => {
     if (quickActions) {
       onClose();
@@ -97,6 +104,7 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     openTrialSession,
     openSubsidyInterview,
     openDrafting,
+    openStaffInterview,
     openTutorLog,
     openLogStudentAbsence,
     openLogStaffAbsence,

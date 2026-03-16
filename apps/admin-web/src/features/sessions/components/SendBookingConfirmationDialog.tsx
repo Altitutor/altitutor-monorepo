@@ -18,7 +18,11 @@ import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } 
 import { Skeleton } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
-import { getBookingConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
+import {
+  getSystemTemplateContentForClient,
+  getBookingTemplateKey,
+} from '@/features/messages/api/systemTemplates';
+import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
@@ -184,32 +188,40 @@ export function SendBookingConfirmationDialog({
         ? parents.find((p) => p.id === selectedRecipient.id)?.first_name || 'there'
         : student.first_name || 'there';
 
-    const template = getBookingConfirmationSmsTemplate({
-      firstName,
-      bookingUrl,
-      sessionDate,
-      sessionTime,
-    });
+    let cancelled = false;
+    (async () => {
+      const templateKey = getBookingTemplateKey({
+        firstName: '',
+        bookingUrl: bookingUrl ?? '',
+        sessionDate,
+        sessionTime,
+        sessionType: session?.type,
+      });
+      const content = await getSystemTemplateContentForClient(templateKey);
+      if (cancelled) return;
+      const template = replaceTemplateVariables(content, {
+        first_name: firstName,
+        booking_url: bookingUrl,
+        session_date: sessionDate ?? '',
+        session_time: sessionTime ?? '',
+      });
 
-    if (selectedRecipient.method === 'phone') {
-      if (!composerDraft) {
-        setComposerDraft(template);
-      }
-      if (customMessage) {
+      if (selectedRecipient.method === 'phone') {
+        setComposerDraft((prev) => (prev ? prev : template));
         setCustomMessage('');
-      }
-    } else {
-      if (!customMessage) {
-        setCustomMessage(template);
-      }
-      if (composerDraft) {
+      } else {
+        setCustomMessage((prev) => (prev ? prev : template));
         setComposerDraft('');
       }
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [
     bookingUrl,
     sessionDate,
     sessionTime,
+    session?.type,
     student,
     parents,
     selectedRecipient,

@@ -66,6 +66,7 @@ export function useBookSessionFlow({
   const [trialFormValid, setTrialFormValid] = useState(false);
   const [showPastDateWarning, setShowPastDateWarning] = useState(false);
   const [pendingNextStep, setPendingNextStep] = useState(false);
+  const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
 
   // Calculate steps
   const steps = useMemo(() => getBookingSteps(sessionType, originalSessionId), [sessionType, originalSessionId]);
@@ -210,9 +211,19 @@ export function useBookSessionFlow({
       setTrialFormValid(false);
       setShowPastDateWarning(false);
       setPendingNextStep(false);
+      setCreatedSessionId(null);
       onClose();
     }
   }, [isSubmitting, onClose]);
+
+  const handleDoneNotifyStep = useCallback(
+    (sessionId: string) => {
+      setCreatedSessionId(null);
+      onBookingCreated?.(sessionId);
+      onClose();
+    },
+    [onBookingCreated, onClose]
+  );
 
   const handleSlotSelect = useCallback((startAt: string, endAt: string, availableStaffIds: string[]) => {
     setSelectedSlot({ startAt, endAt, availableStaffIds });
@@ -373,8 +384,7 @@ export function useBookSessionFlow({
           message: `${getSessionTypeLabel(sessionType)} has been booked successfully`,
         });
 
-        onBookingCreated?.(sessionId);
-        handleClose();
+        setCreatedSessionId(sessionId);
       } catch (error: unknown) {
         toast({
           title: 'Booking Failed',
@@ -429,8 +439,7 @@ export function useBookSessionFlow({
         isReschedule: !!originalSessionId,
       });
 
-      onBookingCreated?.(sessionId);
-      handleClose();
+      setCreatedSessionId(sessionId);
     } catch (error: unknown) {
       toast({
         title: 'Booking Failed',
@@ -449,8 +458,6 @@ export function useBookSessionFlow({
     selectedSubjectId,
     originalSessionId,
     createBooking,
-    onBookingCreated,
-    handleClose,
     toast,
   ]);
 
@@ -535,5 +542,7 @@ export function useBookSessionFlow({
     handlePastDateWarningConfirm,
     handlePastDateWarningCancel,
     canGoNext,
+    createdSessionId,
+    handleDoneNotifyStep,
   };
 }

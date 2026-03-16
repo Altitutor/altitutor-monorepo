@@ -195,7 +195,6 @@ export async function POST(
     const txType = txAmount <= 0 ? 'credit' : 'debit';
     const txAmountCents = Math.abs(txAmount);
     const effectiveAt = new Date((balanceTransaction.created ?? Math.floor(Date.now() / 1000)) * 1000).toISOString();
-    // @ts-expect-error - credit_balance_transactions Insert type may not yet reflect nullable stripe_credit_grant_id
     const { error: cbtErr } = await supabaseAdmin.from('credit_balance_transactions').upsert(
       {
         stripe_credit_balance_transaction_id: balanceTransaction.id,

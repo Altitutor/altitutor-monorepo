@@ -13,7 +13,7 @@ import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
-import { X } from 'lucide-react';
+import { X, Settings2 } from 'lucide-react';
 import {
   Select,
   SelectContent,
@@ -55,6 +55,14 @@ export function CreateEditTemplateDialog({
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const isSystemTemplate = !!(template && template.template_key);
+  const systemVariables = useMemo(() => {
+    if (!template?.variables) return null;
+    const v = template.variables;
+    if (Array.isArray(v)) return v as string[];
+    return null;
+  }, [template?.variables]);
 
   // Initialize form when dialog opens or template changes
   useEffect(() => {
@@ -191,9 +199,17 @@ export function CreateEditTemplateDialog({
                 <X className="h-4 w-4" />
               </Button>
               <div className="flex-1">
-                <DialogTitle>{template ? 'Edit Template' : 'Create Template'}</DialogTitle>
+                <div className="flex items-center gap-2">
+                  <DialogTitle>{template ? 'Edit Template' : 'Create Template'}</DialogTitle>
+                  {isSystemTemplate && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+                      <Settings2 className="h-3 w-3" />
+                      System template
+                    </span>
+                  )}
+                </div>
                 <DialogDescription>
-                  {template 
+                  {template
                     ? 'Update your message template. Variables will be replaced when sending messages.'
                     : 'Create a new message template. Use variables to personalize messages for each student.'}
                 </DialogDescription>
@@ -232,69 +248,26 @@ export function CreateEditTemplateDialog({
               {/* Variable insertion buttons */}
               <div className="space-y-2">
                 <div className="flex gap-2 flex-wrap">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('first_name')}
-                    disabled={isLoading}
-                  >
-                    {'{first_name}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('last_name')}
-                    disabled={isLoading}
-                  >
-                    {'{last_name}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('classes')}
-                    disabled={isLoading}
-                  >
-                    {'{classes}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('sender_name')}
-                    disabled={isLoading}
-                  >
-                    {'{sender_name}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('registration_link')}
-                    disabled={isLoading}
-                  >
-                    {'{registration_link}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('invite_link')}
-                    disabled={isLoading}
-                  >
-                    {'{invite_link}'}
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleInsertVariable('forgot_password_link')}
-                    disabled={isLoading}
-                  >
-                    {'{forgot_password_link}'}
-                  </Button>
+                  {(systemVariables ?? [
+                    'first_name',
+                    'last_name',
+                    'classes',
+                    'sender_name',
+                    'registration_link',
+                    'invite_link',
+                    'forgot_password_link',
+                  ]).map((variable) => (
+                    <Button
+                      key={variable}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleInsertVariable(variable)}
+                      disabled={isLoading}
+                    >
+                      {`{${variable}}`}
+                    </Button>
+                  ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Click to insert variables at cursor position

@@ -15,6 +15,7 @@ import { LogSessionModal } from '@/features/tutor-logs';
 import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
 import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
 import { BookSessionModal } from '@/features/bookings/components';
+import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
 import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
@@ -431,15 +432,21 @@ function AdminLayoutContent({
                 isOpen={isAnnouncementsModalOpen}
                 onClose={closeAnnouncementsModal}
               />
-              {bookingSessionType && (
-                <BookSessionModal
+              {bookingSessionType === 'STAFF_INTERVIEW' ? (
+                <StaffInterviewBookSessionModal
                   isOpen={isBookingModalOpen}
                   onClose={closeBookingModal}
-                  sessionType={bookingSessionType}
-                  onBookingCreated={() => {
-                    closeBookingModal();
-                  }}
+                  onBookingCreated={closeBookingModal}
                 />
+              ) : (
+                bookingSessionType && (
+                  <BookSessionModal
+                    isOpen={isBookingModalOpen}
+                    onClose={closeBookingModal}
+                    sessionType={bookingSessionType}
+                    onBookingCreated={closeBookingModal}
+                  />
+                )
               )}
               <CreateTaskDialog
                 isOpen={isCreateTaskDialogOpen}

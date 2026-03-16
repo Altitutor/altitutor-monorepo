@@ -6,7 +6,8 @@ import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
-import { getChangeClassConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
+import { getSystemTemplateContentForClient } from '@/features/messages/api/systemTemplates';
+import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
 import { formatSessionDateTime } from '@/shared/utils/schedule';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -97,7 +98,8 @@ export function ChangeClassStep4MessageScreen({
 
   // Pre-populate message with change class template when recipient changes
   useEffect(() => {
-    if (!selectedRecipient || !oldClass || !selectedNewClass || !student || !changeoverDate || !currentStaff) return;
+    if (!selectedRecipient || !oldClass || !selectedNewClass || !student || !changeoverDate || !currentStaff)
+      return;
 
     // Calculate last session date for old class
     const lastSessionDate = calculateLastSessionDate(
@@ -106,49 +108,63 @@ export function ChangeClassStep4MessageScreen({
     );
 
     // Calculate first session date for new class
-    const firstSessionDate = selectedNewClass.day_of_week !== undefined && selectedNewClass.start_time
-      ? calculateFirstSessionDate(
-          { day_of_week: selectedNewClass.day_of_week, start_time: selectedNewClass.start_time },
-          getMidnightAdelaide(new Date(changeoverDate))
-        )
-      : null;
+    const firstSessionDate =
+      selectedNewClass.day_of_week !== undefined && selectedNewClass.start_time
+        ? calculateFirstSessionDate(
+            { day_of_week: selectedNewClass.day_of_week, start_time: selectedNewClass.start_time },
+            getMidnightAdelaide(new Date(changeoverDate))
+          )
+        : null;
 
     if (!lastSessionDate || !firstSessionDate) return;
 
     // Format class names
-    const oldClassName = oldClassSubject
-      ? (oldClass.long_name?.trim() ?? '')
-      : 'class';
-    
+    const oldClassName = oldClassSubject ? (oldClass.long_name?.trim() ?? '') : 'class';
+
     const newClassName = selectedNewClass.subject
       ? (selectedNewClass.long_name?.trim() ?? '')
       : 'class';
-    
+
     // Format session dates
     const oldClassLastSessionDateFormatted = formatSessionDateTime(lastSessionDate);
     const newClassFirstSessionDateFormatted = formatSessionDateTime(firstSessionDate);
 
     // Get recipient name
-    const recipientName = selectedRecipient.type === 'parent'
-      ? parents.find(p => p.id === selectedRecipient.id)?.first_name || 'there'
-      : student.first_name || 'there';
+    const recipientName =
+      selectedRecipient.type === 'parent'
+        ? parents.find((p) => p.id === selectedRecipient.id)?.first_name || 'there'
+        : student.first_name || 'there';
 
     // Get sender name
     const senderName = `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim();
 
-    // Generate template
-    const template = getChangeClassConfirmationSmsTemplate({
-      name: recipientName,
-      oldClassName,
-      newClassName,
-      oldClassLastSessionDate: oldClassLastSessionDateFormatted,
-      newClassFirstSessionDate: newClassFirstSessionDateFormatted,
-      senderName,
-    });
-
-    // Set template when recipient changes (reset draft)
-    setComposerDraft(template);
-  }, [selectedRecipient, oldClass, selectedNewClass, student, changeoverDate, currentStaff, oldClassSubject, parents]);
+    let cancelled = false;
+    (async () => {
+      const content = await getSystemTemplateContentForClient('change_class_confirmation');
+      if (cancelled) return;
+      const template = replaceTemplateVariables(content, {
+        name: recipientName,
+        old_class_name: oldClassName,
+        new_class_name: newClassName,
+        old_class_last_session_date: oldClassLastSessionDateFormatted,
+        new_class_first_session_date: newClassFirstSessionDateFormatted,
+        sender_name: senderName,
+      });
+      setComposerDraft(template);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedRecipient,
+    oldClass,
+    selectedNewClass,
+    student,
+    changeoverDate,
+    currentStaff,
+    oldClassSubject,
+    parents,
+  ]);
 
   // Build recipient options for dropdown
   const recipientOptions: Array<{ type: 'student' | 'parent'; id?: string; label: string; value: string }> = [];

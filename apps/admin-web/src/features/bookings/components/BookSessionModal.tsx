@@ -27,6 +27,7 @@ import { formatSlotDateTime, getCurrentAdelaideTime } from '../utils/dateTimeHel
 import { StudentSelectionStep } from './steps/StudentSelectionStep';
 import { SubjectSelectionStep } from './steps/SubjectSelectionStep';
 import { ConfirmationStep } from './steps/ConfirmationStep';
+import { BookSessionNotifyStep } from './BookSessionNotifyStep';
 import { useDialogHotkeys } from '@/shared/hooks';
 
 export interface BookSessionModalProps {
@@ -90,6 +91,8 @@ export function BookSessionModal({
     handlePastDateWarningConfirm,
     handlePastDateWarningCancel,
     canGoNext,
+    createdSessionId,
+    handleDoneNotifyStep,
   } = useBookSessionFlow({
     isOpen,
     sessionType,
@@ -100,8 +103,9 @@ export function BookSessionModal({
     onClose,
   });
 
-  const hasNextStep = currentStep < steps.length - 1;
-  const isFinalStep = currentStep === steps.length - 1;
+  const isNotifyStep = !!createdSessionId;
+  const hasNextStep = !isNotifyStep && currentStep < steps.length - 1;
+  const isFinalStep = !isNotifyStep && currentStep === steps.length - 1;
 
   useDialogHotkeys({
     isOpen,
@@ -112,6 +116,15 @@ export function BookSessionModal({
   });
 
   const renderStepContent = () => {
+    if (createdSessionId) {
+      return (
+        <BookSessionNotifyStep
+          sessionId={createdSessionId}
+          sessionType={sessionType}
+          successMessage={`${getSessionTypeLabel(sessionType)} has been booked successfully`}
+        />
+      );
+    }
     switch (currentStepId) {
       case 'student':
         return (
@@ -231,7 +244,9 @@ export function BookSessionModal({
                         : `Book ${getSessionTypeLabel(sessionType)}`}
                     </DialogTitle>
                     <DialogDescription>
-                      Step {currentStep + 1} of {steps.length}: {currentStepData?.title}
+                      {createdSessionId
+                        ? 'Notify the student/parent or staff about the booking'
+                        : `Step ${currentStep + 1} of ${steps.length}: ${currentStepData?.title}`}
                     </DialogDescription>
                   </div>
                 </div>
@@ -241,18 +256,20 @@ export function BookSessionModal({
             {/* Progress Indicator */}
             <div className="px-6 pb-4">
               <div className="flex items-center gap-2">
-                {Array.from({ length: steps.length }).map((_, index) => (
-                  <div
-                    key={index}
-                    className={`flex-1 h-2 rounded-full transition-colors ${
-                      index < currentStep
-                        ? 'bg-primary'
-                        : index === currentStep
-                        ? 'bg-primary/50'
-                        : 'bg-muted'
-                    }`}
-                  />
-                ))}
+                {createdSessionId
+                  ? null
+                  : Array.from({ length: steps.length }).map((_, index) => (
+                      <div
+                        key={index}
+                        className={`flex-1 h-2 rounded-full transition-colors ${
+                          index < currentStep
+                            ? 'bg-primary'
+                            : index === currentStep
+                              ? 'bg-primary/50'
+                              : 'bg-muted'
+                        }`}
+                      />
+                    ))}
               </div>
             </div>
           </div>
@@ -270,7 +287,7 @@ export function BookSessionModal({
           <div className="flex justify-between px-6 py-4 border-t bg-background">
             <div className="flex gap-2">
               {/* Disable back button when rescheduling - user should not go back to earlier steps */}
-              {currentStep > 0 && !originalSessionId && (
+              {!createdSessionId && currentStep > 0 && !originalSessionId && (
                 <Button
                   variant="outline"
                   onClick={handleBack}
@@ -283,7 +300,11 @@ export function BookSessionModal({
             </div>
             
             <div className="flex gap-2">
-              {currentStep < steps.length - 1 ? (
+              {createdSessionId ? (
+                <Button onClick={() => handleDoneNotifyStep(createdSessionId)}>
+                  Done
+                </Button>
+              ) : currentStep < steps.length - 1 ? (
                 <Button onClick={handleNext} disabled={!canGoNext() || isSubmitting}>
                   Next
                   <ChevronRight className="h-4 w-4 ml-2" />

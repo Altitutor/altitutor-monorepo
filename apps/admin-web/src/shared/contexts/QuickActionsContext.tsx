@@ -10,7 +10,7 @@ interface QuickActionsContextType {
   isCreateTaskDialogOpen: boolean;
   isCreateIssueDialogOpen: boolean;
   isCreateProjectDialogOpen: boolean;
-  bookingSessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null;
+  bookingSessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null;
   isBookingModalOpen: boolean;
   openTutorLogModal: () => void;
   closeTutorLogModal: () => void;
@@ -26,7 +26,7 @@ interface QuickActionsContextType {
   closeCreateIssueDialog: () => void;
   openCreateProjectDialog: () => void;
   closeCreateProjectDialog: () => void;
-  openBookingModal: (sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW') => void;
+  openBookingModal: (sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW') => void;
   closeBookingModal: () => void;
 }
 
@@ -40,7 +40,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [isCreateTaskDialogOpen, setIsCreateTaskDialogOpen] = useState(false);
   const [isCreateIssueDialogOpen, setIsCreateIssueDialogOpen] = useState(false);
   const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
-  const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | null>(null);
+  const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
 
   const openTutorLogModal = useCallback(() => {
@@ -99,7 +99,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setIsCreateProjectDialogOpen(false);
   }, []);
 
-  const openBookingModal = useCallback((sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW') => {
+  const openBookingModal = useCallback((sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW') => {
     setBookingSessionType(sessionType);
     setIsBookingModalOpen(true);
   }, []);

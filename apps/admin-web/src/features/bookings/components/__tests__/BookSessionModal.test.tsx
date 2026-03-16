@@ -177,6 +177,8 @@ const createMockHookReturn = (overrides = {}) => ({
   handlePastDateWarningConfirm: jest.fn(),
   handlePastDateWarningCancel: jest.fn(),
   canGoNext: jest.fn(() => false),
+  createdSessionId: null,
+  handleDoneNotifyStep: jest.fn(),
   ...overrides,
 });
 

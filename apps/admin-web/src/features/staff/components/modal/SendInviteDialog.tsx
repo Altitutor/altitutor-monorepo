@@ -20,7 +20,8 @@ import { Loader2, Mail, MessageSquare, Copy, Check, X, Phone, ChevronDown } from
 import { Skeleton } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { invitesApi } from '@/features/auth/api/invites';
-import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
+import { getSystemTemplateContentForClient } from '@/features/messages/api/systemTemplates';
+import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
 import { useAvailableSenders } from '@/features/messages/api/queries';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
 import { MessageThread } from '@/features/messages/components/MessageThread';
@@ -126,35 +127,29 @@ export function SendInviteDialog({
   // Pre-populate message with SMS template when inviteUrl and recipient are ready
   useEffect(() => {
     if (!inviteUrl || !selectedRecipient) return;
-    
+
     const firstName = staffMember.first_name || 'there';
-    
-    const template = getInviteSmsTemplate({
-      firstName,
-      inviteUrl,
-      linkType: 'invite',
-    });
-    
-    // Set template in appropriate place based on method
-    if (selectedRecipient.method === 'phone') {
-      // Only set if draft is empty (don't overwrite user edits)
-      if (!composerDraft) {
-        setComposerDraft(template);
-      }
-      // Clear email message when switching to phone
-      if (customMessage) {
+
+    let cancelled = false;
+    (async () => {
+      const content = await getSystemTemplateContentForClient('student_invite');
+      if (cancelled) return;
+      const template = replaceTemplateVariables(content, {
+        first_name: firstName,
+        invite_url: inviteUrl,
+      });
+
+      if (selectedRecipient.method === 'phone') {
+        setComposerDraft((prev) => (prev ? prev : template));
         setCustomMessage('');
-      }
-    } else {
-      // Only set if message is empty (don't overwrite user edits)
-      if (!customMessage) {
-        setCustomMessage(template);
-      }
-      // Clear composer draft when switching to email
-      if (composerDraft) {
+      } else {
+        setCustomMessage((prev) => (prev ? prev : template));
         setComposerDraft('');
       }
-    }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [inviteUrl, staffMember.first_name, selectedRecipient, composerDraft, customMessage]);
 
   // Auto-expand textarea

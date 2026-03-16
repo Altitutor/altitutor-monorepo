@@ -3,7 +3,7 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { sendEmail } from '@/shared/lib/email';
 import { getBookingConfirmationEmailTemplate } from '@/shared/lib/email-templates';
-import { getBookingConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
+import { getBookingConfirmationMessage } from '@/features/messages/api/systemTemplates';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
 import { format } from 'date-fns';
 
@@ -55,10 +55,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Fetch session to get date/time info
+    // Fetch session to get date/time and type
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('sessions')
-      .select('id, start_at, end_at')
+      .select('id, start_at, end_at, type')
       .eq('id', sessionId)
       .single();
 
@@ -277,12 +277,16 @@ export async function POST(request: NextRequest) {
             conversationId = newConvo.id;
           }
 
-          const messageBody = getBookingConfirmationSmsTemplate({
-            firstName: recipient.first_name || 'there',
-            bookingUrl,
-            sessionDate,
-            sessionTime,
-          });
+          const messageBody = await getBookingConfirmationMessage(
+            supabaseAdmin,
+            {
+              firstName: recipient.first_name || 'there',
+              bookingUrl,
+              sessionDate,
+              sessionTime,
+              sessionType: session.type,
+            }
+          );
 
           const { data: message, error: messageError } = await supabaseAdmin
             .from('messages')

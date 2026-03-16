@@ -11,28 +11,29 @@ import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useParentsForStudent } from '@/features/enrollments/hooks/useParentsForStudent';
 import type { Tables } from '@altitutor/shared';
+import { getSystemTemplateContentForClient } from '@/features/messages/api/systemTemplates';
+import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
 import type { AbsenceDecision, RescheduleSession, StudentSession } from '../../types/absence';
 
-function buildAbsenceMessageTemplate(params: {
-  recipientName: string;
-  senderName: string;
-  decisions: AbsenceDecision[];
-  sessions: StudentSession[];
-  rescheduledSessionsMap: Map<string, RescheduleSession>;
-}): string {
-  const { recipientName, senderName, decisions, sessions, rescheduledSessionsMap } = params;
-
+function buildAbsenceDetails(
+  decisions: AbsenceDecision[],
+  sessions: StudentSession[],
+  rescheduledSessionsMap: Map<string, RescheduleSession>
+): string {
   const lines: string[] = [];
   for (const decision of decisions) {
     const session = sessions.find((s) => s.id === decision.sessionId);
     if (!session) continue;
 
     const sessionDateTime = session.start_at ? formatDateTime(session.start_at) : '';
-    const subjectShort = session.subject ? (session.subject.short_name ?? session.subject.long_name ?? session.subject.name ?? '') : '-';
+    const subjectShort = session.subject
+      ? (session.subject.short_name ?? session.subject.long_name ?? session.subject.name ?? '')
+      : '-';
 
     let actionText: string;
     if (decision.action === 'credit') {
-      actionText = 'credit has been applied to your account, so you will not be charged for this session';
+      actionText =
+        'credit has been applied to your account, so you will not be charged for this session';
     } else if (decision.action === 'reschedule' && decision.targetSessionId) {
       const targetSession = rescheduledSessionsMap.get(decision.targetSessionId);
       const newDateTime = targetSession?.start_at ? formatDateTime(targetSession.start_at) : '';
@@ -43,15 +44,7 @@ function buildAbsenceMessageTemplate(params: {
 
     lines.push(`- ${sessionDateTime} ${subjectShort}: ${actionText}`);
   }
-
-  return `Hi ${recipientName},
-
-I have processed the following absences for you:
-${lines.join('\n')}
-
-Kind regards,
-
-${senderName}, Altitutor Admin`;
+  return lines.join('\n');
 }
 
 type RecipientOption = { type: 'student' | 'parent'; id?: string; label: string; value: string };
@@ -141,16 +134,26 @@ export function AbsenceMessageScreen({
         : selectedStudent.first_name || 'there';
 
     const senderName = `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim();
-
-    const template = buildAbsenceMessageTemplate({
-      recipientName,
-      senderName,
+    const absenceDetails = buildAbsenceDetails(
       decisions,
-      sessions: selectedSessionsArray,
-      rescheduledSessionsMap,
-    });
+      selectedSessionsArray,
+      rescheduledSessionsMap
+    );
 
-    setComposerDraft(template);
+    let cancelled = false;
+    (async () => {
+      const content = await getSystemTemplateContentForClient('absence_notification');
+      if (cancelled) return;
+      const template = replaceTemplateVariables(content, {
+        recipient_name: recipientName,
+        sender_name: senderName,
+        absence_details: absenceDetails,
+      });
+      setComposerDraft(template);
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [
     selectedRecipient,
     selectedStudent,

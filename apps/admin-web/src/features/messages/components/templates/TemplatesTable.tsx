@@ -29,7 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@altitutor/ui';
-import { Search, ArrowUpDown, MoreVertical, Edit, Copy, Trash2 } from 'lucide-react';
+import { Search, ArrowUpDown, MoreVertical, Edit, Copy, Trash2, Settings2 } from 'lucide-react';
 import { useMessageTemplates, useDeleteTemplate, useCreateTemplate } from '../../api/templates';
 import { truncatePreview } from '../../utils/templateHelpers';
 import { useToast } from '@altitutor/ui';
@@ -52,6 +52,7 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
   const { toast } = useToast();
   
   const [searchTerm, setSearchTerm] = useState('');
+  const [templateFilter, setTemplateFilter] = useState<'all' | 'user' | 'system'>('all');
   const [sortField, setSortField] = useState<SortField>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [selectedTemplate, setSelectedTemplate] = useState<Tables<'message_templates'> | null>(null);
@@ -67,12 +68,20 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
 
     let result = [...templates];
 
+    // Apply template type filter (user vs system)
+    if (templateFilter === 'user') {
+      result = result.filter((t) => !t.template_key);
+    } else if (templateFilter === 'system') {
+      result = result.filter((t) => !!t.template_key);
+    }
+
     // Apply search filter
     if (debouncedSearchTerm) {
       const searchLower = debouncedSearchTerm.toLowerCase();
-      result = result.filter(template =>
-        template.name.toLowerCase().includes(searchLower) ||
-        template.content.toLowerCase().includes(searchLower)
+      result = result.filter(
+        (template) =>
+          template.name.toLowerCase().includes(searchLower) ||
+          template.content.toLowerCase().includes(searchLower)
       );
     }
 
@@ -92,7 +101,7 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
     });
 
     return result;
-  }, [templates, debouncedSearchTerm, sortField, sortDirection]);
+  }, [templates, templateFilter, debouncedSearchTerm, sortField, sortDirection]);
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -110,6 +119,7 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
 
   const handleDuplicate = async (template: Tables<'message_templates'>) => {
     try {
+      // Duplicating a system template creates a user template (no template_key)
       await createMutation.mutateAsync({
         name: `${template.name} (Copy)`,
         content: template.content,
@@ -130,7 +140,10 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
     }
   };
 
+  const isSystemTemplate = (t: Tables<'message_templates'>) => !!t.template_key;
+
   const handleDeleteClick = (template: Tables<'message_templates'>) => {
+    if (isSystemTemplate(template)) return; // Don't allow deleting system templates
     setDeleteTemplateId(template.id);
     setDeleteTemplateName(template.name);
   };
@@ -219,15 +232,55 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div className="relative w-64">
-          <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search templates..."
-            className="pl-8"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative w-64">
+            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search templates..."
+              className="pl-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="flex rounded-md border p-0.5">
+            <button
+              type="button"
+              onClick={() => setTemplateFilter('all')}
+              className={cn(
+                'px-3 py-1.5 text-sm rounded',
+                templateFilter === 'all'
+                  ? 'bg-muted font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setTemplateFilter('user')}
+              className={cn(
+                'px-3 py-1.5 text-sm rounded',
+                templateFilter === 'user'
+                  ? 'bg-muted font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              User
+            </button>
+            <button
+              type="button"
+              onClick={() => setTemplateFilter('system')}
+              className={cn(
+                'px-3 py-1.5 text-sm rounded',
+                templateFilter === 'system'
+                  ? 'bg-muted font-medium'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              System
+            </button>
+          </div>
         </div>
       </div>
 
@@ -275,7 +328,15 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
                   onClick={() => handleEdit(template)}
                 >
                   <TableCell className="font-medium">
-                    {template.name}
+                    <div className="flex items-center gap-2">
+                      {template.name}
+                      {isSystemTemplate(template) && (
+                        <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-muted text-muted-foreground">
+                          <Settings2 className="h-3 w-3" />
+                          System
+                        </span>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {renderPreview(template.content)}
@@ -296,14 +357,18 @@ export function TemplatesTable({ onRefresh: _onRefresh, onCreateTrigger }: Templ
                           <Copy className="h-4 w-4 mr-2" />
                           Duplicate
                         </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => handleDeleteClick(template)}
-                          className="text-red-600"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
-                        </DropdownMenuItem>
+                        {!isSystemTemplate(template) && (
+                          <>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => handleDeleteClick(template)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </TableCell>

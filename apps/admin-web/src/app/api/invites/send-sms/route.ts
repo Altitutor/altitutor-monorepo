@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
+import { getStudentInviteMessage } from '@/features/messages/api/systemTemplates';
 
 export async function POST(request: NextRequest) {
   try {
@@ -217,13 +217,13 @@ export async function POST(request: NextRequest) {
     }
 
     // Create message body - use custom message if provided, otherwise use template
-    const messageBody = customMessage && customMessage.trim() 
-      ? customMessage.trim()
-      : getInviteSmsTemplate({
-          firstName: record.first_name,
-          inviteUrl,
-          linkType: 'invite',
-        });
+    const messageBody =
+      customMessage && customMessage.trim()
+        ? customMessage.trim()
+        : await getStudentInviteMessage(supabaseAdmin, {
+            firstName: record.first_name,
+            inviteUrl,
+          });
 
     // Create message record
     // Note: Need to get from/to numbers from conversation
