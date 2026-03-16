@@ -4,6 +4,7 @@ import { useProgress } from '../hooks/use-progress'
 import { SectionProgressCards } from './section-progress-cards'
 import { SetAttemptsCard } from './set-attempts-card'
 import { MockAttemptsCard } from './mock-attempts-card'
+import { QuestionAttemptsCard } from './question-attempts-card'
 import { UcatPagePlaceholder } from '@altitutor/ui'
 
 export function ProgressPage() {
@@ -52,6 +53,14 @@ export function ProgressPage() {
       </div>
 
       <SectionProgressCards sections={data.sectionProgress} />
+      <QuestionAttemptsCard
+        attempts={data.questionAttempts}
+        sections={data.sectionProgress.map((s) => ({
+          id: s.sectionId,
+          name: s.sectionName,
+          sectionNumber: s.sectionNumber,
+        }))}
+      />
       <SetAttemptsCard attempts={data.setAttempts} />
       <MockAttemptsCard attempts={data.mockAttempts} />
     </div>

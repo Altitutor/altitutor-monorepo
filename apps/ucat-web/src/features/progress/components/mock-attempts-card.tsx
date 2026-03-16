@@ -17,8 +17,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TablePagination,
 } from '@altitutor/ui'
+import { ProgressTablePagination } from './progress-table-pagination'
+import { GraphTypeTabs } from './graph-type-tabs'
 import { format, addDays, subDays } from 'date-fns'
 import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { formatTimeSeconds } from '../lib/format-time'
@@ -48,8 +49,17 @@ export function MockAttemptsCard({ attempts }: MockAttemptsCardProps) {
   const [dateRangeDays, setDateRangeDays] = useState<string>('30')
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
+  const [wasTimedFilter, setWasTimedFilter] = useState<'all' | 'timed' | 'untimed'>(
+    'all'
+  )
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
+
+  const filteredAttempts = useMemo(() => {
+    if (wasTimedFilter === 'timed') return attempts.filter((a) => a.wasTimed)
+    if (wasTimedFilter === 'untimed') return attempts.filter((a) => !a.wasTimed)
+    return attempts
+  }, [attempts, wasTimedFilter])
 
   const { graphData, dateRangeLabel } = useMemo(() => {
     const days = parseInt(dateRangeDays, 10) || 30
@@ -58,7 +68,7 @@ export function MockAttemptsCard({ attempts }: MockAttemptsCardProps) {
     const startDate = subDays(endDate, days - 1)
     startDate.setHours(0, 0, 0, 0)
 
-    const filtered = attempts.filter((a) => {
+    const filtered = filteredAttempts.filter((a) => {
       const d = a.completedAt ? new Date(a.completedAt) : new Date(a.attemptedAt)
       return d >= startDate && d <= endDate
     })
@@ -104,18 +114,28 @@ export function MockAttemptsCard({ attempts }: MockAttemptsCardProps) {
       graphData,
       dateRangeLabel: `Last ${days} days`,
     }
-  }, [attempts, dateRangeDays, graphDataType])
+  }, [filteredAttempts, dateRangeDays, graphDataType])
 
   const paginatedAttempts = useMemo(() => {
     const start = (page - 1) * pageSize
-    return attempts.slice(start, start + pageSize)
-  }, [attempts, page, pageSize])
+    return filteredAttempts.slice(start, start + pageSize)
+  }, [filteredAttempts, page, pageSize])
 
   return (
     <Card className="rounded-xl border-border">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Mock attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
+          <Select value={wasTimedFilter} onValueChange={(v) => setWasTimedFilter(v as 'all' | 'timed' | 'untimed')}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Timed" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="untimed">Untimed only</SelectItem>
+              <SelectItem value="timed">Timed only</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={dateRangeDays} onValueChange={setDateRangeDays}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Date range" />
@@ -143,15 +163,7 @@ export function MockAttemptsCard({ attempts }: MockAttemptsCardProps) {
               ))}
             </SelectContent>
           </Select>
-          <Select value={graphType} onValueChange={(v) => setGraphType(v as 'line' | 'bar')}>
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="line">Line</SelectItem>
-              <SelectItem value="bar">Bar</SelectItem>
-            </SelectContent>
-          </Select>
+          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -176,7 +188,7 @@ export function MockAttemptsCard({ attempts }: MockAttemptsCardProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {attempts.length === 0 ? (
+                {filteredAttempts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No submitted mock attempts yet
@@ -217,11 +229,11 @@ export function MockAttemptsCard({ attempts }: MockAttemptsCardProps) {
               </TableBody>
             </Table>
           </div>
-          {attempts.length > 0 ? (
-            <TablePagination
+          {filteredAttempts.length > 0 ? (
+            <ProgressTablePagination
               page={page}
               pageSize={pageSize}
-              total={attempts.length}
+              total={filteredAttempts.length}
               onPageChange={setPage}
               onPageSizeChange={(size) => {
                 setPageSize(size)

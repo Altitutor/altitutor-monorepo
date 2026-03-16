@@ -1,7 +1,9 @@
 'use client'
 
+import { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { cn } from '@/lib/utils'
+import { SegmentedControl } from './segmented-control'
 import type { SectionProgress } from '@/app/api/ucat/progress/route'
 
 type SectionProgressCardsProps = {
@@ -10,11 +12,15 @@ type SectionProgressCardsProps = {
 
 function CircularProgress({
   percentage,
-  size = 80,
-  strokeWidth = 8,
+  correct,
+  total,
+  size = 120,
+  strokeWidth = 10,
   className,
 }: {
   percentage: number
+  correct: number
+  total: number
   size?: number
   strokeWidth?: number
   className?: string
@@ -25,7 +31,7 @@ function CircularProgress({
 
   return (
     <div
-      className={cn('relative inline-flex', className)}
+      className={cn('relative inline-flex flex-col items-center justify-center', className)}
       style={{ width: size, height: size }}
     >
       <svg
@@ -53,37 +59,92 @@ function CircularProgress({
           strokeDasharray={circumference}
           strokeDashoffset={offset}
           strokeLinecap="round"
-          className="text-primary transition-[stroke-dashoffset] duration-700 ease-out"
+          className="text-accent transition-[stroke-dashoffset] duration-700 ease-out"
         />
       </svg>
-      <span className="absolute inset-0 flex items-center justify-center text-sm font-semibold">
-        {percentage}%
-      </span>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-lg font-semibold tabular-nums">{percentage}%</span>
+        <span className="text-xs text-muted-foreground tabular-nums">
+          {correct} / {total}
+        </span>
+      </div>
     </div>
   )
 }
 
+type ScaledScoreMode = 'average' | 'weighted'
+
 export function SectionProgressCards({ sections }: SectionProgressCardsProps) {
+  const [scaledScoreMode, setScaledScoreMode] =
+    useState<ScaledScoreMode>('weighted')
+
+  const getScaledScore = (section: SectionProgress): number | null =>
+    scaledScoreMode === 'average'
+      ? section.averageScaledScore
+      : section.weightedAverageScaledScore
+
   return (
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      {sections.map((section) => (
-        <Card key={section.sectionId} className="rounded-xl border-border">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium">
-              {section.sectionName}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="flex items-center gap-4">
-            <CircularProgress
-              percentage={section.percentage}
-              className="text-primary"
-            />
-            <div className="text-sm text-muted-foreground">
-              {section.correctScore} / {section.maxScore} correct
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <SegmentedControl
+          value={scaledScoreMode}
+          onValueChange={(v) => setScaledScoreMode(v as ScaledScoreMode)}
+          options={[
+            { value: 'average', label: 'All time' },
+            {
+              value: 'weighted',
+              label: 'Weighted average',
+              infoTooltip:
+                'Recent attempts are weighted more heavily than older ones, giving a better picture of your current performance.',
+            },
+          ]}
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {sections.map((section) => {
+          const score = getScaledScore(section)
+          return (
+            <Card key={section.sectionId} className="rounded-xl border-border">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base font-medium">
+                  {section.sectionName}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-4">
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Scaled score
+                  </div>
+                  <div
+                    className={cn(
+                      'text-3xl font-bold tabular-nums',
+                      score == null && 'text-muted-foreground'
+                    )}
+                  >
+                    {score != null ? Math.round(score) : '—'}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-2">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Percentage correct
+                  </div>
+                  <CircularProgress
+                    percentage={
+                      scaledScoreMode === 'weighted' &&
+                      section.weightedAveragePercentage != null
+                        ? Math.round(section.weightedAveragePercentage)
+                        : section.percentage
+                    }
+                    correct={section.correctScore}
+                    total={section.maxScore}
+                    className="text-accent"
+                  />
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
+      </div>
     </div>
   )
 }

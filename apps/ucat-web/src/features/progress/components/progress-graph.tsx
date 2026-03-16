@@ -14,7 +14,13 @@ import {
 import { cn } from '@/lib/utils'
 import { formatTimeSeconds } from '../lib/format-time'
 
-export type GraphDataType = 'scaled_score' | 'percentage' | 'time_taken' | 'exam_speed' | 'attempt_count'
+export type GraphDataType =
+  | 'scaled_score'
+  | 'percentage'
+  | 'time_taken'
+  | 'exam_speed'
+  | 'question_speed'
+  | 'attempt_count'
 
 export type ProgressGraphProps = {
   data: { date: string; value: number | null; label?: string }[]
@@ -29,6 +35,7 @@ const dataTypeLabels: Record<GraphDataType, string> = {
   percentage: 'Percentage (%)',
   time_taken: 'Time taken',
   exam_speed: 'Exam speed (%)',
+  question_speed: 'Question speed (%)',
   attempt_count: 'Number of attempts',
 }
 
@@ -87,9 +94,9 @@ export function ProgressGraph({
         <Line
           type="monotone"
           dataKey="value"
-          stroke="hsl(var(--primary))"
+          stroke="hsl(var(--accent))"
           strokeWidth={2}
-          dot={{ fill: 'hsl(var(--primary))', r: 4 }}
+          dot={{ fill: 'hsl(var(--accent))', r: 4 }}
           activeDot={{ r: 6 }}
           connectNulls={true}
           isAnimationActive
@@ -128,7 +135,7 @@ export function ProgressGraph({
         />
         <Bar
           dataKey="value"
-          fill="hsl(var(--primary))"
+          fill="hsl(var(--accent))"
           radius={[4, 4, 0, 0]}
           isAnimationActive
           animationDuration={600}

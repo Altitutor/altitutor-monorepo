@@ -17,8 +17,9 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-  TablePagination,
 } from '@altitutor/ui'
+import { ProgressTablePagination } from './progress-table-pagination'
+import { GraphTypeTabs } from './graph-type-tabs'
 import { format, addDays, subDays } from 'date-fns'
 import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { formatTimeSeconds } from '../lib/format-time'
@@ -49,13 +50,21 @@ export function SetAttemptsCard({ attempts }: SetAttemptsCardProps) {
   const [dateRangeDays, setDateRangeDays] = useState<string>('30')
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
+  const [wasTimedFilter, setWasTimedFilter] = useState<'all' | 'timed' | 'untimed'>(
+    'all'
+  )
+  const [setSourceFilter, setSetSourceFilter] = useState<'my' | 'public'>('public')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
-  const standaloneAttempts = useMemo(
-    () => attempts.filter((a) => !a.studentUcatMockAttemptId),
-    [attempts]
-  )
+  const standaloneAttempts = useMemo(() => {
+    let result = attempts.filter((a) => !a.studentUcatMockAttemptId)
+    if (wasTimedFilter === 'timed') result = result.filter((a) => a.wasTimed)
+    if (wasTimedFilter === 'untimed') result = result.filter((a) => !a.wasTimed)
+    if (setSourceFilter === 'my') result = result.filter((a) => a.isStudentGenerated)
+    if (setSourceFilter === 'public') result = result.filter((a) => !a.isStudentGenerated)
+    return result
+  }, [attempts, wasTimedFilter, setSourceFilter])
 
   const { graphData, dateRangeLabel } = useMemo(() => {
     const days = parseInt(dateRangeDays, 10) || 30
@@ -130,6 +139,25 @@ export function SetAttemptsCard({ attempts }: SetAttemptsCardProps) {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Set attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
+          <Select value={wasTimedFilter} onValueChange={(v) => setWasTimedFilter(v as 'all' | 'timed' | 'untimed')}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Timed" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="untimed">Untimed only</SelectItem>
+              <SelectItem value="timed">Timed only</SelectItem>
+              <SelectItem value="all">All</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={setSourceFilter} onValueChange={(v) => setSetSourceFilter(v as 'my' | 'public')}>
+            <SelectTrigger className="w-[120px]">
+              <SelectValue placeholder="Source" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="public">Public sets</SelectItem>
+              <SelectItem value="my">My sets</SelectItem>
+            </SelectContent>
+          </Select>
           <Select value={dateRangeDays} onValueChange={setDateRangeDays}>
             <SelectTrigger className="w-[140px]">
               <SelectValue placeholder="Date range" />
@@ -157,15 +185,7 @@ export function SetAttemptsCard({ attempts }: SetAttemptsCardProps) {
               ))}
             </SelectContent>
           </Select>
-          <Select value={graphType} onValueChange={(v) => setGraphType(v as 'line' | 'bar')}>
-            <SelectTrigger className="w-[100px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="line">Line</SelectItem>
-              <SelectItem value="bar">Bar</SelectItem>
-            </SelectContent>
-          </Select>
+          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -232,7 +252,7 @@ export function SetAttemptsCard({ attempts }: SetAttemptsCardProps) {
             </Table>
           </div>
           {standaloneAttempts.length > 0 ? (
-            <TablePagination
+            <ProgressTablePagination
               page={page}
               pageSize={pageSize}
               total={standaloneAttempts.length}

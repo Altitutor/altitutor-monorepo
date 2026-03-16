@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { extractTextFromRichJson } from '@/features/question-engine/model/rich-text'
+import type { JsonLike } from '@/features/question-engine/model/rich-text'
 
 export type SectionProgress = {
   sectionId: string
@@ -8,6 +10,9 @@ export type SectionProgress = {
   correctScore: number
   maxScore: number
   percentage: number
+  averageScaledScore: number | null
+  weightedAverageScaledScore: number | null
+  weightedAveragePercentage: number | null
 }
 
 export type SetAttemptRow = {
@@ -15,6 +20,8 @@ export type SetAttemptRow = {
   attemptedAt: string
   completedAt: string | null
   questionSetId: string
+  questionSetName: string | null
+  isStudentGenerated: boolean
   studentUcatMockAttemptId: string | null
   scorePoints: number | null
   totalPoints: number | null
@@ -23,6 +30,7 @@ export type SetAttemptRow = {
   setTimeLimitSeconds: number | null
   studentSetSpeed: number | null
   studentExamSpeed: number | null
+  wasTimed: boolean
 }
 
 export type MockAttemptRow = {
@@ -37,12 +45,27 @@ export type MockAttemptRow = {
   setTimeLimitSeconds: number | null
   studentSetSpeed: number | null
   studentExamSpeed: number | null
+  wasTimed: boolean
+}
+
+export type QuestionAttemptRow = {
+  id: string
+  attemptedAt: string
+  score: number | null
+  questionType: string | null
+  timeSpentSeconds: number | null
+  studentQuestionSpeed: number | null
+  wasTimed: boolean
+  ucatSectionId: string | null
+  sectionName: string | null
+  sectionNumber: number | null
 }
 
 export type ProgressResponse = {
   sectionProgress: SectionProgress[]
   setAttempts: SetAttemptRow[]
   mockAttempts: MockAttemptRow[]
+  questionAttempts: QuestionAttemptRow[]
 }
 
 export async function GET() {
@@ -61,10 +84,12 @@ export async function GET() {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Fetch question attempts (submitted only) for section progress
-  const { data: questionAttempts, error: qaError } = await supabase
+  // Fetch question attempts (submitted only) for section progress and Question Attempts card
+  const { data: questionAttemptsAll, error: qaError } = await supabase
     .from('vstudent_ucat_my_question_attempts')
-    .select('ucat_section_id, section_name, section_number, score, question_type')
+    .select(
+      'id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed'
+    )
     .eq('is_submitted', true)
 
   if (qaError) {
@@ -76,7 +101,7 @@ export async function GET() {
     string,
     { name: string; number: number; correct: number; max: number }
   >()
-  for (const qa of questionAttempts ?? []) {
+  for (const qa of questionAttemptsAll ?? []) {
     const sectionId = qa.ucat_section_id
     if (!sectionId) continue
     const maxPerQuestion = qa.question_type === 'syllogism' ? 2 : 1
@@ -94,7 +119,7 @@ export async function GET() {
     }
   }
 
-  const sectionProgress: SectionProgress[] = Array.from(sectionMap.entries())
+  let sectionProgress: SectionProgress[] = Array.from(sectionMap.entries())
     .map(([sectionId, data]) => ({
       sectionId,
       sectionName: data.name,
@@ -102,6 +127,9 @@ export async function GET() {
       correctScore: data.correct,
       maxScore: data.max,
       percentage: data.max > 0 ? Math.round((data.correct / data.max) * 100) : 0,
+      averageScaledScore: null as number | null,
+      weightedAverageScaledScore: null as number | null,
+      weightedAveragePercentage: null as number | null,
     }))
     .sort((a, b) => a.sectionNumber - b.sectionNumber)
 
@@ -122,6 +150,9 @@ export async function GET() {
       correctScore: 0,
       maxScore: 0,
       percentage: 0,
+      averageScaledScore: null,
+      weightedAverageScaledScore: null,
+      weightedAveragePercentage: null,
     })
   }
   sectionProgress.sort((a, b) => a.sectionNumber - b.sectionNumber)
@@ -150,14 +181,15 @@ export async function GET() {
     set_time_limit_seconds?: number | null
     student_set_speed?: number | null
     student_exam_speed?: number | null
+    was_timed?: boolean
   }
 
-  // Enrich with time_limit from question_sets when missing (trigger may not have run for older attempts)
+  // Enrich with time_limit and name from question_sets when missing (trigger may not have run for older attempts)
   const setIds = [...new Set((setAttemptsRaw ?? []).map((r) => (r as SetAttemptRaw).question_set_id).filter(Boolean))]
   const { data: setDetails } = setIds.length > 0
     ? await supabase
         .from('vstudent_ucat_question_sets')
-        .select('id, time_limit_seconds, time_limit_at_exam_speed_seconds')
+        .select('id, name, time_limit_seconds, time_limit_at_exam_speed_seconds, sections, is_student_generated')
         .in('id', setIds)
     : { data: [] }
 
@@ -167,6 +199,9 @@ export async function GET() {
       {
         timeLimit: s.time_limit_seconds,
         timeLimitExam: s.time_limit_at_exam_speed_seconds,
+        name: s.name,
+        sections: s.sections as Array<{ section_number?: number }> | null,
+        isStudentGenerated: s.is_student_generated ?? false,
       },
     ])
   )
@@ -197,11 +232,18 @@ export async function GET() {
       }
     }
 
+    const details = row.question_set_id ? timeLimitBySetId.get(row.question_set_id) : undefined
+    const questionSetName = details?.name != null
+      ? extractTextFromRichJson(details.name as JsonLike) || null
+      : null
+
     return {
       id: row.id ?? '',
       attemptedAt: row.attempted_at ?? '',
       completedAt: row.completed_at,
       questionSetId: row.question_set_id ?? '',
+      questionSetName: questionSetName || null,
+      isStudentGenerated: details?.isStudentGenerated ?? false,
       studentUcatMockAttemptId: row.student_ucat_mock_attempt_id,
       scorePoints: row.score_points,
       totalPoints: row.total_points,
@@ -210,8 +252,124 @@ export async function GET() {
       setTimeLimitSeconds: setTimeLimit,
       studentSetSpeed,
       studentExamSpeed,
+      wasTimed: row.was_timed ?? false,
     }
   })
+
+  // Compute average and weighted average (EMA) scaled score per section from standalone set attempts
+  const sectionByNumber = new Map(
+    sectionProgress.map((s) => [s.sectionNumber, s.sectionId])
+  )
+  const sectionScaledSums = new Map<string, { sum: number; count: number }>()
+  const sectionScaledScoresOrdered = new Map<string, number[]>()
+  for (const s of sectionProgress) {
+    sectionScaledSums.set(s.sectionId, { sum: 0, count: 0 })
+    sectionScaledScoresOrdered.set(s.sectionId, [])
+  }
+  const standaloneSetAttempts = setAttempts.filter(
+    (a) => !a.studentUcatMockAttemptId
+  )
+  const attemptsWithSection = standaloneSetAttempts
+    .filter((a) => {
+      if (a.scaledScore == null) return false
+      const details = a.questionSetId
+        ? timeLimitBySetId.get(a.questionSetId)
+        : undefined
+      const sectionsArr = details?.sections
+      const firstSectionNum =
+        Array.isArray(sectionsArr) && sectionsArr.length > 0
+          ? sectionsArr[0]?.section_number
+          : undefined
+      const sectionId =
+        firstSectionNum != null ? sectionByNumber.get(firstSectionNum) : undefined
+      return sectionId != null
+    })
+    .map((a) => {
+      const details = a.questionSetId
+        ? timeLimitBySetId.get(a.questionSetId)
+        : undefined
+      const sectionsArr = details?.sections
+      const firstSectionNum =
+        Array.isArray(sectionsArr) && sectionsArr.length > 0
+          ? sectionsArr[0]?.section_number
+          : undefined
+      const sectionId =
+        firstSectionNum != null ? sectionByNumber.get(firstSectionNum) : undefined
+      return {
+        sectionId: sectionId!,
+        scaledScore: a.scaledScore!,
+        date: a.completedAt ?? a.attemptedAt,
+      }
+    })
+  attemptsWithSection.sort((a, b) => a.date.localeCompare(b.date))
+  for (const { sectionId, scaledScore } of attemptsWithSection) {
+    const entry = sectionScaledSums.get(sectionId)
+    if (entry) {
+      entry.sum += scaledScore
+      entry.count += 1
+    }
+    const ordered = sectionScaledScoresOrdered.get(sectionId)
+    if (ordered) ordered.push(scaledScore)
+  }
+  const EMA_ALPHA = 0.5
+  const computeEma = (scores: number[]): number | null => {
+    if (scores.length === 0) return null
+    let ema = scores[0]
+    for (let i = 1; i < scores.length; i++) {
+      ema = EMA_ALPHA * scores[i] + (1 - EMA_ALPHA) * ema
+    }
+    return ema
+  }
+  // Compute weighted average percentage from question attempts (daily % per section, then EMA)
+  const sectionDailyPercentages = new Map<string, number[]>()
+  for (const s of sectionProgress) {
+    sectionDailyPercentages.set(s.sectionId, [])
+  }
+  const qaBySectionDate = new Map<string, { correct: number; max: number }>()
+  for (const qa of questionAttemptsAll ?? []) {
+    const sectionId = qa.ucat_section_id
+    if (!sectionId) continue
+    const dateStr = qa.attempted_at
+      ? new Date(qa.attempted_at).toISOString().slice(0, 10)
+      : ''
+    if (!dateStr) continue
+    const key = `${sectionId}:${dateStr}`
+    const maxPerQuestion = qa.question_type === 'syllogism' ? 2 : 1
+    const existing = qaBySectionDate.get(key)
+    if (existing) {
+      existing.correct += qa.score ?? 0
+      existing.max += maxPerQuestion
+    } else {
+      qaBySectionDate.set(key, {
+        correct: qa.score ?? 0,
+        max: maxPerQuestion,
+      })
+    }
+  }
+  const sectionDateKeys = [...qaBySectionDate.keys()].sort()
+  for (const key of sectionDateKeys) {
+    const [sectionId] = key.split(':')
+    const { correct, max } = qaBySectionDate.get(key)!
+    if (max > 0) {
+      const pct = (correct / max) * 100
+      const arr = sectionDailyPercentages.get(sectionId)
+      if (arr) arr.push(pct)
+    }
+  }
+
+  sectionProgress = sectionProgress.map((s) => ({
+    ...s,
+    averageScaledScore: (() => {
+      const entry = sectionScaledSums.get(s.sectionId)
+      return entry && entry.count > 0 ? entry.sum / entry.count : null
+    })(),
+    weightedAverageScaledScore: computeEma(
+      sectionScaledScoresOrdered.get(s.sectionId) ?? []
+    ),
+    weightedAveragePercentage: computeEma(
+      sectionDailyPercentages.get(s.sectionId) ?? []
+    ),
+  }))
 
   // Fetch mock attempts (submitted = completed_at not null)
   // Note: vstudent_ucat_my_mock_attempts view types may be outdated; score columns from table
@@ -258,6 +416,9 @@ export async function GET() {
           speeds.length
         : null
 
+    const wasTimed =
+      childSets.length > 0 && childSets.every((s) => s.wasTimed)
+
     mockAttempts.push({
       id: row.id ?? '',
       attemptedAt: row.attempted_at ?? '',
@@ -270,12 +431,42 @@ export async function GET() {
       setTimeLimitSeconds: setTimeLimitSeconds > 0 ? setTimeLimitSeconds : null,
       studentSetSpeed,
       studentExamSpeed,
+      wasTimed,
     })
   }
+
+  type QuestionAttemptRaw = {
+    id: string | null
+    attempted_at: string | null
+    score: number | null
+    question_type: string | null
+    time_spent_seconds: number | null
+    student_question_speed: number | null
+    was_timed: boolean | null
+    ucat_section_id: string | null
+    section_name: string | null
+    section_number: number | null
+  }
+
+  const questionAttempts: QuestionAttemptRow[] = (
+    questionAttemptsAll ?? []
+  ).map((r: QuestionAttemptRaw) => ({
+    id: r.id ?? '',
+    attemptedAt: r.attempted_at ?? '',
+    score: r.score,
+    questionType: r.question_type,
+    timeSpentSeconds: r.time_spent_seconds,
+    studentQuestionSpeed: r.student_question_speed,
+    wasTimed: r.was_timed ?? false,
+    ucatSectionId: r.ucat_section_id,
+    sectionName: r.section_name,
+    sectionNumber: r.section_number ?? 0,
+  }))
 
   return NextResponse.json({
     sectionProgress,
     setAttempts,
     mockAttempts,
+    questionAttempts,
   } satisfies ProgressResponse)
 }

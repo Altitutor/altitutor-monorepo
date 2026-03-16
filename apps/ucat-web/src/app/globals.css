@@ -55,3 +55,12 @@ body {
   background-color: hsl(var(--background));
   color: hsl(var(--foreground));
 }
+
+/* Progress page: pagination uses accent for active page button */
+.ucat-pagination button.bg-primary {
+  background-color: hsl(var(--accent)) !important;
+  color: hsl(var(--accent-foreground)) !important;
+}
+.ucat-pagination button.bg-primary:hover:not(:disabled) {
+  background-color: hsl(var(--accent) / 0.9) !important;
+}
