@@ -51,13 +51,17 @@ import {
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
+import { useCreateUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import { BulkImportQuestionStemsModal } from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
+import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
+import {
+  BulkImportQuestionStemsModal,
+  type BulkImportSubmitArgs,
+} from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import {
@@ -152,6 +156,7 @@ export function UcatQuestionsPage() {
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkSetsOpen, setBulkSetsOpen] = useState(false)
   const [bulkSetIds, setBulkSetIds] = useState<string[]>([])
+  const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [addToSetsPopoverOpen, setAddToSetsPopoverOpen] = useState(false)
   const [bulkCategoryPending, setBulkCategoryPending] = useState(false)
   const [bulkVisibilityPending, setBulkVisibilityPending] = useState(false)
@@ -186,6 +191,7 @@ export function UcatQuestionsPage() {
   const tags = useUcatTags()
   const queryClient = useQueryClient()
   const setsQuery = useUcatSets()
+  const createSetMutation = useCreateUcatSet()
   const updateSetMutation = useUpdateUcatSet()
   const detail = useUcatQuestionDetail(editingStemId)
   const setsList = (setsQuery.data ?? []).filter(
@@ -421,8 +427,21 @@ export function UcatQuestionsPage() {
 
   async function handleCreate(payload: UcatQuestionStemFormValues) {
     const mapped = mapFormValuesToBundlePayload(payload)
-    await createMutation.mutateAsync(mapped)
+    const result = await createMutation.mutateAsync(mapped)
     setCreateOpen(false)
+    const questionCount = payload.questions?.length ?? 0
+    toast({
+      title: `${questionCount} question${questionCount === 1 ? '' : 's'} created`,
+      description: (
+        <button
+          type="button"
+          onClick={() => setEditingStemId(result.id)}
+          className="underline font-medium hover:no-underline text-left"
+        >
+          View questions
+        </button>
+      ),
+    })
   }
 
   async function handleUpdate(payload: UcatQuestionStemFormValues) {
@@ -433,13 +452,73 @@ export function UcatQuestionsPage() {
     setEditingStemId(null)
   }
 
-  async function handleBulkImportSubmit(args: {
-    sectionId: string
-    stems: UcatQuestionStemFormValues[]
-  }) {
+  async function handleBulkImportSubmit(args: BulkImportSubmitArgs) {
     const stemsPayload = args.stems.map((form) => mapFormValuesToBundlePayload(form))
-    await bulkImportMutation.mutateAsync({ sectionId: args.sectionId, stems: stemsPayload })
+    const { ids } = await bulkImportMutation.mutateAsync({
+      sectionId: args.sectionId,
+      stems: stemsPayload,
+    })
+
+    const questionCount = stemsPayload.reduce((sum, s) => sum + (s.questions?.length ?? 0), 0)
+    let targetSetId: string | null = null
+    let targetSetName: string | null = null
+
+    if (args.addToSet && ids.length > 0) {
+      if (args.addToSet.mode === 'create') {
+        const { id } = await createSetMutation.mutateAsync({
+          name: plainTextToProseMirror(args.addToSet.name),
+          description: args.addToSet.description,
+          timeLimitSeconds: args.addToSet.timeLimitSeconds,
+          isPrivate: args.addToSet.isPrivate,
+          isStudentGenerated: false,
+          stemIds: ids,
+        })
+        await queryClient.invalidateQueries({ queryKey: ucatKeys.set(id) })
+        targetSetId = id
+        targetSetName = args.addToSet.name.trim() || 'Untitled'
+      } else {
+        const setDetail = await ucatSetsApi.detail(args.addToSet.setId)
+        if (setDetail) {
+          const stems = (setDetail.stems as Array<{ stem_id: string }> | null) ?? []
+          const currentIds = stems.map((s) => s.stem_id)
+          const newStemIds = Array.from(new Set([...currentIds, ...ids]))
+          await updateSetMutation.mutateAsync({
+            setId: args.addToSet.setId,
+            payload: {
+              name: setDetail.name ?? plainTextToProseMirror(''),
+              description: proseMirrorToPlainText(setDetail.description ?? null) ?? '',
+              timeLimitSeconds: setDetail.time_limit_seconds ?? null,
+              isPrivate: !!setDetail.is_private,
+              isStudentGenerated: !!(setDetail as { is_student_generated?: boolean }).is_student_generated,
+              stemIds: newStemIds,
+            },
+          })
+          targetSetId = args.addToSet.setId
+          targetSetName = proseMirrorToPlainText(setDetail.name ?? null) || 'Untitled'
+        }
+      }
+    }
+
     setBulkImportOpen(false)
+
+    if (targetSetId && targetSetName) {
+      toast({
+        title: `${questionCount} question${questionCount === 1 ? '' : 's'} imported and added to set ${targetSetName}`,
+        description: (
+          <button
+            type="button"
+            onClick={() => setEditingSetId(targetSetId)}
+            className="underline font-medium hover:no-underline text-left"
+          >
+            View set
+          </button>
+        ),
+      })
+    } else {
+      toast({
+        title: `${questionCount} question${questionCount === 1 ? '' : 's'} imported`,
+      })
+    }
   }
 
   async function handleBulkCategoryConfirm() {
@@ -1003,6 +1082,13 @@ export function UcatQuestionsPage() {
         open={bulkImportOpen}
         onClose={() => setBulkImportOpen(false)}
         onSubmit={handleBulkImportSubmit}
+        onEditSet={(setId) => setEditingSetId(setId)}
+      />
+
+      <UcatSetEditorDialog
+        open={!!editingSetId}
+        setId={editingSetId}
+        onClose={() => setEditingSetId(null)}
       />
     </div>
   )

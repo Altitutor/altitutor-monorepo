@@ -30,6 +30,10 @@ import {
 import { Step2PasteAnswers } from '@/features/ucat/questions/components/bulk-import/Step2PasteAnswers'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
 import {
+  Step4CreateSet,
+  type AddToSetConfig,
+} from '@/features/ucat/questions/components/bulk-import/Step4CreateSet'
+import {
   parseVerbalReasoningFromDoc,
   mapParsedVerbalReasoningToFormValues,
   getVerbalReasoningStemCategoryName,
@@ -39,22 +43,34 @@ import {
   mapParsedDecisionMakingToFormValues,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 import {
+  parseQuantitativeReasoningFromDoc,
+  mapParsedQuantitativeReasoningToFormValues,
+} from '@/features/ucat/questions/lib/parsers/quantitativeReasoning'
+import {
   parseAnswersTable,
   letterToOptionIndex,
   parseDecisionMakingAnswers,
 } from '@/features/ucat/questions/lib/parseAnswersTable'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 
+export type BulkImportSubmitArgs = {
+  sectionId: string
+  stems: UcatQuestionStemFormValues[]
+  addToSet: AddToSetConfig | null
+}
+
 type BulkImportQuestionStemsModalProps = {
   open: boolean
   onClose: () => void
-  onSubmit: (args: { sectionId: string; stems: UcatQuestionStemFormValues[] }) => Promise<void>
+  onSubmit: (args: BulkImportSubmitArgs) => Promise<void>
+  onEditSet?: (setId: string) => void
 }
 
 export function BulkImportQuestionStemsModal({
   open,
   onClose,
   onSubmit,
+  onEditSet,
 }: BulkImportQuestionStemsModalProps) {
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
@@ -70,6 +86,8 @@ export function BulkImportQuestionStemsModal({
   const [pastedAnswersText, setPastedAnswersText] = useState('')
   const [parseError, setParseError] = useState<string | null>(null)
   const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
+  const [addToSetEnabled, setAddToSetEnabled] = useState(false)
+  const [addToSetConfig, setAddToSetConfig] = useState<AddToSetConfig | null>(null)
   const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
     questionIndicator: 'dot',
     answerOptionIndicator: 'paren',
@@ -89,6 +107,8 @@ export function BulkImportQuestionStemsModal({
       setPastedAnswersText('')
       setParseError(null)
       setPasteTableBehavior('strip_outside')
+      setAddToSetEnabled(false)
+      setAddToSetConfig(null)
       setParsingOptions({
         questionIndicator: 'dot',
         answerOptionIndicator: 'paren',
@@ -115,10 +135,12 @@ export function BulkImportQuestionStemsModal({
 
   const isVerbalReasoningSection = selectedSection?.name === 'Verbal Reasoning'
   const isDecisionMakingSection = selectedSection?.name === 'Decision Making'
-  const isBulkParseSection = isVerbalReasoningSection || isDecisionMakingSection
+  const isQuantitativeReasoningSection = selectedSection?.name === 'Quantitative Reasoning'
+  const isBulkParseSection =
+    isVerbalReasoningSection || isDecisionMakingSection || isQuantitativeReasoningSection
 
   const canGoPrevious = useMemo(() => step > 0 && status !== 'submitting', [step, status])
-  const totalStepsResolved = 4
+  const totalStepsResolved = 5
   const canGoNext = useMemo(() => {
     if (status === 'submitting') return false
     if (step === 0) return !!sectionId
@@ -212,6 +234,33 @@ export function BulkImportQuestionStemsModal({
         return false
       }
     }
+    if (isQuantitativeReasoningSection) {
+      try {
+        const result = parseQuantitativeReasoningFromDoc(pastedContent, parsingOptions)
+        const forms = mapParsedQuantitativeReasoningToFormValues(result, {
+          sectionId,
+          isPrivate: false,
+        })
+
+        if (forms.length === 0) {
+          setParseError('No valid stems and questions were detected. Please check the formatting.')
+          wizard.setStems([])
+          return false
+        }
+
+        wizard.setStems(forms)
+        setParseError(null)
+        return true
+      } catch (error) {
+        setParseError(
+          error instanceof Error
+            ? `Failed to parse Quantitative Reasoning: ${error.message}`
+            : 'Failed to parse Quantitative Reasoning.'
+        )
+        wizard.setStems([])
+        return false
+      }
+    }
     return true
   }
 
@@ -225,6 +274,8 @@ export function BulkImportQuestionStemsModal({
         return 'Paste answers'
       case 3:
         return 'Review'
+      case 4:
+        return 'Create set'
       default:
         return 'Bulk import'
     }
@@ -342,6 +393,18 @@ export function BulkImportQuestionStemsModal({
       setParseError('No parsed stems available to import.')
       return
     }
+    if (addToSetEnabled && !addToSetConfig) {
+      setParseError('Please select a set or create a new one.')
+      return
+    }
+    if (
+      addToSetEnabled &&
+      addToSetConfig?.mode === 'create' &&
+      !addToSetConfig.name.trim()
+    ) {
+      setParseError('Please enter a name for the new set.')
+      return
+    }
 
     try {
       setStatus('submitting')
@@ -349,7 +412,11 @@ export function BulkImportQuestionStemsModal({
       const stemsToSubmit: UcatQuestionStemFormValues[] = wizard.state.stems.map(
         (stem: BulkImportStemDraft) => stem.values
       )
-      await onSubmit({ sectionId, stems: stemsToSubmit })
+      await onSubmit({
+        sectionId,
+        stems: stemsToSubmit,
+        addToSet: addToSetEnabled ? addToSetConfig : null,
+      })
       setStatus('success')
     } catch (error) {
       setStatus('error')
@@ -460,7 +527,24 @@ export function BulkImportQuestionStemsModal({
     }
 
     if (step === 3) {
-      return <Step3SetAnswers stems={wizard.state.stems} />
+      return (
+        <Step3SetAnswers
+          stems={wizard.state.stems}
+          onUpdateStem={wizard.updateStemForm}
+        />
+      )
+    }
+
+    if (step === 4) {
+      return (
+        <Step4CreateSet
+          addToSetEnabled={addToSetEnabled}
+          onAddToSetEnabledChange={setAddToSetEnabled}
+          addToSetConfig={addToSetConfig}
+          onAddToSetConfigChange={setAddToSetConfig}
+          onEditSet={onEditSet}
+        />
+      )
     }
 
     return null
@@ -553,7 +637,14 @@ export function BulkImportQuestionStemsModal({
             ) : isBulkParseSection ? (
               <Button
                 onClick={handleImportAllVerbalReasoning}
-                disabled={status === 'submitting' || wizard.state.stems.length === 0}
+                disabled={
+                  status === 'submitting' ||
+                  wizard.state.stems.length === 0 ||
+                  (addToSetEnabled && !addToSetConfig) ||
+                  (addToSetEnabled &&
+                    addToSetConfig?.mode === 'create' &&
+                    !addToSetConfig.name.trim())
+                }
               >
                 Import all stems
               </Button>

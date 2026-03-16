@@ -4,15 +4,18 @@
  * - core: collectLogicalLinesFromDoc, parseFromLines, ParsedStem / ParsedQuestion / ParsedOption
  * - verbalReasoning: parseVerbalReasoningFromDoc, getVerbalReasoningStemCategoryName, mapParsedVerbalReasoningToFormValues
  * - decisionMaking: parseDecisionMakingFromDoc, isSyllogismQuestionText, mapParsedDecisionMakingToFormValues
+ * - quantitativeReasoning: parseQuantitativeReasoningFromDoc, mapParsedQuantitativeReasoningToFormValues (preserves tables/images)
  */
 
 export {
   collectLogicalLinesFromDoc,
+  collectBlocksFromDocForQuantitativeReasoning,
   parseFromLines,
   type ParsedStem,
   type ParsedQuestion,
   type ParsedOption,
   type ParserConfig,
+  type QuantitativeReasoningDocBlocks,
 } from './core'
 
 export {
@@ -35,3 +38,13 @@ export {
   type ParsedDecisionMakingOption,
   type DecisionMakingToFormOptions,
 } from './decisionMaking'
+
+export {
+  parseQuantitativeReasoningFromDoc,
+  parseQuantitativeReasoningFromLines,
+  parseQuantitativeReasoningPlainText,
+  mapParsedQuantitativeReasoningToFormValues,
+  type QuantitativeReasoningParserConfig,
+  type QuantitativeReasoningToFormOptions,
+  type ParseQuantitativeReasoningResult,
+} from './quantitativeReasoning'

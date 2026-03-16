@@ -81,6 +81,8 @@ function buildInlineNodesFromTokenizedString(text: string): ProseMirrorNode[] {
   return nodes
 }
 
+const TABLE_PLACEHOLDER_RE = /^\[\[TABLE:([^\]]+)\]\]$/
+
 /** Convert tokenized plain text (with [[IMG:...]] markers) into ProseMirror JSON. */
 export function tokenizedPlainTextToProseMirror(text: string): Json {
   return {
@@ -92,6 +94,33 @@ export function tokenizedPlainTextToProseMirror(text: string): Json {
       },
     ],
   }
+}
+
+/**
+ * Like tokenizedPlainTextToProseMirror, but resolves [[TABLE:id]] when the entire text
+ * is a table placeholder. Use for option text that may be a table.
+ */
+export function tokenizedPlainTextToProseMirrorWithTables(
+  text: string,
+  tableMap?: Map<string, Json>
+): Json {
+  if (!text || typeof text !== 'string') {
+    return { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+  }
+  const trimmed = text.trim()
+  const tableMatch = TABLE_PLACEHOLDER_RE.exec(trimmed)
+  if (tableMatch && tableMap) {
+    const tableId = tableMatch[1]
+    const tableNode = tableMap.get(tableId ?? '')
+    if (
+      tableNode &&
+      typeof tableNode === 'object' &&
+      (tableNode as Record<string, unknown>).type === 'table'
+    ) {
+      return { type: 'doc', content: [tableNode] }
+    }
+  }
+  return tokenizedPlainTextToProseMirror(text)
 }
 
 /**
@@ -120,6 +149,42 @@ export function tokenizedPlainTextToProseMirrorWithLineBreaks(text: string): Jso
     type: 'paragraph',
     content: buildInlineNodesFromTokenizedString(line),
   }))
+  return { type: 'doc', content }
+}
+
+/**
+ * Like tokenizedPlainTextToProseMirrorWithLineBreaks, but also resolves [[TABLE:id]] placeholders
+ * to actual table nodes. Use for Quantitative Reasoning where tables must be preserved.
+ *
+ * @param text - Tokenized text with optional [[IMG:...]] and [[TABLE:id]] placeholders
+ * @param tableMap - Map from placeholder id to ProseMirror table node JSON
+ */
+export function tokenizedPlainTextToProseMirrorWithLineBreaksAndTables(
+  text: string,
+  tableMap?: Map<string, Json>
+): Json {
+  if (!text || typeof text !== 'string') {
+    return { type: 'doc', content: [{ type: 'paragraph', content: [] }] }
+  }
+  const lines = text.split('\n')
+  const content: Json[] = []
+
+  for (const line of lines) {
+    const tableMatch = TABLE_PLACEHOLDER_RE.exec(line.trim())
+    if (tableMatch && tableMap) {
+      const tableId = tableMatch[1]
+      const tableNode = tableMap.get(tableId ?? '')
+      if (tableNode && typeof tableNode === 'object' && (tableNode as Record<string, unknown>).type === 'table') {
+        content.push(tableNode)
+        continue
+      }
+    }
+    content.push({
+      type: 'paragraph',
+      content: buildInlineNodesFromTokenizedString(line),
+    })
+  }
+
   return { type: 'doc', content }
 }
 
