@@ -15,6 +15,12 @@ import {
   AssignStaffStep3Summary,
 } from './steps';
 import type { AssignStaffModalProps } from '../types/enrollment';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 export function AssignStaffModal({
   isOpen,
@@ -39,6 +45,11 @@ export function AssignStaffModal({
   const [searchQuery, setSearchQuery] = useState('');
   const [dayFilters, setDayFilters] = useState<number[]>([]);
   const [subjectFilters, setSubjectFilters] = useState<string[]>([]);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Fetch data using hooks
   const { classes, staff: staffList, isFetching } = useAssignStaffData({
@@ -187,8 +198,14 @@ export function AssignStaffModal({
         : true;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         {/* Header */}
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
@@ -208,6 +225,7 @@ export function AssignStaffModal({
                     Step {step} of 3: {step === 1 ? 'Choose Class or Staff' : step === 2 ? 'Choose Date' : 'Summary & Confirm'}
                   </DialogDescription>
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               </div>
             </div>
           </DialogHeader>

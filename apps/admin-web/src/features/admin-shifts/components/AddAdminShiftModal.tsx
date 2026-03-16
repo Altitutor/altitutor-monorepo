@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
@@ -14,6 +14,12 @@ import {
 } from '@altitutor/ui';
 import { useCreateAdminShift } from '../hooks/useAdminShiftsQuery';
 import { useCurrentStaff } from '@/shared/hooks';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import type { TablesInsert } from '@altitutor/shared';
 
 interface AddAdminShiftModalProps {
@@ -27,7 +33,12 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
   const { data: currentStaff } = useCurrentStaff();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   // Form state
   const [dayOfWeek, setDayOfWeek] = useState<string>('');
   const [startTime, setStartTime] = useState('');
@@ -127,12 +138,23 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
   
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-[550px]">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[550px]',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Add New Admin Shift</DialogTitle>
-          <DialogDescription>
-            Create a new recurring admin staff shift. Sessions will be automatically created for this shift.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Add New Admin Shift</DialogTitle>
+              <DialogDescription>
+                Create a new recurring admin staff shift. Sessions will be automatically created for this shift.
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-4 mt-4">

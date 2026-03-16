@@ -38,6 +38,12 @@ import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveBut
 import { useStaffInviteToken, staffInviteTokenKeys } from '@/features/staff/hooks/useStaffInviteToken';
 import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 import type { Tables } from '@altitutor/shared';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface SendInviteDialogProps {
   isOpen: boolean;
@@ -63,7 +69,12 @@ export function SendInviteDialog({
   const [selectedRecipient, setSelectedRecipient] = useState<{ method: 'phone' | 'email'; label: string; value: string } | null>(null);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [composerDraft, setComposerDraft] = useState<string>('');
+  const [expanded, setExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
   const emailComposerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
 
@@ -374,7 +385,13 @@ export function SendInviteDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="md:max-w-4xl h-[90vh] flex flex-col [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'md:max-w-4xl h-[90vh] flex flex-col [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -393,6 +410,7 @@ export function SendInviteDialog({
                 </DialogDescription>
               </div>
             </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>
         </DialogHeader>
 

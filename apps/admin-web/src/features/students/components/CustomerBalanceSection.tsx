@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Button } from '@altitutor/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
@@ -24,6 +24,12 @@ import { calculateSessionPrice } from '@/shared/utils/pricing';
 import { fetchStudentSubsidies } from '../api/subsidies';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface CustomerBalanceData {
   balance_cents: number;
@@ -97,7 +103,12 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
   const [showHistory, setShowHistory] = useState(false);
   const [nextSessionId, setNextSessionId] = useState(1);
   const [sessionSelectValue, setSessionSelectValue] = useState('');
+  const [expanded, setExpanded] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isAdjustModalOpen) setExpanded(false);
+  }, [isAdjustModalOpen]);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
 
@@ -631,7 +642,13 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
           setIsAdjustModalOpen(true);
         }
       }}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+        <DialogContent
+          className={cn(
+            'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           {/* Header */}
           <div className="flex-shrink-0 border-b bg-background">
             <DialogHeader className="px-6 pt-6 pb-4">
@@ -659,6 +676,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
                       Credits will be automatically applied to future invoices.
                     </DialogDescription>
                   </div>
+                  <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 </div>
               </div>
             </DialogHeader>

@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -8,6 +9,12 @@ import { getLogSessionStepTitle } from '../utils/logSessionHelpers';
 import { getAttendedStudentIds } from '../utils/logSessionHelpers';
 import { StaffCard } from '@/shared/components/StaffCard';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 // Import step components
 import { Step0StaffSelector } from './steps/Step0StaffSelector';
@@ -73,6 +80,12 @@ export function LogSessionModal({
     initialSessionId,
     initialStaffId,
   });
+
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const getStepTitle = () => {
     return getLogSessionStepTitle(currentStep, adminMode);
@@ -228,8 +241,14 @@ export function LogSessionModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && (submissionState === 'success' ? handleClose() : onClose())}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         {/* Header */}
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
@@ -249,6 +268,7 @@ export function LogSessionModal({
                     Step {currentStep + 1} of {totalSteps}: {getStepTitle()}
                   </DialogDescription>
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 {(selectedStaff || selectedSession) && (
                   <div className="flex items-center gap-3 flex-wrap flex-shrink-0">
                     {selectedStaff && (

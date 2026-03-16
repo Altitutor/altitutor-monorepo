@@ -3,9 +3,15 @@
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@altitutor/ui';
-import { Download, Loader2, Edit, Printer } from 'lucide-react';
+import { Download, Loader2, Edit, Printer, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@altitutor/ui';
 import { getFileTypeIcon, getFileTypeLabel } from '../utils/file-type-icons';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import type { Enums } from '@altitutor/shared';
 
@@ -35,6 +41,10 @@ export function FileCard({
   onEdit,
 }: FileCardProps) {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  useEffect(() => {
+    if (!isPreviewOpen) setExpanded(false);
+  }, [isPreviewOpen]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
   const [downloadingFile, setDownloadingFile] = useState(false);
@@ -147,12 +157,31 @@ export function FileCard({
 
       {/* File Preview Modal */}
       <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogContent
+          className={cn(
+            'max-w-4xl max-h-[90vh] overflow-hidden flex flex-col [&>button]:hidden',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Icon className="h-5 w-5" />
-              <span>{fileCode} - {filename}</span>
-            </DialogTitle>
+            <div className="flex items-start justify-between gap-4">
+              <DialogTitle className="flex items-center gap-2 flex-1 min-w-0">
+                <Icon className="h-5 w-5 shrink-0" />
+                <span>{fileCode} - {filename}</span>
+              </DialogTitle>
+              <div className="flex items-center gap-2 shrink-0">
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setIsPreviewOpen(false)}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
           </DialogHeader>
           
           <div className="flex-1 overflow-auto">

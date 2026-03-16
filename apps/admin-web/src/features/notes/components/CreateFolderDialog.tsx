@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -25,6 +25,12 @@ import {
   SelectValue,
 } from '@altitutor/ui';
 import { useDialogHotkeys } from '@/shared/hooks';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 const formSchema = z.object({
   name: z.string().min(1, 'Folder name is required'),
   parentId: z.string().nullable().optional(),
@@ -46,6 +52,11 @@ export function CreateFolderDialog({
   const createFolder = useCreateFolder();
   const { data: folders } = useFolders();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -83,11 +94,21 @@ export function CreateFolderDialog({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent>
+    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className={cn(
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Create Folder</DialogTitle>
-          <DialogDescription>Create a new folder to organize your notes.</DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Create Folder</DialogTitle>
+              <DialogDescription>Create a new folder to organize your notes.</DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">

@@ -24,6 +24,12 @@ import { createSubsidy, type CreateSubsidyInput } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import type { Tables } from '@altitutor/shared';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { getErrorMessage } from '@/shared/utils';
 
 interface AddSubsidyModalProps {
@@ -42,7 +48,12 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
   );
   const [effectiveUntil, setEffectiveUntil] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const { toast } = useToast();
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
   const queryClient = useQueryClient();
 
   // Reset form when modal closes
@@ -109,12 +120,23 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[500px]',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Add Subsidy</DialogTitle>
-          <DialogDescription>
-            Create a new hourly rate subsidy for this student. The student will pay the minimum of the subsidy rate and the default rate for the selected subject and billing type.
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Add Subsidy</DialogTitle>
+              <DialogDescription>
+                Create a new hourly rate subsidy for this student. The student will pay the minimum of the subsidy rate and the default rate for the selected subject and billing type.
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

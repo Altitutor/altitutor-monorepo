@@ -5,6 +5,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@altitutor/ui';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
 import { Loader2, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import {
   useEnrollmentFilters,
@@ -51,6 +57,11 @@ export function EnrollStudentModal({
     showEnrolledWarning: false,
     warningStudent: null,
   });
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Fetch data
   const { students, classes, isFetching } = useEnrollmentData({
@@ -260,7 +271,13 @@ export function EnrollStudentModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+        <DialogContent
+          className={cn(
+            'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           {/* Header */}
           <div className="flex-shrink-0 border-b bg-background">
             <DialogHeader className="px-6 pt-6 pb-4">
@@ -283,6 +300,7 @@ export function EnrollStudentModal({
                     </DialogDescription>
                   </div>
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               </div>
             </DialogHeader>
 

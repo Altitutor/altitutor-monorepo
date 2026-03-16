@@ -17,6 +17,12 @@ import {
   useRegistrationInviteData,
   registrationInviteDataKeys,
 } from '../hooks/useRegistrationInviteData';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface SendRegistrationInviteDialogProps {
   isOpen: boolean;
@@ -36,6 +42,11 @@ export function SendRegistrationInviteDialog({
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const { data, isLoading, isError } = useRegistrationInviteData(
     studentId,
@@ -218,8 +229,14 @@ export function SendRegistrationInviteDialog({
   const hasRecipients = recipients.length > 0 || (student && (student.email || student.phone));
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px] [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className={cn(
+          'sm:max-w-[600px] [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -237,6 +254,7 @@ export function SendRegistrationInviteDialog({
                   Send a registration link to {student?.first_name} {student?.last_name}'s parent(s) to complete account setup
                 </DialogDescription>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </div>
         </DialogHeader>

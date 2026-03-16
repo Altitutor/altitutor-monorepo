@@ -13,6 +13,12 @@ import {
   DialogFooter,
 } from '@altitutor/ui';
 import { getFileTypeIcon } from '@/shared/utils/file-type-icons';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { useFilePreview } from '@/shared/hooks/useFilePreview';
 import { isPdfFile, isImageFile, downloadFile, printPdf, setupPrintKeyboardHandler } from '@/shared/utils/fileOperations';
 import type { Enums, Tables } from '@altitutor/shared';
@@ -63,7 +69,12 @@ export function FilePreviewModal({
   getMetadataFn,
 }: FilePreviewModalProps) {
   const [downloadingFile, setDownloadingFile] = useState(false);
+  const [expanded, setExpanded] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Use junctionTableId if provided, otherwise fall back to topicFileId for backward compatibility
   const effectiveJunctionTableId = junctionTableId || topicFileId;
@@ -131,7 +142,13 @@ export function FilePreviewModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'max-w-4xl max-h-[90vh] overflow-hidden flex flex-col [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -152,6 +169,7 @@ export function FilePreviewModal({
                 </DialogDescription>
               </div>
             </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>
         </DialogHeader>
         

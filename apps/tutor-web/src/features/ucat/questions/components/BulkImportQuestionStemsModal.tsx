@@ -11,7 +11,11 @@ import {
   DialogTitle,
 } from '@altitutor/ui'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
-import { ExpandButton } from '@/shared/components/expandable-dialog'
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog'
 import { cn } from '@/shared/utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
@@ -108,6 +112,7 @@ export function BulkImportQuestionStemsModal({
   // Reset wizard and local state when modal closes.
   useEffect(() => {
     if (!open) {
+      setExpanded(false)
       setStep(0)
       setStatus('idle')
       setSubmitError(null)
@@ -625,8 +630,8 @@ export function BulkImportQuestionStemsModal({
       <DialogContent
         className={cn(
           'w-full md:max-w-5xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
-          expanded &&
-            '!fixed !inset-4 !left-4 !right-4 !top-4 !bottom-4 !translate-x-0 !translate-y-0 !max-w-none !w-auto !h-auto'
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
       >
         {/* Header */}

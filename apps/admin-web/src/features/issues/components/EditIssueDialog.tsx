@@ -23,6 +23,12 @@ import {
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
 import { X, Check, Loader2, CloudOff } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { useIssue } from '../api/queries';
 import { useUpdateIssue, useDeleteIssue } from '../api/mutations';
 import { useNotes } from '@/shared/hooks/useNotes';
@@ -85,6 +91,11 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
   const lastResetIssueIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const handleDelete = async () => {
     if (!issueId) return;
@@ -162,7 +173,13 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <Form {...form}>
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
             <div className="flex items-center justify-between gap-4 w-full">
@@ -184,6 +201,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
               </div>
 
               <div className="flex items-center gap-2">
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
                   {updateIssue.isPending ? (
                     <>

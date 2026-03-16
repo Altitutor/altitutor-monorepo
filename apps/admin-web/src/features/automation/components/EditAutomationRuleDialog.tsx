@@ -37,6 +37,12 @@ import { AutomationActionsList } from './AutomationActionsList';
 import { AutomationConditionsBuilder } from './AutomationConditionsBuilder';
 import type { AutomationCondition } from '../types';
 import { ENTITY_TYPES, EVENT_TYPES } from '../constants';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 const ruleFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -68,6 +74,7 @@ export function EditAutomationRuleDialog({
   );
   const staffList = staffData?.staff ?? [];
   const [activeTab, setActiveTab] = useState<string>('details');
+  const [expanded, setExpanded] = useState(false);
 
   const form = useForm({
     resolver: zodResolver(ruleFormSchema),
@@ -81,6 +88,10 @@ export function EditAutomationRuleDialog({
       conditions: null as AutomationCondition | null,
     },
   });
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Initialize form when editing
   useEffect(() => {
@@ -127,8 +138,14 @@ export function EditAutomationRuleDialog({
   const isLoading = updateMutation.isPending;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
           {/* Sticky Header */}
           <div className="flex-shrink-0 border-b bg-background">
@@ -149,6 +166,7 @@ export function EditAutomationRuleDialog({
                       Update the automation rule and its actions.
                     </DialogDescription>
                   </div>
+                  <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 </div>
               </div>
             </DialogHeader>

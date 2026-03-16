@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -22,6 +22,12 @@ import { ProjectTitleField } from './fields/ProjectTitleField';
 import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
 import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
 import { useCurrentStaff, useDialogHotkeys } from '@/shared/hooks';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -54,6 +60,11 @@ export function CreateProjectDialog({
   const { data: currentStaff } = useCurrentStaff();
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
     resolver: zodResolver(formSchema) as Resolver<ProjectFormData>,
@@ -124,8 +135,14 @@ export function CreateProjectDialog({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <Form {...form}>
           <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
             <div className="flex items-center justify-between gap-4 w-full">
@@ -135,6 +152,7 @@ export function CreateProjectDialog({
                 </Button>
                 <DialogTitle>Create Project</DialogTitle>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </DialogHeader>
 

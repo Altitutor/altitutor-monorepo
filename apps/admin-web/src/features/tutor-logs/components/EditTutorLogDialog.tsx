@@ -24,6 +24,12 @@ import { Step5TopicStudents } from './steps/Step5TopicStudents';
 import { Step6Files } from './steps/Step6Files';
 import { Step7FileStudents } from './steps/Step7FileStudents';
 import { getAttendedStudentIds } from '../utils/logSessionHelpers';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface EditTutorLogDialogProps {
   isOpen: boolean;
@@ -46,6 +52,11 @@ export function EditTutorLogDialog({
   const [createdBy, setCreatedBy] = useState<string>('');
   const [formData, setFormData] = useState<Partial<TutorLogFormData>>({});
   const [isFormDataReady, setIsFormDataReady] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Load staff list
   useEffect(() => {
@@ -146,9 +157,20 @@ export function EditTutorLogDialog({
   if (isLoadingTutorLog || !isStaffLoaded) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="w-full md:max-w-2xl">
+        <DialogContent
+          className={cn(
+            'w-full md:max-w-2xl',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Edit Tutor Log</DialogTitle>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Edit Tutor Log</DialogTitle>
+              </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="flex items-center justify-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -161,9 +183,20 @@ export function EditTutorLogDialog({
   if (!tutorLog) {
     return (
       <Dialog open={isOpen} onOpenChange={handleClose}>
-        <DialogContent className="w-full md:max-w-2xl">
+        <DialogContent
+          className={cn(
+            'w-full md:max-w-2xl',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Edit Tutor Log</DialogTitle>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Edit Tutor Log</DialogTitle>
+              </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="text-center py-12">
             <p className="text-muted-foreground">Tutor log not found</p>
@@ -177,7 +210,13 @@ export function EditTutorLogDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -193,6 +232,7 @@ export function EditTutorLogDialog({
                 <DialogTitle>Edit Tutor Log</DialogTitle>
               </div>
             </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>
         </DialogHeader>
 

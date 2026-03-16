@@ -1,6 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
@@ -44,6 +50,11 @@ export function NewConversationDialog({
   const [error, setError] = useState<string | null>(null);
   const [showNoPhoneWarning, setShowNoPhoneWarning] = useState(false);
   const [studentModalOpen, setStudentModalOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const trimmed = searchQuery.trim();
   const hasSearch = trimmed.length > 0;
@@ -387,7 +398,13 @@ export function NewConversationDialog({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-md [&>button]:hidden">
+        <DialogContent
+          className={cn(
+            'max-w-md [&>button]:hidden',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
@@ -402,12 +419,13 @@ export function NewConversationDialog({
                 <div className="flex-1">
                   <DialogTitle>New Conversation</DialogTitle>
                   <DialogDescription>
-                    {mode === 'search' 
+                    {mode === 'search'
                       ? 'Search for a student, staff member, or parent to start a new conversation'
                       : 'Enter a phone number to start a new conversation'}
                   </DialogDescription>
                 </div>
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
           </DialogHeader>
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -25,6 +25,12 @@ import {
 } from '@altitutor/ui';
 import { Edit2 } from 'lucide-react';
 import { pricingApi, type BillingPricingRow } from '../api/pricing';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface BillingPricingTableProps {
   pricing: BillingPricingRow[];
@@ -36,6 +42,11 @@ export function BillingPricingTable({ pricing, onUpdate }: BillingPricingTablePr
   const [hourlyRateCents, setHourlyRateCents] = useState<number>(0);
   const [currency, setCurrency] = useState<string>('AUD');
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!editingPricing) setExpanded(false);
+  }, [editingPricing]);
 
   const handleEdit = (p: BillingPricingRow) => {
     setEditingPricing(p);
@@ -110,12 +121,22 @@ export function BillingPricingTable({ pricing, onUpdate }: BillingPricingTablePr
 
       {/* Edit Dialog */}
       <Dialog open={!!editingPricing} onOpenChange={() => setEditingPricing(null)}>
-        <DialogContent>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Edit Billing Pricing</DialogTitle>
-            <DialogDescription>
-              Update the hourly rate for {editingPricing && formatBillingType(editingPricing.billing_type)}
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Edit Billing Pricing</DialogTitle>
+                <DialogDescription>
+                  Update the hourly rate for {editingPricing && formatBillingType(editingPricing.billing_type)}
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

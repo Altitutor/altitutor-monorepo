@@ -19,6 +19,12 @@ import { useStaffMinimal } from '@/features/staff/hooks/useStaffQuery';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQueryClient } from '@tanstack/react-query';
 import { Form } from '@altitutor/ui';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import type { ActivityEntityType, ActivityEventType, AutomationRuleInsert } from '../types';
 import type { AutomationCondition } from '../types';
 import { Step1BasicInfo } from './wizard/Step1BasicInfo';
@@ -53,6 +59,7 @@ export function CreateAutomationRuleWizard({
 }: CreateAutomationRuleWizardProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [createdRuleId, setCreatedRuleId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
   const createMutation = useCreateAutomationRule();
   const queryClient = useQueryClient();
   const { data: templates } = useMessageTemplates();
@@ -75,6 +82,10 @@ export function CreateAutomationRuleWizard({
       conditions: null as AutomationCondition | null,
     },
   });
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Reset form when dialog opens/closes
   useEffect(() => {
@@ -177,8 +188,14 @@ export function CreateAutomationRuleWizard({
   const formValues = form.watch();
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         {/* Header */}
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
@@ -198,6 +215,7 @@ export function CreateAutomationRuleWizard({
                     Step {currentStep + 1} of {TOTAL_STEPS}: {getStepTitle(currentStep)}
                   </DialogDescription>
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               </div>
             </div>
           </DialogHeader>

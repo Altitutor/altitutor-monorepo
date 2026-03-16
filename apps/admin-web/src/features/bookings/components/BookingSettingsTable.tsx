@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -20,6 +20,12 @@ import {
 } from '@altitutor/ui';
 import { Edit2 } from 'lucide-react';
 import { bookingSettingsApi, type BookingSettingsRow } from '../api/settings';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface BookingSettingsTableProps {
   settings: BookingSettingsRow[];
@@ -30,6 +36,11 @@ export function BookingSettingsTable({ settings, onUpdate }: BookingSettingsTabl
   const [editingSetting, setEditingSetting] = useState<BookingSettingsRow | null>(null);
   const [settingValue, setSettingValue] = useState<string>('');
   const [saving, setSaving] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!editingSetting) setExpanded(false);
+  }, [editingSetting]);
 
   const handleEdit = (setting: BookingSettingsRow) => {
     setEditingSetting(setting);
@@ -102,11 +113,18 @@ export function BookingSettingsTable({ settings, onUpdate }: BookingSettingsTabl
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingSetting} onOpenChange={() => setEditingSetting(null)}>
-        <DialogContent>
+      <Dialog open={!!editingSetting} onOpenChange={(open) => !open && setEditingSetting(null)}>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Edit Booking Setting</DialogTitle>
-            <DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Edit Booking Setting</DialogTitle>
+                <DialogDescription>
               {editingSetting && (
                 <>
                   Update {formatSettingKey(editingSetting.setting_key)}
@@ -115,8 +133,11 @@ export function BookingSettingsTable({ settings, onUpdate }: BookingSettingsTabl
                     {editingSetting.description}
                   </span>
                 </>
-              )}
-            </DialogDescription>
+            )}
+          </DialogDescription>
+              </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

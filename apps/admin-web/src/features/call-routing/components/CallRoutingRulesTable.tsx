@@ -32,6 +32,12 @@ import {
   type MessageType,
   type OwnedNumber,
 } from '../api/call-routing';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface CallRoutingRulesTableProps {
   rules: CallRoutingRule[];
@@ -56,6 +62,16 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [editExpanded, setEditExpanded] = useState(false);
+  const [addExpanded, setAddExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!editingRule) setEditExpanded(false);
+  }, [editingRule]);
+
+  useEffect(() => {
+    if (!isAddDialogOpen) setAddExpanded(false);
+  }, [isAddDialogOpen]);
 
   // Form state
   const [selectedOwnedNumberId, setSelectedOwnedNumberId] = useState<string>('');
@@ -264,12 +280,23 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
 
       {/* Edit Dialog */}
       <Dialog open={!!editingRule} onOpenChange={() => setEditingRule(null)}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className={cn(
+            'max-w-2xl max-h-[90vh] overflow-y-auto',
+            EXPANDABLE_DIALOG_TRANSITION,
+            editExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Edit Call Routing Rule</DialogTitle>
-            <DialogDescription>
-              Update the routing rule configuration
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Edit Call Routing Rule</DialogTitle>
+                <DialogDescription>
+                  Update the routing rule configuration
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={editExpanded} onToggle={() => setEditExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -392,12 +419,23 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
 
       {/* Add Dialog */}
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className={cn(
+            'max-w-2xl max-h-[90vh] overflow-y-auto',
+            EXPANDABLE_DIALOG_TRANSITION,
+            addExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Add Call Routing Rule</DialogTitle>
-            <DialogDescription>
-              Create a new routing rule for incoming calls
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Add Call Routing Rule</DialogTitle>
+                <DialogDescription>
+                  Create a new routing rule for incoming calls
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={addExpanded} onToggle={() => setAddExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

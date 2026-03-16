@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -29,6 +29,11 @@ import { useCreateQuickFilter, useUpdateQuickFilter, useDeleteQuickFilter } from
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { SUPPORTED_ENTITIES, FilterField } from '../config/entities';
 import { cn } from '@/shared/utils';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
 
 interface QuickFiltersTableProps {
   filters: QuickFilter[];
@@ -57,6 +62,11 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
     user_id: null,
     config: {},
   });
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!editingFilter && !isCreateDialogOpen) setExpanded(false);
+  }, [editingFilter, isCreateDialogOpen]);
 
   const createFilter = useCreateQuickFilter();
   const updateFilter = useUpdateQuickFilter();
@@ -206,8 +216,8 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
         </Table>
       </div>
 
-      <Dialog 
-        open={!!editingFilter || isCreateDialogOpen} 
+      <Dialog
+        open={!!editingFilter || isCreateDialogOpen}
         onOpenChange={(open) => {
           if (!open) {
             setEditingFilter(null);
@@ -216,14 +226,25 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
           }
         }}
       >
-        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogContent
+          className={cn(
+            'max-w-3xl max-h-[90vh] flex flex-col',
+            EXPANDABLE_DIALOG_TRANSITION,
+            expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>
               {editingFilter ? 'Edit Quick Filter' : 'Create Quick Filter'}
             </DialogTitle>
             <DialogDescription>
               Configure the quick filter settings. Multiple values for the same property are ORed, and different properties are ANDed.
             </DialogDescription>
+              </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto pr-2 space-y-6 py-4">

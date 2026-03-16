@@ -34,6 +34,11 @@ import {
 } from 'lucide-react';
 import type { Enums, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils/index';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
 import { ViewSubjectModal } from './ViewSubjectModal';
 import { subjectsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -78,7 +83,12 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(new Set());
   const [isBulkColorDialogOpen, setIsBulkColorDialogOpen] = useState(false);
+  const [bulkColorExpanded, setBulkColorExpanded] = useState(false);
   const [bulkColor, setBulkColor] = useState<string>('#000000');
+
+  useEffect(() => {
+    if (!isBulkColorDialogOpen) setBulkColorExpanded(false);
+  }, [isBulkColorDialogOpen]);
   const [isBulkUpdating, setIsBulkUpdating] = useState(false);
   const { toast } = useToast();
 
@@ -495,13 +505,23 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
       />
 
       {/* Bulk Color Change Dialog */}
-      <Dialog open={isBulkColorDialogOpen} onOpenChange={setIsBulkColorDialogOpen}>
-        <DialogContent>
+      <Dialog open={isBulkColorDialogOpen} onOpenChange={(open) => setIsBulkColorDialogOpen(open)}>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            bulkColorExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Change Color for {selectedSubjectIds.size} Subject{selectedSubjectIds.size > 1 ? 's' : ''}</DialogTitle>
-            <DialogDescription>
-              Select a color to apply to all selected subjects. Leave as black (#000000) to clear the color.
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Change Color for {selectedSubjectIds.size} Subject{selectedSubjectIds.size > 1 ? 's' : ''}</DialogTitle>
+                <DialogDescription>
+                  Select a color to apply to all selected subjects. Leave as black (#000000) to clear the color.
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={bulkColorExpanded} onToggle={() => setBulkColorExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

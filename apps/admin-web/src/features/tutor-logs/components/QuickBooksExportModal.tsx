@@ -19,6 +19,12 @@ import { processTutorLogsForExport } from '../utils/quickbooks-export.processor'
 import { generateCsv, downloadCsv } from '../utils/quickbooks-export.utils';
 import { getDefaultDateRange } from '../config/quickbooks-export.config';
 import { useToast } from '@altitutor/ui';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 type QuickBooksExportModalProps = {
   isOpen: boolean;
@@ -33,6 +39,11 @@ export function QuickBooksExportModal({
   const defaultRange = useMemo(() => getDefaultDateRange(), []);
   const [startDate, setStartDate] = useState<string>(defaultRange.startDate);
   const [endDate, setEndDate] = useState<string>(defaultRange.endDate);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
   
   // Fetch tutor logs for export
   const { data: tutorLogsData, isLoading, error } = useQuery({
@@ -108,12 +119,23 @@ export function QuickBooksExportModal({
   
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent
+        className={cn(
+          'max-w-4xl max-h-[90vh] flex flex-col',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Export to QuickBooks</DialogTitle>
-          <DialogDescription>
-            Export tutor logs as a QuickBooks-compatible timesheet CSV file
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Export to QuickBooks</DialogTitle>
+              <DialogDescription>
+                Export tutor logs as a QuickBooks-compatible timesheet CSV file
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
         
         <div className="flex-1 overflow-hidden flex flex-col gap-4">

@@ -11,6 +11,12 @@ import {
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 import { sharedInvitesApi } from '@/shared/api/invites';
 import type { Tables } from '@altitutor/shared';
 
@@ -34,6 +40,7 @@ export function SendInviteDialog({
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const hasEmail = !!staffMember.email;
   const hasPhone = !!staffMember.phone_number;
@@ -62,6 +69,11 @@ export function SendInviteDialog({
       setIsGenerating(false);
     }
   }, [staffMember.id, toast]);
+
+  // Reset expanded when modal closes
+  useEffect(() => {
+    if (!isOpen) setExpanded(false)
+  }, [isOpen])
 
   // Generate token when modal opens (or reuse existing one)
   useEffect(() => {
@@ -155,12 +167,23 @@ export function SendInviteDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-[600px]">
+      <DialogContent
+        className={cn(
+          'sm:max-w-[600px]',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <DialogHeader>
-          <DialogTitle>Send Invite</DialogTitle>
-          <DialogDescription>
-            Send an account creation invite to {staffMember.first_name} {staffMember.last_name}
-          </DialogDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <DialogTitle>Send Invite</DialogTitle>
+              <DialogDescription>
+                Send an account creation invite to {staffMember.first_name} {staffMember.last_name}
+              </DialogDescription>
+            </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+          </div>
         </DialogHeader>
 
         <div className="space-y-4 py-4">

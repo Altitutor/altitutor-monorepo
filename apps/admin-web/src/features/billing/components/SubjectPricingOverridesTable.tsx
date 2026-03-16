@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import {
   Table,
   TableBody,
@@ -27,6 +27,12 @@ import { Edit2, Trash2, Plus, Search } from 'lucide-react';
 import { subjectPricingOverridesApi, type SubjectPricingOverrideRow } from '../api/subject-pricing-overrides';
 import { subjectsApi } from '@/features/subjects/api/subjects';
 import type { Tables } from '@altitutor/shared';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 interface SubjectPricingOverridesTableProps {
   overrides: SubjectPricingOverrideRow[];
@@ -45,6 +51,16 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
   const [deleting, setDeleting] = useState<string | null>(null);
   const [subjects, setSubjects] = useState<Tables<'subjects'>[]>([]);
   const [loadingSubjects, setLoadingSubjects] = useState(false);
+  const [editExpanded, setEditExpanded] = useState(false);
+  const [createExpanded, setCreateExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!editingOverride) setEditExpanded(false);
+  }, [editingOverride]);
+
+  useEffect(() => {
+    if (!isCreating) setCreateExpanded(false);
+  }, [isCreating]);
 
   // Load subjects for dropdown
   const loadSubjects = async () => {
@@ -217,13 +233,23 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
       </div>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingOverride} onOpenChange={() => setEditingOverride(null)}>
-        <DialogContent>
+      <Dialog open={!!editingOverride} onOpenChange={(open) => !open && setEditingOverride(null)}>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            editExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Edit Pricing Override</DialogTitle>
-            <DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Edit Pricing Override</DialogTitle>
+                <DialogDescription>
               Update the hourly rate override for {editingOverride && formatSubjectName(editingOverride.subject)} ({editingOverride?.billing_type})
             </DialogDescription>
+              </div>
+              <ExpandButton expanded={editExpanded} onToggle={() => setEditExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
@@ -264,13 +290,23 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
       </Dialog>
 
       {/* Create Dialog */}
-      <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent>
+      <Dialog open={isCreating} onOpenChange={(open) => setIsCreating(open)}>
+        <DialogContent
+          className={cn(
+            EXPANDABLE_DIALOG_TRANSITION,
+            createExpanded && EXPANDED_DIALOG_CONTENT_CLASS
+          )}
+        >
           <DialogHeader>
-            <DialogTitle>Create Pricing Override</DialogTitle>
-            <DialogDescription>
-              Create a subject-specific hourly rate override
-            </DialogDescription>
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <DialogTitle>Create Pricing Override</DialogTitle>
+                <DialogDescription>
+                  Create a subject-specific hourly rate override
+                </DialogDescription>
+              </div>
+              <ExpandButton expanded={createExpanded} onToggle={() => setCreateExpanded((e) => !e)} />
+            </div>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">

@@ -15,6 +15,12 @@ import { Label } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
 import { X, Settings2 } from 'lucide-react';
 import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -51,6 +57,11 @@ export function CreateEditTemplateDialog({
   const [content, setContent] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
   const [previewMessage, setPreviewMessage] = useState('');
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   const { data: sampleStudents = [], isLoading: isLoadingStudents } = useSampleStudents(isOpen);
   const { data: studentClasses = [], isLoading: isLoadingClasses } = useStudentClassesForTemplate(selectedStudentId || null);
@@ -214,7 +225,14 @@ export function CreateEditTemplateDialog({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden" onKeyDown={handleKeyDown}>
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+        onKeyDown={handleKeyDown}
+      >
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -243,6 +261,7 @@ export function CreateEditTemplateDialog({
                 </DialogDescription>
               </div>
             </div>
+            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>
         </DialogHeader>
 

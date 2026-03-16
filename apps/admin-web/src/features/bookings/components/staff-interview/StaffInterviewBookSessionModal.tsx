@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -16,6 +17,12 @@ import { StaffInterviewInterviewerStep } from './StaffInterviewInterviewerStep';
 import { StaffInterviewConfirmStep } from './StaffInterviewConfirmStep';
 import { StaffInterviewMessageStep } from './StaffInterviewMessageStep';
 import { useDialogHotkeys } from '@/shared/hooks';
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog';
+import { cn } from '@/shared/utils';
 
 export interface StaffInterviewBookSessionModalProps {
   isOpen: boolean;
@@ -28,6 +35,12 @@ export function StaffInterviewBookSessionModal({
   onClose,
   onBookingCreated,
 }: StaffInterviewBookSessionModalProps) {
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
+
   const {
     currentStep,
     steps,
@@ -128,7 +141,13 @@ export function StaffInterviewBookSessionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden">
+      <DialogContent
+        className={cn(
+          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+        )}
+      >
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
@@ -149,6 +168,7 @@ export function StaffInterviewBookSessionModal({
                       : `Step ${currentStep + 1} of ${steps.length}: ${currentStepData?.title}`}
                   </DialogDescription>
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               </div>
             </div>
           </DialogHeader>
