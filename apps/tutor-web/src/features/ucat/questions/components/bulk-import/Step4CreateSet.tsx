@@ -19,8 +19,9 @@ import {
   Textarea,
 } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
+import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
+import { formatSecondsToDuration, secondsToMinutesAndSeconds } from '@/features/ucat/shared/lib/time-utils'
 import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
@@ -56,6 +57,7 @@ export type AddToSetConfig =
       mode: 'create'
       name: string
       description: string
+      isTimed: boolean
       timeLimitSeconds: number | null
       isPrivate: boolean
     }
@@ -108,11 +110,13 @@ export function Step4CreateSet({
   onEditSet,
 }: Step4CreateSetProps) {
   const setsQuery = useUcatSets()
+  const sectionsQuery = useUcatSections()
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
   const [createNewSet, setCreateNewSet] = useState(false)
   const [createName, setCreateName] = useState('')
   const [createDescription, setCreateDescription] = useState('')
+  const [createIsTimed, setCreateIsTimed] = useState(true)
   const [createTimeLimitMinutes, setCreateTimeLimitMinutes] = useState('')
   const [createTimeLimitSeconds, setCreateTimeLimitSeconds] = useState('')
   const [createIsPrivate, setCreateIsPrivate] = useState(false)
@@ -187,6 +191,7 @@ export function Step4CreateSet({
     if (enabled) {
       setCreateName('')
       setCreateDescription('')
+      setCreateIsTimed(true)
       setCreateTimeLimitMinutes('')
       setCreateTimeLimitSeconds('')
       setCreateIsPrivate(false)
@@ -194,6 +199,7 @@ export function Step4CreateSet({
         mode: 'create',
         name: '',
         description: '',
+        isTimed: true,
         timeLimitSeconds: null,
         isPrivate: false,
       })
@@ -205,23 +211,26 @@ export function Step4CreateSet({
   function buildCreateConfig(overrides: {
     name?: string
     description?: string
+    isTimed?: boolean
     timeLimitMinutes?: string
     timeLimitSeconds?: string
     isPrivate?: boolean
   } = {}): AddToSetConfig {
     const name = overrides.name ?? createName
     const description = overrides.description ?? createDescription
+    const isTimed = overrides.isTimed ?? createIsTimed
     const mins = overrides.timeLimitMinutes ?? createTimeLimitMinutes
     const secs = overrides.timeLimitSeconds ?? createTimeLimitSeconds
     const isPrivate = overrides.isPrivate ?? createIsPrivate
     const totalSeconds =
-      mins.trim() || secs.trim()
+      isTimed && (mins.trim() || secs.trim())
         ? (parseInt(mins, 10) || 0) * 60 + (parseInt(secs, 10) || 0)
         : null
     return {
       mode: 'create',
       name: name.trim(),
       description: description.trim(),
+      isTimed,
       timeLimitSeconds: totalSeconds,
       isPrivate,
     }
@@ -288,8 +297,28 @@ export function Step4CreateSet({
                 />
               </label>
               <label className="block text-sm">
-                <span className="mb-1 block font-medium">Time limit (mm:ss)</span>
-                <div className="flex items-center gap-2">
+                <div className="mb-2 flex items-center justify-between">
+                  <span className="font-medium">Time limit</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Untimed</span>
+                    <Switch
+                      checked={createIsTimed}
+                      onCheckedChange={(v) => {
+                        setCreateIsTimed(v)
+                        if (!v) {
+                          setCreateTimeLimitMinutes('')
+                          setCreateTimeLimitSeconds('')
+                          onAddToSetConfigChange(buildCreateConfig({ isTimed: false, timeLimitMinutes: '', timeLimitSeconds: '' }))
+                        } else {
+                          onAddToSetConfigChange(buildCreateConfig({ isTimed: true }))
+                        }
+                      }}
+                    />
+                    <span className="text-xs text-muted-foreground">Timed</span>
+                  </div>
+                </div>
+                {createIsTimed && (
+                <div className="flex flex-wrap items-center gap-2">
                   <Input
                     type="number"
                     min={0}
@@ -316,7 +345,35 @@ export function Step4CreateSet({
                       onAddToSetConfigChange(buildCreateConfig({ timeLimitSeconds: v }))
                     }}
                   />
+                  {(sectionsQuery.data ?? []).filter((s) => s.id != null && s.time_limit_seconds != null && s.time_limit_seconds > 0).length > 0 && (
+                    <Select
+                      value=""
+                      onValueChange={(value) => {
+                        const sec = (sectionsQuery.data ?? []).find((s) => s.id === value)
+                        if (sec?.time_limit_seconds != null) {
+                          const { minutes, seconds } = secondsToMinutesAndSeconds(sec.time_limit_seconds)
+                          setCreateTimeLimitMinutes(minutes)
+                          setCreateTimeLimitSeconds(seconds)
+                          onAddToSetConfigChange(buildCreateConfig({ timeLimitMinutes: minutes, timeLimitSeconds: seconds }))
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="w-[180px]">
+                        <SelectValue placeholder="Use section time" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(sectionsQuery.data ?? [])
+                          .filter((s) => s.id != null && s.time_limit_seconds != null && s.time_limit_seconds > 0)
+                          .map((s) => (
+                            <SelectItem key={s.id} value={s.id!}>
+                              {s.name ?? 'Unknown'} ({formatSecondsToDuration(s.time_limit_seconds)})
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
+                )}
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>
