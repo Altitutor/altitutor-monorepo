@@ -84,6 +84,10 @@ export function useQuestionEngineState(
 
   const reviewFilterIndices = useMemo(() => {
     if (state.phase !== 'review' || !state.reviewFilter) return []
+    // Use snapshot when in incomplete/flagged mode so the list stays fixed while navigating
+    if (state.reviewFilterIndicesSnapshot != null) {
+      return state.reviewFilterIndicesSnapshot
+    }
     let indices = getReviewFilterIndices(
       questions,
       state.reviewFilter,
@@ -104,6 +108,7 @@ export function useQuestionEngineState(
   }, [
     state.phase,
     state.reviewFilter,
+    state.reviewFilterIndicesSnapshot,
     state.mockCurrentSetIndex,
     state.visitedQuestionIds,
     state.selectedAnswers,
