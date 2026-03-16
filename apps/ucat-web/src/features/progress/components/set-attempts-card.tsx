@@ -21,14 +21,17 @@ import {
 } from '@altitutor/ui'
 import { ProgressTablePagination } from './progress-table-pagination'
 import { GraphTypeTabs } from './graph-type-tabs'
-import { format, addDays, subDays } from 'date-fns'
+import { format } from 'date-fns'
 import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { formatTimeSeconds } from '../lib/format-time'
-import { useProgressFilters } from '../context/progress-filters-context'
+import { aggregateForGraph, filterByTimeFrame } from '../lib/progress-data-utils'
 import type { SetAttemptRow } from '@/app/api/ucat/progress/route'
+import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
 
 type SetAttemptsCardProps = {
   attempts: SetAttemptRow[]
+  mode: ProgressMode
+  timeFrameDays: TimeFrameDays
 }
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
@@ -41,9 +44,17 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
-export function SetAttemptsCard({ attempts }: SetAttemptsCardProps) {
+function getDateRangeLabel(mode: ProgressMode, timeFrameDays: TimeFrameDays): string {
+  if (mode === 'time_frame') return `Last ${timeFrameDays} days`
+  return mode === 'weighted' ? 'Weighted average (all time)' : 'All time'
+}
+
+export function SetAttemptsCard({
+  attempts,
+  mode,
+  timeFrameDays,
+}: SetAttemptsCardProps) {
   const router = useRouter()
-  const { filterByDateRange, getDateRange, timeFrameDays } = useProgressFilters()
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
   const [wasTimedFilter, setWasTimedFilter] = useState<'all' | 'timed' | 'untimed'>(
@@ -59,87 +70,38 @@ export function SetAttemptsCard({ attempts }: SetAttemptsCardProps) {
     if (wasTimedFilter === 'untimed') result = result.filter((a) => !a.wasTimed)
     if (setSourceFilter === 'my') result = result.filter((a) => a.isStudentGenerated)
     if (setSourceFilter === 'public') result = result.filter((a) => !a.isStudentGenerated)
-    return result
-  }, [attempts, wasTimedFilter, setSourceFilter])
-
-  const dateFilteredAttempts = useMemo(() => {
-    if (!filterByDateRange) return standaloneAttempts
-    const range = getDateRange()
-    if (!range) return standaloneAttempts
-    const { start, end } = range
-    return standaloneAttempts.filter((a) => {
-      const d = a.completedAt ? new Date(a.completedAt) : new Date(a.attemptedAt)
-      return d >= start && d <= end
-    })
-  }, [standaloneAttempts, filterByDateRange, getDateRange])
+    return filterByTimeFrame(result, mode, timeFrameDays)
+  }, [attempts, wasTimedFilter, setSourceFilter, mode, timeFrameDays])
 
   const { graphData, dateRangeLabel } = useMemo(() => {
-    const days = filterByDateRange ? parseInt(timeFrameDays, 10) || 30 : 90
-    const endDate = new Date()
-    endDate.setHours(23, 59, 59, 999)
-    const startDate = subDays(endDate, days - 1)
-    startDate.setHours(0, 0, 0, 0)
-
-    const filtered = standaloneAttempts.filter((a) => {
-      const d = a.completedAt ? new Date(a.completedAt) : new Date(a.attemptedAt)
-      return d >= startDate && d <= endDate
-    })
-
-    const byDate = new Map<string, number[]>()
-    for (const a of filtered) {
-      const dateStr = a.completedAt
-        ? format(new Date(a.completedAt), 'yyyy-MM-dd')
-        : format(new Date(a.attemptedAt), 'yyyy-MM-dd')
-
-      let value: number
-      if (graphDataType === 'scaled_score') {
-        value = a.scaledScore ?? 0
-      } else if (graphDataType === 'percentage') {
-        const total = a.totalPoints ?? 0
-        value = total > 0 ? ((a.scorePoints ?? 0) / total) * 100 : 0
-      } else if (graphDataType === 'time_taken') {
-        value = Math.round(a.timeTakenSeconds ?? 0)
-      } else if (graphDataType === 'attempt_count') {
-        value = 1
-      } else {
-        value = (a.studentExamSpeed ?? 0) * 100
-      }
-
-      const list = byDate.get(dateStr) ?? []
-      list.push(value)
-      byDate.set(dateStr, list)
-    }
-
-    const allDates: string[] = []
-    let d = new Date(startDate)
-    while (d <= endDate) {
-      allDates.push(format(d, 'yyyy-MM-dd'))
-      d = addDays(d, 1)
-    }
-
-    const graphData = allDates.map((date) => {
-      const values = byDate.get(date) ?? []
-      let value: number | null
-      if (values.length === 0) {
-        value = null
-      } else if (graphDataType === 'attempt_count') {
-        value = values.length
-      } else {
-        value = values.reduce((s, v) => s + v, 0) / values.length
-      }
-      return { date, value }
-    })
-
+    const isCountMetric = graphDataType === 'attempt_count'
+    const graphData = aggregateForGraph(
+      standaloneAttempts,
+      (a) => a.completedAt ?? a.attemptedAt,
+      (a) => {
+        if (graphDataType === 'scaled_score') return a.scaledScore ?? 0
+        if (graphDataType === 'percentage') {
+          const total = a.totalPoints ?? 0
+          return total > 0 ? ((a.scorePoints ?? 0) / total) * 100 : 0
+        }
+        if (graphDataType === 'time_taken') return Math.round(a.timeTakenSeconds ?? 0)
+        if (graphDataType === 'attempt_count') return 1
+        return (a.studentExamSpeed ?? 0) * 100
+      },
+      mode,
+      timeFrameDays,
+      isCountMetric
+    )
     return {
       graphData,
-      dateRangeLabel: filterByDateRange ? `Last ${days} days` : 'Last 90 days',
+      dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
     }
-  }, [standaloneAttempts, filterByDateRange, timeFrameDays, graphDataType])
+  }, [standaloneAttempts, graphDataType, mode, timeFrameDays])
 
   const paginatedAttempts = useMemo(() => {
     const start = (page - 1) * pageSize
-    return dateFilteredAttempts.slice(start, start + pageSize)
-  }, [dateFilteredAttempts, page, pageSize])
+    return standaloneAttempts.slice(start, start + pageSize)
+  }, [standaloneAttempts, page, pageSize])
 
   return (
     <Card className="rounded-xl border-border">
@@ -205,7 +167,7 @@ export function SetAttemptsCard({ attempts }: SetAttemptsCardProps) {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {dateFilteredAttempts.length === 0 ? (
+                {standaloneAttempts.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={6} className="text-center text-muted-foreground">
                       No submitted set attempts yet
@@ -250,11 +212,11 @@ export function SetAttemptsCard({ attempts }: SetAttemptsCardProps) {
               </TableBody>
             </Table>
           </div>
-          {dateFilteredAttempts.length > 0 ? (
+          {standaloneAttempts.length > 0 ? (
             <ProgressTablePagination
               page={page}
               pageSize={pageSize}
-              total={dateFilteredAttempts.length}
+              total={standaloneAttempts.length}
               onPageChange={setPage}
               onPageSizeChange={(size) => {
                 setPageSize(size)

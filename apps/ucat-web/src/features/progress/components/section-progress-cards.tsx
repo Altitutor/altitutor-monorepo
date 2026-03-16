@@ -1,16 +1,17 @@
 'use client'
 
-import { useState } from 'react'
 import Link from 'next/link'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { cn } from '@/lib/utils'
-import { SegmentedControl } from './segmented-control'
 import type { SectionProgress } from '@/app/api/ucat/progress/route'
+import type { ProgressMode } from '../lib/progress-mode'
 
 type SectionProgressCardsProps = {
   sections: SectionProgress[]
   /** When true, cards link to section detail page */
   linkToSection?: boolean
+  mode: ProgressMode
+  timeFrameDays: string
 }
 
 function CircularProgress({
@@ -82,37 +83,26 @@ function CircularProgress({
   )
 }
 
-type ScaledScoreMode = 'average' | 'weighted'
-
 export function SectionProgressCards({
   sections,
   linkToSection = false,
+  mode,
+  timeFrameDays: _timeFrameDays,
 }: SectionProgressCardsProps) {
-  const [scaledScoreMode, setScaledScoreMode] =
-    useState<ScaledScoreMode>('weighted')
-
   const getScaledScore = (section: SectionProgress): number | null =>
-    scaledScoreMode === 'average'
-      ? section.averageScaledScore
-      : section.weightedAverageScaledScore
+    mode === 'weighted'
+      ? section.weightedAverageScaledScore
+      : section.averageScaledScore
+
+  const getPercentage = (section: SectionProgress): number =>
+    mode === 'weighted' && section.weightedAveragePercentage != null
+      ? Math.round(section.weightedAveragePercentage)
+      : section.percentage
+
+  const showQuestionsCompletedOnly = mode === 'weighted'
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <SegmentedControl
-          value={scaledScoreMode}
-          onValueChange={(v) => setScaledScoreMode(v as ScaledScoreMode)}
-          options={[
-            { value: 'average', label: 'All time' },
-            {
-              value: 'weighted',
-              label: 'Weighted average',
-              infoTooltip:
-                'Recent attempts are weighted more heavily than older ones, giving a better picture of your current performance.',
-            },
-          ]}
-        />
-      </div>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sections.map((section) => {
           const score = getScaledScore(section)
@@ -148,15 +138,10 @@ export function SectionProgressCards({
                     Percentage correct
                   </div>
                   <CircularProgress
-                    percentage={
-                      scaledScoreMode === 'weighted' &&
-                      section.weightedAveragePercentage != null
-                        ? Math.round(section.weightedAveragePercentage)
-                        : section.percentage
-                    }
+                    percentage={getPercentage(section)}
                     correct={section.correctScore}
                     total={section.maxScore}
-                    showQuestionsCompletedOnly={scaledScoreMode === 'weighted'}
+                    showQuestionsCompletedOnly={showQuestionsCompletedOnly}
                     className="text-accent"
                   />
                 </div>
@@ -164,7 +149,7 @@ export function SectionProgressCards({
             </Card>
           )
           return linkToSection ? (
-            <Link key={section.sectionId} href={`/progress/${section.sectionId}`}>
+            <Link key={section.sectionId} href={`/progress/sections/${section.sectionId}`}>
               {card}
             </Link>
           ) : (
