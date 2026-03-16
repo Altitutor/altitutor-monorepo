@@ -4,8 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
-import { registrationSchema } from '../validations';
+import { registrationSchema, type RegistrationFormValues } from '../validations';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
@@ -18,8 +17,6 @@ import { RegistrationStep3Availability } from './RegistrationStep3Availability';
 import { RegistrationStep4Password } from './RegistrationStep4Password';
 import { RegistrationStep4PaymentMethod } from './RegistrationStep4PaymentMethod';
 import { RegistrationStep5Confirm } from './RegistrationStep5Confirm';
-
-type RegistrationFormValues = z.infer<typeof registrationSchema>;
 
 interface RegistrationFlowProps {
   token: string;
@@ -62,94 +59,6 @@ const STEPS = [
   { id: 'payment', title: 'Payment Method' },
   { id: 'confirm', title: 'Confirm' },
 ];
-
-// Helper function to extract all validation errors from form state
-function extractValidationErrors(errors: unknown, path: string = ''): string[] {
-  const errorMessages: string[] = [];
-  
-  if (!errors || typeof errors !== 'object') {
-    return errorMessages;
-  }
-  
-  const errObj = errors as Record<string, unknown>;
-  
-  // Handle root-level error messages
-  if ('message' in errObj && typeof errObj.message === 'string') {
-    const fieldName = path || 'Form';
-    errorMessages.push(`${fieldName}: ${errObj.message}`);
-  }
-  
-  for (const [key, value] of Object.entries(errObj)) {
-    // Skip the message property if we already handled it
-    if (key === 'message') {
-      continue;
-    }
-    
-    const currentPath = path ? `${path}.${key}` : key;
-    
-    if (value && typeof value === 'object') {
-      // Check if it's an error object with a message
-      const valObj = value as Record<string, unknown>;
-      if ('message' in valObj && typeof valObj.message === 'string') {
-        // Format field name nicely
-        let fieldName = currentPath;
-        if (currentPath.includes('.')) {
-          const parts = currentPath.split('.');
-          const lastPart = parts[parts.length - 1];
-          // Convert snake_case to Title Case
-          fieldName = lastPart
-            .split('_')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
-        } else {
-          fieldName = currentPath.charAt(0).toUpperCase() + currentPath.slice(1);
-        }
-        
-        // Special handling for common fields
-        if (currentPath.startsWith('student.')) {
-          fieldName = `Student ${fieldName.replace('student.', '')}`;
-        } else if (currentPath.startsWith('parents.')) {
-          const match = currentPath.match(/parents\.(\d+)\.(.+)/);
-          if (match) {
-            const parentIndex = parseInt(match[1], 10) + 1;
-            const field = match[2].split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-            fieldName = `Parent ${parentIndex} ${field}`;
-          }
-        } else if (currentPath === 'availability') {
-          fieldName = 'Availability';
-        } else if (currentPath === 'password') {
-          fieldName = 'Password';
-        } else if (currentPath === 'confirmPassword') {
-          fieldName = 'Confirm Password';
-        } else if (currentPath === 'paymentMethodVerified') {
-          fieldName = 'Payment Method';
-        }
-        
-        errorMessages.push(`${fieldName}: ${valObj.message}`);
-      } else if (Array.isArray(value)) {
-        // Handle array errors (e.g., parents array)
-        value.forEach((item, index) => {
-          if (item && typeof item === 'object') {
-            const arrayErrors = extractValidationErrors(item, `${currentPath}[${index}]`);
-            errorMessages.push(...arrayErrors);
-          } else if (item && typeof item === 'string') {
-            // Direct array error message
-            errorMessages.push(`${currentPath}: ${item}`);
-          }
-        });
-      } else {
-        // Recursively extract nested errors
-        const nestedErrors = extractValidationErrors(value, currentPath);
-        errorMessages.push(...nestedErrors);
-      }
-    } else if (typeof value === 'string') {
-      // Direct string error
-      errorMessages.push(`${currentPath}: ${value}`);
-    }
-  }
-  
-  return errorMessages;
-}
 
 export function RegistrationFlow({
   token,
@@ -269,6 +178,7 @@ export function RegistrationFlow({
       password: '',
       confirmPassword: '',
       paymentMethodVerified: false,
+      billingPolicyAgreed: false,
     },
   });
 
@@ -292,42 +202,15 @@ export function RegistrationFlow({
         fieldsToValidate.push('confirmPassword');
       }
     } else if (currentStep === 4) {
-      // Payment method step - verify payment method is verified
-      const paymentMethodVerified = form.getValues('paymentMethodVerified');
-      if (!paymentMethodVerified) {
-        toast({
-          title: 'Payment Method Required',
-          description: 'Please add and verify a payment method before proceeding.',
-          variant: 'destructive',
-        });
-        return;
-      }
-      fieldsToValidate.push('paymentMethodVerified');
+      fieldsToValidate.push('paymentMethodVerified', 'billingPolicyAgreed');
     }
 
     const isValid = await form.trigger(fieldsToValidate as Array<keyof RegistrationFormValues>);
     
     if (isValid) {
       onStepChange(currentStep + 1);
-    } else {
-      // Extract all validation errors
-      const errors = form.formState.errors;
-      const errorMessages = extractValidationErrors(errors);
-      
-      if (errorMessages.length > 0) {
-        toast({
-          title: 'Please fix the following errors',
-          description: errorMessages.join('. '),
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Please fix the errors',
-          description: 'Some fields are invalid. Please check and try again.',
-          variant: 'destructive',
-        });
-      }
     }
+    // Validation errors are shown inline via FormField FormMessage and step-specific error areas
   };
 
   const handleBack = () => {
@@ -342,37 +225,10 @@ export function RegistrationFlow({
       return;
     }
 
-    // Verify payment method before submitting
-    const paymentMethodVerified = form.getValues('paymentMethodVerified');
-    if (!paymentMethodVerified) {
-      toast({
-        title: 'Payment Method Required',
-        description: 'Please add and verify a payment method before completing registration.',
-        variant: 'destructive',
-      });
-      return;
-    }
-
     const isValid = await form.trigger();
     
     if (!isValid) {
-      // Extract all validation errors
-      const errors = form.formState.errors;
-      const errorMessages = extractValidationErrors(errors);
-      
-      if (errorMessages.length > 0) {
-        toast({
-          title: 'Please fix the following errors',
-          description: errorMessages.join('. '),
-          variant: 'destructive',
-        });
-      } else {
-        toast({
-          title: 'Please fix the errors',
-          description: 'Some fields are invalid. Please check and try again.',
-          variant: 'destructive',
-        });
-      }
+      // Validation errors are shown inline via FormField FormMessage
       return;
     }
 

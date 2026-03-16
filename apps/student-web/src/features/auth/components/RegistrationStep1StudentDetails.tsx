@@ -21,40 +21,7 @@ import { Button } from '@altitutor/ui';
 import { Plus, X, Loader2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
-
-type RegistrationFormValues = {
-  student: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-    school?: string;
-    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
-    year_level?: number;
-    subject_ids: string[];
-  };
-  parents: Array<{
-    id?: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-  }>;
-  availability: {
-    monday: boolean;
-    tuesday: boolean;
-    wednesday: boolean;
-    thursday: boolean;
-    friday: boolean;
-    saturday_am: boolean;
-    saturday_pm: boolean;
-    sunday_am: boolean;
-    sunday_pm: boolean;
-  };
-  password: string;
-  confirmPassword?: string;
-  paymentMethodVerified: boolean;
-};
+import type { RegistrationFormValues } from '../validations';
 
 interface RegistrationStep1StudentDetailsProps {
   form: UseFormReturn<RegistrationFormValues>;

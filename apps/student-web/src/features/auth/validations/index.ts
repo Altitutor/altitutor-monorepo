@@ -76,6 +76,7 @@ export const registrationSchema = z
     password: z.string().min(6, 'Password must be at least 6 characters'),
     confirmPassword: z.string().optional(),
     paymentMethodVerified: z.boolean(),
+    billingPolicyAgreed: z.boolean(),
   })
   .refine(
     (data) => {
@@ -100,6 +101,10 @@ export const registrationSchema = z
     (data) => data.paymentMethodVerified === true,
     { message: 'Payment method must be verified', path: ['paymentMethodVerified'] }
   )
+  .refine(
+    (data) => data.billingPolicyAgreed === true,
+    { message: 'You must agree to the billing policy to proceed', path: ['billingPolicyAgreed'] }
+  )
   .superRefine((data, ctx) => {
     if (!data.student.curriculum) {
       ctx.addIssue({
@@ -116,3 +121,5 @@ export const registrationSchema = z
       });
     }
   });
+
+export type RegistrationFormValues = z.infer<typeof registrationSchema>;

@@ -2,45 +2,12 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { UseFormReturn } from 'react-hook-form';
-import { Button, Label } from '@altitutor/ui';
+import { Button, Label, Checkbox, Dialog, DialogContent, DialogHeader, DialogTitle, PolicyViewer, FormControl, FormField, FormItem, FormMessage } from '@altitutor/ui';
 import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
-
-type RegistrationFormValues = {
-  student: {
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-    school?: string;
-    curriculum?: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY';
-    year_level?: number;
-    subject_ids: string[];
-  };
-  parents: Array<{
-    id?: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    phone: string;
-  }>;
-  availability: {
-    monday: boolean;
-    tuesday: boolean;
-    wednesday: boolean;
-    thursday: boolean;
-    friday: boolean;
-    saturday_am: boolean;
-    saturday_pm: boolean;
-    sunday_am: boolean;
-    sunday_pm: boolean;
-  };
-  password: string;
-  confirmPassword?: string;
-  paymentMethodVerified: boolean;
-};
+import type { RegistrationFormValues } from '../validations';
 
 interface RegistrationStep4PaymentMethodProps {
   form: UseFormReturn<RegistrationFormValues>;
@@ -51,6 +18,89 @@ interface RegistrationStep4PaymentMethodProps {
 
 // Use pre-loaded Stripe instance
 import type { Stripe } from '@stripe/stripe-js';
+
+function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormValues> }) {
+  const [policyOpen, setPolicyOpen] = useState(false);
+  const [policyContent, setPolicyContent] = useState<unknown>(null);
+  const [policyLoading, setPolicyLoading] = useState(false);
+
+  const fetchPolicy = useCallback(async () => {
+    if (policyContent !== null) return;
+    setPolicyLoading(true);
+    try {
+      const res = await fetch('/api/policies/billing');
+      const data = await res.json();
+      setPolicyContent(data.content ?? null);
+    } catch {
+      setPolicyContent(null);
+    } finally {
+      setPolicyLoading(false);
+    }
+  }, [policyContent]);
+
+  const handleOpenChange = useCallback(
+    (open: boolean) => {
+      setPolicyOpen(open);
+      if (open) fetchPolicy();
+    },
+    [fetchPolicy]
+  );
+
+  return (
+    <>
+      <FormField
+        control={form.control}
+        name="billingPolicyAgreed"
+        render={({ field }) => (
+          <FormItem>
+            <div className="flex items-start gap-3">
+              <FormControl>
+                <Checkbox
+                  id="billingPolicyAgreed"
+                  checked={field.value}
+                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                />
+              </FormControl>
+              <label
+                htmlFor="billingPolicyAgreed"
+                className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+              >
+                By registering as a student at Altitutor, I agree to Altitutor&apos;s{' '}
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleOpenChange(true);
+                  }}
+                  className="text-primary underline hover:no-underline"
+                >
+                  billing policy
+                </button>
+                .
+              </label>
+            </div>
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+      <Dialog open={policyOpen} onOpenChange={handleOpenChange}>
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Billing Policy</DialogTitle>
+          </DialogHeader>
+          {policyLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <PolicyViewer content={policyContent} className="mt-4" />
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 let stripePromise: Promise<Stripe | null> | null = null;
 function getStripePromise() {
   if (!stripePromise) {
@@ -194,7 +244,7 @@ function PaymentForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="cardExpiry">Expiry Date</Label>
-          <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
+          <div className="rounded-md p-3 bg-white dark:bg-gray-800">
             <CardExpiryElement 
               id="cardExpiry"
               options={elementOptions}
@@ -204,7 +254,7 @@ function PaymentForm({
 
         <div className="space-y-2">
           <Label htmlFor="cardCvc">CVC</Label>
-          <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
+          <div className="rounded-md p-3 bg-white dark:bg-gray-800">
             <CardCvcElement 
               id="cardCvc"
               options={elementOptions}
@@ -326,6 +376,8 @@ export function RegistrationStep4PaymentMethod({
     },
   }), [clientSecret]);
 
+  const paymentMethodError = form.formState.errors.paymentMethodVerified?.message;
+
   if (paymentMethodVerified || isVerified) {
     return (
       <div className="space-y-6">
@@ -336,8 +388,12 @@ export function RegistrationStep4PaymentMethod({
           </p>
         </div>
 
-        <div className="flex items-center gap-3 p-4 border rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
-          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+        {paymentMethodError && (
+          <p className="text-sm text-destructive">{paymentMethodError}</p>
+        )}
+
+        <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+          <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0" />
           <div>
             <p className="font-medium text-green-900 dark:text-green-100">
               Payment Method Verified
@@ -347,6 +403,8 @@ export function RegistrationStep4PaymentMethod({
             </p>
           </div>
         </div>
+
+        <BillingPolicyCheckbox form={form} />
       </div>
     );
   }
@@ -360,6 +418,10 @@ export function RegistrationStep4PaymentMethod({
         </p>
       </div>
 
+      {paymentMethodError && (
+        <p className="text-sm text-destructive">{paymentMethodError}</p>
+      )}
+
       {isLoading && (
         <div className="flex justify-center items-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
@@ -367,7 +429,7 @@ export function RegistrationStep4PaymentMethod({
       )}
 
       {!isLoading && clientSecret && (
-        <div className="border rounded-lg p-6">
+        <div className="space-y-6">
           <Elements stripe={getStripePromise()} options={elementsOptions}>
             <PaymentForm 
               onSuccess={handleSuccess} 
@@ -376,6 +438,8 @@ export function RegistrationStep4PaymentMethod({
               token={token}
             />
           </Elements>
+
+          <BillingPolicyCheckbox form={form} />
         </div>
       )}
     </div>
