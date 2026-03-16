@@ -5,6 +5,7 @@
  * - verbalReasoning: parseVerbalReasoningFromDoc, getVerbalReasoningStemCategoryName, mapParsedVerbalReasoningToFormValues
  * - decisionMaking: parseDecisionMakingFromDoc, isSyllogismQuestionText, mapParsedDecisionMakingToFormValues
  * - quantitativeReasoning: parseQuantitativeReasoningFromDoc, mapParsedQuantitativeReasoningToFormValues (preserves tables/images)
+ * - situationalJudgement: parseSituationalJudgementFromDoc, mapParsedSituationalJudgementToFormValues
  */
 
 export {
@@ -48,3 +49,12 @@ export {
   type QuantitativeReasoningToFormOptions,
   type ParseQuantitativeReasoningResult,
 } from './quantitativeReasoning'
+
+export {
+  parseSituationalJudgementFromDoc,
+  parseSituationalJudgementFromLines,
+  parseSituationalJudgementPlainText,
+  mapParsedSituationalJudgementToFormValues,
+  type SituationalJudgementParserConfig,
+  type SituationalJudgementToFormOptions,
+} from './situationalJudgement'

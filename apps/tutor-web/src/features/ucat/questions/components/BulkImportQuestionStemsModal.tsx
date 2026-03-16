@@ -47,6 +47,10 @@ import {
   mapParsedQuantitativeReasoningToFormValues,
 } from '@/features/ucat/questions/lib/parsers/quantitativeReasoning'
 import {
+  parseSituationalJudgementFromDoc,
+  mapParsedSituationalJudgementToFormValues,
+} from '@/features/ucat/questions/lib/parsers/situationalJudgement'
+import {
   parseAnswersTable,
   letterToOptionIndex,
   parseDecisionMakingAnswers,
@@ -136,8 +140,12 @@ export function BulkImportQuestionStemsModal({
   const isVerbalReasoningSection = selectedSection?.name === 'Verbal Reasoning'
   const isDecisionMakingSection = selectedSection?.name === 'Decision Making'
   const isQuantitativeReasoningSection = selectedSection?.name === 'Quantitative Reasoning'
+  const isSituationalJudgementSection = selectedSection?.name === 'Situational Judgement'
   const isBulkParseSection =
-    isVerbalReasoningSection || isDecisionMakingSection || isQuantitativeReasoningSection
+    isVerbalReasoningSection ||
+    isDecisionMakingSection ||
+    isQuantitativeReasoningSection ||
+    isSituationalJudgementSection
 
   const canGoPrevious = useMemo(() => step > 0 && status !== 'submitting', [step, status])
   const totalStepsResolved = 5
@@ -256,6 +264,33 @@ export function BulkImportQuestionStemsModal({
           error instanceof Error
             ? `Failed to parse Quantitative Reasoning: ${error.message}`
             : 'Failed to parse Quantitative Reasoning.'
+        )
+        wizard.setStems([])
+        return false
+      }
+    }
+    if (isSituationalJudgementSection) {
+      try {
+        const parsed = parseSituationalJudgementFromDoc(pastedContent, parsingOptions)
+        const forms = mapParsedSituationalJudgementToFormValues(parsed, {
+          sectionId,
+          isPrivate: false,
+        })
+
+        if (forms.length === 0) {
+          setParseError('No valid stems and questions were detected. Please check the formatting.')
+          wizard.setStems([])
+          return false
+        }
+
+        wizard.setStems(forms)
+        setParseError(null)
+        return true
+      } catch (error) {
+        setParseError(
+          error instanceof Error
+            ? `Failed to parse Situational Judgement: ${error.message}`
+            : 'Failed to parse Situational Judgement.'
         )
         wizard.setStems([])
         return false
@@ -403,6 +438,15 @@ export function BulkImportQuestionStemsModal({
       !addToSetConfig.name.trim()
     ) {
       setParseError('Please enter a name for the new set.')
+      return
+    }
+    if (
+      addToSetEnabled &&
+      addToSetConfig?.mode === 'create' &&
+      addToSetConfig.isTimed &&
+      (addToSetConfig.timeLimitSeconds == null || addToSetConfig.timeLimitSeconds <= 0)
+    ) {
+      setParseError('Please enter a time limit greater than 0 for timed sets.')
       return
     }
 
@@ -643,7 +687,12 @@ export function BulkImportQuestionStemsModal({
                   (addToSetEnabled && !addToSetConfig) ||
                   (addToSetEnabled &&
                     addToSetConfig?.mode === 'create' &&
-                    !addToSetConfig.name.trim())
+                    !addToSetConfig.name.trim()) ||
+                  (addToSetEnabled &&
+                    addToSetConfig?.mode === 'create' &&
+                    addToSetConfig.isTimed &&
+                    (addToSetConfig.timeLimitSeconds == null ||
+                      addToSetConfig.timeLimitSeconds <= 0))
                 }
               >
                 Import all stems
