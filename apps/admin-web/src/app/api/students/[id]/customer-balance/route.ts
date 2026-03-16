@@ -190,6 +190,41 @@ export async function POST(
       }
     );
 
+    // Persist to credit_balance_transactions (Stripe billing.credit_balance_transaction webhooks don't apply here)
+    const txAmount = balanceTransaction.amount;
+    const txType = txAmount <= 0 ? 'credit' : 'debit';
+    const txAmountCents = Math.abs(txAmount);
+    const effectiveAt = new Date((balanceTransaction.created ?? Math.floor(Date.now() / 1000)) * 1000).toISOString();
+    // @ts-expect-error - credit_balance_transactions Insert type may not yet reflect nullable stripe_credit_grant_id
+    const { error: cbtErr } = await supabaseAdmin.from('credit_balance_transactions').upsert(
+      {
+        stripe_credit_balance_transaction_id: balanceTransaction.id,
+        stripe_customer_id: billing.stripe_customer_id,
+        stripe_credit_grant_id: null,
+        stripe_invoice_id: null,
+        invoice_id: null,
+        credit_note_id: null,
+        type: txType,
+        amount_cents: txAmountCents,
+        currency: (balanceTransaction.currency ?? 'aud').toLowerCase(),
+        debit_type: txType === 'debit' ? 'adjustment' : null,
+        credit_type: txType === 'credit' ? 'adjustment' : null,
+        description: balanceTransaction.description ?? descriptionWithStaff,
+        effective_at: effectiveAt,
+        raw: {
+          id: balanceTransaction.id,
+          amount: balanceTransaction.amount,
+          type: balanceTransaction.type,
+          description: balanceTransaction.description,
+          created: balanceTransaction.created,
+        },
+      },
+      { onConflict: 'stripe_credit_balance_transaction_id' }
+    );
+    if (cbtErr) {
+      console.error('[api/students/customer-balance] Failed to insert credit_balance_transactions:', cbtErr);
+    }
+
     // Fetch updated customer to get new balance
     const customerResponse = await stripe.customers.retrieve(billing.stripe_customer_id);
     if (customerResponse.deleted) {

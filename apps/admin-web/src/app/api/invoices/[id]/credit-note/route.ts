@@ -167,6 +167,46 @@ export async function POST(
     // Do not write to local credit_notes here; webhooks are the single source of truth.
     // The stripe-webhooks edge function will upsert credit_notes and update invoices.has_credit_notes.
 
+    // When credit was applied to customer balance, write to credit_balance_transactions.
+    // Stripe billing.credit_balance_transaction webhooks don't fire for invoice credit notes.
+    const cbtxnId = (creditNote as { customer_balance_transaction?: string | null }).customer_balance_transaction;
+    if (cbtxnId && credit_amount_cents !== undefined && credit_amount_cents > 0) {
+      const effectiveAt = (creditNote as { effective_at?: number; created?: number }).effective_at
+        ?? (creditNote as { created?: number }).created
+        ?? Math.floor(Date.now() / 1000);
+      // @ts-expect-error - credit_balance_transactions Insert type may not yet reflect nullable stripe_credit_grant_id
+      const { error: cbtErr } = await supabase.from('credit_balance_transactions').upsert(
+        {
+          stripe_credit_balance_transaction_id: cbtxnId,
+          stripe_customer_id: (creditNote as { customer?: string }).customer ?? null,
+          stripe_credit_grant_id: null,
+          stripe_invoice_id: invoice.stripe_invoice_id,
+          invoice_id: invoiceId,
+          credit_note_id: null,
+          type: 'credit',
+          amount_cents: creditNote.amount ?? credit_amount_cents,
+          currency: (creditNote.currency ?? 'aud').toLowerCase(),
+          credit_type: 'credit_note',
+          description: `Credit note ${creditNote.id} applied to customer balance`,
+          effective_at: new Date(effectiveAt * 1000).toISOString(),
+          raw: {
+            credit_note_id: creditNote.id,
+            amount: creditNote.amount,
+            currency: creditNote.currency,
+            customer_balance_transaction: cbtxnId,
+            invoice: creditNote.invoice,
+            customer: (creditNote as { customer?: string }).customer,
+            created: (creditNote as { created?: number }).created,
+            effective_at: effectiveAt,
+          },
+        },
+        { onConflict: 'stripe_credit_balance_transaction_id' }
+      );
+      if (cbtErr) {
+        console.error('[api/invoices/credit-note] Failed to insert credit_balance_transactions:', cbtErr);
+      }
+    }
+
     return NextResponse.json({
       creditNoteId: creditNote.id,
       stripeCreditNoteId: creditNote.id,
