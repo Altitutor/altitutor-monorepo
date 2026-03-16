@@ -6,7 +6,11 @@ import type {
   QuestionEngineState,
   ReviewFilter,
 } from '@/features/question-engine/model/types'
-import { getCurrentSegmentTimeLimitSeconds } from '@/features/question-engine/lib/timing'
+import {
+  getCurrentSegmentTimeLimitSeconds,
+  getCurrentMockSegment,
+  isLastQuestionOfCurrentMockSet,
+} from '@/features/question-engine/lib/timing'
 import {
   getReviewFilterIndices,
   getReviewQuestionStatus,
@@ -77,7 +81,7 @@ export function useQuestionEngineState(
 
   const reviewFilterIndices = useMemo(() => {
     if (state.phase !== 'review' || !state.reviewFilter) return []
-    return getReviewFilterIndices(
+    let indices = getReviewFilterIndices(
       questions,
       state.reviewFilter,
       state.visitedQuestionIds,
@@ -85,14 +89,26 @@ export function useQuestionEngineState(
       state.flaggedIds,
       state.syllogismSnapshots
     )
+    if (exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      if (summary) {
+        indices = indices.filter(
+          (i) => i >= summary.questionStartIndex && i < summary.questionEndIndex
+        )
+      }
+    }
+    return indices
   }, [
     state.phase,
     state.reviewFilter,
+    state.mockCurrentSetIndex,
     state.visitedQuestionIds,
     state.selectedAnswers,
     state.flaggedIds,
     state.syllogismSnapshots,
     questions,
+    exam?.sourceType,
+    exam?.mockSetSummaries,
   ])
 
   const effectiveCurrentIndex =
@@ -122,9 +138,19 @@ export function useQuestionEngineState(
     [state.selectedAnswers]
   )
 
-  const reviewListRows = useMemo(
-    () =>
-      questions.map((question, index) => ({
+  const reviewListRows = useMemo(() => {
+    let qs = questions
+    if (exam?.sourceType === 'mock' && state.phase === 'review' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      if (summary) {
+        qs = questions.slice(summary.questionStartIndex, summary.questionEndIndex)
+      }
+    }
+    return qs.map((question, idx) => {
+      const index = exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries
+        ? (exam.mockSetSummaries[state.mockCurrentSetIndex]?.questionStartIndex ?? 0) + idx
+        : idx
+      return {
         question,
         index,
         status: getReviewQuestionStatus(
@@ -134,9 +160,19 @@ export function useQuestionEngineState(
           state.syllogismSnapshots
         ) as ReviewQuestionStatus,
         flagged: state.flaggedIds.includes(question.id),
-      })),
-    [questions, state.visitedQuestionIds, state.selectedAnswers, state.flaggedIds, state.syllogismSnapshots]
-  )
+      }
+    })
+  }, [
+    questions,
+    state.phase,
+    state.mockCurrentSetIndex,
+    state.visitedQuestionIds,
+    state.selectedAnswers,
+    state.flaggedIds,
+    state.syllogismSnapshots,
+    exam?.sourceType,
+    exam?.mockSetSummaries,
+  ])
 
   useEffect(() => {
     if (state.phase !== 'question' && !(state.phase === 'review' && state.reviewFilter)) return
@@ -197,19 +233,36 @@ export function useQuestionEngineState(
       return
     }
 
-    if (
-      state.phase === 'question' &&
-      state.currentIndex >= Math.max(questions.length - 1, 0) &&
-      !isPracticeMode
-    ) {
-      setState((current) => ({
-        ...current,
-        phase: 'review',
-        reviewFilter: null,
-        reviewFilterIndex: 0,
-        showNavigator: false,
-      }))
-      return
+    if (state.phase === 'question' && !isPracticeMode) {
+      const goToReview = () =>
+        setState((current) => {
+          const next: QuestionEngineState = {
+            ...current,
+            phase: 'review',
+            reviewFilter: null,
+            reviewFilterIndex: 0,
+            showNavigator: false,
+          }
+          if (exam?.sourceType === 'mock') {
+            const seg = getCurrentMockSegment(exam, current)
+            if (seg?.type === 'questions') {
+              next.mockCurrentSetIndex = seg.setIndex
+            }
+          }
+          return next
+        })
+
+      if (exam?.sourceType === 'mock' && isLastQuestionOfCurrentMockSet(exam, state)) {
+        goToReview()
+        return
+      }
+      if (
+        exam?.sourceType !== 'mock' &&
+        state.currentIndex >= Math.max(questions.length - 1, 0)
+      ) {
+        goToReview()
+        return
+      }
     }
 
     if (state.phase === 'practiceAnswer') {

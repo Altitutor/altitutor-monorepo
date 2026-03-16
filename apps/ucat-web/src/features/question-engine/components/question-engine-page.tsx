@@ -28,6 +28,7 @@ import {
   computeMarkingResult,
   MarkingBody,
 } from '@/features/question-engine/components/marking-body'
+import { MockScoreBody } from '@/features/question-engine/components/mock-score-body'
 import { ResultsQuestionViewer } from '@/features/question-engine/components/results-question-viewer'
 import { ReviewBody } from '@/features/question-engine/components/review-body'
 import { ReviewInstructionsDialog } from '@/features/question-engine/components/review-instructions-dialog'
@@ -38,6 +39,7 @@ import {
   getCurrentMockSegment,
   getCurrentSegmentTimeLimitSeconds,
   getNextMockSegment,
+  getNextSetSegmentFromReview,
   getRemainingSeconds,
 } from '@/features/question-engine/lib/timing'
 import type { QuestionEngineMode, QuestionEngineQuestion, QuestionStemWithQuestions } from '@/features/question-engine/model/types'
@@ -65,14 +67,6 @@ export function QuestionEnginePage({
     setId: mode === 'set' ? sourceId : undefined,
     mockId: mode === 'mock' ? sourceId : undefined,
   })
-
-  // #region agent log
-  useEffect(() => {
-    if (mode === 'set' || mode === 'mock') {
-      fetch('http://127.0.0.1:7242/ingest/24632b4e-be12-493d-ae6c-866e439d0cb6',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'2a7e8c'},body:JSON.stringify({sessionId:'2a7e8c',location:'question-engine-page.tsx:query',message:'Question engine query state',data:{mode,sourceId:sourceId??null,queryStatus:query.status,hasData:!!query.data,error:query.error?.message},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
-    }
-  }, [mode, sourceId, query.status, query.data, query.error]);
-  // #endregion
 
   const exam = useMemo(
     () =>
@@ -491,12 +485,14 @@ export function QuestionEnginePage({
   const isInstructionsPhase = state.phase === 'instructions'
   const isReviewPhase = state.phase === 'review'
   const isMarkingPhase = state.phase === 'marking'
+  const isMockScorePhase = state.phase === 'mockScore'
+  const isResultsPhase = isMarkingPhase || isMockScorePhase
   const isPracticeAnswerPhase = state.phase === 'practiceAnswer'
   const isPracticeCompletePhase = state.phase === 'practiceComplete'
   const isReviewScreen = isReviewPhase && !state.reviewFilter
   const isReviewMode = isReviewPhase && state.reviewFilter
   const questionLabel = (() => {
-    if ((isMarkingPhase || isPracticeAnswerPhase) && state.viewingQuestionIndex != null) {
+    if ((isResultsPhase || isPracticeAnswerPhase) && state.viewingQuestionIndex != null) {
       const viewing = state.viewingQuestionIndex
       const unitStart = state.practiceAnswerUnitStartIndex ?? viewing
       const unitEnd = state.practiceAnswerUnitEndIndex ?? viewing
@@ -523,12 +519,67 @@ export function QuestionEnginePage({
     state.showExitResultsDialog ||
     state.showReviewInstructionsDialog
 
-  const incompleteCount = getIncompleteCount(
-    questions,
-    state.visitedQuestionIds,
-    state.selectedAnswers,
-    state.syllogismSnapshots
-  )
+  const incompleteCount = (() => {
+    const count = getIncompleteCount(
+      questions,
+      state.visitedQuestionIds,
+      state.selectedAnswers,
+      state.syllogismSnapshots
+    )
+    if (exam?.sourceType === 'mock' && state.phase === 'review' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      if (summary) {
+        const setQuestions = questions.slice(summary.questionStartIndex, summary.questionEndIndex)
+        return getIncompleteCount(
+          setQuestions,
+          state.visitedQuestionIds,
+          state.selectedAnswers,
+          state.syllogismSnapshots
+        )
+      }
+    }
+    return count
+  })()
+
+  async function handleEndReview() {
+    if (!exam) return
+    if (exam.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
+      const isLastSet = state.mockCurrentSetIndex >= exam.mockSetSummaries.length - 1
+      const nextSeg = getNextSetSegmentFromReview(exam, state.mockCurrentSetIndex)
+      if (!isLastSet && nextSeg) {
+        setState((current) => {
+          const next = {
+            ...current,
+            showEndReviewDialog: false,
+            reviewFilter: null,
+            reviewFilterIndex: 0,
+            mockCurrentSetIndex: current.mockCurrentSetIndex! + 1,
+          }
+          if (nextSeg.type === 'instructions') {
+            next.phase = 'instructions'
+            next.instructionsIndex = nextSeg.instructionsIndex
+            const timeLimit = nextSeg.timeLimitSeconds ?? 0
+            next.timerStartedAt = timeLimit > 0 ? Date.now() : null
+          } else {
+            next.phase = 'question'
+            next.currentIndex = nextSeg.questionStartIndex
+            next.timerStartedAt = (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null
+          }
+          return next
+        })
+        return
+      }
+    }
+    await handleExamCompleted()
+    setState((current) => ({
+      ...current,
+      phase: exam.sourceType === 'mock' ? 'mockScore' : 'marking',
+      showEndReviewDialog: false,
+      reviewFilter: null,
+      reviewFilterIndex: 0,
+      viewingQuestionIndex: null,
+    }))
+  }
 
   function handleTimeExpiredOk() {
     if (!exam || (exam.sourceType !== 'set' && exam.sourceType !== 'mock')) return
@@ -554,7 +605,7 @@ export function QuestionEnginePage({
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
-          phase: 'marking',
+          phase: 'mockScore',
           reviewFilter: null,
           reviewFilterIndex: 0,
           viewingQuestionIndex: null,
@@ -594,24 +645,27 @@ export function QuestionEnginePage({
               description="If you are ready to begin the exam, select the Yes button. Otherwise, select the No button to return to the previous screen."
               onStart={() =>
                 void runWithLag(() => {
+                  const nextSeg = exam?.sourceType === 'mock' ? getNextMockSegment(exam, state) : null
                   const questionsSegmentTimed =
                     exam &&
                     (exam.sourceType === 'set'
                       ? (exam.setModeTiming?.setTimeLimitSeconds ?? 0) > 0
-                      : (() => {
-                          const seg = getCurrentMockSegment(exam, {
-                            ...state,
-                            phase: 'question',
-                            currentIndex: 0,
-                          })
-                          return (seg?.timeLimitSeconds ?? 0) > 0
-                        })())
-                  setState((current) => ({
-                    ...current,
-                    phase: 'question',
-                    showReadyDialog: false,
-                    timerStartedAt: questionsSegmentTimed ? Date.now() : null,
-                  }))
+                      : (nextSeg?.timeLimitSeconds ?? 0) > 0)
+                  setState((current) => {
+                    const next = {
+                      ...current,
+                      phase: 'question' as const,
+                      showReadyDialog: false,
+                      timerStartedAt: questionsSegmentTimed ? Date.now() : null,
+                    }
+                    if (exam?.sourceType === 'set') {
+                      next.currentIndex = 0
+                    } else if (nextSeg?.type === 'questions') {
+                      next.currentIndex = nextSeg.questionStartIndex
+                      next.mockCurrentSetIndex = nextSeg.setIndex
+                    }
+                    return next
+                  })
                 })
               }
               onCancel={() =>
@@ -669,19 +723,7 @@ export function QuestionEnginePage({
           <div className="absolute inset-0 z-40 grid place-items-center bg-black/20 p-6">
             <EndReviewDialog
               incompleteCount={incompleteCount}
-              onConfirm={() =>
-                void runWithLag(async () => {
-                  await handleExamCompleted()
-                  setState((current) => ({
-                    ...current,
-                    phase: 'marking',
-                    showEndReviewDialog: false,
-                    reviewFilter: null,
-                    reviewFilterIndex: 0,
-                    viewingQuestionIndex: null,
-                  }))
-                })
-              }
+              onConfirm={() => void runWithLag(handleEndReview)}
               onCancel={() =>
                 void runWithLag(() =>
                   setState((current) => ({ ...current, showEndReviewDialog: false }))
@@ -733,7 +775,7 @@ export function QuestionEnginePage({
         sectionTitle={
           isPracticeCompletePhase
             ? `${exam.title} – Complete`
-            : isMarkingPhase
+            : isResultsPhase
               ? `${exam.title} – Results`
               : isReviewScreen
                 ? exam.title
@@ -749,7 +791,7 @@ export function QuestionEnginePage({
               : null
         }
         toolLeft={
-          isMarkingPhase ? null : isReviewScreen ? (
+          isResultsPhase ? null : isReviewScreen ? (
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
@@ -779,7 +821,7 @@ export function QuestionEnginePage({
           )
         }
         toolRight={
-          isMarkingPhase || isReviewScreen || isInstructionsPhase || isPracticeAnswerPhase || isPracticeCompletePhase ? null : (
+          isResultsPhase || isReviewScreen || isInstructionsPhase || isPracticeAnswerPhase || isPracticeCompletePhase ? null : (
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
@@ -809,7 +851,7 @@ export function QuestionEnginePage({
           )
         }
         footerLeft={
-          isMarkingPhase && state.viewingQuestionIndex != null ? (
+          isResultsPhase && state.viewingQuestionIndex != null ? (
             <UcatExamActionButton
               onClick={() =>
                 void runWithLag(() =>
@@ -820,23 +862,14 @@ export function QuestionEnginePage({
             >
               <span className="text-[14pt]">Back to results</span>
             </UcatExamActionButton>
-          ) : isMarkingPhase ? null : isReviewScreen ? (
+          ) : isResultsPhase ? null : isReviewScreen ? (
             <UcatExamActionButton
               onClick={() =>
                 void runWithLag(() => {
                   if (incompleteCount > 0) {
                     setState((current) => ({ ...current, showEndReviewDialog: true }))
                   } else {
-                    void runWithLag(async () => {
-                      await handleExamCompleted()
-                      setState((current) => ({
-                        ...current,
-                        phase: 'marking',
-                        reviewFilter: null,
-                        reviewFilterIndex: 0,
-                        viewingQuestionIndex: null,
-                      }))
-                    })
+                    void runWithLag(handleEndReview)
                   }
                 })
               }
@@ -879,7 +912,7 @@ export function QuestionEnginePage({
                 </span>
               </UcatExamActionButton>
             </>
-          ) : isMarkingPhase ? (
+          ) : isResultsPhase ? (
             state.viewingQuestionIndex != null ? (
               <>
                 {state.viewingQuestionIndex > 0 ? (
@@ -1082,38 +1115,68 @@ export function QuestionEnginePage({
               You have reviewed all questions.
             </p>
           </div>
-        ) : isPracticeAnswerPhase || isMarkingPhase ? (
+        ) : isPracticeAnswerPhase || isResultsPhase ? (
           state.viewingQuestionIndex != null &&
           questions[state.viewingQuestionIndex] ? (
             <ResultsQuestionViewer
               question={questions[state.viewingQuestionIndex]!}
               selectedOptionId={state.selectedAnswers[questions[state.viewingQuestionIndex]!.id]}
               correctOptionId={questions[state.viewingQuestionIndex]!.correctOptionId}
-              points={
-                computeMarkingResult(
+              points={(() => {
+                const idx = state.viewingQuestionIndex!
+                if (isMockScorePhase && exam?.mockSetSummaries) {
+                  const summary = exam.mockSetSummaries.find(
+                    (s) => idx >= s.questionStartIndex && idx < s.questionEndIndex
+                  )
+                  if (summary) {
+                    const setQuestions = questions.slice(
+                      summary.questionStartIndex,
+                      summary.questionEndIndex
+                    )
+                    const result = computeMarkingResult(
+                      setQuestions,
+                      state.selectedAnswers,
+                      state.syllogismSnapshots
+                    )
+                    return result.rows[idx - summary.questionStartIndex]?.points
+                  }
+                }
+                return computeMarkingResult(
                   questions,
                   state.selectedAnswers,
                   state.syllogismSnapshots
-                ).rows[state.viewingQuestionIndex]?.points
-              }
+                ).rows[idx]?.points
+              })()}
               syllogismSnapshot={
                 state.syllogismSnapshots?.[questions[state.viewingQuestionIndex]!.id]
               }
             />
+          ) : isMockScorePhase && exam?.mockSetSummaries?.length ? (
+            <MockScoreBody
+              exam={exam}
+              questions={questions}
+              selectedAnswers={state.selectedAnswers}
+              syllogismSnapshots={state.syllogismSnapshots}
+              onViewQuestion={(index) =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, viewingQuestionIndex: index }))
+                )
+              }
+            />
           ) : (
-          <MarkingBody
-            result={computeMarkingResult(
-              questions,
-              state.selectedAnswers,
-              state.syllogismSnapshots
-            )}
-            syllogismSnapshots={state.syllogismSnapshots}
-            onViewQuestion={(index) =>
-              void runWithLag(() =>
-                setState((current) => ({ ...current, viewingQuestionIndex: index }))
-              )
-            }
-          />
+            <MarkingBody
+              result={computeMarkingResult(
+                questions,
+                state.selectedAnswers,
+                state.syllogismSnapshots
+              )}
+              syllogismSnapshots={state.syllogismSnapshots}
+              onViewQuestion={(index) =>
+                void runWithLag(() =>
+                  setState((current) => ({ ...current, viewingQuestionIndex: index }))
+                )
+              }
+            />
           )
         ) : isReviewScreen ? (
           <ReviewBody

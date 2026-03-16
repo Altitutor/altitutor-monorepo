@@ -68,6 +68,13 @@ export type QuestionEngineExam = {
   setModeTiming?: SetModeTiming | null
   /** Mock mode only. Ordered segments for timer and expiry. */
   mockTimingSegments?: MockTimingSegment[]
+  /** Mock mode only. Per-set summaries for mock score display. */
+  mockSetSummaries?: Array<{
+    setIndex: number
+    name: string
+    questionStartIndex: number
+    questionEndIndex: number
+  }>
 }
 
 export type QuestionStemWithQuestions = {
@@ -150,8 +157,18 @@ export function mapQuestionsToItems(questions: QuestionEngineQuestion[]): Questi
 export type ReviewFilter = 'all' | 'incomplete' | 'flagged'
 
 export type QuestionEngineState = {
-  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'practiceAnswer' | 'practiceComplete' */
-  phase: 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'practiceAnswer' | 'practiceComplete'
+  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'mockScore' | 'practiceAnswer' | 'practiceComplete' */
+  phase:
+    | 'instructions'
+    | 'intro'
+    | 'question'
+    | 'review'
+    | 'marking'
+    | 'mockScore'
+    | 'practiceAnswer'
+    | 'practiceComplete'
+  /** Mock only: which set we're in (0-based). Used when in review to scope to current set. */
+  mockCurrentSetIndex?: number
   /** Which instructions screen (0-based). Only relevant when phase === 'instructions'. */
   instructionsIndex: number
   /** When true, Ready to Begin dialog is shown on top of current screen (e.g. instructions). No = dismiss only. */
