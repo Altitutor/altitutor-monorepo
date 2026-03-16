@@ -17,8 +17,6 @@ import { useStudentClasses, type StudentClass } from '@/features/students/hooks/
 import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { getSubjectColorStyle } from '@/shared/utils';
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-
 type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
@@ -248,122 +246,11 @@ export function ClassesTab({
     }
   };
 
-  // Fetch classes for enrollment modal - filtered by subject ID
-  const fetchClassesForSubject = useCallback(async (subjectId: string): Promise<ClassWithExpandedSubject[]> => {
-    const supabase = getSupabaseClient();
-    
-    const { data: rpcResult, error: rpcError } = await supabase.rpc('search_classes_admin', {
-      p_search: undefined,
-      p_statuses: ['ACTIVE'],
-      p_subject_ids: [subjectId], // Filter by specific subject
-      p_include_relationships: true,
-      p_exclude_student_search: false,
-      p_exclude_staff_search: false,
-      p_limit: 10000,
-      p_offset: 0,
-      p_order_by: 'day_of_week',
-      p_ascending: true,
-    });
-    
-    if (rpcError) throw rpcError;
-    if (!rpcResult) return [];
-    
-    interface RPCClass {
-      id: string;
-      day_of_week: number;
-      start_time: string;
-      end_time: string;
-      status: string;
-      room: string | null;
-      subject_id: string | null;
-      level: string | null;
-    }
-    
-    interface RPCSubject {
-      id: string;
-      curriculum: string | null;
-      year_level: number | null;
-      name: string;
-      discipline: string | null;
-      level: string | null;
-      color: string | null;
-    }
-    
-    interface RPCStaff {
-      id: string;
-      first_name: string;
-      last_name: string;
-      role: string;
-      status: string;
-      email: string | null;
-      phone_number: string | null;
-    }
-    
-    interface RPCStudent {
-      id: string;
-      first_name: string;
-      last_name: string;
-      status: string;
-      curriculum: string | null;
-      year_level: number | null;
-      school: string | null;
-    }
-    
-    const rpcData = rpcResult as unknown as { 
-      classes: RPCClass[]; 
-      classSubjects: Record<string, RPCSubject>; 
-      classStudents: Record<string, RPCStudent[]>; 
-      classStaff: Record<string, RPCStaff[]>; 
-      total: number 
-    };
-    
-    const rpcClasses = rpcData.classes || [];
-    
-    // Transform RPC response to match ClassWithExpandedSubject format
-    const allClasses: ClassWithExpandedSubject[] = rpcClasses.map(c => ({
-      id: c.id,
-      day_of_week: c.day_of_week,
-      start_time: c.start_time,
-      end_time: c.end_time,
-      status: c.status as Tables<'classes'>['status'],
-      room: c.room,
-      level: c.level,
-      subject_id: c.subject_id,
-      created_at: null,
-      updated_at: null,
-      created_by: null,
-      session_start_date: null,
-      session_end_date: null,
-      subject: rpcData.classSubjects?.[c.id] as Tables<'subjects'> | undefined,
-      staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
-        id: s.id,
-        first_name: s.first_name,
-        last_name: s.last_name,
-        role: s.role as Tables<'staff'>['role'],
-        status: s.status as Tables<'staff'>['status'],
-        email: s.email || null,
-        phone_number: s.phone_number || null,
-        created_at: null,
-        updated_at: null,
-      })),
-      students: (rpcData.classStudents?.[c.id] || []).map((s) => ({
-        id: s.id,
-        first_name: s.first_name,
-        last_name: s.last_name,
-        status: s.status as Tables<'students'>['status'],
-        curriculum: s.curriculum || null,
-        year_level: s.year_level || null,
-        school: s.school || null,
-        email: null,
-        phone: null,
-        phone_number: null,
-        created_at: null,
-        updated_at: null,
-      }))
-    })) as unknown as ClassWithExpandedSubject[];
-    
-    return allClasses;
-  }, []);
+  // Fetch classes for enrollment modal - filtered by subject ID (uses classesApi which correctly maps short_name/long_name)
+  const fetchClassesForSubject = useCallback(
+    (subjectId: string) => classesApi.fetchClassesForSubject(subjectId),
+    []
+  );
 
   // Fetch classes for change class modal
   const fetchClassesForChange = async (): Promise<ClassWithExpandedSubject[]> => {
