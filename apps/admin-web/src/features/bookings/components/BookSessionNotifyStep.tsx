@@ -3,13 +3,13 @@
 import { useMemo, useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import { useSessionWithTutorLog } from '@/features/sessions/hooks/useSessionsQuery';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useParentsForStudent } from '@/features/enrollments/hooks/useParentsForStudent';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
 import {
-  getSystemTemplateContentForClient,
-  getBookingTemplateKey,
+  getBookingConfirmationMessageForClient,
+  getSenderNameFromStaff,
 } from '@/features/messages/api/systemTemplates';
-import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
 import { BookingNotifyMessageScreen } from './BookingNotifyMessageScreen';
 import type { NotifyRecipient } from './BookingNotifyMessageScreen';
 
@@ -49,6 +49,7 @@ export function BookSessionNotifyStep({
   );
   const firstStudentId = studentIds[0];
 
+  const { data: currentStaff } = useCurrentStaff();
   const { data: parents = [] } = useParentsForStudent(
     firstStudentId,
     !!firstStudentId && (sessionType === 'SUBSIDY_INTERVIEW' || sessionType === 'TRIAL_SESSION')
@@ -114,42 +115,46 @@ export function BookSessionNotifyStep({
   const [defaultDraft, setDefaultDraft] = useState('');
   useEffect(() => {
     if (!sessionData || recipients.length === 0) return;
-    const session = sessionData as { start_at?: string; end_at?: string };
-    const sessionDate = session.start_at
+    const session = (sessionData as { session?: { start_at?: string; end_at?: string } }).session
+      ?? (sessionData as { start_at?: string; end_at?: string });
+    const sessionDate = session?.start_at
       ? format(new Date(session.start_at), 'EEEE, dd MMMM yyyy')
       : undefined;
     const sessionTime =
-      session.start_at && session.end_at
+      session?.start_at && session?.end_at
         ? `${format(new Date(session.start_at), 'h:mm a')} - ${format(new Date(session.end_at), 'h:mm a')}`
-        : session.start_at
+        : session?.start_at
           ? format(new Date(session.start_at), 'h:mm a')
           : undefined;
     const bookingUrl = getBookingConfirmationUrl(sessionId);
-    const firstName =
-      recipients[0]?.label?.split(' ')[0] || 'there';
+    const firstName = (() => {
+      const r0 = recipients[0];
+      if (!r0) return 'there';
+      if (r0.label === 'Student Phone' && sessionsStudents[0]) {
+        const student = (sessionsStudents[0] as { student?: { first_name?: string | null } | null })?.student;
+        return student?.first_name || 'there';
+      }
+      return r0.label?.split(' ')[0] || 'there';
+    })();
+    const senderName = getSenderNameFromStaff(currentStaff);
+
     let cancelled = false;
     (async () => {
-      const templateKey = getBookingTemplateKey({
-        firstName: '',
-        bookingUrl: '',
+      const draft = await getBookingConfirmationMessageForClient({
+        firstName,
+        bookingUrl,
         sessionDate,
         sessionTime,
         sessionType,
+        senderName,
       });
-      const content = await getSystemTemplateContentForClient(templateKey);
       if (cancelled) return;
-      const draft = replaceTemplateVariables(content, {
-        first_name: firstName,
-        booking_url: bookingUrl,
-        session_date: sessionDate ?? '',
-        session_time: sessionTime ?? '',
-      });
       setDefaultDraft(draft);
     })();
     return () => {
       cancelled = true;
     };
-  }, [sessionData, sessionId, sessionType, recipients]);
+  }, [sessionData, sessionId, sessionType, recipients, sessionsStudents, currentStaff]);
 
   if (isLoading) {
     return (

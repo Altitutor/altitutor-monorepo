@@ -6,8 +6,10 @@ import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
-import { getSystemTemplateContentForClient } from '@/features/messages/api/systemTemplates';
-import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
+import {
+  getUnenrollmentConfirmationMessageForClient,
+  getSenderNameFromStaff,
+} from '@/features/messages/api/systemTemplates';
 import { formatSessionDateTime } from '@/shared/utils/schedule';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -118,19 +120,17 @@ export function UnenrollStep3MessageScreen({
         ? parents.find((p) => p.id === selectedRecipient.id)?.first_name || 'there'
         : student.first_name || 'there';
 
-    // Get sender name
-    const senderName = `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim();
+    const senderName = getSenderNameFromStaff(currentStaff);
 
     let cancelled = false;
     (async () => {
-      const content = await getSystemTemplateContentForClient('unenrollment_confirmation');
-      if (cancelled) return;
-      const template = replaceTemplateVariables(content, {
+      const template = await getUnenrollmentConfirmationMessageForClient({
         name: recipientName,
-        class_name: className,
-        final_session_date: finalSessionDate,
-        sender_name: senderName,
+        className,
+        finalSessionDate,
+        senderName,
       });
+      if (cancelled) return;
       setComposerDraft(template);
     })();
     return () => {

@@ -20,8 +20,10 @@ import { Loader2, Mail, MessageSquare, Copy, Check, X, Phone, ChevronDown } from
 import { Skeleton } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { invitesApi } from '@/features/auth/api/invites';
-import { getSystemTemplateContentForClient } from '@/features/messages/api/systemTemplates';
-import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
+import {
+  getStudentInviteMessageForClient,
+  getSenderNameFromStaff,
+} from '@/features/messages/api/systemTemplates';
 import { useAvailableSenders } from '@/features/messages/api/queries';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
 import { MessageThread } from '@/features/messages/components/MessageThread';
@@ -129,15 +131,16 @@ export function SendInviteDialog({
     if (!inviteUrl || !selectedRecipient) return;
 
     const firstName = staffMember.first_name || 'there';
+    const senderName = getSenderNameFromStaff(currentStaff);
 
     let cancelled = false;
     (async () => {
-      const content = await getSystemTemplateContentForClient('student_invite');
-      if (cancelled) return;
-      const template = replaceTemplateVariables(content, {
-        first_name: firstName,
-        invite_url: inviteUrl,
+      const template = await getStudentInviteMessageForClient({
+        firstName,
+        inviteUrl,
+        senderName,
       });
+      if (cancelled) return;
 
       if (selectedRecipient.method === 'phone') {
         setComposerDraft((prev) => (prev ? prev : template));
@@ -150,7 +153,14 @@ export function SendInviteDialog({
     return () => {
       cancelled = true;
     };
-  }, [inviteUrl, staffMember.first_name, selectedRecipient, composerDraft, customMessage]);
+  }, [
+    inviteUrl,
+    staffMember.first_name,
+    selectedRecipient,
+    currentStaff,
+    composerDraft,
+    customMessage,
+  ]);
 
   // Auto-expand textarea
   useEffect(() => {

@@ -17,8 +17,11 @@ import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
-import { getSystemTemplateContentForClient } from '@/features/messages/api/systemTemplates';
-import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
+import {
+  getStudentInviteMessageForClient,
+  getStudentRegistrationInviteMessageForClient,
+  getSenderNameFromStaff,
+} from '@/features/messages/api/systemTemplates';
 import { useAvailableSenders } from '@/features/messages/api/queries';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
 import { MessageThread } from '@/features/messages/components/MessageThread';
@@ -150,17 +153,24 @@ export function SendStudentInviteDialog({
         ? `${student.first_name} ${student.last_name}`
         : '';
 
+    const senderName = getSenderNameFromStaff(currentStaff);
+
     let cancelled = false;
     (async () => {
-      const templateKey =
-        linkType === 'registration' ? 'student_registration_invite' : 'student_invite';
-      const content = await getSystemTemplateContentForClient(templateKey);
+      const template =
+        linkType === 'registration'
+          ? await getStudentRegistrationInviteMessageForClient({
+              firstName,
+              inviteUrl,
+              studentName,
+              senderName,
+            })
+          : await getStudentInviteMessageForClient({
+              firstName,
+              inviteUrl,
+              senderName,
+            });
       if (cancelled) return;
-      const template = replaceTemplateVariables(content, {
-        first_name: firstName,
-        invite_url: inviteUrl,
-        student_name: studentName,
-      });
 
       if (selectedRecipient.method === 'phone') {
         setComposerDraft((prev) => (prev ? prev : template));
@@ -180,6 +190,7 @@ export function SendStudentInviteDialog({
     student.last_name,
     selectedRecipient,
     parents,
+    currentStaff,
     composerDraft,
     customMessage,
   ]);

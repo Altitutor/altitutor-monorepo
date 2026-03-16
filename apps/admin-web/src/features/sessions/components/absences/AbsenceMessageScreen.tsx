@@ -11,8 +11,10 @@ import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useParentsForStudent } from '@/features/enrollments/hooks/useParentsForStudent';
 import type { Tables } from '@altitutor/shared';
-import { getSystemTemplateContentForClient } from '@/features/messages/api/systemTemplates';
-import { replaceTemplateVariables } from '@/features/messages/utils/replaceTemplateVariables';
+import {
+  getAbsenceNotificationMessageForClient,
+  getSenderNameFromStaff,
+} from '@/features/messages/api/systemTemplates';
 import type { AbsenceDecision, RescheduleSession, StudentSession } from '../../types/absence';
 
 function buildAbsenceDetails(
@@ -133,7 +135,7 @@ export function AbsenceMessageScreen({
         ? parents.find((p) => p.id === selectedRecipient.id)?.first_name || 'there'
         : selectedStudent.first_name || 'there';
 
-    const senderName = `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim();
+    const senderName = getSenderNameFromStaff(currentStaff);
     const absenceDetails = buildAbsenceDetails(
       decisions,
       selectedSessionsArray,
@@ -142,13 +144,12 @@ export function AbsenceMessageScreen({
 
     let cancelled = false;
     (async () => {
-      const content = await getSystemTemplateContentForClient('absence_notification');
-      if (cancelled) return;
-      const template = replaceTemplateVariables(content, {
-        recipient_name: recipientName,
-        sender_name: senderName,
-        absence_details: absenceDetails,
+      const template = await getAbsenceNotificationMessageForClient({
+        recipientName,
+        senderName,
+        absenceDetails,
       });
+      if (cancelled) return;
       setComposerDraft(template);
     })();
     return () => {

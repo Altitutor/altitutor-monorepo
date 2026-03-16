@@ -17,16 +17,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Check if user is admin
+    // Check if user is admin and get staff name for sender_name
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('role')
+      .select('role, first_name, last_name')
       .eq('user_id', user.id)
-      .single<{ role: string }>();
+      .single<{ role: string; first_name: string | null; last_name: string | null }>();
 
     if (staffError || !staffData || (staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
     }
+
+    const senderName = `${staffData.first_name ?? ''} ${staffData.last_name ?? ''}`.trim();
 
     // Verify admin client is available
     if (!supabaseAdmin) {
@@ -285,6 +287,7 @@ export async function POST(request: NextRequest) {
               sessionDate,
               sessionTime,
               sessionType: session.type,
+              senderName,
             }
           );
 

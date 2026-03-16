@@ -1,7 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Tables } from '@altitutor/shared';
-import { getInviteSmsTemplate } from '@/shared/lib/sms-templates';
-import { getBookingConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
 import { getEnrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
 import { getUnenrollmentConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
 import { getChangeClassConfirmationSmsTemplate } from '@/shared/lib/sms-templates';
@@ -51,18 +49,15 @@ export async function getSystemTemplateContent(
 
   switch (templateKey) {
     case 'booking_confirmation_subsidy_interview':
-      return 'Hi {first_name}, your subsidy interview has been booked for {session_date} at {session_time}. View your confirmation: {booking_url}';
+      return 'Hi {first_name}, your subsidy interview has been booked for {session_date} at {session_time}. View your confirmation: {booking_url}\n\nKind regards,\n{sender_name}';
     case 'booking_confirmation_trial_session':
-      return 'Hi {first_name}, your trial session is confirmed for {session_date} at {session_time}. View details: {booking_url}';
+      return 'Hi {first_name}, your trial session is confirmed for {session_date} at {session_time}. View details: {booking_url}\n\nKind regards,\n{sender_name}';
     case 'booking_confirmation_staff_interview':
-      return 'Hi {first_name}, your staff interview has been booked for {session_date} at {session_time}. View details: {booking_url}';
+      return 'Hi {first_name}, your staff interview has been booked for {session_date} at {session_time}. View details: {booking_url}\n\nKind regards,\n{sender_name}';
     case 'booking_confirmation_drafting':
-      return 'Hi {first_name}, you have been drafted for a session on {session_date} at {session_time}. View details: {booking_url}';
+      return 'Hi {first_name}, you have been drafted for a session on {session_date} at {session_time}. View details: {booking_url}\n\nKind regards,\n{sender_name}';
     case 'booking_confirmation_simple':
-      return getBookingConfirmationSmsTemplate({
-        firstName: '{first_name}',
-        bookingUrl: '{booking_url}',
-      });
+      return 'Hi {first_name}, view your booking confirmation: {booking_url}\n\nKind regards,\n{sender_name}';
     case 'absence_notification':
       return `Hi {recipient_name},
 
@@ -73,18 +68,9 @@ Kind regards,
 
 {sender_name}, Altitutor Admin`;
     case 'student_invite':
-      return getInviteSmsTemplate({
-        firstName: '{first_name}',
-        inviteUrl: '{invite_url}',
-        linkType: 'invite',
-      });
+      return 'Hi {first_name}, click on this link to log into your Altitutor account: {invite_url}\n\nKind regards,\n{sender_name}';
     case 'student_registration_invite':
-      return getInviteSmsTemplate({
-        firstName: '{first_name}',
-        inviteUrl: '{invite_url}',
-        linkType: 'registration',
-        studentName: '{student_name}',
-      });
+      return 'Hi {first_name},\n\nThank you for coming to your trial session. To register {student_name} as a student at Altitutor, please click the link below:\n\n{invite_url}\n\nKind regards,\n{sender_name}';
     case 'enrollment_confirmation':
       return getEnrollmentConfirmationSmsTemplate({
         name: '{name}',
@@ -125,6 +111,7 @@ export interface BookingConfirmationParams {
   sessionDate?: string;
   sessionTime?: string;
   sessionType?: BookingSessionType | string | null;
+  senderName?: string;
 }
 
 export function getBookingTemplateKey(
@@ -158,6 +145,7 @@ export async function getBookingConfirmationMessage(
     booking_url: params.bookingUrl,
     session_date: params.sessionDate ?? '',
     session_time: params.sessionTime ?? '',
+    sender_name: params.senderName ?? '',
   });
 }
 
@@ -182,6 +170,7 @@ export async function getAbsenceNotificationMessage(
 export interface StudentInviteParams {
   firstName: string;
   inviteUrl: string;
+  senderName?: string;
 }
 
 export async function getStudentInviteMessage(
@@ -192,6 +181,7 @@ export async function getStudentInviteMessage(
   return replaceTemplateVariables(content, {
     first_name: params.firstName,
     invite_url: params.inviteUrl,
+    sender_name: params.senderName ?? '',
   });
 }
 
@@ -199,6 +189,7 @@ export interface StudentRegistrationInviteParams {
   firstName: string;
   inviteUrl: string;
   studentName: string;
+  senderName?: string;
 }
 
 export async function getStudentRegistrationInviteMessage(
@@ -210,6 +201,7 @@ export async function getStudentRegistrationInviteMessage(
     first_name: params.firstName,
     invite_url: params.inviteUrl,
     student_name: params.studentName,
+    sender_name: params.senderName ?? '',
   });
 }
 
@@ -278,9 +270,20 @@ export async function getChangeClassConfirmationMessage(
 }
 
 /**
+ * Helper to derive sender name from staff record.
+ * Use when building params for system templates.
+ */
+export function getSenderNameFromStaff(
+  staff: { first_name?: string | null; last_name?: string | null } | null | undefined
+): string {
+  if (!staff) return '';
+  return `${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim();
+}
+
+/**
  * Client-side: fetch system template content using browser Supabase client.
- * Use for React components that need template content.
- * Uses dynamic import to avoid pulling getSupabaseClient into server bundles.
+ * Use for React components that need raw template content (e.g. template editor).
+ * For pre-rendered messages, prefer the getXxxMessageForClient helpers below.
  */
 export async function getSystemTemplateContentForClient(
   templateKey: SystemTemplateKey
@@ -288,4 +291,65 @@ export async function getSystemTemplateContentForClient(
   const { getSupabaseClient } = await import('@/shared/lib/supabase/client');
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   return getSystemTemplateContent(supabase, templateKey);
+}
+
+async function getSupabaseClientForTemplates(): Promise<SupabaseClient<Database>> {
+  const { getSupabaseClient } = await import('@/shared/lib/supabase/client');
+  return getSupabaseClient() as SupabaseClient<Database>;
+}
+
+/** Client-side: get fully-rendered booking confirmation message. */
+export async function getBookingConfirmationMessageForClient(
+  params: BookingConfirmationParams
+): Promise<string> {
+  const supabase = await getSupabaseClientForTemplates();
+  return getBookingConfirmationMessage(supabase, params);
+}
+
+/** Client-side: get fully-rendered absence notification message. */
+export async function getAbsenceNotificationMessageForClient(
+  params: AbsenceNotificationParams
+): Promise<string> {
+  const supabase = await getSupabaseClientForTemplates();
+  return getAbsenceNotificationMessage(supabase, params);
+}
+
+/** Client-side: get fully-rendered student invite message. */
+export async function getStudentInviteMessageForClient(
+  params: StudentInviteParams
+): Promise<string> {
+  const supabase = await getSupabaseClientForTemplates();
+  return getStudentInviteMessage(supabase, params);
+}
+
+/** Client-side: get fully-rendered student registration invite message. */
+export async function getStudentRegistrationInviteMessageForClient(
+  params: StudentRegistrationInviteParams
+): Promise<string> {
+  const supabase = await getSupabaseClientForTemplates();
+  return getStudentRegistrationInviteMessage(supabase, params);
+}
+
+/** Client-side: get fully-rendered enrollment confirmation message. */
+export async function getEnrollmentConfirmationMessageForClient(
+  params: EnrollmentConfirmationParams
+): Promise<string> {
+  const supabase = await getSupabaseClientForTemplates();
+  return getEnrollmentConfirmationMessage(supabase, params);
+}
+
+/** Client-side: get fully-rendered unenrollment confirmation message. */
+export async function getUnenrollmentConfirmationMessageForClient(
+  params: UnenrollmentConfirmationParams
+): Promise<string> {
+  const supabase = await getSupabaseClientForTemplates();
+  return getUnenrollmentConfirmationMessage(supabase, params);
+}
+
+/** Client-side: get fully-rendered change class confirmation message. */
+export async function getChangeClassConfirmationMessageForClient(
+  params: ChangeClassConfirmationParams
+): Promise<string> {
+  const supabase = await getSupabaseClientForTemplates();
+  return getChangeClassConfirmationMessage(supabase, params);
 }
