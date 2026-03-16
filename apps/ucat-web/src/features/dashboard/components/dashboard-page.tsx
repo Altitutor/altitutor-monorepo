@@ -1,8 +1,9 @@
 'use client'
 
 import Link from 'next/link'
-import { Badge, Skeleton, UcatPagePlaceholder } from '@altitutor/ui'
+import { Badge, Skeleton } from '@altitutor/ui'
 import { ChevronRight } from 'lucide-react'
+import { UcatPageHeader } from '@/features/layout'
 import { useComingSoon } from '@/features/layout/context/coming-soon-context'
 import { useProgress } from '@/features/progress/hooks/use-progress'
 import { dashboardCards } from '@/features/dashboard/config/dashboard-cards'
@@ -17,17 +18,13 @@ export function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">
-          Quick access to your UCAT preparation tools
-        </p>
-      </div>
+      <UcatPageHeader
+        title="Dashboard"
+        description="Quick access to your UCAT preparation tools"
+      />
 
       {progressError ? (
-        <UcatPagePlaceholder title="Dashboard" description="Could not load your progress data.">
-          <p className="text-sm text-destructive">{progressError.message}</p>
-        </UcatPagePlaceholder>
+        <p className="text-sm text-destructive">{progressError.message}</p>
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
@@ -56,7 +53,7 @@ export function DashboardPage() {
                 type="button"
                 onClick={() => showComingSoonModal()}
                 className={cn(
-                  'group relative flex w-full flex-col items-start rounded-lg border bg-card p-6 text-left',
+                  'group relative flex w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left',
                   'transition-colors hover:bg-accent/50',
                   'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
                 )}
@@ -81,7 +78,7 @@ export function DashboardPage() {
               key={card.href}
               href={card.href}
               className={cn(
-                'group relative flex w-full flex-col items-start rounded-lg border bg-card p-6 text-left',
+                'group relative flex w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left',
                 'transition-colors hover:bg-accent/50',
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
               )}

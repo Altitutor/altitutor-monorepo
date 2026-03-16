@@ -42,44 +42,48 @@ function getAdelaideDayStatus(startAtIso: string | null | undefined): 'past' | '
   return 'future'
 }
 
-function getNextSession(sessions: StudentUcatSession[]): StudentUcatSession | null {
-  const now = new Date()
-  const upcoming = sessions.filter((s) => {
-    const status = getAdelaideDayStatus(s.start_at)
-    if (status === 'future') return true
-    if (status === 'today') {
-      const endAt = s.end_at ? new Date(s.end_at) : null
-      return endAt ? endAt >= now : true
-    }
-    return false
-  })
-  upcoming.sort((a, b) => {
+function getSessionToShow(sessions: StudentUcatSession[]): StudentUcatSession | null {
+  const todaySessions = sessions.filter(
+    (s) => getAdelaideDayStatus(s.start_at) === 'today'
+  )
+  if (todaySessions.length > 0) {
+    todaySessions.sort((a, b) => {
+      const aTime = a.start_at ? new Date(a.start_at).getTime() : 0
+      const bTime = b.start_at ? new Date(b.start_at).getTime() : 0
+      return bTime - aTime
+    })
+    return todaySessions[0]
+  }
+  const pastSessions = sessions.filter(
+    (s) => getAdelaideDayStatus(s.start_at) === 'past'
+  )
+  pastSessions.sort((a, b) => {
     const aTime = a.start_at ? new Date(a.start_at).getTime() : 0
     const bTime = b.start_at ? new Date(b.start_at).getTime() : 0
-    return aTime - bTime
+    return bTime - aTime
   })
-  return upcoming[0] ?? null
+  return pastSessions[0] ?? null
 }
 
 export function NextSessionCard() {
   const { data: classesWithSessions, isLoading } = useStudentUcatSessions()
 
-  const nextSession = useMemo(() => {
+  const sessionToShow = useMemo(() => {
     if (!classesWithSessions || classesWithSessions.length === 0) return null
     const allSessions = classesWithSessions.flatMap((c) => c.sessions)
-    return getNextSession(allSessions)
+    return getSessionToShow(allSessions)
   }, [classesWithSessions])
 
   const classInfo = useMemo(() => {
-    if (!nextSession || !classesWithSessions) return null
-    return classesWithSessions.find((c) => c.class_id === nextSession.class_id)
-  }, [nextSession, classesWithSessions])
+    if (!sessionToShow || !classesWithSessions) return null
+    return classesWithSessions.find((c) => c.class_id === sessionToShow.class_id)
+  }, [sessionToShow, classesWithSessions])
 
   if (isLoading) {
     return (
-      <Card>
+      <Card className="border-border">
         <CardHeader className="pb-2">
-          <CardTitle className="text-base font-medium">Next UCAT session</CardTitle>
+          <CardTitle className="text-base font-medium">Last UCAT session</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground">Loading...</p>
@@ -89,9 +93,9 @@ export function NextSessionCard() {
   }
 
   return (
-    <Card>
+    <Card className="border-border">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-base font-medium">Next UCAT session</CardTitle>
+        <CardTitle className="text-base font-medium">Last UCAT session</CardTitle>
         <Link
           href="/sessions"
           className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
@@ -101,11 +105,11 @@ export function NextSessionCard() {
         </Link>
       </CardHeader>
       <CardContent>
-        {!nextSession ? (
-          <p className="text-sm text-muted-foreground">No upcoming sessions</p>
+        {!sessionToShow ? (
+          <p className="text-sm text-muted-foreground">No sessions yet</p>
         ) : (
           <Link
-            href={`/sessions/${encodeURIComponent(nextSession.session_id)}`}
+            href={`/sessions/${encodeURIComponent(sessionToShow.session_id)}`}
             className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-4 transition-colors hover:bg-muted/50"
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
@@ -113,24 +117,24 @@ export function NextSessionCard() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="font-medium">
-                {nextSession.start_at
+                {sessionToShow.start_at
                   ? new Intl.DateTimeFormat('en-AU', {
                       timeZone: ADELAIDE_TZ,
                       weekday: 'short',
                       day: 'numeric',
                       month: 'short',
-                    }).format(new Date(nextSession.start_at))
+                    }).format(new Date(sessionToShow.start_at))
                   : 'Date TBC'}
               </p>
               <p className="text-xs text-muted-foreground">
-                {nextSession.start_at && nextSession.end_at
+                {sessionToShow.start_at && sessionToShow.end_at
                   ? new Intl.DateTimeFormat('en-AU', {
                       timeZone: ADELAIDE_TZ,
                       hour: 'numeric',
                       minute: '2-digit',
                     }).formatRange(
-                      new Date(nextSession.start_at),
-                      new Date(nextSession.end_at)
+                      new Date(sessionToShow.start_at),
+                      new Date(sessionToShow.end_at)
                     )
                   : null}
                 {classInfo?.class_level ? (

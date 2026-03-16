@@ -34,7 +34,7 @@ export function RecentSetAttemptsCard({ attempts }: RecentSetAttemptsCardProps) 
     .slice(0, RECENT_LIMIT)
 
   return (
-    <Card>
+    <Card className="border-border">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-base font-medium">Recent set attempts</CardTitle>
         <Link
@@ -47,7 +47,7 @@ export function RecentSetAttemptsCard({ attempts }: RecentSetAttemptsCardProps) 
       </CardHeader>
       <CardContent>
         <div className="rounded-lg border border-border">
-          <Table>
+          <Table className="[&_tr]:border-border">
             <TableHeader>
               <TableRow>
                 <TableHead>Date</TableHead>
