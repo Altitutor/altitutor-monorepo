@@ -42,6 +42,7 @@ export type MockAttemptRow = {
   attemptedAt: string
   completedAt: string | null
   ucatMockId: string
+  mockName: string | null
   scorePoints: number | null
   totalPoints: number | null
   scaledScore: number | null
@@ -578,6 +579,28 @@ export async function GET() {
     return NextResponse.json({ error: mockError.message }, { status: 500 })
   }
 
+  // Fetch mock names for display
+  const mockIds = [
+    ...new Set(
+      (mockAttemptsRaw ?? [])
+        .map((r) => (r as { ucat_mock_id?: string | null }).ucat_mock_id)
+        .filter(Boolean)
+    ),
+  ] as string[]
+  const { data: mockDetails } =
+    mockIds.length > 0
+      ? await supabase
+          .from('vstudent_ucat_mocks')
+          .select('id, name')
+          .in('id', mockIds)
+      : { data: [] }
+  const mockNameById = new Map(
+    (mockDetails ?? []).map((m) => [
+      m.id,
+      m.name != null ? extractTextFromRichJson(m.name as JsonLike) || null : null,
+    ])
+  )
+
   type MockAttemptRaw = (typeof mockAttemptsRaw)[number]
 
   // Enrich mock attempts with aggregated timing and scores from child set attempts
@@ -620,6 +643,9 @@ export async function GET() {
       attemptedAt: row.attempted_at ?? '',
       completedAt: row.completed_at,
       ucatMockId: row.ucat_mock_id ?? '',
+      mockName: row.ucat_mock_id
+        ? mockNameById.get(row.ucat_mock_id) ?? null
+        : null,
       scorePoints: totalPoints > 0 ? scorePoints : null,
       totalPoints: totalPoints > 0 ? totalPoints : null,
       scaledScore: totalPoints > 0 ? scaledScore : null,

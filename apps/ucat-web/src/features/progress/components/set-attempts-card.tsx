@@ -19,6 +19,7 @@ import {
   TableHeader,
   TableRow,
 } from '@altitutor/ui'
+import { TableHeaderWithTooltip } from './table-header-with-tooltip'
 import { ProgressTablePagination } from './progress-table-pagination'
 import { GraphTypeTabs } from './graph-type-tabs'
 import { format } from 'date-fns'
@@ -159,17 +160,38 @@ export function SetAttemptsCard({
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Points</TableHead>
-                  <TableHead>Scaled score</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Set speed</TableHead>
-                  <TableHead>Exam speed</TableHead>
+                  <TableHead>Set</TableHead>
+                  <TableHeaderWithTooltip
+                    tooltip="Raw score: correct points earned out of total possible points for this set."
+                  >
+                    Points
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="Scaled score (0–900) normalised to UCAT exam scale for this section."
+                  >
+                    Scaled score
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="Time taken vs time limit for this set (e.g. 25:00 / 30:00)."
+                  >
+                    Time
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="How fast you completed this set vs its time limit. >100% means you finished early."
+                  >
+                    Set speed
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace."
+                  >
+                    Exam speed
+                  </TableHeaderWithTooltip>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {standaloneAttempts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       No submitted set attempts yet
                     </TableCell>
                   </TableRow>
@@ -194,6 +216,7 @@ export function SetAttemptsCard({
                         onClick={() => router.push(`/progress/sets/${a.id}`)}
                       >
                         <TableCell>{dateStr}</TableCell>
+                        <TableCell>{a.questionSetName ?? '—'}</TableCell>
                         <TableCell>
                           {total > 0 ? `${points} / ${total}` : '—'}
                         </TableCell>
