@@ -12052,6 +12052,7 @@ export type Database = {
       }
     }
     Functions: {
+      _format_date_ordinal: { Args: { ts: string }; Returns: string }
       add_enum_value: {
         Args: { enum_name: string; new_value: string }
         Returns: undefined
