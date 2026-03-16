@@ -170,6 +170,7 @@ describe('registrationSchema', () => {
     password: 'password123',
     confirmPassword: 'password123',
     paymentMethodVerified: true,
+    billingPolicyAgreed: true,
   };
 
   it('should validate valid registration data', () => {
@@ -256,6 +257,14 @@ describe('registrationSchema', () => {
     const invalidData = {
       ...validRegistrationData,
       paymentMethodVerified: false,
+    };
+    expect(() => registrationSchema.parse(invalidData)).toThrow();
+  });
+
+  it('should reject when billingPolicyAgreed is false', () => {
+    const invalidData = {
+      ...validRegistrationData,
+      billingPolicyAgreed: false,
     };
     expect(() => registrationSchema.parse(invalidData)).toThrow();
   });
