@@ -61,6 +61,17 @@ export type QuestionAttemptRow = {
   ucatSectionId: string | null
   sectionName: string | null
   sectionNumber: number | null
+  questionStemCategoryId: string | null
+  categoryName: string | null
+}
+
+export type SectionCategoryProgress = {
+  categoryId: string
+  categoryName: string
+  correctScore: number
+  maxScore: number
+  percentage: number
+  weightedAveragePercentage: number | null
 }
 
 export type ProgressResponse = {
@@ -68,6 +79,8 @@ export type ProgressResponse = {
   setAttempts: SetAttemptRow[]
   mockAttempts: MockAttemptRow[]
   questionAttempts: QuestionAttemptRow[]
+  /** Per-section category stats (all-time and weighted %) */
+  sectionCategoryProgress: Record<string, SectionCategoryProgress[]>
 }
 
 export async function GET() {
@@ -90,7 +103,7 @@ export async function GET() {
   const { data: questionAttemptsAll, error: qaError } = await supabase
     .from('vstudent_ucat_my_question_attempts')
     .select(
-      'id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed'
+      'id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name'
     )
     .eq('is_submitted', true)
 
@@ -390,6 +403,116 @@ export async function GET() {
     ),
   }))
 
+  // Compute per-section, per-category stats (all-time and weighted %)
+  const sectionCategorySums = new Map<string, { correct: number; max: number }>()
+  const qaBySectionCategoryDate = new Map<
+    string,
+    { correct: number; max: number }
+  >()
+  type QaWithCategory = (typeof questionAttemptsAll)[number] & {
+    question_stem_category_id?: string | null
+    category_name?: string | null
+  }
+  for (const qa of (questionAttemptsAll ?? []) as QaWithCategory[]) {
+    const sectionId = qa.ucat_section_id
+    if (!sectionId) continue
+    const categoryId = qa.question_stem_category_id ?? '__uncategorized__'
+    const dateStr = qa.attempted_at
+      ? new Date(qa.attempted_at).toISOString().slice(0, 10)
+      : ''
+    if (!dateStr) continue
+    const maxPerQuestion = qa.question_type === 'syllogism' ? 2 : 1
+    const sumKey = `${sectionId}:${categoryId}`
+    const dateKey = `${sectionId}:${categoryId}:${dateStr}`
+    const existingSum = sectionCategorySums.get(sumKey)
+    if (existingSum) {
+      existingSum.correct += qa.score ?? 0
+      existingSum.max += maxPerQuestion
+    } else {
+      sectionCategorySums.set(sumKey, {
+        correct: qa.score ?? 0,
+        max: maxPerQuestion,
+      })
+    }
+    const existingDate = qaBySectionCategoryDate.get(dateKey)
+    if (existingDate) {
+      existingDate.correct += qa.score ?? 0
+      existingDate.max += maxPerQuestion
+    } else {
+      qaBySectionCategoryDate.set(dateKey, {
+        correct: qa.score ?? 0,
+        max: maxPerQuestion,
+      })
+    }
+  }
+  const sectionCategoryDailyPctArrays = new Map<string, number[]>()
+  for (const [dateKey, { correct, max }] of qaBySectionCategoryDate) {
+    if (max > 0) {
+      const pct = (correct / max) * 100
+      const parts = dateKey.split(':')
+      const arrayKey = `${parts[0]}:${parts[1]}`
+      const arr = sectionCategoryDailyPctArrays.get(arrayKey) ?? []
+      arr.push(pct)
+      sectionCategoryDailyPctArrays.set(arrayKey, arr)
+    }
+  }
+  for (const [, arr] of sectionCategoryDailyPctArrays) {
+    arr.sort()
+  }
+  const { data: categoriesData } = await supabase
+    .from('vstudent_ucat_question_stem_categories')
+    .select('id, name, ucat_section_id')
+    .in('ucat_section_id', sectionProgress.map((s) => s.sectionId))
+
+  const categoriesBySection = new Map<string, { id: string; name: string }[]>()
+  for (const c of categoriesData ?? []) {
+    const sid = c.ucat_section_id
+    const catId = c.id
+    if (!sid || !catId) continue
+    const list = categoriesBySection.get(sid) ?? []
+    list.push({ id: catId, name: c.name ?? 'Unknown' })
+    categoriesBySection.set(sid, list)
+  }
+  const sectionCategoryProgress: Record<string, SectionCategoryProgress[]> = {}
+  for (const s of sectionProgress) {
+    const cats = categoriesBySection.get(s.sectionId) ?? []
+    const result: SectionCategoryProgress[] = []
+    for (const cat of cats) {
+      const sumKey = `${s.sectionId}:${cat.id}`
+      const { correct, max } = sectionCategorySums.get(sumKey) ?? {
+        correct: 0,
+        max: 0,
+      }
+      const dailyPcts = sectionCategoryDailyPctArrays.get(sumKey) ?? []
+      result.push({
+        categoryId: cat.id,
+        categoryName: cat.name,
+        correctScore: correct,
+        maxScore: max,
+        percentage: max > 0 ? Math.round((correct / max) * 100) : 0,
+        weightedAveragePercentage: computeEma(dailyPcts),
+      })
+    }
+    const uncatSum = sectionCategorySums.get(`${s.sectionId}:__uncategorized__`)
+    if (uncatSum && uncatSum.max > 0) {
+      const dailyPcts =
+        sectionCategoryDailyPctArrays.get(
+          `${s.sectionId}:__uncategorized__`
+        ) ?? []
+      result.push({
+        categoryId: '__uncategorized__',
+        categoryName: 'Uncategorized',
+        correctScore: uncatSum.correct,
+        maxScore: uncatSum.max,
+        percentage: Math.round((uncatSum.correct / uncatSum.max) * 100),
+        weightedAveragePercentage: computeEma(dailyPcts),
+      })
+    }
+    sectionCategoryProgress[s.sectionId] = result.sort((a, b) =>
+      a.categoryName.localeCompare(b.categoryName)
+    )
+  }
+
   // Fetch mock attempts (submitted = completed_at not null)
   // Note: vstudent_ucat_my_mock_attempts view types may be outdated; score columns from table
   const { data: mockAttemptsRaw, error: mockError } = await supabase
@@ -465,6 +588,8 @@ export async function GET() {
     ucat_section_id: string | null
     section_name: string | null
     section_number: number | null
+    question_stem_category_id: string | null
+    category_name: string | null
   }
 
   const questionAttempts: QuestionAttemptRow[] = (
@@ -479,7 +604,9 @@ export async function GET() {
     wasTimed: r.was_timed ?? false,
     ucatSectionId: r.ucat_section_id,
     sectionName: r.section_name,
-    sectionNumber: r.section_number ?? 0,
+    sectionNumber: r.section_number ?? null,
+    questionStemCategoryId: r.question_stem_category_id,
+    categoryName: r.category_name,
   }))
 
   return NextResponse.json({
@@ -487,5 +614,6 @@ export async function GET() {
     setAttempts,
     mockAttempts,
     questionAttempts,
+    sectionCategoryProgress,
   } satisfies ProgressResponse)
 }
