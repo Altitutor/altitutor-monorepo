@@ -123,24 +123,41 @@ export async function PATCH(
     return NextResponse.json({ error: questionAttemptsError.message }, { status: 500 })
   }
 
+  const questionSetId = attempt.question_set_id
+  if (!questionSetId) {
+    return NextResponse.json({ error: 'Set attempt has no question set' }, { status: 400 })
+  }
+
+  // Fetch ALL questions in the set (not just attempted) for correct total_points and scaled_score
+  const { data: setStems, error: setStemsError } = await supabaseAdmin
+    .from('question_stems_question_sets')
+    .select('question_stem_id')
+    .eq('question_set_id', questionSetId)
+    .order('index')
+
+  if (setStemsError) {
+    return NextResponse.json({ error: setStemsError.message }, { status: 500 })
+  }
+
+  const stemIds = [...new Set((setStems ?? []).map((s) => s.question_stem_id).filter(Boolean))]
+
   let totalQuestions = 0
   let rawScore = 0
   let scaledScore: number | null = null
 
-  if (questionAttempts && questionAttempts.length > 0) {
-    totalQuestions = questionAttempts.length
-    const questionIds = questionAttempts.map((qa) => qa.question_id)
-
+  if (stemIds.length > 0) {
     const { data: questions, error: questionsError } = await supabaseAdmin
       .from('ucat_questions')
       .select('id, question_stem_id, question_type')
-      .in('id', questionIds)
+      .in('question_stem_id', stemIds)
+      .is('deleted_at', null)
 
     if (questionsError) {
       return NextResponse.json({ error: questionsError.message }, { status: 500 })
     }
 
-    const stemIds = [...new Set((questions ?? []).map((q) => q.question_stem_id))]
+    const allQuestionIds = (questions ?? []).map((q) => q.id)
+    totalQuestions = allQuestionIds.length
 
     const { data: stems, error: stemsError } = await supabaseAdmin
       .from('question_stems')
@@ -172,7 +189,7 @@ export async function PATCH(
     const { data: options, error: optionsError } = await supabaseAdmin
       .from('question_answer_options')
       .select('id, question_id, index, is_answer')
-      .in('question_id', questionIds)
+      .in('question_id', allQuestionIds)
 
     if (optionsError) {
       return NextResponse.json({ error: optionsError.message }, { status: 500 })
