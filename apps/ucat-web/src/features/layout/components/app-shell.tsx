@@ -92,6 +92,7 @@ export function AppShell({ children }: AppShellProps) {
               <AppSidebar
                 collapsed={collapsed}
                 mobileOpen={mobileOpen}
+                isMobile={isMobile}
                 onCloseMobile={() => setMobileOpen(false)}
               />
               <main
@@ -112,6 +113,7 @@ export function AppShell({ children }: AppShellProps) {
               <AppSidebar
                 collapsed={collapsed}
                 mobileOpen={mobileOpen}
+                isMobile={isMobile}
                 onCloseMobile={() => setMobileOpen(false)}
               />
               <main
