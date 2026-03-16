@@ -27,6 +27,7 @@ import { useSampleStudents, useStudentClassesForTemplate } from '../../hooks/use
 import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
+import { replaceVariables } from '../../utils/variableReplacer';
 
 interface CreateEditTemplateDialogProps {
   isOpen: boolean;
@@ -44,14 +45,15 @@ export function CreateEditTemplateDialog({
   const { toast } = useToast();
   const createMutation = useCreateTemplate();
   const updateMutation = useUpdateTemplate();
-  useCurrentStaff(); // Reserved for template variable replacement
+  const { data: currentStaff } = useCurrentStaff();
 
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const [selectedStudentId, setSelectedStudentId] = useState<string>('');
+  const [previewMessage, setPreviewMessage] = useState('');
 
   const { data: sampleStudents = [], isLoading: isLoadingStudents } = useSampleStudents(isOpen);
-  const { isLoading: isLoadingClasses } = useStudentClassesForTemplate(selectedStudentId || null);
+  const { data: studentClasses = [], isLoading: isLoadingClasses } = useStudentClassesForTemplate(selectedStudentId || null);
 
   const nameInputRef = useRef<HTMLInputElement>(null);
   const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -175,18 +177,44 @@ export function CreateEditTemplateDialog({
     return sampleStudents.find(s => s.id === selectedStudentId);
   }, [sampleStudents, selectedStudentId]);
 
-  const previewMessage = useMemo(() => {
-    if (!selectedStudent || !content) return content;
-    // Note: Variable replacement happens elsewhere; return content as-is for now
-    return content;
-  }, [content, selectedStudent]);
+  const senderName = useMemo(() => {
+    if (!currentStaff) return null;
+    return `${currentStaff.first_name || ''} ${currentStaff.last_name || ''}`.trim() || null;
+  }, [currentStaff]);
+
+  // Update preview when content, student, classes, or sender change
+  useEffect(() => {
+    const updatePreview = async () => {
+      if (!content) {
+        setPreviewMessage('');
+        return;
+      }
+      if (!selectedStudent || isLoadingClasses) {
+        setPreviewMessage(content);
+        return;
+      }
+      try {
+        const replaced = await replaceVariables(
+          content,
+          selectedStudent,
+          studentClasses,
+          senderName
+        );
+        setPreviewMessage(replaced);
+      } catch (error) {
+        console.error('Error replacing template variables:', error);
+        setPreviewMessage(content);
+      }
+    };
+    updatePreview();
+  }, [content, selectedStudent, studentClasses, senderName, isLoadingClasses]);
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
   const characterCount = content.length;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden" onKeyDown={handleKeyDown}>
+      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden" onKeyDown={handleKeyDown}>
         <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex items-center gap-3 flex-1">
@@ -218,9 +246,9 @@ export function CreateEditTemplateDialog({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-[60%_40%] gap-6 overflow-hidden min-h-0 px-6 py-4">
-          {/* Left Panel - Main editing area */}
-          <div className="flex flex-col space-y-4 overflow-hidden">
+        <div className="flex-1 overflow-hidden min-h-0 flex flex-col lg:flex-row">
+          {/* Left Panel - Main editing area (independently scrollable) */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6 lg:border-r min-w-0">
             <div className="space-y-2">
               <Label htmlFor="template-name">Template Name</Label>
               <Input
@@ -233,7 +261,7 @@ export function CreateEditTemplateDialog({
               />
             </div>
 
-            <div className="flex-1 flex flex-col space-y-2 overflow-hidden">
+            <div className="space-y-2">
               <Label htmlFor="template-content">Content</Label>
               <Textarea
                 id="template-content"
@@ -241,7 +269,7 @@ export function CreateEditTemplateDialog({
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Type your message here. Use variables like {first_name}, {last_name}, {classes}, {sender_name}, {registration_link}, {invite_link}, {forgot_password_link}..."
-                className="flex-1 min-h-[300px] resize-none"
+                className="min-h-[300px] resize-none"
                 disabled={isLoading}
               />
               
@@ -282,8 +310,8 @@ export function CreateEditTemplateDialog({
             </div>
           </div>
 
-          {/* Right Panel - Preview */}
-          <div className="flex flex-col space-y-4 overflow-hidden border-l pl-6">
+          {/* Right Panel - Preview (independently scrollable) */}
+          <div className="flex-1 lg:flex-[0_0_40%] overflow-y-auto p-6 space-y-6 lg:border-l min-w-0">
             <div className="space-y-2">
               <Label>Preview with Sample Data</Label>
               <Select
@@ -308,11 +336,11 @@ export function CreateEditTemplateDialog({
               </Select>
             </div>
 
-            <div className="flex-1 flex flex-col overflow-hidden">
-              <Label className="mb-2">Preview</Label>
-              <div className="flex-1 bg-muted/20 rounded-lg p-4 overflow-y-auto border">
+            <div className="space-y-2">
+              <Label>Preview</Label>
+              <div className="bg-muted/20 rounded-lg p-4 border min-h-[200px]">
                 {isLoadingClasses ? (
-                  <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
+                  <div className="flex items-center justify-center min-h-[120px] text-muted-foreground text-sm">
                     Loading preview...
                   </div>
                 ) : (
