@@ -20,7 +20,7 @@ ALTER TABLE public.student_ucat_mock_attempts
 ALTER TABLE public.student_question_set_attempts
   ADD COLUMN IF NOT EXISTS was_timed BOOLEAN NOT NULL DEFAULT false;
 
--- 2. student_question_attempts: add was_timed and mode
+-- 3. student_question_attempts: add was_timed and mode
 ALTER TABLE public.student_question_attempts
   ADD COLUMN IF NOT EXISTS was_timed BOOLEAN NOT NULL DEFAULT false,
   ADD COLUMN IF NOT EXISTS mode TEXT;
@@ -32,7 +32,7 @@ ALTER TABLE public.student_question_attempts
   ADD CONSTRAINT student_question_attempts_mode_check
   CHECK (mode IS NULL OR mode IN ('question', 'question_stem', 'set', 'mock'));
 
--- 3. vstudent_ucat_my_question_attempts: add was_timed, mode
+-- 4. vstudent_ucat_my_question_attempts: add was_timed, mode
 CREATE OR REPLACE VIEW public.vstudent_ucat_my_question_attempts
 WITH (security_invoker = false)
 AS
@@ -70,7 +70,7 @@ WHERE public.is_ucat_student() AND sqa.student_id = public.current_student_id();
 
 GRANT SELECT ON public.vstudent_ucat_my_question_attempts TO authenticated;
 
--- 4. vtutor_ucat_student_question_attempts: add was_timed, mode
+-- 5. vtutor_ucat_student_question_attempts: add was_timed, mode
 CREATE OR REPLACE VIEW public.vtutor_ucat_student_question_attempts
 WITH (security_invoker = false)
 AS
@@ -96,7 +96,7 @@ JOIN public.students s ON s.id = sqa.student_id
 WHERE public.is_ucat_tutor()
   AND public.can_current_tutor_view_ucat_student(sqa.student_id);
 
--- 5. vtutor_ucat_student_set_attempts: add was_timed
+-- 6. vtutor_ucat_student_set_attempts: add was_timed
 DROP VIEW IF EXISTS public.vtutor_ucat_student_set_attempts;
 CREATE VIEW public.vtutor_ucat_student_set_attempts
 WITH (security_invoker = false)
@@ -124,7 +124,7 @@ JOIN public.question_sets qs ON qs.id = sqsa.question_set_id
 WHERE public.is_ucat_tutor()
   AND public.can_current_tutor_view_ucat_student(sqsa.student_id);
 
--- 6. vtutor_ucat_student_set_attempt_detail: add was_timed
+-- 7. vtutor_ucat_student_set_attempt_detail: add was_timed
 DROP VIEW IF EXISTS public.vtutor_ucat_student_set_attempt_detail;
 CREATE VIEW public.vtutor_ucat_student_set_attempt_detail
 WITH (security_invoker = false)
