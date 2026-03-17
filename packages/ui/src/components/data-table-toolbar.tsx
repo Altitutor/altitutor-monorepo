@@ -36,6 +36,7 @@ import {
 } from './dropdown-menu';
 import { ScrollArea } from './scroll-area';
 import { SearchableSelectInline } from './searchable-select-inline';
+import { DateRangeFilter } from './date-range-filter';
 import { cn } from '../lib/cn';
 
 interface DataTableToolbarProps {
@@ -125,11 +126,22 @@ export function DataTableToolbar({
   }, [debouncedSearch, onSearchChange, state.search]);
 
   const rangeFilterDefs = filterDefinitions.filter((d) => d.type === 'number-range' && d.minKey && d.maxKey);
+  const dateRangeFilterDefs = filterDefinitions.filter(
+    (d) => d.type === 'date-range' && d.fromKey && d.toKey
+  );
   const activeFilterCount: number = (() => {
     let count = 0;
     for (const [key, arr] of Object.entries(state.filters)) {
-      const def = filterDefinitions.find((d) => d.key === key || d.minKey === key || d.maxKey === key);
+      const def = filterDefinitions.find(
+        (d) =>
+          d.key === key ||
+          d.minKey === key ||
+          d.maxKey === key ||
+          d.fromKey === key ||
+          d.toKey === key
+      );
       if (def?.type === 'number-range') continue;
+      if (def?.type === 'date-range') continue;
       count += Array.isArray(arr) ? arr.length : 0;
     }
     for (const def of rangeFilterDefs) {
@@ -138,6 +150,15 @@ export function DataTableToolbar({
       const minSet = Array.isArray(minArr) && minArr.length > 0 && minArr[0] != null && minArr[0] !== '';
       const maxSet = Array.isArray(maxArr) && maxArr.length > 0 && maxArr[0] != null && maxArr[0] !== '';
       if (minSet || maxSet) count += 1;
+    }
+    for (const def of dateRangeFilterDefs) {
+      const fromArr = def.fromKey ? state.filters[def.fromKey] : [];
+      const toArr = def.toKey ? state.filters[def.toKey] : [];
+      const fromSet =
+        Array.isArray(fromArr) && fromArr.length > 0 && fromArr[0] != null && String(fromArr[0]).trim() !== '';
+      const toSet =
+        Array.isArray(toArr) && toArr.length > 0 && toArr[0] != null && String(toArr[0]).trim() !== '';
+      if (fromSet || toSet) count += 1;
     }
     return count;
   })();
@@ -183,6 +204,16 @@ export function DataTableToolbar({
 
   const isRangeFilterBoundKey = (columnKey: string) =>
     rangeFilterDefs.some((d) => d.minKey === columnKey || d.maxKey === columnKey);
+
+  const isDateRangeFilterBoundKey = (columnKey: string) =>
+    dateRangeFilterDefs.some((d) => d.fromKey === columnKey || d.toKey === columnKey);
+
+  const clearDateRangeFilter = (fromKey: string, toKey: string) => {
+    const nextFilters = { ...state.filters };
+    delete nextFilters[fromKey];
+    delete nextFilters[toKey];
+    onFiltersChange(nextFilters);
+  };
 
   const effectiveActiveFilterCount = activeFilterCount + (showDeletedActive ? 1 : 0);
 
@@ -412,6 +443,35 @@ export function DataTableToolbar({
 
                 {(effectiveActiveFilterCount > 0 || showDeletedActive) && (
                   <div className="px-2 pb-2 flex flex-wrap items-center gap-1">
+                    {dateRangeFilterDefs.map((def) => {
+                      if (!def.fromKey || !def.toKey) return null;
+                      const fromVal = String((state.filters[def.fromKey] ?? [])[0] ?? '');
+                      const toVal = String((state.filters[def.toKey] ?? [])[0] ?? '');
+                      const fromSet = fromVal.trim() !== '';
+                      const toSet = toVal.trim() !== '';
+                      if (!fromSet && !toSet) return null;
+                      const label = def.label;
+                      return (
+                        <div
+                          key={def.key}
+                          className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-[10px]"
+                        >
+                          <span>{label}:</span>
+                          <button
+                            onClick={() => clearDateRangeFilter(def.fromKey!, def.toKey!)}
+                            className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
+                            aria-label={`Clear ${label}`}
+                          >
+                            {fromSet && toSet
+                              ? `${fromVal} – ${toVal}`
+                              : fromSet
+                                ? `from ${fromVal}`
+                                : `to ${toVal}`}
+                            <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                          </button>
+                        </div>
+                      );
+                    })}
                     {rangeFilterDefs.map((def) => {
                       const minVal = def.minKey != null ? (state.filters[def.minKey]?.[0] ?? '') : '';
                       const maxVal = def.maxKey != null ? (state.filters[def.maxKey]?.[0] ?? '') : '';
@@ -473,6 +533,7 @@ export function DataTableToolbar({
                     })}
                     {Object.entries(state.filters).map(([columnKey, selected]) => {
                       if (isRangeFilterBoundKey(columnKey)) return null;
+                      if (isDateRangeFilterBoundKey(columnKey)) return null;
                       const def = filterDefinitions.find((d) => d.key === columnKey);
                       if (def?.type === 'number-range') return null;
                       if (!selected?.length) return null;
@@ -523,30 +584,40 @@ export function DataTableToolbar({
                 )}
 
                 <DropdownMenuSeparator />
-                {filterDefinitions.some((def) => def.type === 'date') && (
-                  <>
-                    <div className="px-2 py-2 grid grid-cols-2 gap-2">
-                      {filterDefinitions.filter((def) => def.type === 'date').map((def) => {
-                        const currentValue = String((state.filters[def.key] ?? [])[0] ?? '');
-                        return (
-                          <div key={def.key}>
-                            <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-                            <Input
-                              type="date"
-                              value={currentValue}
-                              onChange={(e) => setSingleFilterValue(def.key, e.target.value)}
-                              className="h-8 mt-1"
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
 
                 <ScrollArea className="flex-1 overflow-y-auto">
-                  {filterDefinitions.filter((def) => def.type !== 'date').map((def) => {
+                  {filterDefinitions
+                    .filter((def) => def.type !== 'date')
+                    .map((def) => {
+                    if (def.type === 'date-range' && def.fromKey && def.toKey) {
+                      const fromVal = String((state.filters[def.fromKey] ?? [])[0] ?? '');
+                      const toVal = String((state.filters[def.toKey] ?? [])[0] ?? '');
+                      return (
+                        <DropdownMenuSub key={def.key}>
+                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[320px] p-0">
+                            <DateRangeFilter
+                              fromValue={fromVal}
+                              toValue={toVal}
+                              onFromChange={(v) =>
+                                setSingleFilterValue(def.fromKey!, v)
+                              }
+                              onToChange={(v) =>
+                                setSingleFilterValue(def.toKey!, v)
+                              }
+                              onRangeChange={(from, to) => {
+                                const next = { ...state.filters };
+                                if (from) next[def.fromKey!] = [from];
+                                else delete next[def.fromKey!];
+                                if (to) next[def.toKey!] = [to];
+                                else delete next[def.toKey!];
+                                onFiltersChange(next);
+                              }}
+                            />
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    }
                     const customContent = customFilterContent[def.key];
                     if (customContent != null) {
                       return (

@@ -46,6 +46,7 @@ export * from './components/payment-method-card';
 export * from './components/policy-viewer';
 export * from './components/booking-calendar-view';
 export * from './components/date-range-picker';
+export * from './components/date-range-filter';
 export * from './components/kanban-board';
 export * from './components/rich-text-editor';
 export * from './components/ucat-page-placeholder';
