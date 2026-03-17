@@ -406,7 +406,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   }, [sortedItems, groupBy, rightPills, statusColumn, getGroupLabel, getGroupOrder]);
 
   return (
-    <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
+    <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
       {!hideToolbar && (
         <div className="flex flex-wrap items-center gap-1 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">

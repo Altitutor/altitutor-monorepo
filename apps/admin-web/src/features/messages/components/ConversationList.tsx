@@ -6,8 +6,14 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
 import { formatConversationDate } from '../utils/formatDate';
-import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
-import { Plus, Mail, Filter } from 'lucide-react';
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  SearchableSelectInline,
+} from '@altitutor/ui';
+import { Plus, Mail, Filter, Search } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -15,6 +21,14 @@ import { useMarkUnread, useMarkRead } from '../api/mutations';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AggregatedConversation } from '../types';
+
+type FilterOption = 'all' | 'unread' | 'unreplied' | 'to_follow_up';
+const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'unread', label: 'Unread' },
+  { value: 'unreplied', label: 'Unreplied' },
+  { value: 'to_follow_up', label: 'To follow up' },
+];
 
 interface Props {
   activeContactId?: string | null;
@@ -139,6 +153,9 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     }
   }, [activeFilter]);
 
+  const selectedFilterOption =
+    FILTER_OPTIONS.find((o) => o.value === activeFilter) ?? FILTER_OPTIONS[0];
+
   const handleNewConversation = async (conversationId: string) => {
     // Get contactId from conversation
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -161,42 +178,44 @@ export function ConversationList({ activeContactId, onSelect }: Props) {
     <div className="h-full border-r dark:border-brand-dark-border flex flex-col">
       <div className="p-3 flex-shrink-0">
         <div className="flex items-center gap-2">
-          <input 
-            className="flex-1 min-w-0 px-3 py-2 text-sm border rounded-md" 
-            placeholder="Search conversations" 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
+          {/* Search bar - styled like searchable-select-inline */}
+          <div className="flex flex-1 min-w-0 items-center rounded-md border px-3">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+            <input
+              className="flex h-9 w-full rounded-md border-0 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+              placeholder="Search conversations"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-[36px] px-2 flex-shrink-0 gap-1"
+                className="h-9 px-2 flex-shrink-0 gap-1"
               >
                 <Filter className="h-4 w-4" />
                 <span className="text-xs">{activeFilterLabel}</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => setActiveFilter('all')}>
-                All
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveFilter('unread')}>
-                Unread
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveFilter('unreplied')}>
-                Unreplied
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setActiveFilter('to_follow_up')}>
-                To follow up
-              </DropdownMenuItem>
+            <DropdownMenuContent align="end" className="w-[220px] p-0">
+              <SearchableSelectInline<{ value: FilterOption; label: string }>
+                items={FILTER_OPTIONS}
+                value={selectedFilterOption}
+                onValueChange={(v) => v && setActiveFilter(v.value)}
+                getItemId={(item) => item.value}
+                getItemLabel={(item) => item.label}
+                searchPlaceholder="Search filters..."
+                emptyMessage="No filters found"
+              />
             </DropdownMenuContent>
           </DropdownMenu>
           <Button
             onClick={() => setIsNewConversationDialogOpen(true)}
-            size="sm"
-            className="h-[36px] w-[36px] p-0 flex-shrink-0"
+            size="icon"
+            variant="default"
+            className="h-9 w-9 flex-shrink-0"
             title="New Conversation"
           >
             <Plus className="h-4 w-4" />
