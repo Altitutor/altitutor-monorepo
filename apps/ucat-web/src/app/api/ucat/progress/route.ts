@@ -88,6 +88,14 @@ export type ProgressResponse = {
   questionAttempts: QuestionAttemptRow[]
   /** Per-section category stats (all-time and weighted %) */
   sectionCategoryProgress: Record<string, SectionCategoryProgress[]>
+  /** Total count of public mocks (for mocks completed card) */
+  totalPublicMocks?: number
+  /** Per-section: total count of public non-student-generated sets */
+  totalPublicSetsBySection?: Record<string, number>
+  /** Per-section: total count of public untimed sets (for breakdown denominator) */
+  totalPublicUntimedSetsBySection?: Record<string, number>
+  /** Per-section: total count of public timed sets (for breakdown denominator) */
+  totalPublicTimedSetsBySection?: Record<string, number>
 }
 
 export async function GET() {
@@ -715,11 +723,63 @@ export async function GET() {
     categoryName: r.category_name,
   }))
 
+  // Fetch total public mocks count (for mocks completed card)
+  const { count: totalPublicMocks } = await supabase
+    .from('vstudent_ucat_mocks')
+    .select('*', { count: 'exact', head: true })
+
+  // Fetch total public non-student-generated sets per section
+  const { data: publicSetsRaw } = await supabase
+    .from('vstudent_ucat_question_sets')
+    .select('id, sections, is_student_generated, time_limit_seconds')
+    .eq('is_student_generated', false)
+
+  const totalPublicSetsBySection: Record<string, number> = {}
+  const totalPublicUntimedSetsBySection: Record<string, number> = {}
+  const totalPublicTimedSetsBySection: Record<string, number> = {}
+  for (const s of sectionProgress) {
+    totalPublicSetsBySection[s.sectionId] = 0
+    totalPublicUntimedSetsBySection[s.sectionId] = 0
+    totalPublicTimedSetsBySection[s.sectionId] = 0
+  }
+  const sectionByNumberForSets = new Map(
+    sectionProgress.map((s) => [s.sectionNumber, s.sectionId])
+  )
+  for (const row of publicSetsRaw ?? []) {
+    if (row.is_student_generated) continue
+    const sectionsArr = row.sections as Array<{ section_number?: number }> | null
+    const firstSectionNum =
+      Array.isArray(sectionsArr) && sectionsArr.length > 0
+        ? sectionsArr[0]?.section_number
+        : undefined
+    const sectionId =
+      firstSectionNum != null
+        ? sectionByNumberForSets.get(firstSectionNum)
+        : undefined
+    if (sectionId) {
+      totalPublicSetsBySection[sectionId] =
+        (totalPublicSetsBySection[sectionId] ?? 0) + 1
+      const isTimed =
+        row.time_limit_seconds != null && row.time_limit_seconds > 0
+      if (isTimed) {
+        totalPublicTimedSetsBySection[sectionId] =
+          (totalPublicTimedSetsBySection[sectionId] ?? 0) + 1
+      } else {
+        totalPublicUntimedSetsBySection[sectionId] =
+          (totalPublicUntimedSetsBySection[sectionId] ?? 0) + 1
+      }
+    }
+  }
+
   return NextResponse.json({
     sectionProgress,
     setAttempts,
     mockAttempts,
     questionAttempts,
     sectionCategoryProgress,
+    totalPublicMocks: totalPublicMocks ?? 0,
+    totalPublicSetsBySection,
+    totalPublicUntimedSetsBySection,
+    totalPublicTimedSetsBySection,
   } satisfies ProgressResponse)
 }

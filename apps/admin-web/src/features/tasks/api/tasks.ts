@@ -8,17 +8,20 @@ import type { TaskFilters, TaskWithAssignee, TaskInsert, TaskUpdate } from '../t
  */
 export const tasksApi = {
   /**
-   * Search tasks for mention/command palette usage
+   * Search tasks for mention/command palette usage.
+   * @param excludeLinked - when true, only return tasks not linked to any issue or project
    */
   search: async (
     search: string,
-    limit = 8
+    limit = 8,
+    options?: { excludeLinked?: boolean }
   ): Promise<Array<Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'>>> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const trimmed = search.trim();
+    const excludeLinked = options?.excludeLinked ?? false;
 
     if (trimmed.length > 0) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('tasks')
         .select('id, title, status, due_date, priority')
         .textSearch('search_vector', trimmed, {
@@ -27,17 +30,25 @@ export const tasksApi = {
         })
         .order('created_at', { ascending: false })
         .limit(limit);
+      if (excludeLinked) {
+        query = query.is('issue_id', null).is('project_id', null);
+      }
 
+      const { data, error } = await query;
       if (error) throw error;
       return (data ?? []) as Array<Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'>>;
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('tasks')
       .select('id, title, status, due_date, priority')
       .order('created_at', { ascending: false })
       .limit(limit);
+    if (excludeLinked) {
+      query = query.is('issue_id', null).is('project_id', null);
+    }
 
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as Array<Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'>>;
   },

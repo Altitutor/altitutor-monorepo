@@ -175,6 +175,7 @@ export function applyAttemptFilterToProgress(
   }
 
   return {
+    ...data,
     sectionProgress,
     setAttempts,
     mockAttempts,

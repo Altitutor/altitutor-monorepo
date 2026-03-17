@@ -17,14 +17,12 @@ type SectionProgressCardsProps = {
 function CircularProgress({
   percentage,
   total,
-  totalPublic,
   size = 120,
   strokeWidth = 10,
   className,
 }: {
   percentage: number
   total: number
-  totalPublic?: number
   size?: number
   strokeWidth?: number
   className?: string
@@ -76,8 +74,7 @@ function CircularProgress({
         </div>
       </div>
       <span className="text-xs text-muted-foreground tabular-nums">
-        {totalPublic != null ? `${total} / ${totalPublic}` : total} questions
-        completed
+        {total} questions completed
       </span>
     </div>
   )
@@ -138,7 +135,6 @@ export function SectionProgressCards({
                   <CircularProgress
                     percentage={getPercentage(section)}
                     total={section.maxScore}
-                    totalPublic={section.totalPublicQuestions}
                     className="text-accent"
                   />
                 </div>

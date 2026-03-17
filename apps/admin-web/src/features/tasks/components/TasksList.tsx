@@ -187,9 +187,12 @@ function TaskLinkAutocomplete({
         tippyInstanceRef.current = null;
       }
       if (rootRef.current && containerRef.current) {
-        rootRef.current.unmount();
+        const root = rootRef.current;
         rootRef.current = null;
         containerRef.current = null;
+        queueMicrotask(() => {
+          root.unmount();
+        });
       }
       return;
     }
@@ -213,7 +216,10 @@ function TaskLinkAutocomplete({
 
     tippyInstanceRef.current = tippy(input as Element, {
       content: container,
-      appendTo: () => document.body,
+      appendTo: () => {
+        const dialog = input.closest('[role="dialog"]');
+        return dialog ?? document.body;
+      },
       showOnCreate: true,
       interactive: true,
       trigger: 'manual',
@@ -234,9 +240,12 @@ function TaskLinkAutocomplete({
         tippyInstanceRef.current = null;
       }
       if (rootRef.current && containerRef.current) {
-        rootRef.current.unmount();
+        const root = rootRef.current;
         rootRef.current = null;
         containerRef.current = null;
+        queueMicrotask(() => {
+          root.unmount();
+        });
       }
     };
   }, [showDropdown, inputRef]);
@@ -275,10 +284,9 @@ function TaskListAddRowWithSearch({
 }) {
   const { addName, setAddName, inputRef } = addRowProps;
 
-  const { tasks, isLoading } = useTaskSearch(
-    addName,
-    !!(issueId || projectId)
-  );
+  const { tasks, isLoading } = useTaskSearch(addName, !!(issueId || projectId), {
+    excludeLinked: true,
+  });
   const suggestions = useMemo(
     () => tasks.filter((t) => !linkedTaskIds.includes(t.id)),
     [tasks, linkedTaskIds]
@@ -376,8 +384,12 @@ export function TasksList({
   const mentionSuggestions = useMentionSuggestions();
 
   const handleStatusChange = useCallback((task: TaskWithAssignee, value: TaskStatus) => {
-    updateTask.mutate({ id: task.id, updates: { status: value } });
-  }, [updateTask]);
+    const updates: { status: TaskStatus; completed_by?: string | null } = { status: value };
+    if (value === 'done') {
+      updates.completed_by = currentStaff?.id ?? null;
+    }
+    updateTask.mutate({ id: task.id, updates });
+  }, [updateTask, currentStaff?.id]);
 
   const handlePriorityChange = useCallback((task: TaskWithAssignee, value: TaskPriority) => {
     updateTask.mutate({ id: task.id, updates: { priority: value } });
