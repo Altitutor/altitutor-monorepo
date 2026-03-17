@@ -318,12 +318,17 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
         onStaffUpdated={handleStaffUpdated}
       />
 
-      <ViewClassModal
-        isOpen={isClassModalOpen}
-        onClose={() => setIsClassModalOpen(false)}
-        classId={selectedClassId}
-        onClassUpdated={handleStaffUpdated}
-      />
+      {selectedClassId && (
+        <ViewClassModal
+          isOpen={isClassModalOpen}
+          onClose={() => {
+            setIsClassModalOpen(false);
+            setSelectedClassId(null);
+          }}
+          classId={selectedClassId}
+          onClassUpdated={handleStaffUpdated}
+        />
+      )}
     </div>
   );
 }); 
