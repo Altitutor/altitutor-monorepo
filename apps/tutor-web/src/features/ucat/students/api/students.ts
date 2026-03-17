@@ -21,39 +21,6 @@ export const ucatStudentsApi = {
     return data ?? []
   },
 
-  async studentSetAttempts(studentId: string) {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_student_set_attempts')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('attempted_at', { ascending: false })
-    if (error) throw error
-    return data ?? []
-  },
-
-  async studentMockAttempts(studentId: string) {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_student_mock_attempts')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('attempted_at', { ascending: false })
-    if (error) throw error
-    return data ?? []
-  },
-
-  async studentQuestionAttempts(studentId: string) {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_student_question_attempts')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('attempted_at', { ascending: false, nullsFirst: false })
-    if (error) throw error
-    return data ?? []
-  },
-
   async studentSummary(studentId: string) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
     const { data, error } = await supabase

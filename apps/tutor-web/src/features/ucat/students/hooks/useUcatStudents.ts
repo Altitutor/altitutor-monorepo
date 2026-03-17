@@ -14,22 +14,6 @@ export function useUcatStudentSummary(studentId: string | null) {
   })
 }
 
-export function useUcatStudentSetAttempts(studentId: string | null) {
-  return useQuery({
-    queryKey: studentId ? [...ucatKeys.student(studentId), 'setAttempts'] : [...ucatKeys.students(), 'setAttempts', 'empty'],
-    queryFn: () => ucatStudentsApi.studentSetAttempts(studentId as string),
-    enabled: !!studentId,
-  })
-}
-
-export function useUcatStudentMockAttempts(studentId: string | null) {
-  return useQuery({
-    queryKey: studentId ? [...ucatKeys.student(studentId), 'mockAttempts'] : [...ucatKeys.students(), 'mockAttempts', 'empty'],
-    queryFn: () => ucatStudentsApi.studentMockAttempts(studentId as string),
-    enabled: !!studentId,
-  })
-}
-
 export function useUcatClasses() {
   return useQuery({ queryKey: [...ucatKeys.students(), 'classes'], queryFn: ucatStudentsApi.ucatClasses })
 }
@@ -49,10 +33,3 @@ export function useUcatClassesWithDetails() {
   })
 }
 
-export function useUcatStudentQuestionAttempts(studentId: string | null) {
-  return useQuery({
-    queryKey: studentId ? [...ucatKeys.student(studentId), 'questionAttempts'] : [...ucatKeys.students(), 'questionAttempts', 'empty'],
-    queryFn: () => ucatStudentsApi.studentQuestionAttempts(studentId as string),
-    enabled: !!studentId,
-  })
-}
