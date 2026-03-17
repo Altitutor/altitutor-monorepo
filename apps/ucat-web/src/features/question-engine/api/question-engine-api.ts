@@ -118,6 +118,13 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
       const cleanQuestionExplanation =
         rawQuestionExplanation.toLowerCase() === 'paragraph' ? '' : rawQuestionExplanation
       const questionAnswerExplanation = cleanQuestionExplanation || undefined
+      const stemJson = stem.stem_text != null && typeof stem.stem_text === 'object'
+        ? (stem.stem_text as Record<string, unknown>)
+        : null
+      const questionJson = question.question_text != null && typeof question.question_text === 'object'
+        ? (question.question_text as Record<string, unknown>)
+        : null
+
       questions.push({
         id: question.id,
         index: runningIndex++,
@@ -127,6 +134,8 @@ function mapSetToQuestions(set: SetDetailRow, stemDetails: StemDetailRow[]): Que
         sectionDisplayColumns: (stem.display_columns ?? 1) === 2 ? 2 : 1,
         stemText: extractTextFromRichJson(stem.stem_text as JsonLike),
         questionText: extractTextFromRichJson(question.question_text as JsonLike),
+        stemJson,
+        questionJson,
         questionType: question.question_type,
         options,
         correctOptionId: correctOption?.id,

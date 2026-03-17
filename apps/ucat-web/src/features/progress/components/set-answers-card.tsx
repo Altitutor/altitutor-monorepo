@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ArrowLeft, ArrowRight } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { useQuestionEngineData } from '@/features/question-engine/hooks/use-question-engine-data'
+import { useRefreshedContentCache } from '@/features/question-engine/hooks/use-refreshed-content-cache'
 import { ResultsQuestionViewer } from '@/features/question-engine/components/results-question-viewer'
 import { computeMarkingResult } from '@/features/question-engine/components/marking-body'
 import type { SetAttemptDetailResponse } from '@/app/api/ucat/progress/sets/[id]/route'
@@ -68,6 +69,8 @@ export function SetAnswersCard({
     markingResult && currentQuestion
       ? markingResult.rows[viewingIndex]?.points
       : undefined
+
+  const getCachedContent = useRefreshedContentCache(questions, viewingIndex)
 
   const handlePrev = () => {
     const next = Math.max(0, viewingIndex - 1)
@@ -165,6 +168,7 @@ export function SetAnswersCard({
                 correctOptionId={currentQuestion.correctOptionId}
                 points={points}
                 syllogismSnapshot={syllogismSnapshots[currentQuestion.id]}
+                preloadedContent={getCachedContent(currentQuestion.id)}
               />
             </div>
           )}

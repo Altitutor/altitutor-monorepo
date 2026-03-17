@@ -1,6 +1,8 @@
 import { useState, type DragEventHandler } from 'react'
 import type { QuestionItem } from '@/features/question-engine/model/types'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
+import { RichContentBlock } from './rich-content-block'
+import type { CachedContent } from '@/features/question-engine/hooks/use-refreshed-content-cache'
 
 type QuestionContentProps = {
   question: QuestionItem
@@ -8,12 +10,15 @@ type QuestionContentProps = {
   onSelectOption: (optionId: string) => void
   syllogismSnapshot?: Record<string, boolean>
   onChangeSyllogismSnapshot?: (snapshot: Record<string, boolean>) => void
+  /** Pre-refreshed stem/question content for instant image display. */
+  preloadedContent?: CachedContent | null
 }
 
 function SyllogismQuestionContent({
   question,
   syllogismSnapshot,
   onChangeSyllogismSnapshot,
+  preloadedContent,
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2
 
@@ -89,7 +94,13 @@ function SyllogismQuestionContent({
 
   const content = (
     <section className="space-y-4">
-      <h4 className="font-medium text-[12pt]">{question.questionText}</h4>
+      <div className="font-medium text-[12pt]">
+        <RichContentBlock
+          json={question.questionJson}
+          plainText={question.questionText}
+          preloadedContent={preloadedContent?.question}
+        />
+      </div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1 space-y-3">
           {question.options.map((option) => {
@@ -177,7 +188,11 @@ function SyllogismQuestionContent({
           style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
         >
           <div className="space-y-3">
-            <p>{question.stemText}</p>
+            <RichContentBlock
+              json={question.stemJson}
+              plainText={question.stemText}
+              preloadedContent={preloadedContent?.stem}
+            />
           </div>
         </article>
         <section className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5">
@@ -191,7 +206,11 @@ function SyllogismQuestionContent({
     <div className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}>
       <div className="space-y-4 py-4 sm:py-5">
         <article className="space-y-3">
-          <p>{question.stemText}</p>
+          <RichContentBlock
+            json={question.stemJson}
+            plainText={question.stemText}
+            preloadedContent={preloadedContent?.stem}
+          />
         </article>
         {content}
       </div>
@@ -205,6 +224,7 @@ export function QuestionContent({
   onSelectOption,
   syllogismSnapshot,
   onChangeSyllogismSnapshot,
+  preloadedContent,
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2
 
@@ -216,6 +236,7 @@ export function QuestionContent({
         onSelectOption={onSelectOption}
         syllogismSnapshot={syllogismSnapshot}
         onChangeSyllogismSnapshot={onChangeSyllogismSnapshot}
+        preloadedContent={preloadedContent}
       />
     )
   }
@@ -228,12 +249,22 @@ export function QuestionContent({
           style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
         >
           <div className="space-y-3">
-            <p>{question.stemText}</p>
+            <RichContentBlock
+              json={question.stemJson}
+              plainText={question.stemText}
+              preloadedContent={preloadedContent?.stem}
+            />
           </div>
         </article>
         <section className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5">
           <div className="space-y-3">
-            <h4 className="font-medium text-[12pt]">{question.questionText}</h4>
+            <div className="font-medium text-[12pt]">
+              <RichContentBlock
+                json={question.questionJson}
+                plainText={question.questionText}
+                preloadedContent={preloadedContent?.question}
+              />
+            </div>
             <div className="space-y-2 pl-6">
               {question.options.map((option, index) => {
                 const letter = String.fromCharCode(65 + index)
@@ -264,10 +295,20 @@ export function QuestionContent({
     <div className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}>
       <div className="space-y-4 py-4 sm:py-5">
         <article className="space-y-3">
-          <p>{question.stemText}</p>
+          <RichContentBlock
+            json={question.stemJson}
+            plainText={question.stemText}
+            preloadedContent={preloadedContent?.stem}
+          />
         </article>
         <section className="space-y-3">
-          <h4 className="font-medium text-[12pt]">{question.questionText}</h4>
+          <div className="font-medium text-[12pt]">
+            <RichContentBlock
+              json={question.questionJson}
+              plainText={question.questionText}
+              preloadedContent={preloadedContent?.question}
+            />
+          </div>
           <div className="space-y-2 pl-6">
             {question.options.map((option, index) => {
               const letter = String.fromCharCode(65 + index)
