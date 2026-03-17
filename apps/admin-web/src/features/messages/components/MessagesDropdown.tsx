@@ -221,7 +221,8 @@ export function MessagesDropdown() {
         </PopoverTrigger>
         <PopoverContent 
           align="end" 
-          className="w-[420px] h-[calc(100vh-120px)] max-h-[700px] p-0 flex flex-col"
+          className="w-[420px] max-w-[calc(100vw-2rem)] h-[calc(100vh-120px)] max-h-[700px] p-0 flex flex-col"
+          collisionPadding={16}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="flex h-full overflow-hidden flex-col">

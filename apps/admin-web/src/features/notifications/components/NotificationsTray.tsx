@@ -63,6 +63,7 @@ export function NotificationsTray({ staffId }: NotificationsTrayProps) {
         side="bottom"
         align="end"
         sideOffset={8}
+        collisionPadding={16}
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <div className="p-4 border-b">
