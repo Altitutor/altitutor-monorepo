@@ -85,8 +85,17 @@ export function SearchableSelectInline<T>({
   multiSelect = false,
 }: SearchableSelectInlineProps<T>) {
   const [search, setSearch] = React.useState("");
+  const inputRef = React.useRef<HTMLInputElement>(null);
   const isServerSideSearch = Boolean(onSearchChange);
   const getValue = getItemValue ?? getItemLabel;
+
+  React.useEffect(() => {
+    // Focus the search input when the component mounts (e.g. when dropdown opens)
+    const input = inputRef.current;
+    if (input) {
+      requestAnimationFrame(() => input.focus());
+    }
+  }, []);
 
   const selectedIds = React.useMemo(() => {
     if (multiSelect && Array.isArray(value)) {
@@ -135,6 +144,7 @@ export function SearchableSelectInline<T>({
       className={cn("rounded-lg border-0", className)}
     >
       <CommandInput
+        ref={inputRef}
         placeholder={searchPlaceholder}
         value={isServerSideSearch ? search : undefined}
         onValueChange={isServerSideSearch ? handleSearchChange : undefined}
