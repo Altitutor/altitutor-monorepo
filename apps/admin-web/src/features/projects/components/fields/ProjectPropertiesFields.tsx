@@ -7,20 +7,18 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  Input,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  Input,
-  ScrollArea,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
-import { Check, User, Calendar, Flag } from 'lucide-react';
+import { User, Calendar, Flag } from 'lucide-react';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
+import type { Tables } from '@altitutor/shared';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
 import {
   getProjectStatusIcon,
@@ -34,21 +32,18 @@ import {
 } from '../../utils/projectUtils';
 
 export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFormReturn<ProjectFormData>; enabled?: boolean }) {
-  const [isLeadPopoverOpen, setIsLeadPopoverOpen] = useState(false);
+  const [leadOpen, setLeadOpen] = useState(false);
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
-  const { staff: staffList } = useStaffSearch('', enabled);
+  const { staff: staffList, isLoading: isLeadLoading } = useStaffSearch(
+    leadSearchQuery,
+    enabled && leadOpen
+  );
 
   const selectedLeadId = form.watch('projectLeadId');
   const selectedLead = useMemo(
     () => staffList.find((s) => s.id === selectedLeadId) || null,
     [staffList, selectedLeadId]
-  );
-
-  const filteredStaff = useMemo(() => {
-    const query = leadSearchQuery.trim().toLowerCase();
-    if (!query) return staffList;
-    return staffList.filter((staff) => `${staff.first_name || ''} ${staff.last_name || ''}`.toLowerCase().includes(query));
-  }, [staffList, leadSearchQuery]);
+  ) as Tables<'staff'> | null;
 
   const selectedStatus = form.watch('status');
   const StatusIcon = getProjectStatusIcon(selectedStatus);
@@ -143,9 +138,18 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
         name="projectLeadId"
         render={({ field }) => (
           <FormItem>
-            <Popover open={isLeadPopoverOpen} onOpenChange={setIsLeadPopoverOpen}>
-              <PopoverTrigger asChild>
-                <FormControl>
+            <FormControl>
+              <SearchableSelect<Tables<'staff'>>
+                items={staffList}
+                value={selectedLead}
+                onValueChange={(staff) => field.onChange(staff?.id ?? null)}
+                getItemId={(s) => s.id}
+                getItemLabel={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed staff'}
+                getItemValue={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim()}
+                placeholder="Assign lead"
+                searchPlaceholder="Search staff..."
+                emptyMessage={leadSearchQuery ? 'No staff match your search' : 'No staff found'}
+                trigger={
                   <Button variant="outline" className="w-full justify-start">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -155,58 +159,17 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
                       </span>
                     </div>
                   </Button>
-                </FormControl>
-              </PopoverTrigger>
-              <PopoverContent className="p-0 w-[340px]" align="start">
-                <div className="p-3">
-                  <Input
-                    type="text"
-                    placeholder="Search staff..."
-                    value={leadSearchQuery}
-                    onChange={(e) => setLeadSearchQuery(e.target.value)}
-                    className="mb-3"
-                  />
-                  <ScrollArea className="h-[280px]">
-                    <div className="space-y-1 pr-3">
-                      <Button
-                        variant="ghost"
-                        className="w-full justify-start h-auto p-3"
-                        onClick={() => {
-                          field.onChange(null);
-                          setIsLeadPopoverOpen(false);
-                          setLeadSearchQuery('');
-                        }}
-                      >
-                        <div className="flex items-center gap-2 w-full">
-                          {!selectedLeadId && <Check className="h-4 w-4" />}
-                          <span className={!selectedLeadId ? 'font-medium' : ''}>No lead</span>
-                        </div>
-                      </Button>
-
-                      {filteredStaff.map((staff) => (
-                        <Button
-                          key={staff.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-3"
-                          onClick={() => {
-                            field.onChange(staff.id);
-                            setIsLeadPopoverOpen(false);
-                            setLeadSearchQuery('');
-                          }}
-                        >
-                          <div className="flex items-center gap-2 w-full min-w-0">
-                            {selectedLeadId === staff.id && <Check className="h-4 w-4 flex-shrink-0" />}
-                            <span className={selectedLeadId === staff.id ? 'font-medium truncate' : 'truncate'}>
-                              {`${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Unnamed staff'}
-                            </span>
-                          </div>
-                        </Button>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                </div>
-              </PopoverContent>
-            </Popover>
+                }
+                allowClear
+                loading={isLeadLoading}
+                contentWidth="340px"
+                align="start"
+                onSearchChange={setLeadSearchQuery}
+                open={leadOpen}
+                onOpenChange={setLeadOpen}
+                disabled={!enabled}
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         )}

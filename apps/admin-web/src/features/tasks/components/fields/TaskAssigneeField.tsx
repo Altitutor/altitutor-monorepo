@@ -6,11 +6,9 @@ import {
   FormField,
   FormItem,
   FormMessage,
+  SearchableSelect,
 } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
-import { User, Check, Loader2 } from 'lucide-react';
+import { Check, User } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { useStaffSearch } from '../../hooks/useStaffSearch';
 import { getUserInitials } from '../../utils/taskUtils';
@@ -30,14 +28,14 @@ export function TaskAssigneeField({
   onAssigneeChange,
   enabled = true,
 }: TaskAssigneeFieldProps) {
-  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState('');
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [open, setOpen] = useState(false);
+
   const { staff: staffList, isLoading: isSearchingStaff } = useStaffSearch(
-    assigneeSearchQuery,
-    enabled && isPopoverOpen
+    searchQuery,
+    enabled && open
   );
 
-  // Sync selectedAssignee with form field
   useEffect(() => {
     const currentAssignedTo = form.getValues('assignedTo');
     if (selectedAssignee && currentAssignedTo !== selectedAssignee.id) {
@@ -51,120 +49,79 @@ export function TaskAssigneeField({
     ? getUserInitials(selectedAssignee.first_name, selectedAssignee.last_name)
     : null;
 
+  const trigger = (
+    <FormControl>
+      <button
+        type="button"
+        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:bg-muted h-10 px-4 py-2 w-full justify-start"
+        disabled={!enabled}
+      >
+        <div className="flex items-center gap-2 flex-1">
+          {selectedAssignee ? (
+            <>
+              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium flex-shrink-0">
+                {assigneeInitials}
+              </div>
+              <span>
+                {selectedAssignee.first_name} {selectedAssignee.last_name}
+              </span>
+            </>
+          ) : (
+            <>
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Assign</span>
+            </>
+          )}
+        </div>
+      </button>
+    </FormControl>
+  );
+
   return (
     <FormField
       control={form.control}
       name="assignedTo"
       render={({ field: _field }) => (
         <FormItem>
-          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-            <PopoverTrigger asChild>
-              <FormControl>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsPopoverOpen(true);
-                  }}
-                >
-                  <div className="flex items-center gap-2 flex-1">
-                    {selectedAssignee ? (
-                      <>
-                        <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium flex-shrink-0">
-                          {assigneeInitials}
-                        </div>
-                        <span>
-                          {selectedAssignee.first_name} {selectedAssignee.last_name}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-muted-foreground">Assign</span>
-                      </>
-                    )}
-                  </div>
-                </Button>
-              </FormControl>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[400px]" align="start">
-              <div className="p-3">
-                <input
-                  type="text"
-                  placeholder="Search staff..."
-                  value={assigneeSearchQuery}
-                  onChange={(e) => setAssigneeSearchQuery(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border rounded-md mb-3"
+          <SearchableSelect<Tables<'staff'>>
+            items={staffList}
+            value={selectedAssignee}
+            onValueChange={onAssigneeChange}
+            getItemId={(s) => s.id}
+            getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+            getItemValue={(s) => `${s.first_name} ${s.last_name} ${s.email ?? ''}`.trim()}
+            placeholder="Unassigned"
+            searchPlaceholder="Search staff..."
+            emptyMessage={
+              searchQuery ? 'No staff match your search' : 'No staff found'
+            }
+            trigger={trigger}
+            allowClear
+            loading={isSearchingStaff}
+            contentWidth="400px"
+            onSearchChange={setSearchQuery}
+            open={open}
+            onOpenChange={setOpen}
+            renderItem={(staff, isSelected) => (
+              <>
+                <Check
+                  className={
+                    isSelected ? 'h-4 w-4 flex-shrink-0 opacity-100' : 'h-4 w-4 flex-shrink-0 opacity-0'
+                  }
                 />
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-1 pr-4">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start h-auto p-3"
-                      onClick={() => {
-                        onAssigneeChange(null);
-                        setIsPopoverOpen(false);
-                        setAssigneeSearchQuery('');
-                      }}
-                    >
-                      <div className="flex items-center gap-2 w-full">
-                        {!selectedAssignee && <Check className="h-4 w-4" />}
-                        <span className={!selectedAssignee ? 'font-medium' : ''}>
-                          Unassigned
-                        </span>
-                      </div>
-                    </Button>
-                    {isSearchingStaff ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Searching...
-                      </div>
-                    ) : staffList.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        {assigneeSearchQuery
-                          ? 'No staff match your search'
-                          : 'No staff found'}
-                      </div>
-                    ) : (
-                      staffList.map((staff) => (
-                        <Button
-                          key={staff.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-3"
-                          onClick={() => {
-                            onAssigneeChange(staff);
-                            setIsPopoverOpen(false);
-                            setAssigneeSearchQuery('');
-                          }}
-                        >
-                          <div className="flex items-center gap-2 w-full">
-                            {selectedAssignee?.id === staff.id && (
-                              <Check className="h-4 w-4" />
-                            )}
-                            <div className="flex flex-col items-start flex-1">
-                              <div
-                                className={
-                                  selectedAssignee?.id === staff.id ? 'font-medium' : ''
-                                }
-                              >
-                                {staff.first_name} {staff.last_name}
-                              </div>
-                              {staff.role && (
-                                <div className="text-xs text-muted-foreground">
-                                  {staff.role}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+                <div className="flex flex-col items-start flex-1">
+                  <span className={isSelected ? 'font-medium' : ''}>
+                    {staff.first_name} {staff.last_name}
+                  </span>
+                  {staff.role && (
+                    <span className="text-xs text-muted-foreground">
+                      {staff.role}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
+          />
           <FormMessage />
         </FormItem>
       )}

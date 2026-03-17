@@ -16,7 +16,6 @@ export type StudentProgressSummaryRow = {
   total_questions: number
   total_sets_attempted: number
   total_mocks_attempted: number
-  avg_score_points: number | null
   exam: number | null
   last_attempted_at: string | null
   section_scores: Record<string, number | null>

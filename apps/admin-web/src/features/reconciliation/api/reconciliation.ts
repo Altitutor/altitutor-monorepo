@@ -514,7 +514,7 @@ export const reconciliationApi = {
    * Get students without payment method
    * 
    * Query Logic:
-   * 1. Fetches all students with status = 'CURRENT'
+   * 1. Fetches all students with status = 'ACTIVE'
    * 2. Fetches all payment methods from student_payment_methods table
    *    - Note: RLS policy requires ADMINSTAFF role to access this table
    *    - If query runs without ADMINSTAFF permissions, no payment methods will be returned,
@@ -522,14 +522,14 @@ export const reconciliationApi = {
    * 3. Filters students to only those NOT in the set of students with payment methods
    * 
    * Potential Issues:
-   * - Only includes students with status = 'CURRENT' (excludes TRIAL, INACTIVE, etc.)
+   * - Only includes students with status = 'ACTIVE' (excludes TRIAL, INACTIVE, etc.)
    * - RLS on student_payment_methods may filter results if not running as ADMINSTAFF
    * - Payment methods are hard-deleted (no soft delete), so deleted methods won't appear
    */
   getStudentsWithoutPaymentMethod: async (): Promise<StudentWithoutPaymentMethod[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
-    // Get all CURRENT students
+    // Get all ACTIVE students
     const { data: students, error: studentsError } = await supabase
       .from('students')
       .select(`
@@ -543,7 +543,7 @@ export const reconciliationApi = {
         updated_at,
         students_billing(stripe_customer_id, created_at)
       `)
-      .eq('status', 'CURRENT')
+      .eq('status', 'ACTIVE')
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
     

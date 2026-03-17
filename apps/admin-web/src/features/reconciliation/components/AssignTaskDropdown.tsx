@@ -1,12 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Popover, PopoverContent, PopoverTrigger, ScrollArea } from '@altitutor/ui';
+import { Button, SearchableSelect } from '@altitutor/ui';
 import { User, Loader2 } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import { useUpdateTask } from '@/features/tasks/api/mutations';
 import { reconciliationKeys } from '../api/queryKeys';
+import type { Tables } from '@altitutor/shared';
 
 interface AssignTaskDropdownProps {
   taskId: string;
@@ -14,95 +15,74 @@ interface AssignTaskDropdownProps {
 
 /**
  * Popover to assign a task to a staff member.
- * Searchable staff list, same pattern as EditTaskDialog TaskAssigneeField.
+ * Uses SearchableSelect for consistent UI.
  */
 export function AssignTaskDropdown({ taskId }: AssignTaskDropdownProps) {
   const queryClient = useQueryClient();
   const updateTask = useUpdateTask();
-  const [isOpen, setIsOpen] = useState(false);
+  const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const { staff: staffList, isLoading: isStaffLoading } = useStaffSearch(
     searchQuery,
-    isOpen
+    open
   );
 
-  const handleAssign = async (staffId: string) => {
+  const handleAssign = async (staff: Tables<'staff'> | null) => {
+    if (!staff) return;
     try {
       await updateTask.mutateAsync({
         id: taskId,
-        updates: { assigned_to: staffId },
+        updates: { assigned_to: staff.id },
       });
       queryClient.invalidateQueries({ queryKey: reconciliationKeys.unassignedTasks() });
-      setIsOpen(false);
-      setSearchQuery('');
+      setOpen(false);
     } catch {
       // Error toast is handled by useUpdateTask
     }
   };
 
+  const trigger = (
+    <Button
+      variant="default"
+      size="sm"
+      disabled={updateTask.isPending}
+    >
+      {updateTask.isPending ? (
+        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+      ) : (
+        <User className="h-4 w-4 mr-1" />
+      )}
+      Assign task
+    </Button>
+  );
+
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          variant="default"
-          size="sm"
-          disabled={updateTask.isPending}
-        >
-          {updateTask.isPending ? (
-            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-          ) : (
-            <User className="h-4 w-4 mr-1" />
+    <SearchableSelect<Tables<'staff'>>
+      items={staffList}
+      value={null}
+      onValueChange={handleAssign}
+      getItemId={(s) => s.id}
+      getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+      getItemValue={(s) => `${s.first_name} ${s.last_name} ${s.email ?? ''}`.trim()}
+      placeholder="Assign task"
+      searchPlaceholder="Search staff..."
+      emptyMessage={searchQuery ? 'No staff match your search' : 'No staff found'}
+      trigger={trigger}
+      loading={isStaffLoading}
+      contentWidth="400px"
+      align="end"
+      onSearchChange={setSearchQuery}
+      open={open}
+      onOpenChange={setOpen}
+      disabled={updateTask.isPending}
+      renderItem={(staff) => (
+        <div className="flex flex-col items-start flex-1">
+          <div>{staff.first_name} {staff.last_name}</div>
+          {staff.role && (
+            <div className="text-xs text-muted-foreground">{staff.role}</div>
           )}
-          Assign task
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="p-0 w-[400px]" align="end">
-        <div className="p-3">
-          <input
-            type="text"
-            placeholder="Search staff..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 text-sm border rounded-md mb-3"
-          />
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-1 pr-4">
-              {isStaffLoading ? (
-                <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Searching...
-                </div>
-              ) : staffList.length === 0 ? (
-                <div className="p-3 text-center text-sm text-muted-foreground">
-                  {searchQuery
-                    ? 'No staff match your search'
-                    : 'No staff found'}
-                </div>
-              ) : (
-                staffList.map((staff) => (
-                  <Button
-                    key={staff.id}
-                    variant="ghost"
-                    className="w-full justify-start h-auto p-3"
-                    onClick={() => handleAssign(staff.id)}
-                  >
-                    <div className="flex flex-col items-start flex-1">
-                      <div>
-                        {staff.first_name} {staff.last_name}
-                      </div>
-                      {staff.role && (
-                        <div className="text-xs text-muted-foreground">
-                          {staff.role}
-                        </div>
-                      )}
-                    </div>
-                  </Button>
-                ))
-              )}
-            </div>
-          </ScrollArea>
         </div>
-      </PopoverContent>
-    </Popover>
+      )}
+    />
   );
 }

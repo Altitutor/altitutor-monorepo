@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import type { Tables } from "@altitutor/shared";
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { Button, SearchableSelect, ScrollArea } from "@altitutor/ui";
 import { Loader2, BookOpen, Plus, X, Search } from "lucide-react";
 import { cn } from "@/shared/utils";
 import { ViewSubjectModal } from '@/features/subjects';
@@ -29,23 +26,20 @@ export function SubjectsTab({
 }: SubjectsTabProps) {
   const [assigningSubjects, setAssigningSubjects] = useState<Set<string>>(new Set());
   const [removingSubjects, setRemovingSubjects] = useState<Set<string>>(new Set());
-  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   
   // Modal state for subject viewing
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [isSubjectModalOpen, setIsSubjectModalOpen] = useState(false);
 
-  const handleAssignSubject = async (subjectId: string) => {
-    setAssigningSubjects(prev => new Set(prev).add(subjectId));
-    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
-    
+  const handleAssignSubject = async (subject: Tables<'subjects'>) => {
+    setAssigningSubjects(prev => new Set(prev).add(subject.id));
+
     try {
-      await onAssignSubject(subjectId);
+      await onAssignSubject(subject.id);
     } finally {
       setAssigningSubjects(prev => {
         const newSet = new Set(prev);
-        newSet.delete(subjectId);
+        newSet.delete(subject.id);
         return newSet;
       });
     }
@@ -70,15 +64,23 @@ export function SubjectsTab({
     setIsSubjectModalOpen(true);
   };
 
-  const availableSubjects = allSubjects.filter(subject => 
+  const availableSubjects = allSubjects.filter(subject =>
     !staffSubjects.some(staffSubject => staffSubject.id === subject.id)
   );
 
-  const filteredAvailableSubjects = availableSubjects.filter(subject => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (subject?.long_name ?? '').toLowerCase().includes(query);
-  });
+  const addSubjectTrigger = (
+    <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2" disabled={assigningSubjects.size > 0}>
+      <Plus className="h-4 w-4" />
+      <span>Add Subject</span>
+    </Button>
+  );
+
+  const assignSubjectTrigger = (
+    <Button variant="outline" disabled={assigningSubjects.size > 0}>
+      <Plus className="h-4 w-4 mr-2" />
+      Assign a subject
+    </Button>
+  );
 
   return (
     <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
@@ -93,52 +95,27 @@ export function SubjectsTab({
           </div>
         )}
         
-        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Subject</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[300px]" align="end">
-            <div className="p-3">
-              <Input
-                placeholder="Search subjects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-3"
-              />
-              <ScrollArea className="max-h-[300px]">
-                <div className="space-y-1">
-                  {filteredAvailableSubjects.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      {searchQuery ? 'No subjects match your search' : 'No available subjects found'}
-                    </div>
-                  ) : (
-                    filteredAvailableSubjects.map(subject => (
-                      <Button
-                        key={subject.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto p-2"
-                        onClick={() => handleAssignSubject(subject.id)}
-                        disabled={assigningSubjects.has(subject.id)}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium">{(subject?.long_name ?? '')}</div>
-                          </div>
-                          {assigningSubjects.has(subject.id) && (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          )}
-                        </div>
-                      </Button>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
+        <SearchableSelect<Tables<'subjects'>>
+          items={availableSubjects}
+          value={null}
+          onValueChange={(subject) => subject && handleAssignSubject(subject)}
+          getItemId={(s) => s.id}
+          getItemLabel={(s) => s.long_name ?? ''}
+          placeholder="Add subject"
+          searchPlaceholder="Search subjects..."
+          emptyMessage="No available subjects found"
+          trigger={addSubjectTrigger}
+          contentWidth="300px"
+          align="end"
+          renderItem={(subject) => (
+            <div className="flex items-center justify-between w-full">
+              <span className="font-medium">{(subject?.long_name ?? '')}</span>
+              {assigningSubjects.has(subject.id) && (
+                <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+              )}
             </div>
-          </PopoverContent>
-        </Popover>
+          )}
+        />
       </div>
       
       {loadingSubjects ? (
@@ -149,52 +126,27 @@ export function SubjectsTab({
         <div className="flex-1 flex flex-col justify-center items-center">
           <BookOpen className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground mb-4">No subjects assigned</p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Assign a subject
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[300px]" align="center">
-              <div className="p-3">
-                <Input
-                  placeholder="Search subjects..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
-                    {filteredAvailableSubjects.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        No subjects found
-                      </div>
-                    ) : (
-                      filteredAvailableSubjects.map(subject => (
-                        <Button
-                          key={subject.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2"
-                          onClick={() => handleAssignSubject(subject.id)}
-                          disabled={assigningSubjects.has(subject.id)}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col items-start">
-                              <div className="font-medium">{(subject?.long_name ?? '')}</div>
-                            </div>
-                            {assigningSubjects.has(subject.id) && (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                          </div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
+          <SearchableSelect<Tables<'subjects'>>
+            items={availableSubjects}
+            value={null}
+            onValueChange={(subject) => subject && handleAssignSubject(subject)}
+            getItemId={(s) => s.id}
+            getItemLabel={(s) => s.long_name ?? ''}
+            placeholder="Assign subject"
+            searchPlaceholder="Search subjects..."
+            emptyMessage="No subjects found"
+            trigger={assignSubjectTrigger}
+            contentWidth="300px"
+            align="center"
+            renderItem={(subject) => (
+              <div className="flex items-center justify-between w-full">
+                <span className="font-medium">{(subject?.long_name ?? '')}</span>
+                {assigningSubjects.has(subject.id) && (
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                )}
               </div>
-            </PopoverContent>
-          </Popover>
+            )}
+          />
         </div>
       ) : (
         <ScrollArea className="flex-1">

@@ -45,12 +45,6 @@ export default function SettingsPage() {
           icon: FileText,
         },
         {
-          title: 'Rich Text Templates',
-          description: 'Create and manage templates for issues, projects, tasks, and notes',
-          href: '/settings/rich-text-templates',
-          icon: FileStack,
-        },
-        {
           title: 'Call Routing',
           description: 'Configure call routing rules and on-call schedules',
           href: '/settings/call-routing',
@@ -107,6 +101,12 @@ export default function SettingsPage() {
           description: 'Manage global and personal quick filters',
           href: '/settings/quick-filters',
           icon: FileText,
+        },
+        {
+          title: 'Rich Text Templates',
+          description: 'Create and manage templates for issues, projects, tasks, and notes',
+          href: '/settings/rich-text-templates',
+          icon: FileStack,
         },
       ],
     },

@@ -17,11 +17,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
+import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { Badge } from '@altitutor/ui';
 import { useCreateStaff } from '../hooks/useStaffQuery';
-import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useAssignSubjectToStaff } from '../hooks/useStaffQuery';
 // Use string literals for role/status
 import { useForm, Controller, SubmitHandler, type FieldValues, type Resolver } from 'react-hook-form';
@@ -90,12 +88,9 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
   const router = useRouter();
   const createStaffMutation = useCreateStaff();
   const assignSubjectMutation = useAssignSubjectToStaff();
-  const { data: allSubjects = [] } = useSubjects();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [isAddSubjectPopoverOpen, setIsAddSubjectPopoverOpen] = useState(false);
-  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -207,7 +202,6 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       // Reset form and close modal
       reset();
       setSelectedSubjects([]);
-      setSubjectSearchQuery('');
       onStaffAdded();
       onClose();
     } catch (error) {
@@ -240,33 +234,19 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
       reset();
       setErrorMessage(null);
       setSelectedSubjects([]);
-      setSubjectSearchQuery('');
       onClose();
     }
   };
 
-  const handleAddSubject = (subjectId: string) => {
-    const subject = allSubjects.find(s => s.id === subjectId);
-    if (subject && !selectedSubjects.some(s => s.id === subjectId)) {
+  const handleAddSubject = (subject: Tables<'subjects'>) => {
+    if (!selectedSubjects.some(s => s.id === subject.id)) {
       setSelectedSubjects(prev => [...prev, subject]);
-      setIsAddSubjectPopoverOpen(false);
-      setSubjectSearchQuery('');
     }
   };
 
   const handleRemoveSubject = (subjectId: string) => {
     setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
   };
-
-  const availableSubjects = allSubjects.filter(subject => 
-    !selectedSubjects.some(selected => selected.id === subject.id)
-  );
-
-  const filteredAvailableSubjects = availableSubjects.filter(subject => {
-    if (!subjectSearchQuery) return true;
-    const query = subjectSearchQuery.toLowerCase();
-    return (subject?.long_name ?? '').toLowerCase().includes(query);
-  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseModal}>
@@ -484,55 +464,23 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
                   ))}
                 </div>
               )}
-              <Popover open={isAddSubjectPopoverOpen} onOpenChange={setIsAddSubjectPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button 
+              <SubjectSearchPopover
+                selectedSubjects={selectedSubjects}
+                onSelectSubject={handleAddSubject}
+                trigger={
+                  <Button
                     type="button"
-                    variant="outline" 
-                    size="sm" 
+                    variant="outline"
+                    size="sm"
                     className="flex items-center gap-2"
                     disabled={isSubmitting}
                   >
                     <Plus className="h-4 w-4" />
                     <span>Add Subject</span>
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="p-0 w-[300px]" align="start">
-                  <div className="p-3">
-                    <Input
-                      placeholder="Search subjects..."
-                      value={subjectSearchQuery}
-                      onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                      className="mb-3"
-                    />
-                    <ScrollArea className="max-h-[300px]">
-                      <div className="space-y-1">
-                        {filteredAvailableSubjects.length === 0 ? (
-                          <div className="p-3 text-center text-sm text-muted-foreground">
-                            {subjectSearchQuery ? 'No subjects match your search' : 'No available subjects found'}
-                          </div>
-                        ) : (
-                          filteredAvailableSubjects.map(subject => (
-                            <Button
-                              key={subject.id}
-                              type="button"
-                              variant="ghost"
-                              className="w-full justify-start h-auto p-2"
-                              onClick={() => handleAddSubject(subject.id)}
-                            >
-                              <div className="flex items-center justify-between w-full">
-                                <div className="flex flex-col items-start">
-                                  <div className="font-medium">{(subject?.long_name ?? '')}</div>
-                                </div>
-                              </div>
-                            </Button>
-                          ))
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                }
+                align="start"
+              />
             </div>
           </div>
           

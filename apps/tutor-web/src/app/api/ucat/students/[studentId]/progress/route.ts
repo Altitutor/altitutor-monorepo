@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import type { Database } from '@altitutor/shared'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import { extractTextFromRichJson } from '@/features/ucat/shared/lib/rich-text'
 import type { JsonLike } from '@/features/ucat/shared/lib/rich-text'
@@ -10,6 +11,11 @@ import type {
   QuestionAttemptRow,
   SectionCategoryProgress,
 } from '@altitutor/shared'
+
+type SectionRow = Database['public']['Views']['vtutor_ucat_sections']['Row']
+type QuestionSetRow = Database['public']['Views']['vtutor_ucat_question_sets']['Row']
+type CategoryRow = Database['public']['Views']['vtutor_ucat_question_stem_categories']['Row']
+type MockRow = Database['public']['Views']['vtutor_ucat_mocks']['Row']
 
 const EMA_ALPHA = 0.5
 const SCALED_MAX_PER_SECTION = 900
@@ -170,7 +176,8 @@ export async function GET(
     .order('section_number')
 
   const sectionIds = new Set(sectionProgress.map((s) => s.sectionId))
-  for (const sec of sections ?? []) {
+  const sectionsTyped = (sections ?? []) as SectionRow[]
+  for (const sec of sectionsTyped) {
     const secId = sec.id
     if (!secId || sectionIds.has(secId)) continue
     sectionProgress.push({
@@ -214,8 +221,9 @@ export async function GET(
           .in('id', setIds)
       : { data: [] }
 
+  const setDetailsTyped = (setDetails ?? []) as QuestionSetRow[]
   const timeLimitBySetId = new Map(
-    (setDetails ?? []).map((s) => [
+    setDetailsTyped.map((s) => [
       s.id,
       {
         timeLimit: s.time_limit_seconds,
@@ -499,7 +507,8 @@ export async function GET(
     .in('ucat_section_id', sectionProgress.map((s) => s.sectionId))
 
   const categoriesBySection = new Map<string, { id: string; name: string }[]>()
-  for (const c of categoriesData ?? []) {
+  const categoriesTyped = (categoriesData ?? []) as CategoryRow[]
+  for (const c of categoriesTyped) {
     const sid = c.ucat_section_id
     const catId = c.id
     if (!sid || !catId) continue
@@ -577,8 +586,9 @@ export async function GET(
           .select('id, name')
           .in('id', mockIds)
       : { data: [] }
+  const mockDetailsTyped = (mockDetails ?? []) as MockRow[]
   const mockNameById = new Map(
-    (mockDetails ?? []).map((m) => [
+    mockDetailsTyped.map((m) => [
       m.id,
       m.name != null ? extractTextFromRichJson(m.name as JsonLike) || null : null,
     ])
@@ -699,7 +709,8 @@ export async function GET(
   const sectionByNumberForSets = new Map(
     sectionProgress.map((s) => [s.sectionNumber, s.sectionId])
   )
-  for (const row of publicSetsRaw ?? []) {
+  const publicSetsTyped = (publicSetsRaw ?? []) as QuestionSetRow[]
+  for (const row of publicSetsTyped) {
     if (row.is_student_generated) continue
     const sectionsArr = row.sections as Array<{ section_number?: number }> | null
     const firstSectionNum =

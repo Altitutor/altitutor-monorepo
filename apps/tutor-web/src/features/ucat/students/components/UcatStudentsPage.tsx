@@ -36,7 +36,6 @@ export function UcatStudentsPage() {
     'total_questions',
     'total_sets_attempted',
     'total_mocks_attempted',
-    'avg_score_points',
     'exam',
     'actions',
   ])
@@ -80,7 +79,6 @@ export function UcatStudentsPage() {
           total_questions: (r) => r.total_questions,
           total_sets_attempted: (r) => r.total_sets_attempted,
           total_mocks_attempted: (r) => r.total_mocks_attempted,
-          avg_score_points: (r) => r.avg_score_points ?? -1,
           exam: (r) => r.exam ?? -1,
           last_attempted_at: (r) => r.last_attempted_at ?? '',
           ...Object.fromEntries(
@@ -105,43 +103,14 @@ export function UcatStudentsPage() {
 
   const allColumns: Array<{ key: string; column: ColumnDef<StudentProgressSummaryRow> }> = [
     { key: 'student_name', column: { accessorKey: 'student_name', header: 'Student' } },
-    { key: 'total_questions', column: { accessorKey: 'total_questions', header: 'Questions' } },
+    { key: 'total_questions', column: { accessorKey: 'total_questions', header: 'Question attempts' } },
     {
       key: 'total_sets_attempted',
-      column: { accessorKey: 'total_sets_attempted', header: 'Sets' },
+      column: { accessorKey: 'total_sets_attempted', header: 'Set attempts' },
     },
     {
       key: 'total_mocks_attempted',
-      column: { accessorKey: 'total_mocks_attempted', header: 'Mocks' },
-    },
-    {
-      key: 'avg_score_points',
-      column: {
-        accessorKey: 'avg_score_points',
-        header: 'Avg Score',
-        cell: ({ row }) =>
-          row.original.avg_score_points?.toFixed?.(2) ?? '-',
-      },
-    },
-    {
-      key: 'exam',
-      column: {
-        accessorKey: 'exam',
-        header: 'Exam',
-        cell: ({ row }) =>
-          row.original.exam != null ? String(row.original.exam) : '-',
-      },
-    },
-    {
-      key: 'last_attempted_at',
-      column: {
-        accessorKey: 'last_attempted_at',
-        header: 'Last Attempted',
-        cell: ({ row }) =>
-          row.original.last_attempted_at
-            ? new Date(row.original.last_attempted_at).toLocaleString()
-            : '-',
-      },
+      column: { accessorKey: 'total_mocks_attempted', header: 'Mock attempts' },
     },
     ...(progress.data?.sections ?? []).map((sec) => ({
       key: `section_${sec.id}`,
@@ -157,10 +126,30 @@ export function UcatStudentsPage() {
       },
     })),
     {
+      key: 'exam',
+      column: {
+        accessorKey: 'exam',
+        header: 'Exam score (avg)',
+        cell: ({ row }) =>
+          row.original.exam != null ? String(row.original.exam) : '-',
+      },
+    },
+    {
+      key: 'last_attempted_at',
+      column: {
+        accessorKey: 'last_attempted_at',
+        header: 'Last Attempted',
+        cell: ({ row }) =>
+          row.original.last_attempted_at
+            ? new Date(row.original.last_attempted_at).toLocaleString()
+            : '-',
+      },
+    },
+    {
       key: 'actions',
       column: {
         id: 'actions',
-        header: 'Actions',
+        header: '',
         cell: ({ row }) => (
           <div className="flex justify-end">
             <UcatRowActions
@@ -180,25 +169,25 @@ export function UcatStudentsPage() {
 
   const visibleColumns = useVisibleColumns(
     allColumns,
-    tableState.state.visibleColumns
+    [...tableState.state.visibleColumns, 'actions'].filter(
+      (k, i, arr) => arr.indexOf(k) === i
+    )
   )
 
   const columnDefinitions = useMemo(
     () =>
       [
         { key: 'student_name', label: 'Student', visibleByDefault: true },
-        { key: 'total_questions', label: 'Questions', visibleByDefault: true },
-        { key: 'total_sets_attempted', label: 'Sets', visibleByDefault: true },
-        { key: 'total_mocks_attempted', label: 'Mocks', visibleByDefault: true },
-        { key: 'avg_score_points', label: 'Avg Score', visibleByDefault: true },
-        { key: 'exam', label: 'Exam', visibleByDefault: true },
-        { key: 'last_attempted_at', label: 'Last Attempted', visibleByDefault: false },
+        { key: 'total_questions', label: 'Question attempts', visibleByDefault: true },
+        { key: 'total_sets_attempted', label: 'Set attempts', visibleByDefault: true },
+        { key: 'total_mocks_attempted', label: 'Mock attempts', visibleByDefault: true },
         ...(progress.data?.sections ?? []).map((sec) => ({
           key: `section_${sec.id}`,
           label: sec.name,
           visibleByDefault: false,
         })),
-        { key: 'actions', label: 'Actions', visibleByDefault: true },
+        { key: 'exam', label: 'Exam', visibleByDefault: true },
+        { key: 'last_attempted_at', label: 'Last Attempted', visibleByDefault: false },
       ] as DataTableColumnDefinition[],
     [progress.data?.sections]
   )
@@ -206,16 +195,15 @@ export function UcatStudentsPage() {
   const sortOptions: DataTableSortOption[] = useMemo(
     () => [
       { key: 'student_name', label: 'Student' },
-      { key: 'total_questions', label: 'Questions' },
-      { key: 'total_sets_attempted', label: 'Sets' },
-      { key: 'total_mocks_attempted', label: 'Mocks' },
-      { key: 'avg_score_points', label: 'Avg Score' },
-      { key: 'exam', label: 'Exam' },
-      { key: 'last_attempted_at', label: 'Last Attempted' },
+      { key: 'total_questions', label: 'Question attempts' },
+      { key: 'total_sets_attempted', label: 'Set attempts' },
+      { key: 'total_mocks_attempted', label: 'Mock attempts' },
       ...(progress.data?.sections ?? []).map((sec) => ({
         key: `section_${sec.id}`,
         label: sec.name,
       })),
+      { key: 'exam', label: 'Exam' },
+      { key: 'last_attempted_at', label: 'Last Attempted' },
     ],
     [progress.data?.sections]
   )
@@ -259,7 +247,11 @@ export function UcatStudentsPage() {
         onFiltersChange={tableState.actions.onFiltersChange}
         onSortChange={tableState.actions.onSortChange}
         onGroupByChange={tableState.actions.onGroupByChange}
-        onVisibleColumnsChange={tableState.actions.onVisibleColumnsChange}
+        onVisibleColumnsChange={(cols) =>
+          tableState.actions.onVisibleColumnsChange(
+            [...cols.filter((c) => c !== 'actions'), 'actions']
+          )
+        }
         onQuickFilterApply={tableState.actions.onQuickFilterApply}
         onReset={tableState.actions.onReset}
         filterDefinitions={classFilters}

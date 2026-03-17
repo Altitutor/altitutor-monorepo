@@ -22,6 +22,7 @@ export * from './components/phone-input';
 export * from './components/popover';
 export * from './components/radio-group';
 export * from './components/scroll-area';
+export * from './components/searchable-select';
 export * from './components/select';
 export * from './components/separator';
 export * from './components/session-info-grid';

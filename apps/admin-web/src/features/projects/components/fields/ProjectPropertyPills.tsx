@@ -12,14 +12,12 @@ import {
   FormControl,
   Button,
   Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  ScrollArea,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
-import { Calendar, Check, User, Flag } from 'lucide-react';
+import { Calendar, User, Flag } from 'lucide-react';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
+import type { Tables } from '@altitutor/shared';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
 import {
   getProjectStatusIcon,
@@ -33,21 +31,18 @@ import {
 } from '../../utils/projectUtils';
 
 export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormReturn<ProjectFormData>; enabled?: boolean }) {
-  const [isLeadPopoverOpen, setIsLeadPopoverOpen] = useState(false);
+  const [leadOpen, setLeadOpen] = useState(false);
   const [leadSearchQuery, setLeadSearchQuery] = useState('');
-  const { staff: staffList } = useStaffSearch('', enabled);
+  const { staff: staffList, isLoading: isLeadLoading } = useStaffSearch(
+    leadSearchQuery,
+    enabled && leadOpen
+  );
 
   const selectedLeadId = form.watch('projectLeadId');
   const selectedLead = useMemo(
     () => staffList.find((s) => s.id === selectedLeadId) || null,
     [staffList, selectedLeadId]
-  );
-
-  const filteredStaff = useMemo(() => {
-    const query = leadSearchQuery.trim().toLowerCase();
-    if (!query) return staffList;
-    return staffList.filter((staff) => `${staff.first_name || ''} ${staff.last_name || ''}`.toLowerCase().includes(query));
-  }, [staffList, leadSearchQuery]);
+  ) as Tables<'staff'> | null;
 
   return (
     <div className="flex flex-wrap gap-2 pb-2 md:hidden">
@@ -130,64 +125,43 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
         }}
       />
 
-      <Popover open={isLeadPopoverOpen} onOpenChange={setIsLeadPopoverOpen}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" className="h-8 rounded-full px-3 text-xs">
-            <User className="h-3 w-3 mr-1" />
-            <span className="max-w-[120px] truncate">
-              {selectedLead ? `${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim() : 'Lead'}
-            </span>
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="p-0 w-[300px]" align="start">
-          <div className="p-3">
-            <Input
-              type="text"
-              placeholder="Search staff..."
-              value={leadSearchQuery}
-              onChange={(e) => setLeadSearchQuery(e.target.value)}
-              className="mb-3"
-            />
-            <ScrollArea className="h-[240px]">
-              <div className="space-y-1 pr-3">
-                <Button
-                  variant="ghost"
-                  className="w-full justify-start h-auto p-3"
-                  onClick={() => {
-                    form.setValue('projectLeadId', null, { shouldDirty: true });
-                    setIsLeadPopoverOpen(false);
-                    setLeadSearchQuery('');
-                  }}
-                >
-                  <div className="flex items-center gap-2 w-full">
-                    {!selectedLeadId && <Check className="h-4 w-4" />}
-                    <span className={!selectedLeadId ? 'font-medium' : ''}>No lead</span>
-                  </div>
-                </Button>
-                {filteredStaff.map((staff) => (
-                  <Button
-                    key={staff.id}
-                    variant="ghost"
-                    className="w-full justify-start h-auto p-3"
-                    onClick={() => {
-                      form.setValue('projectLeadId', staff.id, { shouldDirty: true });
-                      setIsLeadPopoverOpen(false);
-                      setLeadSearchQuery('');
-                    }}
-                  >
-                    <div className="flex items-center gap-2 w-full min-w-0">
-                      {selectedLeadId === staff.id && <Check className="h-4 w-4 flex-shrink-0" />}
-                      <span className={selectedLeadId === staff.id ? 'font-medium truncate' : 'truncate'}>
-                        {`${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Unnamed staff'}
-                      </span>
-                    </div>
+      <FormField
+        control={form.control}
+        name="projectLeadId"
+        render={({ field }) => (
+          <FormItem>
+            <FormControl>
+              <SearchableSelect<Tables<'staff'>>
+                items={staffList}
+                value={selectedLead}
+                onValueChange={(staff) => field.onChange(staff?.id ?? null)}
+                getItemId={(s) => s.id}
+                getItemLabel={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed staff'}
+                getItemValue={(s) => `${s.first_name || ''} ${s.last_name || ''}`.trim()}
+                placeholder="Lead"
+                searchPlaceholder="Search staff..."
+                emptyMessage={leadSearchQuery ? 'No staff match your search' : 'No staff found'}
+                trigger={
+                  <Button variant="outline" className="h-8 rounded-full px-3 text-xs">
+                    <User className="h-3 w-3 mr-1" />
+                    <span className="max-w-[120px] truncate">
+                      {selectedLead ? `${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim() : 'Lead'}
+                    </span>
                   </Button>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
-        </PopoverContent>
-      </Popover>
+                }
+                allowClear
+                loading={isLeadLoading}
+                contentWidth="300px"
+                align="start"
+                onSearchChange={setLeadSearchQuery}
+                open={leadOpen}
+                onOpenChange={setLeadOpen}
+                disabled={!enabled}
+              />
+            </FormControl>
+          </FormItem>
+        )}
+      />
 
       <FormField
         control={form.control}
