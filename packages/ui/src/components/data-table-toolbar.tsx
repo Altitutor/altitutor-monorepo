@@ -27,7 +27,6 @@ import { Input } from './input';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -36,7 +35,7 @@ import {
   DropdownMenuTrigger,
 } from './dropdown-menu';
 import { ScrollArea } from './scroll-area';
-import { Checkbox } from './checkbox';
+import { SearchableSelectInline } from './searchable-select-inline';
 import { cn } from '../lib/cn';
 
 interface DataTableToolbarProps {
@@ -65,6 +64,8 @@ interface DataTableToolbarProps {
   showDeletedActive?: boolean;
   /** Called when the user clears the "Show deleted" filter (e.g. via the X button) */
   onClearShowDeleted?: () => void;
+  /** Custom filter content for specific keys - renders inside DropdownMenuSub (e.g. SearchableSelectInline) */
+  customFilterContent?: Record<string, React.ReactNode>;
 }
 
 export function DataTableToolbar({
@@ -83,16 +84,19 @@ export function DataTableToolbar({
   quickFilters = [],
   searchPlaceholder = 'Search...',
   isLoading: _isLoading = false,
-  filterSearchValues = {},
+  filterSearchValues: _filterSearchValues = {},
   onFilterSearchChange,
   filterFooter,
   showDeletedActive = false,
   onClearShowDeleted,
+  customFilterContent = {},
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
   const prevStateSearchRef = React.useRef(state.search);
   const isInternalUpdateRef = React.useRef(false);
+  const [groupByOpen, setGroupByOpen] = React.useState(false);
+  const [sortOpen, setSortOpen] = React.useState(false);
 
   // Sync internal search state with prop state (e.g. if cleared from outside)
   // Only sync when state.search changes externally, not during local typing
@@ -138,26 +142,6 @@ export function DataTableToolbar({
     return count;
   })();
 
-  const togglePillVisibility = (key: string) => {
-    const next = state.visibleColumns.includes(key)
-      ? state.visibleColumns.filter((k: string) => k !== key)
-      : [...state.visibleColumns, key];
-    onVisibleColumnsChange(next);
-  };
-
-  const toggleFilterValue = (columnKey: string, value: unknown) => {
-    const current = state.filters[columnKey] ?? [];
-    const next = current.some((v: unknown) => v === value)
-      ? current.filter((v: unknown) => v !== value)
-      : [...current, value];
-
-    const nextFilters = { ...state.filters, [columnKey]: next.filter((v: unknown) => v != null) };
-    if (next.length === 0) {
-      delete nextFilters[columnKey];
-    }
-    onFiltersChange(nextFilters);
-  };
-
   const removeFilterValue = (columnKey: string, value: unknown) => {
     const current = state.filters[columnKey] ?? [];
     const next = current.filter((v: unknown) => v !== value);
@@ -202,6 +186,22 @@ export function DataTableToolbar({
 
   const effectiveActiveFilterCount = activeFilterCount + (showDeletedActive ? 1 : 0);
 
+  type SortItem = { key: string; label: string; direction: 'asc' | 'desc' };
+  const sortItems: SortItem[] = React.useMemo(
+    () =>
+      sortOptions.flatMap((o) => [
+        { key: o.key, label: `${o.label} (A→Z)`, direction: 'asc' as const },
+        { key: o.key, label: `${o.label} (Z→A)`, direction: 'desc' as const },
+      ]),
+    [sortOptions]
+  );
+  const sortValue: SortItem | null = React.useMemo(() => {
+    if (!state.sortBy || !state.sortDirection) return null;
+    const opt = sortOptions.find((o) => o.key === state.sortBy);
+    const label = opt ? `${opt.label} (${state.sortDirection === 'asc' ? 'A→Z' : 'Z→A'})` : '';
+    return { key: state.sortBy, label, direction: state.sortDirection };
+  }, [state.sortBy, state.sortDirection, sortOptions]);
+
   const handleClearAllFilters = () => {
     onClearShowDeleted?.();
     onFiltersChange({});
@@ -240,30 +240,19 @@ export function DataTableToolbar({
                   <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-[240px] p-0">
+                <DropdownMenuLabel className="px-2 py-1.5">Show columns</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {columnDefinitions.map((col) => {
-                  const isVisible = state.visibleColumns.includes(col.key);
-                  return (
-                    <DropdownMenuItem
-                      key={col.key}
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        togglePillVisibility(col.key);
-                      }}
-                      className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
-                    >
-                      <Checkbox
-                        checked={isVisible}
-                        aria-label={col.label}
-                        tabIndex={-1}
-                        className="pointer-events-none"
-                      />
-                      <span>{col.label}</span>
-                    </DropdownMenuItem>
-                  );
-                })}
+                <SearchableSelectInline<DataTableColumnDefinition>
+                  items={columnDefinitions}
+                  value={columnDefinitions.filter((c) => state.visibleColumns.includes(c.key))}
+                  onValueChange={(cols) => onVisibleColumnsChange(cols.map((c) => c.key))}
+                  getItemId={(c) => c.key}
+                  getItemLabel={(c) => c.label}
+                  searchPlaceholder="Search columns..."
+                  emptyMessage="No columns found"
+                  multiSelect
+                />
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -271,26 +260,35 @@ export function DataTableToolbar({
           {/* Group By */}
           {groupByOptions.length > 0 && (
             <div className="flex items-center">
-              <DropdownMenu>
+              <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className={cn("h-9", state.groupBy && "rounded-r-none")}>
                     <Layers className="h-4 w-4 mr-2" />
                     <span className="hidden sm:inline">
-                      {state.groupBy 
-                        ? groupByOptions.find(o => o.key === state.groupBy)?.label ?? 'Grouped'
+                      {state.groupBy
+                        ? groupByOptions.find((o) => o.key === state.groupBy)?.label ?? 'Grouped'
                         : 'Group by'}
                     </span>
                     <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[180px]">
-                  <DropdownMenuItem onClick={() => onGroupByChange(null)}>None</DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-[220px] p-0">
+                  <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {groupByOptions.map((o) => (
-                    <DropdownMenuItem key={o.key} onClick={() => onGroupByChange(o.key)}>
-                      {o.label}
-                    </DropdownMenuItem>
-                  ))}
+                  <SearchableSelectInline<DataTableGroupByOption>
+                    items={groupByOptions}
+                    value={state.groupBy ? groupByOptions.find((o) => o.key === state.groupBy) ?? null : null}
+                    onValueChange={(opt) => {
+                      onGroupByChange(opt?.key ?? null);
+                      setGroupByOpen(false);
+                    }}
+                    getItemId={(o) => o.key}
+                    getItemLabel={(o) => o.label}
+                    searchPlaceholder="Search..."
+                    emptyMessage="No options found"
+                    allowClear
+                    clearLabel="None"
+                  />
                 </DropdownMenuContent>
               </DropdownMenu>
               {state.groupBy && (
@@ -309,7 +307,7 @@ export function DataTableToolbar({
           {/* Sort By */}
           {sortOptions.length > 0 && (
             <div className="flex items-center shrink-0">
-              <DropdownMenu>
+              <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
@@ -323,7 +321,7 @@ export function DataTableToolbar({
                     <span className="hidden sm:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
                       {state.sortBy ? (
                         <>
-                          <span className="min-w-0 truncate">{sortOptions.find(o => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
+                          <span className="min-w-0 truncate">{sortOptions.find((o) => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
                           {state.sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 shrink-0" /> : <ArrowDown className="h-3.5 w-3.5 shrink-0" />}
                         </>
                       ) : (
@@ -333,24 +331,24 @@ export function DataTableToolbar({
                     <ChevronDown className="h-4 w-4 ml-1 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[200px]">
-                  {sortOptions.map((o) => (
-                    <DropdownMenuItem
-                      key={o.key}
-                      onClick={() => {
-                        const nextDir = state.sortBy === o.key && state.sortDirection === 'asc' ? 'desc' : 'asc';
-                        onSortChange(o.key, nextDir);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <span>{o.label}</span>
-                      {state.sortBy === o.key && (
-                        <span className="ml-auto">
-                          {state.sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 opacity-70" /> : <ArrowDown className="h-4 w-4 opacity-70" />}
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
+                <DropdownMenuContent align="end" className="w-[240px] p-0">
+                  <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <SearchableSelectInline<SortItem>
+                    items={sortItems}
+                    value={sortValue}
+                    onValueChange={(item) => {
+                      if (item) onSortChange(item.key, item.direction);
+                      else onSortChange(null, 'desc');
+                      setSortOpen(false);
+                    }}
+                    getItemId={(item) => `${item.key}-${item.direction}`}
+                    getItemLabel={(item) => item.label}
+                    searchPlaceholder="Search sort options..."
+                    emptyMessage="No options found"
+                    allowClear
+                    clearLabel="None"
+                  />
                 </DropdownMenuContent>
               </DropdownMenu>
               {state.sortBy && (
@@ -540,6 +538,17 @@ export function DataTableToolbar({
 
                 <ScrollArea className="flex-1 overflow-y-auto">
                   {filterDefinitions.filter((def) => def.type !== 'date').map((def) => {
+                    const customContent = customFilterContent[def.key];
+                    if (customContent != null) {
+                      return (
+                        <DropdownMenuSub key={def.key}>
+                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[280px] p-0">
+                            {customContent}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    }
                     if (def.type === 'number-range' && def.minKey && def.maxKey) {
                       const minKey = def.minKey;
                       const maxKey = def.maxKey;
@@ -576,81 +585,36 @@ export function DataTableToolbar({
                       );
                     }
 
+                    const options = def.options ?? [];
+                    const selectedOptions = options.filter((opt: DataTableFilterOption<unknown>) =>
+                      (state.filters[def.key] ?? []).some((v: unknown) => String(v) === String(opt.value))
+                    );
                     const isSearchable = def.searchable && !!onFilterSearchChange;
-                    const filterSearchValue = filterSearchValues[def.key] ?? '';
-
-                    if (isSearchable) {
-                      return (
-                        <DropdownMenuSub key={def.key}>
-                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[280px]">
-                            <div className="p-2 border-b">
-                              <Input
-                                value={filterSearchValue}
-                                onChange={(e) => onFilterSearchChange(def.key, e.target.value)}
-                                placeholder={def.searchPlaceholder || `Search ${def.label.toLowerCase()}...`}
-                                className="h-8"
-                              />
-                            </div>
-                            <ScrollArea className="max-h-[260px]">
-                              {(def.options ?? []).length === 0 ? (
-                                <div className="px-2 py-3 text-xs text-muted-foreground">No results</div>
-                              ) : (
-                                (def.options ?? []).map((opt: DataTableFilterOption<unknown>) => {
-                                  const isSelected = (state.filters[def.key] ?? []).some((v: unknown) => String(v) === String(opt.value));
-                                  return (
-                                    <DropdownMenuItem
-                                      key={String(opt.value)}
-                                      onSelect={(e) => {
-                                        e.preventDefault();
-                                        toggleFilterValue(def.key, opt.value);
-                                      }}
-                                      className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
-                                    >
-                                      <Checkbox
-                                        checked={isSelected}
-                                        aria-label={opt.label}
-                                        tabIndex={-1}
-                                        className="pointer-events-none"
-                                      />
-                                      <span>{opt.label}</span>
-                                    </DropdownMenuItem>
-                                  );
-                                })
-                              )}
-                            </ScrollArea>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    }
 
                     return (
                       <DropdownMenuSub key={def.key}>
                         <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-[200px]">
-                          <ScrollArea className="max-h-[300px]">
-                            {(def.options ?? []).map((opt: DataTableFilterOption<unknown>) => {
-                              const isSelected = (state.filters[def.key] ?? []).some((v: unknown) => String(v) === String(opt.value));
-                              return (
-                                <DropdownMenuItem
-                                  key={String(opt.value)}
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                    toggleFilterValue(def.key, opt.value);
-                                  }}
-                                  className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
-                                >
-                                  <Checkbox
-                                    checked={isSelected}
-                                    aria-label={opt.label}
-                                    tabIndex={-1}
-                                    className="pointer-events-none"
-                                  />
-                                  <span>{opt.label}</span>
-                                </DropdownMenuItem>
-                              );
-                            })}
-                          </ScrollArea>
+                        <DropdownMenuSubContent className="w-[280px] p-0">
+                          <SearchableSelectInline<DataTableFilterOption<unknown>>
+                            items={options}
+                            value={selectedOptions}
+                            onValueChange={(opts) => {
+                              const next = opts.map((o) => o.value);
+                              const nextFilters = { ...state.filters };
+                              if (next.length > 0) {
+                                nextFilters[def.key] = next;
+                              } else {
+                                delete nextFilters[def.key];
+                              }
+                              onFiltersChange(nextFilters);
+                            }}
+                            getItemId={(o) => String(o.value)}
+                            getItemLabel={(o) => o.label}
+                            searchPlaceholder={def.searchPlaceholder ?? `Search ${def.label.toLowerCase()}...`}
+                            emptyMessage="No results found"
+                            multiSelect
+                            onSearchChange={isSearchable ? (q) => onFilterSearchChange?.(def.key, q) : undefined}
+                          />
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                     );

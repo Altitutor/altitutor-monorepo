@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useCallback, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Table,
@@ -25,9 +25,13 @@ import {
   AlertDialogTitle,
   DataTableToolbar,
   TablePagination,
+  SearchableSelectInline,
 } from "@altitutor/ui";
 import { Loader2 } from 'lucide-react';
 import { useClassesMinimalPaginated, useDeleteClass } from '../hooks/useClassesQuery';
+import { useSubjectsSearchForFilter } from '../hooks/useSubjectsSearchForFilter';
+import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
+import { useStaffSearchForFilter } from '@/features/sessions/hooks/useStaffSearchForFilter';
 import type { MinimalClass } from '../api/classes';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn, getSubjectColorStyle } from '@/shared/utils/index';
@@ -57,6 +61,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const defaultSort = useMemo(() => ({ field: 'day_of_week', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['day', 'time', 'subject', 'students', 'staff'], []);
 
+  const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
+  const [studentFilterSearch, setStudentFilterSearch] = useState('');
+  const [staffFilterSearch, setStaffFilterSearch] = useState('');
+
   const {
     state,
     setSearch,
@@ -71,8 +79,77 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['day'],
+    filterKeys: ['day', 'subject', 'student', 'staff'],
   });
+
+  const { data: subjectSearchData, isFetching: isSubjectSearching } = useSubjectsSearchForFilter(subjectFilterSearch);
+  const { data: studentSearchData, isFetching: isStudentSearching } = useStudentSearchForFilter(studentFilterSearch, ['ACTIVE', 'TRIAL']);
+  const { data: staffSearchData, isFetching: isStaffSearching } = useStaffSearchForFilter(staffFilterSearch);
+
+  const subjects = useMemo(
+    () => subjectSearchData?.subjects ?? [],
+    [subjectSearchData?.subjects]
+  );
+  const students = useMemo(
+    () => studentSearchData?.students ?? [],
+    [studentSearchData?.students]
+  );
+  const staffList = useMemo(
+    () => staffSearchData?.staff ?? [],
+    [staffSearchData?.staff]
+  );
+
+  const subjectIds = useMemo(
+    () => (state.filters.subject as string[]) ?? [],
+    [state.filters.subject]
+  );
+  const studentIds = useMemo(
+    () => (state.filters.student as string[]) ?? [],
+    [state.filters.student]
+  );
+  const staffIds = useMemo(
+    () => (state.filters.staff as string[]) ?? [],
+    [state.filters.staff]
+  );
+
+  const selectedSubjects = useMemo(
+    () => subjects.filter((s) => subjectIds.includes(s.id)),
+    [subjects, subjectIds]
+  );
+  const selectedStudents = useMemo(
+    () => students.filter((s) => studentIds.includes(s.id)),
+    [students, studentIds]
+  );
+  const selectedStaffList = useMemo(
+    () => staffList.filter((s) => staffIds.includes(s.id)),
+    [staffList, staffIds]
+  );
+
+  const handleSubjectFilterChange = useCallback(
+    (subjectsList: Tables<'subjects'>[]) => {
+      setFilters({ ...state.filters, subject: subjectsList.map((s) => s.id) });
+    },
+    [setFilters, state.filters]
+  );
+
+  const handleStudentFilterChange = useCallback(
+    (studentsList: Tables<'students'>[]) => {
+      setFilters({ ...state.filters, student: studentsList.map((s) => s.id) });
+    },
+    [setFilters, state.filters]
+  );
+
+  const handleStaffFilterChange = useCallback(
+    (staffListSelected: Tables<'staff'>[]) => {
+      setFilters({ ...state.filters, staff: staffListSelected.map((s) => s.id) });
+    },
+    [setFilters, state.filters]
+  );
+
+  const getSubjectLabel = useCallback((s: Tables<'subjects'>) => {
+    const base = `${s.curriculum ?? ''} ${s.year_level ? `Year ${s.year_level}` : ''} ${s.name ?? ''}`.trim();
+    return base || (s.long_name ?? s.short_name ?? s.id);
+  }, []);
 
   const { 
     data, 
@@ -83,11 +160,76 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   } = useClassesMinimalPaginated({
     search: state.search,
     daysOfWeek: state.filters.day as number[],
+    subjectIds: (state.filters.subject as string[]) ?? undefined,
+    studentIds: (state.filters.student as string[]) ?? undefined,
+    staffIds: (state.filters.staff as string[]) ?? undefined,
     page: state.page,
     pageSize: state.pageSize,
     orderBy: (state.sortBy as keyof Tables<'classes'>) || 'day_of_week',
     ascending: state.sortDirection === 'asc',
   });
+
+  const customFilterContent = useMemo(
+    () => ({
+      subject: (
+        <SearchableSelectInline<Tables<'subjects'>>
+          items={subjects}
+          value={selectedSubjects}
+          onValueChange={handleSubjectFilterChange}
+          getItemId={(s) => s.id}
+          getItemLabel={getSubjectLabel}
+          searchPlaceholder="Search subjects..."
+          emptyMessage="No subjects found"
+          multiSelect
+          loading={isSubjectSearching}
+          onSearchChange={setSubjectFilterSearch}
+        />
+      ),
+      student: (
+        <SearchableSelectInline<Tables<'students'>>
+          items={students}
+          value={selectedStudents}
+          onValueChange={handleStudentFilterChange}
+          getItemId={(s) => s.id}
+          getItemLabel={(s) => `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Unnamed'}
+          searchPlaceholder="Search students..."
+          emptyMessage="No students found"
+          multiSelect
+          loading={isStudentSearching}
+          onSearchChange={setStudentFilterSearch}
+        />
+      ),
+      staff: (
+        <SearchableSelectInline<Tables<'staff'>>
+          items={staffList}
+          value={selectedStaffList}
+          onValueChange={handleStaffFilterChange}
+          getItemId={(s) => s.id}
+          getItemLabel={(s) => `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Unnamed'}
+          searchPlaceholder="Search staff..."
+          emptyMessage="No staff found"
+          multiSelect
+          loading={isStaffSearching}
+          onSearchChange={setStaffFilterSearch}
+        />
+      ),
+    }),
+    [
+      subjects,
+      selectedSubjects,
+      handleSubjectFilterChange,
+      getSubjectLabel,
+      isSubjectSearching,
+      students,
+      selectedStudents,
+      handleStudentFilterChange,
+      isStudentSearching,
+      staffList,
+      selectedStaffList,
+      handleStaffFilterChange,
+      isStaffSearching,
+    ]
+  );
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     {
@@ -103,7 +245,41 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         { label: 'Sunday', value: 0 },
       ],
     },
-  ], []);
+    {
+      key: 'subject',
+      label: 'Subject',
+      options: subjectIds.map((id) => {
+        const s = subjects.find((x) => x.id === id);
+        return { label: s ? getSubjectLabel(s) : id, value: id };
+      }),
+    },
+    {
+      key: 'student',
+      label: 'Student',
+      options: studentIds.map((id) => {
+        const s = students.find((x) => x.id === id);
+        return {
+          label: s
+            ? `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Unnamed'
+            : id,
+          value: id,
+        };
+      }),
+    },
+    {
+      key: 'staff',
+      label: 'Staff',
+      options: staffIds.map((id) => {
+        const s = staffList.find((x) => x.id === id);
+        return {
+          label: s
+            ? `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Unnamed'
+            : id,
+          value: id,
+        };
+      }),
+    },
+  ], [subjectIds, studentIds, staffIds, subjects, students, staffList, getSubjectLabel]);
 
   const sortOptions: DataTableSortOption[] = [
     { key: 'day_of_week', label: 'Day of Week' },
@@ -220,6 +396,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           quickFilters={quickFilters}
+          customFilterContent={customFilterContent}
           searchPlaceholder="Search classes"
           isLoading={true}
         />
@@ -268,6 +445,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
         quickFilters={quickFilters}
+        customFilterContent={customFilterContent}
         searchPlaceholder="Search classes"
         isLoading={isFetching}
       />
