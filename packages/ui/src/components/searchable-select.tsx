@@ -114,6 +114,7 @@ export function SearchableSelect<T>({
 }: SearchableSelectProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const [highlightedValue, setHighlightedValue] = React.useState<string | undefined>(undefined);
   const triggerRef = React.useRef<HTMLElement | null>(null);
   const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
 
@@ -144,6 +145,46 @@ export function SearchableSelect<T>({
 
   const isServerSideSearch = Boolean(onSearchChange);
   const getValue = getItemValue ?? getItemLabel;
+
+  // When using server-side search, auto-highlight first item when results change
+  const firstSelectableValue = React.useMemo(() => {
+    if (!isServerSideSearch || loading) return undefined;
+    if (allowClear) return "__clear__";
+    if (groups && groups.length > 0) {
+      const firstGroup = groups.find((g) => g.items.length > 0);
+      const firstItem = firstGroup?.items[0];
+      if (firstItem) {
+        const disabled = getItemDisabled?.(firstItem) ?? false;
+        if (!disabled) return `${getItemId(firstItem)}-${getValue(firstItem)}`;
+        const firstEnabled = firstGroup.items.find((i) => !(getItemDisabled?.(i) ?? false));
+        return firstEnabled ? `${getItemId(firstEnabled)}-${getValue(firstEnabled)}` : undefined;
+      }
+      return undefined;
+    }
+    const firstItem = items[0];
+    if (!firstItem) return undefined;
+    const disabled = getItemDisabled?.(firstItem) ?? false;
+    if (!disabled) return `${getItemId(firstItem)}-${getValue(firstItem)}`;
+    const firstEnabled = items.find((i) => !(getItemDisabled?.(i) ?? false));
+    return firstEnabled ? `${getItemId(firstEnabled)}-${getValue(firstEnabled)}` : undefined;
+  }, [
+    isServerSideSearch,
+    loading,
+    allowClear,
+    groups,
+    items,
+    getItemId,
+    getValue,
+    getItemDisabled,
+  ]);
+
+  React.useEffect(() => {
+    if (isServerSideSearch && firstSelectableValue !== undefined) {
+      setHighlightedValue(firstSelectableValue);
+    } else if (!loading) {
+      setHighlightedValue(undefined);
+    }
+  }, [isServerSideSearch, firstSelectableValue, loading]);
 
   const handleSearchChange = React.useCallback(
     (query: string) => {
@@ -208,6 +249,8 @@ export function SearchableSelect<T>({
         <Command
           shouldFilter={!isServerSideSearch}
           disablePointerSelection={false}
+          value={isServerSideSearch ? highlightedValue ?? "" : undefined}
+          onValueChange={isServerSideSearch ? setHighlightedValue : undefined}
           className="rounded-lg border-0 flex flex-col min-h-0 flex-1 overflow-hidden"
         >
           <CommandInput

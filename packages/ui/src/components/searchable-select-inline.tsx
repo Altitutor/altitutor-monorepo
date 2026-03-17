@@ -85,9 +85,27 @@ export function SearchableSelectInline<T>({
   multiSelect = false,
 }: SearchableSelectInlineProps<T>) {
   const [search, setSearch] = React.useState("");
+  const [highlightedValue, setHighlightedValue] = React.useState<string | undefined>(undefined);
   const inputRef = React.useRef<HTMLInputElement>(null);
   const isServerSideSearch = Boolean(onSearchChange);
   const getValue = getItemValue ?? getItemLabel;
+
+  // When using server-side search, auto-highlight first item when results change
+  const firstSelectableValue = React.useMemo(() => {
+    if (!isServerSideSearch || loading) return undefined;
+    if (!multiSelect && allowClear) return "__clear__";
+    const firstItem = items[0];
+    if (!firstItem) return undefined;
+    return `${getItemId(firstItem)}-${getValue(firstItem)}`;
+  }, [isServerSideSearch, loading, multiSelect, allowClear, items, getItemId, getValue]);
+
+  React.useEffect(() => {
+    if (isServerSideSearch && firstSelectableValue !== undefined) {
+      setHighlightedValue(firstSelectableValue);
+    } else if (!loading) {
+      setHighlightedValue(undefined);
+    }
+  }, [isServerSideSearch, firstSelectableValue, loading]);
 
   React.useEffect(() => {
     // Focus the search input when the component mounts (e.g. when dropdown opens)
@@ -141,6 +159,8 @@ export function SearchableSelectInline<T>({
     <Command
       shouldFilter={!isServerSideSearch}
       disablePointerSelection={false}
+      value={isServerSideSearch ? highlightedValue ?? "" : undefined}
+      onValueChange={isServerSideSearch ? setHighlightedValue : undefined}
       className={cn("rounded-lg border-0", className)}
     >
       <CommandInput
