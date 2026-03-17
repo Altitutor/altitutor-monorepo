@@ -122,6 +122,48 @@ export function ProjectsBoard() {
         ),
       },
       {
+        key: 'start_date',
+        label: 'Start date',
+        visibleByDefault: false,
+        getValue: (p) => p.start_date ?? null,
+        defaultValue: null,
+        filterType: 'date-range',
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        compare: (a, b) => {
+          const aTime = a ? new Date(String(a)).getTime() : Number.POSITIVE_INFINITY;
+          const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
+          return aTime - bTime;
+        },
+        renderPill: (item, _onChange, collapsed) => (
+          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
+            {item.start_date ? formatShortDate(item.start_date) : 'No start date'}
+          </span>
+        ),
+      },
+      {
+        key: 'target_date',
+        label: 'Due date',
+        visibleByDefault: false,
+        getValue: (p) => p.target_date ?? null,
+        defaultValue: null,
+        filterType: 'date-range',
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        compare: (a, b) => {
+          const aTime = a ? new Date(String(a)).getTime() : Number.POSITIVE_INFINITY;
+          const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
+          return aTime - bTime;
+        },
+        renderPill: (item, _onChange, collapsed) => (
+          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
+            {item.target_date ? formatShortDate(item.target_date) : 'No due date'}
+          </span>
+        ),
+      },
+      {
         key: 'dates',
         label: 'Dates',
         visibleByDefault: true,
@@ -199,6 +241,8 @@ export function ProjectsBoard() {
     () => [
       { key: 'status', label: 'Status' },
       { key: 'dates', label: 'Dates' },
+      { key: 'start_date', label: 'Start date' },
+      { key: 'target_date', label: 'Due date' },
       { key: 'priority', label: 'Priority' },
       { key: 'project_lead', label: 'Project lead' },
     ],
@@ -208,6 +252,8 @@ export function ProjectsBoard() {
     () => [
       { key: 'status', label: 'Status' },
       { key: 'dates', label: 'Dates' },
+      { key: 'start_date', label: 'Start date' },
+      { key: 'target_date', label: 'Due date' },
       { key: 'priority', label: 'Priority' },
     ],
     []
@@ -278,6 +324,14 @@ export function ProjectsBoard() {
           }
           if (columnKey === 'dates') {
             if (valueKey === '__null__') return 'No dates';
+            return formatProjectDate(valueKey);
+          }
+          if (columnKey === 'start_date') {
+            if (valueKey === '__null__') return 'No start date';
+            return formatProjectDate(valueKey);
+          }
+          if (columnKey === 'target_date') {
+            if (valueKey === '__null__') return 'No due date';
             return formatProjectDate(valueKey);
           }
           if (columnKey === 'priority') {

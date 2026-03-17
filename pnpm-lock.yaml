@@ -23,6 +23,11 @@ overrides:
   ajv@^6.0.0: 6.14.0
   ajv@^8.0.0: 8.18.0
 
+patchedDependencies:
+  react-big-calendar@1.19.4:
+    hash: c7e4d41fe509ee9d5fae6c1cc30bfeef6ffdb66bc1a2f20dbcacf92ac043500f
+    path: patches/react-big-calendar@1.19.4.patch
+
 importers:
 
   .:
@@ -778,7 +783,7 @@ importers:
         version: 18.3.1
       react-big-calendar:
         specifier: ^1.18.0
-        version: 1.19.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+        version: 1.19.4(patch_hash=c7e4d41fe509ee9d5fae6c1cc30bfeef6ffdb66bc1a2f20dbcacf92ac043500f)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react-dom:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
@@ -16461,7 +16466,7 @@ snapshots:
 
   range-parser@1.2.1: {}
 
-  react-big-calendar@1.19.4(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+  react-big-calendar@1.19.4(patch_hash=c7e4d41fe509ee9d5fae6c1cc30bfeef6ffdb66bc1a2f20dbcacf92ac043500f)(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       '@babel/runtime': 7.28.4
       clsx: 1.2.1

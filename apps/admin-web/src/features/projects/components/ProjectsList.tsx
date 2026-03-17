@@ -104,18 +104,6 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
     []
   );
 
-  const targetDateFilterOptions = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          projects.map((p) => p.target_date).filter((date): date is string => !!date)
-        )
-      )
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map((date) => ({ value: date as unknown, label: formatProjectDate(date) })),
-    [projects]
-  );
-
   const rightPills: EntityListPillColumn<ProjectWithLead, unknown>[] = useMemo(
     () => [
       {
@@ -144,13 +132,33 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
         ),
       },
       {
+        key: 'start_date',
+        label: 'Start date',
+        visibleByDefault: false,
+        getValue: (p) => p.start_date ?? null,
+        defaultValue: null,
+        filterType: 'date-range',
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        compare: (a, b) => {
+          const aTime = a ? new Date(String(a)).getTime() : Number.POSITIVE_INFINITY;
+          const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
+          return aTime - bTime;
+        },
+        renderPill: (item, _onChange, collapsed) => (
+          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
+            {item.start_date ? formatProjectDate(item.start_date) : 'No start date'}
+          </span>
+        ),
+      },
+      {
         key: 'target_date',
         label: 'Due date',
         visibleByDefault: true,
         getValue: (p) => p.target_date ?? null,
         defaultValue: null,
-        filterOptions: targetDateFilterOptions,
-        filterSearchable: true,
+        filterType: 'date-range',
         groupable: true,
         sortable: true,
         filterable: true,
@@ -181,17 +189,14 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
         ),
       },
     ],
-    [
-      priorityFilterOptions,
-      targetDateFilterOptions,
-      updateProject,
-    ]
+    [priorityFilterOptions, updateProject]
   );
 
   const groupByOptions = useMemo(
     () => [
       { key: 'status', label: 'Status' },
       { key: 'priority', label: 'Priority' },
+      { key: 'start_date', label: 'Start date' },
       { key: 'target_date', label: 'Due date' },
     ],
     []
@@ -200,6 +205,7 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
     () => [
       { key: 'status', label: 'Status' },
       { key: 'priority', label: 'Priority' },
+      { key: 'start_date', label: 'Start date' },
       { key: 'target_date', label: 'Due date' },
     ],
     []
@@ -229,6 +235,11 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
           if (columnKey === 'status') return getProjectStatusOrder(valueKey);
           if (columnKey === 'priority')
             return 999 - (Number(valueKey) ?? 0);
+          if (columnKey === 'start_date' || columnKey === 'target_date') {
+            if (valueKey === '__null__') return 99999999999999;
+            const t = new Date(valueKey).getTime();
+            return isNaN(t) ? 0 : t;
+          }
           return 0;
         }}
         getGroupLabel={(columnKey, valueKey) => {
@@ -239,6 +250,10 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
           if (columnKey === 'priority') {
             if (valueKey === '__null__') return 'No priority';
             return getProjectPriorityLabel(Number(valueKey) as ProjectPriority);
+          }
+          if (columnKey === 'start_date') {
+            if (valueKey === '__null__') return 'No start date';
+            return formatProjectDate(String(valueKey));
           }
           if (columnKey === 'target_date') {
             if (valueKey === '__null__') return 'No due date';

@@ -147,14 +147,6 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     [handleUpdate]
   );
 
-  const dueDateFilterOptions = useMemo(
-    () =>
-      Array.from(new Set(tasks.map((t) => t.due_date).filter((d): d is string => !!d)))
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map((d) => ({ value: d as unknown, label: new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) })),
-    [tasks]
-  );
-
   const rightPills: EntityListPillColumn<TaskWithAssignee, unknown>[] = useMemo(() => [
     {
       key: 'status',
@@ -178,8 +170,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       visibleByDefault: true,
       getValue: (t) => t.due_date ?? null,
       defaultValue: null,
-      filterOptions: dueDateFilterOptions,
-      filterSearchable: true,
+      filterType: 'date-range',
       groupable: true,
       sortable: true,
       filterable: true,
@@ -319,7 +310,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         />
       ),
     },
-  ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate, dueDateFilterOptions]);
+  ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate]);
 
   const columnDefs: KanbanColumnDef<TaskWithAssignee, unknown>[] = useMemo(() => [
     {

@@ -68,7 +68,32 @@ export const projectsApi = {
 
     for (const [key, value] of Object.entries(otherFilters)) {
       if (!Array.isArray(value) || value.length === 0) continue;
-      query = query.in(key, value);
+
+      const dateRanges = value.filter(
+        (v) => typeof v === 'object' && v !== null && (v as { type?: string }).type === 'date_range'
+      );
+      const otherValues = value.filter(
+        (v) => typeof v !== 'object' || v === null || (v as { type?: string }).type !== 'date_range'
+      );
+
+      if (otherValues.length > 0) {
+        query = query.in(key, otherValues);
+      }
+
+      if (dateRanges.length > 0) {
+        const dr = dateRanges[0] as { operator?: 'gte' | 'lte'; start?: string; end?: string };
+        if (dr.operator === 'gte' && dr.start) {
+          query = query.gte(key, dr.start);
+        } else if (dr.operator === 'lte' && dr.end) {
+          query = query.lte(key, dr.end);
+        } else if (dr.start && dr.end) {
+          query = query.gte(key, dr.start).lte(key, dr.end);
+        } else if (dr.start) {
+          query = query.gte(key, dr.start);
+        } else if (dr.end) {
+          query = query.lte(key, dr.end);
+        }
+      }
     }
 
     query = query.order('priority', { ascending: true }).order('created_at', { ascending: false });

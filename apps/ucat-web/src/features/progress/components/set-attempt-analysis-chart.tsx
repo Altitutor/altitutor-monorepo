@@ -134,7 +134,7 @@ export function SetAttemptAnalysisChart({
     const stemLabelCenterX = showStemLabel
       ? x + ((stemRange.endIndex - stemRange.startIndex + 1) * width) / 2
       : 0
-    const stemLabelY = y + height + 28
+    const stemLabelY = y + height + 36
 
     return (
       <g key={index}>

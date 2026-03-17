@@ -623,9 +623,10 @@ export function TasksList({
           visibleByDefault: true,
           getValue: (t: TaskWithAssignee) => t.due_date ?? null,
           defaultValue: null,
+          filterType: 'date-range' as const,
           groupable: false,
           sortable: true,
-          filterable: false,
+          filterable: true,
           compare: (a: unknown, b: unknown) => {
             const da = a ? new Date(a as string).getTime() : 0;
             const db = b ? new Date(b as string).getTime() : 0;

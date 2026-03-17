@@ -16,6 +16,7 @@ import { Input } from './input';
 import { ScrollArea } from './scroll-area';
 import { SearchableSelect } from './searchable-select';
 import { SearchableSelectInline } from './searchable-select-inline';
+import { DateRangeFilter } from './date-range-filter';
 import { cn } from '../lib/cn';
 import { type JSONContent } from './rich-text-editor';
 import {
@@ -59,6 +60,8 @@ export interface EntityListPillColumn<TItem, TValue = unknown> {
   renderPill: (item: TItem, onChange: (value: TValue) => void, collapsed?: boolean) => React.ReactNode;
   filterOptions?: { value: TValue; label: string }[];
   filterSearchable?: boolean;
+  /** When 'date-range', renders DateRangeFilter instead of SearchableSelectInline. Filter stored as [{ type: 'date_range', start, end }] */
+  filterType?: 'date-range';
   groupable?: boolean;
   sortable?: boolean;
   filterable?: boolean;
@@ -344,6 +347,8 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             if (dr.start && dr.end) {
               return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
             }
+            if (dr.start) return itemTime >= new Date(dr.start).getTime();
+            if (dr.end) return itemTime <= new Date(dr.end).getTime();
             return false;
           }
 
@@ -600,26 +605,46 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                       const pill = rightPills.find((p) => p.key === columnKey);
                       const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
                       const label = pill?.label ?? statusCol?.label ?? columnKey;
-                      
+                      const isDateRange = pill?.filterType === 'date-range';
+                      const dateRangeVal = isDateRange && selected[0] && typeof selected[0] === 'object' && (selected[0] as { type?: string }).type === 'date_range'
+                        ? selected[0] as { start?: string; end?: string }
+                        : null;
+
                       return (
                         <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
-                          <span className="font-semibold">{label} is</span>
-                          {selected.map((val, idx) => {
-                            const opt = (pill?.filterOptions ?? statusColumn?.options ?? []).find(o => o.value === val);
-                            const valLabel = opt?.label ?? String(val);
-                            return (
-                              <React.Fragment key={String(val)}>
-                                {idx > 0 && <span className="opacity-50">OR</span>}
-                                <button
-                                  onClick={() => removeFilterValue(columnKey, val)}
-                                  className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                                >
-                                  {valLabel}
-                                  <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                                </button>
-                              </React.Fragment>
-                            );
-                          })}
+                          <span className="font-semibold">{label}:</span>
+                          {dateRangeVal ? (
+                            <button
+                              onClick={() => removeFilterValue(columnKey, selected[0])}
+                              className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                            >
+                              {dateRangeVal.start && dateRangeVal.end
+                                ? `${dateRangeVal.start} – ${dateRangeVal.end}`
+                                : dateRangeVal.start
+                                  ? `from ${dateRangeVal.start}`
+                                  : dateRangeVal.end
+                                    ? `to ${dateRangeVal.end}`
+                                    : 'set'}
+                              <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                            </button>
+                          ) : (
+                            selected.map((val, idx) => {
+                              const opt = (pill?.filterOptions ?? statusColumn?.options ?? []).find(o => o.value === val);
+                              const valLabel = opt?.label ?? String(val);
+                              return (
+                                <React.Fragment key={String(val)}>
+                                  {idx > 0 && <span className="opacity-50">OR</span>}
+                                  <button
+                                    onClick={() => removeFilterValue(columnKey, val)}
+                                    className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                                  >
+                                    {valLabel}
+                                    <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                                  </button>
+                                </React.Fragment>
+                              );
+                            })
+                          )}
                         </div>
                       );
                     })}
@@ -679,10 +704,77 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                     }
 
                     rightPills
-                      .filter((p) => p.filterable !== false && p.filterOptions?.length)
+                      .filter(
+                        (p) =>
+                          p.filterable !== false &&
+                          (p.filterType === 'date-range' || (p.filterOptions?.length ?? 0) > 0)
+                      )
                       .forEach((p) => {
                         if (renderedKeys.has(p.key)) return;
                         renderedKeys.add(p.key);
+
+                        if (p.filterType === 'date-range') {
+                          const dr = (filters[p.key] ?? [])[0] as
+                            | { type: 'date_range'; start?: string; end?: string }
+                            | undefined;
+                          const fromVal = dr?.start ?? '';
+                          const toVal = dr?.end ?? '';
+                          filterElements.push(
+                            <DropdownMenuSub key={p.key}>
+                              <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-[320px] p-0">
+                                <DateRangeFilter
+                                  fromValue={fromVal}
+                                  toValue={toVal}
+                                  onFromChange={(v) => {
+                                    const next =
+                                      v || toVal
+                                        ? [{ type: 'date_range' as const, start: v || undefined, end: toVal || undefined }]
+                                        : [];
+                                    if (next.length === 0 && !toVal) {
+                                      const rest = Object.fromEntries(
+                                        Object.entries(filters).filter(([k]) => k !== p.key)
+                                      );
+                                      setFilters(rest);
+                                    } else {
+                                      setFilters({ ...filters, [p.key]: next });
+                                    }
+                                  }}
+                                  onToChange={(v) => {
+                                    const next =
+                                      fromVal || v
+                                        ? [{ type: 'date_range' as const, start: fromVal || undefined, end: v || undefined }]
+                                        : [];
+                                    if (next.length === 0 && !fromVal) {
+                                      const rest = Object.fromEntries(
+                                        Object.entries(filters).filter(([k]) => k !== p.key)
+                                      );
+                                      setFilters(rest);
+                                    } else {
+                                      setFilters({ ...filters, [p.key]: next });
+                                    }
+                                  }}
+                                  onRangeChange={(from, to) => {
+                                    const next =
+                                      from || to
+                                        ? [{ type: 'date_range' as const, start: from || undefined, end: to || undefined }]
+                                        : [];
+                                    if (next.length === 0) {
+                                      const rest = Object.fromEntries(
+                                        Object.entries(filters).filter(([k]) => k !== p.key)
+                                      );
+                                      setFilters(rest);
+                                    } else {
+                                      setFilters({ ...filters, [p.key]: next });
+                                    }
+                                  }}
+                                />
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          );
+                          return;
+                        }
+
                         const options: FilterOption[] = p.filterOptions!.map((o) => ({
                           value: o.value,
                           label: o.label,

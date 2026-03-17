@@ -101,8 +101,13 @@ export function TutorLogsTable({
       searchable: true,
       searchPlaceholder: 'Search students...',
     },
-    { key: 'from', label: 'From date', type: 'date' },
-    { key: 'to', label: 'To date', type: 'date' },
+    {
+      key: 'date',
+      label: 'Date',
+      type: 'date-range',
+      fromKey: 'from',
+      toKey: 'to',
+    },
   ], [filteredStaff, filteredStudents]);
 
   const sortOptions: DataTableSortOption[] = [

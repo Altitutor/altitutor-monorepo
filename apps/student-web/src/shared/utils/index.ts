@@ -56,11 +56,11 @@ export function formatDateTime(date: Date | string): string {
 }
 
 /**
- * Get subject long name from database column
- * Falls back to empty string if not available
+ * Get subject display name from database columns.
+ * Prefers long_name, falls back to short_name, then name, then empty string.
  */
 export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
-  return subject.long_name || '';
+  return subject.long_name || subject.short_name || subject.name || '';
 }
 
 /**

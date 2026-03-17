@@ -61,20 +61,16 @@ export function IssuesBoard() {
     setIsCreateDialogOpen(true);
   }, [activeColumnKey]);
 
-  const dueDateFilterOptions = useMemo(
-    () =>
-      Array.from(new Set(issues.map((issue) => issue.due_date).filter((date): date is string => !!date)))
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map((date) => ({ value: date as unknown, label: formatIssueDueDate(date) })),
-    [issues]
-  );
-
   const dueDateColumnOptions = useMemo(
-    () => [
-      { value: '__null__' as unknown, label: 'No due date' },
-      ...dueDateFilterOptions,
-    ],
-    [dueDateFilterOptions]
+    () => {
+      const dates = Array.from(
+        new Set(issues.map((issue) => issue.due_date).filter((date): date is string => !!date))
+      )
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+        .map((date) => ({ value: date as unknown, label: formatIssueDueDate(date) }));
+      return [{ value: '__null__' as unknown, label: 'No due date' }, ...dates];
+    },
+    [issues]
   );
 
   const columnDefs: KanbanColumnDef<IssueWithTags, unknown>[] = useMemo(
@@ -121,8 +117,7 @@ export function IssuesBoard() {
         visibleByDefault: true,
         getValue: (issue) => issue.due_date ?? null,
         defaultValue: null,
-        filterOptions: dueDateFilterOptions,
-        filterSearchable: true,
+        filterType: 'date-range',
         groupable: true,
         sortable: true,
         filterable: true,
@@ -160,7 +155,7 @@ export function IssuesBoard() {
         ),
       },
     ],
-    [dueDateFilterOptions, handleUpdate]
+    [handleUpdate]
   );
 
   const groupByOptions = useMemo(

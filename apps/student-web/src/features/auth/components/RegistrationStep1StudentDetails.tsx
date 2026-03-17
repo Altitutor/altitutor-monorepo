@@ -26,11 +26,11 @@ interface RegistrationStep1StudentDetailsProps {
   initialSubjects: Array<{
     id: string;
     name: string;
+    short_name?: string | null;
+    long_name?: string | null;
     year_level: number | null;
     curriculum: string | null;
     color: string | null;
-    long_name?: string | null;
-    short_name?: string | null;
   }>;
 }
 
@@ -186,10 +186,11 @@ export function RegistrationStep1StudentDetails({
     const subjects: Tables<'subjects'>[] = [];
     const allAvailableSubjects = [...allSubjects, ...subjectSearchResults];
     const uniqueSubjectsMap = new Map(allAvailableSubjects.map(s => [s.id, s]));
-    const mergedMap = new Map([...selectedSubjectsCache, ...uniqueSubjectsMap]);
-    
+    // Prefer the version with long_name for display (cache from validate API, uniqueMap from search API)
     selectedSubjectIds.forEach(id => {
-      const subject = mergedMap.get(id);
+      const cached = selectedSubjectsCache.get(id);
+      const fromSearch = uniqueSubjectsMap.get(id);
+      const subject = (cached?.long_name ? cached : fromSearch) ?? cached ?? fromSearch;
       if (subject) subjects.push(subject);
     });
     return subjects;

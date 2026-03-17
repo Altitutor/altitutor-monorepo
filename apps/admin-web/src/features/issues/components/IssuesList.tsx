@@ -99,14 +99,6 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
     onStatusChange: (issue, value) => handleStatusChange(issue, value as IssueStatus),
   };
 
-  const dueDateFilterOptions = useMemo(
-    () =>
-      Array.from(new Set(issues.map((issue) => issue.due_date).filter((date): date is string => !!date)))
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map((date) => ({ value: date as unknown, label: formatIssueDueDate(date) })),
-    [issues]
-  );
-
   const rightPills: EntityListPillColumn<IssueWithTags, unknown>[] = useMemo(
     () => [
       {
@@ -115,8 +107,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         visibleByDefault: true,
         getValue: (issue) => issue.due_date ?? null,
         defaultValue: null,
-        filterOptions: dueDateFilterOptions,
-        filterSearchable: true,
+        filterType: 'date-range',
         groupable: true,
         sortable: true,
         filterable: true,
@@ -138,7 +129,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         ),
       },
     ],
-    [dueDateFilterOptions, updateIssue]
+    [updateIssue]
   );
 
   const groupByOptions = useMemo(
