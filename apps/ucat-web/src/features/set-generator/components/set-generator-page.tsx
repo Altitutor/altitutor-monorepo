@@ -1,9 +1,18 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { Label, SearchableSelect } from '@altitutor/ui'
+import {
+  Button,
+  Label,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  SearchableSelect,
+  SearchableSelectInline,
+} from '@altitutor/ui'
+import { ChevronDown } from 'lucide-react'
 import { UcatPageHeader } from '@/features/layout'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { sectionLabels, SECTION_KEY_TO_NUMBER } from '@/features/set-generator/model/mock-data'
@@ -18,6 +27,12 @@ type SectionRow = {
   number_of_questions: number | null
 }
 
+type CategoryRow = {
+  id: string
+  name: string
+  ucat_section_id: string
+}
+
 async function fetchSection(sectionNumber: number): Promise<SectionRow | null> {
   const supabase = getSupabaseBrowserClient()
   const { data, error } = await supabase
@@ -27,6 +42,17 @@ async function fetchSection(sectionNumber: number): Promise<SectionRow | null> {
     .maybeSingle()
   if (error) throw new Error(error.message)
   return (data ?? null) as SectionRow | null
+}
+
+async function fetchCategoriesBySection(sectionId: string): Promise<CategoryRow[]> {
+  const supabase = getSupabaseBrowserClient()
+  const { data, error } = await supabase
+    .from('vstudent_ucat_question_stem_categories')
+    .select('id,name,ucat_section_id')
+    .eq('ucat_section_id', sectionId)
+    .order('name')
+  if (error) throw new Error(error.message)
+  return (data ?? []) as CategoryRow[]
 }
 
 /** Exam time in seconds for the selected section and question count. */
@@ -59,6 +85,30 @@ export function SetGeneratorPage() {
     queryKey: ['ucat', 'sections', sectionNumber],
     queryFn: () => fetchSection(sectionNumber),
     enabled: Number.isFinite(sectionNumber),
+  })
+
+  const { data: sectionCategories = [] } = useQuery({
+    queryKey: ['ucat', 'categories', selectedSection?.id],
+    queryFn: () => fetchCategoriesBySection(selectedSection!.id),
+    enabled: Boolean(selectedSection?.id),
+  })
+
+  const { data: matchingCount } = useQuery({
+    queryKey: ['ucat', 'generated-sets', 'preview', input],
+    queryFn: async () => {
+      const response = await fetch('/api/ucat/generated-sets/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input }),
+      })
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}))
+        throw new Error(body.error ?? 'Failed to fetch preview')
+      }
+      const data = (await response.json()) as { totalMatchingQuestions: number }
+      return data.totalMatchingQuestions
+    },
+    enabled: Boolean(selectedSection?.id),
   })
 
   const examTimeEstimateSeconds = useMemo(
@@ -108,8 +158,24 @@ export function SetGeneratorPage() {
   const selectedSectionLabel = sectionLabels[input.section]
 
   const handleSectionChange = (section: SectionKey) => {
-    setInput((current) => ({ ...current, section }))
+    setInput((current) => ({ ...current, section, categoryIds: [] }))
   }
+
+  const selectedCategories = useMemo(() => {
+    if (input.categoryIds.length === 0) return sectionCategories
+    return sectionCategories.filter((c) => input.categoryIds.includes(c.id))
+  }, [sectionCategories, input.categoryIds])
+
+  const handleCategoryChange = useCallback(
+    (next: CategoryRow[]) => {
+      setInput((current) => ({
+        ...current,
+        categoryIds:
+          next.length === sectionCategories.length ? [] : next.map((c) => c.id),
+      }))
+    },
+    [sectionCategories]
+  )
 
   type PerformanceFilter = 'any' | 'unanswered' | 'incorrect'
 
@@ -190,6 +256,49 @@ export function SetGeneratorPage() {
             />
           </div>
 
+          {/* Category: multi-select, only enabled when section selected */}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="space-y-0.5 min-w-0 flex-1">
+              <Label className="text-sm font-medium">Category</Label>
+              <p className="text-xs text-muted-foreground">
+                Filter by question categories. Only categories for the selected section are shown. All categories are selected by default.
+              </p>
+            </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full sm:w-48 justify-between text-left font-normal"
+                  disabled={!selectedSection}
+                >
+                  {!selectedSection ? (
+                    'Select a section first'
+                  ) : sectionCategories.length === 0 ? (
+                    'No categories'
+                  ) : input.categoryIds.length === 0 ? (
+                    `All categories (${sectionCategories.length})`
+                  ) : (
+                    `${input.categoryIds.length} of ${sectionCategories.length} selected`
+                  )}
+                  <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-56 p-0" align="start">
+                <SearchableSelectInline<CategoryRow>
+                  items={sectionCategories}
+                  value={selectedCategories}
+                  onValueChange={handleCategoryChange}
+                  getItemId={(c) => c.id}
+                  getItemLabel={(c) => c.name}
+                  searchPlaceholder="Search categories..."
+                  emptyMessage="No categories found"
+                  multiSelect
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
           {/* Time: label + description left, toggle right */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-0.5 min-w-0 flex-1">
@@ -243,10 +352,10 @@ export function SetGeneratorPage() {
             </div>
           </div>
 
-          {/* Categories: label left, control right */}
+          {/* Performance: label left, control right */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div className="space-y-0.5 min-w-0 flex-1">
-              <Label className="text-sm font-medium">Categories</Label>
+              <Label className="text-sm font-medium">Performance</Label>
               <p className="text-xs text-muted-foreground">
                 Any: include all questions. Unanswered: only questions you haven’t answered. Incorrect: only questions you’ve got wrong before.
               </p>
@@ -308,7 +417,16 @@ export function SetGeneratorPage() {
               <span className="font-medium">Section:</span> {selectedSectionLabel}
             </p>
             <p>
-              <span className="font-medium">Questions:</span> {input.questionCount} / ?
+              <span className="font-medium">Categories:</span>{' '}
+              {!selectedSection
+                ? '—'
+                : selectedCategories.length === 0
+                  ? '—'
+                  : selectedCategories.map((c) => c.name).join(', ')}
+            </p>
+            <p>
+              <span className="font-medium">Questions:</span>{' '}
+              {input.questionCount} / {matchingCount ?? '…'}
             </p>
             <p>
               <span className="font-medium">Time:</span> {previewTimeLabel}
