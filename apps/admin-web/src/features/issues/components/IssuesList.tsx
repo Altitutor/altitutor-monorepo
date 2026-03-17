@@ -9,6 +9,7 @@ import {
 } from '@altitutor/ui';
 import { useIssues } from '../api/queries';
 import { useUpdateIssue, useCreateIssue } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import { EditIssueDialog } from './EditIssueDialog';
 import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
 import { cn } from '@/shared/utils';
@@ -38,12 +39,17 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
   const createIssue = useCreateIssue();
+  const { data: currentStaff } = useCurrentStaff();
 
   const handleStatusChange = useCallback(
     (issue: IssueWithTags, value: IssueStatus) => {
-      updateIssue.mutate({ id: issue.id, updates: { status: value } });
+      const updates: { status: IssueStatus; resolved_by?: string | null } = { status: value };
+      if (value === 'resolved') {
+        updates.resolved_by = currentStaff?.id ?? null;
+      }
+      updateIssue.mutate({ id: issue.id, updates });
     },
-    [updateIssue]
+    [updateIssue, currentStaff?.id]
   );
 
   const handleAdd = useCallback(
@@ -57,10 +63,11 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
             data.due_date != null && data.due_date !== ''
               ? new Date(data.due_date as string).toISOString()
               : null,
+          created_by: currentStaff?.id ?? null,
         },
       });
     },
-    [createIssue]
+    [createIssue, currentStaff?.id]
   );
 
   const statusColumn: EntityListStatusColumn<IssueWithTags, unknown> = {

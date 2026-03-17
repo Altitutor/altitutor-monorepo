@@ -31,6 +31,7 @@ import {
 import { cn } from '@/shared/utils';
 import { useTask } from '../api/queries';
 import { useUpdateTask, useDeleteTask } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import type { TaskFormData, TaskStatus, TaskUpdate } from '../types';
 import { useNotes } from '@/shared/hooks/useNotes';
@@ -105,6 +106,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
   const { data: task, isLoading } = useTask(taskId || '', !!taskId && isOpen);
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const { data: currentStaff } = useCurrentStaff();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string | null } | null>(project ?? null);
@@ -226,6 +228,9 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
       ) {
         formattedUpdates.estimate = null;
       }
+      if (updates.status === 'done') {
+        formattedUpdates.completed_by = currentStaff?.id ?? null;
+      }
 
       await updateTask.mutateAsync({
         id: taskId,
@@ -234,7 +239,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
     } catch (error) {
       console.error('Failed to auto-save task:', error);
     }
-  }, [taskId, updateTask]);
+  }, [taskId, updateTask, currentStaff?.id]);
 
   const handleDelete = async () => {
     if (!taskId) return;

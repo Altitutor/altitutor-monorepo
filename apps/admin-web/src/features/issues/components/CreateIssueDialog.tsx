@@ -22,6 +22,7 @@ import {
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 import { useCreateIssue } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { IssueFormData, IssueStatus, IssueTagInsert } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
 import { IssueContentPanel } from './panels/IssueContentPanel';
@@ -91,6 +92,7 @@ export function CreateIssueDialog({
 }: CreateIssueDialogProps) {
   const [expanded, setExpanded] = useState(false);
   const createIssue = useCreateIssue();
+  const { data: currentStaff } = useCurrentStaff();
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -141,6 +143,7 @@ export function CreateIssueDialog({
           description: data.description || null,
           status: data.status,
           due_date: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+          created_by: currentStaff?.id ?? null,
         },
         tags: initialTags,
       });
@@ -149,7 +152,7 @@ export function CreateIssueDialog({
     } catch (error) {
       console.error('Failed to create issue:', error);
     }
-  }, [createIssue, handleClose, initialTags, onIssueCreated]);
+  }, [createIssue, handleClose, initialTags, onIssueCreated, currentStaff?.id]);
 
   const handlePrimaryAction = useCallback(() => {
     if (createIssue.isPending) return;

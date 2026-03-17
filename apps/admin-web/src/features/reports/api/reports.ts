@@ -33,6 +33,8 @@ type IssueRow = {
   resolved_at: string | null;
   created_by: string | null;
   created_by_staff: { first_name: string | null; last_name: string | null } | null;
+  resolved_by: string | null;
+  resolved_by_staff: { first_name: string | null; last_name: string | null } | null;
 };
 
 type StaffSessionRow = {
@@ -196,7 +198,7 @@ async function fetchIssuesForReport(
   const { data, error } = await supabase
     .from('issues')
     .select(
-      'id, name, created_at, resolved_at, created_by, created_by_staff:staff!issues_created_by_fkey(id, first_name, last_name)'
+      'id, name, created_at, resolved_at, created_by, created_by_staff:staff!issues_created_by_fkey(id, first_name, last_name), resolved_by, resolved_by_staff:staff!issues_resolved_by_fkey(id, first_name, last_name)'
     )
     .lte('created_at', weekEndIso);
 
@@ -209,6 +211,8 @@ async function fetchIssuesForReport(
     resolved_at: string | null;
     created_by: string | null;
     created_by_staff: { id: string; first_name: string | null; last_name: string | null } | null;
+    resolved_by: string | null;
+    resolved_by_staff: { id: string; first_name: string | null; last_name: string | null } | null;
   };
   const rows = (data ?? []) as RawRow[];
   return rows.map((r) => ({
@@ -218,6 +222,8 @@ async function fetchIssuesForReport(
     resolved_at: r.resolved_at,
     created_by: r.created_by,
     created_by_staff: r.created_by_staff,
+    resolved_by: r.resolved_by,
+    resolved_by_staff: r.resolved_by_staff,
   }));
 }
 
@@ -288,6 +294,9 @@ function computeResolvedByDay(
           createdBy: i.created_by_staff
             ? staffName(i.created_by_staff.first_name, i.created_by_staff.last_name, '')
             : undefined,
+          resolvedBy: i.resolved_by_staff
+            ? staffName(i.resolved_by_staff.first_name, i.resolved_by_staff.last_name, '')
+            : undefined,
           resolvedAt: formatMetaDate(i.resolved_at),
         },
       })),
@@ -318,6 +327,7 @@ type TaskRow = {
   completed_at: string | null;
   created_by_staff: { first_name: string | null; last_name: string | null } | null;
   assigned_to_staff: { first_name: string | null; last_name: string | null } | null;
+  completed_by_staff: { first_name: string | null; last_name: string | null } | null;
 };
 
 type ProjectRow = {
@@ -343,7 +353,7 @@ async function fetchTasksForReport(
   const { data, error } = await supabase
     .from('tasks')
     .select(
-      'id, title, created_at, completed_at, created_by_staff:staff!tasks_created_by_fkey(first_name, last_name), assigned_to_staff:staff!tasks_assigned_to_fkey(first_name, last_name)'
+      'id, title, created_at, completed_at, created_by_staff:staff!tasks_created_by_fkey(first_name, last_name), assigned_to_staff:staff!tasks_assigned_to_fkey(first_name, last_name), completed_by_staff:staff!tasks_completed_by_fkey(first_name, last_name)'
     )
     .lte('created_at', periodEndIso);
 
@@ -356,6 +366,7 @@ async function fetchTasksForReport(
     completed_at: string | null;
     created_by_staff: { first_name: string | null; last_name: string | null } | null;
     assigned_to_staff: { first_name: string | null; last_name: string | null } | null;
+    completed_by_staff: { first_name: string | null; last_name: string | null } | null;
   };
   return (data ?? []) as RawRow[];
 }
@@ -425,11 +436,8 @@ function computeCompletedTasksByDay(
         name: t.title,
         link: { kind: 'task' as ReportEntityLink['kind'], taskId: t.id },
         meta: {
-          createdBy: t.created_by_staff
-            ? staffName(t.created_by_staff.first_name, t.created_by_staff.last_name, '')
-            : undefined,
-          assignee: t.assigned_to_staff
-            ? staffName(t.assigned_to_staff.first_name, t.assigned_to_staff.last_name, '')
+          completedBy: t.completed_by_staff
+            ? staffName(t.completed_by_staff.first_name, t.completed_by_staff.last_name, '')
             : undefined,
           completedAt: formatMetaDateTime(t.completed_at),
         },
@@ -717,6 +725,48 @@ async function fetchClassesForReport(): Promise<ClassRow[]> {
   return (data ?? []) as ClassRow[];
 }
 
+type SessionWithStudentsRow = {
+  id: string;
+  start_at: string | null;
+  class_id: string | null;
+  class: { short_name: string | null } | null;
+  sessions_students: { id: string }[];
+};
+
+/**
+ * Fetch sessions in the period that have class_id and at least one student.
+ * Used for "active classes" report: a class is active on a date if it has
+ * at least one session on that date with at least one student.
+ */
+async function fetchSessionsWithStudentsForReport(
+  periodStart: Date,
+  periodEnd: Date
+): Promise<SessionWithStudentsRow[]> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const startIso = startOfDay(periodStart).toISOString();
+  const endIso = endOfDay(periodEnd).toISOString();
+
+  const { data, error } = await supabase
+    .from('sessions')
+    .select(
+      `
+      id,
+      start_at,
+      class_id,
+      class:classes(short_name),
+      sessions_students(id)
+    `
+    )
+    .gte('start_at', startIso)
+    .lte('start_at', endIso)
+    .not('class_id', 'is', null);
+
+  if (error) throw error;
+
+  const rows = (data ?? []) as SessionWithStudentsRow[];
+  return rows.filter((r) => r.sessions_students && r.sessions_students.length > 0);
+}
+
 async function fetchClassEnrollmentsForReport(
   periodStart: Date,
   periodEnd: Date
@@ -873,9 +923,10 @@ export async function fetchStudentStatsReportData(
   periodEnd: Date
 ): Promise<StudentStatsReportData> {
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
-  const [students, classes, classEnrollments, sessionStudents] = await Promise.all([
+  const [students, classes, sessionsWithStudents, classEnrollments, sessionStudents] = await Promise.all([
     fetchStudentsForReport(),
     fetchClassesForReport(),
+    fetchSessionsWithStudentsForReport(periodStart, periodEnd),
     fetchClassEnrollmentsForReport(periodStart, periodEnd),
     fetchStudentSessionsForReport(periodStart, periodEnd),
   ]);
@@ -906,24 +957,37 @@ export async function fetchStudentStatsReportData(
     };
   });
 
-  // Active classes
+  // Active classes: classes with at least one session on the date that has at least one student
   const activeClassesByDay = days.map((day) => {
-    const dayOnly = startOfDay(day);
     const dayStr = toDateOnlyString(day);
+    const dayStart = startOfDay(day);
+    const dayEnd = endOfDay(day);
 
-    const activeClasses = classes.filter((cls) => {
-      if (!cls.session_start_date || !cls.session_end_date) return false;
-      const start = new Date(cls.session_start_date);
-      const end = new Date(cls.session_end_date);
-      return !isAfter(start, dayOnly) && !isBefore(end, dayOnly);
+    const sessionsOnDay = sessionsWithStudents.filter((s) => {
+      if (!s.start_at || !s.class_id) return false;
+      const startAt = new Date(s.start_at);
+      return !isBefore(startAt, dayStart) && !isAfter(startAt, dayEnd);
     });
+
+    const classIdsSeen = new Set<string>();
+    const activeClassEntities: { id: string; name: string }[] = [];
+    for (const s of sessionsOnDay) {
+      if (s.class_id && !classIdsSeen.has(s.class_id)) {
+        classIdsSeen.add(s.class_id);
+        const shortName = s.class?.short_name?.trim();
+        activeClassEntities.push({
+          id: s.class_id,
+          name: shortName ?? `Class ${s.class_id}`,
+        });
+      }
+    }
 
     return {
       date: dayStr,
-      count: activeClasses.length,
-      entities: activeClasses.map((cls) => ({
+      count: activeClassEntities.length,
+      entities: activeClassEntities.map((cls) => ({
         id: cls.id,
-        name: cls.short_name?.trim() ?? `Class ${cls.id}`,
+        name: cls.name,
         link: {
           kind: 'class' as ReportEntityLink['kind'],
           classId: cls.id,

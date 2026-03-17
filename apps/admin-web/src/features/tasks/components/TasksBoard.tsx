@@ -89,8 +89,12 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
 
   const updateTask = useUpdateTask();
   const handleUpdate = useCallback((task: TaskWithAssignee, updates: Partial<TaskWithAssignee>) => {
-    updateTask.mutate({ id: task.id, updates: updates as TaskUpdate });
-  }, [updateTask]);
+    const finalUpdates = { ...updates } as TaskUpdate;
+    if (updates.status === 'done') {
+      finalUpdates.completed_by = currentStaff?.id ?? null;
+    }
+    updateTask.mutate({ id: task.id, updates: finalUpdates });
+  }, [updateTask, currentStaff?.id]);
 
   const { staff: staffList } = useStaffSearch('', true);
 

@@ -25,6 +25,7 @@ import {
 } from '../utils/taskUtils';
 import { Calendar } from 'lucide-react';
 import { useUpdateTask } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 
 interface SimpleTaskCardProps {
   task: TaskWithAssignee;
@@ -33,6 +34,7 @@ interface SimpleTaskCardProps {
 
 export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
   const updateTask = useUpdateTask();
+  const { data: currentStaff } = useCurrentStaff();
   const assigneeInitials = task.assignee
     ? getUserInitials(task.assignee.first_name, task.assignee.last_name)
     : null;
@@ -47,9 +49,13 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
   const handleStatusChange = (newStatus: TaskStatus, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent card click
     if (newStatus !== task.status) {
+      const updates: { status: TaskStatus; completed_by?: string | null } = { status: newStatus };
+      if (newStatus === 'done') {
+        updates.completed_by = currentStaff?.id ?? null;
+      }
       updateTask.mutate({
         id: task.id,
-        updates: { status: newStatus },
+        updates,
       });
     }
   };

@@ -9,6 +9,7 @@ import {
 } from '@altitutor/ui';
 import { useIssues } from '../api/queries';
 import { useUpdateIssue } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import { IssueCard } from './IssueCard';
 import { EditIssueDialog } from './EditIssueDialog';
 import { CreateIssueDialog } from './CreateIssueDialog';
@@ -34,14 +35,19 @@ export function IssuesBoard() {
 
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
+  const { data: currentStaff } = useCurrentStaff();
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleUpdate = useCallback(
     (issue: IssueWithTags, updates: Partial<IssueUpdate>) => {
-      updateIssue.mutate({ id: issue.id, updates });
+      const finalUpdates = { ...updates };
+      if (updates.status === 'resolved') {
+        finalUpdates.resolved_by = currentStaff?.id ?? null;
+      }
+      updateIssue.mutate({ id: issue.id, updates: finalUpdates });
     },
-    [updateIssue]
+    [updateIssue, currentStaff?.id]
   );
 
   const handleAdd = useCallback((columnValue: unknown) => {

@@ -31,6 +31,7 @@ import {
 import { cn } from '@/shared/utils';
 import { useIssue } from '../api/queries';
 import { useUpdateIssue, useDeleteIssue } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useNotes } from '@/shared/hooks/useNotes';
 import type { Tables } from '@altitutor/shared';
 import type { IssueFormData, IssueStatus } from '../types';
@@ -88,6 +89,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
   const { data: issue, isLoading } = useIssue(issueId || '', !!issueId && isOpen);
   const updateIssue = useUpdateIssue();
   const deleteIssue = useDeleteIssue();
+  const { data: currentStaff } = useCurrentStaff();
   const lastResetIssueIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -158,6 +160,9 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
         formattedUpdates.due_date = updates.dueDate ? new Date(updates.dueDate).toISOString() : null;
         delete formattedUpdates.dueDate;
       }
+      if (updates.status === 'resolved') {
+        formattedUpdates.resolved_by = currentStaff?.id ?? null;
+      }
 
       await updateIssue.mutateAsync({
         id: issueId,
@@ -167,7 +172,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
     } catch (error) {
       console.error('Failed to auto-save issue:', error);
     }
-  }, [issueId, updateIssue]);
+  }, [issueId, updateIssue, currentStaff?.id]);
 
   if (!issueId || !isOpen) return null;
 
