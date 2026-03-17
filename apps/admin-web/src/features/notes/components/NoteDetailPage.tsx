@@ -41,6 +41,7 @@ import type { NoteFormData } from '../types';
 import type { Resolver } from 'react-hook-form';
 import { Check, CloudOff, MoreVertical, Trash2 } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -75,6 +76,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const isUpdatingFromServerRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
   const [initialFocusDone, setInitialFocusDone] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const lastBlurSavedTitleRef = useRef<string | null>(null);
 
   const form = useForm<NoteFormData, unknown, NoteFormData>({
@@ -258,6 +260,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                     <RichTextTemplateMenuItems
                       getEditor={() => noteEditorRef.current?.getEditor() ?? null}
                       getCurrentContent={() => form.getValues('content') ?? null}
+                      onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
                     />
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
@@ -377,6 +380,12 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
           </div>
         </Tabs>
       </div>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('content') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
     </div>
   );
 }

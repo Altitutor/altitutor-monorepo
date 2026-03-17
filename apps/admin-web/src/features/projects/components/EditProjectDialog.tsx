@@ -67,6 +67,7 @@ import { useNotes as useEntityNotes } from '@/shared/hooks/useNotes';
 import { ProjectNotes } from './ProjectNotes';
 import { ProjectPropertyPills } from './fields/ProjectPropertyPills';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -115,6 +116,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
   const lastResetProjectIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -297,6 +299,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                   richTextTemplateConfig={{
                     getEditor: () => descriptionFieldRef.current?.getEditor() ?? null,
                     getCurrentContent: () => form.getValues('description') ?? null,
+                    onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
                   }}
                 />
               </div>
@@ -547,6 +550,12 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        <SaveAsTemplateDialog
+          isOpen={isSaveDialogOpen}
+          onClose={() => setIsSaveDialogOpen(false)}
+          initialContent={form.getValues('description') ?? null}
+          onSuccess={() => setIsSaveDialogOpen(false)}
+        />
       </Dialog>
 
       <EditDocumentDialog

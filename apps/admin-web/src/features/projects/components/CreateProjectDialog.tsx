@@ -12,9 +12,14 @@ import {
   DialogFooter,
   Form,
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   type RichTextEditorRef,
 } from '@altitutor/ui';
-import { X } from 'lucide-react';
+import { X, MoreVertical } from 'lucide-react';
+import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { useCreateProject } from '../api/mutations';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
@@ -61,6 +66,7 @@ export function CreateProjectDialog({
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
   const [expanded, setExpanded] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -153,6 +159,20 @@ export function CreateProjectDialog({
                 <DialogTitle>Create Project</DialogTitle>
               </div>
               <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <RichTextTemplateMenuItems
+                    getEditor={() => descriptionFieldRef.current?.getEditor() ?? null}
+                    getCurrentContent={() => form.getValues('description') ?? null}
+                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </DialogHeader>
 
@@ -187,6 +207,12 @@ export function CreateProjectDialog({
           </DialogFooter>
         </Form>
       </DialogContent>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('description') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
     </Dialog>
   );
 }

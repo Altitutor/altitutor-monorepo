@@ -111,6 +111,7 @@ interface TutorLogActionsMenuProps extends BaseActionsMenuProps {
 interface RichTextTemplateConfig {
   getEditor: () => Editor | null;
   getCurrentContent: () => JSONContent | string | null;
+  onSaveAsTemplateClick?: () => void;
 }
 
 interface IssueActionsMenuProps extends BaseActionsMenuProps {
@@ -712,6 +713,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <RichTextTemplateMenuItems
               getEditor={props.richTextTemplateConfig.getEditor}
               getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
+              onSaveAsTemplateClick={props.richTextTemplateConfig.onSaveAsTemplateClick}
             />
           )}
           <DropdownMenuSeparator />
@@ -745,6 +747,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <RichTextTemplateMenuItems
               getEditor={props.richTextTemplateConfig.getEditor}
               getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
+              onSaveAsTemplateClick={props.richTextTemplateConfig.onSaveAsTemplateClick}
             />
           )}
           <DropdownMenuSeparator />
@@ -778,6 +781,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <RichTextTemplateMenuItems
               getEditor={props.richTextTemplateConfig.getEditor}
               getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
+              onSaveAsTemplateClick={props.richTextTemplateConfig.onSaveAsTemplateClick}
             />
           )}
           <DropdownMenuSeparator />

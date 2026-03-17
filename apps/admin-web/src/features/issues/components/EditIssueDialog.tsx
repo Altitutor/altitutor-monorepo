@@ -40,6 +40,7 @@ import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
 import { useIssueAutoSave } from '../hooks/useIssueAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 
 const VALID_ISSUE_STATUSES: IssueStatus[] = ['open', 'awaiting_response', 'resolved'];
@@ -94,6 +95,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
   const lastResetIssueIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const descriptionRef = useRef<RichTextEditorRef>(null);
 
@@ -237,6 +239,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                   richTextTemplateConfig={{
                     getEditor: () => descriptionRef.current?.getEditor() ?? null,
                     getCurrentContent: () => form.getValues('description') ?? null,
+                    onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
                   }}
                 />
               </div>
@@ -308,6 +311,12 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('description') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
     </Dialog>
   );
 }

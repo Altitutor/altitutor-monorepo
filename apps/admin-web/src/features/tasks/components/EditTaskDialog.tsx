@@ -39,6 +39,7 @@ import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
 import { useTaskAutoSave } from '../hooks/useTaskAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 import type { UseFormReturn, Resolver } from 'react-hook-form';
@@ -114,6 +115,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
   const lastResetTaskIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -314,6 +316,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
                 richTextTemplateConfig={{
                   getEditor: () => descriptionRef.current?.getEditor() ?? null,
                   getCurrentContent: () => form.getValues('description') ?? null,
+                  onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
                 }}
               />
             </div>
@@ -415,6 +418,12 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('description') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
 
       {openIssueId && (
         <EditIssueDialog

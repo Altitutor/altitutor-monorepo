@@ -29,6 +29,7 @@ import {
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Trash2, X, Loader2, Check, CloudOff } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import type { Editor } from '@tiptap/react';
 import { useNote, useFolders } from '../api/queries';
 import { useDeleteNote, useUpdateNote } from '../hooks/useNoteMutations';
@@ -89,6 +90,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const [isInitialized, setIsInitialized] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -210,6 +212,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   <RichTextTemplateMenuItems
                     getEditor={() => noteEditorRef.current?.getEditor() ?? null}
                     getCurrentContent={() => form.getValues('content') ?? null}
+                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
                   />
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
@@ -322,6 +325,12 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
           </div>
         )}
       </DialogContent>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('content') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
     </Dialog>
   );
 }
