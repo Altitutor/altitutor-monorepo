@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import type { Tables } from "@altitutor/shared";
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { Button, SearchableSelect, ScrollArea } from "@altitutor/ui";
 import { Loader2, BookOpen, Plus, X, Search } from "lucide-react";
 import { formatSubjectDisplay } from "@/shared/utils";
 import { cn } from "@/shared/utils";
@@ -30,13 +27,10 @@ export function SubjectsTab({
 }: SubjectsTabProps) {
   const [assigningSubjects, setAssigningSubjects] = useState<Set<string>>(new Set());
   const [removingSubjects, setRemovingSubjects] = useState<Set<string>>(new Set());
-  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const handleAssignSubject = async (subjectId: string) => {
     setAssigningSubjects(prev => new Set(prev).add(subjectId));
-    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
-    
+
     try {
       await onAssignSubject(subjectId);
     } finally {
@@ -50,7 +44,7 @@ export function SubjectsTab({
 
   const handleRemoveSubject = async (subjectId: string) => {
     setRemovingSubjects(prev => new Set(prev).add(subjectId));
-    
+
     try {
       await onRemoveSubject(subjectId);
     } finally {
@@ -66,21 +60,49 @@ export function SubjectsTab({
     // Subject viewing modal removed for tutors
   };
 
-  const availableSubjects = allSubjects.filter(subject => 
+  const availableSubjects = allSubjects.filter(subject =>
     !staffSubjects.some(staffSubject => staffSubject.id === subject.id)
   );
 
-  const filteredAvailableSubjects = availableSubjects.filter(subject => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return formatSubjectDisplay(subject).toLowerCase().includes(query);
-  });
+  const addSubjectTrigger = (
+    <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
+      <Plus className="h-4 w-4" />
+      <span>Add Subject</span>
+    </Button>
+  );
+
+  const assignSubjectTrigger = (
+    <Button variant="outline">
+      <Plus className="h-4 w-4 mr-2" />
+      Assign a subject
+    </Button>
+  );
+
+  const subjectSelectProps = {
+    items: availableSubjects,
+    value: null as Tables<'subjects'> | null,
+    onValueChange: (subject: Tables<'subjects'> | null) => subject && handleAssignSubject(subject.id),
+    getItemId: (s: Tables<'subjects'>) => s.id,
+    getItemLabel: formatSubjectDisplay,
+    searchPlaceholder: "Search subjects...",
+    emptyMessage: "No available subjects found",
+    contentWidth: "300px",
+    getItemDisabled: (s: Tables<'subjects'>) => assigningSubjects.has(s.id),
+    renderItem: (subject: Tables<'subjects'>) => (
+      <div className="flex items-center justify-between w-full">
+        <span className="font-medium">{formatSubjectDisplay(subject)}</span>
+        {assigningSubjects.has(subject.id) && (
+          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+        )}
+      </div>
+    ),
+  };
 
   return (
     <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
       <div className="flex items-center gap-2">
         <h3 className="text-base font-medium">Subjects ({staffSubjects.length})</h3>
-        
+
         {/* Show currently assigning subjects */}
         {assigningSubjects.size > 0 && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -88,55 +110,14 @@ export function SubjectsTab({
             <span>Adding {assigningSubjects.size} subject{assigningSubjects.size > 1 ? 's' : ''}...</span>
           </div>
         )}
-        
-        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Subject</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[300px]" align="end">
-            <div className="p-3">
-              <Input
-                placeholder="Search subjects..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-3"
-              />
-              <ScrollArea className="max-h-[300px]">
-                <div className="space-y-1">
-                  {filteredAvailableSubjects.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      {searchQuery ? 'No subjects match your search' : 'No available subjects found'}
-                    </div>
-                  ) : (
-                    filteredAvailableSubjects.map(subject => (
-                      <Button
-                        key={subject.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                        onClick={() => handleAssignSubject(subject.id)}
-                        disabled={assigningSubjects.has(subject.id)}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium">{formatSubjectDisplay(subject)}</div>
-                          </div>
-                          {assigningSubjects.has(subject.id) && (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          )}
-                        </div>
-                      </Button>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          </PopoverContent>
-        </Popover>
+
+        <SearchableSelect<Tables<'subjects'>>
+          {...subjectSelectProps}
+          trigger={addSubjectTrigger}
+          align="end"
+        />
       </div>
-      
+
       {loadingSubjects ? (
         <div className="flex-1 flex justify-center items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -145,52 +126,12 @@ export function SubjectsTab({
         <div className="flex-1 flex flex-col justify-center items-center">
           <BookOpen className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground mb-4">No subjects assigned</p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Assign a subject
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[300px]" align="center">
-              <div className="p-3">
-                <Input
-                  placeholder="Search subjects..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
-                    {filteredAvailableSubjects.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        No subjects found
-                      </div>
-                    ) : (
-                      filteredAvailableSubjects.map(subject => (
-                        <Button
-                          key={subject.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => handleAssignSubject(subject.id)}
-                          disabled={assigningSubjects.has(subject.id)}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col items-start">
-                              <div className="font-medium">{formatSubjectDisplay(subject)}</div>
-                            </div>
-                            {assigningSubjects.has(subject.id) && (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                          </div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <SearchableSelect<Tables<'subjects'>>
+            {...subjectSelectProps}
+            trigger={assignSubjectTrigger}
+            align="center"
+            emptyMessage="No subjects found"
+          />
         </div>
       ) : (
         <ScrollArea className="flex-1">

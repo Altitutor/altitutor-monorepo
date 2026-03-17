@@ -21,13 +21,10 @@ import {
   CommandItem,
   CommandList,
   DataTableToolbar,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -896,41 +893,56 @@ export function UcatQuestionsPage() {
         onDelete={() => setBulkDeleteOpen(true)}
         deletePending={deleteMutation.isPending}
       >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <SearchableSelect<{ id: string | null; name: string | null }>
+          items={categories.data ?? []}
+          value={null}
+          onValueChange={(c) => {
+            if (c?.id) {
+              setBulkCategoryId(c.id)
+              setBulkCategoryOpen(true)
+            }
+          }}
+          getItemId={(c) => c.id ?? ''}
+          getItemLabel={(c) => c.name ?? 'Untitled'}
+          getItemValue={(c) => c.name ?? ''}
+          placeholder="Category"
+          searchPlaceholder="Search categories..."
+          emptyMessage="No categories found"
+          trigger={
             <Button variant="outline" size="sm">
               Category
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="max-h-[300px] overflow-y-auto">
-            {(categories.data ?? []).map((c) => (
-              <DropdownMenuItem
-                key={c.id ?? ''}
-                onClick={() => {
-                  setBulkCategoryId(c.id ?? null)
-                  setBulkCategoryOpen(true)
-                }}
-              >
-                {c.name ?? 'Untitled'}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          }
+          contentWidth="240px"
+          align="start"
+          side="top"
+        />
+        <SearchableSelect<{ value: boolean; label: string }>
+          items={[
+            { value: false, label: 'Public' },
+            { value: true, label: 'Private' },
+          ]}
+          value={null}
+          onValueChange={(item) => {
+            if (item) {
+              setBulkVisibilityPrivate(item.value);
+              setBulkVisibilityOpen(true);
+            }
+          }}
+          getItemId={(i) => (i.value ? 'private' : 'public')}
+          getItemLabel={(i) => i.label}
+          placeholder="Visibility"
+          searchPlaceholder="Search..."
+          emptyMessage="No options"
+          trigger={
             <Button variant="outline" size="sm">
               Visibility
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top">
-            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(false); setBulkVisibilityOpen(true) }}>
-              Public
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(true); setBulkVisibilityOpen(true) }}>
-              Private
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          }
+          contentWidth="160px"
+          align="start"
+          side="top"
+        />
         <Popover open={addToSetsPopoverOpen} onOpenChange={setAddToSetsPopoverOpen}>
           <PopoverTrigger
             type="button"

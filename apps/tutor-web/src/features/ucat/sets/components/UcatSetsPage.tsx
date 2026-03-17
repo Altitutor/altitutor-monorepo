@@ -18,10 +18,6 @@ import {
   Checkbox,
   DataTable,
   DataTableToolbar,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Input,
   SearchableSelect,
   Switch,
@@ -417,21 +413,32 @@ export function UcatSetsPage() {
         onDelete={() => setBulkDeleteOpen(true)}
         deletePending={bulkDeletePending}
       >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <SearchableSelect<{ value: boolean; label: string }>
+          items={[
+            { value: false, label: 'Public' },
+            { value: true, label: 'Private' },
+          ]}
+          value={null}
+          onValueChange={(item) => {
+            if (item) {
+              setBulkVisibilityPrivate(item.value);
+              setBulkVisibilityOpen(true);
+            }
+          }}
+          getItemId={(i) => (i.value ? 'private' : 'public')}
+          getItemLabel={(i) => i.label}
+          placeholder="Visibility"
+          searchPlaceholder="Search..."
+          emptyMessage="No options"
+          trigger={
             <Button variant="outline" size="sm">
               Visibility
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top">
-            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(false); setBulkVisibilityOpen(true) }}>
-              Public
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(true); setBulkVisibilityOpen(true) }}>
-              Private
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          }
+          contentWidth="160px"
+          align="start"
+          side="top"
+        />
       </UcatSelectionToolbar>
 
       <AlertDialog open={bulkVisibilityOpen} onOpenChange={setBulkVisibilityOpen}>

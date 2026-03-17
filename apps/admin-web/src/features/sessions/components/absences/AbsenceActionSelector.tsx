@@ -1,11 +1,104 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { RadioGroup, RadioGroupItem, Label, Button } from '@altitutor/ui';
+import { useState, useEffect, useMemo } from 'react';
+import { RadioGroup, RadioGroupItem, Label, Button, SearchableSelect } from '@altitutor/ui';
 import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import type { AbsenceAction, RescheduleSession } from '../../types/absence';
 import { useAvailableRescheduleSessions } from '../../hooks';
 import { Calendar, Users, ArrowRight, BookOpen, Minus, Plus } from 'lucide-react';
+
+function getSessionDisplay(session: RescheduleSession): string {
+  const subject = session.subject;
+  const parts: string[] = [];
+  if (subject?.curriculum) parts.push(subject.curriculum);
+  if (subject?.year_level) parts.push(`Year ${subject.year_level}`);
+  if (subject?.name) parts.push(subject.name);
+  if (subject?.level) parts.push(subject.level);
+  const subjectDisplay = parts.join(' ') || 'Unknown';
+  const sessionDate = session.start_at ? new Date(session.start_at) : null;
+  const dateTimeDisplay = sessionDate
+    ? `${formatDate(sessionDate)} ${formatTimeHHMM(session.start_at)}${
+        session.end_at ? ` - ${formatTimeHHMM(session.end_at)}` : ''
+      }`
+    : 'TBD';
+  return `${subjectDisplay} • ${dateTimeDisplay}`;
+}
+
+function SessionSelect({
+  sessions,
+  value,
+  onValueChange,
+}: {
+  sessions: RescheduleSession[];
+  value: string | null;
+  onValueChange: (sessionId: string | null) => void;
+}) {
+  const selectedSession = useMemo(
+    () => sessions.find((s) => s.id === value) ?? null,
+    [sessions, value]
+  );
+  return (
+    <SearchableSelect<RescheduleSession>
+      items={sessions}
+      value={selectedSession}
+      onValueChange={(s) => onValueChange(s?.id ?? null)}
+      getItemId={(s) => s.id}
+      getItemLabel={getSessionDisplay}
+      getItemValue={(s) =>
+        `${getSessionDisplay(s)} ${s.subject?.name ?? ''} ${s.subject?.curriculum ?? ''}`.trim()
+      }
+      placeholder="Select session to reschedule to..."
+      searchPlaceholder="Search sessions..."
+      emptyMessage="No sessions match"
+      trigger={
+        <Button variant="outline" className="w-full justify-start">
+          {selectedSession ? getSessionDisplay(selectedSession) : 'Select session to reschedule to...'}
+        </Button>
+      }
+      contentWidth="100%"
+      align="start"
+      renderItem={(session, isSelected) => (
+        <div className="flex items-center justify-between w-full">
+          <div className="flex-1 min-w-0">
+            <div className="font-medium text-sm flex items-center gap-2">
+              <BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+              <span className="truncate">
+                {session.subject
+                  ? [
+                      session.subject.curriculum,
+                      session.subject.year_level ? `Year ${session.subject.year_level}` : '',
+                      session.subject.name,
+                      session.subject.level,
+                    ]
+                      .filter(Boolean)
+                      .join(' ')
+                  : 'Unknown'}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+              <Calendar className="h-3 w-3 flex-shrink-0" />
+              <span>
+                {session.start_at
+                  ? `${formatDate(new Date(session.start_at))} ${formatTimeHHMM(session.start_at)}${
+                      session.end_at ? ` - ${formatTimeHHMM(session.end_at)}` : ''
+                    }`
+                  : 'TBD'}
+              </span>
+              {session.studentCount !== undefined && (
+                <>
+                  <span className="mx-1">•</span>
+                  <Users className="h-3 w-3 flex-shrink-0" />
+                  <span>{session.studentCount} students</span>
+                </>
+              )}
+            </div>
+          </div>
+          {isSelected && <ArrowRight className="h-5 w-5 text-primary flex-shrink-0 ml-2" />}
+        </div>
+      )}
+    />
+  );
+}
 
 interface AbsenceActionSelectorProps {
   studentId: string;
@@ -162,64 +255,12 @@ export function AbsenceActionSelector({
                 All available sessions have been selected for other absences. Try adjusting the date range for more options.
               </div>
             ) : (
-              <div className="space-y-2 max-h-64 overflow-y-auto">
-                {rescheduleSessions
-                  .filter((session) => !excludeSessionIds.includes(session.id)) // Filter out already selected sessions
-                  .map((session) => {
-                  const isSelected = selectedTargetSessionId === session.id;
-                  const sessionDate = session.start_at ? new Date(session.start_at) : null;
-                  
-                  // Build subject display
-                  const subject = session.subject;
-                  const subjectPartsSession = [];
-                  if (subject?.curriculum) subjectPartsSession.push(subject.curriculum);
-                  if (subject?.year_level) subjectPartsSession.push(`Year ${subject.year_level}`);
-                  if (subject?.name) subjectPartsSession.push(subject.name);
-                  if (subject?.level) subjectPartsSession.push(subject.level);
-                  const subjectDisplaySession = subjectPartsSession.join(' ') || 'Unknown';
-
-                  const dateTimeDisplay = sessionDate
-                    ? `${formatDate(sessionDate)} ${formatTimeHHMM(session.start_at)}${
-                        session.end_at ? ` - ${formatTimeHHMM(session.end_at)}` : ''
-                      }`
-                    : 'TBD';
-
-                  return (
-                    <div
-                      key={session.id}
-                      className={`
-                        p-3 rounded-lg border-2 transition-all cursor-pointer
-                        ${
-                          isSelected
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border hover:border-primary/50 hover:bg-primary/5'
-                        }
-                      `}
-                      onClick={() => setSelectedTargetSessionId(session.id)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <div className="font-medium text-sm mb-1 flex items-center gap-2">
-                            <BookOpen className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-                            <span>{subjectDisplaySession}</span>
-                          </div>
-                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                            <Calendar className="h-3 w-3 flex-shrink-0" />
-                            <span>{dateTimeDisplay}</span>
-                            {session.studentCount !== undefined && (
-                              <>
-                                <span className="mx-1">•</span>
-                                <Users className="h-3 w-3 flex-shrink-0" />
-                                <span>{session.studentCount} students</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                        {isSelected && <ArrowRight className="h-5 w-5 text-primary flex-shrink-0 ml-2" />}
-                      </div>
-                    </div>
-                  );
-                })}
+              <div className="pt-2">
+                <SessionSelect
+                  sessions={rescheduleSessions.filter((s) => !excludeSessionIds.includes(s.id))}
+                  value={selectedTargetSessionId}
+                  onValueChange={setSelectedTargetSessionId}
+                />
               </div>
             )}
           </div>

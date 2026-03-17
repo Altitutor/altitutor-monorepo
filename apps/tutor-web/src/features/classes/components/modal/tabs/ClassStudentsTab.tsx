@@ -1,9 +1,6 @@
 import { useState } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { Button, SearchableSelect, ScrollArea } from "@altitutor/ui";
 import { Loader2, Users, Plus, X, Search } from "lucide-react";
 import { cn } from "@/shared/utils";
 // import { ViewStudentModal } from '@/features/students'; // TODO: Tutor-web doesn't have students feature
@@ -25,8 +22,6 @@ export function ClassStudentsTab({
 }: ClassStudentsTabProps) {
   const [enrollingStudents, setEnrollingStudents] = useState<Set<string>>(new Set());
   const [removingStudents, setRemovingStudents] = useState<Set<string>>(new Set());
-  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const handleViewStudent = (_studentId: string) => {
     // View student functionality removed for tutors
@@ -34,8 +29,7 @@ export function ClassStudentsTab({
 
   const handleEnrollStudent = async (studentId: string) => {
     setEnrollingStudents(prev => new Set(prev).add(studentId));
-    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
-    
+
     try {
       await onEnrollStudent(studentId);
     } finally {
@@ -49,7 +43,7 @@ export function ClassStudentsTab({
 
   const handleRemoveStudent = async (studentId: string) => {
     setRemovingStudents(prev => new Set(prev).add(studentId));
-    
+
     try {
       await onRemoveStudent(studentId);
     } finally {
@@ -61,25 +55,60 @@ export function ClassStudentsTab({
     }
   };
 
-  const availableStudents = allStudents.filter(student => 
+  const availableStudents = allStudents.filter(student =>
     !classStudents.some(classStudent => classStudent.id === student.id)
   );
 
-  const filteredAvailableStudents = availableStudents.filter(student => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      student.first_name.toLowerCase().includes(query) ||
-      student.last_name.toLowerCase().includes(query) ||
-      (student.email && student.email.toLowerCase().includes(query))
-    );
-  });
+  const getStudentLabel = (student: Tables<'students'>) =>
+    `${student.first_name} ${student.last_name}`;
+
+  const addStudentTrigger = (
+    <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
+      <Plus className="h-4 w-4" />
+      <span>Add Student</span>
+    </Button>
+  );
+
+  const enrollStudentTrigger = (
+    <Button variant="outline">
+      <Plus className="h-4 w-4 mr-2" />
+      Enroll a student
+    </Button>
+  );
+
+  const studentSelectProps = {
+    items: availableStudents,
+    value: null as Tables<'students'> | null,
+    onValueChange: (student: Tables<'students'> | null) =>
+      student && handleEnrollStudent(student.id),
+    getItemId: (s: Tables<'students'>) => s.id,
+    getItemLabel: getStudentLabel,
+    getItemValue: (s: Tables<'students'>) =>
+      `${s.first_name} ${s.last_name} ${s.email ?? ''}`.toLowerCase(),
+    searchPlaceholder: "Search students...",
+    emptyMessage: "No available students found",
+    contentWidth: "300px",
+    getItemDisabled: (s: Tables<'students'>) => enrollingStudents.has(s.id),
+    renderItem: (student: Tables<'students'>) => (
+      <div className="flex items-center justify-between w-full">
+        <div className="flex flex-col items-start">
+          <div className="font-medium">{getStudentLabel(student)}</div>
+          {student.email && (
+            <div className="text-xs text-muted-foreground">{student.email}</div>
+          )}
+        </div>
+        {enrollingStudents.has(student.id) && (
+          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+        )}
+      </div>
+    ),
+  };
 
   return (
     <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
       <div className="flex items-center gap-2">
         <h3 className="text-base font-medium">Students ({classStudents.length})</h3>
-        
+
         {/* Show currently enrolling students */}
         {enrollingStudents.size > 0 && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -87,58 +116,14 @@ export function ClassStudentsTab({
             <span>Adding {enrollingStudents.size} student{enrollingStudents.size > 1 ? 's' : ''}...</span>
           </div>
         )}
-        
-        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Student</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[300px]" align="end">
-            <div className="p-3">
-              <Input
-                placeholder="Search students..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-3"
-              />
-              <ScrollArea className="max-h-[300px]">
-                <div className="space-y-1">
-                  {filteredAvailableStudents.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      {searchQuery ? 'No students match your search' : 'No available students found'}
-                    </div>
-                  ) : (
-                    filteredAvailableStudents.map(student => (
-                      <Button
-                        key={student.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                        onClick={() => handleEnrollStudent(student.id)}
-                        disabled={enrollingStudents.has(student.id)}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium">{student.first_name} {student.last_name}</div>
-                            {student.email && (
-                              <div className="text-xs text-muted-foreground">{student.email}</div>
-                            )}
-                          </div>
-                          {enrollingStudents.has(student.id) && (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          )}
-                        </div>
-                      </Button>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          </PopoverContent>
-        </Popover>
+
+        <SearchableSelect<Tables<'students'>>
+          {...studentSelectProps}
+          trigger={addStudentTrigger}
+          align="end"
+        />
       </div>
-      
+
       {loadingStudents ? (
         <div className="flex-1 flex justify-center items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -147,55 +132,12 @@ export function ClassStudentsTab({
         <div className="flex-1 flex flex-col justify-center items-center">
           <Users className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground mb-4">No students enrolled</p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Enroll a student
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[300px]" align="center">
-              <div className="p-3">
-                <Input
-                  placeholder="Search students..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
-                    {filteredAvailableStudents.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        No students found
-                      </div>
-                    ) : (
-                      filteredAvailableStudents.map(student => (
-                        <Button
-                          key={student.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => handleEnrollStudent(student.id)}
-                          disabled={enrollingStudents.has(student.id)}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col items-start">
-                      <div className="font-medium">{student.first_name} {student.last_name}</div>
-                            {student.email && (
-                              <div className="text-xs text-muted-foreground">{student.email}</div>
-                            )}
-                            </div>
-                            {enrollingStudents.has(student.id) && (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                          </div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <SearchableSelect<Tables<'students'>>
+            {...studentSelectProps}
+            trigger={enrollStudentTrigger}
+            align="center"
+            emptyMessage="No students found"
+          />
         </div>
       ) : (
         <ScrollArea className="flex-1">

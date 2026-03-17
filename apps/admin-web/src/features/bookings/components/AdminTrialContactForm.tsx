@@ -16,10 +16,8 @@ import { Input } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn, getSubjectColorStyle } from '@/shared/utils';
 import { useSubjectsList } from '@/features/subjects/hooks/useSubjectsQuery';
@@ -375,8 +373,19 @@ export function AdminTrialContactForm({
                       })}
                     </div>
                   )}
-                  <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-                    <PopoverTrigger asChild>
+                  <SearchableSelect<Tables<'subjects'>>
+                    items={availableSubjects}
+                    value={null}
+                    onValueChange={(subject) => subject && handleSelectSubject(subject)}
+                    getItemLabel={(s) => s.long_name ?? ''}
+                    getItemId={(s) => s.id}
+                    searchPlaceholder="Search subjects..."
+                    emptyMessage={
+                      subjectSearchQuery.trim()
+                        ? 'No subjects match your search'
+                        : 'No available subjects found'
+                    }
+                    trigger={
                       <button
                         type="button"
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-md hover:bg-muted"
@@ -384,45 +393,14 @@ export function AdminTrialContactForm({
                         <Plus className="h-4 w-4" />
                         Add Subject
                       </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0" align="start">
-                      <div className="p-3">
-                        <Input
-                          placeholder="Search subjects..."
-                          value={subjectSearchQuery}
-                          onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                          className="mb-3"
-                        />
-                        <ScrollArea className="h-[300px]">
-                          <div className="space-y-1 pr-4">
-                            {isSubjectListLoading ? (
-                              <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Searching...
-                              </div>
-                            ) : availableSubjects.length === 0 ? (
-                              <div className="p-3 text-center text-sm text-muted-foreground">
-                                {subjectSearchQuery
-                                  ? 'No subjects match your search'
-                                  : 'No available subjects found'}
-                              </div>
-                            ) : (
-                              availableSubjects.map((subject) => (
-                                <button
-                                  key={subject.id}
-                                  type="button"
-                                  onClick={() => handleSelectSubject(subject)}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted rounded-md"
-                                >
-                                  {subject?.long_name ?? ''}
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                    }
+                    open={isSubjectPopoverOpen}
+                    onOpenChange={setIsSubjectPopoverOpen}
+                    onSearchChange={setSubjectSearchQuery}
+                    loading={isSubjectListLoading}
+                    align="start"
+                    contentWidth="320px"
+                  />
                 </div>
                 <FormMessage />
               </FormItem>

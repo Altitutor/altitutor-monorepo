@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { X, Plus, Search, ChevronDown, Calendar as CalendarIcon, Loader2 } from 'lucide-react';
+import { X, Plus, Search, ChevronDown, Calendar as CalendarIcon } from 'lucide-react';
 import { 
   Button, 
   Input, 
@@ -18,6 +18,7 @@ import {
   ScrollArea,
   Badge,
   Label,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { useToast } from '@altitutor/ui';
@@ -672,137 +673,91 @@ export function StudentSelector({
           </Button>
           
           {/* Subject Filter */}
-          <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-            <PopoverTrigger asChild>
+          <SearchableSelect<Tables<'subjects'>>
+            items={filteredSubjects}
+            value={null}
+            onValueChange={(subject) => subject && handleAddBySubject(subject.id)}
+            getItemId={(s) => s.id}
+            getItemLabel={(s) => s.long_name ?? ''}
+            getItemValue={(s) => `${s.long_name ?? ''} ${s.name ?? ''} ${s.curriculum ?? ''}`.trim()}
+            placeholder="By Subject"
+            searchPlaceholder="Search subjects..."
+            emptyMessage={
+              subjectSearchQuery ? 'No subjects match your search' : 'No subjects found'
+            }
+            trigger={
               <Button variant="outline" size="sm">
                 By Subject
                 <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0" align="start">
-              <div className="p-3">
-                <Input
-                  placeholder="Search subjects..."
-                  value={subjectSearchQuery}
-                  onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-1 pr-4">
-                    {isSearchingSubjects ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Searching...
-                      </div>
-                    ) : filteredSubjects.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        {subjectSearchQuery ? 'No subjects match your search' : 'No subjects found'}
-                      </div>
-                    ) : (
-                      filteredSubjects.map((subject) => (
-                        <Button
-                          key={subject.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2"
-                          onClick={() => handleAddBySubject(subject.id)}
-                          disabled={isLoading}
-                        >
-                          <div className="font-medium">{subject?.long_name ?? ''}</div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+            }
+            loading={isSearchingSubjects}
+            disabled={isLoading}
+            contentWidth="400px"
+            align="start"
+            onSearchChange={setSubjectSearchQuery}
+            open={isSubjectPopoverOpen}
+            onOpenChange={setIsSubjectPopoverOpen}
+          />
           
           {/* Class Filter */}
-          <Popover open={isClassPopoverOpen} onOpenChange={setIsClassPopoverOpen}>
-            <PopoverTrigger asChild>
+          <SearchableSelect<{ class: Tables<'classes'>; subject: Tables<'subjects'> | null }>
+            items={filteredClasses}
+            value={null}
+            onValueChange={(item) => item && handleAddByClass(item.class.id)}
+            getItemId={(item) => item.class.id}
+            getItemLabel={(item) => item.class.long_name?.trim() ?? ''}
+            getItemValue={(item) =>
+              `${item.class.long_name ?? ''} ${item.subject?.long_name ?? ''}`.trim()
+            }
+            placeholder="By Class"
+            searchPlaceholder="Search classes..."
+            emptyMessage={
+              classSearchQuery ? 'No classes match your search' : 'No classes found'
+            }
+            trigger={
               <Button variant="outline" size="sm">
                 By Class
                 <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[400px] p-0" align="start">
-              <div className="p-3">
-                <Input
-                  placeholder="Search classes..."
-                  value={classSearchQuery}
-                  onChange={(e) => setClassSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-1 pr-4">
-                    {isSearchingClasses ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Searching...
-                      </div>
-                    ) : filteredClasses.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        {classSearchQuery ? 'No classes match your search' : 'No classes found'}
-                      </div>
-                    ) : (
-                      filteredClasses.map(({ class: cls }) => (
-                        <Button
-                          key={cls.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2"
-                          onClick={() => handleAddByClass(cls.id)}
-                          disabled={isLoading}
-                        >
-                          <div className="font-medium">{cls?.long_name?.trim() ?? ''}</div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+            }
+            loading={isSearchingClasses}
+            disabled={isLoading}
+            contentWidth="400px"
+            align="start"
+            onSearchChange={setClassSearchQuery}
+            open={isClassPopoverOpen}
+            onOpenChange={setIsClassPopoverOpen}
+          />
           
           {/* Year Level Filter */}
-          <Popover open={isYearPopoverOpen} onOpenChange={setIsYearPopoverOpen}>
-            <PopoverTrigger asChild>
+          <SearchableSelect<number>
+            items={filteredYearLevels}
+            value={null}
+            onValueChange={(year) => year != null && handleAddByYearLevel(year)}
+            getItemId={(year) => year.toString()}
+            getItemLabel={(year) => `Year ${year}`}
+            getItemValue={(year) => `Year ${year} ${year}`}
+            placeholder="By Year Level"
+            searchPlaceholder="Search year levels..."
+            emptyMessage={
+              yearSearchQuery
+                ? 'No year levels match your search'
+                : 'No year levels found'
+            }
+            trigger={
               <Button variant="outline" size="sm">
                 By Year Level
                 <ChevronDown className="h-4 w-4 ml-2 opacity-50" />
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[300px] p-0" align="start">
-              <div className="p-3">
-                <Input
-                  placeholder="Search year levels..."
-                  value={yearSearchQuery}
-                  onChange={(e) => setYearSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-1 pr-4">
-                    {filteredYearLevels.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        {yearSearchQuery ? 'No year levels match your search' : 'No year levels found'}
-                      </div>
-                    ) : (
-                      filteredYearLevels.map((year) => (
-                        <Button
-                          key={year}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2"
-                          onClick={() => handleAddByYearLevel(year)}
-                          disabled={isLoading}
-                        >
-                          <div className="font-medium">Year {year}</div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+            }
+            disabled={isLoading}
+            contentWidth="300px"
+            align="start"
+            onSearchChange={setYearSearchQuery}
+            open={isYearPopoverOpen}
+            onOpenChange={setIsYearPopoverOpen}
+          />
           
           {/* Session Date Filter */}
           <Popover open={isSessionPopoverOpen} onOpenChange={setIsSessionPopoverOpen}>
