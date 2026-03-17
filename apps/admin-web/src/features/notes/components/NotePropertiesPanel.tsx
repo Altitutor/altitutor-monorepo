@@ -7,11 +7,11 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
-  SelectValue,
 } from '@altitutor/ui';
-import { useProjects } from '@/features/projects/api/queries';
+import { Folder } from 'lucide-react';
 
 import type { NoteFormData } from '../types';
+import { ProjectSearchSelect } from './ProjectSearchSelect';
 
 interface NotePropertiesPanelProps {
   form: UseFormReturn<NoteFormData>;
@@ -19,71 +19,44 @@ interface NotePropertiesPanelProps {
 }
 
 export function NotePropertiesPanel({ form, folders }: NotePropertiesPanelProps) {
-  const { data: projects = [] } = useProjects();
-
   return (
     <div className="space-y-6">
       <h3 className="text-sm font-semibold text-foreground">Properties</h3>
       <Form {...form}>
         <div className="space-y-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Folder</label>
-            <FormField
-              control={form.control}
-              name="folder_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Select
-                      value={field.value || '__none__'}
-                      onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="No folder" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {folders?.map((folder) => (
-                          <SelectItem key={folder.id} value={folder.id}>
-                            {folder.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-muted-foreground">Project</label>
-            <FormField
-              control={form.control}
-              name="project_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormControl>
-                    <Select
-                      value={field.value || '__none__'}
-                      onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="No project" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none__">None</SelectItem>
-                        {projects.map((project) => (
-                          <SelectItem key={project.id} value={project.id}>
-                            {project.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                </FormItem>
-              )}
-            />
-          </div>
+          <FormField
+            control={form.control}
+            name="folder_id"
+            render={({ field }) => (
+              <FormItem>
+                <FormControl>
+                  <Select
+                    value={field.value || '__none__'}
+                    onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
+                  >
+                    <SelectTrigger className="w-full">
+                      <div className="flex items-center gap-2 w-full min-w-0">
+                        <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <span className="text-muted-foreground shrink-0">Folder</span>
+                        <span className="truncate">
+                          {field.value ? folders?.find((f) => f.id === field.value)?.name || 'Folder' : 'No folder'}
+                        </span>
+                      </div>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">None</SelectItem>
+                      {folders?.map((folder) => (
+                        <SelectItem key={folder.id} value={folder.id}>
+                          {folder.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </FormControl>
+              </FormItem>
+            )}
+          />
+          <ProjectSearchSelect form={form} />
         </div>
       </Form>
     </div>

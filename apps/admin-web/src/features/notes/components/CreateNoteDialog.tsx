@@ -37,15 +37,17 @@ interface CreateNoteDialogProps {
   isOpen: boolean;
   onClose: () => void;
   defaultFolderId?: string | null;
+  onNoteCreated?: (noteId: string) => void;
 }
 
 export function CreateNoteDialog({
   isOpen,
   onClose,
   defaultFolderId,
+  onNoteCreated,
 }: CreateNoteDialogProps) {
   const router = useRouter();
-  const createNote = useCreateNote();
+  const createNote = useCreateNote({ onNoteCreated });
   const { data: folders } = useFolders();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -67,14 +69,17 @@ export function CreateNoteDialog({
       });
       form.reset();
       onClose();
-      // Navigate to the created note's page
-      router.push(`/notes/${createdNote.id}`);
+      if (onNoteCreated) {
+        onNoteCreated(createdNote.id);
+      } else {
+        router.push(`/notes/${createdNote.id}`);
+      }
     } catch (error) {
       // Error handled by mutation
     } finally {
       setIsSubmitting(false);
     }
-  }, [createNote, form, onClose, router]);
+  }, [createNote, form, onClose, onNoteCreated, router]);
 
   const handlePrimaryAction = useCallback(() => {
     if (isSubmitting) return;

@@ -173,7 +173,6 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
               </Button>
               <DialogTitle>{isLoading ? 'Loading...' : 'Edit Document'}</DialogTitle>
             </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
@@ -194,6 +193,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   </>
                 )}
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon">
@@ -274,7 +274,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                     </div>
                   </ScrollArea>
 
-                  <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t bg-background">
+                  <div className="flex-shrink-0 px-4 pb-4 pt-2">
                     <NoteEditorBottomToolbar editor={editorInstance} />
                   </div>
                 </div>

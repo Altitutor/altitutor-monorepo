@@ -283,7 +283,6 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
             </div>
 
             <div className="flex items-center gap-2">
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
                 {updateTask.isPending ? (
                   <>
@@ -302,6 +301,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
                   </>
                 )}
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               <ActionsMenu
                 type="task"
                 entityId={taskId}

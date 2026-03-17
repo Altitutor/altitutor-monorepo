@@ -8,6 +8,7 @@ interface ToastContextValue {
   toast: (props: {
     title?: string;
     description?: React.ReactNode;
+    action?: { label: string; onClick: () => void };
     variant?: "default" | "destructive";
     duration?: number;
   }) => void;
@@ -25,6 +26,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     (props: {
       title?: string;
       description?: React.ReactNode;
+      action?: { label: string; onClick: () => void };
       variant?: "default" | "destructive";
       duration?: number;
     }) => {
@@ -33,6 +35,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         id,
         title: props.title,
         description: props.description,
+        action: props.action,
         variant: props.variant || "default",
       };
 

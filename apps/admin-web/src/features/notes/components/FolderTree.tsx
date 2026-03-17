@@ -11,6 +11,7 @@ import {
   DragOverlay,
 } from '@dnd-kit/core';
 import { useFolderTree, useNotes } from '../api/queries';
+import { useProjects } from '@/features/projects/api/queries';
 import { FolderTreeNode } from './FolderTreeNode';
 import { NotesSearchResults } from './NotesSearchResults';
 import { Skeleton } from '@altitutor/ui';
@@ -23,6 +24,8 @@ import type { Note, FolderTreeItem } from '../types';
 
 interface FolderTreeProps {
   searchQuery?: string;
+  onNoteClick?: (noteId: string) => void;
+  onProjectClick?: (projectId: string) => void;
 }
 
 /**
@@ -30,9 +33,10 @@ interface FolderTreeProps {
  * Also displays notes without folders at the top.
  * When searchQuery is provided, shows search results instead.
  */
-export function FolderTree({ searchQuery = '' }: FolderTreeProps) {
+export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: FolderTreeProps) {
   const router = useRouter();
   const isSearching = searchQuery.length > 0;
+  const { data: projects = [] } = useProjects();
 
   const { data: folderTree, isLoading: isLoadingFolders, error: foldersError } = useFolderTree();
   const { data: notesWithoutFolder, isLoading: isLoadingNotes } = useNotes(
@@ -59,7 +63,11 @@ export function FolderTree({ searchQuery = '' }: FolderTreeProps) {
   );
 
   const handleNoteClick = (noteId: string) => {
-    router.push(`/notes/${noteId}`);
+    if (onNoteClick) {
+      onNoteClick(noteId);
+    } else {
+      router.push(`/notes/${noteId}`);
+    }
   };
 
   const updateNoteMutation = useUpdateNote();
@@ -148,6 +156,9 @@ export function FolderTree({ searchQuery = '' }: FolderTreeProps) {
       <NotesSearchResults
         notes={searchResults ?? []}
         searchQuery={searchQuery}
+        onNoteClick={onNoteClick}
+        onProjectClick={onProjectClick}
+        projects={projects}
       />
     );
   }
@@ -176,14 +187,21 @@ export function FolderTree({ searchQuery = '' }: FolderTreeProps) {
               No Folder
             </div>
             <DroppableNoFolder>
-              {notesWithoutFolder.map((note) => (
-                <DraggableNote
-                  key={note.id}
-                  note={note}
-                  onClick={() => handleNoteClick(note.id)}
-                  indent={8}
-                />
-              ))}
+              {notesWithoutFolder.map((note) => {
+                const project = note.project_id
+                  ? projects.find((p) => p.id === note.project_id)
+                  : null;
+                return (
+                  <DraggableNote
+                    key={note.id}
+                    note={note}
+                    project={project ? { id: project.id, name: project.name } : undefined}
+                    onClick={() => handleNoteClick(note.id)}
+                    onProjectClick={onProjectClick}
+                    indent={8}
+                  />
+                );
+              })}
             </DroppableNoFolder>
           </div>
         )}
@@ -195,7 +213,14 @@ export function FolderTree({ searchQuery = '' }: FolderTreeProps) {
               <div className="border-t my-2" />
             )}
             {folderTree.map((folder) => (
-              <FolderTreeNode key={folder.id} folder={folder} level={0} />
+              <FolderTreeNode
+                key={folder.id}
+                folder={folder}
+                level={0}
+                onNoteClick={onNoteClick}
+                onProjectClick={onProjectClick}
+                projects={projects}
+              />
             ))}
           </>
         )}

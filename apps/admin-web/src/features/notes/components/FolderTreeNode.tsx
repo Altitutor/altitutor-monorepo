@@ -10,12 +10,15 @@ import { DroppableFolder } from './DroppableFolder';
 interface FolderTreeNodeProps {
   folder: FolderTreeItem;
   level?: number;
+  onNoteClick?: (noteId: string) => void;
+  onProjectClick?: (projectId: string) => void;
+  projects?: Array<{ id: string; name: string | null }>;
 }
 
 /**
  * Recursive component for rendering folder tree nodes
  */
-export function FolderTreeNode({ folder, level = 0 }: FolderTreeNodeProps) {
+export function FolderTreeNode({ folder, level = 0, onNoteClick, onProjectClick, projects = [] }: FolderTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
 
@@ -29,7 +32,11 @@ export function FolderTreeNode({ folder, level = 0 }: FolderTreeNodeProps) {
   };
 
   const handleNoteClick = (noteId: string) => {
-    router.push(`/notes/${noteId}`);
+    if (onNoteClick) {
+      onNoteClick(noteId);
+    } else {
+      router.push(`/notes/${noteId}`);
+    }
   };
 
   return (
@@ -48,18 +55,32 @@ export function FolderTreeNode({ folder, level = 0 }: FolderTreeNodeProps) {
         {isExpanded && (
           <div>
             {/* Notes in this folder */}
-            {folder.notes.map((note) => (
-              <DraggableNote
-                key={note.id}
-                note={note}
-                onClick={() => handleNoteClick(note.id)}
-                indent={indent + 36}
-              />
-            ))}
+            {folder.notes.map((note) => {
+              const project = note.project_id
+                ? projects.find((p) => p.id === note.project_id)
+                : null;
+              return (
+                <DraggableNote
+                  key={note.id}
+                  note={note}
+                  project={project ? { id: project.id, name: project.name } : undefined}
+                  onClick={() => handleNoteClick(note.id)}
+                  onProjectClick={onProjectClick}
+                  indent={indent + 36}
+                />
+              );
+            })}
 
             {/* Subfolders */}
             {folder.children.map((childFolder) => (
-              <FolderTreeNode key={childFolder.id} folder={childFolder} level={level + 1} />
+              <FolderTreeNode
+                key={childFolder.id}
+                folder={childFolder}
+                level={level + 1}
+                onNoteClick={onNoteClick}
+                onProjectClick={onProjectClick}
+                projects={projects}
+              />
             ))}
           </div>
         )}

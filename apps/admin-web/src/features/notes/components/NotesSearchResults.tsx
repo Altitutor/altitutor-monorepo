@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText } from 'lucide-react';
+import { FileText, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { proseMirrorToPlainText } from '../utils/rich-text';
 import { highlightSearchTerms, getSearchTerms } from '../utils/highlight';
@@ -13,6 +13,9 @@ const CONTENT_SNIPPET_LENGTH = 120;
 interface NotesSearchResultsProps {
   notes: Note[];
   searchQuery: string;
+  onNoteClick?: (noteId: string) => void;
+  onProjectClick?: (projectId: string) => void;
+  projects?: Array<{ id: string; name: string | null }>;
 }
 
 /** Sort notes: title matches first, then content-only matches, then alphabetically by title */
@@ -35,9 +38,17 @@ function sortNotesByRelevance(notes: Note[], searchQuery: string): Note[] {
 /**
  * Displays search results with highlighted matches in title and content snippet
  */
-export function NotesSearchResults({ notes, searchQuery }: NotesSearchResultsProps) {
+export function NotesSearchResults({ notes, searchQuery, onNoteClick, onProjectClick, projects = [] }: NotesSearchResultsProps) {
   const router = useRouter();
   const sortedNotes = useMemo(() => sortNotesByRelevance(notes, searchQuery), [notes, searchQuery]);
+
+  const handleNoteClick = (noteId: string) => {
+    if (onNoteClick) {
+      onNoteClick(noteId);
+    } else {
+      router.push(`/notes/${noteId}`);
+    }
+  };
 
   if (notes.length === 0) {
     return (
@@ -56,14 +67,24 @@ export function NotesSearchResults({ notes, searchQuery }: NotesSearchResultsPro
           contentPlain.length > CONTENT_SNIPPET_LENGTH
             ? contentPlain.slice(0, CONTENT_SNIPPET_LENGTH) + '…'
             : contentPlain;
+        const project = note.project_id
+          ? projects.find((p) => p.id === note.project_id)
+          : null;
 
         return (
-          <button
+          <div
             key={note.id}
-            type="button"
-            onClick={() => router.push(`/notes/${note.id}`)}
+            role="button"
+            tabIndex={0}
+            onClick={() => handleNoteClick(note.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                handleNoteClick(note.id);
+              }
+            }}
             className={cn(
-              'w-full text-left flex items-start gap-2 py-2 px-2 rounded-md hover:bg-muted/50 transition-colors',
+              'w-full text-left flex items-start gap-2 py-2 px-2 rounded-md hover:bg-muted/50 transition-colors cursor-pointer',
               'group'
             )}
           >
@@ -78,7 +99,21 @@ export function NotesSearchResults({ notes, searchQuery }: NotesSearchResultsPro
                 </div>
               )}
             </div>
-          </button>
+            {project && onProjectClick && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onProjectClick(project.id);
+                }}
+                className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground truncate max-w-[120px] flex-shrink-0"
+                title={project.name ?? 'Project'}
+              >
+                <FolderKanban className="h-3 w-3 flex-shrink-0" />
+                <span className="truncate">{project.name || 'Project'}</span>
+              </button>
+            )}
+          </div>
         );
       })}
     </div>

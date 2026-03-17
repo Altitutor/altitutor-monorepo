@@ -248,7 +248,7 @@ function TaskLinkAutocomplete({
         });
       }
     };
-  }, [showDropdown, inputRef]);
+  }, [showDropdown, inputRef, tasks, isLoading, selectedIndex, setSelectedIndex, onSelect, getStatusLabel]);
 
   useLayoutEffect(() => {
     if (!showDropdown || !rootRef.current || !containerRef.current) return;
