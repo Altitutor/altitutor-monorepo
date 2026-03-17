@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       activity_events: {
@@ -2416,6 +2411,7 @@ export type Database = {
           id: string
           name: string
           resolved_at: string | null
+          resolved_by: string | null
           search_vector: unknown
           status: string
           updated_at: string
@@ -2428,6 +2424,7 @@ export type Database = {
           id?: string
           name: string
           resolved_at?: string | null
+          resolved_by?: string | null
           search_vector?: unknown
           status?: string
           updated_at?: string
@@ -2440,6 +2437,7 @@ export type Database = {
           id?: string
           name?: string
           resolved_at?: string | null
+          resolved_by?: string | null
           search_vector?: unknown
           status?: string
           updated_at?: string
@@ -2455,6 +2453,20 @@ export type Database = {
           {
             foreignKeyName: "issues_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_resolved_by_fkey"
+            columns: ["resolved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "issues_resolved_by_fkey"
+            columns: ["resolved_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -6031,6 +6043,7 @@ export type Database = {
         Row: {
           assigned_to: string | null
           completed_at: string | null
+          completed_by: string | null
           created_at: string | null
           created_by: string | null
           description: Json | null
@@ -6050,6 +6063,7 @@ export type Database = {
         Insert: {
           assigned_to?: string | null
           completed_at?: string | null
+          completed_by?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: Json | null
@@ -6069,6 +6083,7 @@ export type Database = {
         Update: {
           assigned_to?: string | null
           completed_at?: string | null
+          completed_by?: string | null
           created_at?: string | null
           created_by?: string | null
           description?: Json | null
@@ -6096,6 +6111,20 @@ export type Database = {
           {
             foreignKeyName: "tasks_assigned_to_fkey"
             columns: ["assigned_to"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_completed_by_fkey"
+            columns: ["completed_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -12052,6 +12081,7 @@ export type Database = {
       }
     }
     Functions: {
+      _format_date_ordinal: { Args: { ts: string }; Returns: string }
       add_enum_value: {
         Args: { enum_name: string; new_value: string }
         Returns: undefined
@@ -12715,6 +12745,7 @@ export type Database = {
       tutor_ucat_upsert_mock:
         | {
             Args: {
+              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -12724,7 +12755,6 @@ export type Database = {
           }
         | {
             Args: {
-              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -12980,3 +13010,4 @@ export const Constants = {
     },
   },
 } as const
+
