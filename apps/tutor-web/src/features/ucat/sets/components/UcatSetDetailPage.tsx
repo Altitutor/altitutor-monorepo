@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Button } from '@altitutor/ui'
+import Link from 'next/link'
+import { Button, useToast } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import {
@@ -26,6 +27,8 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
+import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
+import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
@@ -36,6 +39,7 @@ type UcatSetDetailPageProps = {
 }
 
 export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
+  const { toast } = useToast()
   const access = useUcatAccess()
   const detail = useUcatSetDetail(setId)
   const updateSet = useUpdateUcatSet()
@@ -172,24 +176,69 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       })),
     }
 
-    await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
-    setEditingStemId(null)
+    try {
+      await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
+      setEditingStemId(null)
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to save question stem'
+      const parsed = parseUcatVisibilityError(msg)
+      toast({
+        title: 'Failed to save',
+        description: parsed.link ? (
+          <span>
+            {parsed.textBeforeLink}{' '}
+            <Link href={parsed.link.href} className="underline font-medium">
+              {parsed.link.label}
+            </Link>
+          </span>
+        ) : (
+          msg
+        ),
+        variant: 'destructive',
+      })
+    }
   }
 
   async function save() {
-    await updateSet.mutateAsync({
-      setId,
-      payload: {
-        id: setId,
-        name: plainTextToProseMirror(draftName),
-        description: draftDescription,
-        timeLimitSeconds,
-        isPrivate: draftPrivate,
-        isStudentGenerated: false,
-        stemIds: draftStemIds,
-      },
-    })
+    try {
+      await updateSet.mutateAsync({
+        setId,
+        payload: {
+          id: setId,
+          name: plainTextToProseMirror(draftName),
+          description: draftDescription,
+          timeLimitSeconds,
+          isPrivate: draftPrivate,
+          isStudentGenerated: false,
+          stemIds: draftStemIds,
+        },
+      })
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to save set'
+      const parsed = parseUcatVisibilityError(msg)
+      toast({
+        title: 'Failed to save',
+        description: parsed.link ? (
+          <span>
+            {parsed.textBeforeLink}{' '}
+            <Link href={parsed.link.href} className="underline font-medium">
+              {parsed.link.label}
+            </Link>
+          </span>
+        ) : (
+          msg
+        ),
+        variant: 'destructive',
+      })
+    }
   }
+
+  const stemsThatWillBecomePublicCount = useMemo(() => {
+    if (draftPrivate) return 0
+    return draftStemIds.filter(
+      (id) => (stemCatalog as UcatStemCatalogItem[]).find((s) => s.id === id)?.isPrivate
+    ).length
+  }, [draftPrivate, draftStemIds, stemCatalog])
 
   const isLoading =
     access.isLoading ||
@@ -222,6 +271,9 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         }
       />
 
+      {stemsThatWillBecomePublicCount > 0 && (
+        <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
+      )}
       <div className="mt-4 h-[70vh] rounded-md border overflow-hidden">
         <UcatSetEditorContent
           draftName={draftName}

@@ -62,3 +62,11 @@ export function formatSecondsToDuration(seconds: number | null | undefined): str
   parts.push(`${s}s`)
   return parts.join(' ')
 }
+
+/**
+ * Format set time limit for display. Returns 'Untimed' for null, 0, or negative; otherwise formatted duration.
+ */
+export function formatSetTimeLimit(seconds: number | null | undefined): string {
+  if (seconds == null || seconds <= 0) return 'Untimed'
+  return formatSecondsToDuration(seconds)
+}

@@ -1,13 +1,17 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import Link from 'next/link'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
+import { useToast } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
+import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
+import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export type SetOption = {
@@ -84,6 +88,7 @@ export function UcatMockEditorDialog({
     []
   )
 
+  const { toast } = useToast()
   const {
     name,
     isPrivate,
@@ -115,6 +120,11 @@ export function UcatMockEditorDialog({
         stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
       }))
   }, [sets.data])
+
+  const setsThatWillBecomePublicCount = useMemo(() => {
+    if (isPrivate) return 0
+    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.is_private).length
+  }, [draftSetIds, isPrivate, setCatalog])
 
   function handleRequestClose() {
     if (!isDirty || window.confirm('Changes made will be lost. Close without saving?')) {
@@ -153,15 +163,38 @@ export function UcatMockEditorDialog({
       title="Edit Mock"
       subtitle="Reorder sets and update mock properties"
       onSave={async () => {
-        await save()
-        if (isDirty) onClose()
+        try {
+          await save()
+          onClose()
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Failed to save mock'
+          const parsed = parseUcatVisibilityError(msg)
+          toast({
+            title: 'Failed to save',
+        description: parsed.link ? (
+          <span>
+            {parsed.textBeforeLink}{' '}
+            <Link href={parsed.link.href} className="underline font-medium">
+              {parsed.link.label}
+            </Link>
+          </span>
+        ) : (
+          msg
+        ),
+            variant: 'destructive',
+          })
+        }
       }}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
-      headerActions={headerActions}
-      hideCancel
-    >
-      <UcatMockEditorContent
+        headerActions={headerActions}
+        hideCancel
+      >
+        {setsThatWillBecomePublicCount > 0 && (
+          <UcatVisibilityCascadeWarning type="mock" count={setsThatWillBecomePublicCount} />
+        )}
+        <div className="min-h-0 flex-1 overflow-auto">
+          <UcatMockEditorContent
         name={name}
         isPrivate={isPrivate}
         instructionsText={instructionsText}
@@ -178,6 +211,7 @@ export function UcatMockEditorDialog({
         setCatalog={setCatalog}
         onEditSet={onEditSet}
       />
+        </div>
     </UcatDialogShell>
   )
 }

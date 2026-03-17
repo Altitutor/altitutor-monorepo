@@ -31,7 +31,7 @@ import {
   Input,
   type RichTextEditorRef,
 } from '@altitutor/ui';
-import { X, Check, Loader2, CloudOff, Settings, FileText, Plus } from 'lucide-react';
+import { X, Check, Loader2, CloudOff, FileText, Plus } from 'lucide-react';
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
@@ -270,7 +270,6 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
               </div>
 
               <div className="flex items-center gap-2">
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
                   {updateProject.isPending ? (
                     <>
@@ -289,6 +288,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                     </>
                   )}
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 <ActionsMenu
                   type="project"
                   entityId={projectId}
@@ -436,13 +436,11 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                         <TabsList className="grid w-full grid-cols-2">
                           <TabsTrigger value="properties">
                             <div className="flex items-center gap-2">
-                              <Settings className="h-4 w-4" />
                               <span>Properties</span>
                             </div>
                           </TabsTrigger>
                           <TabsTrigger value="documents">
                             <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
                               <span>Documents</span>
                             </div>
                           </TabsTrigger>

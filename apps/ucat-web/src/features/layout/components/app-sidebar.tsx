@@ -30,13 +30,11 @@ export function AppSidebar({
     pathname.startsWith('/progress')
   )
 
-  const isOnProgressSubPage =
-    pathname.startsWith('/progress/sections/') || pathname === '/progress/mocks'
   useEffect(() => {
-    if (isOnProgressSubPage) {
+    if (pathname.startsWith('/progress')) {
       setProgressExpanded(true)
     }
-  }, [isOnProgressSubPage])
+  }, [pathname])
 
   // On mobile, visibility is driven only by mobileOpen. On desktop, by !collapsed.
   const isVisible = isMobile ? mobileOpen : !collapsed

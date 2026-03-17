@@ -14,11 +14,12 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@altitutor/ui'
+import { Badge, Button, getUcatVisibilityColor, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { SortableRow } from '@/features/ucat/shared/drag-list'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { formatSecondsToDuration, secondsToMinutesAndSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { cn } from '@/shared/utils'
 import { Pencil, Plus } from 'lucide-react'
 
 export type UcatSectionForTimeLimit = {
@@ -81,15 +82,16 @@ function DraggableStemItem({
       <div className="flex min-w-0 flex-1 items-start gap-2">
         <div className="min-w-0">
           <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem.text || stem.id}</div>
-          <div className="mt-1 text-[11px] text-muted-foreground">
-            {stem.sectionNumber}. {stem.sectionName}
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+            <span>{stem.sectionNumber}. {stem.sectionName}</span>
+            <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(stem.isPrivate))}>
+              {stem.isPrivate ? 'Private' : 'Public'}
+            </Badge>
+            <span>· {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}</span>
           </div>
         </div>
       </div>
-      <div className="ml-2 flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-        <span>
-          {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
-        </span>
+      <div className="flex shrink-0 items-center gap-2">
         <Button type="button" variant="outline" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onEdit() }}>
           <Pencil className="h-4 w-4" />
         </Button>
@@ -194,9 +196,14 @@ export function UcatSetEditorContent({
                           <div className="min-w-0">
                             <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem?.text || id}</div>
                             {stem && (
-                              <div className="mt-1 text-[11px] text-muted-foreground">
-                                {stem.sectionNumber}. {stem.sectionName} · {stem.questionsCount}{' '}
-                                {stem.questionsCount === 1 ? 'question' : 'questions'}
+                              <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                                <span>{stem.sectionNumber}. {stem.sectionName}</span>
+                                <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(stem.isPrivate))}>
+                                  {stem.isPrivate ? 'Private' : 'Public'}
+                                </Badge>
+                                <span>
+                                  · {stem.questionsCount} {stem.questionsCount === 1 ? 'question' : 'questions'}
+                                </span>
                               </div>
                             )}
                           </div>
@@ -336,13 +343,14 @@ export function UcatSetEditorContent({
             <div className="flex min-w-0 flex-1 items-start gap-2">
               <div className="min-w-0">
                 <div className="line-clamp-2 break-words text-xs sm:text-sm">{activeStem.text || activeStem.id}</div>
-                <div className="mt-1 text-[11px] text-muted-foreground">
-                  {activeStem.sectionNumber}. {activeStem.sectionName}
+                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <span>{activeStem.sectionNumber}. {activeStem.sectionName}</span>
+                  <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(activeStem.isPrivate))}>
+                    {activeStem.isPrivate ? 'Private' : 'Public'}
+                  </Badge>
+                  <span>· {activeStem.questionsCount} {activeStem.questionsCount === 1 ? 'question' : 'questions'}</span>
                 </div>
               </div>
-            </div>
-            <div className="ml-2 shrink-0 text-xs text-muted-foreground">
-              {activeStem.questionsCount} {activeStem.questionsCount === 1 ? 'question' : 'questions'}
             </div>
           </div>
         ) : null}

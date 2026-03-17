@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import type { Json } from '@altitutor/shared'
 import type { Resolver, UseFormReturn } from 'react-hook-form'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
@@ -43,6 +44,7 @@ import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 
@@ -226,10 +228,29 @@ export function UcatQuestionStemDialog({
     // @ts-expect-error TS2589 - Form type is deep; runtime behavior is correct.
     form.handleSubmit(
       async (values) => {
-        // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
-        const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
-        await onSubmit(valuesCopy)
-        setNewImageFileIds(new Set())
+        try {
+          // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
+          const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
+          await onSubmit(valuesCopy)
+          setNewImageFileIds(new Set())
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Failed to save question stem'
+          const parsed = parseUcatVisibilityError(msg)
+          toast({
+            title: 'Failed to save',
+            description: parsed.link ? (
+              <span>
+                {parsed.textBeforeLink}{' '}
+                <Link href={parsed.link.href} className="underline font-medium">
+                  {parsed.link.label}
+                </Link>
+              </span>
+            ) : (
+              msg
+            ),
+            variant: 'destructive',
+          })
+        }
       },
       (errs: Record<string, unknown>) => {
         const firstMessage = getFirstValidationMessage(errs)

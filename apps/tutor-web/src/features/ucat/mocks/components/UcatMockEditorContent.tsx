@@ -15,7 +15,9 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
+  Badge,
   Button,
+  getUcatVisibilityColor,
   Input,
   ListToolbar,
   Select,
@@ -31,7 +33,7 @@ import {
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { SortableRow } from '@/features/ucat/shared/drag-list'
-import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
+import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
 import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
@@ -39,6 +41,7 @@ import {
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
+import { cn } from '@/shared/utils'
 import { GripVertical, Pencil, Plus } from 'lucide-react'
 import React from 'react'
 
@@ -90,14 +93,17 @@ function DraggableSetItem({
         </button>
         <div className="min-w-0">
           <div className="font-medium">{set.name}</div>
-          {set.sectionDisplay ? <div className="text-xs text-muted-foreground">{set.sectionDisplay}</div> : null}
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            {set.sectionDisplay ? <span>{set.sectionDisplay}</span> : null}
+            <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(!!set.is_private))}>
+              {set.is_private ? 'Private' : 'Public'}
+            </Badge>
+            <span>· {set.question_count != null ? `${set.question_count} Q` : '—'}</span>
+            <span>· {formatSetTimeLimit(set.time_limit_seconds)}</span>
+          </div>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <div className="grid grid-cols-2 gap-x-4 text-right text-sm text-muted-foreground">
-          <div>{set.question_count != null ? `${set.question_count} Q` : '—'}</div>
-          <div>{formatSecondsToDuration(set.time_limit_seconds)}</div>
-        </div>
         {onEdit && (
           <Button type="button" variant="outline" size="icon" className="text-muted-foreground hover:text-foreground" onClick={onEdit}>
             <Pencil className="h-4 w-4" />
@@ -243,18 +249,17 @@ export function UcatMockEditorContent({
                       key={id}
                       id={id}
                       label={
-                        <div className="flex w-full items-start justify-between gap-6">
-                          <div className="min-w-0">
-                            <div>
-                              <span className="font-medium">{index + 1}.</span> {set.name}
-                            </div>
-                            {set.sectionDisplay ? (
-                              <div className="text-xs text-muted-foreground">{set.sectionDisplay}</div>
-                            ) : null}
+                        <div className="min-w-0">
+                          <div>
+                            <span className="font-medium">{index + 1}.</span> {set.name}
                           </div>
-                          <div className="grid shrink-0 grid-cols-2 gap-x-6 text-right text-sm text-muted-foreground">
-                            <div>{set.question_count != null ? `${set.question_count} Q` : '—'}</div>
-                            <div>{formatSecondsToDuration(set.time_limit_seconds)}</div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            {set.sectionDisplay ? <span>{set.sectionDisplay}</span> : null}
+                            <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(!!set.is_private))}>
+                              {set.is_private ? 'Private' : 'Public'}
+                            </Badge>
+                            <span>· {set.question_count != null ? `${set.question_count} Q` : '—'}</span>
+                            <span>· {formatSetTimeLimit(set.time_limit_seconds)}</span>
                           </div>
                         </div>
                       }
@@ -357,14 +362,15 @@ export function UcatMockEditorContent({
               </div>
               <div className="min-w-0">
                 <div className="font-medium">{activeSet.name}</div>
-                {activeSet.sectionDisplay ? (
-                  <div className="text-xs text-muted-foreground">{activeSet.sectionDisplay}</div>
-                ) : null}
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  {activeSet.sectionDisplay ? <span>{activeSet.sectionDisplay}</span> : null}
+                  <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(!!activeSet.is_private))}>
+                    {activeSet.is_private ? 'Private' : 'Public'}
+                  </Badge>
+                  <span>· {activeSet.question_count != null ? `${activeSet.question_count} Q` : '—'}</span>
+                  <span>· {formatSetTimeLimit(activeSet.time_limit_seconds)}</span>
+                </div>
               </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-              <div>{activeSet.question_count != null ? `${activeSet.question_count} Q` : '—'}</div>
-              <div>{formatSecondsToDuration(activeSet.time_limit_seconds)}</div>
             </div>
           </div>
         ) : null}
