@@ -11,11 +11,17 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Search } from 'lucide-react';
 import { SkeletonTable } from '@altitutor/ui';
 import type { StudentWithStripe } from '../api/stripe-sync';
 import { StudentStripeSyncModal } from './StudentStripeSyncModal';
+
+const STRIPE_FILTER_OPTIONS: { value: 'all' | 'present' | 'absent'; label: string }[] = [
+  { value: 'all', label: 'All Students' },
+  { value: 'present', label: 'Has Stripe Customer' },
+  { value: 'absent', label: 'No Stripe Customer' },
+];
 
 interface StripeSyncTableProps {
   students: StudentWithStripe[];
@@ -100,11 +106,15 @@ export function StripeSyncTable({
             />
           </div>
           
-          <Select disabled>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filter by Stripe customer" />
-            </SelectTrigger>
-          </Select>
+          <SearchableSelect<{ value: 'all' | 'present' | 'absent'; label: string }>
+            items={STRIPE_FILTER_OPTIONS}
+            value={null}
+            onValueChange={() => {}}
+            getItemLabel={(i) => i.label}
+            getItemId={(i) => i.value}
+            placeholder="Filter by Stripe customer"
+            disabled
+          />
         </div>
         
         <SkeletonTable rows={8} columns={4} />
@@ -131,16 +141,15 @@ export function StripeSyncTable({
             />
           </div>
           
-          <Select value={stripeFilter || 'all'} onValueChange={(value: 'all' | 'present' | 'absent') => setStripeFilter(value)}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="Filter by Stripe customer" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Students</SelectItem>
-              <SelectItem value="present">Has Stripe Customer</SelectItem>
-              <SelectItem value="absent">No Stripe Customer</SelectItem>
-            </SelectContent>
-          </Select>
+          <SearchableSelect<{ value: 'all' | 'present' | 'absent'; label: string }>
+            items={STRIPE_FILTER_OPTIONS}
+            value={STRIPE_FILTER_OPTIONS.find((i) => i.value === stripeFilter) ?? null}
+            onValueChange={(item) => item && setStripeFilter(item.value)}
+            getItemLabel={(i) => i.label}
+            getItemId={(i) => i.value}
+            placeholder="Filter by Stripe customer"
+            triggerClassName="w-[200px]"
+          />
         </div>
 
         {/* Table */}

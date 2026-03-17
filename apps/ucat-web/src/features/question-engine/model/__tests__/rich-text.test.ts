@@ -2,7 +2,7 @@
  * Tests for rich-text utilities
  */
 
-import { extractTextFromRichJson } from '../rich-text';
+import { extractTextFromRichJson, type JsonLike } from '../rich-text';
 
 describe('extractTextFromRichJson', () => {
   it('returns empty string for null', () => {
@@ -38,5 +38,17 @@ describe('extractTextFromRichJson', () => {
 
   it('handles array of content', () => {
     expect(extractTextFromRichJson(['a', 'b'])).toBe('a b');
+  });
+
+  it('skips image nodes (returns empty string)', () => {
+    const jsonWithImage = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Before' }] },
+        { type: 'image', attrs: { src: 'https://example.com/image.png' } },
+        { type: 'paragraph', content: [{ type: 'text', text: 'After' }] },
+      ],
+    } as JsonLike;
+    expect(extractTextFromRichJson(jsonWithImage)).toBe('Before After');
   });
 });

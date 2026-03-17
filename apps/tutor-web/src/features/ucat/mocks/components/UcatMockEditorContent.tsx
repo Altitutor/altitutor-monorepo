@@ -15,14 +15,12 @@ import {
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import {
+  Badge,
   Button,
+  getUcatVisibilityColor,
   Input,
   ListToolbar,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Tabs,
   TabsContent,
   TabsList,
@@ -31,7 +29,7 @@ import {
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { SortableRow } from '@/features/ucat/shared/drag-list'
-import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
+import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
 import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
@@ -39,6 +37,9 @@ import {
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
+import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
+import { getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
+import { cn } from '@/shared/utils'
 import { GripVertical, Pencil, Plus } from 'lucide-react'
 import React from 'react'
 
@@ -60,15 +61,54 @@ type UcatMockEditorContentProps = {
   setFilters?: (value: Record<string, unknown[]>) => void
   filterDefinitions?: DataTableFilterDefinition[]
   setCatalog: SetOption[]
+  sections?: Array<{ id: string | null; section_number: number | null; name: string | null; number_of_questions: number | null; time_limit_seconds: number | null }>
   onEditSet?: (setId: string) => void
+}
+
+function SetSubtitleParts({
+  set,
+  sections,
+}: {
+  set: SetOption
+  sections: Array<{ id: string | null; section_number: number | null; name: string | null; number_of_questions: number | null; time_limit_seconds: number | null }>
+}) {
+  const status = getSetSectionStatus(
+    {
+      sectionCount: set.sectionCount,
+      firstSectionNumber: set.firstSectionNumber,
+      question_count: set.question_count,
+      time_limit_seconds: set.time_limit_seconds,
+    },
+    sections
+  )
+  return (
+    <>
+      {set.sectionDisplay ? (
+        <SetStatusSpan status={status.sectionsStatus} tooltip={status.sectionsTooltip}>
+          {set.sectionDisplay}
+        </SetStatusSpan>
+      ) : null}
+      <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(!!set.is_private))}>
+        {set.is_private ? 'Private' : 'Public'}
+      </Badge>
+      <SetStatusSpan status={status.questionCountStatus} tooltip={status.questionCountTooltip}>
+        · {set.question_count != null ? `${set.question_count} Q` : '—'}
+      </SetStatusSpan>
+      <SetStatusSpan status={status.timeLimitStatus} tooltip={status.timeLimitTooltip}>
+        · {formatSetTimeLimit(set.time_limit_seconds)}
+      </SetStatusSpan>
+    </>
+  )
 }
 
 function DraggableSetItem({
   set,
+  sections,
   onAdd,
   onEdit,
 }: {
   set: SetOption
+  sections: Array<{ id: string | null; section_number: number | null; name: string | null; number_of_questions: number | null; time_limit_seconds: number | null }>
   onAdd: () => void
   onEdit?: () => void
 }) {
@@ -90,14 +130,12 @@ function DraggableSetItem({
         </button>
         <div className="min-w-0">
           <div className="font-medium">{set.name}</div>
-          {set.sectionDisplay ? <div className="text-xs text-muted-foreground">{set.sectionDisplay}</div> : null}
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+            <SetSubtitleParts set={set} sections={sections} />
+          </div>
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <div className="grid grid-cols-2 gap-x-4 text-right text-sm text-muted-foreground">
-          <div>{set.question_count != null ? `${set.question_count} Q` : '—'}</div>
-          <div>{formatSecondsToDuration(set.time_limit_seconds)}</div>
-        </div>
         {onEdit && (
           <Button type="button" variant="outline" size="icon" className="text-muted-foreground hover:text-foreground" onClick={onEdit}>
             <Pencil className="h-4 w-4" />
@@ -126,6 +164,7 @@ export function UcatMockEditorContent({
   setFilters = () => {},
   filterDefinitions = [],
   setCatalog,
+  sections = [],
   onEditSet,
 }: UcatMockEditorContentProps) {
   const [activeId, setActiveId] = React.useState<string | null>(null)
@@ -243,18 +282,12 @@ export function UcatMockEditorContent({
                       key={id}
                       id={id}
                       label={
-                        <div className="flex w-full items-start justify-between gap-6">
-                          <div className="min-w-0">
-                            <div>
-                              <span className="font-medium">{index + 1}.</span> {set.name}
-                            </div>
-                            {set.sectionDisplay ? (
-                              <div className="text-xs text-muted-foreground">{set.sectionDisplay}</div>
-                            ) : null}
+                        <div className="min-w-0">
+                          <div>
+                            <span className="font-medium">{index + 1}.</span> {set.name}
                           </div>
-                          <div className="grid shrink-0 grid-cols-2 gap-x-6 text-right text-sm text-muted-foreground">
-                            <div>{set.question_count != null ? `${set.question_count} Q` : '—'}</div>
-                            <div>{formatSecondsToDuration(set.time_limit_seconds)}</div>
+                          <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                            <SetSubtitleParts set={set} sections={sections} />
                           </div>
                         </div>
                       }
@@ -287,15 +320,20 @@ export function UcatMockEditorContent({
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>
-                <Select value={isPrivate ? 'private' : 'public'} onValueChange={(v) => setIsPrivate(v === 'private')}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect<{ value: string; label: string }>
+                  items={[
+                    { value: 'public', label: 'Public' },
+                    { value: 'private', label: 'Private' },
+                  ]}
+                  value={
+                    isPrivate
+                      ? { value: 'private', label: 'Private' }
+                      : { value: 'public', label: 'Public' }
+                  }
+                  onValueChange={(item) => item && setIsPrivate(item.value === 'private')}
+                  getItemLabel={(i) => i.label}
+                  getItemId={(i) => i.value}
+                />
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Instructions</span>
@@ -338,6 +376,7 @@ export function UcatMockEditorContent({
                     <DraggableSetItem
                       key={set.id}
                       set={set}
+                      sections={sections}
                       onAdd={() => setDraftSetIds((prev) => (prev.includes(set.id) ? prev : [...prev, set.id]))}
                       onEdit={onEditSet ? () => onEditSet(set.id) : undefined}
                     />
@@ -357,14 +396,10 @@ export function UcatMockEditorContent({
               </div>
               <div className="min-w-0">
                 <div className="font-medium">{activeSet.name}</div>
-                {activeSet.sectionDisplay ? (
-                  <div className="text-xs text-muted-foreground">{activeSet.sectionDisplay}</div>
-                ) : null}
+                <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                  <SetSubtitleParts set={activeSet} sections={sections} />
+                </div>
               </div>
-            </div>
-            <div className="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
-              <div>{activeSet.question_count != null ? `${activeSet.question_count} Q` : '—'}</div>
-              <div>{formatSecondsToDuration(activeSet.time_limit_seconds)}</div>
             </div>
           </div>
         ) : null}

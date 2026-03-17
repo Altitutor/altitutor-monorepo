@@ -1,0 +1,11 @@
+diff --git a/lib/css/react-big-calendar.css b/lib/css/react-big-calendar.css
+index f897a4e3eb357781a9f21a695d9ccff8dd80d5ff..a547407d8b9e1196dc07e9378a33a0722d659fdf 100644
+--- a/lib/css/react-big-calendar.css
++++ b/lib/css/react-big-calendar.css
+@@ -840,5 +840,3 @@ button.rbc-input::-moz-focus-inner {
+ .rbc-resource-grouping .rbc-row .rbc-header {
+   width: 141px;
+ }
+\ No newline at end of file
+-
+-/*# sourceMappingURL=react-big-calendar.css.map */

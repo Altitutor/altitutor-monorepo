@@ -13,21 +13,13 @@ import {
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@altitutor/ui";
+import { SearchableSelect } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { PhoneInput } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
+import { SubjectSearchPopover } from "@/features/subjects/components/SubjectSearchPopover";
 import { Badge } from "@altitutor/ui";
 import { useCreateStudent } from '../hooks/useStudentsQuery';
-import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { studentsApi } from '../api';
 import { useForm, Controller, SubmitHandler, useFieldArray, type FieldValues, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -109,12 +101,9 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
   const queryClient = useQueryClient();
   const createStudentMutation = useCreateStudent();
   const createParentMutation = useCreateParent();
-  const { data: allSubjects = [] } = useSubjects();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
-  const [isAddSubjectPopoverOpen, setIsAddSubjectPopoverOpen] = useState(false);
-  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -267,7 +256,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
       // Reset form and close modal
       reset();
       setSelectedSubjects([]);
-      setSubjectSearchQuery('');
       onStudentAdded();
       onClose();
     } catch (error) {
@@ -295,7 +283,6 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
       reset();
       setErrorMessage(null);
       setSelectedSubjects([]);
-      setSubjectSearchQuery('');
       onClose();
     }
   };
@@ -304,28 +291,15 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     append({ first_name: '', last_name: '', email: '', phone: null });
   };
 
-  const handleAddSubject = (subjectId: string) => {
-    const subject = allSubjects.find(s => s.id === subjectId);
-    if (subject && !selectedSubjects.some(s => s.id === subjectId)) {
+  const handleAddSubject = (subject: Tables<'subjects'>) => {
+    if (!selectedSubjects.some(s => s.id === subject.id)) {
       setSelectedSubjects(prev => [...prev, subject]);
-      setIsAddSubjectPopoverOpen(false);
-      setSubjectSearchQuery('');
     }
   };
 
   const handleRemoveSubject = (subjectId: string) => {
     setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
   };
-
-  const availableSubjects = allSubjects.filter(subject => 
-    !selectedSubjects.some(selected => selected.id === subject.id)
-  );
-
-  const filteredAvailableSubjects = availableSubjects.filter(subject => {
-    if (!subjectSearchQuery) return true;
-    const query = subjectSearchQuery.toLowerCase();
-    return (subject?.long_name ?? '').toLowerCase().includes(query);
-  });
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseModal}>
@@ -428,24 +402,27 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
               <Controller
                 control={control}
                 name="curriculum"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isSubmitting}
-                    value={field.value || ''}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select curriculum" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SACE">SACE</SelectItem>
-                      <SelectItem value="IB">IB</SelectItem>
-                      <SelectItem value="PRESACE">PRESACE</SelectItem>
-                      <SelectItem value="PRIMARY">PRIMARY</SelectItem>
-                      <SelectItem value="MEDICINE">MEDICINE</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const CURRICULUM_OPTIONS = [
+                    { value: 'SACE' as const, label: 'SACE' },
+                    { value: 'IB' as const, label: 'IB' },
+                    { value: 'PRESACE' as const, label: 'PRESACE' },
+                    { value: 'PRIMARY' as const, label: 'Primary' },
+                    { value: 'MEDICINE' as const, label: 'Medicine' },
+                  ];
+                  const selected = CURRICULUM_OPTIONS.find((o) => o.value === field.value) ?? null;
+                  return (
+                    <SearchableSelect<typeof CURRICULUM_OPTIONS[number]>
+                      items={CURRICULUM_OPTIONS}
+                      value={selected}
+                      onValueChange={(item) => field.onChange(item?.value)}
+                      getItemLabel={(o) => o.label}
+                      getItemId={(o) => o.value}
+                      placeholder="Select curriculum"
+                      disabled={isSubmitting}
+                    />
+                  );
+                }}
               />
             </div>
             
@@ -477,23 +454,26 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
             <Controller
               control={control}
               name="status"
-              render={({ field }) => (
-                <Select 
-                  disabled={isSubmitting}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={'TRIAL'}>Trial</SelectItem>
-                    <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                    <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                    <SelectItem value={'DISCONTINUED'}>Discontinued</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+              render={({ field }) => {
+                const STATUS_OPTIONS = [
+                  { value: 'TRIAL' as const, label: 'Trial' },
+                  { value: 'ACTIVE' as const, label: 'Active' },
+                  { value: 'INACTIVE' as const, label: 'Inactive' },
+                  { value: 'DISCONTINUED' as const, label: 'Discontinued' },
+                ];
+                const selected = STATUS_OPTIONS.find((o) => o.value === field.value) ?? null;
+                return (
+                  <SearchableSelect<typeof STATUS_OPTIONS[number]>
+                    items={STATUS_OPTIONS}
+                    value={selected}
+                    onValueChange={(item) => field.onChange(item?.value)}
+                    getItemLabel={(o) => o.label}
+                    getItemId={(o) => o.value}
+                    placeholder="Select status"
+                    disabled={isSubmitting}
+                  />
+                );
+              }}
             />
             {errors.status && (
               <p className="text-sm text-red-500">{errors.status.message}</p>
@@ -524,55 +504,23 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
                   ))}
                 </div>
               )}
-              <Popover open={isAddSubjectPopoverOpen} onOpenChange={setIsAddSubjectPopoverOpen}>
-                <PopoverTrigger asChild>
-                  <Button 
+              <SubjectSearchPopover
+                selectedSubjects={selectedSubjects}
+                onSelectSubject={handleAddSubject}
+                trigger={
+                  <Button
                     type="button"
-                    variant="outline" 
-                    size="sm" 
+                    variant="outline"
+                    size="sm"
                     className="flex items-center gap-2"
                     disabled={isSubmitting}
                   >
                     <Plus className="h-4 w-4" />
                     <span>Add Subject</span>
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="p-0 w-[300px]" align="start">
-                  <div className="p-3">
-                    <Input
-                      placeholder="Search subjects..."
-                      value={subjectSearchQuery}
-                      onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                      className="mb-3"
-                    />
-                    <ScrollArea className="max-h-[300px]">
-                      <div className="space-y-1">
-                        {filteredAvailableSubjects.length === 0 ? (
-                          <div className="p-3 text-center text-sm text-muted-foreground">
-                            {subjectSearchQuery ? 'No subjects match your search' : 'No available subjects found'}
-                          </div>
-                        ) : (
-                          filteredAvailableSubjects.map(subject => (
-                            <Button
-                              key={subject.id}
-                              type="button"
-                              variant="ghost"
-                              className="w-full justify-start h-auto p-2"
-                              onClick={() => handleAddSubject(subject.id)}
-                            >
-                              <div className="flex items-center justify-between w-full">
-                                <div className="flex flex-col items-start">
-                                  <div className="font-medium">{(subject?.long_name ?? '')}</div>
-                                </div>
-                              </div>
-                            </Button>
-                          ))
-                        )}
-                      </div>
-                    </ScrollArea>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                }
+                align="start"
+              />
             </div>
           </div>
 

@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Checkbox } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Checkbox, SearchableSelect } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Plus, Search } from 'lucide-react';
@@ -13,6 +12,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
 import { filterAvailableStaff } from '@/shared/utils/filtering';
 import type { Tables } from '@altitutor/shared';
+
+const STAFF_TYPE_OPTIONS = [
+  { value: 'MAIN_TUTOR' as const, label: 'Main Tutor' },
+  { value: 'SECONDARY_TUTOR' as const, label: 'Secondary Tutor' },
+  { value: 'TRIAL_TUTOR' as const, label: 'Trial Tutor' },
+] as const;
+type StaffTypeOption = (typeof STAFF_TYPE_OPTIONS)[number];
 
 type StaffAttendanceItem = {
   staffId: string;
@@ -177,21 +183,16 @@ export function Step2StaffAttendance({
                   />
                 </div>
                 {isAttended && (
-                  <Select
-                    value={type}
-                    onValueChange={(value) =>
-                      handleTypeChange(ss.staff_id, value as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR')
+                  <SearchableSelect<StaffTypeOption>
+                    items={[...STAFF_TYPE_OPTIONS]}
+                    value={STAFF_TYPE_OPTIONS.find((o) => o.value === type) ?? STAFF_TYPE_OPTIONS[0]}
+                    onValueChange={(item) =>
+                      item && handleTypeChange(ss.staff_id, item.value)
                     }
-                  >
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MAIN_TUTOR">Main Tutor</SelectItem>
-                      <SelectItem value="SECONDARY_TUTOR">Secondary Tutor</SelectItem>
-                      <SelectItem value="TRIAL_TUTOR">Trial Tutor</SelectItem>
-                    </SelectContent>
-                  </Select>
+                    getItemLabel={(o) => o.label}
+                    getItemId={(o) => o.value}
+                    triggerClassName="w-32"
+                  />
                 )}
               </div>
             );

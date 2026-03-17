@@ -1,4 +1,4 @@
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Button, SearchableSelect } from '@altitutor/ui';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { formatSubjectDisplay } from '../../utils/bookingHelpers';
 import type { Tables } from '@altitutor/shared';
@@ -72,24 +72,18 @@ export function SubjectSelectionStep({
       <p className="text-sm text-muted-foreground">
         Optionally choose a subject for the {sessionType === 'TRIAL_SESSION' ? 'trial' : 'subsidy interview'} session
       </p>
-      {allSubjects && allSubjects.length > 0 && (
-        <Select 
-          value={selectedSubjectId || 'none'} 
-          onValueChange={(value) => onSelectSubject(value === 'none' ? '' : value)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select a subject (optional)" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            {allSubjects.map((subject) => (
-              <SelectItem key={subject.id} value={subject.id}>
-                {formatSubjectDisplay(subject)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
+      <SearchableSelect<Tables<'subjects'>>
+        items={allSubjects ?? []}
+        value={selectedSubject ?? null}
+        onValueChange={(value) => onSelectSubject(value?.id ?? '')}
+        getItemId={(s) => s.id}
+        getItemLabel={formatSubjectDisplay}
+        placeholder="Select a subject (optional)"
+        searchPlaceholder="Search subjects..."
+        emptyMessage="No subjects found"
+        allowClear
+        clearLabel="None"
+      />
     </div>
   );
 }

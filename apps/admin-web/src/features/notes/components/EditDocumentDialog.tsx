@@ -23,10 +23,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
   ScrollArea,
   type JSONContent,
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Trash2, X, Loader2, Check, CloudOff } from 'lucide-react';
+import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import type { Editor } from '@tiptap/react';
 import { useNote, useFolders } from '../api/queries';
 import { useDeleteNote, useUpdateNote } from '../hooks/useNoteMutations';
@@ -87,6 +90,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const [isInitialized, setIsInitialized] = useState(false);
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -173,7 +177,6 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
               </Button>
               <DialogTitle>{isLoading ? 'Loading...' : 'Edit Document'}</DialogTitle>
             </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
 
             <div className="flex items-center gap-2">
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
@@ -194,6 +197,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   </>
                 )}
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="icon">
@@ -205,6 +209,12 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open in page
                   </DropdownMenuItem>
+                  <RichTextTemplateMenuItems
+                    getEditor={() => noteEditorRef.current?.getEditor() ?? null}
+                    getCurrentContent={() => form.getValues('content') ?? null}
+                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+                  />
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete
@@ -274,7 +284,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                     </div>
                   </ScrollArea>
 
-                  <div className="flex-shrink-0 px-4 pb-4 pt-2 border-t bg-background">
+                  <div className="flex-shrink-0 px-4 pb-4 pt-2">
                     <NoteEditorBottomToolbar editor={editorInstance} />
                   </div>
                 </div>
@@ -315,6 +325,12 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
           </div>
         )}
       </DialogContent>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('content') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
     </Dialog>
   );
 }

@@ -1,9 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { UcatPageHeader } from '@/features/layout'
 import { useSetAttemptDetail } from '../hooks/use-set-attempt-detail'
+import { useMockAttemptDetail } from '../hooks/use-mock-attempt-detail'
 import { SetAttemptAnalysisChart } from './set-attempt-analysis-chart'
+import { SetAnswersCard } from './set-answers-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { cn } from '@/lib/utils'
 
@@ -11,14 +13,19 @@ type SetAttemptDetailPageProps = {
   attemptId: string
   backHref?: string
   backLabel?: string
+  /** When in nested route /progress/mocks/[id]/sets/[setAttemptId], pass mockAttemptId to show mock name in breadcrumb. */
+  mockAttemptId?: string
 }
 
 export function SetAttemptDetailPage({
   attemptId,
   backHref = '/progress',
   backLabel = 'Back to progress',
+  mockAttemptId,
 }: SetAttemptDetailPageProps) {
   const { data, isLoading, error } = useSetAttemptDetail(attemptId)
+  const { data: mockData } = useMockAttemptDetail(mockAttemptId ?? null)
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0)
 
   const categoryBreakdown = useMemo(() => {
     const attempts = data?.questionAttempts ?? []
@@ -90,6 +97,15 @@ export function SetAttemptDetailPage({
   const total = data.totalPoints ?? 0
   const points = data.scorePoints ?? 0
 
+  const breadcrumbOverrides: Record<number, string> = {}
+  const setName = data.questionSetName ?? 'Set'
+  if (mockAttemptId) {
+    breadcrumbOverrides[2] = mockData?.mockName ?? 'Mock'
+    breadcrumbOverrides[4] = setName
+  } else {
+    breadcrumbOverrides[2] = setName
+  }
+
   return (
     <div className="min-w-0 max-w-full space-y-6">
       <UcatPageHeader
@@ -97,6 +113,7 @@ export function SetAttemptDetailPage({
         description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}
         backHref={backHref}
         backLabel={backLabel}
+        breadcrumbOverrides={Object.keys(breadcrumbOverrides).length > 0 ? breadcrumbOverrides : undefined}
       />
 
       <Card className="rounded-xl border-border max-w-sm">
@@ -157,9 +174,20 @@ export function SetAttemptDetailPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="min-w-0 overflow-hidden">
-          <SetAttemptAnalysisChart data={data.questionAttempts} />
+          <SetAttemptAnalysisChart
+            data={data.questionAttempts}
+            selectedQuestionIndex={selectedQuestionIndex}
+            onBarClick={(index) => setSelectedQuestionIndex(index)}
+          />
         </CardContent>
       </Card>
+
+      <SetAnswersCard
+        questionSetId={data.questionSetId}
+        questionAttempts={data.questionAttempts}
+        initialQuestionIndex={selectedQuestionIndex}
+        onQuestionIndexChange={setSelectedQuestionIndex}
+      />
     </div>
   )
 }

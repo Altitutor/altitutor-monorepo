@@ -158,7 +158,7 @@ export function Navbar() {
                   <span className="hidden sm:inline">{getFullName()}</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuContent align="end" className="w-48 max-w-[calc(100vw-2rem)]" collisionPadding={16}>
                 <DropdownMenuItem asChild>
                   <Link href="/my-account" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />

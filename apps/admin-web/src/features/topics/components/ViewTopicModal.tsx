@@ -24,13 +24,7 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { TrashIcon, Loader2, AlertTriangle, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -296,43 +290,68 @@ export function ViewTopicModal({
                       <Label htmlFor="subject_id" className="text-right">
                         Subject
                       </Label>
-                      <Select
-                        value={form.watch('subject_id')}
-                        onValueChange={(value) => form.setValue('subject_id', value)}
-                      >
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="Select subject" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {subjects.map((subject) => (
-                            <SelectItem key={subject.id} value={subject.id}>
-                              {subject?.long_name ?? ''}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="col-span-3">
+                        <SearchableSelect
+                          items={subjects}
+                          value={
+                            form.watch('subject_id')
+                              ? subjects.find((s) => s.id === form.watch('subject_id')) ?? null
+                              : null
+                          }
+                          onValueChange={(s) => form.setValue('subject_id', s?.id ?? '')}
+                          getItemId={(s) => s.id}
+                          getItemLabel={(s) => s?.long_name ?? ''}
+                          placeholder="Select subject"
+                          searchPlaceholder="Search subjects..."
+                          emptyMessage="No subjects found"
+                          trigger={
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start font-normal"
+                            >
+                              {form.watch('subject_id')
+                                ? subjects.find((s) => s.id === form.watch('subject_id'))?.long_name ?? 'Select subject'
+                                : 'Select subject'}
+                            </Button>
+                          }
+                        />
+                      </div>
                     </div>
                     
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="parent_id" className="text-right">
                         Parent
                       </Label>
-                      <Select
-                        value={form.watch('parent_id')}
-                        onValueChange={(value) => form.setValue('parent_id', value)}
-                      >
-                        <SelectTrigger className="col-span-3">
-                          <SelectValue placeholder="None (root topic)" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">None (root topic)</SelectItem>
-                          {availableParents.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="col-span-3">
+                        <SearchableSelect
+                          items={availableParents}
+                          value={
+                            form.watch('parent_id') && form.watch('parent_id') !== 'none'
+                              ? availableParents.find((t) => t.id === form.watch('parent_id')) ?? null
+                              : null
+                          }
+                          onValueChange={(t) =>
+                            form.setValue('parent_id', t?.id ?? 'none')
+                          }
+                          getItemId={(t) => t.id}
+                          getItemLabel={(t) => t.name}
+                          placeholder="None (root topic)"
+                          searchPlaceholder="Search topics..."
+                          emptyMessage="No parent topics found"
+                          allowClear
+                          clearLabel="None (root topic)"
+                          trigger={
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start font-normal"
+                            >
+                              {form.watch('parent_id') && form.watch('parent_id') !== 'none'
+                                ? availableParents.find((t) => t.id === form.watch('parent_id'))?.name ?? 'None (root topic)'
+                                : 'None (root topic)'}
+                            </Button>
+                          }
+                        />
+                      </div>
                     </div>
                   </div>
 

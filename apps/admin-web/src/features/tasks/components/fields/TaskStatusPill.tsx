@@ -1,9 +1,8 @@
 'use client';
 
-import { FormControl, FormField, FormItem } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@altitutor/ui';
-import { UseFormReturn } from 'react-hook-form';
+import { Button, FormControl, FormField, FormItem, SearchableSelect } from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
+import { UseFormReturn } from 'react-hook-form';
 import {
   getStatusIcon,
   getStatusLabel,
@@ -17,6 +16,8 @@ interface TaskStatusPillProps {
   taskStatus?: TaskStatus;
 }
 
+type StatusOption = (typeof TASK_STATUS_OPTIONS)[number];
+
 export function TaskStatusPill({ form, taskStatus }: TaskStatusPillProps) {
   return (
     <FormField
@@ -27,42 +28,33 @@ export function TaskStatusPill({ form, taskStatus }: TaskStatusPillProps) {
         const StatusIcon = getStatusIcon(selectValue);
         const displayValue = getStatusLabel(selectValue);
         const iconColor = getStatusIconColor(selectValue);
+        const selectedItem =
+          TASK_STATUS_OPTIONS.find((o) => o.value === selectValue) ??
+          TASK_STATUS_OPTIONS[0];
 
         return (
           <FormItem>
-            <Select
-              onValueChange={(value) => {
-                if (value && value !== '') {
-                  field.onChange(value);
-                } else if (taskStatus) {
-                  field.onChange(taskStatus);
-                }
-              }}
-              value={selectValue}
-            >
-              <FormControl>
-                <SelectTrigger className="h-8 px-3 text-xs border rounded-full">
-                  <div className="flex items-center gap-1.5">
+            <FormControl>
+              <SearchableSelect<StatusOption>
+                items={TASK_STATUS_OPTIONS}
+                value={selectedItem}
+                onValueChange={(item) => {
+                  field.onChange(item ? item.value : taskStatus ?? 'backlog');
+                }}
+                getItemLabel={(opt) => opt.label}
+                getItemId={(opt) => opt.value}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 rounded-full px-3 text-xs"
+                  >
                     <StatusIcon className={cn('h-3 w-3', iconColor)} />
                     <span>{displayValue}</span>
-                  </div>
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {TASK_STATUS_OPTIONS.map((opt) => {
-                  const OptionIcon = getStatusIcon(opt.value);
-                  const optionColor = getStatusIconColor(opt.value);
-                  return (
-                    <SelectItem key={opt.value} value={opt.value}>
-                      <div className="flex items-center gap-2">
-                        <OptionIcon className={cn('h-4 w-4', optionColor)} />
-                        <span>{opt.label}</span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+                  </Button>
+                }
+              />
+            </FormControl>
           </FormItem>
         );
       }}

@@ -9,6 +9,7 @@ import {
 } from '@altitutor/ui';
 import { useIssues } from '../api/queries';
 import { useUpdateIssue } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import { IssueCard } from './IssueCard';
 import { EditIssueDialog } from './EditIssueDialog';
 import { CreateIssueDialog } from './CreateIssueDialog';
@@ -34,14 +35,19 @@ export function IssuesBoard() {
 
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
+  const { data: currentStaff } = useCurrentStaff();
   const [sortBy, setSortBy] = useState<string>('name');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
 
   const handleUpdate = useCallback(
     (issue: IssueWithTags, updates: Partial<IssueUpdate>) => {
-      updateIssue.mutate({ id: issue.id, updates });
+      const finalUpdates = { ...updates };
+      if (updates.status === 'resolved') {
+        finalUpdates.resolved_by = currentStaff?.id ?? null;
+      }
+      updateIssue.mutate({ id: issue.id, updates: finalUpdates });
     },
-    [updateIssue]
+    [updateIssue, currentStaff?.id]
   );
 
   const handleAdd = useCallback((columnValue: unknown) => {
@@ -55,20 +61,16 @@ export function IssuesBoard() {
     setIsCreateDialogOpen(true);
   }, [activeColumnKey]);
 
-  const dueDateFilterOptions = useMemo(
-    () =>
-      Array.from(new Set(issues.map((issue) => issue.due_date).filter((date): date is string => !!date)))
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map((date) => ({ value: date as unknown, label: formatIssueDueDate(date) })),
-    [issues]
-  );
-
   const dueDateColumnOptions = useMemo(
-    () => [
-      { value: '__null__' as unknown, label: 'No due date' },
-      ...dueDateFilterOptions,
-    ],
-    [dueDateFilterOptions]
+    () => {
+      const dates = Array.from(
+        new Set(issues.map((issue) => issue.due_date).filter((date): date is string => !!date))
+      )
+        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
+        .map((date) => ({ value: date as unknown, label: formatIssueDueDate(date) }));
+      return [{ value: '__null__' as unknown, label: 'No due date' }, ...dates];
+    },
+    [issues]
   );
 
   const columnDefs: KanbanColumnDef<IssueWithTags, unknown>[] = useMemo(
@@ -115,8 +117,7 @@ export function IssuesBoard() {
         visibleByDefault: true,
         getValue: (issue) => issue.due_date ?? null,
         defaultValue: null,
-        filterOptions: dueDateFilterOptions,
-        filterSearchable: true,
+        filterType: 'date-range',
         groupable: true,
         sortable: true,
         filterable: true,
@@ -154,7 +155,7 @@ export function IssuesBoard() {
         ),
       },
     ],
-    [dueDateFilterOptions, handleUpdate]
+    [handleUpdate]
   );
 
   const groupByOptions = useMemo(

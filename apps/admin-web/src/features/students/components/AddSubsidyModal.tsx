@@ -10,11 +10,7 @@ import {
   DialogTitle,
   Button,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Input,
 } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
@@ -157,16 +153,22 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
 
           <div className="space-y-2">
             <Label htmlFor="billing-type">Billing Type</Label>
-            <Select value={billingType} onValueChange={(value) => setBillingType(value as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING')}>
-              <SelectTrigger id="billing-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CLASS">CLASS</SelectItem>
-                <SelectItem value="EXAM_COURSE">EXAM_COURSE</SelectItem>
-                <SelectItem value="DRAFTING">DRAFTING</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: string; label: string }>
+              items={[
+                { value: 'CLASS', label: 'CLASS' },
+                { value: 'EXAM_COURSE', label: 'EXAM_COURSE' },
+                { value: 'DRAFTING', label: 'DRAFTING' },
+              ]}
+              value={
+                billingType
+                  ? { value: billingType, label: billingType }
+                  : null
+              }
+              onValueChange={(item) => setBillingType((item?.value ?? 'CLASS') as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING')}
+              getItemLabel={(o) => o.label}
+              getItemId={(o) => o.value}
+              placeholder="Select billing type"
+            />
           </div>
 
           <div className="space-y-2">
@@ -187,15 +189,17 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
 
           <div className="space-y-2">
             <Label htmlFor="currency">Currency</Label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger id="currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="AUD">AUD</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: string; label: string }>
+              items={[
+                { value: 'AUD', label: 'AUD' },
+                { value: 'USD', label: 'USD' },
+              ]}
+              value={currency ? { value: currency, label: currency } : null}
+              onValueChange={(item) => setCurrency(item?.value ?? 'AUD')}
+              getItemLabel={(o) => o.label}
+              getItemId={(o) => o.value}
+              placeholder="Select currency"
+            />
           </div>
 
           <div className="space-y-2">

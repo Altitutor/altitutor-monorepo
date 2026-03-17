@@ -14,7 +14,7 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
@@ -203,19 +203,17 @@ export function ProfileForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Curriculum (optional)</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select curriculum" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="SACE">SACE</SelectItem>
-                      <SelectItem value="IB">IB</SelectItem>
-                      <SelectItem value="PRESACE">PRESACE</SelectItem>
-                      <SelectItem value="PRIMARY">PRIMARY</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <SearchableSelect<string>
+                      items={['SACE', 'IB', 'PRESACE', 'PRIMARY']}
+                      value={field.value ?? null}
+                      onValueChange={(v) => field.onChange(v)}
+                      getItemLabel={(v) => v}
+                      getItemId={(v) => v}
+                      placeholder="Select curriculum"
+                      allowClear
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

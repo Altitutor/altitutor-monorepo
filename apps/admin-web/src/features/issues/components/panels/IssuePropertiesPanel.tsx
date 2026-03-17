@@ -25,6 +25,7 @@ interface IssuePropertiesPanelProps {
   notes: NoteWithStaff[];
   isOpen: boolean;
   onClose: () => void;
+  descriptionRef?: React.RefObject<RichTextEditorRef>;
 }
 
 export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
@@ -33,9 +34,11 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   notes,
   isOpen,
   onClose: _onClose,
+  descriptionRef: descriptionRefProp,
 }: IssuePropertiesPanelProps) {
   const titleFieldRef = useRef<HTMLInputElement>(null);
-  const descriptionRef = useRef<RichTextEditorRef>(null);
+  const internalDescriptionRef = useRef<RichTextEditorRef>(null);
+  const descriptionRef = descriptionRefProp ?? internalDescriptionRef;
 
   const handleTagClick = useCallback((type: TagEntityType, id: string) => {
     window.dispatchEvent(new CustomEvent('mentionClick', { detail: { id, type } }));
@@ -48,7 +51,7 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
         editor.commands.focus();
       }
     }
-  }, []);
+  }, [descriptionRef]);
 
   return (
     <>

@@ -41,6 +41,8 @@ interface RegistrationFlowProps {
     subjects: Array<{
       id: string;
       name: string;
+      short_name?: string | null;
+      long_name?: string | null;
       year_level: number | null;
       curriculum: string | null;
       color: string | null;

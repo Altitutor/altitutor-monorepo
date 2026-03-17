@@ -7,11 +7,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -19,12 +15,17 @@ import {
   TableHeader,
   TableRow,
 } from '@altitutor/ui'
+import { TableHeaderWithTooltip } from './table-header-with-tooltip'
 import { ProgressTablePagination } from './progress-table-pagination'
 import { GraphTypeTabs } from './graph-type-tabs'
 import { format } from 'date-fns'
 import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { formatTimeSeconds } from '../lib/format-time'
-import { aggregateForGraph, filterByTimeFrame } from '../lib/progress-data-utils'
+import {
+  aggregateForGraph,
+  filterByTimeFrame,
+  type SharedDateRange,
+} from '../lib/progress-data-utils'
 import type { SetAttemptRow } from '@/app/api/ucat/progress/route'
 import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
 
@@ -32,6 +33,7 @@ type SetAttemptsCardProps = {
   attempts: SetAttemptRow[]
   mode: ProgressMode
   timeFrameDays: TimeFrameDays
+  sharedDateRange?: SharedDateRange
 }
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
@@ -53,25 +55,18 @@ export function SetAttemptsCard({
   attempts,
   mode,
   timeFrameDays,
+  sharedDateRange,
 }: SetAttemptsCardProps) {
   const router = useRouter()
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
-  const [wasTimedFilter, setWasTimedFilter] = useState<'all' | 'timed' | 'untimed'>(
-    'all'
-  )
-  const [setSourceFilter, setSetSourceFilter] = useState<'my' | 'public'>('public')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
   const standaloneAttempts = useMemo(() => {
-    let result = attempts.filter((a) => !a.studentUcatMockAttemptId)
-    if (wasTimedFilter === 'timed') result = result.filter((a) => a.wasTimed)
-    if (wasTimedFilter === 'untimed') result = result.filter((a) => !a.wasTimed)
-    if (setSourceFilter === 'my') result = result.filter((a) => a.isStudentGenerated)
-    if (setSourceFilter === 'public') result = result.filter((a) => !a.isStudentGenerated)
+    const result = attempts.filter((a) => !a.studentUcatMockAttemptId)
     return filterByTimeFrame(result, mode, timeFrameDays)
-  }, [attempts, wasTimedFilter, setSourceFilter, mode, timeFrameDays])
+  }, [attempts, mode, timeFrameDays])
 
   const { graphData, dateRangeLabel } = useMemo(() => {
     const isCountMetric = graphDataType === 'attempt_count'
@@ -90,13 +85,14 @@ export function SetAttemptsCard({
       },
       mode,
       timeFrameDays,
-      isCountMetric
+      isCountMetric,
+      sharedDateRange
     )
     return {
       graphData,
       dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
     }
-  }, [standaloneAttempts, graphDataType, mode, timeFrameDays])
+  }, [standaloneAttempts, graphDataType, mode, timeFrameDays, sharedDateRange])
 
   const paginatedAttempts = useMemo(() => {
     const start = (page - 1) * pageSize
@@ -108,40 +104,15 @@ export function SetAttemptsCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Set attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={wasTimedFilter} onValueChange={(v) => setWasTimedFilter(v as 'all' | 'timed' | 'untimed')}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Timed" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="untimed">Untimed only</SelectItem>
-              <SelectItem value="timed">Timed only</SelectItem>
-              <SelectItem value="all">All</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={setSourceFilter} onValueChange={(v) => setSetSourceFilter(v as 'my' | 'public')}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="public">Public sets</SelectItem>
-              <SelectItem value="my">My sets</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={graphDataType}
-            onValueChange={(v) => setGraphDataType(v as GraphDataType)}
-          >
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Y-axis" />
-            </SelectTrigger>
-            <SelectContent>
-              {GRAPH_DATA_TYPES.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
+            items={GRAPH_DATA_TYPES}
+            value={GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null}
+            onValueChange={(item) => item && setGraphDataType(item.value)}
+            getItemLabel={(r) => r.label}
+            getItemId={(r) => r.value}
+            placeholder="Y-axis"
+            triggerClassName="w-[160px]"
+          />
           <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </div>
       </CardHeader>
@@ -159,17 +130,38 @@ export function SetAttemptsCard({
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Points</TableHead>
-                  <TableHead>Scaled score</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Set speed</TableHead>
-                  <TableHead>Exam speed</TableHead>
+                  <TableHead>Set</TableHead>
+                  <TableHeaderWithTooltip
+                    tooltip="Raw score: correct points earned out of total possible points for this set."
+                  >
+                    Points
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="Scaled score (0–900) normalised to UCAT exam scale for this section."
+                  >
+                    Scaled score
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="Time taken vs time limit for this set (e.g. 25:00 / 30:00)."
+                  >
+                    Time
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="How fast you completed this set vs its time limit. >100% means you finished early."
+                  >
+                    Set speed
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace."
+                  >
+                    Exam speed
+                  </TableHeaderWithTooltip>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {standaloneAttempts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       No submitted set attempts yet
                     </TableCell>
                   </TableRow>
@@ -194,6 +186,7 @@ export function SetAttemptsCard({
                         onClick={() => router.push(`/progress/sets/${a.id}`)}
                       >
                         <TableCell>{dateStr}</TableCell>
+                        <TableCell>{a.questionSetName ?? '—'}</TableCell>
                         <TableCell>
                           {total > 0 ? `${points} / ${total}` : '—'}
                         </TableCell>

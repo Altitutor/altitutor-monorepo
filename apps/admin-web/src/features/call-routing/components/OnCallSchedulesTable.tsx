@@ -18,11 +18,7 @@ import {
   DialogFooter,
   Label,
   Switch,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { Edit2, Plus, Trash2 } from 'lucide-react';
 import {
@@ -279,18 +275,14 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-day">Day</Label>
-              <Select value={selectedDay.toString()} onValueChange={(value) => setSelectedDay(Number(value))}>
-                <SelectTrigger id="edit-day">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAY_NAMES.map((day) => (
-                    <SelectItem key={day.value} value={day.value.toString()}>
-                      {day.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof DAY_NAMES)[number]>
+                items={DAY_NAMES}
+                value={DAY_NAMES.find((d) => d.value === selectedDay) ?? DAY_NAMES[1]}
+                onValueChange={(item) => setSelectedDay(item?.value ?? 1)}
+                getItemLabel={(d) => d.label}
+                getItemId={(d) => String(d.value)}
+                placeholder="Select day"
+              />
             </div>
 
             <div className="space-y-2">
@@ -355,34 +347,26 @@ export function OnCallSchedulesTable({ schedules, onUpdate }: OnCallSchedulesTab
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="add-staff">Staff Member</Label>
-              <Select value={selectedStaffId} onValueChange={setSelectedStaffId}>
-                <SelectTrigger id="add-staff">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {staffList.map((staff) => (
-                    <SelectItem key={staff.id} value={staff.id}>
-                      {staff.first_name} {staff.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<Tables<'staff'>>
+                items={staffList}
+                value={staffList.find((s) => s.id === selectedStaffId) ?? null}
+                onValueChange={(item) => setSelectedStaffId(item?.id ?? '')}
+                getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+                getItemId={(s) => s.id}
+                placeholder="Select staff"
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="add-day">Day</Label>
-              <Select value={selectedDay.toString()} onValueChange={(value) => setSelectedDay(Number(value))}>
-                <SelectTrigger id="add-day">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DAY_NAMES.map((day) => (
-                    <SelectItem key={day.value} value={day.value.toString()}>
-                      {day.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof DAY_NAMES)[number]>
+                items={DAY_NAMES}
+                value={DAY_NAMES.find((d) => d.value === selectedDay) ?? DAY_NAMES[1]}
+                onValueChange={(item) => setSelectedDay(item?.value ?? 1)}
+                getItemLabel={(d) => d.label}
+                getItemId={(d) => String(d.value)}
+                placeholder="Select day"
+              />
             </div>
 
             <div className="space-y-2">

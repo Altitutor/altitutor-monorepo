@@ -64,6 +64,7 @@ const TABLE_CONFIG: Record<ReportsEntitiesTableVariant, ColumnConfig[]> = {
   ],
   resolvedIssues: [
     { key: 'issue', header: 'Issue' },
+    { key: 'resolvedBy', header: 'Resolved by' },
     { key: 'resolvedAt', header: 'Resolved at' },
   ],
   openProjects: [

@@ -281,6 +281,8 @@ Deno.serve(async (req: Request) => {
 
     const invoicesCreated: string[] = [];
     const errors: string[] = [];
+    const failedSessionsStudentsIds: string[] = [];
+    const runId = crypto.randomUUID();
 
     // Process each session individually (same as billing-single) for the current batch
     for (const row of batchRows) {
@@ -334,6 +336,21 @@ Deno.serve(async (req: Request) => {
       }
       if (result.error) {
         errors.push(result.error);
+        failedSessionsStudentsIds.push(row.id);
+
+        // Persist failure to billing_runner_logs for investigation
+        const { error: logError } = await supabase.from('billing_runner_logs').insert({
+          run_id: runId,
+          sessions_students_id: row.id,
+          student_id: row.student_id,
+          session_id: row.session_id,
+          invoice_date: sessionInvoiceDate,
+          error_type: 'invoicing',
+          error_message: result.error,
+        });
+        if (logError) {
+          console.error('[billing-runner] Failed to log error to billing_runner_logs:', logError);
+        }
       }
     }
 
@@ -365,13 +382,17 @@ Deno.serve(async (req: Request) => {
     return json({
       ok: true,
       invoicesCreated: invoicesCreated.length,
+      failedCount: failedSessionsStudentsIds.length,
+      failedSessionsStudentsIds:
+        failedSessionsStudentsIds.length > 0 ? failedSessionsStudentsIds : undefined,
+      runId,
       errors: errors.length > 0 ? errors : undefined,
       stripeKeyType: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
       dateRange: { start: startIso, end: endIso },
       processed: batchRows.length,
       hasMore,
       nextCursor: hasMore ? batchRows[batchRows.length - 1]?.id : null,
-      message: `Created ${invoicesCreated.length} invoices${isStripeTestKey ? ' (using Stripe test keys)' : isStripeLiveKey ? ' (using Stripe live keys)' : ''}`,
+      message: `Created ${invoicesCreated.length} invoices${failedSessionsStudentsIds.length > 0 ? `, ${failedSessionsStudentsIds.length} failed` : ''}${isStripeTestKey ? ' (using Stripe test keys)' : isStripeLiveKey ? ' (using Stripe live keys)' : ''}`,
     });
   } catch (e: unknown) {
     const err = e instanceof Error ? e : new Error(String(e));

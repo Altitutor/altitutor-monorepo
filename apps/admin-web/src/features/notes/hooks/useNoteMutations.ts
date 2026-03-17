@@ -6,13 +6,18 @@ import { notesKeys, foldersKeys } from '../api/queryKeys';
 import type { NoteInsert, NoteUpdate, FolderInsert, FolderUpdate } from '../types';
 import { useCurrentStaff } from '@/shared/hooks';
 
+interface UseCreateNoteOptions {
+  onNoteCreated?: (noteId: string) => void;
+}
+
 /**
  * Create a new note
  */
-export function useCreateNote() {
+export function useCreateNote(options?: UseCreateNoteOptions) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
+  const onNoteCreated = options?.onNoteCreated;
 
   return useMutation({
     mutationFn: async (note: Omit<NoteInsert, 'created_by'>) => {
@@ -25,12 +30,15 @@ export function useCreateNote() {
       };
       return notesApi.create(noteWithCreator);
     },
-    onSuccess: () => {
+    onSuccess: (createdNote) => {
       queryClient.invalidateQueries({ queryKey: notesKeys.lists() });
       queryClient.invalidateQueries({ queryKey: foldersKeys.tree() });
       toast({
         title: 'Note created',
         description: 'The note has been created successfully.',
+        action: onNoteCreated
+          ? { label: 'Open note', onClick: () => onNoteCreated(createdNote.id) }
+          : undefined,
       });
     },
     onError: (error: Error) => {

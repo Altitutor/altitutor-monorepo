@@ -5,6 +5,8 @@ export type NavItem = {
   href: string
   label: string
   icon: ComponentType<{ className?: string }>
+  /** When true, sidebar renders this as expandable with dynamic children (e.g. Progress) */
+  expandable?: boolean
 }
 
 export type NavSection = {
@@ -21,7 +23,7 @@ export const appNavigation: NavSection[] = [
     // Top-level dashboard entry, no heading
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { href: '/progress', label: 'Progress', icon: TrendingUp },
+      { href: '/progress', label: 'Progress', icon: TrendingUp, expandable: true },
     ],
   },
   {

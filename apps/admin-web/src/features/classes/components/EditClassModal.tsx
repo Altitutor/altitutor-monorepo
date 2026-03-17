@@ -5,18 +5,28 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { useUpdateClass } from '../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import type { TablesUpdate } from '@altitutor/shared';
 import type { MinimalClass } from '../api/classes';
 import { Loader2 } from 'lucide-react';
+
+const DAY_OPTIONS = [
+  { id: '0', label: 'Sunday' },
+  { id: '1', label: 'Monday' },
+  { id: '2', label: 'Tuesday' },
+  { id: '3', label: 'Wednesday' },
+  { id: '4', label: 'Thursday' },
+  { id: '5', label: 'Friday' },
+  { id: '6', label: 'Saturday' },
+] as const;
+
+const STATUS_OPTIONS = [
+  { id: 'ACTIVE', label: 'Active' },
+  { id: 'INACTIVE', label: 'Inactive' },
+  { id: 'FULL', label: 'Full' },
+] as const;
 
 interface EditClassModalProps {
   isOpen: boolean;
@@ -164,7 +174,7 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
         start_time: startTime,
         end_time: endTime,
         status,
-        subject_id: subjectId === 'none' ? null : subjectId || null,
+        subject_id: subjectId || null,
         room: room || null,
       };
       const updatedClass = await updateMutation.mutateAsync({ id: classData.id, data: payload });
@@ -210,50 +220,65 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
             
             <div className="space-y-2">
               <Label htmlFor="subject-id">Subject</Label>
-              <Select 
-                value={subjectId || "none"} 
-                onValueChange={(value) => {
-                  // Special handling for "none" value
-                  setSubjectId(value === "none" ? "" : value);
-                }}
-              >
-                <SelectTrigger id="subject-id">
-                  <SelectValue placeholder="Select subject" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {subjects?.map((subject) => (
-                    <SelectItem key={subject.id} value={subject.id}>
-                      {subject.name} {subject.year_level ? `Year ${subject.year_level}` : ''}
-                      {subject.curriculum ? ` (${subject.curriculum})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                items={subjects ?? []}
+                value={
+                  subjectId
+                    ? (subjects?.find((s) => s.id === subjectId) ?? null)
+                    : null
+                }
+                onValueChange={(s) => setSubjectId(s?.id ?? '')}
+                getItemId={(s) => s.id}
+                getItemLabel={(s) =>
+                  `${s.name}${s.year_level ? ` Year ${s.year_level}` : ''}${s.curriculum ? ` (${s.curriculum})` : ''}`
+                }
+                placeholder="Select subject"
+                searchPlaceholder="Search subjects..."
+                emptyMessage="No subjects found"
+                allowClear
+                clearLabel="None"
+                trigger={
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start font-normal"
+                    id="subject-id"
+                  >
+                    {subjectId
+                      ? (() => {
+                          const s = subjects?.find((x) => x.id === subjectId);
+                          return s
+                            ? `${s.name}${s.year_level ? ` Year ${s.year_level}` : ''}${s.curriculum ? ` (${s.curriculum})` : ''}`
+                            : 'Select subject';
+                        })()
+                      : 'Select subject'}
+                  </Button>
+                }
+              />
             </div>
           </div>
           
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="day">Day of Week *</Label>
-              <Select 
-                value={dayOfWeek} 
-                onValueChange={setDayOfWeek} 
-                required
-              >
-                <SelectTrigger id="day">
-                  <SelectValue placeholder="Select day" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="1">Monday</SelectItem>
-                  <SelectItem value="2">Tuesday</SelectItem>
-                  <SelectItem value="3">Wednesday</SelectItem>
-                  <SelectItem value="4">Thursday</SelectItem>
-                  <SelectItem value="5">Friday</SelectItem>
-                  <SelectItem value="6">Saturday</SelectItem>
-                  <SelectItem value="0">Sunday</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof DAY_OPTIONS)[number]>
+                items={[...DAY_OPTIONS]}
+                value={DAY_OPTIONS.find((d) => d.id === dayOfWeek) ?? null}
+                onValueChange={(d) => d && setDayOfWeek(d.id)}
+                getItemId={(d) => d.id}
+                getItemLabel={(d) => d.label}
+                placeholder="Select day"
+                searchPlaceholder="Search days..."
+                emptyMessage="No days found"
+                trigger={
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start font-normal"
+                    id="day"
+                  >
+                    {DAY_OPTIONS.find((d) => d.id === dayOfWeek)?.label ?? 'Select day'}
+                  </Button>
+                }
+              />
             </div>
             
             <div className="space-y-2">
@@ -302,26 +327,25 @@ export function EditClassModal({ isOpen, onClose, onClassUpdated, classData }: E
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="status">Status *</Label>
-              <Select 
-                defaultValue={'ACTIVE'}
-                value={status} 
-                onValueChange={(value) => {
-                  // Ensure we never set an empty string as the value
-                  if (value) {
-                    setStatus(value as string);
-                  }
-                }}
-                required
-              >
-                <SelectTrigger id="status">
-                  <SelectValue placeholder="Select status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ACTIVE">Active</SelectItem>
-                  <SelectItem value="INACTIVE">Inactive</SelectItem>
-                  <SelectItem value="FULL">Full</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof STATUS_OPTIONS)[number]>
+                items={[...STATUS_OPTIONS]}
+                value={STATUS_OPTIONS.find((s) => s.id === status) ?? null}
+                onValueChange={(s) => s && setStatus(s.id)}
+                getItemId={(s) => s.id}
+                getItemLabel={(s) => s.label}
+                placeholder="Select status"
+                searchPlaceholder="Search status..."
+                emptyMessage="No status found"
+                trigger={
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start font-normal"
+                    id="status"
+                  >
+                    {STATUS_OPTIONS.find((s) => s.id === status)?.label ?? 'Select status'}
+                  </Button>
+                }
+              />
             </div>
           </div>
           

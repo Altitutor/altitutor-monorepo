@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
+import { SearchableSelect } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
@@ -29,6 +29,14 @@ import { PhoneInput } from '@altitutor/ui';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
 import { SendStudentInviteDialog } from '../SendStudentInviteDialog';
+
+const CURRICULUM_OPTIONS = [
+  { value: 'SACE' as const, label: 'SACE' },
+  { value: 'IB' as const, label: 'IB' },
+  { value: 'PRESACE' as const, label: 'PRESACE' },
+  { value: 'PRIMARY' as const, label: 'PRIMARY' },
+  { value: 'MEDICINE' as const, label: 'MEDICINE' },
+] as const;
 
 export interface DetailsFormData {
   // Student details
@@ -200,21 +208,16 @@ export function DetailsTab({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="curriculum">Curriculum</Label>
-                  <Select
-                    value={formData.curriculum || ''}
-                    onValueChange={(value) => handleInputChange('curriculum', value as Enums<'subject_curriculum'>)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select curriculum" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={'SACE'}>SACE</SelectItem>
-                      <SelectItem value={'IB'}>IB</SelectItem>
-                      <SelectItem value={'PRESACE'}>PRESACE</SelectItem>
-                      <SelectItem value={'PRIMARY'}>PRIMARY</SelectItem>
-                      <SelectItem value={'MEDICINE'}>MEDICINE</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect<(typeof CURRICULUM_OPTIONS)[number]>
+                    items={[...CURRICULUM_OPTIONS]}
+                    value={CURRICULUM_OPTIONS.find((c) => c.value === formData.curriculum) ?? null}
+                    onValueChange={(item) =>
+                      handleInputChange('curriculum', (item?.value ?? '') as Enums<'subject_curriculum'>)
+                    }
+                    getItemLabel={(o) => o.label}
+                    getItemId={(o) => o.value}
+                    placeholder="Select curriculum"
+                  />
                 </div>
                 <div>
                   <Label htmlFor="yearLevel">Year Level</Label>

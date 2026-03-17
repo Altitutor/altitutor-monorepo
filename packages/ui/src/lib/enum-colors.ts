@@ -120,6 +120,12 @@ export const PARKING_REMOTE_COLORS = {
   NONE: 'bg-gray-100 text-gray-800',
 } as const;
 
+// UCAT visibility (public vs private)
+export const UCAT_VISIBILITY_COLORS = {
+  public: 'border border-input bg-transparent',
+  private: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+} as const;
+
 /**
  * Helper functions to get colors for specific enum types
  * These provide type safety and fallback to gray if value is invalid
@@ -188,6 +194,11 @@ export function getBooleanColor(value: boolean | null | undefined): BadgeColorCl
 export function getParkingRemoteColor(remote: 'PHYSICAL' | 'VIRTUAL' | 'NONE' | null | undefined): BadgeColorClass {
   if (!remote) return 'bg-gray-100 text-gray-800';
   return PARKING_REMOTE_COLORS[remote] ?? 'bg-gray-100 text-gray-800';
+}
+
+export function getUcatVisibilityColor(isPrivate: boolean | null | undefined): BadgeColorClass {
+  if (isPrivate == null) return UCAT_VISIBILITY_COLORS.public;
+  return isPrivate ? UCAT_VISIBILITY_COLORS.private : UCAT_VISIBILITY_COLORS.public;
 }
 
 /**

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,11 +10,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   type JSONContent,
+  type RichTextEditorRef,
 } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
-import { X } from 'lucide-react';
+import { X, MoreVertical } from 'lucide-react';
+import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
@@ -22,6 +28,7 @@ import {
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 import { useCreateIssue } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { IssueFormData, IssueStatus, IssueTagInsert } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
 import { IssueContentPanel } from './panels/IssueContentPanel';
@@ -90,7 +97,10 @@ export function CreateIssueDialog({
   initialTags 
 }: CreateIssueDialogProps) {
   const [expanded, setExpanded] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const descriptionRef = useRef<RichTextEditorRef>(null);
   const createIssue = useCreateIssue();
+  const { data: currentStaff } = useCurrentStaff();
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -141,6 +151,7 @@ export function CreateIssueDialog({
           description: data.description || null,
           status: data.status,
           due_date: data.dueDate ? new Date(data.dueDate).toISOString() : null,
+          created_by: currentStaff?.id ?? null,
         },
         tags: initialTags,
       });
@@ -149,7 +160,7 @@ export function CreateIssueDialog({
     } catch (error) {
       console.error('Failed to create issue:', error);
     }
-  }, [createIssue, handleClose, initialTags, onIssueCreated]);
+  }, [createIssue, handleClose, initialTags, onIssueCreated, currentStaff?.id]);
 
   const handlePrimaryAction = useCallback(() => {
     if (createIssue.isPending) return;
@@ -188,6 +199,20 @@ export function CreateIssueDialog({
                 </div>
               </div>
               <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <RichTextTemplateMenuItems
+                    getEditor={() => descriptionRef.current?.getEditor() ?? null}
+                    getCurrentContent={() => form.getValues('description') ?? null}
+                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </DialogHeader>
 
@@ -199,6 +224,7 @@ export function CreateIssueDialog({
                   notes={[]}
                   isOpen={isOpen}
                   onClose={handleClose}
+                  descriptionRef={descriptionRef}
                 />
 
                 <IssueContentPanel 
@@ -225,6 +251,12 @@ export function CreateIssueDialog({
           </DialogFooter>
         </Form>
       </DialogContent>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('description') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
     </Dialog>
   );
 }

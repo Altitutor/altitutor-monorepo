@@ -107,7 +107,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
-  
   // Actions menu states
   const [actionStudentId, setActionStudentId] = useState<string | null>(null);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
@@ -440,7 +439,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
               </TableRow>
             ) : (
               filteredStudents.map((student, index) => {
-                const studentWithClasses = student as Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }> };
+                const studentWithClasses = student as Tables<'students'> & { classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }> };
                 const classes = studentWithClasses.classes || [];
                 return (
                   <TableRow
@@ -486,7 +485,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('classes') && (
-                      <TableCell>
+                      <TableCell onClick={(e) => e.stopPropagation()}>
                         {classes.length > 0 ? (
                           <div className="flex flex-col gap-1">
                             {classes
@@ -499,23 +498,21 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                                 return aTime.localeCompare(bTime);
                               })
                               .map((cls) => {
-                                const clsTable = cls as unknown as Tables<'classes'>;
-                                const shortName = clsTable.short_name?.trim() ?? '';
-                                const longName = clsTable.long_name?.trim() ?? '';
-                                
+                                const shortName = cls.short_name?.trim() ?? cls.long_name?.trim() ?? '';
+                                const displayName = shortName || `Class ${cls.id.slice(0, 8)}`;
                                 return (
                                   <Button
                                     key={cls.id}
                                     variant="link"
                                     size="sm"
                                     className="h-auto p-0 text-xs justify-start whitespace-nowrap"
-                                    onClick={(event) => {
-                                      event.stopPropagation();
+                                    onClick={(e) => {
+                                      e.stopPropagation();
                                       handleClassClick(cls.id);
                                     }}
-                                    title={longName}
+                                    title={cls.long_name ?? shortName}
                                   >
-                                    <span>{shortName}</span>
+                                    {displayName}
                                   </Button>
                                 );
                               })}
@@ -602,9 +599,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             setIsClassModalOpen(false);
             setSelectedClassId(null);
           }}
-          onClassUpdated={() => {
-            refetch();
-          }}
+          onClassUpdated={handleStudentUpdated}
         />
       )}
 

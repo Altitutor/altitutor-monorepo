@@ -3,14 +3,8 @@
 import { useState, useEffect } from 'react';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
+import { Button, SearchableSelect } from '@altitutor/ui';
+import { MessageSquare, ChevronDown, CheckCircle2 } from 'lucide-react';
 import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 
 export type NotifyRecipient = {
@@ -69,8 +63,17 @@ export function BookingNotifyMessageScreen({
           <div className="px-3 py-2 border-b flex items-center justify-between flex-shrink-0 bg-background">
             <div className="flex items-center gap-2">
               <span className="font-medium text-sm">Message</span>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
+              <SearchableSelect<NotifyRecipient>
+                items={recipients}
+                value={selectedRecipient}
+                onValueChange={setSelectedRecipient}
+                getItemId={(opt) => `${opt.type}-${opt.id}`}
+                getItemLabel={(opt) => opt.label}
+                getItemValue={(opt) => `${opt.label} ${opt.value ?? ''}`}
+                placeholder="Select recipient"
+                searchPlaceholder="Search recipients..."
+                emptyMessage="No recipients found"
+                trigger={
                   <Button variant="outline" size="sm" className="h-7">
                     <MessageSquare className="h-3 w-3 mr-1" />
                     <span className="text-xs">{selectedRecipient.label}</span>
@@ -81,33 +84,18 @@ export function BookingNotifyMessageScreen({
                     )}
                     <ChevronDown className="h-3 w-3 ml-1" />
                   </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="start">
-                  {recipients.map((option, index) => (
-                    <DropdownMenuItem
-                      key={`${option.type}-${option.id}-${index}`}
-                      onClick={() => setSelectedRecipient(option)}
-                      className="flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                        <MessageSquare className="h-4 w-4 shrink-0" />
-                        <div className="flex flex-col min-w-0 flex-1">
-                          <span className="text-sm font-medium truncate">{option.label}</span>
-                          {option.value && (
-                            <span className="text-xs text-muted-foreground truncate">
-                              {option.value}
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                      {selectedRecipient?.type === option.type &&
-                        selectedRecipient?.id === option.id && (
-                          <Check className="h-4 w-4 ml-2 shrink-0" />
-                        )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+                }
+                contentWidth="320px"
+                align="start"
+                renderItem={(opt) => (
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-medium truncate">{opt.label}</span>
+                    {opt.value && (
+                      <span className="text-xs text-muted-foreground truncate">{opt.value}</span>
+                    )}
+                  </div>
+                )}
+              />
             </div>
           </div>
 

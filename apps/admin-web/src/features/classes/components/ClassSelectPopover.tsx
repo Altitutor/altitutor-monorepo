@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Button } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
-import { Loader2, Check } from 'lucide-react';
+import { SearchableSelect } from '@altitutor/ui';
+import { Check } from 'lucide-react';
 import { classesApi } from '../api/classes';
 import type { MinimalClass } from '../api/classes';
 
@@ -28,13 +25,13 @@ export function ClassSelectPopover({
   placeholder = 'Select class',
   disabled = false,
 }: ClassSelectPopoverProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MinimalClass[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [open, setOpen] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) {
+    if (!open) {
       setSearchQuery('');
       setSearchResults([]);
       return;
@@ -59,79 +56,45 @@ export function ClassSelectPopover({
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchQuery, isOpen, subjectId]);
+  }, [searchQuery, open, subjectId]);
 
-  const handleSelectClass = (cls: MinimalClass | null) => {
-    onSelectClass(cls);
-    setIsOpen(false);
-    setSearchQuery('');
-  };
-
-  const defaultTrigger = (
-    <Button variant="outline" className="w-full justify-start" disabled={disabled}>
-      {selectedClass?.long_name?.trim() ?? placeholder}
-    </Button>
-  );
+  const emptyMessage = !subjectId
+    ? 'Select a subject first'
+    : searchQuery
+      ? 'No classes match your search'
+      : 'No classes found';
 
   return (
-    <Popover open={isOpen} onOpenChange={setIsOpen}>
-      <PopoverTrigger asChild>
-        {trigger ?? defaultTrigger}
-      </PopoverTrigger>
-      <PopoverContent className="p-0 w-[400px]" align={align}>
-        <div className="p-3">
-          <Input
-            placeholder="Search classes..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="mb-3"
+    <SearchableSelect<MinimalClass>
+      items={searchResults}
+      value={selectedClass}
+      onValueChange={onSelectClass}
+      getItemId={(c) => c.id}
+      getItemLabel={(c) => c.long_name?.trim() ?? c.short_name ?? c.id}
+      placeholder={placeholder}
+      searchPlaceholder="Search classes..."
+      emptyMessage={emptyMessage}
+      trigger={trigger}
+      disabled={disabled}
+      allowClear
+      loading={isSearching}
+      align={align}
+      contentWidth="400px"
+      onSearchChange={setSearchQuery}
+      open={open}
+      onOpenChange={setOpen}
+      renderItem={(cls, isSelected) => (
+        <>
+          <Check
+            className={
+              isSelected ? 'h-4 w-4 flex-shrink-0 opacity-100' : 'h-4 w-4 flex-shrink-0 opacity-0'
+            }
           />
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-1 pr-4">
-              <Button
-                variant="ghost"
-                className="w-full justify-start h-auto p-3"
-                onClick={() => handleSelectClass(null)}
-              >
-                <div className="flex items-center gap-2 w-full">
-                  {!selectedClass && <Check className="h-4 w-4" />}
-                  <span className={!selectedClass ? 'font-medium' : ''}>None</span>
-                </div>
-              </Button>
-              {!subjectId ? (
-                <div className="p-3 text-center text-sm text-muted-foreground">
-                  Select a subject first
-                </div>
-              ) : isSearching ? (
-                <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Searching...
-                </div>
-              ) : searchResults.length === 0 ? (
-                <div className="p-3 text-center text-sm text-muted-foreground">
-                  {searchQuery ? 'No classes match your search' : 'No classes found'}
-                </div>
-              ) : (
-                searchResults.map((cls) => (
-                  <Button
-                    key={cls.id}
-                    variant="ghost"
-                    className="w-full justify-start h-auto p-3"
-                    onClick={() => handleSelectClass(cls)}
-                  >
-                    <div className="flex items-center gap-2 w-full">
-                      {selectedClass?.id === cls.id && <Check className="h-4 w-4" />}
-                      <span className={selectedClass?.id === cls.id ? 'font-medium' : ''}>
-                        {cls.long_name?.trim() ?? cls.short_name ?? cls.id}
-                      </span>
-                    </div>
-                  </Button>
-                ))
-              )}
-            </div>
-          </ScrollArea>
-        </div>
-      </PopoverContent>
-    </Popover>
+          <span className={isSelected ? 'font-medium' : ''}>
+            {cls.long_name?.trim() ?? cls.short_name ?? cls.id}
+          </span>
+        </>
+      )}
+    />
   );
 }

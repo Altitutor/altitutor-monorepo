@@ -18,27 +18,19 @@ import {
   Checkbox,
   DataTable,
   DataTableToolbar,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Switch,
   TablePagination,
   Textarea,
   useToast,
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
-import { useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -95,6 +87,7 @@ const filterDefinitions: DataTableFilterDefinition[] = [
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
+  { key: 'sections', label: 'Sections', visibleByDefault: true },
   { key: 'time_limit_seconds', label: 'Time Limit', visibleByDefault: true },
   { key: 'stem_count', label: 'Question stems', visibleByDefault: true },
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
@@ -105,6 +98,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
 
 const sortOptions: DataTableSortOption[] = [
   { key: 'name', label: 'Name' },
+  { key: 'sections', label: 'Sections' },
   { key: 'time_limit_seconds', label: 'Time Limit' },
   { key: 'stem_count', label: 'Question stems' },
   { key: 'question_count', label: 'Questions' },
@@ -117,13 +111,12 @@ export function UcatSetsPage() {
   const queryClient = useQueryClient()
   const access = useUcatAccess()
   const sets = useUcatSets()
+  const sectionsQuery = useUcatSections()
+  const sections = sectionsQuery.data ?? []
   const createSet = useCreateUcatSet()
   const deleteSet = useDeleteUcatSet()
   const restoreSet = useRestoreUcatSet()
   const [showDeleted, setShowDeleted] = useState(false)
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
-    defaultFilters: DEFAULT_FILTERS,
-  })
 
   const [openCreate, setOpenCreate] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
@@ -150,10 +143,12 @@ export function UcatSetsPage() {
     if (editId) setEditingSetId(editId)
   }, [searchParams])
 
-  const { rows, visibleColumns } = useUcatSetsTable({
+  const { rows, visibleColumns, tableState } = useUcatSetsTable({
     data: sets.data,
     showDeleted,
     defaultFilters: DEFAULT_FILTERS,
+    sections,
+    initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
   })
 
   const { page, pageSize } = tableState.state
@@ -418,21 +413,32 @@ export function UcatSetsPage() {
         onDelete={() => setBulkDeleteOpen(true)}
         deletePending={bulkDeletePending}
       >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <SearchableSelect<{ value: boolean; label: string }>
+          items={[
+            { value: false, label: 'Public' },
+            { value: true, label: 'Private' },
+          ]}
+          value={null}
+          onValueChange={(item) => {
+            if (item) {
+              setBulkVisibilityPrivate(item.value);
+              setBulkVisibilityOpen(true);
+            }
+          }}
+          getItemId={(i) => (i.value ? 'private' : 'public')}
+          getItemLabel={(i) => i.label}
+          placeholder="Visibility"
+          searchPlaceholder="Search..."
+          emptyMessage="No options"
+          trigger={
             <Button variant="outline" size="sm">
               Visibility
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top">
-            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(false); setBulkVisibilityOpen(true) }}>
-              Public
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(true); setBulkVisibilityOpen(true) }}>
-              Private
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          }
+          contentWidth="160px"
+          align="start"
+          side="top"
+        />
       </UcatSelectionToolbar>
 
       <AlertDialog open={bulkVisibilityOpen} onOpenChange={setBulkVisibilityOpen}>
@@ -527,15 +533,16 @@ export function UcatSetsPage() {
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
-            <Select value={form.isPrivate ? 'private' : 'public'} onValueChange={(v) => setForm((prev) => ({ ...prev, isPrivate: v === 'private' }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: 'public' | 'private'; label: string }>
+              items={[
+                { value: 'public', label: 'Public' },
+                { value: 'private', label: 'Private' },
+              ]}
+              value={form.isPrivate ? { value: 'private', label: 'Private' } : { value: 'public', label: 'Public' }}
+              onValueChange={(item) => setForm((prev) => ({ ...prev, isPrivate: item?.value === 'private' }))}
+              getItemLabel={(i) => i.label}
+              getItemId={(i) => i.value}
+            />
           </label>
         </div>
       </UcatDialogShell>

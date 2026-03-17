@@ -126,8 +126,13 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
         label: status.charAt(0).toUpperCase() + status.slice(1),
       })),
     },
-    { key: 'from', label: 'From date', type: 'date' },
-    { key: 'to', label: 'To date', type: 'date' },
+    {
+      key: 'date',
+      label: 'Date',
+      type: 'date-range',
+      fromKey: 'from',
+      toKey: 'to',
+    },
   ], []);
 
   const sortOptions: DataTableSortOption[] = [

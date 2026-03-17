@@ -8,6 +8,7 @@ export default function Page({ params }: PageProps) {
   return (
     <SetAttemptDetailPage
       attemptId={params.setAttemptId}
+      mockAttemptId={params.id}
       backHref={`/progress/mocks/${params.id}`}
       backLabel="Back to mock attempt"
     />

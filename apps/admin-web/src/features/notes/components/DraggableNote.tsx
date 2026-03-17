@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import { FileText, MoreVertical, Trash2, Pencil } from 'lucide-react';
+import { FileText, FolderKanban, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { Button } from '@altitutor/ui';
 import {
@@ -29,14 +29,16 @@ import type { Note } from '../types';
 
 interface DraggableNoteProps {
   note: Note;
+  project?: { id: string; name: string | null };
   onClick?: (e?: React.MouseEvent) => void;
+  onProjectClick?: (projectId: string) => void;
   indent?: number;
 }
 
 /**
  * Draggable note component
  */
-export function DraggableNote({ note, onClick, indent = 0 }: DraggableNoteProps) {
+export function DraggableNote({ note, project, onClick, onProjectClick, indent = 0 }: DraggableNoteProps) {
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isRenameDialogOpen, setIsRenameDialogOpen] = useState(false);
   const deleteNote = useDeleteNote();
@@ -90,6 +92,21 @@ export function DraggableNote({ note, onClick, indent = 0 }: DraggableNoteProps)
       >
         <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <span className="flex-1 truncate">{note.title}</span>
+        {project && onProjectClick && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              onProjectClick(project.id);
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 px-1.5 py-0.5 rounded text-xs text-muted-foreground hover:bg-muted hover:text-foreground truncate max-w-[120px]"
+            title={project.name ?? 'Project'}
+          >
+            <FolderKanban className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{project.name || 'Project'}</span>
+          </button>
+        )}
         <div className="opacity-0 group-hover:opacity-100 transition-opacity">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

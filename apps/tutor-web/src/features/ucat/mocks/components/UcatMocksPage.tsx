@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
@@ -23,11 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   TablePagination,
   useToast,
 } from '@altitutor/ui'
@@ -46,6 +42,9 @@ import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import type { RichTextJson } from '@/features/ucat/shared/types'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { getMockExamStatus, getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
+import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
+import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 
 type MockRow = {
@@ -87,6 +86,8 @@ export function UcatMocksPage() {
   const searchParams = useSearchParams()
   const access = useUcatAccess()
   const mocks = useUcatMocks()
+  const sectionsQuery = useUcatSections()
+  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const createMock = useCreateUcatMock()
   const deleteMock = useDeleteUcatMock()
   const restoreMock = useRestoreUcatMock()
@@ -155,6 +156,26 @@ export function UcatMocksPage() {
   const effectivePage = Math.min(page, pageCount)
   const paginatedRows = sortedRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
+  const detailQueries = useQueries({
+    queries: paginatedRows.map((row) => ({
+      queryKey: ucatKeys.mock(row.id),
+      queryFn: () => ucatMocksApi.detail(row.id),
+      enabled: !!row.id,
+    })),
+  })
+
+  const mockStatusMap = useMemo(() => {
+    const map = new Map<string, { status: 'match' | 'partial' | 'mismatch'; tooltip: string }>()
+    detailQueries.forEach((q, i) => {
+      const row = paginatedRows[i]
+      if (!row || !q.data) return
+      const sets = (q.data as { sets?: Array<{ sections?: unknown; question_count?: number | null; time_limit_seconds?: number | null }> }).sets ?? []
+      const result = getMockExamStatus(row.set_count, sets, sections, getSetSectionStatus)
+      map.set(row.id, result)
+    })
+    return map
+  }, [detailQueries, paginatedRows, sections])
+
   const selectColumn: ColumnDef<MockRow> = {
     id: 'select',
     header: () => (
@@ -190,7 +211,18 @@ export function UcatMocksPage() {
       column: {
         accessorKey: 'set_count',
         header: 'Sets',
-        cell: ({ row }) => String(row.original.set_count),
+        cell: ({ row }) => {
+          const r = row.original
+          const statusResult = mockStatusMap.get(r.id)
+          if (!statusResult) {
+            return <span className="text-muted-foreground">{r.set_count}</span>
+          }
+          return (
+            <SetStatusSpan status={statusResult.status} tooltip={statusResult.tooltip}>
+              {r.set_count}
+            </SetStatusSpan>
+          )
+        },
       },
     },
     {
@@ -453,15 +485,16 @@ export function UcatMocksPage() {
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
-            <Select value={isPrivate ? 'private' : 'public'} onValueChange={(v) => setIsPrivate(v === 'private')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: 'public' | 'private'; label: string }>
+              items={[
+                { value: 'public', label: 'Public' },
+                { value: 'private', label: 'Private' },
+              ]}
+              value={isPrivate ? { value: 'private', label: 'Private' } : { value: 'public', label: 'Public' }}
+              onValueChange={(item) => setIsPrivate(item?.value === 'private')}
+              getItemLabel={(i) => i.label}
+              getItemId={(i) => i.value}
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Instructions</span>

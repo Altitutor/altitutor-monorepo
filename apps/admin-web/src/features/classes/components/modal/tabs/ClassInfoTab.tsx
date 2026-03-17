@@ -4,7 +4,7 @@ import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
+import { SearchableSelect } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
 import { Pencil, AlertTriangle } from "lucide-react";
 import { Controller, useForm } from "react-hook-form";
@@ -50,6 +50,22 @@ const classInfoSchema = z.object({
 });
 
 type FormData = z.infer<typeof classInfoSchema>;
+
+const STATUS_OPTIONS = [
+  { value: 'ACTIVE' as const, label: 'Active' },
+  { value: 'INACTIVE' as const, label: 'Inactive' },
+  { value: 'FULL' as const, label: 'Full' },
+] as const;
+
+const DAY_OPTIONS = [
+  { value: 0, label: 'Sunday' },
+  { value: 1, label: 'Monday' },
+  { value: 2, label: 'Tuesday' },
+  { value: 3, label: 'Wednesday' },
+  { value: 4, label: 'Thursday' },
+  { value: 5, label: 'Friday' },
+  { value: 6, label: 'Saturday' },
+] as const;
 
 interface ClassInfoTabProps {
   classData: Tables<'classes'>;
@@ -225,22 +241,20 @@ export function ClassInfoTab({
                   <Controller
                     control={form.control}
                     name="status"
-                    render={({ field }) => (
-                      <Select 
-                        disabled={isLoading}
-                        value={field.value}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                          <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                          <SelectItem value={'FULL'}>Full</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    )}
+                    render={({ field }) => {
+                      const selected = STATUS_OPTIONS.find((o) => o.value === field.value) ?? null;
+                      return (
+                        <SearchableSelect<typeof STATUS_OPTIONS[number]>
+                          items={[...STATUS_OPTIONS]}
+                          value={selected}
+                          onValueChange={(item) => field.onChange(item?.value)}
+                          getItemLabel={(o) => o.label}
+                          getItemId={(o) => o.value}
+                          placeholder="Select status"
+                          disabled={isLoading}
+                        />
+                      );
+                    }}
                   />
                   {form.formState.errors.status && (
                     <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
@@ -256,28 +270,18 @@ export function ClassInfoTab({
                     control={form.control}
                     name="dayOfWeek"
                     render={({ field }) => {
-                      // Ensure value is always a valid number, default to classData value if available
                       const fieldValue = field.value != null ? field.value : (classData?.day_of_week != null ? classData.day_of_week : 1);
-                      const selectValue = String(fieldValue);
+                      const selected = DAY_OPTIONS.find((o) => o.value === fieldValue) ?? DAY_OPTIONS[1];
                       return (
-                        <Select 
+                        <SearchableSelect<typeof DAY_OPTIONS[number]>
+                          items={[...DAY_OPTIONS]}
+                          value={selected}
+                          onValueChange={(item) => field.onChange(item?.value ?? 1)}
+                          getItemLabel={(o) => o.label}
+                          getItemId={(o) => String(o.value)}
+                          placeholder="Select day"
                           disabled={isLoading}
-                          value={selectValue}
-                          onValueChange={(value) => field.onChange(parseInt(value, 10))}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select day" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="0">Sunday</SelectItem>
-                            <SelectItem value="1">Monday</SelectItem>
-                            <SelectItem value="2">Tuesday</SelectItem>
-                            <SelectItem value="3">Wednesday</SelectItem>
-                            <SelectItem value="4">Thursday</SelectItem>
-                            <SelectItem value="5">Friday</SelectItem>
-                            <SelectItem value="6">Saturday</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        />
                       );
                     }}
                   />
@@ -352,25 +356,29 @@ export function ClassInfoTab({
                   key={`subjectId-${editKey}`}
                   control={form.control}
                   name="subjectId"
-                  render={({ field }) => (
-                    <Select 
-                      disabled={isLoading}
-                      value={field.value || "none"}
-                      onValueChange={(value) => field.onChange(value === "none" ? null : value)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select subject" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">None</SelectItem>
-                        {subjects?.map((subj) => (
-                          <SelectItem key={subj.id} value={subj.id}>
-                            {(subj?.long_name ?? '')}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  render={({ field }) => {
+                    const subjectItems = [
+                      { id: 'none', long_name: 'None' },
+                      ...(subjects ?? []),
+                    ];
+                    const selected =
+                      field.value && field.value !== 'none'
+                        ? subjects?.find((s) => s.id === field.value) ?? null
+                        : subjectItems[0];
+                    return (
+                      <SearchableSelect<{ id: string; long_name?: string | null }>
+                        items={subjectItems}
+                        value={selected}
+                        onValueChange={(item) =>
+                          field.onChange(item?.id === 'none' ? null : item?.id ?? null)
+                        }
+                        getItemLabel={(s) => s?.long_name ?? 'None'}
+                        getItemId={(s) => s.id}
+                        placeholder="Select subject"
+                        disabled={isLoading}
+                      />
+                    );
+                  }}
                 />
                 {form.formState.errors.subjectId && (
                   <p className="text-sm text-red-500">{form.formState.errors.subjectId.message}</p>

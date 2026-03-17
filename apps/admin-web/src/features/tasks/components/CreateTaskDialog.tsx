@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -10,11 +10,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   type JSONContent,
+  type RichTextEditorRef,
 } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
-import { X } from 'lucide-react';
+import { X, MoreVertical } from 'lucide-react';
+import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { useCreateTask } from '../api/mutations';
 import type { Tables } from '@altitutor/shared';
 import type { TaskFormData, TaskStatus } from '../types';
@@ -80,6 +86,8 @@ export function CreateTaskDialog({
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string | null } | null>(project ?? null);
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const descriptionRef = useRef<RichTextEditorRef>(null);
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -198,6 +206,20 @@ export function CreateTaskDialog({
                 <DialogTitle>Create Task</DialogTitle>
               </div>
               <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon">
+                    <MoreVertical className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <RichTextTemplateMenuItems
+                    getEditor={() => descriptionRef.current?.getEditor() ?? null}
+                    getCurrentContent={() => form.getValues('description') ?? null}
+                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
         </DialogHeader>
@@ -217,6 +239,7 @@ export function CreateTaskDialog({
                   taskStatus={defaultStatus}
                   enabled={isOpen}
                   autoFocusTitle={true}
+                  descriptionRef={descriptionRef}
                 />
                 <TaskPropertiesPanel
                   form={form}
@@ -270,6 +293,12 @@ export function CreateTaskDialog({
           </div>
         </DialogFooter>
       </DialogContent>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('description') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
     </Dialog>
   );
 }

@@ -1,12 +1,13 @@
 'use client';
 
 import {
+  Button,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
+  SearchableSelect,
 } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@altitutor/ui';
 import { Gauge } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
@@ -17,6 +18,11 @@ interface TaskEstimateFieldProps {
   form: UseFormReturn<TaskFormData>;
 }
 
+const NONE_OPTION = { value: null, label: 'None' } as const;
+type EstimateOption = (typeof ESTIMATE_OPTIONS)[number] | typeof NONE_OPTION;
+
+const ALL_ESTIMATE_ITEMS: EstimateOption[] = [NONE_OPTION, ...ESTIMATE_OPTIONS];
+
 export function TaskEstimateField({ form }: TaskEstimateFieldProps) {
   return (
     <FormField
@@ -25,34 +31,33 @@ export function TaskEstimateField({ form }: TaskEstimateFieldProps) {
       render={({ field }) => {
         const estimateValue = field.value;
         const displayValue = estimateValue ? getEstimateLabel(estimateValue) : null;
+        const selectedItem =
+          estimateValue == null
+            ? NONE_OPTION
+            : ESTIMATE_OPTIONS.find((o) => o.value === estimateValue) ?? NONE_OPTION;
 
         return (
           <FormItem>
-            <Select
-              onValueChange={(value) => {
-                field.onChange(value === 'none' ? null : Number(value));
-              }}
-              value={estimateValue ? String(estimateValue) : 'none'}
-            >
-              <FormControl>
-                <SelectTrigger className="w-full">
-                  <div className="flex items-center gap-2 flex-1">
+            <FormControl>
+              <SearchableSelect<EstimateOption>
+                items={ALL_ESTIMATE_ITEMS}
+                value={selectedItem}
+                onValueChange={(item) => {
+                  field.onChange(item?.value ?? null);
+                }}
+                getItemLabel={(opt) => opt.label}
+                getItemId={(opt) => (opt.value == null ? 'none' : String(opt.value))}
+                placeholder="Set estimate"
+                trigger={
+                  <Button variant="outline" className="w-full justify-start font-normal">
                     <Gauge className="h-4 w-4 text-muted-foreground" />
                     <span className={cn(!estimateValue && 'text-muted-foreground')}>
                       {displayValue || 'Set estimate'}
                     </span>
-                  </div>
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                <SelectItem value="none">None</SelectItem>
-                {ESTIMATE_OPTIONS.map((option) => (
-                  <SelectItem key={option.value} value={String(option.value)}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </Button>
+                }
+              />
+            </FormControl>
             <FormMessage />
           </FormItem>
         );

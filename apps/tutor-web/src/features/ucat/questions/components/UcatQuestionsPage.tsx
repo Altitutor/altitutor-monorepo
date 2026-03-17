@@ -21,13 +21,10 @@ import {
   CommandItem,
   CommandList,
   DataTableToolbar,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -363,9 +360,17 @@ export function UcatQuestionsPage() {
     })
   }
 
-  const showTypeCol = tableState.state.visibleColumns.includes('type_summary')
-  const showSetsCol = tableState.state.visibleColumns.includes('sets')
-  const colCount = 8 + (showTypeCol ? 1 : 0) + (showSetsCol ? 1 : 0) // checkbox, expand, section, category, stem, questions, [sets], visibility, [type], actions
+  const visible = (key: string) => tableState.state.visibleColumns.includes(key)
+  const colCount =
+    2 + // checkbox, expand
+    (visible('section_name') ? 1 : 0) +
+    (visible('category_name') ? 1 : 0) +
+    (visible('stem_text') ? 1 : 0) +
+    (visible('question_count') ? 1 : 0) +
+    (visible('sets') ? 1 : 0) +
+    (visible('visibility') ? 1 : 0) +
+    (visible('type_summary') ? 1 : 0) +
+    (visible('actions') ? 1 : 0)
 
   const allVisibleSelected = paginatedRows.length > 0 && paginatedRows.every((r) => selectedStemIds.has(r.id))
   const someVisibleSelected = paginatedRows.some((r) => selectedStemIds.has(r.id))
@@ -688,14 +693,14 @@ export function UcatQuestionsPage() {
                 />
               </TableHead>
               <TableHead className="w-12" />
-              <TableHead>Section</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead>Stem text</TableHead>
-              <TableHead>Questions</TableHead>
-              {showSetsCol && <TableHead>Sets</TableHead>}
-              <TableHead>Visibility</TableHead>
-              {showTypeCol && <TableHead>Type</TableHead>}
-              <TableHead className="w-16 shrink-0" />
+              {visible('section_name') && <TableHead>Section</TableHead>}
+              {visible('category_name') && <TableHead>Category</TableHead>}
+              {visible('stem_text') && <TableHead>Stem text</TableHead>}
+              {visible('question_count') && <TableHead>Questions</TableHead>}
+              {visible('sets') && <TableHead>Sets</TableHead>}
+              {visible('visibility') && <TableHead>Visibility</TableHead>}
+              {visible('type_summary') && <TableHead>Type</TableHead>}
+              {visible('actions') && <TableHead className="w-16 shrink-0" />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -734,19 +739,24 @@ export function UcatQuestionsPage() {
                         </button>
                       ) : null}
                     </TableCell>
-                    <TableCell>{row.section_name}</TableCell>
-                    <TableCell>{row.category_name ?? '-'}</TableCell>
-                    <TableCell className="max-w-[200px]" title={row.stem_text}>
-                      {truncate(row.stem_text, 80)}
-                    </TableCell>
-                    <TableCell>{row.question_count}</TableCell>
-                    {showSetsCol && (
+                    {visible('section_name') && <TableCell>{row.section_name}</TableCell>}
+                    {visible('category_name') && <TableCell>{row.category_name ?? '-'}</TableCell>}
+                    {visible('stem_text') && (
+                      <TableCell className="max-w-[200px]" title={row.stem_text}>
+                        {truncate(row.stem_text, 80)}
+                      </TableCell>
+                    )}
+                    {visible('question_count') && <TableCell>{row.question_count}</TableCell>}
+                    {visible('sets') && (
                       <TableCell className="max-w-[180px]" title={row.set_names}>
                         {truncate(row.set_names, 50)}
                       </TableCell>
                     )}
-                    <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
-                    {showTypeCol && <TableCell>{row.type_summary}</TableCell>}
+                    {visible('visibility') && (
+                      <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
+                    )}
+                    {visible('type_summary') && <TableCell>{row.type_summary}</TableCell>}
+                    {visible('actions') && (
                     <TableCell className="w-16 shrink-0" onClick={(e) => e.stopPropagation()}>
                       <div className="flex justify-end">
                         <UcatRowActions
@@ -772,6 +782,7 @@ export function UcatQuestionsPage() {
                         />
                       </div>
                     </TableCell>
+                    )}
                   </TableRow>
                   {isStemExpanded && detail?.questions && (
                     <TableRow>
@@ -882,41 +893,56 @@ export function UcatQuestionsPage() {
         onDelete={() => setBulkDeleteOpen(true)}
         deletePending={deleteMutation.isPending}
       >
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+        <SearchableSelect<{ id: string | null; name: string | null }>
+          items={categories.data ?? []}
+          value={null}
+          onValueChange={(c) => {
+            if (c?.id) {
+              setBulkCategoryId(c.id)
+              setBulkCategoryOpen(true)
+            }
+          }}
+          getItemId={(c) => c.id ?? ''}
+          getItemLabel={(c) => c.name ?? 'Untitled'}
+          getItemValue={(c) => c.name ?? ''}
+          placeholder="Category"
+          searchPlaceholder="Search categories..."
+          emptyMessage="No categories found"
+          trigger={
             <Button variant="outline" size="sm">
               Category
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top" className="max-h-[300px] overflow-y-auto">
-            {(categories.data ?? []).map((c) => (
-              <DropdownMenuItem
-                key={c.id ?? ''}
-                onClick={() => {
-                  setBulkCategoryId(c.id ?? null)
-                  setBulkCategoryOpen(true)
-                }}
-              >
-                {c.name ?? 'Untitled'}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          }
+          contentWidth="240px"
+          align="start"
+          side="top"
+        />
+        <SearchableSelect<{ value: boolean; label: string }>
+          items={[
+            { value: false, label: 'Public' },
+            { value: true, label: 'Private' },
+          ]}
+          value={null}
+          onValueChange={(item) => {
+            if (item) {
+              setBulkVisibilityPrivate(item.value);
+              setBulkVisibilityOpen(true);
+            }
+          }}
+          getItemId={(i) => (i.value ? 'private' : 'public')}
+          getItemLabel={(i) => i.label}
+          placeholder="Visibility"
+          searchPlaceholder="Search..."
+          emptyMessage="No options"
+          trigger={
             <Button variant="outline" size="sm">
               Visibility
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" side="top">
-            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(false); setBulkVisibilityOpen(true) }}>
-              Public
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => { setBulkVisibilityPrivate(true); setBulkVisibilityOpen(true) }}>
-              Private
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          }
+          contentWidth="160px"
+          align="start"
+          side="top"
+        />
         <Popover open={addToSetsPopoverOpen} onOpenChange={setAddToSetsPopoverOpen}>
           <PopoverTrigger
             type="button"

@@ -21,6 +21,9 @@ export interface UseClassesListParams {
   search?: string;
   dayOfWeek?: number;
   daysOfWeek?: number[];
+  subjectIds?: string[];
+  studentIds?: string[];
+  staffIds?: string[];
   page?: number;
   pageSize?: number;
   orderBy?: keyof Tables<'classes'>;
@@ -32,6 +35,9 @@ export function useClassesMinimalPaginated(params: UseClassesListParams = {}) {
     search = '',
     dayOfWeek,
     daysOfWeek = [],
+    subjectIds,
+    studentIds,
+    staffIds,
     page = 1,
     pageSize = 50,
     orderBy = 'day_of_week',
@@ -41,12 +47,15 @@ export function useClassesMinimalPaginated(params: UseClassesListParams = {}) {
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: classesKeys.minimal({ search, dayOfWeek, daysOfWeek, page, pageSize, orderBy, ascending }),
+    queryKey: classesKeys.minimal({ search, dayOfWeek, daysOfWeek, subjectIds, studentIds, staffIds, page, pageSize, orderBy, ascending }),
     queryFn: () =>
       classesApi.listMinimal({
         search,
         dayOfWeek,
         daysOfWeek,
+        subjectIds,
+        studentIds,
+        staffIds,
         limit: pageSize,
         offset,
         orderBy,

@@ -48,6 +48,7 @@ import { mapQuestionStemsToItems, mapQuestionsToItems } from '@/features/questio
 import { getStemBoundaries } from '@/features/question-engine/lib/practice'
 import { QUESTION_ENGINE_SHORTCUT_MAP } from '@/features/question-engine/model/shortcuts'
 import { useQuestionEnginePersistence } from '@/features/question-engine/hooks/use-question-engine-persistence'
+import { useRefreshedContentCache } from '@/features/question-engine/hooks/use-refreshed-content-cache'
 
 export function QuestionEnginePage({
   mode,
@@ -127,6 +128,12 @@ export function QuestionEnginePage({
     exam,
     state,
   })
+
+  const markingOrQuestionIndex =
+    state.phase === 'question'
+      ? state.currentIndex
+      : state.viewingQuestionIndex ?? 0
+  const getCachedContent = useRefreshedContentCache(questions, markingOrQuestionIndex)
 
   const isSetOrMock = exam && (exam.sourceType === 'set' || exam.sourceType === 'mock')
   const currentSegmentTimeLimit = isSetOrMock
@@ -1172,6 +1179,7 @@ export function QuestionEnginePage({
               question={questions[state.viewingQuestionIndex]!}
               selectedOptionId={state.selectedAnswers[questions[state.viewingQuestionIndex]!.id]}
               correctOptionId={questions[state.viewingQuestionIndex]!.correctOptionId}
+              preloadedContent={getCachedContent(questions[state.viewingQuestionIndex]!.id)}
               points={(() => {
                 const idx = state.viewingQuestionIndex!
                 if (isMockScorePhase && exam?.mockSetSummaries) {
@@ -1251,6 +1259,7 @@ export function QuestionEnginePage({
               setAnswer(optionId)
               recordAnswer(currentQuestion.id, optionId, flaggedCurrent)
             }}
+            preloadedContent={getCachedContent(currentQuestion.id)}
           />
         ) : null}
       </UcatExamShell>

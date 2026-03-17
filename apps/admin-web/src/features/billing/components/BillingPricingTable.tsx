@@ -17,11 +17,7 @@ import {
   DialogDescription,
   DialogFooter,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { Edit2 } from 'lucide-react';
 import { pricingApi, type BillingPricingRow } from '../api/pricing';
@@ -154,15 +150,22 @@ export function BillingPricingTable({ pricing, onUpdate }: BillingPricingTablePr
 
             <div className="space-y-2">
               <Label htmlFor="edit-currency">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger id="edit-currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AUD">AUD</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<{ id: string; label: string }>
+                items={[
+                  { id: 'AUD', label: 'AUD' },
+                  { id: 'USD', label: 'USD' },
+                ]}
+                value={currency ? { id: currency, label: currency } : null}
+                onValueChange={(v) => v && setCurrency(v.id)}
+                getItemId={(item) => item.id}
+                getItemLabel={(item) => item.label}
+                placeholder="Select currency"
+                trigger={
+                  <Button variant="outline" className="w-full justify-start font-normal" id="edit-currency">
+                    {currency || 'Select currency'}
+                  </Button>
+                }
+              />
             </div>
           </div>
           <DialogFooter>

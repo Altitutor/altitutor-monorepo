@@ -106,6 +106,7 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
         description={description ?? 'Review this practice set before starting.'}
         backHref="/sets"
         backLabel="Back to all sets"
+        breadcrumbOverrides={{ 1: title }}
       />
 
       <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">

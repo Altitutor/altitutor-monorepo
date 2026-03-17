@@ -48,7 +48,7 @@ export function DashboardDatePicker() {
           <span className="hidden md:inline text-sm">{format(activeDate, 'dd/MM/yyyy')}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[420px] p-3">
+      <PopoverContent align="end" className="w-[420px] max-w-[calc(100vw-2rem)] p-3" collisionPadding={16}>
         <div className="flex items-center justify-between gap-2">
           <Button
             variant="ghost"

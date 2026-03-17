@@ -24,7 +24,7 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useCreateAutomationAction, useUpdateAutomationAction } from '../api/mutations';
 import { useAvailableSenders, type Sender } from '@/features/messages/api/queries';
@@ -82,6 +82,28 @@ const ENTITY_TYPES_TUTOR_LOGS: ActivityEntityType[] = [
   'tutor_logs_topics_files_students',
   'tutor_logs_topics_students',
 ];
+
+const ACTION_TYPE_ITEMS: { id: string; label: string }[] = [
+  { id: 'CREATE_TASK', label: 'Create Task' },
+  { id: 'SEND_MESSAGE', label: 'Send Message' },
+  { id: 'CREATE_NOTIFICATION', label: 'Create Notification' },
+];
+
+const STATUS_ITEMS: { id: string; label: string }[] = [
+  { id: 'backlog', label: 'Backlog' },
+  { id: 'todo', label: 'Todo' },
+  { id: 'in_progress', label: 'In Progress' },
+  { id: 'in_review', label: 'In Review' },
+  { id: 'done', label: 'Done' },
+];
+
+function getSenderDisplayName(sender: Sender | undefined): string {
+  if (!sender) return 'Select sender';
+  if (sender.sender_type === 'ALPHANUMERIC') {
+    return sender.alphanumeric_sender_id || sender.label || 'Unknown';
+  }
+  return sender.label || sender.phone_e164 || 'Unknown';
+}
 
 const actionFormSchema = z.object({
   action_type: z.enum(['SEND_MESSAGE', 'CREATE_TASK', 'CREATE_NOTIFICATION']),
@@ -467,24 +489,32 @@ export function CreateEditActionDialog({
             <FormField
               control={form.control}
               name="action_type"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Action Type</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+              render={({ field }) => {
+                const selected = ACTION_TYPE_ITEMS.find((i) => i.id === field.value) ?? null;
+                return (
+                  <FormItem>
+                    <FormLabel>Action Type</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
+                      <SearchableSelect<{ id: string; label: string }>
+                        items={ACTION_TYPE_ITEMS}
+                        value={selected}
+                        onValueChange={(item) => field.onChange(item?.id ?? 'CREATE_TASK')}
+                        getItemId={(i) => i.id}
+                        getItemLabel={(i) => i.label}
+                        placeholder="Select action type"
+                        trigger={
+                          <Button variant="outline" className="w-full justify-start font-normal">
+                            <span className={cn(!selected && 'text-muted-foreground')}>
+                              {selected ? selected.label : 'Select action type'}
+                            </span>
+                          </Button>
+                        }
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="CREATE_TASK">Create Task</SelectItem>
-                      <SelectItem value="SEND_MESSAGE">Send Message</SelectItem>
-                      <SelectItem value="CREATE_NOTIFICATION">Create Notification</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField
@@ -575,30 +605,37 @@ export function CreateEditActionDialog({
                   <FormField
                     control={form.control}
                     name="assigned_to"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Assign To</FormLabel>
-                        <Select
-                          onValueChange={(value) => field.onChange(value || undefined)}
-                          value={field.value || undefined}
-                        >
+                    render={({ field }) => {
+                      const selected = field.value
+                        ? staffList.find((s) => s.id === field.value) ?? null
+                        : null;
+                      return (
+                        <FormItem>
+                          <FormLabel>Assign To</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Unassigned" />
-                            </SelectTrigger>
+                            <SearchableSelect<{ id: string; first_name: string; last_name: string }>
+                              items={staffList}
+                              value={selected}
+                              onValueChange={(s) => field.onChange(s?.id ?? undefined)}
+                              getItemId={(s) => s.id}
+                              getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+                              placeholder="Unassigned"
+                              allowClear
+                              clearLabel="Unassigned"
+                              trigger={
+                                <Button variant="outline" className="w-full justify-start font-normal">
+                                  <span className={cn(!selected && 'text-muted-foreground')}>
+                                    {selected ? `${selected.first_name} ${selected.last_name}` : 'Unassigned'}
+                                  </span>
+                                </Button>
+                              }
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {staffList.map((staff) => (
-                              <SelectItem key={staff.id} value={staff.id}>
-                                {staff.first_name} {staff.last_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>Leave unselected to create an unassigned task</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                          <FormDescription>Leave unselected to create an unassigned task</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
 
                   <FormField
@@ -668,26 +705,32 @@ export function CreateEditActionDialog({
                 <FormField
                   control={form.control}
                   name="status"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Initial Status</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || 'todo'}>
+                  render={({ field }) => {
+                    const selected = STATUS_ITEMS.find((i) => i.id === (field.value || 'todo')) ?? STATUS_ITEMS[1];
+                    return (
+                      <FormItem>
+                        <FormLabel>Initial Status</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                          <SearchableSelect<{ id: string; label: string }>
+                            items={STATUS_ITEMS}
+                            value={selected}
+                            onValueChange={(item) => field.onChange(item?.id ?? 'todo')}
+                            getItemId={(i) => i.id}
+                            getItemLabel={(i) => i.label}
+                            placeholder="Todo"
+                            trigger={
+                              <Button variant="outline" className="w-full justify-start font-normal">
+                                <span className={cn(!selected && 'text-muted-foreground')}>
+                                  {selected ? selected.label : 'Todo'}
+                                </span>
+                              </Button>
+                            }
+                          />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="backlog">Backlog</SelectItem>
-                          <SelectItem value="todo">Todo</SelectItem>
-                          <SelectItem value="in_progress">In Progress</SelectItem>
-                          <SelectItem value="in_review">In Review</SelectItem>
-                          <SelectItem value="done">Done</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
               </>
             )}
@@ -765,14 +808,9 @@ export function CreateEditActionDialog({
                   control={form.control}
                   name="selected_sender_id"
                   render={({ field }) => {
-                    const getSenderDisplayName = (sender: Sender | undefined): string => {
-                      if (!sender) return 'Select sender';
-                      if (sender.sender_type === 'ALPHANUMERIC') {
-                        return sender.alphanumeric_sender_id || sender.label || 'Unknown';
-                      }
-                      return sender.label || sender.phone_e164 || 'Unknown';
-                    };
-
+                    const selected = availableSenders?.find((s) => s.id === field.value) ?? null;
+                    const getItemLabel = (s: Sender) =>
+                      getSenderDisplayName(s) + (s.is_default ? ' (Default)' : '');
                     return (
                       <FormItem>
                         <FormLabel>Sender *</FormLabel>
@@ -781,24 +819,24 @@ export function CreateEditActionDialog({
                             <Input placeholder="Loading senders..." disabled />
                           </FormControl>
                         ) : (
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value || undefined}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a sender" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {availableSenders?.map((sender) => (
-                                <SelectItem key={sender.id} value={sender.id}>
-                                  {getSenderDisplayName(sender)}
-                                  {sender.is_default && ' (Default)'}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <SearchableSelect<Sender>
+                              items={availableSenders ?? []}
+                              value={selected}
+                              onValueChange={(s) => field.onChange(s?.id ?? '')}
+                              getItemId={(s) => s.id}
+                              getItemLabel={getItemLabel}
+                              placeholder="Select a sender"
+                              loading={isLoadingSenders}
+                              trigger={
+                                <Button variant="outline" className="w-full justify-start font-normal">
+                                  <span className={cn(!selected && 'text-muted-foreground')}>
+                                    {selected ? getItemLabel(selected) : 'Select a sender'}
+                                  </span>
+                                </Button>
+                              }
+                            />
+                          </FormControl>
                         )}
                         <FormDescription>Select the owned number to send messages from</FormDescription>
                         <FormMessage />
@@ -810,48 +848,61 @@ export function CreateEditActionDialog({
                 <FormField
                   control={form.control}
                   name="message_recipient_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Recipient Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || 'single'}>
+                  render={({ field }) => {
+                    const messageRecipientOptions: { id: string; label: string }[] = [
+                      { id: 'single', label: 'Single Contact' },
+                      ...(hasClassId
+                        ? [
+                            { id: 'class_students', label: 'All Students in Class' },
+                            { id: 'class_students_and_parents', label: 'All Students & Parents in Class' },
+                          ]
+                        : []),
+                      ...(hasSessionId
+                        ? [
+                            { id: 'session_students', label: 'All Students in Session' },
+                            { id: 'session_students_and_parents', label: 'All Students & Parents in Session' },
+                          ]
+                        : []),
+                      ...(hasStudentId ? [{ id: 'student_and_parents', label: 'Student & All Parents' }] : []),
+                      ...(isTutorLogEntity
+                        ? [
+                            { id: 'tutor_log_students', label: 'All Students in Tutor Log' },
+                            { id: 'tutor_log_students_and_parents', label: 'All Students & Parents in Tutor Log' },
+                          ]
+                        : []),
+                    ];
+                    const selected =
+                      messageRecipientOptions.find((i) => i.id === (field.value || 'single')) ??
+                      messageRecipientOptions[0];
+                    return (
+                      <FormItem>
+                        <FormLabel>Recipient Type</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                          <SearchableSelect<{ id: string; label: string }>
+                            items={messageRecipientOptions}
+                            value={selected}
+                            onValueChange={(item) => field.onChange(item?.id ?? 'single')}
+                            getItemId={(i) => i.id}
+                            getItemLabel={(i) => i.label}
+                            placeholder="Single Contact"
+                            trigger={
+                              <Button variant="outline" className="w-full justify-start font-normal">
+                                <span className={cn(!selected && 'text-muted-foreground')}>
+                                  {selected ? selected.label : 'Single Contact'}
+                                </span>
+                              </Button>
+                            }
+                          />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="single">Single Contact</SelectItem>
-                          {hasClassId && (
-                            <>
-                              <SelectItem value="class_students">All Students in Class</SelectItem>
-                              <SelectItem value="class_students_and_parents">All Students & Parents in Class</SelectItem>
-                            </>
-                          )}
-                          {hasSessionId && (
-                            <>
-                              <SelectItem value="session_students">All Students in Session</SelectItem>
-                              <SelectItem value="session_students_and_parents">All Students & Parents in Session</SelectItem>
-                            </>
-                          )}
-                          {hasStudentId && (
-                            <SelectItem value="student_and_parents">Student & All Parents</SelectItem>
-                          )}
-                          {isTutorLogEntity && (
-                            <>
-                              <SelectItem value="tutor_log_students">All Students in Tutor Log</SelectItem>
-                              <SelectItem value="tutor_log_students_and_parents">All Students & Parents in Tutor Log</SelectItem>
-                            </>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        {!hasClassId && !hasSessionId && !hasStudentId && !isTutorLogEntity
-                          ? 'Only single recipient is available. Bulk options require the rule to trigger on classes, sessions, students, or tutor logs.'
-                          : 'Choose who receives this message. Bulk options are available based on the rule\'s entity type.'}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                        <FormDescription>
+                          {!hasClassId && !hasSessionId && !hasStudentId && !isTutorLogEntity
+                            ? 'Only single recipient is available. Bulk options require the rule to trigger on classes, sessions, students, or tutor logs.'
+                            : 'Choose who receives this message. Bulk options are available based on the rule\'s entity type.'}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 {messageRecipientType === 'single' && (
@@ -959,88 +1010,111 @@ export function CreateEditActionDialog({
                 <FormField
                   control={form.control}
                   name="notification_recipient_type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Recipient Type</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value || 'single'}>
+                  render={({ field }) => {
+                    const notificationRecipientOptions: { id: string; label: string }[] = [
+                      { id: 'single', label: 'Single Staff Member' },
+                      { id: 'all_admin_staff', label: 'All Admin Staff' },
+                      { id: 'all_staff', label: 'All Staff' },
+                      ...(hasClassId
+                        ? [
+                            { id: 'class_students', label: 'All Students in Class' },
+                            { id: 'class_staff', label: 'All Staff in Class' },
+                            { id: 'class_all', label: 'All Students & Staff in Class' },
+                          ]
+                        : []),
+                      ...(hasSessionId
+                        ? [
+                            { id: 'session_students', label: 'All Students in Session' },
+                            { id: 'session_staff', label: 'All Staff in Session' },
+                            { id: 'session_all', label: 'All Students & Staff in Session' },
+                          ]
+                        : []),
+                      ...(hasClassId || hasSessionId
+                        ? [{ id: 'admin_staff_on_day', label: 'Admin Staff on Day' }]
+                        : []),
+                      ...(isTutorLogEntity ? [{ id: 'tutor_log_staff', label: 'All Staff in Tutor Log' }] : []),
+                    ];
+                    const selected =
+                      notificationRecipientOptions.find((i) => i.id === (field.value || 'single')) ??
+                      notificationRecipientOptions[0];
+                    return (
+                      <FormItem>
+                        <FormLabel>Recipient Type</FormLabel>
                         <FormControl>
-                          <SelectTrigger>
-                            <SelectValue />
-                          </SelectTrigger>
+                          <SearchableSelect<{ id: string; label: string }>
+                            items={notificationRecipientOptions}
+                            value={selected}
+                            onValueChange={(item) => field.onChange(item?.id ?? 'single')}
+                            getItemId={(i) => i.id}
+                            getItemLabel={(i) => i.label}
+                            placeholder="Single Staff Member"
+                            trigger={
+                              <Button variant="outline" className="w-full justify-start font-normal">
+                                <span className={cn(!selected && 'text-muted-foreground')}>
+                                  {selected ? selected.label : 'Single Staff Member'}
+                                </span>
+                              </Button>
+                            }
+                          />
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="single">Single Staff Member</SelectItem>
-                          <SelectItem value="all_admin_staff">All Admin Staff</SelectItem>
-                          <SelectItem value="all_staff">All Staff</SelectItem>
-                          {hasClassId && (
-                            <>
-                              <SelectItem value="class_students">All Students in Class</SelectItem>
-                              <SelectItem value="class_staff">All Staff in Class</SelectItem>
-                              <SelectItem value="class_all">All Students & Staff in Class</SelectItem>
-                            </>
-                          )}
-                          {hasSessionId && (
-                            <>
-                              <SelectItem value="session_students">All Students in Session</SelectItem>
-                              <SelectItem value="session_staff">All Staff in Session</SelectItem>
-                              <SelectItem value="session_all">All Students & Staff in Session</SelectItem>
-                            </>
-                          )}
-                          {(hasClassId || hasSessionId) && (
-                            <SelectItem value="admin_staff_on_day">Admin Staff on Day</SelectItem>
-                          )}
-                          {isTutorLogEntity && (
-                            <SelectItem value="tutor_log_staff">All Staff in Tutor Log</SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                      <FormDescription>
-                        {!hasClassId && !hasSessionId
-                          ? 'Global options (All Admin Staff, All Staff) are always available. Class/session-specific options require the rule to trigger on classes, sessions, or related entities.'
-                          : 'Choose who receives this notification. Global options are always available. Class/session-specific options are available based on the rule\'s entity type.'}
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                        <FormDescription>
+                          {!hasClassId && !hasSessionId
+                            ? 'Global options (All Admin Staff, All Staff) are always available. Class/session-specific options require the rule to trigger on classes, sessions, or related entities.'
+                            : 'Choose who receives this notification. Global options are always available. Class/session-specific options are available based on the rule\'s entity type.'}
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 {notificationRecipientType === 'single' && (
                   <FormField
                     control={form.control}
                     name="target_staff_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Target Staff</FormLabel>
-                        <Select
-                          onValueChange={(value) => field.onChange(value === '__AUTO__' ? '' : value)}
-                          value={field.value || '__AUTO__'}
-                        >
+                    render={({ field }) => {
+                      const autoLabel =
+                        entityType === 'tasks'
+                          ? 'Use Assigned Staff Member (from task)'
+                          : 'Use Activity Event Staff (auto-detect)';
+                      const targetStaffItems: { id: string; label: string }[] = [
+                        { id: '__AUTO__', label: autoLabel },
+                        ...staffList.map((s) => ({ id: s.id, label: `${s.first_name} ${s.last_name}` })),
+                      ];
+                      const rawValue = field.value || '__AUTO__';
+                      const selected =
+                        targetStaffItems.find((i) => i.id === rawValue) ?? targetStaffItems[0];
+                      return (
+                        <FormItem>
+                          <FormLabel>Target Staff</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select staff member" />
-                            </SelectTrigger>
+                            <SearchableSelect<{ id: string; label: string }>
+                              items={targetStaffItems}
+                              value={selected}
+                              onValueChange={(item) =>
+                                field.onChange(item?.id === '__AUTO__' ? '' : item?.id ?? '')
+                              }
+                              getItemId={(i) => i.id}
+                              getItemLabel={(i) => i.label}
+                              placeholder="Select staff member"
+                              trigger={
+                                <Button variant="outline" className="w-full justify-start font-normal">
+                                  <span className={cn(!selected && 'text-muted-foreground')}>
+                                    {selected ? selected.label : 'Select staff member'}
+                                  </span>
+                                </Button>
+                              }
+                            />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="__AUTO__">
-                              {entityType === 'tasks' 
-                                ? 'Use Assigned Staff Member (from task)'
-                                : 'Use Activity Event Staff (auto-detect)'}
-                            </SelectItem>
-                            {staffList.map((staff) => (
-                              <SelectItem key={staff.id} value={staff.id}>
-                                {staff.first_name} {staff.last_name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          {entityType === 'tasks' 
-                            ? 'Select a specific staff member, or choose "Use Assigned Staff Member" to automatically notify whoever the task is assigned to.'
-                            : 'Select a specific staff member, or choose "Use Activity Event Staff" to automatically use the staff member from the activity event context.'}
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
+                          <FormDescription>
+                            {entityType === 'tasks'
+                              ? 'Select a specific staff member, or choose "Use Assigned Staff Member" to automatically notify whoever the task is assigned to.'
+                              : 'Select a specific staff member, or choose "Use Activity Event Staff" to automatically use the staff member from the activity event context.'}
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      );
+                    }}
                   />
                 )}
 

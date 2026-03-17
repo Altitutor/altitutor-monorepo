@@ -1,13 +1,7 @@
 'use client';
 
-import { Badge } from '@altitutor/ui';
+import { Badge, SearchableSelect } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@altitutor/ui';
 import { cn } from '@/shared/utils/index';
 import type { TaskWithAssignee, TaskStatus, TaskPriority } from '../types';
 import {
@@ -25,6 +19,7 @@ import {
 } from '../utils/taskUtils';
 import { Calendar } from 'lucide-react';
 import { useUpdateTask } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 
 interface SimpleTaskCardProps {
   task: TaskWithAssignee;
@@ -33,6 +28,7 @@ interface SimpleTaskCardProps {
 
 export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
   const updateTask = useUpdateTask();
+  const { data: currentStaff } = useCurrentStaff();
   const assigneeInitials = task.assignee
     ? getUserInitials(task.assignee.first_name, task.assignee.last_name)
     : null;
@@ -44,12 +40,15 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
   const StatusIcon = getStatusIcon(task.status as TaskStatus);
   const statusIconColor = getStatusIconColor(task.status as TaskStatus);
 
-  const handleStatusChange = (newStatus: TaskStatus, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
+  const handleStatusChange = (newStatus: TaskStatus) => {
     if (newStatus !== task.status) {
+      const updates: { status: TaskStatus; completed_by?: string | null } = { status: newStatus };
+      if (newStatus === 'done') {
+        updates.completed_by = currentStaff?.id ?? null;
+      }
       updateTask.mutate({
         id: task.id,
-        updates: { status: newStatus },
+        updates,
       });
     }
   };
@@ -100,42 +99,47 @@ export function SimpleTaskCard({ task, onClick }: SimpleTaskCardProps) {
         </div>
 
         {/* Right side - Status pill */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              onClick={(e) => e.stopPropagation()}
-              className={cn(
-                'text-xs cursor-pointer px-2 py-0.5 rounded-md font-medium transition-all flex-shrink-0',
-                'hover:opacity-90 hover:scale-105 hover:shadow-sm',
-                'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-current',
-                'flex items-center gap-1.5',
-                getStatusColor(task.status as TaskStatus)
-              )}
-            >
-              <StatusIcon className={cn('h-3 w-3', statusIconColor)} />
-              <span>{getStatusLabel(task.status as TaskStatus)}</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-            {TASK_STATUS_OPTIONS.map((status) => {
+        <div onClick={(e) => e.stopPropagation()}>
+          <SearchableSelect<(typeof TASK_STATUS_OPTIONS)[number]>
+            items={TASK_STATUS_OPTIONS}
+            value={TASK_STATUS_OPTIONS.find((o) => o.value === task.status) ?? null}
+            onValueChange={(option) =>
+              option && handleStatusChange(option.value as TaskStatus)
+            }
+            getItemId={(o) => o.value}
+            getItemLabel={(o) => o.label}
+            placeholder="Status"
+            searchPlaceholder="Search..."
+            emptyMessage="No status"
+            trigger={
+              <button
+                type="button"
+                className={cn(
+                  'text-xs cursor-pointer px-2 py-0.5 rounded-md font-medium transition-all flex-shrink-0',
+                  'hover:opacity-90 hover:scale-105 hover:shadow-sm',
+                  'focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-current',
+                  'flex items-center gap-1.5',
+                  getStatusColor(task.status as TaskStatus)
+                )}
+              >
+                <StatusIcon className={cn('h-3 w-3', statusIconColor)} />
+                <span>{getStatusLabel(task.status as TaskStatus)}</span>
+              </button>
+            }
+            contentWidth="180px"
+            align="end"
+            renderItem={(status, isSelected) => {
               const StatusIconLocal = getStatusIcon(status.value);
               const iconColor = getStatusIconColor(status.value);
               return (
-                <DropdownMenuItem
-                  key={status.value}
-                  onClick={(e) => handleStatusChange(status.value as TaskStatus, e)}
-                  className={cn(
-                    'flex items-center gap-2',
-                    task.status === status.value && 'bg-muted'
-                  )}
-                >
+                <span className={cn('flex items-center gap-2', isSelected && 'font-medium')}>
                   <StatusIconLocal className={cn('h-4 w-4', iconColor)} />
-                  <span>{status.label}</span>
-                </DropdownMenuItem>
+                  {status.label}
+                </span>
               );
-            })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            }}
+          />
+        </div>
       </div>
 
       {/* Bottom row - Other badges inline */}

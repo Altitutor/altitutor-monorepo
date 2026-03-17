@@ -10,46 +10,44 @@ export type UcatClassWithDetails = (VtutorClassesRow & { id: string }) & {
   staff: Array<{ id: string; first_name?: string; last_name?: string }>
 }
 
+export type StudentProgressSummaryRow = {
+  student_id: string
+  student_name: string
+  total_questions: number
+  total_sets_attempted: number
+  total_mocks_attempted: number
+  exam: number | null
+  last_attempted_at: string | null
+  section_scores: Record<string, number | null>
+}
+
+export type StudentProgressSummaryResponse = {
+  students: StudentProgressSummaryRow[]
+  sections: Array<{ id: string; name: string; section_number: number }>
+}
+
 export const ucatStudentsApi = {
+  async listProgressSummary(params: {
+    mode: 'all_time' | 'weighted' | 'time_frame'
+    timeFrameDays: string
+  }): Promise<StudentProgressSummaryResponse> {
+    const search = new URLSearchParams({
+      mode: params.mode,
+      timeFrameDays: params.timeFrameDays,
+    })
+    const res = await fetch(
+      `/api/ucat/students/progress-summary?${search.toString()}`
+    )
+    if (!res.ok) throw new Error('Failed to fetch progress summary')
+    return res.json()
+  },
+
   async listProgress() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
     const { data, error } = await supabase
       .from('vtutor_ucat_student_progress_summary')
       .select('*')
       .order('last_attempted_at', { ascending: false, nullsFirst: false })
-    if (error) throw error
-    return data ?? []
-  },
-
-  async studentSetAttempts(studentId: string) {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_student_set_attempts')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('attempted_at', { ascending: false })
-    if (error) throw error
-    return data ?? []
-  },
-
-  async studentMockAttempts(studentId: string) {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_student_mock_attempts')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('attempted_at', { ascending: false })
-    if (error) throw error
-    return data ?? []
-  },
-
-  async studentQuestionAttempts(studentId: string) {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase
-      .from('vtutor_ucat_student_question_attempts')
-      .select('*')
-      .eq('student_id', studentId)
-      .order('attempted_at', { ascending: false, nullsFirst: false })
     if (error) throw error
     return data ?? []
   },

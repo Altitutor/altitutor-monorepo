@@ -5,7 +5,7 @@ import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
+import { SearchableSelect } from "@altitutor/ui";
 import { Loader2, Pencil, X } from "lucide-react";
 import type { Resolver } from "react-hook-form";
 import { Controller, useForm } from "react-hook-form";
@@ -181,22 +181,25 @@ export function StaffDetailsTab({
               <Controller
                 control={form.control}
                 name="hasParkingRemote"
-                render={({ field }) => (
-                  <Select
-                    disabled={isLoading}
-                    value={field.value || 'NONE'}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger id="hasParkingRemote">
-                      <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="VIRTUAL">Virtual</SelectItem>
-                      <SelectItem value="PHYSICAL">Physical</SelectItem>
-                      <SelectItem value="NONE">None</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const parkingOptions = [
+                    { value: 'VIRTUAL' as const, label: 'Virtual' },
+                    { value: 'PHYSICAL' as const, label: 'Physical' },
+                    { value: 'NONE' as const, label: 'None' },
+                  ]
+                  const selected = parkingOptions.find((o) => o.value === (field.value ?? 'NONE')) ?? parkingOptions[2]
+                  return (
+                    <SearchableSelect<{ value: 'VIRTUAL' | 'PHYSICAL' | 'NONE'; label: string }>
+                      items={parkingOptions}
+                      value={selected}
+                      onValueChange={(item) => field.onChange(item?.value ?? 'NONE')}
+                      getItemLabel={(i) => i.label}
+                      getItemId={(i) => i.value}
+                      placeholder="Select option"
+                      disabled={isLoading}
+                    />
+                  )
+                }}
               />
               {form.formState.errors.hasParkingRemote && (
                 <p className="text-sm text-red-500">{form.formState.errors.hasParkingRemote.message}</p>
@@ -210,21 +213,24 @@ export function StaffDetailsTab({
               <Controller
                 control={form.control}
                 name="role"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isLoading}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={'TUTOR'}>Tutor</SelectItem>
-                      <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const roleOptions = [
+                    { value: 'TUTOR' as const, label: 'Tutor' },
+                    { value: 'ADMINSTAFF' as const, label: 'Admin Staff' },
+                  ]
+                  const selected = roleOptions.find((o) => o.value === field.value) ?? roleOptions[0]!
+                  return (
+                    <SearchableSelect<{ value: 'TUTOR' | 'ADMINSTAFF'; label: string }>
+                      items={roleOptions}
+                      value={selected}
+                      onValueChange={(item) => item && field.onChange(item.value)}
+                      getItemLabel={(i) => i.label}
+                      getItemId={(i) => i.value}
+                      placeholder="Select role"
+                      disabled={isLoading}
+                    />
+                  )
+                }}
               />
             </div>
             
@@ -233,22 +239,25 @@ export function StaffDetailsTab({
               <Controller
                 control={form.control}
                 name="status"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isLoading}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                      <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                      <SelectItem value={'TRIAL'}>Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const statusOptions = [
+                    { value: 'ACTIVE' as const, label: 'Active' },
+                    { value: 'INACTIVE' as const, label: 'Inactive' },
+                    { value: 'TRIAL' as const, label: 'Trial' },
+                  ]
+                  const selected = statusOptions.find((o) => o.value === field.value) ?? statusOptions[0]!
+                  return (
+                    <SearchableSelect<{ value: 'ACTIVE' | 'INACTIVE' | 'TRIAL'; label: string }>
+                      items={statusOptions}
+                      value={selected}
+                      onValueChange={(item) => item && field.onChange(item.value)}
+                      getItemLabel={(i) => i.label}
+                      getItemId={(i) => i.value}
+                      placeholder="Select status"
+                      disabled={isLoading}
+                    />
+                  )
+                }}
               />
             </div>
           </div>

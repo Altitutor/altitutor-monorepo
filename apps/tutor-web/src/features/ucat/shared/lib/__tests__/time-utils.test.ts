@@ -7,6 +7,7 @@ import {
   minutesSecondsToTotal,
   secondsToTimeString,
   formatSecondsToDuration,
+  formatSetTimeLimit,
 } from '../time-utils';
 
 describe('parseTimeToSeconds', () => {
@@ -69,5 +70,19 @@ describe('formatSecondsToDuration', () => {
     expect(formatSecondsToDuration(null)).toBe('-');
     expect(formatSecondsToDuration(undefined)).toBe('-');
     expect(formatSecondsToDuration(-1)).toBe('-');
+  });
+});
+
+describe('formatSetTimeLimit', () => {
+  it('returns "Untimed" for null/undefined/zero/negative', () => {
+    expect(formatSetTimeLimit(null)).toBe('Untimed');
+    expect(formatSetTimeLimit(undefined)).toBe('Untimed');
+    expect(formatSetTimeLimit(0)).toBe('Untimed');
+    expect(formatSetTimeLimit(-1)).toBe('Untimed');
+  });
+
+  it('formats positive seconds as duration', () => {
+    expect(formatSetTimeLimit(90)).toBe('1m 30s');
+    expect(formatSetTimeLimit(30)).toBe('30s');
   });
 });

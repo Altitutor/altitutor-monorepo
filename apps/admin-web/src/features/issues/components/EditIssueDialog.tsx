@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   type JSONContent,
+  type RichTextEditorRef,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
@@ -31,6 +32,7 @@ import {
 import { cn } from '@/shared/utils';
 import { useIssue } from '../api/queries';
 import { useUpdateIssue, useDeleteIssue } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import { useNotes } from '@/shared/hooks/useNotes';
 import type { Tables } from '@altitutor/shared';
 import type { IssueFormData, IssueStatus } from '../types';
@@ -38,6 +40,7 @@ import { IssueContentPanel } from './panels/IssueContentPanel';
 import { IssuePropertiesPanel } from './panels/IssuePropertiesPanel';
 import { useIssueAutoSave } from '../hooks/useIssueAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { useLiveIssueTags } from '../hooks/useLiveIssueTags';
 
 const VALID_ISSUE_STATUSES: IssueStatus[] = ['open', 'awaiting_response', 'resolved'];
@@ -88,10 +91,13 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
   const { data: issue, isLoading } = useIssue(issueId || '', !!issueId && isOpen);
   const updateIssue = useUpdateIssue();
   const deleteIssue = useDeleteIssue();
+  const { data: currentStaff } = useCurrentStaff();
   const lastResetIssueIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const descriptionRef = useRef<RichTextEditorRef>(null);
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -158,6 +164,9 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
         formattedUpdates.due_date = updates.dueDate ? new Date(updates.dueDate).toISOString() : null;
         delete formattedUpdates.dueDate;
       }
+      if (updates.status === 'resolved') {
+        formattedUpdates.resolved_by = currentStaff?.id ?? null;
+      }
 
       await updateIssue.mutateAsync({
         id: issueId,
@@ -167,7 +176,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
     } catch (error) {
       console.error('Failed to auto-save issue:', error);
     }
-  }, [issueId, updateIssue]);
+  }, [issueId, updateIssue, currentStaff?.id]);
 
   if (!issueId || !isOpen) return null;
 
@@ -201,7 +210,6 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
               </div>
 
               <div className="flex items-center gap-2">
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
                   {updateIssue.isPending ? (
                     <>
@@ -220,6 +228,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                     </>
                   )}
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 <ActionsMenu
                   type="issue"
                   entityId={issueId}
@@ -227,6 +236,11 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                     // For now, no specific issue detail page implemented
                   }}
                   onDelete={() => setIsDeleteDialogOpen(true)}
+                  richTextTemplateConfig={{
+                    getEditor: () => descriptionRef.current?.getEditor() ?? null,
+                    getCurrentContent: () => form.getValues('description') ?? null,
+                    onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
+                  }}
                 />
               </div>
             </div>
@@ -254,6 +268,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                     notes={notes}
                     isOpen={isOpen}
                     onClose={onClose}
+                    descriptionRef={descriptionRef}
                   />
 
                   <IssueContentPanel 
@@ -296,6 +311,12 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('description') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
     </Dialog>
   );
 }

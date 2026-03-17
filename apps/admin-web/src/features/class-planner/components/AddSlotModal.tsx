@@ -5,13 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { classPlansApi } from '../api/classPlans';
 import { useQueryClient } from '@tanstack/react-query';
 import { classPlansKeys } from '../hooks/useClassPlansQuery';
@@ -141,18 +135,14 @@ export function AddSlotModal({
           
           <div className="space-y-2">
             <Label htmlFor="day">Day of Week *</Label>
-            <Select value={dayOfWeek} onValueChange={setDayOfWeek} required>
-              <SelectTrigger>
-                <SelectValue placeholder="Select day" />
-              </SelectTrigger>
-              <SelectContent>
-                {DAYS_OF_WEEK.map((day) => (
-                  <SelectItem key={day.value} value={day.value.toString()}>
-                    {day.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect<(typeof DAYS_OF_WEEK)[number]>
+              items={DAYS_OF_WEEK}
+              value={DAYS_OF_WEEK.find((d) => d.value.toString() === dayOfWeek) ?? null}
+              onValueChange={(item) => item && setDayOfWeek(item.value.toString())}
+              getItemLabel={(d) => d.label}
+              getItemId={(d) => d.value.toString()}
+              placeholder="Select day"
+            />
           </div>
           
           <div className="grid grid-cols-2 gap-4">

@@ -31,7 +31,7 @@ import {
   Input,
   type RichTextEditorRef,
 } from '@altitutor/ui';
-import { X, Check, Loader2, CloudOff, Settings, FileText, Plus } from 'lucide-react';
+import { X, Check, Loader2, CloudOff, FileText, Plus } from 'lucide-react';
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
@@ -67,6 +67,7 @@ import { useNotes as useEntityNotes } from '@/shared/hooks/useNotes';
 import { ProjectNotes } from './ProjectNotes';
 import { ProjectPropertyPills } from './fields/ProjectPropertyPills';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -115,6 +116,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
   const lastResetProjectIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -270,7 +272,6 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
               </div>
 
               <div className="flex items-center gap-2">
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
                   {updateProject.isPending ? (
                     <>
@@ -289,11 +290,17 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                     </>
                   )}
                 </div>
+                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
                 <ActionsMenu
                   type="project"
                   entityId={projectId}
                   onOpenInPage={() => {}}
                   onDelete={() => setIsDeleteDialogOpen(true)}
+                  richTextTemplateConfig={{
+                    getEditor: () => descriptionFieldRef.current?.getEditor() ?? null,
+                    getCurrentContent: () => form.getValues('description') ?? null,
+                    onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
+                  }}
                 />
               </div>
             </div>
@@ -436,13 +443,11 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                         <TabsList className="grid w-full grid-cols-2">
                           <TabsTrigger value="properties">
                             <div className="flex items-center gap-2">
-                              <Settings className="h-4 w-4" />
                               <span>Properties</span>
                             </div>
                           </TabsTrigger>
                           <TabsTrigger value="documents">
                             <div className="flex items-center gap-2">
-                              <FileText className="h-4 w-4" />
                               <span>Documents</span>
                             </div>
                           </TabsTrigger>
@@ -545,6 +550,12 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        <SaveAsTemplateDialog
+          isOpen={isSaveDialogOpen}
+          onClose={() => setIsSaveDialogOpen(false)}
+          initialContent={form.getValues('description') ?? null}
+          onSuccess={() => setIsSaveDialogOpen(false)}
+        />
       </Dialog>
 
       <EditDocumentDialog

@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useLayoutEffect, useRef, useEffect } from 'react';
+import { createRoot } from 'react-dom/client';
+import tippy, { type Instance as TippyInstance } from 'tippy.js';
 import {
   EntityList,
   EntityListAddRow,
@@ -58,26 +60,100 @@ const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
   { value: 4, label: 'Low' },
 ];
 
-/** Autocomplete dropdown for linking an existing task to the current issue/project. Only shown when there are suggestions. */
-function TaskLinkAutocomplete({
+/** Inner content for the task link dropdown - rendered into an imperative container to avoid React/Tippy DOM ownership conflict. */
+function TaskLinkDropdownContent({
   tasks,
   isLoading,
-  position,
+  selectedIndex,
+  setSelectedIndex,
   onSelect,
-  onClose,
   getStatusLabel,
 }: {
   tasks: TaskSearchResult[];
   isLoading: boolean;
-  position: { top: number; left: number } | null;
+  selectedIndex: number;
+  setSelectedIndex: (idx: number) => void;
+  onSelect: (taskId: string) => void;
+  getStatusLabel: (status: string) => string;
+}) {
+  return (
+    <div
+      role="listbox"
+      className="bg-popover border rounded-lg shadow-lg min-w-[240px] max-w-[400px] flex flex-col pointer-events-auto"
+      onMouseDown={(e) => e.preventDefault()}
+    >
+      {isLoading && (
+        <div className="flex items-center justify-center p-4">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      )}
+      {!isLoading && tasks.length > 0 && (
+        <>
+          <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase flex items-center gap-2 shrink-0">
+            <CheckSquare className="h-3 w-3" />
+            Link existing task
+          </div>
+          <div className="overflow-y-auto overscroll-contain max-h-[280px] py-1">
+            {tasks.map((task, idx) => {
+              const isSelected = idx === selectedIndex;
+              return (
+                <button
+                  key={task.id}
+                  type="button"
+                  role="option"
+                  aria-selected={isSelected}
+                  className={cn(
+                    'w-full flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-left',
+                    isSelected ? 'bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20' : 'hover:bg-muted'
+                  )}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSelect(task.id);
+                  }}
+                  onMouseEnter={() => setSelectedIndex(idx)}
+                >
+                  <CheckSquare className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 text-left">
+                    <div className="font-medium text-sm">{task.title || 'Untitled'}</div>
+                    {task.status && (
+                      <div className="text-xs text-muted-foreground">
+                        {getStatusLabel(task.status)}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+/** Autocomplete dropdown for linking an existing task to the current issue/project. Uses Tippy for positioning (flip, scroll) like mention suggestions. */
+function TaskLinkAutocomplete({
+  inputRef,
+  tasks,
+  isLoading,
+  onSelect,
+  onClose,
+  getStatusLabel,
+  showDropdown,
+}: {
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  tasks: TaskSearchResult[];
+  isLoading: boolean;
   onSelect: (taskId: string) => void;
   onClose: () => void;
   getStatusLabel: (status: string) => string;
+  showDropdown: boolean;
 }) {
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const showDropdown = position !== null && (tasks.length > 0 || isLoading);
+  const tippyInstanceRef = useRef<TippyInstance | null>(null);
+  const rootRef = useRef<ReturnType<typeof createRoot> | null>(null);
+  const containerRef = useRef<HTMLDivElement | null>(null);
 
   useLayoutEffect(() => {
     if (tasks.length > 0) setSelectedIndex(0);
@@ -104,66 +180,92 @@ function TaskLinkAutocomplete({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [showDropdown, tasks, selectedIndex, onSelect, onClose]);
 
-  if (!showDropdown) return null;
-
-  return (
-    <div
-      ref={containerRef}
-      role="listbox"
-      className="fixed z-[200] bg-popover border rounded-lg shadow-lg max-h-[280px] overflow-y-auto min-w-[240px] max-w-[400px]"
-      style={
-        position
-          ? { top: position.top, left: position.left, position: 'fixed' as const }
-          : undefined
+  useLayoutEffect(() => {
+    if (!showDropdown || !inputRef?.current) {
+      if (tippyInstanceRef.current) {
+        tippyInstanceRef.current.destroy();
+        tippyInstanceRef.current = null;
       }
-      onMouseDown={(e) => e.preventDefault()}
-    >
-      {isLoading && (
-        <div className="flex items-center justify-center p-4">
-          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-        </div>
-      )}
-      {!isLoading && tasks.length > 0 && (
-        <div className="py-1">
-          <div className="px-3 py-1.5 text-xs font-semibold text-muted-foreground uppercase flex items-center gap-2">
-            <CheckSquare className="h-3 w-3" />
-            Link existing task
-          </div>
-          {tasks.map((task, idx) => {
-            const isSelected = idx === selectedIndex;
-            return (
-              <button
-                key={task.id}
-                type="button"
-                role="option"
-                aria-selected={isSelected}
-                className={cn(
-                  'w-full flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-left',
-                  isSelected ? 'bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20' : 'hover:bg-muted'
-                )}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onSelect(task.id);
-                }}
-                onMouseEnter={() => setSelectedIndex(idx)}
-              >
-                <CheckSquare className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                <div className="flex-1 min-w-0 text-left">
-                  <div className="font-medium text-sm">{task.title || 'Untitled'}</div>
-                  {task.status && (
-                    <div className="text-xs text-muted-foreground">
-                      {getStatusLabel(task.status)}
-                    </div>
-                  )}
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
+      if (rootRef.current && containerRef.current) {
+        const root = rootRef.current;
+        rootRef.current = null;
+        containerRef.current = null;
+        queueMicrotask(() => {
+          root.unmount();
+        });
+      }
+      return;
+    }
+
+    const input = inputRef.current;
+    const container = document.createElement('div');
+    containerRef.current = container;
+
+    const root = createRoot(container);
+    rootRef.current = root;
+    root.render(
+      <TaskLinkDropdownContent
+        tasks={tasks}
+        isLoading={isLoading}
+        selectedIndex={selectedIndex}
+        setSelectedIndex={setSelectedIndex}
+        onSelect={onSelect}
+        getStatusLabel={getStatusLabel}
+      />
+    );
+
+    tippyInstanceRef.current = tippy(input as Element, {
+      content: container,
+      appendTo: () => {
+        const dialog = input.closest('[role="dialog"]');
+        return dialog ?? document.body;
+      },
+      showOnCreate: true,
+      interactive: true,
+      trigger: 'manual',
+      placement: 'bottom-start',
+      arrow: false,
+      offset: [0, 4],
+      getReferenceClientRect: () => {
+        const rect = input.getBoundingClientRect();
+        const style = input.ownerDocument.defaultView?.getComputedStyle(input);
+        const paddingLeft = style ? parseFloat(style.paddingLeft) || 0 : 0;
+        return new DOMRect(rect.left + paddingLeft, rect.top, rect.width - paddingLeft, rect.height);
+      },
+    });
+
+    return () => {
+      if (tippyInstanceRef.current) {
+        tippyInstanceRef.current.destroy();
+        tippyInstanceRef.current = null;
+      }
+      if (rootRef.current && containerRef.current) {
+        const root = rootRef.current;
+        rootRef.current = null;
+        containerRef.current = null;
+        queueMicrotask(() => {
+          root.unmount();
+        });
+      }
+    };
+  }, [showDropdown, inputRef, tasks, isLoading, selectedIndex, setSelectedIndex, onSelect, getStatusLabel]);
+
+  useLayoutEffect(() => {
+    if (!showDropdown || !rootRef.current || !containerRef.current) return;
+
+    rootRef.current.render(
+      <TaskLinkDropdownContent
+        tasks={tasks}
+        isLoading={isLoading}
+        selectedIndex={selectedIndex}
+        setSelectedIndex={setSelectedIndex}
+        onSelect={onSelect}
+        getStatusLabel={getStatusLabel}
+      />
+    );
+  }, [showDropdown, tasks, isLoading, selectedIndex, onSelect, getStatusLabel]);
+
+  return null;
 }
 
 /** Add row that shows task-search autocomplete when typing; on select, links task to issue/project. */
@@ -181,30 +283,16 @@ function TaskListAddRowWithSearch({
   onLinkTask: (taskId: string) => void;
 }) {
   const { addName, setAddName, inputRef } = addRowProps;
-  const [position, setPosition] = useState<{ top: number; left: number } | null>(null);
 
-  const { tasks, isLoading } = useTaskSearch(
-    addName,
-    !!(issueId || projectId)
-  );
+  const { tasks, isLoading } = useTaskSearch(addName, !!(issueId || projectId), {
+    excludeLinked: true,
+  });
   const suggestions = useMemo(
     () => tasks.filter((t) => !linkedTaskIds.includes(t.id)),
     [tasks, linkedTaskIds]
   );
 
   const showAutocomplete = addName.trim() !== '' && (suggestions.length > 0 || isLoading);
-
-  useLayoutEffect(() => {
-    if (!showAutocomplete || !inputRef?.current) {
-      setPosition(null);
-      return;
-    }
-    const rect = inputRef.current.getBoundingClientRect();
-    setPosition({
-      top: rect.bottom + 4,
-      left: rect.left,
-    });
-  }, [showAutocomplete, addName, suggestions.length, isLoading, inputRef]);
 
   const handleSelect = useCallback(
     (taskId: string) => {
@@ -218,9 +306,10 @@ function TaskListAddRowWithSearch({
     <>
       <EntityListAddRow {...addRowProps} />
       <TaskLinkAutocomplete
+        inputRef={inputRef}
         tasks={suggestions}
         isLoading={isLoading}
-        position={position}
+        showDropdown={showAutocomplete}
         onSelect={handleSelect}
         onClose={() => setAddName('')}
         getStatusLabel={(s) => getStatusLabel(s as TaskStatus)}
@@ -295,8 +384,12 @@ export function TasksList({
   const mentionSuggestions = useMentionSuggestions();
 
   const handleStatusChange = useCallback((task: TaskWithAssignee, value: TaskStatus) => {
-    updateTask.mutate({ id: task.id, updates: { status: value } });
-  }, [updateTask]);
+    const updates: { status: TaskStatus; completed_by?: string | null } = { status: value };
+    if (value === 'done') {
+      updates.completed_by = currentStaff?.id ?? null;
+    }
+    updateTask.mutate({ id: task.id, updates });
+  }, [updateTask, currentStaff?.id]);
 
   const handlePriorityChange = useCallback((task: TaskWithAssignee, value: TaskPriority) => {
     updateTask.mutate({ id: task.id, updates: { priority: value } });
@@ -530,9 +623,10 @@ export function TasksList({
           visibleByDefault: true,
           getValue: (t: TaskWithAssignee) => t.due_date ?? null,
           defaultValue: null,
+          filterType: 'date-range' as const,
           groupable: false,
           sortable: true,
-          filterable: false,
+          filterable: true,
           compare: (a: unknown, b: unknown) => {
             const da = a ? new Date(a as string).getTime() : 0;
             const db = b ? new Date(b as string).getTime() : 0;

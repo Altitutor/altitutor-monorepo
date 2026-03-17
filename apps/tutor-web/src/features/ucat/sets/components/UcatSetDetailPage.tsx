@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Button } from '@altitutor/ui'
+import Link from 'next/link'
+import { Button, useToast } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import {
@@ -26,6 +27,8 @@ import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
+import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
+import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
@@ -36,6 +39,7 @@ type UcatSetDetailPageProps = {
 }
 
 export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
+  const { toast } = useToast()
   const access = useUcatAccess()
   const detail = useUcatSetDetail(setId)
   const updateSet = useUpdateUcatSet()
@@ -52,6 +56,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const [draftIsTimed, setDraftIsTimed] = useState(true)
   const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
   const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
+  const [draftTimeLimitSource, setDraftTimeLimitSource] = useState<'untimed' | 'section_full' | 'section_auto' | 'custom'>('custom')
+  const [draftTimeLimitSpeed, setDraftTimeLimitSpeed] = useState(1)
   const [draftPrivate, setDraftPrivate] = useState(false)
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
@@ -69,6 +75,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     setDraftIsTimed(sec > 0)
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
     setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
+    setDraftTimeLimitSource(sec > 0 ? 'custom' : 'untimed')
+    setDraftTimeLimitSpeed(1)
     setDraftPrivate(!!current.is_private)
     setDraftStemIds(stemIds)
     setBaseline(
@@ -88,10 +96,58 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const stemDetail = useUcatQuestionDetail(editingStemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
 
-  const timeLimitSeconds = draftIsTimed
-    ? minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
+  const setSectionsFromStems = useMemo(() => {
+    const sectionMap = new Map<string, { sectionId: string; questionCount: number }>()
+    for (const stemId of draftStemIds) {
+      const stem = stemCatalog.find((s) => s.id === stemId)
+      if (!stem?.sectionId) continue
+      const existing = sectionMap.get(stem.sectionId)
+      if (existing) {
+        existing.questionCount += stem.questionsCount
+      } else {
+        sectionMap.set(stem.sectionId, { sectionId: stem.sectionId, questionCount: stem.questionsCount })
+      }
+    }
+    return Array.from(sectionMap.values())
+  }, [draftStemIds, stemCatalog])
+
+  const setSectionCount = setSectionsFromStems.length
+  const firstSetSection = setSectionsFromStems[0]
+  const firstUcatSection = firstSetSection
+    ? (sectionsQuery.data ?? []).find((s) => s.id === firstSetSection.sectionId)
     : null
-  const isTimeLimitValid = !draftIsTimed || (timeLimitSeconds != null && timeLimitSeconds > 0)
+
+  const sectionFullTimeSeconds = firstUcatSection?.time_limit_seconds ?? null
+  const sectionAutoTimeSeconds = useMemo(() => {
+    let total = 0
+    const sectionsData = sectionsQuery.data ?? []
+    for (const ss of setSectionsFromStems) {
+      const sec = sectionsData.find((s) => s.id === ss.sectionId)
+      const tpq = sec?.time_per_question
+      if (tpq != null && tpq > 0) {
+        total += ss.questionCount * tpq
+      }
+    }
+    return total > 0 ? total : null
+  }, [setSectionsFromStems, sectionsQuery.data])
+
+  const timeLimitSeconds = (() => {
+    if (draftTimeLimitSource === 'untimed' || !draftIsTimed) return null
+    if (draftTimeLimitSource === 'section_full' && setSectionCount === 1 && sectionFullTimeSeconds != null && sectionFullTimeSeconds > 0) {
+      return sectionFullTimeSeconds
+    }
+    if (draftTimeLimitSource === 'section_auto' && setSectionCount === 1 && sectionAutoTimeSeconds != null) {
+      const speed = Math.max(0.1, Math.min(2, draftTimeLimitSpeed))
+      return Math.round(sectionAutoTimeSeconds / speed)
+    }
+    return minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
+  })()
+
+  const isTimeLimitValid =
+    !draftIsTimed ||
+    (timeLimitSeconds != null &&
+      timeLimitSeconds > 0 &&
+      !(draftTimeLimitSource === 'section_auto' && setSectionCount > 1))
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
       name: draftName,
@@ -172,24 +228,69 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       })),
     }
 
-    await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
-    setEditingStemId(null)
+    try {
+      await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
+      setEditingStemId(null)
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to save question stem'
+      const parsed = parseUcatVisibilityError(msg)
+      toast({
+        title: 'Failed to save',
+        description: parsed.link ? (
+          <span>
+            {parsed.textBeforeLink}{' '}
+            <Link href={parsed.link.href} className="underline font-medium">
+              {parsed.link.label}
+            </Link>
+          </span>
+        ) : (
+          msg
+        ),
+        variant: 'destructive',
+      })
+    }
   }
 
   async function save() {
-    await updateSet.mutateAsync({
-      setId,
-      payload: {
-        id: setId,
-        name: plainTextToProseMirror(draftName),
-        description: draftDescription,
-        timeLimitSeconds,
-        isPrivate: draftPrivate,
-        isStudentGenerated: false,
-        stemIds: draftStemIds,
-      },
-    })
+    try {
+      await updateSet.mutateAsync({
+        setId,
+        payload: {
+          id: setId,
+          name: plainTextToProseMirror(draftName),
+          description: draftDescription,
+          timeLimitSeconds,
+          isPrivate: draftPrivate,
+          isStudentGenerated: false,
+          stemIds: draftStemIds,
+        },
+      })
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'Failed to save set'
+      const parsed = parseUcatVisibilityError(msg)
+      toast({
+        title: 'Failed to save',
+        description: parsed.link ? (
+          <span>
+            {parsed.textBeforeLink}{' '}
+            <Link href={parsed.link.href} className="underline font-medium">
+              {parsed.link.label}
+            </Link>
+          </span>
+        ) : (
+          msg
+        ),
+        variant: 'destructive',
+      })
+    }
   }
+
+  const stemsThatWillBecomePublicCount = useMemo(() => {
+    if (draftPrivate) return 0
+    return draftStemIds.filter(
+      (id) => (stemCatalog as UcatStemCatalogItem[]).find((s) => s.id === id)?.isPrivate
+    ).length
+  }, [draftPrivate, draftStemIds, stemCatalog])
 
   const isLoading =
     access.isLoading ||
@@ -222,6 +323,9 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         }
       />
 
+      {stemsThatWillBecomePublicCount > 0 && (
+        <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
+      )}
       <div className="mt-4 h-[70vh] rounded-md border overflow-hidden">
         <UcatSetEditorContent
           draftName={draftName}
@@ -229,6 +333,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           draftIsTimed={draftIsTimed}
           draftTimeLimitMinutes={draftTimeLimitMinutes}
           draftTimeLimitSeconds={draftTimeLimitSeconds}
+          draftTimeLimitSource={draftTimeLimitSource}
+          draftTimeLimitSpeed={draftTimeLimitSpeed}
           draftPrivate={draftPrivate}
           draftStemIds={draftStemIds}
           setDraftStemIds={setDraftStemIds}
@@ -246,15 +352,20 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
             if (!v) {
               setDraftTimeLimitMinutes('')
               setDraftTimeLimitSeconds('')
+              setDraftTimeLimitSource('untimed')
             }
           }}
           onChangeTimeLimitMinutes={setDraftTimeLimitMinutes}
           onChangeTimeLimitSeconds={setDraftTimeLimitSeconds}
+          onChangeTimeLimitSource={setDraftTimeLimitSource}
+          onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
           onChangePrivate={(value) => setDraftPrivate(value)}
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,
             time_limit_seconds: s.time_limit_seconds ?? null,
+            time_per_question: s.time_per_question ?? null,
+            number_of_questions: s.number_of_questions ?? null,
           }))}
         />
       </div>

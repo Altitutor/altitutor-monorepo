@@ -1,106 +1,137 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { DataTable, DataTableToolbar } from '@altitutor/ui'
 import { Eye } from 'lucide-react'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { useUcatClassStudentIds, useUcatClasses, useUcatStudentProgress } from '@/features/ucat/students/hooks/useUcatStudents'
+import {
+  useUcatClassStudentIds,
+  useUcatClasses,
+  useUcatStudentProgressSummary,
+} from '@/features/ucat/students/hooks/useUcatStudents'
 import { applySort, useUcatTableState, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-
-type StudentRow = {
-  student_id: string
-  student_name: string
-  total_sets_attempted: number
-  total_mocks_attempted: number
-  avg_score_points: number | null
-  avg_scaled_score: number | null
-  last_attempted_at: string | null
-}
-
-const columnDefinitions: DataTableColumnDefinition[] = [
-  { key: 'student_name', label: 'Student', visibleByDefault: true },
-  { key: 'total_sets_attempted', label: 'Sets', visibleByDefault: true },
-  { key: 'total_mocks_attempted', label: 'Mocks', visibleByDefault: true },
-  { key: 'avg_score_points', label: 'Avg Score', visibleByDefault: true },
-  { key: 'avg_scaled_score', label: 'Avg Scaled', visibleByDefault: true },
-  { key: 'last_attempted_at', label: 'Last Attempted', visibleByDefault: true },
-  { key: 'actions', label: 'Actions', visibleByDefault: true },
-]
-
-const sortOptions: DataTableSortOption[] = [
-  { key: 'student_name', label: 'Student' },
-  { key: 'total_sets_attempted', label: 'Sets' },
-  { key: 'total_mocks_attempted', label: 'Mocks' },
-  { key: 'avg_score_points', label: 'Avg Score' },
-  { key: 'avg_scaled_score', label: 'Avg Scaled' },
-  { key: 'last_attempted_at', label: 'Last Attempted' },
-]
+import { ProgressModeSelector } from '@/features/ucat/students/progress/components/progress-mode-selector'
+import {
+  type ProgressMode,
+  type TimeFrameDays,
+  TIME_FRAME_OPTIONS,
+} from '@/features/ucat/students/progress/lib/progress-mode'
+import type { StudentProgressSummaryRow } from '@/features/ucat/students/api/students'
 
 export function UcatStudentsPage() {
+  const [mode, setMode] = useState<ProgressMode>('all_time')
+  const [timeFrameDays, setTimeFrameDays] = useState<TimeFrameDays>(
+    TIME_FRAME_OPTIONS[2].value
+  )
+
   const access = useUcatAccess()
-  const progress = useUcatStudentProgress()
+  const progress = useUcatStudentProgressSummary(mode, timeFrameDays)
   const classes = useUcatClasses()
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
+  const tableState = useUcatTableState([
+    'student_name',
+    'total_questions',
+    'total_sets_attempted',
+    'total_mocks_attempted',
+    'exam',
+    'actions',
+  ])
 
-  const classFilter = (tableState.state.filters.class_id?.[0] as string | undefined) ?? 'all'
-  const classStudents = useUcatClassStudentIds(classFilter === 'all' ? null : classFilter)
+  const classFilterValue = (tableState.state.filters.class_id?.[0] as string | undefined) ?? 'all'
+  const classStudents = useUcatClassStudentIds(
+    classFilterValue === 'all' ? null : classFilterValue
+  )
 
-  const rows: StudentRow[] = (progress.data ?? []).map((row) => ({
-    student_id: row.student_id ?? '',
-    student_name: row.student_name ?? '-',
-    total_sets_attempted: row.total_sets_attempted ?? 0,
-    total_mocks_attempted: row.total_mocks_attempted ?? 0,
-    avg_score_points: row.avg_score_points,
-    avg_scaled_score: row.avg_scaled_score,
-    last_attempted_at: row.last_attempted_at,
-  }))
-
+  const rows = useMemo(
+    () => progress.data?.students ?? [],
+    [progress.data?.students]
+  )
   const filteredRows = useMemo(() => {
     const search = tableState.state.search.trim().toLowerCase()
     const allowedIds = new Set(classStudents.data ?? [])
 
     return rows.filter((row) => {
-      const searchHit = search.length === 0 || row.student_name.toLowerCase().includes(search)
-      const classHit = classFilter === 'all' || allowedIds.has(row.student_id)
+      const searchHit =
+        search.length === 0 ||
+        row.student_name.toLowerCase().includes(search)
+      const classHit =
+        classFilterValue === 'all' || allowedIds.has(row.student_id)
       return searchHit && classHit
     })
-  }, [rows, tableState.state.search, classStudents.data, classFilter])
+  }, [rows, tableState.state.search, classStudents.data, classFilterValue])
+
+  const sectionKeys = useMemo(
+    () => (progress.data?.sections ?? []).map((s) => `section_${s.id}`),
+    [progress.data?.sections]
+  )
 
   const sortedRows = useMemo(
     () =>
-      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
-        student_name: (r) => r.student_name,
-        total_sets_attempted: (r) => r.total_sets_attempted,
-        total_mocks_attempted: (r) => r.total_mocks_attempted,
-        avg_score_points: (r) => r.avg_score_points ?? -1,
-        avg_scaled_score: (r) => r.avg_scaled_score ?? -1,
-        last_attempted_at: (r) => r.last_attempted_at ?? '',
-      }),
-    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
+      applySort(
+        filteredRows,
+        tableState.state.sortBy,
+        tableState.state.sortDirection,
+        {
+          student_name: (r) => r.student_name,
+          total_questions: (r) => r.total_questions,
+          total_sets_attempted: (r) => r.total_sets_attempted,
+          total_mocks_attempted: (r) => r.total_mocks_attempted,
+          exam: (r) => r.exam ?? -1,
+          last_attempted_at: (r) => r.last_attempted_at ?? '',
+          ...Object.fromEntries(
+            sectionKeys.map((k) => {
+              const sectionId = k.replace('section_', '')
+              return [
+                k,
+                (r: StudentProgressSummaryRow) =>
+                  r.section_scores[sectionId] ?? -1,
+              ]
+            })
+          ),
+        }
+      ),
+    [
+      filteredRows,
+      tableState.state.sortBy,
+      tableState.state.sortDirection,
+      sectionKeys,
+    ]
   )
 
-  const allColumns: Array<{ key: string; column: ColumnDef<StudentRow> }> = [
+  const allColumns: Array<{ key: string; column: ColumnDef<StudentProgressSummaryRow> }> = [
     { key: 'student_name', column: { accessorKey: 'student_name', header: 'Student' } },
-    { key: 'total_sets_attempted', column: { accessorKey: 'total_sets_attempted', header: 'Sets' } },
-    { key: 'total_mocks_attempted', column: { accessorKey: 'total_mocks_attempted', header: 'Mocks' } },
+    { key: 'total_questions', column: { accessorKey: 'total_questions', header: 'Question attempts' } },
     {
-      key: 'avg_score_points',
-      column: {
-        accessorKey: 'avg_score_points',
-        header: 'Avg Score',
-        cell: ({ row }) => row.original.avg_score_points?.toFixed?.(2) ?? '-',
-      },
+      key: 'total_sets_attempted',
+      column: { accessorKey: 'total_sets_attempted', header: 'Set attempts' },
     },
     {
-      key: 'avg_scaled_score',
+      key: 'total_mocks_attempted',
+      column: { accessorKey: 'total_mocks_attempted', header: 'Mock attempts' },
+    },
+    ...(progress.data?.sections ?? []).map((sec) => ({
+      key: `section_${sec.id}`,
       column: {
-        accessorKey: 'avg_scaled_score',
-        header: 'Avg Scaled',
-        cell: ({ row }) => row.original.avg_scaled_score?.toFixed?.(2) ?? '-',
+        id: `section_${sec.id}`,
+        header: sec.name,
+        accessorFn: (row: StudentProgressSummaryRow) =>
+          row.section_scores[sec.id] ?? null,
+        cell: ({ row }: { row: { original: StudentProgressSummaryRow } }) => {
+          const score = row.original.section_scores[sec.id]
+          return score != null ? String(Math.round(score)) : '-'
+        },
+      },
+    })),
+    {
+      key: 'exam',
+      column: {
+        accessorKey: 'exam',
+        header: 'Exam score (avg)',
+        cell: ({ row }) =>
+          row.original.exam != null ? String(row.original.exam) : '-',
       },
     },
     {
@@ -108,14 +139,17 @@ export function UcatStudentsPage() {
       column: {
         accessorKey: 'last_attempted_at',
         header: 'Last Attempted',
-        cell: ({ row }) => (row.original.last_attempted_at ? new Date(row.original.last_attempted_at).toLocaleString() : '-'),
+        cell: ({ row }) =>
+          row.original.last_attempted_at
+            ? new Date(row.original.last_attempted_at).toLocaleString()
+            : '-',
       },
     },
     {
       key: 'actions',
       column: {
         id: 'actions',
-        header: 'Actions',
+        header: '',
         cell: ({ row }) => (
           <div className="flex justify-end">
             <UcatRowActions
@@ -133,16 +167,59 @@ export function UcatStudentsPage() {
     },
   ]
 
-  const visibleColumns = useVisibleColumns(allColumns, tableState.state.visibleColumns)
+  const visibleColumns = useVisibleColumns(
+    allColumns,
+    [...tableState.state.visibleColumns, 'actions'].filter(
+      (k, i, arr) => arr.indexOf(k) === i
+    )
+  )
 
-  if (access.isLoading || progress.isLoading || classes.isLoading || classStudents.isLoading) return <UcatPageSkeleton rows={8} />
+  const columnDefinitions = useMemo(
+    () =>
+      [
+        { key: 'student_name', label: 'Student', visibleByDefault: true },
+        { key: 'total_questions', label: 'Question attempts', visibleByDefault: true },
+        { key: 'total_sets_attempted', label: 'Set attempts', visibleByDefault: true },
+        { key: 'total_mocks_attempted', label: 'Mock attempts', visibleByDefault: true },
+        ...(progress.data?.sections ?? []).map((sec) => ({
+          key: `section_${sec.id}`,
+          label: sec.name,
+          visibleByDefault: false,
+        })),
+        { key: 'exam', label: 'Exam', visibleByDefault: true },
+        { key: 'last_attempted_at', label: 'Last Attempted', visibleByDefault: false },
+      ] as DataTableColumnDefinition[],
+    [progress.data?.sections]
+  )
+
+  const sortOptions: DataTableSortOption[] = useMemo(
+    () => [
+      { key: 'student_name', label: 'Student' },
+      { key: 'total_questions', label: 'Question attempts' },
+      { key: 'total_sets_attempted', label: 'Set attempts' },
+      { key: 'total_mocks_attempted', label: 'Mock attempts' },
+      ...(progress.data?.sections ?? []).map((sec) => ({
+        key: `section_${sec.id}`,
+        label: sec.name,
+      })),
+      { key: 'exam', label: 'Exam' },
+      { key: 'last_attempted_at', label: 'Last Attempted' },
+    ],
+    [progress.data?.sections]
+  )
+
+  if (access.isLoading || progress.isLoading || classes.isLoading || classStudents.isLoading)
+    return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
 
   const classFilters: DataTableFilterDefinition[] = [
     {
       key: 'class_id',
       label: 'Class',
-      options: (classes.data ?? []).map((row) => ({ label: row.id ?? 'Unknown', value: row.id ?? '' })),
+      options: (classes.data ?? []).map((row) => ({
+        label: row.id ?? 'Unknown',
+        value: row.id ?? '',
+      })),
     },
   ]
 
@@ -155,13 +232,26 @@ export function UcatStudentsPage() {
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Students' }]}
       />
 
+      <ProgressModeSelector
+        mode={mode}
+        onModeChange={setMode}
+        timeFrameDays={timeFrameDays}
+        onTimeFrameDaysChange={setTimeFrameDays}
+        showAttemptFilter={false}
+        className="mb-4"
+      />
+
       <DataTableToolbar
         state={tableState.state}
         onSearchChange={tableState.actions.onSearchChange}
         onFiltersChange={tableState.actions.onFiltersChange}
         onSortChange={tableState.actions.onSortChange}
         onGroupByChange={tableState.actions.onGroupByChange}
-        onVisibleColumnsChange={tableState.actions.onVisibleColumnsChange}
+        onVisibleColumnsChange={(cols) =>
+          tableState.actions.onVisibleColumnsChange(
+            [...cols.filter((c) => c !== 'actions'), 'actions']
+          )
+        }
         onQuickFilterApply={tableState.actions.onQuickFilterApply}
         onReset={tableState.actions.onReset}
         filterDefinitions={classFilters}
@@ -171,7 +261,11 @@ export function UcatStudentsPage() {
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable
+          columns={visibleColumns}
+          data={sortedRows}
+          pageSizeOptions={[10, 20, 50]}
+        />
       </div>
     </div>
   )

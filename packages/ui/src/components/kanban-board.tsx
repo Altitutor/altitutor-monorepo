@@ -23,7 +23,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -32,18 +31,19 @@ import {
   DropdownMenuTrigger,
 } from './dropdown-menu';
 import { ScrollArea } from './scroll-area';
-import { Input } from './input';
+import { SearchableSelectInline } from './searchable-select-inline';
+import { DateRangeFilter } from './date-range-filter';
 import { cn } from '../lib/cn';
 import {
   LayoutGrid,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   Filter,
   Plus,
   ChevronDown,
   X,
-  Columns,
   Layers,
-  Check,
 } from 'lucide-react';
 import { EntityListPillColumn, EntityListStatusColumn, QuickFilter } from './entity-list';
 
@@ -139,61 +139,7 @@ function getPropValue<TItem>(
   return undefined;
 }
 
-function FilterOptionsSubmenu({
-  label,
-  options,
-  selectedValues,
-  searchable = false,
-  onToggle,
-}: {
-  label: string;
-  options: { value: unknown; label: string }[];
-  selectedValues: unknown[];
-  searchable?: boolean;
-  onToggle: (value: unknown) => void;
-}) {
-  const [search, setSearch] = React.useState('');
-  const filteredOptions = React.useMemo(() => {
-    const query = search.trim().toLowerCase();
-    if (!searchable || !query) return options;
-    return options.filter((option) => option.label.toLowerCase().includes(query));
-  }, [options, search, searchable]);
-
-  return (
-    <DropdownMenuSub>
-      <DropdownMenuSubTrigger>{label}</DropdownMenuSubTrigger>
-      <DropdownMenuSubContent>
-        {searchable && (
-          <div className="p-2 pb-1">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={(e) => e.stopPropagation()}
-              placeholder={`Search ${label.toLowerCase()}...`}
-              className="h-8"
-            />
-          </div>
-        )}
-        {filteredOptions.length === 0 ? (
-          <DropdownMenuItem disabled>No matches</DropdownMenuItem>
-        ) : (
-          filteredOptions.map((opt) => {
-            const selected = selectedValues.includes(opt.value);
-            return (
-              <DropdownMenuCheckboxItem
-                key={String(opt.value)}
-                checked={selected}
-                onCheckedChange={() => onToggle(opt.value)}
-              >
-                {opt.label}
-              </DropdownMenuCheckboxItem>
-            );
-          })
-        )}
-      </DropdownMenuSubContent>
-    </DropdownMenuSub>
-  );
-}
+type FilterOption = { value: unknown; label: string };
 
 // ---------------------------------------------------------------------------
 // Main Component
@@ -240,6 +186,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     rightPills.filter((p) => p.visibleByDefault !== false).map((p) => p.key)
   );
   const [activeDragItem, setActiveDragItem] = React.useState<TItem | null>(null);
+  const [groupByOpen, setGroupByOpen] = React.useState(false);
+  const [sortOpen, setSortOpen] = React.useState(false);
 
   const groupBy = controlledGroupBy ?? internalGroupBy;
   const setGroupBy = onGroupByChange ?? setInternalGroupBy;
@@ -259,12 +207,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
 
   const activeColumnDef = columnDefs.find(c => c.key === activeColumnKey) || columnDefs[0];
-
-  const togglePillVisibility = (key: string) => {
-    setVisiblePillKeys(
-      visiblePillKeys.includes(key) ? visiblePillKeys.filter((k) => k !== key) : [...visiblePillKeys, key]
-    );
-  };
+  const visibleSortByOptions = sortByOptions.filter((o) => o.key !== groupBy);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -273,14 +216,6 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
       },
     })
   );
-
-  const toggleFilter = (columnKey: string, value: unknown) => {
-    const current = filters[columnKey] ?? [];
-    const next = current.includes(value)
-      ? current.filter((v) => v !== value)
-      : [...current, value];
-    setFilters({ ...filters, [columnKey]: next.filter((v) => v != null) });
-  };
 
   const removeFilterValue = (columnKey: string, value: unknown) => {
     const current = filters[columnKey] ?? [];
@@ -317,6 +252,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
               if (dr.start && dr.end) {
                 return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
               }
+              if (dr.start) return itemTime >= new Date(dr.start).getTime();
+              if (dr.end) return itemTime <= new Date(dr.end).getTime();
               return false;
             }
 
@@ -392,18 +329,18 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   };
 
   return (
-    <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
+    <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
-      <div className="flex items-center gap-1 p-2 border-b flex-shrink-0 w-full overflow-hidden">
+      <div className="flex flex-wrap items-center gap-1 p-2 flex-shrink-0 w-full overflow-hidden min-w-0">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="mr-auto">
               <LayoutGrid className="h-4 w-4 mr-2" />
-              <span className={cn("hidden sm:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
-              <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+              <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
+              <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[200px]">
+          <DropdownMenuContent align="start" className="w-[240px]">
             <DropdownMenuLabel>Display</DropdownMenuLabel>
             <DropdownMenuCheckboxItem
               checked={hideEmptyColumns}
@@ -411,48 +348,41 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             >
               Hide empty columns
             </DropdownMenuCheckboxItem>
-            
+
             {columnDefs.length > 1 && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    <Columns className="h-4 w-4 mr-2" />
-                    <span>Columns</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-[180px]">
-                    {columnDefs.map((o: KanbanColumnDef<TItem>) => (
-                      <DropdownMenuItem 
-                        key={o.key} 
-                        onClick={() => onActiveColumnKeyChange?.(o.key)}
-                        className={cn(activeColumnKey === o.key && "bg-accent")}
-                      >
-                        {o.label}
-                        {activeColumnKey === o.key && <Check className="h-4 w-4 ml-auto" />}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Columns</DropdownMenuLabel>
+                <div className="px-2 pb-2">
+                  <SearchableSelectInline<KanbanColumnDef<TItem>>
+                    items={columnDefs}
+                    value={activeColumnDef}
+                    onValueChange={(col) => col && onActiveColumnKeyChange?.(col.key)}
+                    getItemId={(c) => c.key}
+                    getItemLabel={(c) => c.label}
+                    searchPlaceholder="Search columns..."
+                    emptyMessage="No columns found"
+                  />
+                </div>
               </>
             )}
 
             {rightPills.length > 0 && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>Show pills</DropdownMenuSubTrigger>
-                  <DropdownMenuSubContent className="w-[180px]">
-                    {rightPills.map((p) => (
-                      <DropdownMenuCheckboxItem
-                        key={p.key}
-                        checked={visiblePillKeys.includes(p.key)}
-                        onCheckedChange={() => togglePillVisibility(p.key)}
-                      >
-                        {p.label}
-                      </DropdownMenuCheckboxItem>
-                    ))}
-                  </DropdownMenuSubContent>
-                </DropdownMenuSub>
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Show pills</DropdownMenuLabel>
+                <div className="px-2 pb-2">
+                  <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
+                    items={rightPills}
+                    value={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
+                    onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
+                    getItemId={(p) => p.key}
+                    getItemLabel={(p) => p.label}
+                    searchPlaceholder="Search columns..."
+                    emptyMessage="No columns found"
+                    multiSelect
+                  />
+                </div>
               </>
             )}
           </DropdownMenuContent>
@@ -460,24 +390,33 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
         {groupByOptions.length > 0 && (
           <div className="flex items-center">
-            <DropdownMenu>
+            <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className={cn(groupBy && "rounded-r-none")}>
                   <Layers className="h-4 w-4 mr-2" />
-                  <span className={cn("hidden sm:inline", !groupBy && "opacity-50")}>
+                  <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
                     Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+                  <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[180px]">
-                <DropdownMenuItem onClick={() => setGroupBy(null)}>None</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-[220px] p-0">
+                <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {groupByOptions.map((o: { key: string; label: string }) => (
-                  <DropdownMenuItem key={o.key} onClick={() => setGroupBy(o.key)}>
-                    {o.label}
-                  </DropdownMenuItem>
-                ))}
+                <SearchableSelectInline<{ key: string; label: string }>
+                  items={groupByOptions}
+                  value={groupBy ? groupByOptions.find((o) => o.key === groupBy) ?? null : null}
+                  onValueChange={(opt) => {
+                    setGroupBy(opt?.key ?? null);
+                    setGroupByOpen(false);
+                  }}
+                  getItemId={(o) => o.key}
+                  getItemLabel={(o) => o.label}
+                  searchPlaceholder="Search..."
+                  emptyMessage="No options found"
+                  allowClear
+                  clearLabel="None"
+                />
               </DropdownMenuContent>
             </DropdownMenu>
             {groupBy && (
@@ -495,44 +434,70 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
         {sortByOptions.length > 0 && (
           <div className="flex items-center">
-            <DropdownMenu>
+            <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className={cn(sortBy !== 'name' && "rounded-r-none")}>
                   <ArrowUpDown className="h-4 w-4 mr-2" />
                   <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
-                    Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy} {sortBy !== 'name' && `(${sortDirection})`}
+                    Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+                  <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuItem onClick={() => setSortBy('name', 'asc')}>None (by name)</DropdownMenuItem>
+              <DropdownMenuContent align="end" className="w-[240px] p-0">
+                <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {sortByOptions.map((o: { key: string; label: string }) => (
-                  <DropdownMenuItem
-                    key={o.key}
-                    onClick={() => {
-                      const nextDirection =
-                        sortBy === o.key && sortDirection === 'asc' ? 'desc' : 'asc';
-                      setSortBy(o.key, nextDirection);
-                    }}
-                  >
-                    {o.label} {sortBy === o.key && <span className="ml-1">({sortDirection})</span>}
-                  </DropdownMenuItem>
-                ))}
+                <SearchableSelectInline<{ key: string; label: string }>
+                  items={visibleSortByOptions}
+                  value={
+                    sortBy === 'name'
+                      ? null
+                      : visibleSortByOptions.find((o) => o.key === sortBy) ?? null
+                  }
+                  onValueChange={(opt) => {
+                    if (opt) {
+                      const nextDir =
+                        sortBy === opt.key ? (sortDirection === 'asc' ? 'desc' : 'asc') : 'asc';
+                      setSortBy(opt.key, nextDir);
+                    } else {
+                      setSortBy('name', 'asc');
+                    }
+                    setSortOpen(false);
+                  }}
+                  getItemId={(o) => o.key}
+                  getItemLabel={(o) => o.label}
+                  searchPlaceholder="Search sort options..."
+                  emptyMessage="No options found"
+                  allowClear
+                  clearLabel="None (by name)"
+                />
               </DropdownMenuContent>
             </DropdownMenu>
             {sortBy !== 'name' && (
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-l-none border-l-0 px-2"
-                onClick={() => {
-                  setSortBy('name', 'asc');
-                }}
-              >
-                <X className="h-4 w-4" />
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-none border-l-0 px-2"
+                  onClick={() => setSortBy(sortBy, sortDirection === 'asc' ? 'desc' : 'asc')}
+                  aria-label={sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'}
+                >
+                  {sortDirection === 'asc' ? (
+                    <ArrowUp className="h-4 w-4" />
+                  ) : (
+                    <ArrowDown className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="rounded-l-none border-l-0 px-2"
+                  onClick={() => setSortBy('name', 'asc')}
+                  aria-label="Clear sort"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </>
             )}
           </div>
         )}
@@ -542,10 +507,10 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className={cn(activeFilterCount > 0 && "rounded-r-none")}>
                 <Filter className="h-4 w-4 mr-2" />
-                <span className={cn("hidden sm:inline", activeFilterCount === 0 && "opacity-50")}>
+                <span className={cn("hidden md:inline", activeFilterCount === 0 && "opacity-50")}>
                   Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
                 </span>
-                <ChevronDown className="h-4 w-4 ml-1 sm:ml-2" />
+                <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
               </Button>
             </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
@@ -587,27 +552,54 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                       const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
                       const colDef = columnDefs.find(c => c.key === columnKey);
                       const label = pill?.label ?? statusCol?.label ?? colDef?.label ?? columnKey;
-                      
+                      const isDateRange = pill?.filterType === 'date-range';
+                      const dateRangeVal =
+                        isDateRange &&
+                        selected[0] &&
+                        typeof selected[0] === 'object' &&
+                        (selected[0] as { type?: string }).type === 'date_range'
+                          ? (selected[0] as { start?: string; end?: string })
+                          : null;
+
                       return (
                         <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
-                          <span className="font-semibold">{label} is</span>
-                          {selected.map((val, idx) => {
-                            const options = pill?.filterOptions ?? statusColumn?.options ?? colDef?.options ?? [];
-                            const opt = options.find((o: { value: unknown; label: string }) => String(o.value) === String(val));
-                            const valLabel = opt?.label ?? String(val);
-                            return (
-                              <React.Fragment key={String(val)}>
-                                {idx > 0 && <span className="opacity-50">OR</span>}
-                                <button
-                                  onClick={() => removeFilterValue(columnKey, val)}
-                                  className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                                >
-                                  {valLabel}
-                                  <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                                </button>
-                              </React.Fragment>
-                            );
-                          })}
+                          <span className="font-semibold">{label}:</span>
+                          {dateRangeVal ? (
+                            <button
+                              onClick={() => removeFilterValue(columnKey, selected[0])}
+                              className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                            >
+                              {dateRangeVal.start && dateRangeVal.end
+                                ? `${dateRangeVal.start} – ${dateRangeVal.end}`
+                                : dateRangeVal.start
+                                  ? `from ${dateRangeVal.start}`
+                                  : dateRangeVal.end
+                                    ? `to ${dateRangeVal.end}`
+                                    : 'set'}
+                              <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                            </button>
+                          ) : (
+                            selected.map((val, idx) => {
+                              const options =
+                                pill?.filterOptions ?? statusColumn?.options ?? colDef?.options ?? [];
+                              const opt = options.find(
+                                (o: { value: unknown; label: string }) => String(o.value) === String(val)
+                              );
+                              const valLabel = opt?.label ?? String(val);
+                              return (
+                                <React.Fragment key={String(val)}>
+                                  {idx > 0 && <span className="opacity-50">OR</span>}
+                                  <button
+                                    onClick={() => removeFilterValue(columnKey, val)}
+                                    className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                                  >
+                                    {valLabel}
+                                    <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                                  </button>
+                                </React.Fragment>
+                              );
+                            })
+                          )}
                         </div>
                       );
                     })}
@@ -630,45 +622,204 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
                     if (statusColumn && statusColumn.filterable !== false) {
                       renderedKeys.add(statusColumn.key);
+                      const options: FilterOption[] = statusColumn.options.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }));
+                      const selectedOptions = options.filter((o) =>
+                        (filters[statusColumn.key] ?? []).includes(o.value)
+                      );
                       filterElements.push(
-                        <FilterOptionsSubmenu
-                          key={statusColumn.key}
-                          label="Status"
-                          options={statusColumn.options}
-                          selectedValues={filters[statusColumn.key] ?? []}
-                          onToggle={(value) => toggleFilter(statusColumn.key, value)}
-                        />
+                        <DropdownMenuSub key={statusColumn.key}>
+                          <DropdownMenuSubTrigger>{statusColumn.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[280px] p-0">
+                            <SearchableSelectInline<FilterOption>
+                              items={options}
+                              value={selectedOptions}
+                              onValueChange={(opts) => {
+                                const next = opts.map((o) => o.value);
+                                if (next.length === 0) {
+                                  const rest = Object.fromEntries(
+                                    Object.entries(filters).filter(([k]) => k !== statusColumn.key)
+                                  );
+                                  setFilters(rest);
+                                } else {
+                                  setFilters({ ...filters, [statusColumn.key]: next });
+                                }
+                              }}
+                              getItemId={(o) => String(o.value)}
+                              getItemLabel={(o) => o.label}
+                              searchPlaceholder={`Search ${statusColumn.label.toLowerCase()}...`}
+                              emptyMessage="No results found"
+                              multiSelect
+                            />
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
                       );
                     }
 
                     columnDefs.forEach((col: KanbanColumnDef<TItem>) => {
                       if (renderedKeys.has(col.key)) return;
                       renderedKeys.add(col.key);
+                      const options: FilterOption[] = col.options.map((o) => ({
+                        value: o.value,
+                        label: o.label,
+                      }));
+                      const selectedOptions = options.filter((o) =>
+                        (filters[col.key] ?? []).includes(o.value)
+                      );
                       filterElements.push(
-                        <FilterOptionsSubmenu
-                          key={col.key}
-                          label={col.label}
-                          options={col.options}
-                          selectedValues={filters[col.key] ?? []}
-                          onToggle={(value) => toggleFilter(col.key, value)}
-                        />
+                        <DropdownMenuSub key={col.key}>
+                          <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[280px] p-0">
+                            <SearchableSelectInline<FilterOption>
+                              items={options}
+                              value={selectedOptions}
+                              onValueChange={(opts) => {
+                                const next = opts.map((o) => o.value);
+                                if (next.length === 0) {
+                                  const rest = Object.fromEntries(
+                                    Object.entries(filters).filter(([k]) => k !== col.key)
+                                  );
+                                  setFilters(rest);
+                                } else {
+                                  setFilters({ ...filters, [col.key]: next });
+                                }
+                              }}
+                              getItemId={(o) => String(o.value)}
+                              getItemLabel={(o) => o.label}
+                              searchPlaceholder={`Search ${col.label.toLowerCase()}...`}
+                              emptyMessage="No results found"
+                              multiSelect
+                            />
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
                       );
                     });
 
                     rightPills
-                      .filter((p: EntityListPillColumn<TItem, unknown>) => p.filterable !== false && p.filterOptions?.length)
+                      .filter(
+                        (p: EntityListPillColumn<TItem, unknown>) =>
+                          p.filterable !== false &&
+                          (p.filterType === 'date-range' || (p.filterOptions?.length ?? 0) > 0)
+                      )
                       .forEach((p: EntityListPillColumn<TItem, unknown>) => {
                         if (renderedKeys.has(p.key)) return;
                         renderedKeys.add(p.key);
+
+                        if (p.filterType === 'date-range') {
+                          const dr = (filters[p.key] ?? [])[0] as
+                            | { type: 'date_range'; start?: string; end?: string }
+                            | undefined;
+                          const fromVal = dr?.start ?? '';
+                          const toVal = dr?.end ?? '';
+                          filterElements.push(
+                            <DropdownMenuSub key={p.key}>
+                              <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-[320px] p-0">
+                                <DateRangeFilter
+                                  fromValue={fromVal}
+                                  toValue={toVal}
+                                  onFromChange={(v) => {
+                                    const next =
+                                      v || toVal
+                                        ? [
+                                            {
+                                              type: 'date_range' as const,
+                                              start: v || undefined,
+                                              end: toVal || undefined,
+                                            },
+                                          ]
+                                        : [];
+                                    if (next.length === 0 && !toVal) {
+                                      const rest = Object.fromEntries(
+                                        Object.entries(filters).filter(([k]) => k !== p.key)
+                                      );
+                                      setFilters(rest);
+                                    } else {
+                                      setFilters({ ...filters, [p.key]: next });
+                                    }
+                                  }}
+                                  onToChange={(v) => {
+                                    const next =
+                                      fromVal || v
+                                        ? [
+                                            {
+                                              type: 'date_range' as const,
+                                              start: fromVal || undefined,
+                                              end: v || undefined,
+                                            },
+                                          ]
+                                        : [];
+                                    if (next.length === 0 && !fromVal) {
+                                      const rest = Object.fromEntries(
+                                        Object.entries(filters).filter(([k]) => k !== p.key)
+                                      );
+                                      setFilters(rest);
+                                    } else {
+                                      setFilters({ ...filters, [p.key]: next });
+                                    }
+                                  }}
+                                  onRangeChange={(from, to) => {
+                                    const next =
+                                      from || to
+                                        ? [
+                                            {
+                                              type: 'date_range' as const,
+                                              start: from || undefined,
+                                              end: to || undefined,
+                                            },
+                                          ]
+                                        : [];
+                                    if (next.length === 0) {
+                                      const rest = Object.fromEntries(
+                                        Object.entries(filters).filter(([k]) => k !== p.key)
+                                      );
+                                      setFilters(rest);
+                                    } else {
+                                      setFilters({ ...filters, [p.key]: next });
+                                    }
+                                  }}
+                                />
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          );
+                          return;
+                        }
+
+                        const options: FilterOption[] = p.filterOptions!.map((o) => ({
+                          value: o.value,
+                          label: o.label,
+                        }));
+                        const selectedOptions = options.filter((o) =>
+                          (filters[p.key] ?? []).includes(o.value)
+                        );
                         filterElements.push(
-                          <FilterOptionsSubmenu
-                            key={p.key}
-                            label={p.label}
-                            options={p.filterOptions!}
-                            selectedValues={filters[p.key] ?? []}
-                            searchable={p.filterSearchable}
-                            onToggle={(value) => toggleFilter(p.key, value)}
-                          />
+                          <DropdownMenuSub key={p.key}>
+                            <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent className="w-[280px] p-0">
+                              <SearchableSelectInline<FilterOption>
+                                items={options}
+                                value={selectedOptions}
+                                onValueChange={(opts) => {
+                                  const next = opts.map((o) => o.value);
+                                  if (next.length === 0) {
+                                    const rest = Object.fromEntries(
+                                      Object.entries(filters).filter(([k]) => k !== p.key)
+                                    );
+                                    setFilters(rest);
+                                  } else {
+                                    setFilters({ ...filters, [p.key]: next });
+                                  }
+                                }}
+                                getItemId={(o) => String(o.value)}
+                                getItemLabel={(o) => o.label}
+                                searchPlaceholder={`Search ${p.label.toLowerCase()}...`}
+                                emptyMessage="No results found"
+                                multiSelect
+                              />
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
                         );
                       });
 
@@ -727,6 +878,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     getGroupLabel={getGroupLabel}
                     statusColumn={statusColumn}
                     rightPills={rightPills.filter(p => visiblePillKeys.includes(p.key))}
+                    columnDefs={columnDefs}
                     visiblePillKeys={visiblePillKeys}
                     emptyMessage={emptyMessage}
                   />
@@ -764,6 +916,7 @@ interface KanbanColumnProps<TItem> {
   getGroupLabel?: (columnKey: string, valueKey: string) => string;
   statusColumn?: EntityListStatusColumn<TItem, unknown>;
   rightPills: EntityListPillColumn<TItem, unknown>[];
+  columnDefs: KanbanColumnDef<TItem, unknown>[];
   visiblePillKeys: string[];
   emptyMessage: string;
 }
@@ -780,6 +933,7 @@ function KanbanColumn<TItem>({
   getGroupLabel,
   statusColumn,
   rightPills,
+  columnDefs,
   visiblePillKeys,
   emptyMessage,
 }: KanbanColumnProps<TItem>) {
@@ -791,7 +945,7 @@ function KanbanColumn<TItem>({
     }
     const map = new Map<string, TItem[]>();
     for (const item of items) {
-      const val = getPropValue(item, groupBy, rightPills, statusColumn);
+      const val = getPropValue(item, groupBy, rightPills, statusColumn, columnDefs);
       const k = val == null ? '__null__' : String(val);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(item);
@@ -802,7 +956,7 @@ function KanbanColumn<TItem>({
       label: getGroupLabel ? getGroupLabel(groupBy, k) : (k === '__null__' ? 'No value' : k),
       items: groupItems,
     }));
-  }, [items, groupBy, rightPills, statusColumn, getGroupLabel]);
+  }, [items, groupBy, rightPills, statusColumn, columnDefs, getGroupLabel]);
 
   return (
     <div

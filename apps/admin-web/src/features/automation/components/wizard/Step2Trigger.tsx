@@ -8,8 +8,8 @@ import {
   FormLabel,
   FormMessage,
   FormDescription,
+  SearchableSelect,
 } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import { AutomationConditionsBuilder } from '../AutomationConditionsBuilder';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
 import type { ActivityEventType, AutomationCondition } from '../../types';
@@ -18,6 +18,9 @@ import { ENTITY_TYPES, EVENT_TYPES } from '../../constants';
 interface Step2TriggerProps {
   form: UseFormReturn<WizardFormData>;
 }
+
+type EntityTypeOption = (typeof ENTITY_TYPES)[number];
+type EventTypeOption = (typeof EVENT_TYPES)[number];
 
 export function Step2Trigger({ form }: Step2TriggerProps) {
   const selectedEventTypes = form.watch('event_types');
@@ -35,32 +38,29 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
       <div className="space-y-4">
         <div className="flex flex-wrap items-center gap-2 text-base">
           <span>When a</span>
-          
+
           <FormField
             control={form.control}
             name="entity_type"
-            render={({ field }) => (
+            render={({ field }) => {
+              const entity = ENTITY_TYPES.find((t) => t.value === field.value) ?? null;
+              return (
               <FormItem className="w-[180px]">
                 <FormControl>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Entity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ENTITY_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect<EntityTypeOption>
+                    items={ENTITY_TYPES}
+                    value={entity}
+                    onValueChange={(item) => field.onChange(item?.value ?? '')}
+                    getItemLabel={(t) => t.label}
+                    getItemId={(t) => t.value}
+                    placeholder="Entity"
+                    triggerClassName="h-9"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
-            )}
+              );
+            }}
           />
 
           <span>is</span>
@@ -68,30 +68,30 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
           <FormField
             control={form.control}
             name="event_types"
-            render={() => (
+            render={({ field }) => {
+              const event =
+                EVENT_TYPES.find((t) => t.value === (field.value?.[0] ?? '')) ?? null;
+              return (
               <FormItem className="w-[140px]">
                 <FormControl>
-                  <Select
-                    value={selectedEventTypes[0] || ''}
-                    onValueChange={(value) => {
-                      form.setValue('event_types', [value as ActivityEventType]);
+                  <SearchableSelect<EventTypeOption>
+                    items={EVENT_TYPES}
+                    value={event}
+                    onValueChange={(item) => {
+                      field.onChange(
+                        item ? [item.value as ActivityEventType] : []
+                      );
                     }}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Event" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {EVENT_TYPES.map((eventType) => (
-                        <SelectItem key={eventType.value} value={eventType.value}>
-                          {eventType.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    getItemLabel={(t) => t.label}
+                    getItemId={(t) => t.value}
+                    placeholder="Event"
+                    triggerClassName="h-9"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
-            )}
+              );
+            }}
           />
         </div>
 

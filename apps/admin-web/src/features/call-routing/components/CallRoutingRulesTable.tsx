@@ -18,11 +18,7 @@ import {
   DialogFooter,
   Label,
   Switch,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { Edit2, Plus, Trash2, Phone } from 'lucide-react';
 import {
@@ -45,11 +41,18 @@ interface CallRoutingRulesTableProps {
   onUpdate: () => void;
 }
 
-const RULE_TYPES: { value: CallRoutingRuleType; label: string; description: string }[] = [
-  { value: 'BUSINESS_HOURS', label: 'Business Hours', description: 'Forward calls during opening hours' },
-  { value: 'ON_CALL', label: 'On-Call', description: 'Forward calls to on-call staff when not during business hours' },
-  { value: 'DEFAULT', label: 'Default', description: 'Play message when no other rules match' },
+const RULE_TYPES: { id: CallRoutingRuleType; label: string; description: string }[] = [
+  { id: 'BUSINESS_HOURS', label: 'Business Hours', description: 'Forward calls during opening hours' },
+  { id: 'ON_CALL', label: 'On-Call', description: 'Forward calls to on-call staff when not during business hours' },
+  { id: 'DEFAULT', label: 'Default', description: 'Play message when no other rules match' },
 ];
+
+const MESSAGE_TYPES: { id: MessageType; label: string }[] = [
+  { id: 'TTS', label: 'Text-to-Speech' },
+  { id: 'AUDIO', label: 'Prerecorded Audio' },
+];
+
+const TRIGGER_BUTTON_CLASS = 'w-full justify-start font-normal';
 
 const DEFAULT_PRIORITIES: Record<CallRoutingRuleType, number> = {
   BUSINESS_HOURS: 0,
@@ -227,7 +230,7 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
                   {numberRules.map((rule) => (
                     <TableRow key={rule.id}>
                       <TableCell className="font-medium">
-                        {RULE_TYPES.find(t => t.value === rule.rule_type)?.label || rule.rule_type}
+                        {RULE_TYPES.find(t => t.id === rule.rule_type)?.label || rule.rule_type}
                       </TableCell>
                       <TableCell>{rule.priority}</TableCell>
                       <TableCell>
@@ -301,25 +304,32 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="edit-rule-type">Rule Type</Label>
-              <Select value={ruleType} onValueChange={(value) => {
-                const newRuleType = value as CallRoutingRuleType;
-                setRuleType(newRuleType);
-                setPriority(DEFAULT_PRIORITIES[newRuleType]);
-              }}>
-                <SelectTrigger id="edit-rule-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RULE_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <div>
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-xs text-muted-foreground">{type.description}</div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof RULE_TYPES)[number]>
+                items={RULE_TYPES}
+                value={RULE_TYPES.find((t) => t.id === ruleType) ?? null}
+                onValueChange={(item) => {
+                  if (item) {
+                    setRuleType(item.id);
+                    setPriority(DEFAULT_PRIORITIES[item.id]);
+                  }
+                }}
+                getItemId={(t) => t.id}
+                getItemLabel={(t) => t.label}
+                placeholder="Select rule type"
+                searchPlaceholder="Search rule types..."
+                emptyMessage="No rule types found"
+                renderItem={(type, isSelected) => (
+                  <div className="flex flex-col gap-0.5">
+                    <span className={isSelected ? 'font-medium' : ''}>{type.label}</span>
+                    <span className="text-xs text-muted-foreground">{type.description}</span>
+                  </div>
+                )}
+                trigger={
+                  <Button variant="outline" id="edit-rule-type" className={TRIGGER_BUTTON_CLASS}>
+                    {RULE_TYPES.find((t) => t.id === ruleType)?.label ?? 'Select rule type'}
+                  </Button>
+                }
+              />
             </div>
 
             <div className="space-y-2">
@@ -356,15 +366,21 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
               <>
                 <div className="space-y-2">
                   <Label htmlFor="edit-message-type">Message Type</Label>
-                  <Select value={messageType} onValueChange={(value) => setMessageType(value as MessageType)}>
-                    <SelectTrigger id="edit-message-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TTS">Text-to-Speech</SelectItem>
-                      <SelectItem value="AUDIO">Prerecorded Audio</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect<(typeof MESSAGE_TYPES)[number]>
+                    items={MESSAGE_TYPES}
+                    value={MESSAGE_TYPES.find((t) => t.id === messageType) ?? null}
+                    onValueChange={(item) => item && setMessageType(item.id)}
+                    getItemId={(t) => t.id}
+                    getItemLabel={(t) => t.label}
+                    placeholder="Select message type"
+                    searchPlaceholder="Search message types..."
+                    emptyMessage="No message types found"
+                    trigger={
+                      <Button variant="outline" id="edit-message-type" className={TRIGGER_BUTTON_CLASS}>
+                        {MESSAGE_TYPES.find((t) => t.id === messageType)?.label ?? 'Select message type'}
+                      </Button>
+                    }
+                  />
                 </div>
 
                 {messageType === 'TTS' && (
@@ -440,41 +456,54 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="add-owned-number">Phone Number</Label>
-              <Select value={selectedOwnedNumberId} onValueChange={setSelectedOwnedNumberId}>
-                <SelectTrigger id="add-owned-number">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {ownedNumbers.map((number) => (
-                    <SelectItem key={number.id} value={number.id}>
-                      {number.label || number.phone_e164}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<OwnedNumber>
+                items={ownedNumbers}
+                value={ownedNumbers.find((n) => n.id === selectedOwnedNumberId) ?? null}
+                onValueChange={(item) => item && setSelectedOwnedNumberId(item.id ?? '')}
+                getItemId={(n) => n.id ?? ''}
+                getItemLabel={(n) => (n.label || n.phone_e164) ?? ''}
+                placeholder="Select phone number"
+                searchPlaceholder="Search phone numbers..."
+                emptyMessage="No phone numbers found"
+                trigger={
+                  <Button variant="outline" id="add-owned-number" className={TRIGGER_BUTTON_CLASS}>
+                    {(() => {
+                      const n = ownedNumbers.find((num) => num.id === selectedOwnedNumberId);
+                      return n ? ((n.label || n.phone_e164) ?? '') : 'Select phone number';
+                    })()}
+                  </Button>
+                }
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="add-rule-type">Rule Type</Label>
-              <Select value={ruleType} onValueChange={(value) => {
-                const newRuleType = value as CallRoutingRuleType;
-                setRuleType(newRuleType);
-                setPriority(DEFAULT_PRIORITIES[newRuleType]);
-              }}>
-                <SelectTrigger id="add-rule-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {RULE_TYPES.map((type) => (
-                    <SelectItem key={type.value} value={type.value}>
-                      <div>
-                        <div className="font-medium">{type.label}</div>
-                        <div className="text-xs text-muted-foreground">{type.description}</div>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof RULE_TYPES)[number]>
+                items={RULE_TYPES}
+                value={RULE_TYPES.find((t) => t.id === ruleType) ?? null}
+                onValueChange={(item) => {
+                  if (item) {
+                    setRuleType(item.id);
+                    setPriority(DEFAULT_PRIORITIES[item.id]);
+                  }
+                }}
+                getItemId={(t) => t.id}
+                getItemLabel={(t) => t.label}
+                placeholder="Select rule type"
+                searchPlaceholder="Search rule types..."
+                emptyMessage="No rule types found"
+                renderItem={(type, isSelected) => (
+                  <div className="flex flex-col gap-0.5">
+                    <span className={isSelected ? 'font-medium' : ''}>{type.label}</span>
+                    <span className="text-xs text-muted-foreground">{type.description}</span>
+                  </div>
+                )}
+                trigger={
+                  <Button variant="outline" id="add-rule-type" className={TRIGGER_BUTTON_CLASS}>
+                    {RULE_TYPES.find((t) => t.id === ruleType)?.label ?? 'Select rule type'}
+                  </Button>
+                }
+              />
             </div>
 
             <div className="space-y-2">
@@ -511,15 +540,21 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
               <>
                 <div className="space-y-2">
                   <Label htmlFor="add-message-type">Message Type</Label>
-                  <Select value={messageType} onValueChange={(value) => setMessageType(value as MessageType)}>
-                    <SelectTrigger id="add-message-type">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="TTS">Text-to-Speech</SelectItem>
-                      <SelectItem value="AUDIO">Prerecorded Audio</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect<(typeof MESSAGE_TYPES)[number]>
+                    items={MESSAGE_TYPES}
+                    value={MESSAGE_TYPES.find((t) => t.id === messageType) ?? null}
+                    onValueChange={(item) => item && setMessageType(item.id)}
+                    getItemId={(t) => t.id}
+                    getItemLabel={(t) => t.label}
+                    placeholder="Select message type"
+                    searchPlaceholder="Search message types..."
+                    emptyMessage="No message types found"
+                    trigger={
+                      <Button variant="outline" id="add-message-type" className={TRIGGER_BUTTON_CLASS}>
+                        {MESSAGE_TYPES.find((t) => t.id === messageType)?.label ?? 'Select message type'}
+                      </Button>
+                    }
+                  />
                 </div>
 
                 {messageType === 'TTS' && (

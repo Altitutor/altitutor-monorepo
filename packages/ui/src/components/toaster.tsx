@@ -13,6 +13,7 @@ export interface ToastData extends ToastProps {
   id: string;
   title?: string;
   description?: React.ReactNode;
+  action?: { label: string; onClick: () => void };
 }
 
 interface ToasterProps {
@@ -40,6 +41,18 @@ export function Toaster({ toasts, onDismiss }: ToasterProps) {
             {toast.title && <ToastTitle>{toast.title}</ToastTitle>}
             {toast.description && (
               <ToastDescription>{toast.description}</ToastDescription>
+            )}
+            {toast.action && (
+              <button
+                type="button"
+                onClick={() => {
+                  toast.action?.onClick();
+                  onDismiss(toast.id);
+                }}
+                className="text-sm font-medium text-primary hover:underline underline-offset-4 mt-1"
+              >
+                {toast.action.label}
+              </button>
             )}
           </div>
           <ToastClose onClick={(e) => {

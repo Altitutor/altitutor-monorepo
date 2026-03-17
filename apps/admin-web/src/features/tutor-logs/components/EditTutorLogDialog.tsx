@@ -10,7 +10,7 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { useTutorLog, useUpdateTutorLog } from '../hooks/useTutorLogsQuery';
@@ -256,21 +256,14 @@ export function EditTutorLogDialog({
               <div className="p-6">
                 <div className="space-y-2">
                   <Label>Created By</Label>
-                  <Select
-                    value={createdBy}
-                    onValueChange={setCreatedBy}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select staff member" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {staffList.map((staff) => (
-                        <SelectItem key={staff.id} value={staff.id}>
-                          {staff.first_name} {staff.last_name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect<{ id: string; first_name: string; last_name: string }>
+                    items={staffList}
+                    value={staffList.find((s) => s.id === createdBy) ?? null}
+                    onValueChange={(item) => item && setCreatedBy(item.id)}
+                    getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+                    getItemId={(s) => s.id}
+                    placeholder="Select staff member"
+                  />
                   {!createdBy && (
                     <p className="text-sm text-destructive">Created by is required</p>
                   )}

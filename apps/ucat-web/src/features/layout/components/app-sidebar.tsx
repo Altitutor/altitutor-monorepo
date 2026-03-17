@@ -1,10 +1,13 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { Badge } from '@altitutor/ui'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { useComingSoon } from '@/features/layout/context/coming-soon-context'
+import { useSections } from '@/features/progress/hooks/use-sections'
 import { appNavigation } from '@/features/layout/config/navigation'
 import { isComingSoon } from '@/features/layout/config/coming-soon'
 import { cn } from '@/lib/utils'
@@ -22,6 +25,17 @@ export function AppSidebar({
 }) {
   const pathname = usePathname()
   const { showComingSoonModal } = useComingSoon()
+  const { data: sections = [] } = useSections()
+  const [progressExpanded, setProgressExpanded] = useState(() =>
+    pathname.startsWith('/progress')
+  )
+
+  useEffect(() => {
+    if (pathname.startsWith('/progress')) {
+      setProgressExpanded(true)
+    }
+  }, [pathname])
+
   // On mobile, visibility is driven only by mobileOpen. On desktop, by !collapsed.
   const isVisible = isMobile ? mobileOpen : !collapsed
   const logoSrc = '/images/logo-banner-dark.svg'
@@ -89,6 +103,90 @@ export function AppSidebar({
                           Coming soon
                         </Badge>
                       </button>
+                    )
+                  }
+
+                  if (item.expandable && item.href === '/progress') {
+                    const isProgressActive =
+                      pathname === '/progress' ||
+                      pathname.startsWith('/progress/sections/') ||
+                      pathname.startsWith('/progress/mocks')
+                    return (
+                      <div key={item.href} className="space-y-0.5">
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                            isProgressActive
+                              ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
+                              : 'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                          )}
+                          onClick={onCloseMobile}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="ml-3 flex-1">{item.label}</span>
+                          <button
+                            type="button"
+                            aria-expanded={progressExpanded}
+                            aria-label={
+                              progressExpanded
+                                ? 'Collapse progress menu'
+                                : 'Expand progress menu'
+                            }
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setProgressExpanded((prev) => !prev)
+                            }}
+                            className={cn(
+                              'flex items-center justify-center p-1 -m-1 transition-colors rounded',
+                              'text-sidebar-foreground/70 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                            )}
+                          >
+                            {progressExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronLeft className="h-4 w-4" />
+                            )}
+                          </button>
+                        </Link>
+                        {progressExpanded && (
+                          <div className="ml-4 space-y-0.5 border-l border-sidebar-foreground/20 pl-2">
+                            {sections.map((sec) => {
+                              const secActive =
+                                pathname ===
+                                `/progress/sections/${sec.id}`
+                              return (
+                                <Link
+                                  key={sec.id}
+                                  href={`/progress/sections/${sec.id}`}
+                                  className={cn(
+                                    'flex items-center rounded-md px-2 py-1.5 text-sm transition-colors',
+                                    secActive
+                                      ? 'bg-sidebar-foreground/15 text-sidebar-foreground font-medium'
+                                      : 'text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                                  )}
+                                  onClick={onCloseMobile}
+                                >
+                                  {sec.name}
+                                </Link>
+                              )
+                            })}
+                            <Link
+                              href="/progress/mocks"
+                              className={cn(
+                                'flex items-center rounded-md px-2 py-1.5 text-sm transition-colors',
+                                pathname === '/progress/mocks'
+                                  ? 'bg-sidebar-foreground/15 text-sidebar-foreground font-medium'
+                                  : 'text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                              )}
+                              onClick={onCloseMobile}
+                            >
+                              Mocks
+                            </Link>
+                          </div>
+                        )}
+                      </div>
                     )
                   }
 

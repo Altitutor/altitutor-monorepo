@@ -16,13 +16,11 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
 
@@ -192,7 +190,6 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
   }, [curriculum, form, getValidYearLevels]);
 
   // Subject search state
-  const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(subjectSearchQuery, 300);
   // Cache of selected subject objects (to show subjects that don't match current filters)
@@ -217,13 +214,6 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
   );
 
   const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
-
-  // Reset search when popover closes
-  useEffect(() => {
-    if (!isSubjectPopoverOpen) {
-      setSubjectSearchQuery('');
-    }
-  }, [isSubjectPopoverOpen]);
 
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
@@ -255,7 +245,6 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     form.setValue('subject_ids', [...currentIds, subject.id]);
     // Cache the subject object so we can display it even if filters change
     setSelectedSubjectsCache(prev => new Map(prev).set(subject.id, subject));
-    setIsSubjectPopoverOpen(false);
     setSubjectSearchQuery('');
   };
 
@@ -377,44 +366,27 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Year Level *</FormLabel>
-                  <div className="relative">
-                    <Select 
-                      value={field.value || ""} 
-                      onValueChange={(value) => {
-                        field.onChange(value === "" ? undefined : value);
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger className={cn(field.value && "pr-10 [&_svg]:hidden")}>
-                          <SelectValue placeholder="Select year level" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {validYearLevels.map((year: string) => (
-                          <SelectItem key={year} value={year}>
-                            {year === 'Reception' ? 'Reception' : `Year ${year}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {field.value && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                  <FormControl>
+                    <SearchableSelect<string>
+                      items={validYearLevels}
+                      value={field.value && validYearLevels.includes(field.value) ? field.value : null}
+                      onValueChange={(item) => {
+                        if (item === null) {
                           const currentCurriculum = form.getValues('curriculum');
                           form.setValue('year_level', undefined as unknown as TrialContactFormValues['year_level'], { shouldValidate: true });
-                          // If curriculum requires a year level, clear it too
                           if (currentCurriculum && getValidYearLevels(currentCurriculum).length > 0) {
                             form.setValue('curriculum', undefined as unknown as TrialContactFormValues['curriculum'], { shouldValidate: true });
                           }
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
+                        } else {
+                          field.onChange(item);
+                        }
+                      }}
+                      getItemLabel={(year) => (year === 'Reception' ? 'Reception' : `Year ${year}`)}
+                      getItemId={(year) => year}
+                      placeholder="Select year level"
+                      allowClear
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -426,47 +398,30 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Curriculum *</FormLabel>
-                  <div className="relative">
-                    <Select 
-                      value={field.value || ""} 
-                      onValueChange={(value) => {
-                        field.onChange(value === "" ? undefined : value);
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger className={cn(field.value && "pr-10 [&_svg]:hidden")}>
-                          <SelectValue placeholder="Select curriculum" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {validCurriculums.map((curr: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY') => (
-                          <SelectItem key={curr} value={curr}>
-                            {curr}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {field.value && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                  <FormControl>
+                    <SearchableSelect<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'>
+                      items={validCurriculums}
+                      value={field.value ?? null}
+                      onValueChange={(item) => {
+                        if (item === null) {
                           const currentYearLevel = form.getValues('year_level');
                           form.setValue('curriculum', undefined as unknown as TrialContactFormValues['curriculum'], { shouldValidate: true });
-                          // If year level requires a curriculum, clear it too
                           if (currentYearLevel) {
                             const validCurriculumsForYear = getValidCurriculums(currentYearLevel);
                             if (validCurriculumsForYear.length > 0 && validCurriculumsForYear.length < 4) {
                               form.setValue('year_level', undefined as unknown as TrialContactFormValues['year_level'], { shouldValidate: true });
                             }
                           }
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
+                        } else {
+                          field.onChange(item);
+                        }
+                      }}
+                      getItemLabel={(curr) => curr}
+                      getItemId={(curr) => curr}
+                      placeholder="Select curriculum"
+                      allowClear
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -511,56 +466,30 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                     })}
                   </div>
                 )}
-                <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-                  <PopoverTrigger asChild>
+                <SearchableSelect<Tables<'subjects'>>
+                  items={availableSubjects}
+                  value={null}
+                  onValueChange={(item) => item && handleSelectSubject(item)}
+                  getItemLabel={formatSubjectDisplay}
+                  getItemId={(s) => s.id}
+                  placeholder="Add subject"
+                  searchPlaceholder="Search subjects..."
+                  emptyMessage={
+                    subjectSearchQuery
+                      ? 'No subjects match your search'
+                      : 'No available subjects found'
+                  }
+                  loading={isSearchingSubjects}
+                  onSearchChange={(query) => setSubjectSearchQuery(query)}
+                  onOpenChange={(open) => !open && setSubjectSearchQuery('')}
+                  trigger={
                     <Button type="button" variant="outline" size="sm" className="flex items-center gap-2">
                       <Plus className="h-4 w-4" />
                       <span>Add Subject</span>
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[400px]">
-                    <div className="p-3">
-                      <Input
-                        placeholder="Search subjects..."
-                        value={subjectSearchQuery}
-                        onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                        className="mb-3"
-                      />
-                      <ScrollArea className="h-[300px]">
-                        <div className="space-y-1 pr-4">
-                          {isSearchingSubjects ? (
-                            <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Searching...
-                            </div>
-                          ) : availableSubjects.length === 0 ? (
-                            <div className="p-3 text-center text-sm text-muted-foreground">
-                              {subjectSearchQuery
-                                ? 'No subjects match your search'
-                                : 'No available subjects found'}
-                            </div>
-                          ) : (
-                            availableSubjects.map((subject) => (
-                              <Button
-                                key={subject.id}
-                                type="button"
-                                variant="ghost"
-                                className="w-full justify-start h-auto p-3"
-                                onClick={() => handleSelectSubject(subject)}
-                              >
-                                <div className="flex flex-col items-start w-full">
-                                  <div className="font-medium">
-                                    {formatSubjectDisplay(subject)}
-                                  </div>
-                                </div>
-                              </Button>
-                            ))
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                  }
+                  contentWidth="400px"
+                />
                 </div>
                 <FormMessage />
               </FormItem>

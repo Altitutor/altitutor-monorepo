@@ -10,11 +10,6 @@ import {
   DialogTitle,
   Button,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Checkbox,
   Input,
   Table,
@@ -25,6 +20,7 @@ import {
   TableRow,
   Textarea,
   useToast,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { getInvoiceStatusBadge, formatInvoiceAmount, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
@@ -38,18 +34,18 @@ import {
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 
-const CREDIT_NOTE_REASONS = [
-  { value: 'duplicate', label: 'Duplicate charge' },
-  { value: 'product_unsatisfactory', label: 'Product unsatisfactory' },
-  { value: 'order_change', label: 'Order change' },
-  { value: 'fraudulent', label: 'Fraudulent charge' },
-  { value: 'other', label: 'Other' },
-] as const;
+const CREDIT_NOTE_REASONS: { id: string; label: string }[] = [
+  { id: 'duplicate', label: 'Duplicate charge' },
+  { id: 'product_unsatisfactory', label: 'Product unsatisfactory' },
+  { id: 'order_change', label: 'Order change' },
+  { id: 'fraudulent', label: 'Fraudulent charge' },
+  { id: 'other', label: 'Other' },
+];
 
 const DESTINATION_OPTIONS = [
-  { value: 'refund', label: 'Refund to card' },
-  { value: 'credit_balance', label: "Credit customer's balance" },
-  { value: 'out_of_band', label: 'Credit outside of Stripe (e.g., cash)' },
+  { id: 'refund', label: 'Refund to card' },
+  { id: 'credit_balance', label: "Credit customer's balance" },
+  { id: 'out_of_band', label: 'Credit outside of Stripe (e.g., cash)' },
 ] as const;
 
 type LineState = { selected: boolean };
@@ -255,18 +251,19 @@ export function CreditNoteDialog({
           {/* Reason */}
           <div className="space-y-2">
             <Label htmlFor="credit-note-reason">Reason</Label>
-            <Select value={reason} onValueChange={(v) => setReason(v as CreateCreditNoteRequest['reason'])}>
-              <SelectTrigger id="credit-note-reason">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {CREDIT_NOTE_REASONS.map((r) => (
-                  <SelectItem key={r.value} value={r.value}>
-                    {r.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ id: string; label: string }>
+              items={CREDIT_NOTE_REASONS}
+              value={CREDIT_NOTE_REASONS.find((r) => r.id === reason) ?? null}
+              onValueChange={(v) => v && setReason(v.id as CreateCreditNoteRequest['reason'])}
+              getItemId={(item) => item.id}
+              getItemLabel={(item) => item.label}
+              placeholder="Select reason"
+              trigger={
+                <Button variant="outline" className="w-full justify-start font-normal" id="credit-note-reason">
+                  {CREDIT_NOTE_REASONS.find((r) => r.id === reason)?.label ?? 'Select reason'}
+                </Button>
+              }
+            />
           </div>
 
           {/* Effective date */}
@@ -355,25 +352,34 @@ export function CreditNoteDialog({
           </div>
 
           {/* How to credit (only for paid invoices) */}
-          {isPaidInvoice && (
-            <div className="space-y-2">
-              <Label>How to credit</Label>
-              <Select value={destination} onValueChange={(v) => setDestination(v as typeof destination)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {DESTINATION_OPTIONS.map((d) => (
-                    <SelectItem key={d.value} value={d.value}>
-                      {d.value === 'refund'
-                        ? `${d.label} (maximum ${formatInvoiceAmount(amountToCreditCents, currency)})`
-                        : d.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          {isPaidInvoice && (() => {
+            const destinationItems = DESTINATION_OPTIONS.map((d) => ({
+              id: d.id,
+              label:
+                d.id === 'refund'
+                  ? `${d.label} (maximum ${formatInvoiceAmount(amountToCreditCents, currency)})`
+                  : d.label,
+            }));
+            const selectedDestination = destinationItems.find((it) => it.id === destination) ?? null;
+            return (
+              <div className="space-y-2">
+                <Label>How to credit</Label>
+                <SearchableSelect<{ id: string; label: string }>
+                  items={destinationItems}
+                  value={selectedDestination}
+                  onValueChange={(v) => v && setDestination(v.id as typeof destination)}
+                  getItemId={(item) => item.id}
+                  getItemLabel={(item) => item.label}
+                  placeholder="Select how to credit"
+                  trigger={
+                    <Button variant="outline" className="w-full justify-start font-normal">
+                      {selectedDestination?.label ?? 'Select how to credit'}
+                    </Button>
+                  }
+                />
+              </div>
+            );
+          })()}
 
           {/* Memo */}
           <div className="space-y-2">

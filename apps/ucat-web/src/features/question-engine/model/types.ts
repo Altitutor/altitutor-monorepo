@@ -25,6 +25,10 @@ export type QuestionItem = {
   sectionDisplayColumns: 1 | 2
   stemText: string
   questionText: string
+  /** Rich JSON for stem (Tiptap). When present, use for rendering images/formatting. */
+  stemJson?: Record<string, unknown> | null
+  /** Rich JSON for question text (Tiptap). When present, use for rendering images/formatting. */
+  questionJson?: Record<string, unknown> | null
   questionType: 'multiple_choice' | 'syllogism'
   options: AnswerOption[]
   /** ID of the correct answer option. Used for marking. */

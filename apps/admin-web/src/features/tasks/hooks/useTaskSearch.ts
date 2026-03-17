@@ -13,13 +13,17 @@ export type TaskSearchResult = {
   priority: number | null;
 };
 
-export function useTaskSearch(search: string, enabled: boolean) {
+export function useTaskSearch(
+  search: string,
+  enabled: boolean,
+  options?: { excludeLinked?: boolean }
+) {
   const debouncedSearch = useDebounce(search.trim(), DEBOUNCE_MS);
   const shouldSearch = enabled && debouncedSearch.length >= 1;
 
   const query = useQuery({
-    queryKey: ['task-search', debouncedSearch],
-    queryFn: async () => tasksApi.search(debouncedSearch, SEARCH_LIMIT),
+    queryKey: ['task-search', debouncedSearch, options?.excludeLinked],
+    queryFn: async () => tasksApi.search(debouncedSearch, SEARCH_LIMIT, options),
     enabled: shouldSearch,
     staleTime: 30_000,
   });

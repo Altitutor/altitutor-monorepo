@@ -10,11 +10,7 @@ import {
   TableRow,
   Input,
   Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -31,6 +27,11 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+
+const CURRENCY_OPTIONS = [
+  { value: 'AUD', label: 'AUD' },
+  { value: 'USD', label: 'USD' },
+] as const;
 
 interface PricingTableProps {
   pricing: BillingPricingRow[];
@@ -140,15 +141,14 @@ export function PricingTable({ pricing, onUpdate }: PricingTableProps) {
 
             <div className="space-y-2">
               <Label htmlFor="currency">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger id="currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AUD">AUD</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof CURRENCY_OPTIONS)[number]>
+                items={[...CURRENCY_OPTIONS]}
+                value={CURRENCY_OPTIONS.find((c) => c.value === currency) ?? CURRENCY_OPTIONS[0]}
+                onValueChange={(item) => setCurrency(item?.value ?? 'AUD')}
+                getItemLabel={(o) => o.label}
+                getItemId={(o) => o.value}
+                placeholder="Select currency"
+              />
             </div>
           </div>
           <DialogFooter>

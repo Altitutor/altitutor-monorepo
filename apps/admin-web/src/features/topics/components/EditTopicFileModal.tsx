@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,13 +11,7 @@ import {
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Loader2, Trash2 } from 'lucide-react';
 import {
@@ -79,7 +73,6 @@ export function EditTopicFileModal({
   const [selectedType, setSelectedType] = useState<Enums<'resource_type'> | null>(null);
   const [isSolutions, setIsSolutions] = useState(false);
   const [selectedSolutionLinkId, setSelectedSolutionLinkId] = useState<string | null>(null);
-  const [topicSearchQuery, setTopicSearchQuery] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -102,20 +95,6 @@ export function EditTopicFileModal({
   // Get current subject
   const currentSubject = subjects.find((s) => s.id === currentSubjectId);
 
-  // Filter topics based on search query
-  const filteredTopics = useMemo(() => {
-    if (!topicSearchQuery) return topics;
-
-    const query = topicSearchQuery.toLowerCase();
-    return topics.filter((topic) => {
-      const topicCode = topic.code || '';
-      return (
-        topic.name.toLowerCase().includes(query) ||
-        topicCode.toLowerCase().includes(query)
-      );
-    });
-  }, [topics, topicSearchQuery]);
-
   // Initialize form when modal opens or data loads
   useEffect(() => {
     if (isOpen && currentTopicFile) {
@@ -123,7 +102,6 @@ export function EditTopicFileModal({
       setSelectedType(currentTopicFile.type);
       setIsSolutions(currentTopicFile.is_solutions || false);
       setSelectedSolutionLinkId(currentTopicFile.is_solutions_of_id || null);
-      setTopicSearchQuery('');
     }
   }, [isOpen, currentTopicFile]);
 
@@ -228,65 +206,35 @@ export function EditTopicFileModal({
           {/* Topic Selector */}
           <div className="space-y-2">
             <Label htmlFor="topic">Topic *</Label>
-            <Select
-              value={selectedTopicId}
-              onValueChange={setSelectedTopicId}
+            <SearchableSelect<typeof topics[number]>
+              items={topics}
+              value={topics.find((t) => t.id === selectedTopicId) ?? null}
+              onValueChange={(item) => setSelectedTopicId(item?.id ?? '')}
+              getItemLabel={(t) => `${t.code || ''} - ${t.name}`}
+              getItemId={(t) => t.id}
+              getItemValue={(t) => `${t.code || ''} ${t.name}`}
+              placeholder="Select topic"
               disabled={topicsLoading}
-            >
-              <SelectTrigger id="topic">
-                <SelectValue placeholder="Select topic" />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="p-2">
-                  <Input
-                    placeholder="Search topics..."
-                    value={topicSearchQuery}
-                    onChange={(e) => setTopicSearchQuery(e.target.value)}
-                    className="h-8"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-                {topicsLoading ? (
-                  <div className="p-2 text-center text-sm text-muted-foreground">
-                    <Loader2 className="h-4 w-4 animate-spin inline mr-2" />
-                    Loading topics...
-                  </div>
-                ) : filteredTopics.length === 0 ? (
-                  <div className="p-2 text-center text-sm text-muted-foreground">
-                    No topics found
-                  </div>
-                ) : (
-                  filteredTopics.map((topic) => {
-                    const topicCode = topic.code || '';
-                    return (
-                      <SelectItem key={topic.id} value={topic.id}>
-                        {topicCode} - {topic.name}
-                      </SelectItem>
-                    );
-                  })
-                )}
-              </SelectContent>
-            </Select>
+              loading={topicsLoading}
+              emptyMessage="No topics found"
+            />
           </div>
 
           {/* Type Selector */}
           <div className="space-y-2">
             <Label htmlFor="type">Type *</Label>
-            <Select
-              value={selectedType || ''}
-              onValueChange={(value) => setSelectedType(value as Enums<'resource_type'>)}
-            >
-              <SelectTrigger id="type">
-                <SelectValue placeholder="Select type" />
-              </SelectTrigger>
-              <SelectContent>
-                {RESOURCE_TYPES.map((type) => (
-                  <SelectItem key={type.value} value={type.value}>
-                    {type.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect<(typeof RESOURCE_TYPES)[number]>
+              items={[...RESOURCE_TYPES]}
+              value={
+                selectedType
+                  ? RESOURCE_TYPES.find((t) => t.value === selectedType) ?? null
+                  : null
+              }
+              onValueChange={(item) => setSelectedType(item?.value ?? null)}
+              getItemLabel={(t) => t.label}
+              getItemId={(t) => t.value}
+              placeholder="Select type"
+            />
           </div>
 
           {/* Solutions Checkbox */}
@@ -310,27 +258,19 @@ export function EditTopicFileModal({
           {isSolutions && (
             <div className="space-y-2">
               <Label htmlFor="solution_link">Link to File *</Label>
-              <Select
-                value={selectedSolutionLinkId || ''}
-                onValueChange={setSelectedSolutionLinkId}
-              >
-                <SelectTrigger id="solution_link">
-                  <SelectValue placeholder="Select file to link to" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSolutionLinks.length === 0 ? (
-                    <div className="p-2 text-center text-sm text-muted-foreground">
-                      No files available to link
-                    </div>
-                  ) : (
-                    availableSolutionLinks.map((link) => (
-                      <SelectItem key={link.id} value={link.id}>
-                        {link.file?.filename || 'Unknown file'}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<typeof availableSolutionLinks[number]>
+                items={availableSolutionLinks}
+                value={
+                  selectedSolutionLinkId
+                    ? availableSolutionLinks.find((l) => l.id === selectedSolutionLinkId) ?? null
+                    : null
+                }
+                onValueChange={(item) => setSelectedSolutionLinkId(item?.id ?? null)}
+                getItemLabel={(l) => l.file?.filename || 'Unknown file'}
+                getItemId={(l) => l.id}
+                placeholder="Select file to link to"
+                emptyMessage="No files available to link"
+              />
             </div>
           )}
         </div>

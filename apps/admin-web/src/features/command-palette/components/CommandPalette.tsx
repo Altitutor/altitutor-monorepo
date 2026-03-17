@@ -264,9 +264,9 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
           className="w-full max-w-4xl bg-popover border rounded-lg shadow-xl pointer-events-auto flex flex-col h-[calc(100vh-2rem)] max-h-[800px]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Search input */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b flex-shrink-0">
-            <Search className="h-5 w-5 text-muted-foreground" />
+          {/* Search input - styled like searchable-select-inline */}
+          <div className="flex items-center border-b px-3 flex-shrink-0">
+            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <Input
               ref={inputRef}
               type="text"
@@ -274,9 +274,9 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onKeyDown={handleKeyDown}
-              className="border-0 focus-visible:ring-0 focus-visible:ring-offset-0 text-base"
+              className="flex h-11 w-full rounded-md border-0 bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
             />
-            {isSearching && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            {isSearching && <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin opacity-50" />}
           </div>
 
           {/* Filter buttons */}

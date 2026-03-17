@@ -9,14 +9,15 @@ import {
 } from '@altitutor/ui';
 import { useIssues } from '../api/queries';
 import { useUpdateIssue, useCreateIssue } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import { EditIssueDialog } from './EditIssueDialog';
 import { IssueDueDateEntityPill } from './IssueDueDateEntityPill';
 import { cn } from '@/shared/utils';
 import type { IssueWithTags, IssueStatus } from '../types';
 import {
   formatIssueDueDate,
-  getIssueStatusColor,
   getIssueStatusIcon,
+  getIssueStatusIconColor,
   getIssueStatusLabel,
   getIssueStatusOrder,
   ISSUE_STATUS_OPTIONS,
@@ -38,12 +39,17 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
   const { data: issues = [], isLoading } = useIssues(filters);
   const updateIssue = useUpdateIssue();
   const createIssue = useCreateIssue();
+  const { data: currentStaff } = useCurrentStaff();
 
   const handleStatusChange = useCallback(
     (issue: IssueWithTags, value: IssueStatus) => {
-      updateIssue.mutate({ id: issue.id, updates: { status: value } });
+      const updates: { status: IssueStatus; resolved_by?: string | null } = { status: value };
+      if (value === 'resolved') {
+        updates.resolved_by = currentStaff?.id ?? null;
+      }
+      updateIssue.mutate({ id: issue.id, updates });
     },
-    [updateIssue]
+    [updateIssue, currentStaff?.id]
   );
 
   const handleAdd = useCallback(
@@ -57,10 +63,11 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
             data.due_date != null && data.due_date !== ''
               ? new Date(data.due_date as string).toISOString()
               : null,
+          created_by: currentStaff?.id ?? null,
         },
       });
     },
-    [createIssue]
+    [createIssue, currentStaff?.id]
   );
 
   const statusColumn: EntityListStatusColumn<IssueWithTags, unknown> = {
@@ -72,22 +79,18 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
     options: ISSUE_STATUS_OPTIONS.map((opt) => ({
       value: opt.value,
       label: opt.label,
-      icon: () => {
-        const Icon = getIssueStatusIcon(opt.value);
-        const color = getIssueStatusColor(opt.value);
-        return <Icon className={cn('h-3 w-3', color.replace('bg-', 'text-'))} />;
-      },
+      icon: getIssueStatusIcon(opt.value),
     })),
     renderBubble: (value: unknown, collapsed) => {
       const status = value as IssueStatus;
       const option = ISSUE_STATUS_OPTIONS.find((o) => o.value === status) ?? ISSUE_STATUS_OPTIONS[0];
       const Icon = getIssueStatusIcon(status);
-      const color = getIssueStatusColor(status);
+      const iconColor = getIssueStatusIconColor(status);
 
-      if (collapsed) return <Icon className={cn('h-3 w-3', color.replace('bg-', 'text-'))} />;
+      if (collapsed) return <Icon className={cn('h-3 w-3', iconColor)} />;
 
       return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', color.replace('bg-', 'text-'))}>
+        <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
           <Icon className="h-3 w-3" />
           {option.label}
         </span>
@@ -95,14 +98,6 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
     },
     onStatusChange: (issue, value) => handleStatusChange(issue, value as IssueStatus),
   };
-
-  const dueDateFilterOptions = useMemo(
-    () =>
-      Array.from(new Set(issues.map((issue) => issue.due_date).filter((date): date is string => !!date)))
-        .sort((a, b) => new Date(a).getTime() - new Date(b).getTime())
-        .map((date) => ({ value: date as unknown, label: formatIssueDueDate(date) })),
-    [issues]
-  );
 
   const rightPills: EntityListPillColumn<IssueWithTags, unknown>[] = useMemo(
     () => [
@@ -112,8 +107,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         visibleByDefault: true,
         getValue: (issue) => issue.due_date ?? null,
         defaultValue: null,
-        filterOptions: dueDateFilterOptions,
-        filterSearchable: true,
+        filterType: 'date-range',
         groupable: true,
         sortable: true,
         filterable: true,
@@ -135,7 +129,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         ),
       },
     ],
-    [dueDateFilterOptions, updateIssue]
+    [updateIssue]
   );
 
   const groupByOptions = useMemo(

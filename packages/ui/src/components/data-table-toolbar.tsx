@@ -27,7 +27,6 @@ import { Input } from './input';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -36,7 +35,8 @@ import {
   DropdownMenuTrigger,
 } from './dropdown-menu';
 import { ScrollArea } from './scroll-area';
-import { Checkbox } from './checkbox';
+import { SearchableSelectInline } from './searchable-select-inline';
+import { DateRangeFilter } from './date-range-filter';
 import { cn } from '../lib/cn';
 
 interface DataTableToolbarProps {
@@ -65,6 +65,8 @@ interface DataTableToolbarProps {
   showDeletedActive?: boolean;
   /** Called when the user clears the "Show deleted" filter (e.g. via the X button) */
   onClearShowDeleted?: () => void;
+  /** Custom filter content for specific keys - renders inside DropdownMenuSub (e.g. SearchableSelectInline) */
+  customFilterContent?: Record<string, React.ReactNode>;
 }
 
 export function DataTableToolbar({
@@ -83,16 +85,19 @@ export function DataTableToolbar({
   quickFilters = [],
   searchPlaceholder = 'Search...',
   isLoading: _isLoading = false,
-  filterSearchValues = {},
+  filterSearchValues: _filterSearchValues = {},
   onFilterSearchChange,
   filterFooter,
   showDeletedActive = false,
   onClearShowDeleted,
+  customFilterContent = {},
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
   const prevStateSearchRef = React.useRef(state.search);
   const isInternalUpdateRef = React.useRef(false);
+  const [groupByOpen, setGroupByOpen] = React.useState(false);
+  const [sortOpen, setSortOpen] = React.useState(false);
 
   // Sync internal search state with prop state (e.g. if cleared from outside)
   // Only sync when state.search changes externally, not during local typing
@@ -121,11 +126,22 @@ export function DataTableToolbar({
   }, [debouncedSearch, onSearchChange, state.search]);
 
   const rangeFilterDefs = filterDefinitions.filter((d) => d.type === 'number-range' && d.minKey && d.maxKey);
+  const dateRangeFilterDefs = filterDefinitions.filter(
+    (d) => d.type === 'date-range' && d.fromKey && d.toKey
+  );
   const activeFilterCount: number = (() => {
     let count = 0;
     for (const [key, arr] of Object.entries(state.filters)) {
-      const def = filterDefinitions.find((d) => d.key === key || d.minKey === key || d.maxKey === key);
+      const def = filterDefinitions.find(
+        (d) =>
+          d.key === key ||
+          d.minKey === key ||
+          d.maxKey === key ||
+          d.fromKey === key ||
+          d.toKey === key
+      );
       if (def?.type === 'number-range') continue;
+      if (def?.type === 'date-range') continue;
       count += Array.isArray(arr) ? arr.length : 0;
     }
     for (const def of rangeFilterDefs) {
@@ -135,28 +151,17 @@ export function DataTableToolbar({
       const maxSet = Array.isArray(maxArr) && maxArr.length > 0 && maxArr[0] != null && maxArr[0] !== '';
       if (minSet || maxSet) count += 1;
     }
+    for (const def of dateRangeFilterDefs) {
+      const fromArr = def.fromKey ? state.filters[def.fromKey] : [];
+      const toArr = def.toKey ? state.filters[def.toKey] : [];
+      const fromSet =
+        Array.isArray(fromArr) && fromArr.length > 0 && fromArr[0] != null && String(fromArr[0]).trim() !== '';
+      const toSet =
+        Array.isArray(toArr) && toArr.length > 0 && toArr[0] != null && String(toArr[0]).trim() !== '';
+      if (fromSet || toSet) count += 1;
+    }
     return count;
   })();
-
-  const togglePillVisibility = (key: string) => {
-    const next = state.visibleColumns.includes(key)
-      ? state.visibleColumns.filter((k: string) => k !== key)
-      : [...state.visibleColumns, key];
-    onVisibleColumnsChange(next);
-  };
-
-  const toggleFilterValue = (columnKey: string, value: unknown) => {
-    const current = state.filters[columnKey] ?? [];
-    const next = current.some((v: unknown) => v === value)
-      ? current.filter((v: unknown) => v !== value)
-      : [...current, value];
-
-    const nextFilters = { ...state.filters, [columnKey]: next.filter((v: unknown) => v != null) };
-    if (next.length === 0) {
-      delete nextFilters[columnKey];
-    }
-    onFiltersChange(nextFilters);
-  };
 
   const removeFilterValue = (columnKey: string, value: unknown) => {
     const current = state.filters[columnKey] ?? [];
@@ -200,7 +205,18 @@ export function DataTableToolbar({
   const isRangeFilterBoundKey = (columnKey: string) =>
     rangeFilterDefs.some((d) => d.minKey === columnKey || d.maxKey === columnKey);
 
+  const isDateRangeFilterBoundKey = (columnKey: string) =>
+    dateRangeFilterDefs.some((d) => d.fromKey === columnKey || d.toKey === columnKey);
+
+  const clearDateRangeFilter = (fromKey: string, toKey: string) => {
+    const nextFilters = { ...state.filters };
+    delete nextFilters[fromKey];
+    delete nextFilters[toKey];
+    onFiltersChange(nextFilters);
+  };
+
   const effectiveActiveFilterCount = activeFilterCount + (showDeletedActive ? 1 : 0);
+
 
   const handleClearAllFilters = () => {
     onClearShowDeleted?.();
@@ -211,7 +227,7 @@ export function DataTableToolbar({
     <div className="flex flex-col gap-2 w-full">
       <div className="flex flex-wrap items-center gap-2">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[120px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
@@ -229,41 +245,30 @@ export function DataTableToolbar({
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {/* View Options (Columns) */}
           {columnDefinitions.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9">
                   <LayoutGrid className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">View</span>
+                  <span className="hidden md:inline">View</span>
                   <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[200px]">
-                <DropdownMenuLabel>Show columns</DropdownMenuLabel>
+              <DropdownMenuContent align="end" className="w-[240px] p-0">
+                <DropdownMenuLabel className="px-2 py-1.5">Show columns</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                {columnDefinitions.map((col) => {
-                  const isVisible = state.visibleColumns.includes(col.key);
-                  return (
-                    <DropdownMenuItem
-                      key={col.key}
-                      onSelect={(e) => {
-                        e.preventDefault();
-                        togglePillVisibility(col.key);
-                      }}
-                      className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
-                    >
-                      <Checkbox
-                        checked={isVisible}
-                        aria-label={col.label}
-                        tabIndex={-1}
-                        className="pointer-events-none"
-                      />
-                      <span>{col.label}</span>
-                    </DropdownMenuItem>
-                  );
-                })}
+                <SearchableSelectInline<DataTableColumnDefinition>
+                  items={columnDefinitions}
+                  value={columnDefinitions.filter((c) => state.visibleColumns.includes(c.key))}
+                  onValueChange={(cols) => onVisibleColumnsChange(cols.map((c) => c.key))}
+                  getItemId={(c) => c.key}
+                  getItemLabel={(c) => c.label}
+                  searchPlaceholder="Search columns..."
+                  emptyMessage="No columns found"
+                  multiSelect
+                />
               </DropdownMenuContent>
             </DropdownMenu>
           )}
@@ -271,26 +276,35 @@ export function DataTableToolbar({
           {/* Group By */}
           {groupByOptions.length > 0 && (
             <div className="flex items-center">
-              <DropdownMenu>
+              <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className={cn("h-9", state.groupBy && "rounded-r-none")}>
                     <Layers className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">
-                      {state.groupBy 
-                        ? groupByOptions.find(o => o.key === state.groupBy)?.label ?? 'Grouped'
+                    <span className="hidden md:inline">
+                      {state.groupBy
+                        ? groupByOptions.find((o) => o.key === state.groupBy)?.label ?? 'Grouped'
                         : 'Group by'}
                     </span>
                     <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[180px]">
-                  <DropdownMenuItem onClick={() => onGroupByChange(null)}>None</DropdownMenuItem>
+                <DropdownMenuContent align="end" className="w-[220px] p-0">
+                  <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {groupByOptions.map((o) => (
-                    <DropdownMenuItem key={o.key} onClick={() => onGroupByChange(o.key)}>
-                      {o.label}
-                    </DropdownMenuItem>
-                  ))}
+                  <SearchableSelectInline<DataTableGroupByOption>
+                    items={groupByOptions}
+                    value={state.groupBy ? groupByOptions.find((o) => o.key === state.groupBy) ?? null : null}
+                    onValueChange={(opt) => {
+                      onGroupByChange(opt?.key ?? null);
+                      setGroupByOpen(false);
+                    }}
+                    getItemId={(o) => o.key}
+                    getItemLabel={(o) => o.label}
+                    searchPlaceholder="Search..."
+                    emptyMessage="No options found"
+                    allowClear
+                    clearLabel="None"
+                  />
                 </DropdownMenuContent>
               </DropdownMenu>
               {state.groupBy && (
@@ -309,23 +323,20 @@ export function DataTableToolbar({
           {/* Sort By */}
           {sortOptions.length > 0 && (
             <div className="flex items-center shrink-0">
-              <DropdownMenu>
+              <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
                     className={cn(
                       "h-9 flex-nowrap shrink-0",
-                      state.sortBy && "rounded-r-none min-w-[7.5rem]"
+                      state.sortBy && "rounded-r-none"
                     )}
                   >
                     <ArrowUpDown className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="hidden sm:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
+                    <span className="hidden md:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
                       {state.sortBy ? (
-                        <>
-                          <span className="min-w-0 truncate">{sortOptions.find(o => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
-                          {state.sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 shrink-0" /> : <ArrowDown className="h-3.5 w-3.5 shrink-0" />}
-                        </>
+                        <span className="min-w-0 truncate">{sortOptions.find((o) => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
                       ) : (
                         'Sort by'
                       )}
@@ -333,35 +344,62 @@ export function DataTableToolbar({
                     <ChevronDown className="h-4 w-4 ml-1 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[200px]">
-                  {sortOptions.map((o) => (
-                    <DropdownMenuItem
-                      key={o.key}
-                      onClick={() => {
-                        const nextDir = state.sortBy === o.key && state.sortDirection === 'asc' ? 'desc' : 'asc';
-                        onSortChange(o.key, nextDir);
-                      }}
-                      className="flex items-center gap-2"
-                    >
-                      <span>{o.label}</span>
-                      {state.sortBy === o.key && (
-                        <span className="ml-auto">
-                          {state.sortDirection === 'asc' ? <ArrowUp className="h-4 w-4 opacity-70" /> : <ArrowDown className="h-4 w-4 opacity-70" />}
-                        </span>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
+                <DropdownMenuContent align="end" className="w-[240px] p-0">
+                  <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <SearchableSelectInline<DataTableSortOption>
+                    items={sortOptions}
+                    value={state.sortBy ? sortOptions.find((o) => o.key === state.sortBy) ?? null : null}
+                    onValueChange={(opt) => {
+                      if (opt) {
+                        const nextDir =
+                          state.sortBy === opt.key
+                            ? state.sortDirection === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                            : 'asc';
+                        onSortChange(opt.key, nextDir);
+                      } else {
+                        onSortChange(null, 'desc');
+                      }
+                      setSortOpen(false);
+                    }}
+                    getItemId={(o) => o.key}
+                    getItemLabel={(o) => o.label}
+                    searchPlaceholder="Search sort options..."
+                    emptyMessage="No options found"
+                    allowClear
+                    clearLabel="None"
+                  />
                 </DropdownMenuContent>
               </DropdownMenu>
               {state.sortBy && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-l-none border-l-0 px-2"
-                  onClick={() => onSortChange(null, 'desc')}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-none border-l-0 px-2"
+                    onClick={() =>
+                      onSortChange(state.sortBy, state.sortDirection === 'asc' ? 'desc' : 'asc')
+                    }
+                    aria-label={state.sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'}
+                  >
+                    {state.sortDirection === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-l-none border-l-0 px-2"
+                    onClick={() => onSortChange(null, 'desc')}
+                    aria-label="Clear sort"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
               )}
             </div>
           )}
@@ -372,7 +410,7 @@ export function DataTableToolbar({
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className={cn("h-9", effectiveActiveFilterCount > 0 && "rounded-r-none")}>
                   <Filter className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">
+                  <span className="hidden md:inline">
                     Filter {effectiveActiveFilterCount > 0 && `(${effectiveActiveFilterCount})`}
                   </span>
                   <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
@@ -405,6 +443,35 @@ export function DataTableToolbar({
 
                 {(effectiveActiveFilterCount > 0 || showDeletedActive) && (
                   <div className="px-2 pb-2 flex flex-wrap items-center gap-1">
+                    {dateRangeFilterDefs.map((def) => {
+                      if (!def.fromKey || !def.toKey) return null;
+                      const fromVal = String((state.filters[def.fromKey] ?? [])[0] ?? '');
+                      const toVal = String((state.filters[def.toKey] ?? [])[0] ?? '');
+                      const fromSet = fromVal.trim() !== '';
+                      const toSet = toVal.trim() !== '';
+                      if (!fromSet && !toSet) return null;
+                      const label = def.label;
+                      return (
+                        <div
+                          key={def.key}
+                          className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-[10px]"
+                        >
+                          <span>{label}:</span>
+                          <button
+                            onClick={() => clearDateRangeFilter(def.fromKey!, def.toKey!)}
+                            className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
+                            aria-label={`Clear ${label}`}
+                          >
+                            {fromSet && toSet
+                              ? `${fromVal} – ${toVal}`
+                              : fromSet
+                                ? `from ${fromVal}`
+                                : `to ${toVal}`}
+                            <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                          </button>
+                        </div>
+                      );
+                    })}
                     {rangeFilterDefs.map((def) => {
                       const minVal = def.minKey != null ? (state.filters[def.minKey]?.[0] ?? '') : '';
                       const maxVal = def.maxKey != null ? (state.filters[def.maxKey]?.[0] ?? '') : '';
@@ -466,6 +533,7 @@ export function DataTableToolbar({
                     })}
                     {Object.entries(state.filters).map(([columnKey, selected]) => {
                       if (isRangeFilterBoundKey(columnKey)) return null;
+                      if (isDateRangeFilterBoundKey(columnKey)) return null;
                       const def = filterDefinitions.find((d) => d.key === columnKey);
                       if (def?.type === 'number-range') return null;
                       if (!selected?.length) return null;
@@ -516,30 +584,51 @@ export function DataTableToolbar({
                 )}
 
                 <DropdownMenuSeparator />
-                {filterDefinitions.some((def) => def.type === 'date') && (
-                  <>
-                    <div className="px-2 py-2 grid grid-cols-2 gap-2">
-                      {filterDefinitions.filter((def) => def.type === 'date').map((def) => {
-                        const currentValue = String((state.filters[def.key] ?? [])[0] ?? '');
-                        return (
-                          <div key={def.key}>
-                            <label className="text-xs font-medium text-muted-foreground">{def.label}</label>
-                            <Input
-                              type="date"
-                              value={currentValue}
-                              onChange={(e) => setSingleFilterValue(def.key, e.target.value)}
-                              className="h-8 mt-1"
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                    <DropdownMenuSeparator />
-                  </>
-                )}
 
                 <ScrollArea className="flex-1 overflow-y-auto">
-                  {filterDefinitions.filter((def) => def.type !== 'date').map((def) => {
+                  {filterDefinitions
+                    .filter((def) => def.type !== 'date')
+                    .map((def) => {
+                    if (def.type === 'date-range' && def.fromKey && def.toKey) {
+                      const fromVal = String((state.filters[def.fromKey] ?? [])[0] ?? '');
+                      const toVal = String((state.filters[def.toKey] ?? [])[0] ?? '');
+                      return (
+                        <DropdownMenuSub key={def.key}>
+                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[320px] p-0">
+                            <DateRangeFilter
+                              fromValue={fromVal}
+                              toValue={toVal}
+                              onFromChange={(v) =>
+                                setSingleFilterValue(def.fromKey!, v)
+                              }
+                              onToChange={(v) =>
+                                setSingleFilterValue(def.toKey!, v)
+                              }
+                              onRangeChange={(from, to) => {
+                                const next = { ...state.filters };
+                                if (from) next[def.fromKey!] = [from];
+                                else delete next[def.fromKey!];
+                                if (to) next[def.toKey!] = [to];
+                                else delete next[def.toKey!];
+                                onFiltersChange(next);
+                              }}
+                            />
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    }
+                    const customContent = customFilterContent[def.key];
+                    if (customContent != null) {
+                      return (
+                        <DropdownMenuSub key={def.key}>
+                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[280px] p-0">
+                            {customContent}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    }
                     if (def.type === 'number-range' && def.minKey && def.maxKey) {
                       const minKey = def.minKey;
                       const maxKey = def.maxKey;
@@ -576,81 +665,36 @@ export function DataTableToolbar({
                       );
                     }
 
+                    const options = def.options ?? [];
+                    const selectedOptions = options.filter((opt: DataTableFilterOption<unknown>) =>
+                      (state.filters[def.key] ?? []).some((v: unknown) => String(v) === String(opt.value))
+                    );
                     const isSearchable = def.searchable && !!onFilterSearchChange;
-                    const filterSearchValue = filterSearchValues[def.key] ?? '';
-
-                    if (isSearchable) {
-                      return (
-                        <DropdownMenuSub key={def.key}>
-                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[280px]">
-                            <div className="p-2 border-b">
-                              <Input
-                                value={filterSearchValue}
-                                onChange={(e) => onFilterSearchChange(def.key, e.target.value)}
-                                placeholder={def.searchPlaceholder || `Search ${def.label.toLowerCase()}...`}
-                                className="h-8"
-                              />
-                            </div>
-                            <ScrollArea className="max-h-[260px]">
-                              {(def.options ?? []).length === 0 ? (
-                                <div className="px-2 py-3 text-xs text-muted-foreground">No results</div>
-                              ) : (
-                                (def.options ?? []).map((opt: DataTableFilterOption<unknown>) => {
-                                  const isSelected = (state.filters[def.key] ?? []).some((v: unknown) => String(v) === String(opt.value));
-                                  return (
-                                    <DropdownMenuItem
-                                      key={String(opt.value)}
-                                      onSelect={(e) => {
-                                        e.preventDefault();
-                                        toggleFilterValue(def.key, opt.value);
-                                      }}
-                                      className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
-                                    >
-                                      <Checkbox
-                                        checked={isSelected}
-                                        aria-label={opt.label}
-                                        tabIndex={-1}
-                                        className="pointer-events-none"
-                                      />
-                                      <span>{opt.label}</span>
-                                    </DropdownMenuItem>
-                                  );
-                                })
-                              )}
-                            </ScrollArea>
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    }
 
                     return (
                       <DropdownMenuSub key={def.key}>
                         <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-[200px]">
-                          <ScrollArea className="max-h-[300px]">
-                            {(def.options ?? []).map((opt: DataTableFilterOption<unknown>) => {
-                              const isSelected = (state.filters[def.key] ?? []).some((v: unknown) => String(v) === String(opt.value));
-                              return (
-                                <DropdownMenuItem
-                                  key={String(opt.value)}
-                                  onSelect={(e) => {
-                                    e.preventDefault();
-                                    toggleFilterValue(def.key, opt.value);
-                                  }}
-                                  className="flex items-center gap-2 py-1.5 pl-2 pr-2 cursor-pointer"
-                                >
-                                  <Checkbox
-                                    checked={isSelected}
-                                    aria-label={opt.label}
-                                    tabIndex={-1}
-                                    className="pointer-events-none"
-                                  />
-                                  <span>{opt.label}</span>
-                                </DropdownMenuItem>
-                              );
-                            })}
-                          </ScrollArea>
+                        <DropdownMenuSubContent className="w-[280px] p-0">
+                          <SearchableSelectInline<DataTableFilterOption<unknown>>
+                            items={options}
+                            value={selectedOptions}
+                            onValueChange={(opts) => {
+                              const next = opts.map((o) => o.value);
+                              const nextFilters = { ...state.filters };
+                              if (next.length > 0) {
+                                nextFilters[def.key] = next;
+                              } else {
+                                delete nextFilters[def.key];
+                              }
+                              onFiltersChange(nextFilters);
+                            }}
+                            getItemId={(o) => String(o.value)}
+                            getItemLabel={(o) => o.label}
+                            searchPlaceholder={def.searchPlaceholder ?? `Search ${def.label.toLowerCase()}...`}
+                            emptyMessage="No results found"
+                            multiSelect
+                            onSearchChange={isSearchable ? (q) => onFilterSearchChange?.(def.key, q) : undefined}
+                          />
                         </DropdownMenuSubContent>
                       </DropdownMenuSub>
                     );

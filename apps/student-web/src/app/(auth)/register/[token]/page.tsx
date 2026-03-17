@@ -30,6 +30,8 @@ type RegistrationData = {
     year_level: number | null;
     curriculum: string | null;
     color: string | null;
+    long_name?: string | null;
+    short_name?: string | null;
   }>;
 };
 

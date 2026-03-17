@@ -1,15 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
 import {
   FormControl,
   FormField,
   FormItem,
   FormMessage,
+  SearchableSelect,
 } from '@altitutor/ui';
-import { Button, Input, Popover, PopoverContent, PopoverTrigger, ScrollArea } from '@altitutor/ui';
-import { Check, Link2, Loader2 } from 'lucide-react';
+import { Check, Link2 } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
+import { cn } from '@/shared/utils';
 import { useIssues } from '@/features/issues/api/queries';
 import type { TaskFormData } from '../../types';
 
@@ -29,15 +29,23 @@ export function TaskIssueField({
   selectedIssue,
   onIssueChange,
 }: TaskIssueFieldProps) {
-  const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const [issueSearchQuery, setIssueSearchQuery] = useState('');
   const { data: issues = [], isLoading } = useIssues();
 
-  const filteredIssues = useMemo(() => {
-    const query = issueSearchQuery.trim().toLowerCase();
-    if (!query) return issues;
-    return issues.filter((issue) => (issue.name || '').toLowerCase().includes(query));
-  }, [issues, issueSearchQuery]);
+  const trigger = (
+    <FormControl>
+      <button
+        type="button"
+        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:bg-muted h-10 px-4 py-2 w-full justify-start"
+      >
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <span className={cn('truncate text-left', !selectedIssue && 'text-muted-foreground')}>
+            {selectedIssue?.name || 'Link issue'}
+          </span>
+        </div>
+      </button>
+    </FormControl>
+  );
 
   return (
     <FormField
@@ -45,92 +53,37 @@ export function TaskIssueField({
       name="issueId"
       render={({ field: _field }) => (
         <FormItem>
-          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-            <PopoverTrigger asChild>
-              <FormControl>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsPopoverOpen(true);
-                  }}
-                >
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    <span className="truncate text-left">
-                      {selectedIssue?.name || 'Link issue'}
-                    </span>
-                  </div>
-                </Button>
-              </FormControl>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[400px]" align="start">
-              <div className="p-3">
-                <Input
-                  type="text"
-                  placeholder="Search issues..."
-                  value={issueSearchQuery}
-                  onChange={(e) => setIssueSearchQuery(e.target.value)}
-                  className="mb-3"
+          <SearchableSelect<IssueOption>
+            items={issues}
+            value={selectedIssue}
+            onValueChange={(issue) => {
+              onIssueChange(issue);
+              if (issue) {
+                form.setValue('projectId', null, { shouldDirty: true });
+              }
+            }}
+            getItemId={(i) => i.id}
+            getItemLabel={(i) => i.name || 'Untitled issue'}
+            placeholder="Link issue"
+            searchPlaceholder="Search issues..."
+            emptyMessage="No issues found"
+            trigger={trigger}
+            allowClear
+            loading={isLoading}
+            contentWidth="400px"
+            renderItem={(issue, isSelected) => (
+              <>
+                <Check
+                  className={
+                    isSelected ? 'h-4 w-4 flex-shrink-0 opacity-100' : 'h-4 w-4 flex-shrink-0 opacity-0'
+                  }
                 />
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-1 pr-4">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start h-auto p-3"
-                      onClick={() => {
-                        onIssueChange(null);
-                        setIsPopoverOpen(false);
-                        setIssueSearchQuery('');
-                      }}
-                    >
-                      <div className="flex items-center gap-2 w-full">
-                        {!selectedIssue && <Check className="h-4 w-4" />}
-                        <span className={!selectedIssue ? 'font-medium' : ''}>
-                          No issue
-                        </span>
-                      </div>
-                    </Button>
-                    {isLoading ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading issues...
-                      </div>
-                    ) : filteredIssues.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        {issueSearchQuery ? 'No issues match your search' : 'No issues found'}
-                      </div>
-                    ) : (
-                      filteredIssues.map((issue) => (
-                        <Button
-                          key={issue.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-3"
-                          onClick={() => {
-                            onIssueChange({ id: issue.id, name: issue.name });
-                            setIsPopoverOpen(false);
-                            setIssueSearchQuery('');
-                            // Enforce exclusivity in UI
-                            form.setValue('projectId', null, { shouldDirty: true });
-                          }}
-                        >
-                          <div className="flex items-center gap-2 w-full min-w-0">
-                            {selectedIssue?.id === issue.id && (
-                              <Check className="h-4 w-4 flex-shrink-0" />
-                            )}
-                            <span className={selectedIssue?.id === issue.id ? 'font-medium truncate' : 'truncate'}>
-                              {issue.name || 'Untitled issue'}
-                            </span>
-                          </div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+                <span className={cn('truncate', isSelected && 'font-medium')}>
+                  {issue.name || 'Untitled issue'}
+                </span>
+              </>
+            )}
+          />
           <FormMessage />
         </FormItem>
       )}

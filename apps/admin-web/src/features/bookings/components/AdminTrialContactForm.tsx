@@ -13,13 +13,11 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn, getSubjectColorStyle } from '@/shared/utils';
 import { useSubjectsList } from '@/features/subjects/hooks/useSubjectsQuery';
@@ -281,51 +279,62 @@ export function AdminTrialContactForm({
             <FormField
               control={form.control}
               name="curriculum"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Curriculum</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+              render={({ field }) => {
+                const CURRICULUM_OPTIONS = [
+                  { value: 'SACE' as const, label: 'SACE' },
+                  { value: 'IB' as const, label: 'IB' },
+                  { value: 'PRESACE' as const, label: 'Pre-SACE' },
+                  { value: 'PRIMARY' as const, label: 'Primary' },
+                ];
+                const selected = CURRICULUM_OPTIONS.find((o) => o.value === field.value) ?? null;
+                return (
+                  <FormItem>
+                    <FormLabel>Curriculum</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select curriculum" />
-                      </SelectTrigger>
+                      <SearchableSelect<typeof CURRICULUM_OPTIONS[number]>
+                        items={CURRICULUM_OPTIONS}
+                        value={selected}
+                        onValueChange={(item) => field.onChange(item?.value)}
+                        getItemLabel={(o) => o.label}
+                        getItemId={(o) => o.value}
+                        placeholder="Select curriculum"
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="SACE">SACE</SelectItem>
-                      <SelectItem value="IB">IB</SelectItem>
-                      <SelectItem value="PRESACE">Pre-SACE</SelectItem>
-                      <SelectItem value="PRIMARY">Primary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField
               control={form.control}
               name="year_level"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Year Level</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
+              render={({ field }) => {
+                const YEAR_OPTIONS: Array<{ value: string; label: string }> = [
+                  { value: 'Reception', label: 'Reception' },
+                  ...Array.from({ length: 13 }, (_, i) => ({
+                    value: String(i + 1),
+                    label: `Year ${i + 1}`,
+                  })),
+                ];
+                const selected = YEAR_OPTIONS.find((o) => o.value === field.value) ?? null;
+                return (
+                  <FormItem>
+                    <FormLabel>Year Level</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select year level" />
-                      </SelectTrigger>
+                      <SearchableSelect<typeof YEAR_OPTIONS[number]>
+                        items={YEAR_OPTIONS}
+                        value={selected}
+                        onValueChange={(item) => field.onChange(item?.value)}
+                        getItemLabel={(o) => o.label}
+                        getItemId={(o) => o.value}
+                        placeholder="Select year level"
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Reception">Reception</SelectItem>
-                      {Array.from({ length: 13 }, (_, i) => i + 1).map((year) => (
-                        <SelectItem key={year} value={String(year)}>
-                          Year {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
           </div>
 
@@ -364,8 +373,19 @@ export function AdminTrialContactForm({
                       })}
                     </div>
                   )}
-                  <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-                    <PopoverTrigger asChild>
+                  <SearchableSelect<Tables<'subjects'>>
+                    items={availableSubjects}
+                    value={null}
+                    onValueChange={(subject) => subject && handleSelectSubject(subject)}
+                    getItemLabel={(s) => s.long_name ?? ''}
+                    getItemId={(s) => s.id}
+                    searchPlaceholder="Search subjects..."
+                    emptyMessage={
+                      subjectSearchQuery.trim()
+                        ? 'No subjects match your search'
+                        : 'No available subjects found'
+                    }
+                    trigger={
                       <button
                         type="button"
                         className="inline-flex items-center gap-2 px-3 py-2 text-sm border rounded-md hover:bg-muted"
@@ -373,45 +393,14 @@ export function AdminTrialContactForm({
                         <Plus className="h-4 w-4" />
                         Add Subject
                       </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-80 p-0" align="start">
-                      <div className="p-3">
-                        <Input
-                          placeholder="Search subjects..."
-                          value={subjectSearchQuery}
-                          onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                          className="mb-3"
-                        />
-                        <ScrollArea className="h-[300px]">
-                          <div className="space-y-1 pr-4">
-                            {isSubjectListLoading ? (
-                              <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                                Searching...
-                              </div>
-                            ) : availableSubjects.length === 0 ? (
-                              <div className="p-3 text-center text-sm text-muted-foreground">
-                                {subjectSearchQuery
-                                  ? 'No subjects match your search'
-                                  : 'No available subjects found'}
-                              </div>
-                            ) : (
-                              availableSubjects.map((subject) => (
-                                <button
-                                  key={subject.id}
-                                  type="button"
-                                  onClick={() => handleSelectSubject(subject)}
-                                  className="w-full text-left px-3 py-2 text-sm hover:bg-muted rounded-md"
-                                >
-                                  {subject?.long_name ?? ''}
-                                </button>
-                              ))
-                            )}
-                          </div>
-                        </ScrollArea>
-                      </div>
-                    </PopoverContent>
-                  </Popover>
+                    }
+                    open={isSubjectPopoverOpen}
+                    onOpenChange={setIsSubjectPopoverOpen}
+                    onSearchChange={setSubjectSearchQuery}
+                    loading={isSubjectListLoading}
+                    align="start"
+                    contentWidth="320px"
+                  />
                 </div>
                 <FormMessage />
               </FormItem>

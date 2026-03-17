@@ -1,16 +1,12 @@
 'use client'
 
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui'
+import { SearchableSelect } from '@altitutor/ui'
 import { SegmentedControl } from './segmented-control'
+import { ProgressAttemptFilterSelector } from './progress-attempt-filter-selector'
 import {
   type ProgressMode,
   type TimeFrameDays,
+  type AttemptFilter,
   TIME_FRAME_OPTIONS,
 } from '../lib/progress-mode'
 
@@ -19,6 +15,10 @@ type ProgressModeSelectorProps = {
   onModeChange: (mode: ProgressMode) => void
   timeFrameDays: TimeFrameDays
   onTimeFrameDaysChange: (days: TimeFrameDays) => void
+  attemptFilter?: AttemptFilter
+  onAttemptFilterChange?: (filter: AttemptFilter) => void
+  /** When false, hides the attempt filter (e.g. for mocks page). Default true */
+  showAttemptFilter?: boolean
   className?: string
 }
 
@@ -27,6 +27,9 @@ export function ProgressModeSelector({
   onModeChange,
   timeFrameDays,
   onTimeFrameDaysChange,
+  attemptFilter = 'all',
+  onAttemptFilterChange,
+  showAttemptFilter = true,
   className,
 }: ProgressModeSelectorProps) {
   return (
@@ -47,21 +50,21 @@ export function ProgressModeSelector({
           ]}
         />
         {mode === 'time_frame' && (
-          <Select
-            value={timeFrameDays}
-            onValueChange={(v) => onTimeFrameDaysChange(v as TimeFrameDays)}
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue placeholder="Days" />
-            </SelectTrigger>
-            <SelectContent>
-              {TIME_FRAME_OPTIONS.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect<(typeof TIME_FRAME_OPTIONS)[number]>
+            items={[...TIME_FRAME_OPTIONS]}
+            value={TIME_FRAME_OPTIONS.find((r) => r.value === timeFrameDays) ?? null}
+            onValueChange={(item) => item && onTimeFrameDaysChange(item.value)}
+            getItemLabel={(r) => r.label}
+            getItemId={(r) => r.value}
+            placeholder="Days"
+            triggerClassName="w-[100px]"
+          />
+        )}
+        {showAttemptFilter && onAttemptFilterChange && (
+          <ProgressAttemptFilterSelector
+            value={attemptFilter}
+            onValueChange={onAttemptFilterChange}
+          />
         )}
       </div>
     </div>

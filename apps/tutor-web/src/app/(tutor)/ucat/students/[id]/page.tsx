@@ -1,7 +1,20 @@
-'use client'
+import { fetchUcatStudentName } from '@/features/ucat/students/lib/fetch-student-name'
+import { ProgressPage } from '@/features/ucat/students/progress'
 
-import { UcatStudentDetailPage } from '@/features/ucat'
+export default async function UcatStudentDetailRoute({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}) {
+  const { id } = await params
+  const basePath = `/ucat/students/${id}`
+  const studentName = await fetchUcatStudentName(id)
 
-export default function UcatStudentDetailRoute({ params }: { params: { id: string } }) {
-  return <UcatStudentDetailPage studentId={params.id} />
+  return (
+    <ProgressPage
+      studentId={id}
+      basePath={basePath}
+      studentName={studentName}
+    />
+  )
 }

@@ -7,11 +7,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -19,12 +15,17 @@ import {
   TableHeader,
   TableRow,
 } from '@altitutor/ui'
+import { TableHeaderWithTooltip } from './table-header-with-tooltip'
 import { ProgressTablePagination } from './progress-table-pagination'
 import { GraphTypeTabs } from './graph-type-tabs'
 import { format } from 'date-fns'
 import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { formatTimeSeconds } from '../lib/format-time'
-import { aggregateForGraph, filterByTimeFrame } from '../lib/progress-data-utils'
+import {
+  aggregateForGraph,
+  filterByTimeFrame,
+  type SharedDateRange,
+} from '../lib/progress-data-utils'
 import type { MockAttemptRow } from '@/app/api/ucat/progress/route'
 import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
 
@@ -32,6 +33,7 @@ type MockAttemptsCardProps = {
   attempts: MockAttemptRow[]
   mode: ProgressMode
   timeFrameDays: TimeFrameDays
+  sharedDateRange?: SharedDateRange
 }
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
@@ -52,22 +54,25 @@ export function MockAttemptsCard({
   attempts,
   mode,
   timeFrameDays,
+  sharedDateRange,
 }: MockAttemptsCardProps) {
   const router = useRouter()
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
-  const [wasTimedFilter, setWasTimedFilter] = useState<'all' | 'timed' | 'untimed'>(
-    'all'
-  )
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
   const filteredAttempts = useMemo(() => {
-    let result = attempts
-    if (wasTimedFilter === 'timed') result = result.filter((a) => a.wasTimed)
-    if (wasTimedFilter === 'untimed') result = result.filter((a) => !a.wasTimed)
-    return filterByTimeFrame(result, mode, timeFrameDays)
-  }, [attempts, wasTimedFilter, mode, timeFrameDays])
+    return filterByTimeFrame(attempts, mode, timeFrameDays)
+  }, [attempts, mode, timeFrameDays])
+
+  const mockYAxisMax = useMemo(() => {
+    const max = Math.max(
+      ...filteredAttempts.map((a) => a.scaledScoreMax ?? a.scaledScore ?? 0),
+      900
+    )
+    return max
+  }, [filteredAttempts])
 
   const { graphData, dateRangeLabel } = useMemo(() => {
     const graphData = aggregateForGraph(
@@ -84,13 +89,14 @@ export function MockAttemptsCard({
       },
       mode,
       timeFrameDays,
-      false
+      false,
+      sharedDateRange
     )
     return {
       graphData,
       dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
     }
-  }, [filteredAttempts, graphDataType, mode, timeFrameDays])
+  }, [filteredAttempts, graphDataType, mode, timeFrameDays, sharedDateRange])
 
   const paginatedAttempts = useMemo(() => {
     const start = (page - 1) * pageSize
@@ -102,31 +108,15 @@ export function MockAttemptsCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Mock attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={wasTimedFilter} onValueChange={(v) => setWasTimedFilter(v as 'all' | 'timed' | 'untimed')}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Timed" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="untimed">Untimed only</SelectItem>
-              <SelectItem value="timed">Timed only</SelectItem>
-              <SelectItem value="all">All</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
-            value={graphDataType}
-            onValueChange={(v) => setGraphDataType(v as GraphDataType)}
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue placeholder="Y-axis" />
-            </SelectTrigger>
-            <SelectContent>
-              {GRAPH_DATA_TYPES.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
+            items={GRAPH_DATA_TYPES}
+            value={GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null}
+            onValueChange={(item) => item && setGraphDataType(item.value)}
+            getItemLabel={(r) => r.label}
+            getItemId={(r) => r.value}
+            placeholder="Y-axis"
+            triggerClassName="w-[140px]"
+          />
           <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </div>
       </CardHeader>
@@ -136,6 +126,8 @@ export function MockAttemptsCard({
           type={graphType}
           dataType={graphDataType}
           dateRangeLabel={dateRangeLabel}
+          isMockContext
+          yAxisMax={graphDataType === 'scaled_score' ? mockYAxisMax : undefined}
         />
         <div>
           <h4 className="mb-3 text-sm font-medium">All mock attempts</h4>
@@ -144,17 +136,38 @@ export function MockAttemptsCard({
               <TableHeader>
                 <TableRow>
                   <TableHead>Date</TableHead>
-                  <TableHead>Points</TableHead>
-                  <TableHead>Scaled score</TableHead>
-                  <TableHead>Time</TableHead>
-                  <TableHead>Set speed</TableHead>
-                  <TableHead>Exam speed</TableHead>
+                  <TableHead>Mock</TableHead>
+                  <TableHeaderWithTooltip
+                    tooltip="Raw score: correct points earned out of total possible points across all sets in this mock."
+                  >
+                    Points
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="Total UCAT mock score. Section 4 Situational Judgement excluded."
+                  >
+                    Scaled score
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="Total time taken vs total time limit for all sets in this mock."
+                  >
+                    Time
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="Average set speed across all sets. >100% means you finished sets faster than their limits."
+                  >
+                    Set speed
+                  </TableHeaderWithTooltip>
+                  <TableHeaderWithTooltip
+                    tooltip="Average exam speed across all sets. >100% means you finished faster than exam pace."
+                  >
+                    Exam speed
+                  </TableHeaderWithTooltip>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAttempts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       No submitted mock attempts yet
                     </TableCell>
                   </TableRow>
@@ -179,10 +192,17 @@ export function MockAttemptsCard({
                         onClick={() => router.push(`/progress/mocks/${a.id}`)}
                       >
                         <TableCell>{dateStr}</TableCell>
+                        <TableCell>{a.mockName ?? '—'}</TableCell>
                         <TableCell>
                           {total > 0 ? `${points} / ${total}` : '—'}
                         </TableCell>
-                        <TableCell>{a.scaledScore ?? '—'}</TableCell>
+                        <TableCell>
+                          {a.scaledScore != null && a.scaledScoreMax != null
+                            ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
+                            : a.scaledScore != null
+                              ? String(Math.round(a.scaledScore))
+                              : '—'}
+                        </TableCell>
                         <TableCell>
                           {timeLimit > 0 && timeTaken != null
                             ? `${formatTimeSeconds(Math.round(timeTaken))} / ${formatTimeSeconds(Math.round(timeLimit))}`

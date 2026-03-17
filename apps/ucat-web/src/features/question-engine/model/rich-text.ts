@@ -15,6 +15,11 @@ export function extractTextFromRichJson(value: JsonLike): string {
 
   const record = value as { [key: string]: JsonLike }
 
+  // Skip image nodes - they have no meaningful text; returning attrs would produce "image https://..."
+  if (record.type === 'image') {
+    return ''
+  }
+
   if (Array.isArray(record.content)) {
     return record.content.map(extractTextFromRichJson).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
   }

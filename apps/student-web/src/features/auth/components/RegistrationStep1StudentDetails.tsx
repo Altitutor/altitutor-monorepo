@@ -12,13 +12,11 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Plus, X, Loader2 } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
 import type { RegistrationFormValues } from '../validations';
@@ -28,6 +26,8 @@ interface RegistrationStep1StudentDetailsProps {
   initialSubjects: Array<{
     id: string;
     name: string;
+    short_name?: string | null;
+    long_name?: string | null;
     year_level: number | null;
     curriculum: string | null;
     color: string | null;
@@ -143,7 +143,6 @@ export function RegistrationStep1StudentDetails({
   }, [curriculum, form, getValidYearLevels]);
 
   // Subject search state
-  const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(subjectSearchQuery, 300);
   const [selectedSubjectsCache, setSelectedSubjectsCache] = useState<Map<string, Tables<'subjects'>>>(new Map());
@@ -177,13 +176,6 @@ export function RegistrationStep1StudentDetails({
 
   const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
 
-  // Reset search when popover closes
-  useEffect(() => {
-    if (!isSubjectPopoverOpen) {
-      setSubjectSearchQuery('');
-    }
-  }, [isSubjectPopoverOpen]);
-
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
     return subjectSearchResults.filter((s) => !selectedIds.has(s.id));
@@ -194,13 +186,13 @@ export function RegistrationStep1StudentDetails({
     const subjects: Tables<'subjects'>[] = [];
     const allAvailableSubjects = [...allSubjects, ...subjectSearchResults];
     const uniqueSubjectsMap = new Map(allAvailableSubjects.map(s => [s.id, s]));
-    const mergedMap = new Map([...selectedSubjectsCache, ...uniqueSubjectsMap]);
-    
+    // Prefer the version with long_name for display (cache from validate API, uniqueMap from search API)
     selectedSubjectIds.forEach(id => {
-      const subject = mergedMap.get(id);
+      const cached = selectedSubjectsCache.get(id);
+      const fromSearch = uniqueSubjectsMap.get(id);
+      const subject = (cached?.long_name ? cached : fromSearch) ?? cached ?? fromSearch;
       if (subject) subjects.push(subject);
     });
-    
     return subjects;
   }, [selectedSubjectIds, allSubjects, subjectSearchResults, selectedSubjectsCache]);
 
@@ -208,7 +200,6 @@ export function RegistrationStep1StudentDetails({
     const currentIds = form.getValues('student.subject_ids') || [];
     form.setValue('student.subject_ids', [...currentIds, subject.id]);
     setSelectedSubjectsCache(prev => new Map(prev).set(subject.id, subject));
-    setIsSubjectPopoverOpen(false);
     setSubjectSearchQuery('');
   };
 
@@ -311,44 +302,27 @@ export function RegistrationStep1StudentDetails({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Year Level *</FormLabel>
-              <div className="relative">
-                <Select
-                  value={field.value === 0 ? 'Reception' : field.value?.toString() || ""}
-                  onValueChange={(value) => {
-                    field.onChange(value === 'Reception' || value === "" ? (value === "" ? undefined : 0) : parseInt(value, 10));
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger className={cn(field.value !== undefined && "pr-10 [&_svg]:hidden")}>
-                      <SelectValue placeholder="Select year level" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {validYearLevels.map((year) => (
-                      <SelectItem key={year} value={year === 0 ? 'Reception' : year.toString()}>
-                        {year === 0 ? 'Reception' : `Year ${year}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {field.value !== undefined && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+              <FormControl>
+                <SearchableSelect<number>
+                  items={validYearLevels}
+                  value={field.value !== undefined ? field.value : null}
+                  onValueChange={(item) => {
+                    if (item === null) {
                       const currentCurriculum = form.getValues('student.curriculum');
                       form.setValue('student.year_level', undefined, { shouldValidate: true });
-                      // If curriculum requires a year level, clear it too
                       if (currentCurriculum && getValidYearLevels(currentCurriculum).length > 0) {
                         form.setValue('student.curriculum', undefined, { shouldValidate: true });
                       }
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
+                    } else {
+                      field.onChange(item);
+                    }
+                  }}
+                  getItemLabel={(year) => (year === 0 ? 'Reception' : `Year ${year}`)}
+                  getItemId={(year) => (year === 0 ? 'Reception' : year.toString())}
+                  placeholder="Select year level"
+                  allowClear
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -360,47 +334,30 @@ export function RegistrationStep1StudentDetails({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Curriculum *</FormLabel>
-              <div className="relative">
-                <Select
-                  value={field.value || ""}
-                  onValueChange={(value) => {
-                    field.onChange(value === "" ? undefined : value);
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger className={cn(field.value && "pr-10 [&_svg]:hidden")}>
-                      <SelectValue placeholder="Select curriculum" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {validCurriculums.map((curr) => (
-                      <SelectItem key={curr} value={curr}>
-                        {curr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {field.value && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+              <FormControl>
+                <SearchableSelect<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'>
+                  items={validCurriculums}
+                  value={field.value ?? null}
+                  onValueChange={(item) => {
+                    if (item === null) {
                       const currentYearLevel = form.getValues('student.year_level');
                       form.setValue('student.curriculum', undefined as unknown as RegistrationFormValues['student']['curriculum'], { shouldValidate: true });
-                      // If year level requires a curriculum, clear it too
                       if (currentYearLevel !== undefined) {
                         const validCurriculumsForYear = getValidCurriculums(currentYearLevel);
                         if (validCurriculumsForYear.length > 0 && validCurriculumsForYear.length < 4) {
                           form.setValue('student.year_level', undefined as RegistrationFormValues['student']['year_level'], { shouldValidate: true });
                         }
                       }
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
+                    } else {
+                      field.onChange(item);
+                    }
+                  }}
+                  getItemLabel={(curr) => curr}
+                  getItemId={(curr) => curr}
+                  placeholder="Select curriculum"
+                  allowClear
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -437,47 +394,26 @@ export function RegistrationStep1StudentDetails({
                   );
                 })}
               </div>
-              <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-                <PopoverTrigger asChild>
+              <SearchableSelect<Tables<'subjects'>>
+                items={availableSubjects}
+                value={null}
+                onValueChange={(item) => item && handleSelectSubject(item)}
+                getItemLabel={formatSubjectDisplay}
+                getItemId={(s) => s.id}
+                placeholder="Add subject"
+                searchPlaceholder="Search subjects..."
+                emptyMessage="No subjects found"
+                loading={isSearchingSubjects}
+                onSearchChange={(query) => setSubjectSearchQuery(query)}
+                onOpenChange={(open) => !open && setSubjectSearchQuery('')}
+                trigger={
                   <Button type="button" variant="outline" size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Subject
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0" align="start">
-                  <div className="p-3 border-b">
-                    <Input
-                      placeholder="Search subjects..."
-                      value={subjectSearchQuery}
-                      onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <ScrollArea className="h-64">
-                    {isSearchingSubjects ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      </div>
-                    ) : availableSubjects.length === 0 ? (
-                      <div className="p-4 text-sm text-muted-foreground text-center">
-                        No subjects found
-                      </div>
-                    ) : (
-                      <div className="p-2">
-                        {availableSubjects.map((subject) => (
-                          <button
-                            key={subject.id}
-                            type="button"
-                            onClick={() => handleSelectSubject(subject)}
-                            className="w-full text-left p-2 hover:bg-muted rounded text-sm"
-                          >
-                            {formatSubjectDisplay(subject)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
+                }
+                contentWidth="320px"
+              />
             </div>
             <FormMessage />
           </FormItem>

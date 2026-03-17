@@ -15,7 +15,9 @@ type StatsCardProps = {
 }
 
 export function StatsCard({ data }: StatsCardProps) {
-  const questionsCompleted = data.questionAttempts.length
+  const questionsCompleted = new Set(
+    data.questionAttempts.map((a) => a.questionId)
+  ).size
   const setsCompleted = data.setAttempts.filter(
     (a) => !a.studentUcatMockAttemptId
   ).length

@@ -1,9 +1,6 @@
 import { useState, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { Button, SearchableSelect } from "@altitutor/ui";
 import { Loader2, UserCheck, Plus } from "lucide-react";
 import { ViewStaffModal } from '@/features/staff';
 import { StaffCard } from '@/shared/components/StaffCard';
@@ -31,7 +28,6 @@ export function AdminShiftStaffTab({
   const { toast } = useToast();
   const [assigningStaff, setAssigningStaff] = useState<Set<string>>(new Set());
   const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
   
   // Modal state for staff viewing
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
@@ -53,7 +49,6 @@ export function AdminShiftStaffTab({
       setAssigningStaff(prev => new Set(prev).add(staffId));
       await onAssignStaff(staffId);
       setIsAddPopoverOpen(false);
-      setSearchQuery('');
       toast({
         title: 'Success',
         description: 'Staff assigned successfully.',
@@ -107,62 +102,48 @@ export function AdminShiftStaffTab({
     staff => staff.role === 'ADMINSTAFF' && !adminShiftStaff.some(assigned => assigned.id === staff.id)
   );
 
-  // Filter staff by search query
-  const filteredAvailableStaff = availableStaff.filter(staff => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    const fullName = `${staff.first_name} ${staff.last_name}`.toLowerCase();
-    return fullName.includes(query);
-  });
-
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Staff Assignments</h3>
-        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-          <PopoverTrigger asChild>
+        <SearchableSelect<Tables<'staff'>>
+          items={availableStaff}
+          value={null}
+          onValueChange={(staff) => staff && handleAssignStaffFromPopover(staff.id)}
+          getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+          getItemId={(s) => s.id}
+          getItemValue={(s) => `${s.first_name} ${s.last_name}`}
+          placeholder="Assign Staff"
+          searchPlaceholder="Search staff..."
+          emptyMessage={
+            availableStaff.length === 0
+              ? 'All staff are already assigned'
+              : 'No staff found'
+          }
+          trigger={
             <Button size="sm" variant="outline">
               <Plus className="h-4 w-4 mr-2" />
               Assign Staff
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-80" align="end">
-            <div className="space-y-2">
-              <Input
-                placeholder="Search staff..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-2"
-              />
-              <ScrollArea className="h-[300px]">
-                {filteredAvailableStaff.length === 0 ? (
-                  <div className="text-sm text-muted-foreground text-center py-4">
-                    {searchQuery ? 'No staff found' : 'All staff are already assigned'}
-                  </div>
-                ) : (
-                  <div className="space-y-1">
-                    {filteredAvailableStaff.map((staff) => (
-                      <Button
-                        key={staff.id}
-                        variant="ghost"
-                        className="w-full justify-start"
-                        onClick={() => handleAssignStaffFromPopover(staff.id)}
-                        disabled={assigningStaff.has(staff.id)}
-                      >
-                        {assigningStaff.has(staff.id) ? (
-                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        ) : (
-                          <UserCheck className="h-4 w-4 mr-2" />
-                        )}
-                        {staff.first_name} {staff.last_name}
-                      </Button>
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </div>
-          </PopoverContent>
-        </Popover>
+          }
+          open={isAddPopoverOpen}
+          onOpenChange={setIsAddPopoverOpen}
+          getItemDisabled={(s) => assigningStaff.has(s.id)}
+          renderItem={(staff) => (
+            <>
+              {assigningStaff.has(staff.id) ? (
+                <Loader2 className="h-4 w-4 flex-shrink-0 animate-spin" />
+              ) : (
+                <UserCheck className="h-4 w-4 flex-shrink-0" />
+              )}
+              <span className={assigningStaff.has(staff.id) ? 'text-muted-foreground' : ''}>
+                {staff.first_name} {staff.last_name}
+              </span>
+            </>
+          )}
+          align="end"
+          contentWidth="320px"
+        />
       </div>
 
       {loadingStaff ? (

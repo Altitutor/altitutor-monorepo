@@ -15,6 +15,8 @@ export type MockAttemptWithBreakdown = {
   scorePoints: number | null
   totalPoints: number | null
   scaledScore: number | null
+  /** Max possible scaled score (900 × section 1–3 sets). Section 4 excluded. */
+  scaledScoreMax: number | null
   sectionScores: MockAttemptSectionScore[]
 }
 
@@ -90,6 +92,8 @@ export async function getMockAttemptsWithBreakdown(
     setAttemptsByMockAttempt.set(mockAttemptId, list)
   }
 
+  const SITUATIONAL_JUDGEMENT_SECTION = 4
+
   const result: MockAttemptWithBreakdown[] = []
   for (const ma of mockAttemptsRaw) {
     const childSetAttempts = setAttemptsByMockAttempt.get(ma.id ?? '') ?? []
@@ -109,12 +113,20 @@ export async function getMockAttemptsWithBreakdown(
       }
     })
 
-    const scorePoints = childSetAttempts.reduce((sum, c) => sum + (c.scorePoints ?? 0), 0)
-    const totalPoints = childSetAttempts.reduce((sum, c) => sum + (c.totalPoints ?? 0), 0)
-    const scaledScore = childSetAttempts.reduce(
+    // Exclude Section 4 (Situational Judgement) from mock score
+    const scoredChildSetAttempts = childSetAttempts.filter((c) => {
+      const sec = sectionsBySetId.get(c.questionSetId)
+      return sec?.sectionNumber !== SITUATIONAL_JUDGEMENT_SECTION
+    })
+
+    const scorePoints = scoredChildSetAttempts.reduce((sum, c) => sum + (c.scorePoints ?? 0), 0)
+    const totalPoints = scoredChildSetAttempts.reduce((sum, c) => sum + (c.totalPoints ?? 0), 0)
+    const scaledScore = scoredChildSetAttempts.reduce(
       (sum, c) => sum + (c.scaledScore ?? 0),
       0
     )
+    const scaledScoreMax =
+      scoredChildSetAttempts.length > 0 ? scoredChildSetAttempts.length * 900 : null
 
     result.push({
       id: ma.id ?? '',
@@ -123,6 +135,7 @@ export async function getMockAttemptsWithBreakdown(
       scorePoints: totalPoints > 0 ? scorePoints : null,
       totalPoints: totalPoints > 0 ? totalPoints : null,
       scaledScore: totalPoints > 0 ? scaledScore : null,
+      scaledScoreMax,
       sectionScores,
     })
   }

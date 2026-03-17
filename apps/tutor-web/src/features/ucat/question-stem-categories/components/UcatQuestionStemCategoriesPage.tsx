@@ -6,11 +6,7 @@ import {
   Button,
   DataTableToolbar,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -427,25 +423,27 @@ function CategoryForm({
     <div className="space-y-4">
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Section</span>
-        <Select
-          value={draft.sectionId}
-          onValueChange={(value) => {
-            setDraft((prev) => ({ ...prev, sectionId: value }))
-            onSectionChange()
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">Select section</SelectItem>
-            {sections.map((section) => (
-              <SelectItem key={section.id ?? 'none'} value={section.id ?? ''}>
-                {section.name ?? 'Unknown'}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {(() => {
+          const sectionItems = [
+            { id: 'none', name: 'Select section' },
+            ...sections.map((s) => ({ id: s.id ?? '', name: s.name ?? 'Unknown' })),
+          ]
+          const selected = sectionItems.find((s) => s.id === draft.sectionId) ?? sectionItems[0]
+          return (
+            <SearchableSelect<{ id: string; name: string }>
+              items={sectionItems}
+              value={selected}
+              onValueChange={(item) => {
+                if (item) {
+                  setDraft((prev) => ({ ...prev, sectionId: item.id }))
+                  onSectionChange()
+                }
+              }}
+              getItemLabel={(s) => s.name}
+              getItemId={(s) => s.id}
+            />
+          )
+        })()}
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Name</span>
@@ -453,23 +451,26 @@ function CategoryForm({
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Parent Category</span>
-        <Select
-          value={draft.parentCategoryId}
-          onValueChange={(value) => setDraft((prev) => ({ ...prev, parentCategoryId: value }))}
-          disabled={!sectionSelected}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder={sectionSelected ? undefined : 'Select section first'} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No parent</SelectItem>
-            {parentOptions.map((row) => (
-              <SelectItem key={row.id} value={row.id}>
-                {row.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {(() => {
+          const parentItems = [
+            { id: 'none', name: 'No parent' },
+            ...parentOptions.map((r) => ({ id: r.id, name: r.name })),
+          ]
+          const selected = parentItems.find((p) => p.id === draft.parentCategoryId) ?? parentItems[0]
+          return (
+            <SearchableSelect<{ id: string; name: string }>
+              items={parentItems}
+              value={selected}
+              onValueChange={(item) =>
+                setDraft((prev) => ({ ...prev, parentCategoryId: item?.id ?? 'none' }))
+              }
+              getItemLabel={(p) => p.name}
+              getItemId={(p) => p.id}
+              placeholder={sectionSelected ? undefined : 'Select section first'}
+              disabled={!sectionSelected}
+            />
+          )
+        })()}
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Description</span>

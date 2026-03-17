@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect, Button } from '@altitutor/ui';
 import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
@@ -62,7 +62,7 @@ export function ChangeClassStep2SelectDate({
       today
     );
 
-    const dates: Array<{ value: string; label: string }> = [];
+    const dates: Array<{ id: string; label: string }> = [];
     const currentDate = new Date(firstSession);
     
     // Generate dates for the next 16 weeks (16 sessions)
@@ -70,7 +70,7 @@ export function ChangeClassStep2SelectDate({
       const dateStr = currentDate.toISOString().split('T')[0];
       const formattedDate = formatDate(currentDate);
       dates.push({
-        value: dateStr,
+        id: dateStr,
         label: formattedDate,
       });
       
@@ -128,26 +128,27 @@ export function ChangeClassStep2SelectDate({
           {' starting on '}
           <span className="inline-flex items-center">
             {futureSessionDates.length > 0 ? (
-              <Select
-                value={changeoverDate || undefined}
-                onValueChange={onDateChange}
-              >
-                <SelectTrigger className={cn(
-                  "h-8 text-sm font-semibold border focus:ring-primary/20 w-auto min-w-[180px]",
-                  isDateChosen
-                    ? "bg-primary/10 text-primary border-primary/20"
-                    : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
-                )}>
-                  <SelectValue placeholder="Select session date" />
-                </SelectTrigger>
-                <SelectContent>
-                  {futureSessionDates.map((date) => (
-                    <SelectItem key={date.value} value={date.value}>
-                      {date.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<{ id: string; label: string }>
+                items={futureSessionDates}
+                value={changeoverDate ? futureSessionDates.find((d) => d.id === changeoverDate) ?? null : null}
+                onValueChange={(v) => v && onDateChange(v.id)}
+                getItemId={(item) => item.id}
+                getItemLabel={(item) => item.label}
+                placeholder="Select session date"
+                trigger={
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "h-8 text-sm font-semibold w-auto min-w-[180px] justify-start font-normal",
+                      isDateChosen
+                        ? "bg-primary/10 text-primary border-primary/20"
+                        : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
+                    )}
+                  >
+                    {changeoverDate ? futureSessionDates.find((d) => d.id === changeoverDate)?.label ?? changeoverDate : 'Select session date'}
+                  </Button>
+                }
+              />
             ) : (
               <span className="px-2 py-1 rounded-md bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20 text-sm font-semibold">
                 choose class

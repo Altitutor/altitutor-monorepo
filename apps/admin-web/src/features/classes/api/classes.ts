@@ -39,6 +39,8 @@ export const classesApi = {
   listMinimal: async (params?: {
     search?: string;
     subjectIds?: string[];
+    studentIds?: string[];
+    staffIds?: string[];
     dayOfWeek?: number | number[];
     daysOfWeek?: number[];
     limit?: number;
@@ -55,6 +57,8 @@ export const classesApi = {
     const {
       search = '',
       subjectIds,
+      studentIds,
+      staffIds,
       dayOfWeek,
       daysOfWeek = [],
       limit = 50,
@@ -79,6 +83,8 @@ export const classesApi = {
       p_search: trimmed.length > 0 ? trimmed : undefined,
       p_statuses: ['ACTIVE'],
       p_subject_ids: subjectIds && subjectIds.length > 0 ? subjectIds : undefined,
+      p_student_ids: studentIds && studentIds.length > 0 ? studentIds : undefined,
+      p_staff_ids: staffIds && staffIds.length > 0 ? staffIds : undefined,
       p_include_relationships: true,
       p_exclude_student_search: excludeStudentSearch,
       p_exclude_staff_search: excludeStaffSearch,

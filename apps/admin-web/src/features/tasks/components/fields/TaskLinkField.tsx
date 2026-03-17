@@ -7,11 +7,7 @@ import {
   FormItem,
   FormMessage,
   Button,
-  Input,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  ScrollArea,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { ArrowUpRight, Check, ChevronDown, FolderKanban, Link2 } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
@@ -20,12 +16,12 @@ import { useIssues } from '@/features/issues/api/queries';
 import { useProjects } from '@/features/projects/api/queries';
 import type { TaskFormData } from '../../types';
 
-type LinkType = 'issue' | 'project';
-
 type LinkSelection =
   | { type: 'issue'; id: string; name: string | null }
   | { type: 'project'; id: string; name: string | null }
   | null;
+
+type LinkItem = Exclude<LinkSelection, null>;
 
 function getMatchScore(name: string | null, rawQuery: string): number {
   const query = rawQuery.trim().toLowerCase();
@@ -75,7 +71,7 @@ export function TaskLinkField({
       .map((item) => ({ item, score: getMatchScore(item.name, searchQuery) }))
       .filter(({ score }) => score >= 0)
       .sort((a, b) => b.score - a.score);
-    return scored.map(({ item }) => item);
+    return scored.map(({ item }) => ({ type: 'issue' as const, id: item.id, name: item.name }));
   }, [issues, searchQuery]);
 
   const projectMatches = useMemo(() => {
@@ -83,22 +79,25 @@ export function TaskLinkField({
       .map((item) => ({ item, score: getMatchScore(item.name, searchQuery) }))
       .filter(({ score }) => score >= 0)
       .sort((a, b) => b.score - a.score);
-    return scored.map(({ item }) => item);
+    return scored.map(({ item }) => ({ type: 'project' as const, id: item.id, name: item.name }));
   }, [projects, searchQuery]);
 
   const issueTopScore = issueMatches.length > 0 ? getMatchScore(issueMatches[0].name, searchQuery) : -1;
   const projectTopScore = projectMatches.length > 0 ? getMatchScore(projectMatches[0].name, searchQuery) : -1;
   const showProjectsFirst = projectTopScore > issueTopScore;
 
-  const orderedGroups: Array<{ type: LinkType; label: string }> = showProjectsFirst
-    ? [
-        { type: 'project', label: 'Projects' },
-        { type: 'issue', label: 'Issues' },
-      ]
-    : [
-        { type: 'issue', label: 'Issues' },
-        { type: 'project', label: 'Projects' },
-      ];
+  const groups = useMemo(() => {
+    const ordered = showProjectsFirst
+      ? [
+          { type: 'project' as const, label: 'Projects', items: projectMatches },
+          { type: 'issue' as const, label: 'Issues', items: issueMatches },
+        ]
+      : [
+          { type: 'issue' as const, label: 'Issues', items: issueMatches },
+          { type: 'project' as const, label: 'Projects', items: projectMatches },
+        ];
+    return ordered.filter((g) => g.items.length > 0).map((g) => ({ label: g.label, items: g.items }));
+  }, [issueMatches, projectMatches, showProjectsFirst]);
 
   return (
     <FormField
@@ -106,17 +105,19 @@ export function TaskLinkField({
       name="issueId"
       render={() => (
         <FormItem>
-          <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}>
-            <PopoverTrigger asChild>
-              <FormControl>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setIsPopoverOpen(true);
-                  }}
-                >
+          <FormControl>
+            <SearchableSelect<LinkItem>
+              items={[]}
+              groups={groups}
+              value={activeLink}
+              onValueChange={onLinkChange}
+              getItemId={(item) => `${item.type}-${item.id}`}
+              getItemLabel={(item) => item.name || `Untitled ${item.type}`}
+              placeholder="Issue or project"
+              searchPlaceholder="Search issues and projects..."
+              emptyMessage="No results found"
+              trigger={
+                <Button variant="outline" className="w-full justify-start">
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     {activeLink?.type === 'project' ? (
                       <FolderKanban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
@@ -130,77 +131,33 @@ export function TaskLinkField({
                     <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />
                   </div>
                 </Button>
-              </FormControl>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[400px]" align="start">
-              <div className="p-3">
-                <Input
-                  type="text"
-                  placeholder="Search issues and projects..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="h-[300px]">
-                  <div className="space-y-2 pr-4">
-                    <Button
-                      variant="ghost"
-                      className="w-full justify-start h-auto p-3"
-                      onClick={() => {
-                        onLinkChange(null);
-                        setIsPopoverOpen(false);
-                        setSearchQuery('');
-                      }}
-                    >
-                      <div className="flex items-center gap-2 w-full">
-                        {!activeLink && <Check className="h-4 w-4" />}
-                        <span className={!activeLink ? 'font-medium' : ''}>No link</span>
-                      </div>
-                    </Button>
-
-                    {orderedGroups.map((group) => {
-                      const items = group.type === 'issue' ? issueMatches : projectMatches;
-                      if (items.length === 0) return null;
-
-                      return (
-                        <div key={group.type} className="space-y-1">
-                          <div className="px-3 pt-1 pb-0.5 text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
-                            {group.label}
-                          </div>
-                          {items.map((item) => (
-                            <Button
-                              key={`${group.type}-${item.id}`}
-                              variant="ghost"
-                              className="w-full justify-start h-auto p-3"
-                              onClick={() => {
-                                onLinkChange({ type: group.type, id: item.id, name: item.name });
-                                setIsPopoverOpen(false);
-                                setSearchQuery('');
-                              }}
-                            >
-                              <div className="flex items-center gap-2 w-full min-w-0">
-                                {activeLink?.type === group.type && activeLink.id === item.id && (
-                                  <Check className="h-4 w-4 flex-shrink-0" />
-                                )}
-                                {group.type === 'issue' ? (
-                                  <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                ) : (
-                                  <FolderKanban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                                )}
-                                <span className={cn('truncate', activeLink?.type === group.type && activeLink.id === item.id && 'font-medium')}>
-                                  {item.name || `Untitled ${group.type}`}
-                                </span>
-                              </div>
-                            </Button>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+              }
+              allowClear
+              clearLabel="No link"
+              contentWidth="400px"
+              align="start"
+              onSearchChange={setSearchQuery}
+              open={isPopoverOpen}
+              onOpenChange={setIsPopoverOpen}
+              renderItem={(item, isSelected) => (
+                <>
+                  <Check
+                    className={
+                      isSelected ? 'h-4 w-4 flex-shrink-0 opacity-100' : 'h-4 w-4 flex-shrink-0 opacity-0'
+                    }
+                  />
+                  {item.type === 'issue' ? (
+                    <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <FolderKanban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  )}
+                  <span className={cn('truncate', isSelected && 'font-medium')}>
+                    {item.name || `Untitled ${item.type}`}
+                  </span>
+                </>
+              )}
+            />
+          </FormControl>
           {activeLink && (activeLink.type === 'issue' ? onOpenIssue : onOpenProject) && (
             <Button
               type="button"

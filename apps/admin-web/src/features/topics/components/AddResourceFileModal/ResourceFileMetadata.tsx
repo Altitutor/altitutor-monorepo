@@ -1,15 +1,9 @@
 import { Label } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useTopicsBySubject, useAvailableSolutionLinks } from '../../hooks';
-import type { Enums } from '@altitutor/shared';
+import type { Enums, Tables } from '@altitutor/shared';
 
 const RESOURCE_TYPES: Enums<'resource_type'>[] = [
   'NOTES',
@@ -22,6 +16,11 @@ const RESOURCE_TYPES: Enums<'resource_type'>[] = [
   'CHEAT_SHEET',
 ];
 
+const RESOURCE_TYPE_ITEMS: { id: string; label: string }[] = RESOURCE_TYPES.map((type) => ({
+  id: type,
+  label: type.replace(/_/g, ' '),
+}));
+
 export interface ResourceFileMetadataProps {
   selectedSubjectId: string | null;
   selectedTopicId: string | null;
@@ -31,13 +30,11 @@ export interface ResourceFileMetadataProps {
   preselectedSubjectId?: string;
   preselectedTopicId?: string;
   hasMultipleFiles: boolean;
-  subjectSearchQuery: string;
   onSubjectIdChange: (value: string) => void;
   onTopicIdChange: (value: string) => void;
   onTypeChange: (value: Enums<'resource_type'>) => void;
   onIsSolutionsChange: (checked: boolean) => void;
   onSolutionOfIdChange: (value: string) => void;
-  onSubjectSearchQueryChange: (value: string) => void;
 }
 
 export function ResourceFileMetadata({
@@ -49,13 +46,11 @@ export function ResourceFileMetadata({
   preselectedSubjectId,
   preselectedTopicId,
   hasMultipleFiles,
-  subjectSearchQuery,
   onSubjectIdChange,
   onTopicIdChange,
   onTypeChange,
   onIsSolutionsChange,
   onSolutionOfIdChange,
-  onSubjectSearchQueryChange,
 }: ResourceFileMetadataProps) {
   const { data: subjects = [] } = useSubjects();
   const { data: topics = [] } = useTopicsBySubject(selectedSubjectId);
@@ -64,89 +59,68 @@ export function ResourceFileMetadata({
     selectedType
   );
 
-  // Filter subjects based on search query
-  const filteredSubjects = subjects.filter((subject) => {
-    if (!subjectSearchQuery) return true;
-    const query = subjectSearchQuery.toLowerCase();
-    const displayText = (subject?.long_name ?? '').toLowerCase();
-    return displayText.includes(query) || subject.name.toLowerCase().includes(query);
-  });
+  const selectedSubject = subjects.find((s) => s.id === selectedSubjectId) ?? null;
+  const selectedTopic = topics.find((t) => t.id === selectedTopicId) ?? null;
+  const selectedTypeItem =
+    RESOURCE_TYPE_ITEMS.find((item) => item.id === selectedType) ?? null;
+  const selectedSolutionLink =
+    availableSolutionLinks.find((tf) => tf.id === selectedSolutionOfId) ?? null;
 
   return (
     <div className="space-y-4">
       {/* Subject Selector */}
       <div className="space-y-2">
         <Label htmlFor="subject">Subject *</Label>
-        <Select
-          value={selectedSubjectId || ''}
-          onValueChange={(value) => {
-            onSubjectIdChange(value);
+        <SearchableSelect
+          items={subjects}
+          value={selectedSubject}
+          onValueChange={(subject) => {
+            onSubjectIdChange(subject?.id ?? '');
             onTopicIdChange(''); // Reset topic when subject changes
           }}
+          getItemId={(s) => s.id}
+          getItemLabel={(s) => s.long_name ?? s.name}
+          getItemValue={(s) =>
+            `${s.long_name ?? ''} ${s.name ?? ''}`.trim()
+          }
+          placeholder="Select subject"
+          searchPlaceholder="Search subjects..."
+          emptyMessage="No subjects found."
           disabled={!!preselectedSubjectId}
-        >
-          <SelectTrigger id="subject">
-            <SelectValue placeholder="Select subject" />
-          </SelectTrigger>
-          <SelectContent>
-            <div className="p-2">
-              <input
-                type="text"
-                placeholder="Search subjects..."
-                value={subjectSearchQuery}
-                onChange={(e) => onSubjectSearchQueryChange(e.target.value)}
-                className="h-8 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-            {filteredSubjects.map((subject) => (
-              <SelectItem key={subject.id} value={subject.id}>
-                {(subject?.long_name ?? '')}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       </div>
 
       {/* Topic Selector */}
       <div className="space-y-2">
         <Label htmlFor="topic">Topic *</Label>
-        <Select
-          value={selectedTopicId || ''}
-          onValueChange={onTopicIdChange}
+        <SearchableSelect
+          items={topics}
+          value={selectedTopic}
+          onValueChange={(topic) => onTopicIdChange(topic?.id ?? '')}
+          getItemId={(t) => t.id}
+          getItemLabel={(t) => t.name}
+          placeholder="Select topic"
+          searchPlaceholder="Search topics..."
+          emptyMessage="No topics found."
           disabled={!selectedSubjectId || !!preselectedTopicId}
-        >
-          <SelectTrigger id="topic">
-            <SelectValue placeholder="Select topic" />
-          </SelectTrigger>
-          <SelectContent>
-            {topics.map((topic) => (
-              <SelectItem key={topic.id} value={topic.id}>
-                {topic.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        />
       </div>
 
       {/* Type Selector */}
       <div className="space-y-2">
         <Label htmlFor="type">Type *</Label>
-        <Select
-          value={selectedType || ''}
-          onValueChange={(value) => onTypeChange(value as Enums<'resource_type'>)}
-        >
-          <SelectTrigger id="type">
-            <SelectValue placeholder="Select type" />
-          </SelectTrigger>
-          <SelectContent>
-            {RESOURCE_TYPES.map((type: Enums<'resource_type'>) => (
-              <SelectItem key={type} value={type}>
-                {type.replace(/_/g, ' ')}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <SearchableSelect<{ id: string; label: string }>
+          items={RESOURCE_TYPE_ITEMS}
+          value={selectedTypeItem}
+          onValueChange={(item) =>
+            item && onTypeChange(item.id as Enums<'resource_type'>)
+          }
+          getItemId={(item) => item.id}
+          getItemLabel={(item) => item.label}
+          placeholder="Select type"
+          searchPlaceholder="Search types..."
+          emptyMessage="No types found."
+        />
       </div>
 
       {/* Solutions Checkbox - Only show when single file */}
@@ -172,21 +146,20 @@ export function ResourceFileMetadata({
           {isSolutions && selectedTopicId && selectedType && (
             <div className="space-y-2">
               <Label htmlFor="solutions_of">Solutions For *</Label>
-              <Select
-                value={selectedSolutionOfId || ''}
-                onValueChange={onSolutionOfIdChange}
+              <SearchableSelect<
+                Tables<'topics_files'> & { file: Tables<'files'> }
               >
-                <SelectTrigger id="solutions_of">
-                  <SelectValue placeholder="Select file this is solutions for" />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSolutionLinks.map((tf) => (
-                    <SelectItem key={tf.id} value={tf.id}>
-                      {selectedType} - Index {tf.index}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                items={availableSolutionLinks}
+                value={selectedSolutionLink}
+                onValueChange={(tf) => onSolutionOfIdChange(tf?.id ?? '')}
+                getItemId={(tf) => tf.id}
+                getItemLabel={(tf) =>
+                  `${selectedType} - Index ${tf.index}`
+                }
+                placeholder="Select file this is solutions for"
+                searchPlaceholder="Search files..."
+                emptyMessage="No files found."
+              />
             </div>
           )}
         </>

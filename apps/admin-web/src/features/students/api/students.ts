@@ -115,7 +115,7 @@ export const studentsApi = {
     offset?: number;
     orderBy?: keyof Tables<'students'>;
     ascending?: boolean;
-  }): Promise<{ students: (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[]; total: number }> => {
+  }): Promise<{ students: (Tables<'students'> & { classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[]; total: number }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const {
       search = '',
@@ -198,6 +198,8 @@ export const studentsApi = {
         }
         return {
           id: String(cls.id),
+          short_name: 'short_name' in cls && typeof cls.short_name === 'string' ? cls.short_name : null,
+          long_name: 'long_name' in cls && typeof cls.long_name === 'string' ? cls.long_name : null,
           day_of_week: 'day_of_week' in cls && typeof cls.day_of_week === 'number' ? cls.day_of_week : null,
           start_time: 'start_time' in cls && typeof cls.start_time === 'string' ? cls.start_time : null,
           level: 'level' in cls && typeof cls.level === 'string' ? cls.level : null,
@@ -212,7 +214,7 @@ export const studentsApi = {
     const total = rpcData.total;
 
     return {
-      students: transformedStudents as unknown as (Tables<'students'> & { classes?: Array<{ id: string; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
+      students: transformedStudents as unknown as (Tables<'students'> & { classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
       total,
     };
   },

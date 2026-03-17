@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -8,16 +8,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  Button,
+  Input,
+  Label,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
@@ -53,7 +47,6 @@ export function AddTopicModal({
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(
     preselectedSubjectId || null
   );
-  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
 
   const { data: subjects = [], isLoading: subjectsLoading } = useSubjects();
   const { data: topics = [] } = useTopicsBySubject(selectedSubjectId);
@@ -110,23 +103,13 @@ export function AddTopicModal({
     }
   };
 
-  const handleSubjectChange = (value: string) => {
-    setSelectedSubjectId(value);
+  const handleSubjectChange = (s: Tables<'subjects'> | null) => {
+    const value = s?.id ?? '';
+    setSelectedSubjectId(value || null);
     form.setValue('subject_id', value);
     // Clear parent selection when subject changes
     form.setValue('parent_id', 'none');
   };
-
-  // Filter subjects based on search query
-  const filteredSubjects = useMemo(() => {
-    if (!subjectSearchQuery) return subjects;
-    
-    const query = subjectSearchQuery.toLowerCase();
-    return subjects.filter((subject) => {
-      const displayText = (subject?.long_name ?? '').toLowerCase();
-      return displayText.includes(query) || subject.name.toLowerCase().includes(query);
-    });
-  }, [subjects, subjectSearchQuery]);
 
   // Filter topics to only show those in the selected subject
   const availableParentTopics = topics.filter((t) => t.subject_id === selectedSubjectId);
@@ -144,31 +127,20 @@ export function AddTopicModal({
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="subject_id">Subject *</Label>
-            <Select
-              value={form.watch('subject_id')}
+            <SearchableSelect<Tables<'subjects'>>
+              items={subjects}
+              value={subjects.find((s) => s.id === form.watch('subject_id')) ?? null}
               onValueChange={handleSubjectChange}
+              getItemId={(item) => item.id}
+              getItemLabel={(item) => item?.long_name ?? item.name ?? ''}
+              placeholder="Select subject"
               disabled={!!preselectedSubjectId || subjectsLoading}
-            >
-              <SelectTrigger id="subject_id">
-                <SelectValue placeholder="Select subject" />
-              </SelectTrigger>
-              <SelectContent>
-                <div className="p-2">
-                  <Input
-                    placeholder="Search subjects..."
-                    value={subjectSearchQuery}
-                    onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                    className="h-8"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-                {filteredSubjects.map((subject) => (
-                  <SelectItem key={subject.id} value={subject.id}>
-                    {(subject?.long_name ?? '')}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              trigger={
+                <Button variant="outline" className="w-full justify-start font-normal" id="subject_id">
+                  {subjects.find((s) => s.id === form.watch('subject_id'))?.long_name ?? 'Select subject'}
+                </Button>
+              }
+            />
             {form.formState.errors.subject_id && (
               <p className="text-sm text-destructive">{form.formState.errors.subject_id.message}</p>
             )}
@@ -176,23 +148,31 @@ export function AddTopicModal({
 
           <div className="space-y-2">
             <Label htmlFor="parent_id">Parent Topic (Optional)</Label>
-            <Select
-              value={form.watch('parent_id')}
-              onValueChange={(value) => form.setValue('parent_id', value)}
+            <SearchableSelect<{ id: string; label: string }>
+              items={[
+                { id: 'none', label: 'None (root topic)' },
+                ...availableParentTopics.map((t) => ({ id: t.id, label: t.name })),
+              ]}
+              value={
+                form.watch('parent_id') === 'none' || !form.watch('parent_id')
+                  ? { id: 'none', label: 'None (root topic)' }
+                  : availableParentTopics.find((t) => t.id === form.watch('parent_id'))
+                    ? { id: form.watch('parent_id')!, label: availableParentTopics.find((t) => t.id === form.watch('parent_id'))!.name }
+                    : null
+              }
+              onValueChange={(v) => form.setValue('parent_id', v?.id ?? 'none')}
+              getItemId={(item) => item.id}
+              getItemLabel={(item) => item.label}
+              placeholder="None (root topic)"
               disabled={!selectedSubjectId || !!preselectedParentId}
-            >
-              <SelectTrigger id="parent_id">
-                <SelectValue placeholder="None (root topic)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">None (root topic)</SelectItem>
-                {availableParentTopics.map((topic) => (
-                  <SelectItem key={topic.id} value={topic.id}>
-                    {topic.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              trigger={
+                <Button variant="outline" className="w-full justify-start font-normal" id="parent_id">
+                  {form.watch('parent_id') === 'none' || !form.watch('parent_id')
+                    ? 'None (root topic)'
+                    : availableParentTopics.find((t) => t.id === form.watch('parent_id'))?.name ?? 'None (root topic)'}
+                </Button>
+              }
+            />
           </div>
 
           <div className="space-y-2">

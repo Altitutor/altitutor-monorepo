@@ -5,13 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { useCreateAdminShift } from '../hooks/useAdminShiftsQuery';
 import { useCurrentStaff } from '@/shared/hooks';
 import {
@@ -21,6 +15,16 @@ import {
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 import type { TablesInsert } from '@altitutor/shared';
+
+const DAY_OPTIONS = [
+  { value: '0', label: 'Sunday' },
+  { value: '1', label: 'Monday' },
+  { value: '2', label: 'Tuesday' },
+  { value: '3', label: 'Wednesday' },
+  { value: '4', label: 'Thursday' },
+  { value: '5', label: 'Friday' },
+  { value: '6', label: 'Saturday' },
+] as const;
 
 interface AddAdminShiftModalProps {
   isOpen: boolean;
@@ -167,20 +171,14 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="day">Day of Week *</Label>
-              <Select value={dayOfWeek} onValueChange={setDayOfWeek} required>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select day" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="0">Sunday</SelectItem>
-                  <SelectItem value="1">Monday</SelectItem>
-                  <SelectItem value="2">Tuesday</SelectItem>
-                  <SelectItem value="3">Wednesday</SelectItem>
-                  <SelectItem value="4">Thursday</SelectItem>
-                  <SelectItem value="5">Friday</SelectItem>
-                  <SelectItem value="6">Saturday</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof DAY_OPTIONS)[number]>
+                items={[...DAY_OPTIONS]}
+                value={DAY_OPTIONS.find((d) => d.value === dayOfWeek) ?? null}
+                onValueChange={(item) => setDayOfWeek(item?.value ?? '')}
+                getItemLabel={(o) => o.label}
+                getItemId={(o) => o.value}
+                placeholder="Select day"
+              />
             </div>
           </div>
           

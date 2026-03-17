@@ -244,8 +244,13 @@ export function SessionsTable({
         { label: 'Unlogged', value: 'unlogged' },
       ],
     }]),
-    { key: 'from', label: 'From date', type: 'date' },
-    { key: 'to', label: 'To date', type: 'date' },
+    {
+      key: 'date',
+      label: 'Date',
+      type: 'date-range',
+      fromKey: 'from',
+      toKey: 'to',
+    },
   ], [filteredStaff, filteredStudents, hideStudentFilter, hideTutorLogFilter, hideTypeFilter, subjectFilterOptions]);
 
   const sortOptions: DataTableSortOption[] = [

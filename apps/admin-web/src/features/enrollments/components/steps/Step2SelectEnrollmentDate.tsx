@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
@@ -125,26 +125,24 @@ export function Step2SelectEnrollmentDate({
           starting on{' '}
           <span className="inline-flex items-center">
             {futureSessionDates.length > 0 ? (
-              <Select
-                value={enrollmentDate || undefined}
-                onValueChange={onDateChange}
-              >
-                <SelectTrigger className={cn(
-                  "h-8 text-sm font-semibold border focus:ring-primary/20 w-auto min-w-[180px]",
+              <SearchableSelect<{ value: string; label: string }>
+                items={futureSessionDates}
+                value={
+                  enrollmentDate
+                    ? futureSessionDates.find((d) => d.value === enrollmentDate) ?? null
+                    : null
+                }
+                onValueChange={(item) => onDateChange(item?.value ?? '')}
+                getItemLabel={(d) => d.label}
+                getItemId={(d) => d.value}
+                placeholder="Select session date"
+                triggerClassName={cn(
+                  'h-8 text-sm font-semibold border focus:ring-primary/20 w-auto min-w-[180px]',
                   isDateChosen
-                    ? "bg-primary/10 text-primary border-primary/20"
-                    : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
-                )}>
-                  <SelectValue placeholder="Select session date" />
-                </SelectTrigger>
-                <SelectContent>
-                  {futureSessionDates.map((date) => (
-                    <SelectItem key={date.value} value={date.value}>
-                      {date.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    ? 'bg-primary/10 text-primary border-primary/20'
+                    : 'bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20'
+                )}
+              />
             ) : (
               <span className="px-2 py-1 rounded-md bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20 text-sm font-semibold">
                 choose class

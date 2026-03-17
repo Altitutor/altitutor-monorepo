@@ -127,12 +127,14 @@ export async function GET(request: NextRequest) {
           return {
             id: String(s.id),
             name: String(s.name),
+            short_name: 'short_name' in s && s.short_name != null ? String(s.short_name) : null,
+            long_name: 'long_name' in s && s.long_name != null ? String(s.long_name) : null,
             year_level: 'year_level' in s && typeof s.year_level === 'number' ? s.year_level : null,
             curriculum: 'curriculum' in s ? String(s.curriculum || '') : '',
             color: 'color' in s ? String(s.color || '') : '',
           };
         }
-        return { id: '', name: '', year_level: null, curriculum: '', color: '' };
+        return { id: '', name: '', short_name: null, long_name: null, year_level: null, curriculum: '', color: '' };
       }),
     }, { status: 200 });
   } catch (error) {

@@ -1,11 +1,7 @@
 import { useState } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
-import { Popover, PopoverContent, PopoverTrigger } from "@altitutor/ui";
+import { Button, SearchableSelect, ScrollArea, StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { Loader2, UserCheck, Plus, X, Search } from "lucide-react";
-import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { cn } from "@/shared/utils";
 // import { ViewStaffModal } from '@/features/staff'; // Tutors can't view other staff - removed
 
@@ -26,8 +22,6 @@ export function ClassStaffTab({
 }: ClassStaffTabProps) {
   const [assigningStaff, setAssigningStaff] = useState<Set<string>>(new Set());
   const [removingStaff, setRemovingStaff] = useState<Set<string>>(new Set());
-  const [isAddPopoverOpen, setIsAddPopoverOpen] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const handleViewStaff = (_staffId: string) => {
     // View staff functionality removed for tutors
@@ -35,8 +29,7 @@ export function ClassStaffTab({
 
   const handleAssignStaff = async (staffId: string) => {
     setAssigningStaff(prev => new Set(prev).add(staffId));
-    setIsAddPopoverOpen(false); // Close the popover immediately for better UX
-    
+
     try {
       await onAssignStaff(staffId);
     } finally {
@@ -50,7 +43,7 @@ export function ClassStaffTab({
 
   const handleRemoveStaff = async (staffId: string) => {
     setRemovingStaff(prev => new Set(prev).add(staffId));
-    
+
     try {
       await onRemoveStaff(staffId);
     } finally {
@@ -62,25 +55,62 @@ export function ClassStaffTab({
     }
   };
 
-  const availableStaff = allStaff.filter(staff => 
+  const availableStaff = allStaff.filter(staff =>
     !classStaff.some(classStaffMember => classStaffMember.id === staff.id)
   );
 
-  const filteredAvailableStaff = availableStaff.filter(staff => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      staff.first_name.toLowerCase().includes(query) ||
-      staff.last_name.toLowerCase().includes(query) ||
-      (staff.email && staff.email.toLowerCase().includes(query))
-    );
-  });
+  const getStaffLabel = (staff: Tables<'staff'>) => `${staff.first_name} ${staff.last_name}`;
+
+  const addStaffTrigger = (
+    <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
+      <Plus className="h-4 w-4" />
+      <span>Add Staff</span>
+    </Button>
+  );
+
+  const assignStaffTrigger = (
+    <Button variant="outline">
+      <Plus className="h-4 w-4 mr-2" />
+      Assign staff
+    </Button>
+  );
+
+  const staffSelectProps = {
+    items: availableStaff,
+    value: null as Tables<'staff'> | null,
+    onValueChange: (staff: Tables<'staff'> | null) => staff && handleAssignStaff(staff.id),
+    getItemId: (s: Tables<'staff'>) => s.id,
+    getItemLabel: getStaffLabel,
+    getItemValue: (s: Tables<'staff'>) =>
+      `${s.first_name} ${s.last_name} ${s.email ?? ''}`.toLowerCase(),
+    searchPlaceholder: "Search staff...",
+    emptyMessage: "No available staff found",
+    contentWidth: "300px",
+    getItemDisabled: (s: Tables<'staff'>) => assigningStaff.has(s.id),
+    renderItem: (staff: Tables<'staff'>) => (
+      <div className="flex items-center justify-between w-full">
+        <div className="flex flex-col items-start">
+          <div className="font-medium">{getStaffLabel(staff)}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <StaffRoleBadge value={staff.role as 'ADMIN' | 'TUTOR' | 'ADMINSTAFF' | null} />
+            <StaffStatusBadge value={staff.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | null} />
+          </div>
+          {staff.email && (
+            <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
+          )}
+        </div>
+        {assigningStaff.has(staff.id) && (
+          <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+        )}
+      </div>
+    ),
+  };
 
   return (
     <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
       <div className="flex items-center gap-2">
         <h3 className="text-base font-medium">Staff ({classStaff.length})</h3>
-        
+
         {/* Show currently assigning staff */}
         {assigningStaff.size > 0 && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -88,62 +118,14 @@ export function ClassStaffTab({
             <span>Assigning {assigningStaff.size} staff member{assigningStaff.size > 1 ? 's' : ''}...</span>
           </div>
         )}
-        
-        <Popover open={isAddPopoverOpen} onOpenChange={setIsAddPopoverOpen}>
-          <PopoverTrigger asChild>
-            <Button variant="outline" size="sm" className="ml-auto flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              <span>Add Staff</span>
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="p-0 w-[300px]" align="end">
-            <div className="p-3">
-              <Input
-                placeholder="Search staff..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="mb-3"
-              />
-              <ScrollArea className="max-h-[300px]">
-                <div className="space-y-1">
-                  {filteredAvailableStaff.length === 0 ? (
-                    <div className="p-3 text-center text-sm text-muted-foreground">
-                      {searchQuery ? 'No staff match your search' : 'No available staff found'}
-                    </div>
-                  ) : (
-                    filteredAvailableStaff.map(staff => (
-                      <Button
-                        key={staff.id}
-                        variant="ghost"
-                        className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                        onClick={() => handleAssignStaff(staff.id)}
-                        disabled={assigningStaff.has(staff.id)}
-                      >
-                        <div className="flex items-center justify-between w-full">
-                          <div className="flex flex-col items-start">
-                            <div className="font-medium">{staff.first_name} {staff.last_name}</div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <StaffRoleBadge value={staff.role as 'ADMIN' | 'TUTOR' | 'ADMINSTAFF' | null} />
-                              <StaffStatusBadge value={staff.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | null} />
-                            </div>
-                            {staff.email && (
-                              <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
-                            )}
-                          </div>
-                          {assigningStaff.has(staff.id) && (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          )}
-                        </div>
-                      </Button>
-                    ))
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-          </PopoverContent>
-        </Popover>
+
+        <SearchableSelect<Tables<'staff'>>
+          {...staffSelectProps}
+          trigger={addStaffTrigger}
+          align="end"
+        />
       </div>
-      
+
       {loadingStaff ? (
         <div className="flex-1 flex justify-center items-center">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -152,59 +134,12 @@ export function ClassStaffTab({
         <div className="flex-1 flex flex-col justify-center items-center">
           <UserCheck className="h-12 w-12 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground mb-4">No staff assigned</p>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline">
-                <Plus className="h-4 w-4 mr-2" />
-                Assign staff
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="p-0 w-[300px]" align="center">
-              <div className="p-3">
-                <Input
-                  placeholder="Search staff..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="mb-3"
-                />
-                <ScrollArea className="max-h-[300px]">
-                  <div className="space-y-1">
-                    {filteredAvailableStaff.length === 0 ? (
-                      <div className="p-3 text-center text-sm text-muted-foreground">
-                        No staff found
-                      </div>
-                    ) : (
-                      filteredAvailableStaff.map(staff => (
-                        <Button
-                          key={staff.id}
-                          variant="ghost"
-                          className="w-full justify-start h-auto p-2 hover:bg-accent hover:text-accent-foreground"
-                          onClick={() => handleAssignStaff(staff.id)}
-                          disabled={assigningStaff.has(staff.id)}
-                        >
-                          <div className="flex items-center justify-between w-full">
-                            <div className="flex flex-col items-start">
-                            <div className="font-medium">{staff.first_name} {staff.last_name}</div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <StaffRoleBadge value={staff.role as 'ADMIN' | 'TUTOR' | 'ADMINSTAFF' | null} />
-                              <StaffStatusBadge value={staff.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | null} />
-                            </div>
-                              {staff.email && (
-                                <div className="text-xs text-muted-foreground mt-1">{staff.email}</div>
-                              )}
-                            </div>
-                            {assigningStaff.has(staff.id) && (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            )}
-                          </div>
-                        </Button>
-                      ))
-                    )}
-                  </div>
-                </ScrollArea>
-              </div>
-            </PopoverContent>
-          </Popover>
+          <SearchableSelect<Tables<'staff'>>
+            {...staffSelectProps}
+            trigger={assignStaffTrigger}
+            align="center"
+            emptyMessage="No staff found"
+          />
         </div>
       ) : (
         <ScrollArea className="flex-1">

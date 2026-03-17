@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import Link from 'next/link'
 import type { Json } from '@altitutor/shared'
 import type { Resolver, UseFormReturn } from 'react-hook-form'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
@@ -20,11 +21,7 @@ import {
   PopoverTrigger,
   RadioGroup,
   RadioGroupItem,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -43,6 +40,7 @@ import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 
@@ -226,10 +224,29 @@ export function UcatQuestionStemDialog({
     // @ts-expect-error TS2589 - Form type is deep; runtime behavior is correct.
     form.handleSubmit(
       async (values) => {
-        // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
-        const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
-        await onSubmit(valuesCopy)
-        setNewImageFileIds(new Set())
+        try {
+          // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
+          const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
+          await onSubmit(valuesCopy)
+          setNewImageFileIds(new Set())
+        } catch (error) {
+          const msg = error instanceof Error ? error.message : 'Failed to save question stem'
+          const parsed = parseUcatVisibilityError(msg)
+          toast({
+            title: 'Failed to save',
+            description: parsed.link ? (
+              <span>
+                {parsed.textBeforeLink}{' '}
+                <Link href={parsed.link.href} className="underline font-medium">
+                  {parsed.link.label}
+                </Link>
+              </span>
+            ) : (
+              msg
+            ),
+            variant: 'destructive',
+          })
+        }
       },
       (errs: Record<string, unknown>) => {
         const firstMessage = getFirstValidationMessage(errs)
@@ -777,9 +794,10 @@ export function UcatQuestionStemFormContent({
             <h2 className="font-semibold">Properties</h2>
             <label className="block space-y-1 text-sm">
               <span className="font-medium">Section</span>
-              <Select
-                value={form.watch('sectionId')}
-                onValueChange={(value) => {
+              <SearchableSelect<{ id: string | null; name: string | null }>
+                items={sections}
+                value={sections.find((s) => (s.id ?? '') === form.watch('sectionId')) ?? null}
+                onValueChange={(section) => {
                   if (stemType === 'syllogism') {
                     toast({
                       description: 'Section is locked for syllogism stems.',
@@ -787,27 +805,30 @@ export function UcatQuestionStemFormContent({
                     })
                     return
                   }
-                  form.setValue('sectionId', value, { shouldDirty: true })
+                  form.setValue('sectionId', section?.id ?? '', { shouldDirty: true })
                   form.setValue('categoryId', null, { shouldDirty: true })
                 }}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sections.map((section) => (
-                    <SelectItem key={section.id ?? 'none'} value={section.id ?? ''}>
-                      {section.name ?? 'Untitled'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                getItemLabel={(s) => s.name ?? 'Untitled'}
+                getItemId={(s) => s.id ?? ''}
+                placeholder="Select section"
+              />
             </label>
             <label className="block space-y-1 text-sm">
               <span className="font-medium">Category</span>
-              <Select
-                value={form.watch('categoryId') ?? 'none'}
-                onValueChange={(value) => {
+              <SearchableSelect<{ id: string; name: string }>
+                items={[
+                  { id: 'none', name: 'No category' },
+                  ...categoriesFiltered.map((c) => ({ id: c.id ?? 'none', name: c.name ?? 'Untitled' })),
+                ]}
+                value={(() => {
+                  const categoryId = form.watch('categoryId')
+                  const opts = [
+                    { id: 'none', name: 'No category' },
+                    ...categoriesFiltered.map((c) => ({ id: c.id ?? 'none', name: c.name ?? 'Untitled' })),
+                  ]
+                  return categoryId === null ? opts[0]! : opts.find((o) => o.id === categoryId) ?? null
+                })()}
+                onValueChange={(item) => {
                   if (stemType === 'syllogism') {
                     toast({
                       description: 'Category is locked for syllogism stems.',
@@ -815,52 +836,47 @@ export function UcatQuestionStemFormContent({
                     })
                     return
                   }
-                  form.setValue('categoryId', value === 'none' ? null : value, { shouldDirty: true })
+                  form.setValue('categoryId', item?.id === 'none' ? null : item?.id ?? null, { shouldDirty: true })
                 }}
+                getItemLabel={(c) => c.name}
+                getItemId={(c) => c.id}
+                placeholder={!sectionId ? 'Select section first' : 'Select category'}
                 disabled={!sectionId}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={!sectionId ? 'Select section first' : undefined} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No category</SelectItem>
-                  {categoriesFiltered.map((category) => (
-                    <SelectItem key={category.id ?? 'none'} value={category.id ?? ''}>
-                      {category.name ?? 'Untitled'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </label>
             <label className="block space-y-1 text-sm">
               <span className="font-medium">Visibility</span>
-              <Select
-                value={form.watch('isPrivate') ? 'private' : 'public'}
-                onValueChange={(value) => form.setValue('isPrivate', value === 'private', { shouldDirty: true })}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="public">Public</SelectItem>
-                  <SelectItem value="private">Private</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<{ value: 'public' | 'private'; label: string }>
+                items={[
+                  { value: 'public', label: 'Public' },
+                  { value: 'private', label: 'Private' },
+                ]}
+                value={
+                  form.watch('isPrivate')
+                    ? { value: 'private', label: 'Private' }
+                    : { value: 'public', label: 'Public' }
+                }
+                onValueChange={(item) => form.setValue('isPrivate', item?.value === 'private', { shouldDirty: true })}
+                getItemLabel={(i) => i.label}
+                getItemId={(i) => i.value}
+              />
             </label>
             <label className="block space-y-1 text-sm">
               <span className="font-medium">Type (all questions)</span>
-              <Select
-                value={stemType ?? 'multiple_choice'}
-                onValueChange={(value: 'multiple_choice' | 'syllogism') => setStemType(value)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="multiple_choice">Multiple Choice</SelectItem>
-                  <SelectItem value="syllogism">Syllogism</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<{ value: 'multiple_choice' | 'syllogism'; label: string }>
+                items={[
+                  { value: 'multiple_choice', label: 'Multiple Choice' },
+                  { value: 'syllogism', label: 'Syllogism' },
+                ]}
+                value={
+                  stemType === 'syllogism'
+                    ? { value: 'syllogism', label: 'Syllogism' }
+                    : { value: 'multiple_choice', label: 'Multiple Choice' }
+                }
+                onValueChange={(item) => item && setStemType(item.value)}
+                getItemLabel={(i) => i.label}
+                getItemId={(i) => i.value}
+              />
             </label>
           </aside>
         </div>

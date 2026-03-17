@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   type JSONContent,
+  type RichTextEditorRef,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
@@ -31,12 +32,14 @@ import {
 import { cn } from '@/shared/utils';
 import { useTask } from '../api/queries';
 import { useUpdateTask, useDeleteTask } from '../api/mutations';
+import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import type { TaskFormData, TaskStatus, TaskUpdate } from '../types';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
 import { useTaskAutoSave } from '../hooks/useTaskAutoSave';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 import type { UseFormReturn, Resolver } from 'react-hook-form';
@@ -105,12 +108,14 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
   const { data: task, isLoading } = useTask(taskId || '', !!taskId && isOpen);
   const updateTask = useUpdateTask();
   const deleteTask = useDeleteTask();
+  const { data: currentStaff } = useCurrentStaff();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string | null } | null>(project ?? null);
   const lastResetTaskIdRef = useRef<string | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -119,6 +124,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
   const [openIssueId, setOpenIssueId] = useState<string | null>(null);
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [, setFormKey] = useState(0);
+  const descriptionRef = useRef<RichTextEditorRef>(null);
 
   // Fetch notes for task
   const { data: notesData } = useNotes('tasks', taskId || '', !!taskId && isOpen);
@@ -226,6 +232,9 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
       ) {
         formattedUpdates.estimate = null;
       }
+      if (updates.status === 'done') {
+        formattedUpdates.completed_by = currentStaff?.id ?? null;
+      }
 
       await updateTask.mutateAsync({
         id: taskId,
@@ -234,7 +243,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
     } catch (error) {
       console.error('Failed to auto-save task:', error);
     }
-  }, [taskId, updateTask]);
+  }, [taskId, updateTask, currentStaff?.id]);
 
   const handleDelete = async () => {
     if (!taskId) return;
@@ -278,7 +287,6 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
             </div>
 
             <div className="flex items-center gap-2">
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               <div className="flex items-center gap-2 text-xs text-muted-foreground font-medium pr-2 mr-2">
                 {updateTask.isPending ? (
                   <>
@@ -297,6 +305,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
                   </>
                 )}
               </div>
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               <ActionsMenu
                 type="task"
                 entityId={taskId}
@@ -304,6 +313,11 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
                   // Task detail page could be implemented here
                 }}
                 onDelete={() => setIsDeleteDialogOpen(true)}
+                richTextTemplateConfig={{
+                  getEditor: () => descriptionRef.current?.getEditor() ?? null,
+                  getCurrentContent: () => form.getValues('description') ?? null,
+                  onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
+                }}
               />
             </div>
           </div>
@@ -335,6 +349,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
                     onAssigneeChange={setSelectedAssignee}
                     taskStatus={task.status as TaskStatus}
                     enabled={isOpen}
+                    descriptionRef={descriptionRef}
                   />
                   <TaskPropertiesPanel
                     form={form}
@@ -403,6 +418,12 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <SaveAsTemplateDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        initialContent={form.getValues('description') ?? null}
+        onSuccess={() => setIsSaveDialogOpen(false)}
+      />
 
       {openIssueId && (
         <EditIssueDialog

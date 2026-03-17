@@ -12,28 +12,50 @@ import { QuestionAttemptsCard } from './question-attempts-card'
 import {
   filterByTimeFrame,
   computeSectionProgressFromFiltered,
+  getSharedDateRange,
+  applyAttemptFilterToProgress,
 } from '../lib/progress-data-utils'
 
 export function ProgressPage() {
   const { data, isLoading, error } = useProgress()
   const progressMode = useProgressMode()
 
+  const filteredData = useMemo(() => {
+    if (!data) return null
+    return applyAttemptFilterToProgress(data, progressMode.attemptFilter)
+  }, [data, progressMode.attemptFilter])
+
   const sectionProgress = useMemo(() => {
-    if (!data) return []
+    if (!filteredData) return []
     const { mode, timeFrameDays } = progressMode
-    if (mode !== 'time_frame') return data.sectionProgress
+    if (mode !== 'time_frame') return filteredData.sectionProgress
     const filteredQA = filterByTimeFrame(
-      data.questionAttempts,
+      filteredData.questionAttempts,
       mode,
       timeFrameDays
     )
-    const filteredSA = filterByTimeFrame(data.setAttempts, mode, timeFrameDays)
+    const filteredSA = filterByTimeFrame(
+      filteredData.setAttempts,
+      mode,
+      timeFrameDays
+    )
     return computeSectionProgressFromFiltered(
       filteredQA,
       filteredSA,
-      data.sectionProgress
+      filteredData.sectionProgress
     )
-  }, [data, progressMode])
+  }, [filteredData, progressMode])
+
+  const sharedDateRange = useMemo(() => {
+    if (!filteredData) return undefined
+    return getSharedDateRange(
+      filteredData.questionAttempts,
+      filteredData.setAttempts,
+      filteredData.mockAttempts,
+      progressMode.mode,
+      progressMode.timeFrameDays
+    )
+  }, [filteredData, progressMode.mode, progressMode.timeFrameDays])
 
   if (isLoading) {
     return (
@@ -61,7 +83,7 @@ export function ProgressPage() {
     )
   }
 
-  if (!data) {
+  if (!data || !filteredData) {
     return (
       <div className="space-y-6">
         <UcatPageHeader title="Progress" description="No progress data available." />
@@ -81,6 +103,8 @@ export function ProgressPage() {
         onModeChange={progressMode.onModeChange}
         timeFrameDays={progressMode.timeFrameDays}
         onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
+        attemptFilter={progressMode.attemptFilter}
+        onAttemptFilterChange={progressMode.onAttemptFilterChange}
       />
 
       <SectionProgressCards
@@ -90,19 +114,22 @@ export function ProgressPage() {
         timeFrameDays={progressMode.timeFrameDays}
       />
       <QuestionAttemptsCard
-        attempts={data.questionAttempts}
+        attempts={filteredData.questionAttempts}
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
+        sharedDateRange={sharedDateRange}
       />
       <SetAttemptsCard
-        attempts={data.setAttempts}
+        attempts={filteredData.setAttempts}
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
+        sharedDateRange={sharedDateRange}
       />
       <MockAttemptsCard
-        attempts={data.mockAttempts}
+        attempts={filteredData.mockAttempts}
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
+        sharedDateRange={sharedDateRange}
       />
     </div>
   )
