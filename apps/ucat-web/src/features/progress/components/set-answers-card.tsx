@@ -153,7 +153,10 @@ export function SetAnswersCard({
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex h-[480px] min-h-[200px] flex-col overflow-hidden rounded-lg border border-border bg-[#f8f9fa] p-4">
+        <div
+          className="flex h-[480px] min-h-[200px] flex-col overflow-hidden rounded-lg border border-border bg-[#f8f9fa] p-4"
+          onCopy={(e) => e.preventDefault()}
+        >
           {currentQuestion && (
             <div className="min-h-0 flex-1 overflow-hidden">
               <ResultsQuestionViewer
