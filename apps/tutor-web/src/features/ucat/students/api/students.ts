@@ -10,7 +10,39 @@ export type UcatClassWithDetails = (VtutorClassesRow & { id: string }) & {
   staff: Array<{ id: string; first_name?: string; last_name?: string }>
 }
 
+export type StudentProgressSummaryRow = {
+  student_id: string
+  student_name: string
+  total_questions: number
+  total_sets_attempted: number
+  total_mocks_attempted: number
+  avg_score_points: number | null
+  exam: number | null
+  last_attempted_at: string | null
+  section_scores: Record<string, number | null>
+}
+
+export type StudentProgressSummaryResponse = {
+  students: StudentProgressSummaryRow[]
+  sections: Array<{ id: string; name: string; section_number: number }>
+}
+
 export const ucatStudentsApi = {
+  async listProgressSummary(params: {
+    mode: 'all_time' | 'weighted' | 'time_frame'
+    timeFrameDays: string
+  }): Promise<StudentProgressSummaryResponse> {
+    const search = new URLSearchParams({
+      mode: params.mode,
+      timeFrameDays: params.timeFrameDays,
+    })
+    const res = await fetch(
+      `/api/ucat/students/progress-summary?${search.toString()}`
+    )
+    if (!res.ok) throw new Error('Failed to fetch progress summary')
+    return res.json()
+  },
+
   async listProgress() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
     const { data, error } = await supabase
