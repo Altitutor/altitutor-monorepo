@@ -69,6 +69,8 @@ export interface SearchableSelectProps<T> {
   /** Controlled open state - when provided, parent controls when popover is open */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
+  /** Portal container - when inside Dialog, pass the dialog content element to fix scroll */
+  popoverContainer?: HTMLElement | null;
 }
 
 /**
@@ -105,11 +107,28 @@ export function SearchableSelect<T>({
   triggerClassName,
   open: controlledOpen,
   onOpenChange,
+  popoverContainer,
 }: SearchableSelectProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
+  const triggerRef = React.useRef<HTMLElement | null>(null);
+  const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
 
   const open = controlledOpen ?? internalOpen;
+
+  // When inside a Dialog, portal into the dialog to fix scroll (Radix RemoveScroll issue)
+  React.useEffect(() => {
+    if (popoverContainer) {
+      setPortalContainer(popoverContainer);
+      return;
+    }
+    if (!open || !triggerRef.current) {
+      setPortalContainer(null);
+      return;
+    }
+    const dialog = triggerRef.current.closest('[role="dialog"]');
+    setPortalContainer(dialog instanceof HTMLElement ? dialog : null);
+  }, [open, popoverContainer]);
   const setOpen = React.useCallback(
     (next: boolean) => {
       if (onOpenChange) {
@@ -168,11 +187,18 @@ export function SearchableSelect<T>({
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {trigger ?? defaultTrigger}
-      </PopoverTrigger>
+      <span ref={triggerRef} className="contents">
+        <PopoverTrigger asChild>
+          {trigger ?? defaultTrigger}
+        </PopoverTrigger>
+      </span>
       <PopoverContent
-        className={cn(!contentWidth && "w-[280px]", "p-0 z-[100]", className)}
+        container={portalContainer ?? undefined}
+        className={cn(
+          !contentWidth && "w-[280px]",
+          "p-0 z-[100] overflow-hidden max-h-[min(400px,80vh)] flex flex-col",
+          className
+        )}
         align={align}
         side={side}
         style={contentWidth ? { width: contentWidth } : undefined}
@@ -180,14 +206,14 @@ export function SearchableSelect<T>({
         <Command
           shouldFilter={!isServerSideSearch}
           disablePointerSelection={false}
-          className="rounded-lg border-0"
+          className="rounded-lg border-0 flex flex-col min-h-0 flex-1 overflow-hidden"
         >
           <CommandInput
             placeholder={searchPlaceholder}
             value={isServerSideSearch ? search : undefined}
             onValueChange={isServerSideSearch ? handleSearchChange : undefined}
           />
-          <CommandList>
+          <CommandList className="flex-1 min-h-0">
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
