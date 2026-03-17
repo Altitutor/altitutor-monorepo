@@ -186,21 +186,6 @@ export function DataTableToolbar({
 
   const effectiveActiveFilterCount = activeFilterCount + (showDeletedActive ? 1 : 0);
 
-  type SortItem = { key: string; label: string; direction: 'asc' | 'desc' };
-  const sortItems: SortItem[] = React.useMemo(
-    () =>
-      sortOptions.flatMap((o) => [
-        { key: o.key, label: `${o.label} (A→Z)`, direction: 'asc' as const },
-        { key: o.key, label: `${o.label} (Z→A)`, direction: 'desc' as const },
-      ]),
-    [sortOptions]
-  );
-  const sortValue: SortItem | null = React.useMemo(() => {
-    if (!state.sortBy || !state.sortDirection) return null;
-    const opt = sortOptions.find((o) => o.key === state.sortBy);
-    const label = opt ? `${opt.label} (${state.sortDirection === 'asc' ? 'A→Z' : 'Z→A'})` : '';
-    return { key: state.sortBy, label, direction: state.sortDirection };
-  }, [state.sortBy, state.sortDirection, sortOptions]);
 
   const handleClearAllFilters = () => {
     onClearShowDeleted?.();
@@ -320,10 +305,7 @@ export function DataTableToolbar({
                     <ArrowUpDown className="h-4 w-4 mr-2 shrink-0" />
                     <span className="hidden sm:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
                       {state.sortBy ? (
-                        <>
-                          <span className="min-w-0 truncate">{sortOptions.find((o) => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
-                          {state.sortDirection === 'asc' ? <ArrowUp className="h-3.5 w-3.5 shrink-0" /> : <ArrowDown className="h-3.5 w-3.5 shrink-0" />}
-                        </>
+                        <span className="min-w-0 truncate">{sortOptions.find((o) => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
                       ) : (
                         'Sort by'
                       )}
@@ -334,16 +316,25 @@ export function DataTableToolbar({
                 <DropdownMenuContent align="end" className="w-[240px] p-0">
                   <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <SearchableSelectInline<SortItem>
-                    items={sortItems}
-                    value={sortValue}
-                    onValueChange={(item) => {
-                      if (item) onSortChange(item.key, item.direction);
-                      else onSortChange(null, 'desc');
+                  <SearchableSelectInline<DataTableSortOption>
+                    items={sortOptions}
+                    value={state.sortBy ? sortOptions.find((o) => o.key === state.sortBy) ?? null : null}
+                    onValueChange={(opt) => {
+                      if (opt) {
+                        const nextDir =
+                          state.sortBy === opt.key
+                            ? state.sortDirection === 'asc'
+                              ? 'desc'
+                              : 'asc'
+                            : 'asc';
+                        onSortChange(opt.key, nextDir);
+                      } else {
+                        onSortChange(null, 'desc');
+                      }
                       setSortOpen(false);
                     }}
-                    getItemId={(item) => `${item.key}-${item.direction}`}
-                    getItemLabel={(item) => item.label}
+                    getItemId={(o) => o.key}
+                    getItemLabel={(o) => o.label}
                     searchPlaceholder="Search sort options..."
                     emptyMessage="No options found"
                     allowClear
@@ -352,14 +343,32 @@ export function DataTableToolbar({
                 </DropdownMenuContent>
               </DropdownMenu>
               {state.sortBy && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 rounded-l-none border-l-0 px-2"
-                  onClick={() => onSortChange(null, 'desc')}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-none border-l-0 px-2"
+                    onClick={() =>
+                      onSortChange(state.sortBy, state.sortDirection === 'asc' ? 'desc' : 'asc')
+                    }
+                    aria-label={state.sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending'}
+                  >
+                    {state.sortDirection === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 rounded-l-none border-l-0 px-2"
+                    onClick={() => onSortChange(null, 'desc')}
+                    aria-label="Clear sort"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </>
               )}
             </div>
           )}
