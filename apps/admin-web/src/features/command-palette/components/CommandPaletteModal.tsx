@@ -13,6 +13,7 @@ import { FilePreviewModal } from '@/features/topics/components';
 import { EditIssueDialog } from '@/features/issues/components/EditIssueDialog';
 import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
+import { EditDocumentDialog } from '@/features/notes/components/EditDocumentDialog';
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -34,6 +35,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
   const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -44,6 +46,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const [isIssueModalOpen, setIsIssueModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [isProjectModalOpen, setIsProjectModalOpen] = useState(false);
+  const [isNoteModalOpen, setIsNoteModalOpen] = useState(false);
 
   // Prevent body scroll when modal is open
   useEffect(() => {
@@ -69,6 +72,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     setSelectedIssueId(null);
     setSelectedTaskId(null);
     setSelectedProjectId(null);
+    setSelectedNoteId(null);
     setIsStudentModalOpen(false);
     setIsStaffModalOpen(false);
     setIsClassModalOpen(false);
@@ -79,7 +83,8 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     setIsIssueModalOpen(false);
     setIsTaskModalOpen(false);
     setIsProjectModalOpen(false);
-    
+    setIsNoteModalOpen(false);
+
     // Set the appropriate state based on entity type
     if (type === 'student') {
       setSelectedStudentId(id);
@@ -112,10 +117,13 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
     } else if (type === 'project') {
       setSelectedProjectId(id);
       setIsProjectModalOpen(true);
+    } else if (type === 'note') {
+      setSelectedNoteId(id);
+      setIsNoteModalOpen(true);
     }
   };
 
-  if (!isOpen && !selectedStudentId && !selectedStaffId && !selectedClassId && !selectedParentId && !selectedSubjectId && !selectedTopicId && !selectedTopicFileId && !selectedIssueId && !selectedTaskId && !selectedProjectId) {
+  if (!isOpen && !selectedStudentId && !selectedStaffId && !selectedClassId && !selectedParentId && !selectedSubjectId && !selectedTopicId && !selectedTopicFileId && !selectedIssueId && !selectedTaskId && !selectedProjectId && !selectedNoteId) {
     return null;
   }
 
@@ -248,6 +256,17 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
             setSelectedProjectId(null);
           }}
           projectId={selectedProjectId}
+        />
+      )}
+
+      {selectedNoteId && (
+        <EditDocumentDialog
+          isOpen={isNoteModalOpen}
+          onClose={() => {
+            setIsNoteModalOpen(false);
+            setSelectedNoteId(null);
+          }}
+          noteId={selectedNoteId}
         />
       )}
     </>
