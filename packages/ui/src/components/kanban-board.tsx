@@ -32,6 +32,8 @@ import {
 } from './dropdown-menu';
 import { ScrollArea } from './scroll-area';
 import { SearchableSelectInline } from './searchable-select-inline';
+import { DateRangeFilter } from './date-range-filter';
+import { FilterSearchWrapper } from './filter-search-wrapper';
 import { cn } from '../lib/cn';
 import {
   LayoutGrid,
@@ -187,6 +189,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const [activeDragItem, setActiveDragItem] = React.useState<TItem | null>(null);
   const [groupByOpen, setGroupByOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
+  /** Optimistic overrides: itemId -> new column value. Cleared when parent data reflects the change. */
+  const [optimisticOverrides, setOptimisticOverrides] = React.useState<Record<string, unknown>>({});
 
   const groupBy = controlledGroupBy ?? internalGroupBy;
   const setGroupBy = onGroupByChange ?? setInternalGroupBy;
@@ -207,6 +211,22 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
   const activeColumnDef = columnDefs.find(c => c.key === activeColumnKey) || columnDefs[0];
   const visibleSortByOptions = sortByOptions.filter((o) => o.key !== groupBy);
+
+  // Clear optimistic overrides when parent data reflects the change
+  React.useEffect(() => {
+    setOptimisticOverrides((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      for (const itemId of Object.keys(next)) {
+        const item = items.find((t) => getItemId(t) === itemId);
+        if (item && String(activeColumnDef.getValue(item)) === String(next[itemId])) {
+          delete next[itemId];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [items, getItemId, activeColumnDef]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -251,6 +271,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
               if (dr.start && dr.end) {
                 return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
               }
+              if (dr.start) return itemTime >= new Date(dr.start).getTime();
+              if (dr.end) return itemTime <= new Date(dr.end).getTime();
               return false;
             }
 
@@ -322,6 +344,8 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     const item = items.find((t) => getItemId(t) === itemId);
     if (!item || activeColumnDef.getValue(item) === newColumnValue) return;
 
+    // Optimistic update: show in new column immediately
+    setOptimisticOverrides((prev) => ({ ...prev, [itemId]: newColumnValue }));
     activeColumnDef.onValueChange(item, newColumnValue);
   };
 
@@ -549,27 +573,54 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                       const statusCol = statusColumn?.key === columnKey ? statusColumn : undefined;
                       const colDef = columnDefs.find(c => c.key === columnKey);
                       const label = pill?.label ?? statusCol?.label ?? colDef?.label ?? columnKey;
-                      
+                      const isDateRange = pill?.filterType === 'date-range';
+                      const dateRangeVal =
+                        isDateRange &&
+                        selected[0] &&
+                        typeof selected[0] === 'object' &&
+                        (selected[0] as { type?: string }).type === 'date_range'
+                          ? (selected[0] as { start?: string; end?: string })
+                          : null;
+
                       return (
                         <div key={columnKey} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-xs">
-                          <span className="font-semibold">{label} is</span>
-                          {selected.map((val, idx) => {
-                            const options = pill?.filterOptions ?? statusColumn?.options ?? colDef?.options ?? [];
-                            const opt = options.find((o: { value: unknown; label: string }) => String(o.value) === String(val));
-                            const valLabel = opt?.label ?? String(val);
-                            return (
-                              <React.Fragment key={String(val)}>
-                                {idx > 0 && <span className="opacity-50">OR</span>}
-                                <button
-                                  onClick={() => removeFilterValue(columnKey, val)}
-                                  className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
-                                >
-                                  {valLabel}
-                                  <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
-                                </button>
-                              </React.Fragment>
-                            );
-                          })}
+                          <span className="font-semibold">{label}:</span>
+                          {dateRangeVal ? (
+                            <button
+                              onClick={() => removeFilterValue(columnKey, selected[0])}
+                              className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                            >
+                              {dateRangeVal.start && dateRangeVal.end
+                                ? `${dateRangeVal.start} – ${dateRangeVal.end}`
+                                : dateRangeVal.start
+                                  ? `from ${dateRangeVal.start}`
+                                  : dateRangeVal.end
+                                    ? `to ${dateRangeVal.end}`
+                                    : 'set'}
+                              <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                            </button>
+                          ) : (
+                            selected.map((val, idx) => {
+                              const options =
+                                pill?.filterOptions ?? statusColumn?.options ?? colDef?.options ?? [];
+                              const opt = options.find(
+                                (o: { value: unknown; label: string }) => String(o.value) === String(val)
+                              );
+                              const valLabel = opt?.label ?? String(val);
+                              return (
+                                <React.Fragment key={String(val)}>
+                                  {idx > 0 && <span className="opacity-50">OR</span>}
+                                  <button
+                                    onClick={() => removeFilterValue(columnKey, val)}
+                                    className="inline-flex items-center gap-1 px-1 bg-background hover:bg-muted rounded border group"
+                                  >
+                                    {valLabel}
+                                    <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                                  </button>
+                                </React.Fragment>
+                              );
+                            })
+                          )}
                         </div>
                       );
                     })}
@@ -584,133 +635,230 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 )}
 
                 <DropdownMenuSeparator />
-                
-                <ScrollArea className="flex-1 overflow-y-auto">
-                  {(() => {
-                    const renderedKeys = new Set<string>();
-                    const filterElements: React.ReactNode[] = [];
 
-                    if (statusColumn && statusColumn.filterable !== false) {
-                      renderedKeys.add(statusColumn.key);
-                      const options: FilterOption[] = statusColumn.options.map((o) => ({
-                        value: o.value,
-                        label: o.label,
-                      }));
-                      const selectedOptions = options.filter((o) =>
-                        (filters[statusColumn.key] ?? []).includes(o.value)
-                      );
-                      filterElements.push(
-                        <DropdownMenuSub key={statusColumn.key}>
-                          <DropdownMenuSubTrigger>{statusColumn.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[280px] p-0">
-                            <SearchableSelectInline<FilterOption>
-                              items={options}
-                              value={selectedOptions}
-                              onValueChange={(opts) => {
-                                const next = opts.map((o) => o.value);
-                                if (next.length === 0) {
-                                  const rest = Object.fromEntries(
-                                    Object.entries(filters).filter(([k]) => k !== statusColumn.key)
-                                  );
-                                  setFilters(rest);
-                                } else {
-                                  setFilters({ ...filters, [statusColumn.key]: next });
-                                }
-                              }}
-                              getItemId={(o) => String(o.value)}
-                              getItemLabel={(o) => o.label}
-                              searchPlaceholder={`Search ${statusColumn.label.toLowerCase()}...`}
-                              emptyMessage="No results found"
-                              multiSelect
-                            />
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    }
+                <FilterSearchWrapper searchPlaceholder="Search filters...">
+                  {({ search }) =>
+                    (() => {
+                        const renderedKeys = new Set<string>();
+                        const filterElements: React.ReactNode[] = [];
 
-                    columnDefs.forEach((col: KanbanColumnDef<TItem>) => {
-                      if (renderedKeys.has(col.key)) return;
-                      renderedKeys.add(col.key);
-                      const options: FilterOption[] = col.options.map((o) => ({
-                        value: o.value,
-                        label: o.label,
-                      }));
-                      const selectedOptions = options.filter((o) =>
-                        (filters[col.key] ?? []).includes(o.value)
-                      );
-                      filterElements.push(
-                        <DropdownMenuSub key={col.key}>
-                          <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[280px] p-0">
-                            <SearchableSelectInline<FilterOption>
-                              items={options}
-                              value={selectedOptions}
-                              onValueChange={(opts) => {
-                                const next = opts.map((o) => o.value);
-                                if (next.length === 0) {
-                                  const rest = Object.fromEntries(
-                                    Object.entries(filters).filter(([k]) => k !== col.key)
-                                  );
-                                  setFilters(rest);
-                                } else {
-                                  setFilters({ ...filters, [col.key]: next });
-                                }
-                              }}
-                              getItemId={(o) => String(o.value)}
-                              getItemLabel={(o) => o.label}
-                              searchPlaceholder={`Search ${col.label.toLowerCase()}...`}
-                              emptyMessage="No results found"
-                              multiSelect
-                            />
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    });
+                        const filterLabelMatches = (label: string) =>
+                          !search.trim() ||
+                          label.toLowerCase().includes(search.trim().toLowerCase());
 
-                    rightPills
-                      .filter((p: EntityListPillColumn<TItem, unknown>) => p.filterable !== false && p.filterOptions?.length)
-                      .forEach((p: EntityListPillColumn<TItem, unknown>) => {
-                        if (renderedKeys.has(p.key)) return;
-                        renderedKeys.add(p.key);
-                        const options: FilterOption[] = p.filterOptions!.map((o) => ({
-                          value: o.value,
-                          label: o.label,
-                        }));
-                        const selectedOptions = options.filter((o) =>
-                          (filters[p.key] ?? []).includes(o.value)
-                        );
-                        filterElements.push(
-                          <DropdownMenuSub key={p.key}>
-                            <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-[280px] p-0">
-                              <SearchableSelectInline<FilterOption>
-                                items={options}
-                                value={selectedOptions}
-                                onValueChange={(opts) => {
-                                  const next = opts.map((o) => o.value);
-                                  if (next.length === 0) {
-                                    const rest = Object.fromEntries(
-                                      Object.entries(filters).filter(([k]) => k !== p.key)
-                                    );
-                                    setFilters(rest);
-                                  } else {
-                                    setFilters({ ...filters, [p.key]: next });
-                                  }
-                                }}
-                                getItemId={(o) => String(o.value)}
-                                getItemLabel={(o) => o.label}
-                                searchPlaceholder={`Search ${p.label.toLowerCase()}...`}
-                                emptyMessage="No results found"
-                                multiSelect
-                              />
-                            </DropdownMenuSubContent>
-                          </DropdownMenuSub>
-                        );
-                      });
+                        if (
+                          statusColumn &&
+                          statusColumn.filterable !== false &&
+                          filterLabelMatches(statusColumn.label)
+                        ) {
+                          renderedKeys.add(statusColumn.key);
+                          const options: FilterOption[] = statusColumn.options.map((o) => ({
+                            value: o.value,
+                            label: o.label,
+                          }));
+                          const selectedOptions = options.filter((o) =>
+                            (filters[statusColumn.key] ?? []).includes(o.value)
+                          );
+                          filterElements.push(
+                            <DropdownMenuSub key={statusColumn.key}>
+                              <DropdownMenuSubTrigger>{statusColumn.label}</DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-[280px] p-0">
+                                <SearchableSelectInline<FilterOption>
+                                  items={options}
+                                  value={selectedOptions}
+                                  onValueChange={(opts) => {
+                                    const next = opts.map((o) => o.value);
+                                    if (next.length === 0) {
+                                      const rest = Object.fromEntries(
+                                        Object.entries(filters).filter(([k]) => k !== statusColumn.key)
+                                      );
+                                      setFilters(rest);
+                                    } else {
+                                      setFilters({ ...filters, [statusColumn.key]: next });
+                                    }
+                                  }}
+                                  getItemId={(o) => String(o.value)}
+                                  getItemLabel={(o) => o.label}
+                                  searchPlaceholder={`Search ${statusColumn.label.toLowerCase()}...`}
+                                  emptyMessage="No results found"
+                                  multiSelect
+                                />
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          );
+                        }
+
+                        columnDefs.forEach((col: KanbanColumnDef<TItem>) => {
+                          if (renderedKeys.has(col.key)) return;
+                          if (!filterLabelMatches(col.label)) return;
+                          renderedKeys.add(col.key);
+                          const options: FilterOption[] = col.options.map((o) => ({
+                            value: o.value,
+                            label: o.label,
+                          }));
+                          const selectedOptions = options.filter((o) =>
+                            (filters[col.key] ?? []).includes(o.value)
+                          );
+                          filterElements.push(
+                            <DropdownMenuSub key={col.key}>
+                              <DropdownMenuSubTrigger>{col.label}</DropdownMenuSubTrigger>
+                              <DropdownMenuSubContent className="w-[280px] p-0">
+                                <SearchableSelectInline<FilterOption>
+                                  items={options}
+                                  value={selectedOptions}
+                                  onValueChange={(opts) => {
+                                    const next = opts.map((o) => o.value);
+                                    if (next.length === 0) {
+                                      const rest = Object.fromEntries(
+                                        Object.entries(filters).filter(([k]) => k !== col.key)
+                                      );
+                                      setFilters(rest);
+                                    } else {
+                                      setFilters({ ...filters, [col.key]: next });
+                                    }
+                                  }}
+                                  getItemId={(o) => String(o.value)}
+                                  getItemLabel={(o) => o.label}
+                                  searchPlaceholder={`Search ${col.label.toLowerCase()}...`}
+                                  emptyMessage="No results found"
+                                  multiSelect
+                                />
+                              </DropdownMenuSubContent>
+                            </DropdownMenuSub>
+                          );
+                        });
+
+                        rightPills
+                          .filter(
+                            (p: EntityListPillColumn<TItem, unknown>) =>
+                              p.filterable !== false &&
+                              (p.filterType === 'date-range' || (p.filterOptions?.length ?? 0) > 0) &&
+                              filterLabelMatches(p.label)
+                          )
+                          .forEach((p: EntityListPillColumn<TItem, unknown>) => {
+                            if (renderedKeys.has(p.key)) return;
+                            renderedKeys.add(p.key);
+
+                            if (p.filterType === 'date-range') {
+                              const dr = (filters[p.key] ?? [])[0] as
+                                | { type: 'date_range'; start?: string; end?: string }
+                                | undefined;
+                              const fromVal = dr?.start ?? '';
+                              const toVal = dr?.end ?? '';
+                              filterElements.push(
+                                <DropdownMenuSub key={p.key}>
+                                  <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                                  <DropdownMenuSubContent className="w-[320px] p-0">
+                                    <DateRangeFilter
+                                      fromValue={fromVal}
+                                      toValue={toVal}
+                                      onFromChange={(v) => {
+                                        const next =
+                                          v || toVal
+                                            ? [
+                                                {
+                                                  type: 'date_range' as const,
+                                                  start: v || undefined,
+                                                  end: toVal || undefined,
+                                                },
+                                              ]
+                                            : [];
+                                        if (next.length === 0 && !toVal) {
+                                          const rest = Object.fromEntries(
+                                            Object.entries(filters).filter(([k]) => k !== p.key)
+                                          );
+                                          setFilters(rest);
+                                        } else {
+                                          setFilters({ ...filters, [p.key]: next });
+                                        }
+                                      }}
+                                      onToChange={(v) => {
+                                        const next =
+                                          fromVal || v
+                                            ? [
+                                                {
+                                                  type: 'date_range' as const,
+                                                  start: fromVal || undefined,
+                                                  end: v || undefined,
+                                                },
+                                              ]
+                                            : [];
+                                        if (next.length === 0 && !fromVal) {
+                                          const rest = Object.fromEntries(
+                                            Object.entries(filters).filter(([k]) => k !== p.key)
+                                          );
+                                          setFilters(rest);
+                                        } else {
+                                          setFilters({ ...filters, [p.key]: next });
+                                        }
+                                      }}
+                                      onRangeChange={(from, to) => {
+                                        const next =
+                                          from || to
+                                            ? [
+                                                {
+                                                  type: 'date_range' as const,
+                                                  start: from || undefined,
+                                                  end: to || undefined,
+                                                },
+                                              ]
+                                            : [];
+                                        if (next.length === 0) {
+                                          const rest = Object.fromEntries(
+                                            Object.entries(filters).filter(([k]) => k !== p.key)
+                                          );
+                                          setFilters(rest);
+                                        } else {
+                                          setFilters({ ...filters, [p.key]: next });
+                                        }
+                                      }}
+                                    />
+                                  </DropdownMenuSubContent>
+                                </DropdownMenuSub>
+                              );
+                              return;
+                            }
+
+                            const options: FilterOption[] = p.filterOptions!.map((o) => ({
+                              value: o.value,
+                              label: o.label,
+                            }));
+                            const selectedOptions = options.filter((o) =>
+                              (filters[p.key] ?? []).includes(o.value)
+                            );
+                            filterElements.push(
+                              <DropdownMenuSub key={p.key}>
+                                <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
+                                <DropdownMenuSubContent className="w-[280px] p-0">
+                                  <SearchableSelectInline<FilterOption>
+                                    items={options}
+                                    value={selectedOptions}
+                                    onValueChange={(opts) => {
+                                      const next = opts.map((o) => o.value);
+                                      if (next.length === 0) {
+                                        const rest = Object.fromEntries(
+                                          Object.entries(filters).filter(([k]) => k !== p.key)
+                                        );
+                                        setFilters(rest);
+                                      } else {
+                                        setFilters({ ...filters, [p.key]: next });
+                                      }
+                                    }}
+                                    getItemId={(o) => String(o.value)}
+                                    getItemLabel={(o) => o.label}
+                                    searchPlaceholder={`Search ${p.label.toLowerCase()}...`}
+                                    emptyMessage="No results found"
+                                    multiSelect
+                                  />
+                                </DropdownMenuSubContent>
+                              </DropdownMenuSub>
+                            );
+                          });
 
                     return filterElements;
-                  })()}
-                </ScrollArea>
+                    })()
+                  }
+                </FilterSearchWrapper>
               </DropdownMenuContent>
             </DropdownMenu>
             {activeFilterCount > 0 && (
@@ -743,9 +891,14 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           <div className="h-full w-full overflow-x-auto overflow-y-hidden">
             <div className="flex h-full px-6 pb-0 pt-2 gap-4 min-w-max">
               {activeColumnDef.options.map((option: { value: unknown; label: string }) => {
-                const columnItems = sortedItems.filter(
-                  (item) => String(activeColumnDef.getValue(item)) === String(option.value)
-                );
+                const columnItems = sortedItems.filter((item) => {
+                  const id = getItemId(item);
+                  const value =
+                    optimisticOverrides[id] !== undefined
+                      ? optimisticOverrides[id]
+                      : activeColumnDef.getValue(item);
+                  return String(value) === String(option.value);
+                });
                 
                 if (hideEmptyColumns && columnItems.length === 0) return null;
 
