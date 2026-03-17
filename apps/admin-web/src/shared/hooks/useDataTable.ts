@@ -45,6 +45,7 @@ export function useDataTable({
   const pathname = usePathname();
   const isInitialLoad = useRef(true);
   const hasSyncedInitialDefaults = useRef(false);
+  const pendingUrlUpdateRef = useRef(false);
   const isManagedKey = useCallback((key: string) => {
     return MANAGED_PARAM_KEYS.includes(key) || (filterKeys ? filterKeys.includes(key) : !MANAGED_PARAM_KEYS.includes(key));
   }, [filterKeys]);
@@ -126,12 +127,19 @@ export function useDataTable({
   // Sync state with URL changes
   useEffect(() => {
     if (skipUrlSync) return;
-    
+
     const derivedState = getInitialState();
+    // Don't overwrite optimistic state with stale URL while our router.push is in flight
+    if (pendingUrlUpdateRef.current) {
+      if (isEqual(derivedState, state)) {
+        pendingUrlUpdateRef.current = false;
+      }
+      if (isInitialLoad.current) isInitialLoad.current = false;
+      return;
+    }
     if (!isEqual(derivedState, state)) {
       setState(derivedState);
     }
-    // Mark initial load as complete after first sync
     if (isInitialLoad.current) {
       isInitialLoad.current = false;
     }
@@ -175,8 +183,10 @@ export function useDataTable({
 
   // Update URL helper - stable and minimal dependencies
   const updateUrl = useCallback((updates: Partial<DataTableState>) => {
+    // Optimistic update: apply state immediately so queries run without waiting for router
+    updateState(updates);
+
     if (skipUrlSync) {
-      updateState(updates);
       return;
     }
 
@@ -242,6 +252,7 @@ export function useDataTable({
       }
     }
 
+    pendingUrlUpdateRef.current = true;
     router.push(`${pathname}?${params.toString()}`);
   }, [filterKeys, router, pathname, searchParams, initialPageSize, state.sortBy, skipUrlSync, updateState]);
 
