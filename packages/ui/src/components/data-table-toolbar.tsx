@@ -196,7 +196,7 @@ export function DataTableToolbar({
     <div className="flex flex-col gap-2 w-full">
       <div className="flex flex-wrap items-center gap-2">
         {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
+        <div className="relative flex-1 min-w-[120px]">
           <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={searchPlaceholder}
@@ -214,14 +214,14 @@ export function DataTableToolbar({
           )}
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-wrap items-center gap-1">
           {/* View Options (Columns) */}
           {columnDefinitions.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9">
                   <LayoutGrid className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">View</span>
+                  <span className="hidden md:inline">View</span>
                   <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
@@ -249,7 +249,7 @@ export function DataTableToolbar({
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" className={cn("h-9", state.groupBy && "rounded-r-none")}>
                     <Layers className="h-4 w-4 mr-2" />
-                    <span className="hidden sm:inline">
+                    <span className="hidden md:inline">
                       {state.groupBy
                         ? groupByOptions.find((o) => o.key === state.groupBy)?.label ?? 'Grouped'
                         : 'Group by'}
@@ -299,11 +299,11 @@ export function DataTableToolbar({
                     size="sm"
                     className={cn(
                       "h-9 flex-nowrap shrink-0",
-                      state.sortBy && "rounded-r-none min-w-[7.5rem]"
+                      state.sortBy && "rounded-r-none"
                     )}
                   >
                     <ArrowUpDown className="h-4 w-4 mr-2 shrink-0" />
-                    <span className="hidden sm:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
+                    <span className="hidden md:inline-flex items-center gap-1 flex-nowrap shrink-0 whitespace-nowrap">
                       {state.sortBy ? (
                         <span className="min-w-0 truncate">{sortOptions.find((o) => o.key === state.sortBy)?.label ?? 'Sorted'}</span>
                       ) : (
@@ -379,7 +379,7 @@ export function DataTableToolbar({
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className={cn("h-9", effectiveActiveFilterCount > 0 && "rounded-r-none")}>
                   <Filter className="h-4 w-4 mr-2" />
-                  <span className="hidden sm:inline">
+                  <span className="hidden md:inline">
                     Filter {effectiveActiveFilterCount > 0 && `(${effectiveActiveFilterCount})`}
                   </span>
                   <ChevronDown className="h-4 w-4 ml-1 opacity-50" />

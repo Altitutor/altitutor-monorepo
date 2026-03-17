@@ -445,10 +445,10 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <SearchableSelectInline<{ key: string; label: string }>
-                  items={[{ key: 'name', label: 'None (by name)' }, ...visibleSortByOptions]}
+                  items={visibleSortByOptions}
                   value={
                     sortBy === 'name'
-                      ? { key: 'name', label: 'None (by name)' }
+                      ? null
                       : visibleSortByOptions.find((o) => o.key === sortBy) ?? null
                   }
                   onValueChange={(opt) => {

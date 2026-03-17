@@ -121,6 +121,7 @@ export interface EntityListProps<TItem> {
   };
   hideToolbar?: boolean;
   noPadding?: boolean;
+  noBorder?: boolean;
   compact?: boolean;
   /** Add button: 'default' = filled, 'ghost' = transparent (default) */
   addButtonVariant?: 'ghost' | 'default';
@@ -221,6 +222,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     descriptionConfig,
     hideToolbar = false,
     noPadding = false,
+    noBorder = false,
     compact = false,
     addButtonVariant,
     addButtonShowLabel = false,
@@ -401,7 +403,12 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   }, [sortedItems, groupBy, rightPills, statusColumn, getGroupLabel, getGroupOrder]);
 
   return (
-    <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
+    <div
+      className={cn(
+        'flex flex-col h-full overflow-hidden w-full max-w-full',
+        noBorder ? 'rounded-none border-0 bg-transparent' : 'rounded-md border bg-background'
+      )}
+    >
       {/* Toolbar */}
       {!hideToolbar && (
         <div className="flex flex-wrap items-center gap-1 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">
@@ -491,10 +498,10 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                   <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <SearchableSelectInline<{ key: string; label: string }>
-                    items={[{ key: 'name', label: 'None (by name)' }, ...visibleSortByOptions]}
+                    items={visibleSortByOptions}
                     value={
                       sortBy === 'name'
-                        ? { key: 'name', label: 'None (by name)' }
+                        ? null
                         : visibleSortByOptions.find((o) => o.key === sortBy) ?? null
                     }
                     onValueChange={(opt) => {
