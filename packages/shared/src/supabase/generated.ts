@@ -3882,6 +3882,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "question_stem_categories_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
             foreignKeyName: "question_stem_categories_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
@@ -4014,6 +4021,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_sections"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
           {
             foreignKeyName: "question_stems_updated_by_fkey"
@@ -9320,6 +9334,13 @@ export type Database = {
             referencedRelation: "vtutor_ucat_sections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
         ]
       }
       vstudent_ucat_question_set_detail: {
@@ -9439,6 +9460,13 @@ export type Database = {
             referencedRelation: "vtutor_ucat_sections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "question_stem_categories_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
         ]
       }
       vstudent_ucat_question_stem_detail: {
@@ -9507,6 +9535,13 @@ export type Database = {
             referencedRelation: "vtutor_ucat_sections"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
         ]
       }
       vstudent_ucat_question_stems: {
@@ -9570,6 +9605,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_sections"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
         ]
       }
@@ -11222,6 +11264,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "question_stem_categories_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
             foreignKeyName: "question_stem_categories_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
@@ -11333,6 +11382,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_sections"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
           {
             foreignKeyName: "question_stems_updated_by_fkey"
@@ -11451,6 +11507,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_sections"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
           {
             foreignKeyName: "question_stems_updated_by_fkey"
@@ -12056,6 +12119,127 @@ export type Database = {
           },
         ]
       }
+      vtutor_ucat_student_question_attempts_for_progress: {
+        Row: {
+          answer_snapshot: Json | null
+          attempted_at: string | null
+          category_name: string | null
+          id: string | null
+          is_flagged: boolean | null
+          is_submitted: boolean | null
+          mode: string | null
+          question_answer_option_id: string | null
+          question_id: string | null
+          question_stem_category_id: string | null
+          question_type:
+            | Database["public"]["Enums"]["ucat_question_type"]
+            | null
+          score: number | null
+          section_name: string | null
+          section_number: number | null
+          student_first_name: string | null
+          student_id: string | null
+          student_last_name: string | null
+          student_question_set_attempt_id: string | null
+          student_question_speed: number | null
+          time_spent_seconds: number | null
+          ucat_section_id: string | null
+          was_timed: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_question_answer_option_id_fkey"
+            columns: ["question_answer_option_id"]
+            isOneToOne: false
+            referencedRelation: "question_answer_options"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_question_id_fkey"
+            columns: ["question_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_questions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_student_question_set_attempt_id_fkey"
+            columns: ["student_question_set_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "student_question_set_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_student_question_set_attempt_id_fkey"
+            columns: ["student_question_set_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_set_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_student_question_set_attempt_id_fkey"
+            columns: ["student_question_set_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_set_attempt_detail"
+            referencedColumns: ["attempt_id"]
+          },
+          {
+            foreignKeyName: "student_question_attempts_student_question_set_attempt_id_fkey"
+            columns: ["student_question_set_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_set_attempts"
+            referencedColumns: ["attempt_id"]
+          },
+        ]
+      }
       vtutor_ucat_student_set_attempt_detail: {
         Row: {
           attempt_id: string | null
@@ -12159,6 +12343,8 @@ export type Database = {
           student_id: string | null
           student_name: string | null
           student_set_speed: number | null
+          student_ucat_mock_attempt_id: string | null
+          time_taken_seconds: number | null
           total_points: number | null
           was_timed: boolean | null
         }
@@ -12225,6 +12411,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_question_set_attempts_student_ucat_mock_attempt_id_fkey"
+            columns: ["student_ucat_mock_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "student_ucat_mock_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_set_attempts_student_ucat_mock_attempt_id_fkey"
+            columns: ["student_ucat_mock_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_mock_attempts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_set_attempts_student_ucat_mock_attempt_id_fkey"
+            columns: ["student_ucat_mock_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_mock_attempt_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_question_set_attempts_student_ucat_mock_attempt_id_fkey"
+            columns: ["student_ucat_mock_attempt_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_mock_attempts"
+            referencedColumns: ["id"]
           },
         ]
       }
