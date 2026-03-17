@@ -23,11 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Switch,
   TablePagination,
   Textarea,
@@ -533,15 +529,16 @@ export function UcatSetsPage() {
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
-            <Select value={form.isPrivate ? 'private' : 'public'} onValueChange={(v) => setForm((prev) => ({ ...prev, isPrivate: v === 'private' }))}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: 'public' | 'private'; label: string }>
+              items={[
+                { value: 'public', label: 'Public' },
+                { value: 'private', label: 'Private' },
+              ]}
+              value={form.isPrivate ? { value: 'private', label: 'Private' } : { value: 'public', label: 'Public' }}
+              onValueChange={(item) => setForm((prev) => ({ ...prev, isPrivate: item?.value === 'private' }))}
+              getItemLabel={(i) => i.label}
+              getItemId={(i) => i.value}
+            />
           </label>
         </div>
       </UcatDialogShell>

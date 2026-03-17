@@ -12,13 +12,7 @@ import {
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Loader2, AlertTriangle } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -36,6 +30,24 @@ import { cn } from '@/shared/utils';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { DraggableTopicsList } from '@/features/topics/components';
 import { useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
+
+const CURRICULUM_OPTIONS = [
+  { value: 'SACE' as const, label: 'SACE' },
+  { value: 'IB' as const, label: 'IB' },
+  { value: 'PRESACE' as const, label: 'PRESACE' },
+  { value: 'PRIMARY' as const, label: 'Primary' },
+  { value: 'MEDICINE' as const, label: 'Medicine' },
+] as const;
+
+const DISCIPLINE_OPTIONS = [
+  { value: 'MATHEMATICS' as const, label: 'Mathematics' },
+  { value: 'SCIENCE' as const, label: 'Science' },
+  { value: 'HUMANITIES' as const, label: 'Humanities' },
+  { value: 'ENGLISH' as const, label: 'English' },
+  { value: 'ART' as const, label: 'Art' },
+  { value: 'LANGUAGE' as const, label: 'Language' },
+  { value: 'MEDICINE' as const, label: 'Medicine' },
+] as const;
 
 const formSchema = z.object({
   name: z.string().min(1, 'Subject name is required'),
@@ -251,44 +263,38 @@ export function EditSubjectModal({
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="curriculum">Curriculum</Label>
-                  <Select
-                    value={form.watch('curriculum') || ''}
-                    onValueChange={(value) => form.setValue('curriculum', value as FormData['curriculum'])}
-                  >
-                    <SelectTrigger id="curriculum">
-                      <SelectValue placeholder="Select curriculum" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      <SelectItem value="SACE">SACE</SelectItem>
-                      <SelectItem value="IB">IB</SelectItem>
-                      <SelectItem value="PRESACE">PRESACE</SelectItem>
-                      <SelectItem value="PRIMARY">PRIMARY</SelectItem>
-                      <SelectItem value="MEDICINE">MEDICINE</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect<(typeof CURRICULUM_OPTIONS)[number]>
+                    items={[...CURRICULUM_OPTIONS]}
+                    value={
+                      form.watch('curriculum')
+                        ? CURRICULUM_OPTIONS.find((c) => c.value === form.watch('curriculum')) ?? null
+                        : null
+                    }
+                    onValueChange={(item) => form.setValue('curriculum', item?.value ?? null)}
+                    getItemLabel={(o) => o.label}
+                    getItemId={(o) => o.value}
+                    placeholder="Select curriculum"
+                    allowClear
+                    clearLabel="None"
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="discipline">Discipline</Label>
-                  <Select
-                    value={form.watch('discipline') || ''}
-                    onValueChange={(value) => form.setValue('discipline', value as FormData['discipline'])}
-                  >
-                    <SelectTrigger id="discipline">
-                      <SelectValue placeholder="Select discipline" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="">None</SelectItem>
-                      <SelectItem value="MATHEMATICS">MATHEMATICS</SelectItem>
-                      <SelectItem value="SCIENCE">SCIENCE</SelectItem>
-                      <SelectItem value="HUMANITIES">HUMANITIES</SelectItem>
-                      <SelectItem value="ENGLISH">ENGLISH</SelectItem>
-                      <SelectItem value="ART">ART</SelectItem>
-                      <SelectItem value="LANGUAGE">LANGUAGE</SelectItem>
-                      <SelectItem value="MEDICINE">MEDICINE</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <SearchableSelect<(typeof DISCIPLINE_OPTIONS)[number]>
+                    items={[...DISCIPLINE_OPTIONS]}
+                    value={
+                      form.watch('discipline')
+                        ? DISCIPLINE_OPTIONS.find((d) => d.value === form.watch('discipline')) ?? null
+                        : null
+                    }
+                    onValueChange={(item) => form.setValue('discipline', item?.value ?? null)}
+                    getItemLabel={(o) => o.label}
+                    getItemId={(o) => o.value}
+                    placeholder="Select discipline"
+                    allowClear
+                    clearLabel="None"
+                  />
                 </div>
               </div>
             </div>

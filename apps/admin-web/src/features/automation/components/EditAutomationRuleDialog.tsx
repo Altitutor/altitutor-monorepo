@@ -23,7 +23,7 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
 import { Switch } from '@altitutor/ui';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
@@ -280,28 +280,25 @@ export function EditAutomationRuleDialog({
                           <FormField
                             control={form.control}
                             name="entity_type"
-                            render={({ field }) => (
-                              <FormItem className="w-[180px]">
-                                <FormControl>
-                                  <Select
-                                    onValueChange={field.onChange}
-                                    value={field.value}
-                                  >
-                                    <SelectTrigger className="h-9">
-                                      <SelectValue placeholder="Entity" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {ENTITY_TYPES.map((type) => (
-                                        <SelectItem key={type.value} value={type.value}>
-                                          {type.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                            render={({ field }) => {
+                              const selected = ENTITY_TYPES.find((t) => t.value === field.value) ?? null;
+                              return (
+                                <FormItem className="w-[180px]">
+                                  <FormControl>
+                                    <SearchableSelect<typeof ENTITY_TYPES[number]>
+                                      items={[...ENTITY_TYPES]}
+                                      value={selected}
+                                      onValueChange={(item) => field.onChange(item?.value)}
+                                      getItemLabel={(t) => t.label}
+                                      getItemId={(t) => t.value}
+                                      placeholder="Entity"
+                                      triggerClassName="h-9"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
                           />
 
                           <span>is</span>
@@ -309,30 +306,27 @@ export function EditAutomationRuleDialog({
                           <FormField
                             control={form.control}
                             name="event_types"
-                            render={() => (
-                              <FormItem className="w-[140px]">
-                                <FormControl>
-                                  <Select
-                                    value={selectedEventTypes[0] || ''}
-                                    onValueChange={(value) => {
-                                      form.setValue('event_types', [value as ActivityEventType]);
-                                    }}
-                                  >
-                                    <SelectTrigger className="h-9">
-                                      <SelectValue placeholder="Event" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {EVENT_TYPES.map((eventType) => (
-                                        <SelectItem key={eventType.value} value={eventType.value}>
-                                          {eventType.label}
-                                        </SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </FormControl>
-                                <FormMessage />
-                              </FormItem>
-                            )}
+                            render={() => {
+                              const selected = EVENT_TYPES.find((t) => t.value === selectedEventTypes[0]) ?? null;
+                              return (
+                                <FormItem className="w-[140px]">
+                                  <FormControl>
+                                    <SearchableSelect<typeof EVENT_TYPES[number]>
+                                      items={[...EVENT_TYPES]}
+                                      value={selected}
+                                      onValueChange={(item) => {
+                                        form.setValue('event_types', item ? [item.value] : []);
+                                      }}
+                                      getItemLabel={(t) => t.label}
+                                      getItemId={(t) => t.value}
+                                      placeholder="Event"
+                                      triggerClassName="h-9"
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              );
+                            }}
                           />
 
                           {(selectedEventTypes[0] === 'CREATED' || selectedEventTypes[0] === 'UPDATED') && (

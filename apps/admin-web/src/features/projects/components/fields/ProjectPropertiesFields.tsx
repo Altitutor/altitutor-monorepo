@@ -8,10 +8,6 @@ import {
   FormItem,
   FormMessage,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
   Button,
   SearchableSelect,
 } from '@altitutor/ui';
@@ -54,83 +50,66 @@ export function ProjectPropertiesFields({ form, enabled = true }: { form: UseFor
       <FormField
         control={form.control}
         name="status"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <Select value={field.value} onValueChange={(value) => field.onChange(value as ProjectStatus)}>
-                <SelectTrigger>
-                  <div className="flex items-center gap-2 w-full min-w-0">
-                    <StatusIcon className={cn('h-4 w-4', statusIconColor)} />
-                    <span className="text-muted-foreground shrink-0">Status</span>
-                    <span className="truncate">{getProjectStatusLabel(field.value)}</span>
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {PROJECT_STATUS_OPTIONS.map((opt) => {
-                    const OptionIcon = getProjectStatusIcon(opt.value);
-                    const optionColor = getProjectStatusIconColor(opt.value);
-                    return (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center gap-2">
-                          <OptionIcon className={cn('h-4 w-4', optionColor)} />
-                          <span>{opt.label}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const selected = PROJECT_STATUS_OPTIONS.find((o) => o.value === field.value) ?? PROJECT_STATUS_OPTIONS[0];
+          return (
+            <FormItem>
+              <FormControl>
+                <SearchableSelect<(typeof PROJECT_STATUS_OPTIONS)[number]>
+                  items={PROJECT_STATUS_OPTIONS}
+                  value={selected}
+                  onValueChange={(item) => field.onChange(item?.value as ProjectStatus)}
+                  getItemLabel={(o) => o.label}
+                  getItemId={(o) => o.value}
+                  trigger={
+                    <Button variant="outline" className="w-full justify-start">
+                      <div className="flex items-center gap-2 w-full min-w-0">
+                        <StatusIcon className={cn('h-4 w-4', statusIconColor)} />
+                        <span className="text-muted-foreground shrink-0">Status</span>
+                        <span className="truncate">{getProjectStatusLabel(field.value)}</span>
+                      </div>
+                    </Button>
+                  }
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          );
+        }}
       />
 
       <FormField
         control={form.control}
         name="priority"
-        render={({ field }) => (
-          <FormItem>
-            <FormControl>
-              <Select
-                value={String(field.value)}
-                onValueChange={(value) => field.onChange(Number(value) as ProjectPriority)}
-              >
-                <SelectTrigger>
-                  <div className="flex items-center gap-2 w-full min-w-0">
-                    {(() => {
-                      const p = (field.value ?? 0) as ProjectPriority;
-                      const PriorityIcon = getProjectPriorityIcon(p);
-                      const priorityIconColor = getProjectPriorityIconColor(p);
-                      return (
-                        <>
-                          <PriorityIcon className={cn('h-4 w-4', priorityIconColor)} />
-                          <span className="text-muted-foreground shrink-0">Priority</span>
-                          <span className="truncate">{getProjectPriorityLabel(p)}</span>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {PRIORITY_OPTIONS.map((opt) => {
-                    const OptionIcon = getProjectPriorityIcon(opt.value);
-                    const optionColor = getProjectPriorityIconColor(opt.value);
-                    return (
-                      <SelectItem key={opt.value} value={String(opt.value)}>
-                        <div className="flex items-center gap-2">
-                          <OptionIcon className={cn('h-4 w-4', optionColor)} />
-                          <span>{opt.label}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
-            </FormControl>
-            <FormMessage />
-          </FormItem>
-        )}
+        render={({ field }) => {
+          const p = (field.value ?? 0) as ProjectPriority;
+          const PriorityIcon = getProjectPriorityIcon(p);
+          const priorityIconColor = getProjectPriorityIconColor(p);
+          const selected = PRIORITY_OPTIONS.find((o) => o.value === p) ?? PRIORITY_OPTIONS[0];
+          return (
+            <FormItem>
+              <FormControl>
+                <SearchableSelect<(typeof PRIORITY_OPTIONS)[number]>
+                  items={PRIORITY_OPTIONS}
+                  value={selected}
+                  onValueChange={(item) => field.onChange(item ? (item.value as ProjectPriority) : 0)}
+                  getItemLabel={(o) => o.label}
+                  getItemId={(o) => String(o.value)}
+                  trigger={
+                    <Button variant="outline" className="w-full justify-start">
+                      <div className="flex items-center gap-2 w-full min-w-0">
+                        <PriorityIcon className={cn('h-4 w-4', priorityIconColor)} />
+                        <span className="text-muted-foreground shrink-0">Priority</span>
+                        <span className="truncate">{getProjectPriorityLabel(p)}</span>
+                      </div>
+                    </Button>
+                  }
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          );
+        }}
       />
 
       <FormField

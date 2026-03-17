@@ -6,11 +6,7 @@ import {
   Button,
   Input,
   ListToolbar,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Switch,
   Tabs,
   TabsContent,
@@ -346,53 +342,48 @@ export function Step4CreateSet({
                     }}
                   />
                   {(sectionsQuery.data ?? []).filter((s) => s.id != null && s.time_limit_seconds != null && s.time_limit_seconds > 0).length > 0 && (
-                    <Select
-                      value=""
-                      onValueChange={(value) => {
-                        const sec = (sectionsQuery.data ?? []).find((s) => s.id === value)
-                        if (sec?.time_limit_seconds != null) {
-                          const { minutes, seconds } = secondsToMinutesAndSeconds(sec.time_limit_seconds)
+                    <SearchableSelect<{ id: string; name: string }>
+                      items={(sectionsQuery.data ?? [])
+                        .filter((s): s is typeof s & { id: string; time_limit_seconds: number } =>
+                          s.id != null && s.time_limit_seconds != null && s.time_limit_seconds > 0
+                        )
+                        .map((s) => ({ id: s.id!, name: `${s.name ?? 'Unknown'} (${formatSecondsToDuration(s.time_limit_seconds)})` }))}
+                      value={null}
+                      onValueChange={(sec) => {
+                        if (!sec) return
+                        const section = (sectionsQuery.data ?? []).find((s) => s.id === sec.id)
+                        if (section?.time_limit_seconds != null) {
+                          const { minutes, seconds } = secondsToMinutesAndSeconds(section.time_limit_seconds)
                           setCreateTimeLimitMinutes(minutes)
                           setCreateTimeLimitSeconds(seconds)
                           onAddToSetConfigChange(buildCreateConfig({ timeLimitMinutes: minutes, timeLimitSeconds: seconds }))
                         }
                       }}
-                    >
-                      <SelectTrigger className="w-[180px]">
-                        <SelectValue placeholder="Use section time" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(sectionsQuery.data ?? [])
-                          .filter((s) => s.id != null && s.time_limit_seconds != null && s.time_limit_seconds > 0)
-                          .map((s) => (
-                            <SelectItem key={s.id} value={s.id!}>
-                              {s.name ?? 'Unknown'} ({formatSecondsToDuration(s.time_limit_seconds)})
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
+                      getItemLabel={(s) => s.name}
+                      getItemId={(s) => s.id}
+                      placeholder="Use section time"
+                      triggerClassName="w-[180px]"
+                    />
                   )}
                 </div>
                 )}
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>
-                <Select
-                  value={createIsPrivate ? 'private' : 'public'}
-                  onValueChange={(v) => {
-                    const priv = v === 'private'
+                <SearchableSelect<{ value: 'public' | 'private'; label: string }>
+                  items={[
+                    { value: 'public', label: 'Public' },
+                    { value: 'private', label: 'Private' },
+                  ]}
+                  value={createIsPrivate ? { value: 'private', label: 'Private' } : { value: 'public', label: 'Public' }}
+                  onValueChange={(item) => {
+                    const priv = item?.value === 'private'
                     setCreateIsPrivate(priv)
                     onAddToSetConfigChange(buildCreateConfig({ isPrivate: priv }))
                   }}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                  </SelectContent>
-                </Select>
+                  getItemLabel={(i) => i.label}
+                  getItemId={(i) => i.value}
+                />
               </label>
           </TabsContent>
 

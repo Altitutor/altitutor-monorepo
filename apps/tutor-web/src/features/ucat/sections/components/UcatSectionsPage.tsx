@@ -9,11 +9,7 @@ import {
   DataTable,
   DataTableToolbar,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Switch,
   useToast,
 } from '@altitutor/ui'
@@ -468,18 +464,20 @@ function SectionForm({
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Display Columns</span>
-        <Select
-          value={draft.displayColumns}
-          onValueChange={(value: '1' | '2') => setDraft((prev) => ({ ...prev, displayColumns: value }))}
-        >
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="1">1 Column</SelectItem>
-            <SelectItem value="2">2 Columns</SelectItem>
-          </SelectContent>
-        </Select>
+        <SearchableSelect<{ value: '1' | '2'; label: string }>
+          items={[
+            { value: '1', label: '1 Column' },
+            { value: '2', label: '2 Columns' },
+          ]}
+          value={
+            draft.displayColumns === '1'
+              ? { value: '1', label: '1 Column' }
+              : { value: '2', label: '2 Columns' }
+          }
+          onValueChange={(item) => item && setDraft((prev) => ({ ...prev, displayColumns: item.value }))}
+          getItemLabel={(i) => i.label}
+          getItemId={(i) => i.value}
+        />
       </label>
       <label className="block text-sm">
         <div className="mb-2 flex items-center justify-between">

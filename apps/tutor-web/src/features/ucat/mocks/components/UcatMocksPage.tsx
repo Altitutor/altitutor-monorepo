@@ -23,11 +23,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   TablePagination,
   useToast,
 } from '@altitutor/ui'
@@ -489,15 +485,16 @@ export function UcatMocksPage() {
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
-            <Select value={isPrivate ? 'private' : 'public'} onValueChange={(v) => setIsPrivate(v === 'private')}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="public">Public</SelectItem>
-                <SelectItem value="private">Private</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: 'public' | 'private'; label: string }>
+              items={[
+                { value: 'public', label: 'Public' },
+                { value: 'private', label: 'Private' },
+              ]}
+              value={isPrivate ? { value: 'private', label: 'Private' } : { value: 'public', label: 'Public' }}
+              onValueChange={(item) => setIsPrivate(item?.value === 'private')}
+              getItemLabel={(i) => i.label}
+              getItemId={(i) => i.value}
+            />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Instructions</span>

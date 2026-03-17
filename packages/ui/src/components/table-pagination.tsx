@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from './button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './select';
+import { SearchableSelect } from './searchable-select';
 import { cn } from '../lib/cn';
 
 export interface TablePaginationProps {
@@ -71,10 +71,13 @@ export function TablePagination({
     }
   };
 
-  const handlePageSizeChange = (value: string) => {
-    const newSize = Number(value);
-    if (Number.isFinite(newSize) && newSize > 0 && newSize !== pageSize) {
-      onPageSizeChange(newSize);
+  type PageSizeItem = { value: number };
+  const pageSizeItems: PageSizeItem[] = pageSizeOptions.map((n) => ({ value: n }));
+  const selectedPageSize = pageSizeItems.find((i) => i.value === pageSize) ?? pageSizeItems[0];
+
+  const handlePageSizeChange = (item: PageSizeItem | null) => {
+    if (item && item.value !== pageSize) {
+      onPageSizeChange(item.value);
     }
   };
 
@@ -90,18 +93,14 @@ export function TablePagination({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
         <div className="flex items-center gap-2">
           <span>Rows per page</span>
-          <Select value={String(pageSize)} onValueChange={handlePageSizeChange}>
-            <SelectTrigger className="w-[80px]">
-              <SelectValue placeholder={pageSize} />
-            </SelectTrigger>
-            <SelectContent align="end">
-              {pageSizeOptions.map((sizeOption) => (
-                <SelectItem key={sizeOption} value={String(sizeOption)}>
-                  {sizeOption}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect<PageSizeItem>
+            items={pageSizeItems}
+            value={selectedPageSize}
+            onValueChange={handlePageSizeChange}
+            getItemLabel={(i) => String(i.value)}
+            getItemId={(i) => String(i.value)}
+            triggerClassName="w-[80px]"
+          />
         </div>
 
         <div className="flex items-center gap-2">

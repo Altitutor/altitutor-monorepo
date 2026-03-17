@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Badge, Separator } from '@altitutor/ui';
 import { Input, Label } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -274,43 +274,45 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                 <Label htmlFor="subject_id" className="text-right">
                   Subject
                 </Label>
-                <Select
-                  value={form.watch('subject_id')}
-                  onValueChange={(value) => form.setValue('subject_id', value)}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="Select subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {s?.long_name ?? ''}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="col-span-3">
+                  <SearchableSelect<typeof subjects[number]>
+                    items={subjects}
+                    value={subjects.find((s) => s.id === form.watch('subject_id')) ?? null}
+                    onValueChange={(item) => item && form.setValue('subject_id', item.id)}
+                    getItemLabel={(s) => s?.long_name ?? ''}
+                    getItemId={(s) => s.id}
+                    placeholder="Select subject"
+                  />
+                </div>
               </div>
-              
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="parent_id" className="text-right">
                   Parent
                 </Label>
-                <Select
-                  value={form.watch('parent_id')}
-                  onValueChange={(value) => form.setValue('parent_id', value)}
-                >
-                  <SelectTrigger className="col-span-3">
-                    <SelectValue placeholder="None (root topic)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">None (root topic)</SelectItem>
-                    {availableParents.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {(() => {
+                  const parentItems = [
+                    { id: 'none', name: 'None (root topic)' },
+                    ...availableParents.map((t) => ({ id: t.id, name: t.name })),
+                  ];
+                  const parentId = form.watch('parent_id') || 'none';
+                  const selectedParent =
+                    parentItems.find((p) => p.id === parentId) ?? parentItems[0];
+                  return (
+                    <div className="col-span-3">
+                      <SearchableSelect<{ id: string; name: string }>
+                        items={parentItems}
+                        value={selectedParent}
+                        onValueChange={(item) =>
+                          form.setValue('parent_id', item?.id ?? 'none')
+                        }
+                        getItemLabel={(t) => t.name}
+                        getItemId={(t) => t.id}
+                        placeholder="None (root topic)"
+                      />
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

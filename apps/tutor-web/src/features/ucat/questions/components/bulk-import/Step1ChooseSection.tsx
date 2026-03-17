@@ -1,6 +1,6 @@
 'use client'
 
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui'
+import { SearchableSelect } from '@altitutor/ui'
 import type { UcatSection } from '@/features/ucat/shared/types'
 
 type Step1ChooseSectionProps = {
@@ -15,6 +15,7 @@ export function Step1ChooseSection({
   onChangeSection,
 }: Step1ChooseSectionProps) {
   const hasSections = sections.length > 0
+  const selected = sections.find((s) => (s.id ?? '') === (sectionId ?? '')) ?? null
 
   return (
     <div className="space-y-4">
@@ -29,25 +30,15 @@ export function Step1ChooseSection({
       <div className="max-w-sm">
         <label className="block space-y-1 text-sm">
           <span className="font-medium">Section</span>
-          <Select
-            value={sectionId ?? ''}
-            onValueChange={(value) => {
-              if (!value) return
-              onChangeSection(value)
-            }}
+          <SearchableSelect<UcatSection>
+            items={sections}
+            value={selected}
+            onValueChange={(item) => item && onChangeSection(item.id ?? '')}
+            getItemLabel={(s) => s.name ?? 'Untitled section'}
+            getItemId={(s) => s.id ?? 'none'}
+            placeholder={hasSections ? 'Select a section' : 'No sections available'}
             disabled={!hasSections}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder={hasSections ? 'Select a section' : 'No sections available'} />
-            </SelectTrigger>
-            <SelectContent>
-              {sections.map((section) => (
-                <SelectItem key={section.id ?? 'none'} value={section.id ?? ''}>
-                  {section.name ?? 'Untitled section'}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          />
         </label>
       </div>
     </div>

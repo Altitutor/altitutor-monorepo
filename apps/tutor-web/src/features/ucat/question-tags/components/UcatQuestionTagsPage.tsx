@@ -6,11 +6,7 @@ import {
   Button,
   DataTableToolbar,
   Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -370,19 +366,24 @@ function TagForm({
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Parent Tag</span>
-        <Select value={draft.parentTagId} onValueChange={(value) => setDraft((prev) => ({ ...prev, parentTagId: value }))}>
-          <SelectTrigger>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">No parent</SelectItem>
-            {parentOptions.map((row) => (
-              <SelectItem key={row.id} value={row.id}>
-                {row.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {(() => {
+          const parentItems = [
+            { id: 'none', name: 'No parent' },
+            ...parentOptions.map((r) => ({ id: r.id, name: r.name })),
+          ]
+          const selected = parentItems.find((p) => p.id === draft.parentTagId) ?? parentItems[0]
+          return (
+            <SearchableSelect<{ id: string; name: string }>
+              items={parentItems}
+              value={selected}
+              onValueChange={(item) =>
+                setDraft((prev) => ({ ...prev, parentTagId: item?.id ?? 'none' }))
+              }
+              getItemLabel={(p) => p.name}
+              getItemId={(p) => p.id}
+            />
+          )
+        })()}
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Description</span>

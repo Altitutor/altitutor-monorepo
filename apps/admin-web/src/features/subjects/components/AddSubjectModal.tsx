@@ -6,12 +6,29 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from '@alti
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import { subjectsApi } from '../api';
 import type { Tables, Enums, TablesInsert } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';
 import { showEntityCreatedToast } from '@/shared/utils';
+
+const CURRICULUM_OPTIONS = [
+  { value: 'SACE', label: 'SACE' },
+  { value: 'IB', label: 'IB' },
+  { value: 'PRESACE', label: 'Pre-SACE' },
+  { value: 'PRIMARY', label: 'Primary' },
+  { value: 'MEDICINE', label: 'Medicine' },
+] as const;
+
+const DISCIPLINE_OPTIONS = [
+  { value: 'MATHEMATICS', label: 'Mathematics' },
+  { value: 'SCIENCE', label: 'Science' },
+  { value: 'HUMANITIES', label: 'Humanities' },
+  { value: 'ENGLISH', label: 'English' },
+  { value: 'ART', label: 'Art' },
+  { value: 'LANGUAGE', label: 'Language' },
+] as const;
 
 interface AddSubjectModalProps {
   isOpen: boolean;
@@ -128,21 +145,15 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
               <Label htmlFor="curriculum" className="text-right">
                 Curriculum
               </Label>
-              <Select
-                value={formData.curriculum}
-                onValueChange={(value) => handleSelectChange('curriculum', value)}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select curriculum" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={'SACE'}>SACE</SelectItem>
-                  <SelectItem value={'IB'}>IB</SelectItem>
-                  <SelectItem value={'PRESACE'}>Pre-SACE</SelectItem>
-                  <SelectItem value={'PRIMARY'}>Primary</SelectItem>
-                  <SelectItem value={'MEDICINE'}>Medicine</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof CURRICULUM_OPTIONS)[number]>
+                items={[...CURRICULUM_OPTIONS]}
+                value={CURRICULUM_OPTIONS.find((c) => c.value === formData.curriculum) ?? null}
+                onValueChange={(item) => handleSelectChange('curriculum', item?.value ?? '')}
+                getItemLabel={(o) => o.label}
+                getItemId={(o) => o.value}
+                placeholder="Select curriculum"
+                triggerClassName="col-span-3"
+              />
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
@@ -163,22 +174,15 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
               <Label htmlFor="discipline" className="text-right">
                 Discipline
               </Label>
-              <Select
-                value={formData.discipline}
-                onValueChange={(value) => handleSelectChange('discipline', value)}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Select discipline" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={'MATHEMATICS'}>Mathematics</SelectItem>
-                  <SelectItem value={'SCIENCE'}>Science</SelectItem>
-                  <SelectItem value={'HUMANITIES'}>Humanities</SelectItem>
-                  <SelectItem value={'ENGLISH'}>English</SelectItem>
-                  <SelectItem value={'ART'}>Art</SelectItem>
-                  <SelectItem value={'LANGUAGE'}>Language</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof DISCIPLINE_OPTIONS)[number]>
+                items={[...DISCIPLINE_OPTIONS]}
+                value={DISCIPLINE_OPTIONS.find((d) => d.value === formData.discipline) ?? null}
+                onValueChange={(item) => handleSelectChange('discipline', item?.value ?? '')}
+                getItemLabel={(o) => o.label}
+                getItemId={(o) => o.value}
+                placeholder="Select discipline"
+                triggerClassName="col-span-3"
+              />
             </div>
           </div>
         </form>

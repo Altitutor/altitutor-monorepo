@@ -1,7 +1,6 @@
 'use client';
 
-import { FormControl, FormField, FormItem } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger } from '@altitutor/ui';
+import { Button, FormControl, FormField, FormItem, SearchableSelect } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
 import {
@@ -16,6 +15,8 @@ interface TaskPriorityPillProps {
   form: UseFormReturn<TaskFormData>;
 }
 
+type PriorityOption = (typeof PRIORITY_OPTIONS)[number];
+
 export function TaskPriorityPill({ form }: TaskPriorityPillProps) {
   return (
     <FormField
@@ -26,36 +27,29 @@ export function TaskPriorityPill({ form }: TaskPriorityPillProps) {
         const PriorityIcon = getPriorityIcon(priorityValue);
         const displayValue = getPriorityLabel(priorityValue);
         const iconColor = getPriorityIconColor(priorityValue);
+        const selectedItem = PRIORITY_OPTIONS.find((o) => o.value === priorityValue) ?? null;
 
         return (
           <FormItem>
-            <Select
-              onValueChange={(value) => field.onChange(Number(value) as TaskPriority)}
-              value={String(priorityValue)}
-            >
-              <FormControl>
-                <SelectTrigger className="h-8 px-3 text-xs border rounded-full">
-                  <div className="flex items-center gap-1.5">
+            <FormControl>
+              <SearchableSelect<PriorityOption>
+                items={PRIORITY_OPTIONS}
+                value={selectedItem}
+                onValueChange={(item) => field.onChange(item ? (item.value as TaskPriority) : 0)}
+                getItemLabel={(opt) => opt.label}
+                getItemId={(opt) => String(opt.value)}
+                trigger={
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-8 rounded-full px-3 text-xs"
+                  >
                     <PriorityIcon className={cn('h-3 w-3', iconColor)} />
                     <span>{displayValue}</span>
-                  </div>
-                </SelectTrigger>
-              </FormControl>
-              <SelectContent>
-                {PRIORITY_OPTIONS.map((opt) => {
-                  const OptionIcon = getPriorityIcon(opt.value);
-                  const optionColor = getPriorityIconColor(opt.value);
-                  return (
-                    <SelectItem key={opt.value} value={String(opt.value)}>
-                      <div className="flex items-center gap-2">
-                        <OptionIcon className={cn('h-4 w-4', optionColor)} />
-                        <span>{opt.label}</span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
+                  </Button>
+                }
+              />
+            </FormControl>
           </FormItem>
         );
       }}

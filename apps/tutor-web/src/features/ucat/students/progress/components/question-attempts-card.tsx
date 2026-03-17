@@ -6,11 +6,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
 } from '@altitutor/ui'
 import { GraphTypeTabs } from './graph-type-tabs'
 import { ProgressGraph, type GraphDataType } from './progress-graph'
@@ -79,21 +75,15 @@ export function QuestionAttemptsCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Question attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={graphDataType}
-            onValueChange={(v) => setGraphDataType(v as GraphDataType)}
-          >
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Y-axis" />
-            </SelectTrigger>
-            <SelectContent>
-              {GRAPH_DATA_TYPES.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect<{ value: GraphDataType; label: string }>
+            items={GRAPH_DATA_TYPES}
+            value={GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? GRAPH_DATA_TYPES[0]!}
+            onValueChange={(item) => item && setGraphDataType(item.value)}
+            getItemLabel={(r) => r.label}
+            getItemId={(r) => r.value}
+            placeholder="Y-axis"
+            triggerClassName="w-[160px]"
+          />
           <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </div>
       </CardHeader>

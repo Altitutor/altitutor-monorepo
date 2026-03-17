@@ -3,10 +3,6 @@
 import { useMemo, useState } from 'react';
 import { UseFormReturn } from 'react-hook-form';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
   FormField,
   FormItem,
   FormControl,
@@ -53,32 +49,24 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
           const status = field.value;
           const StatusIcon = getProjectStatusIcon(status);
           const statusIconColor = getProjectStatusIconColor(status);
+          const selected = PROJECT_STATUS_OPTIONS.find((o) => o.value === status) ?? PROJECT_STATUS_OPTIONS[0];
           return (
             <FormItem>
-              <Select value={status} onValueChange={(value) => field.onChange(value as ProjectStatus)}>
-                <FormControl>
-                  <SelectTrigger className="h-8 rounded-full px-3 text-xs w-auto">
-                    <div className="flex items-center gap-1.5">
+              <FormControl>
+                <SearchableSelect<(typeof PROJECT_STATUS_OPTIONS)[number]>
+                  items={PROJECT_STATUS_OPTIONS}
+                  value={selected}
+                  onValueChange={(item) => field.onChange(item?.value as ProjectStatus)}
+                  getItemLabel={(o) => o.label}
+                  getItemId={(o) => o.value}
+                  trigger={
+                    <Button variant="outline" className="h-8 rounded-full px-3 text-xs">
                       <StatusIcon className={cn('h-3 w-3', statusIconColor)} />
                       <span>{getProjectStatusLabel(status)}</span>
-                    </div>
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {PROJECT_STATUS_OPTIONS.map((opt) => {
-                    const OptionIcon = getProjectStatusIcon(opt.value);
-                    const optionColor = getProjectStatusIconColor(opt.value);
-                    return (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        <div className="flex items-center gap-2">
-                          <OptionIcon className={cn('h-4 w-4', optionColor)} />
-                          <span>{opt.label}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                    </Button>
+                  }
+                />
+              </FormControl>
             </FormItem>
           );
         }}
@@ -91,35 +79,24 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
           const priority = (field.value ?? 0) as ProjectPriority;
           const PriorityIcon = getProjectPriorityIcon(priority);
           const priorityIconColor = getProjectPriorityIconColor(priority);
+          const selected = PRIORITY_OPTIONS.find((o) => o.value === priority) ?? PRIORITY_OPTIONS[0];
           return (
             <FormItem>
-              <Select
-                value={String(priority)}
-                onValueChange={(value) => field.onChange(Number(value) as ProjectPriority)}
-              >
-                <FormControl>
-                  <SelectTrigger className="h-8 rounded-full px-3 text-xs w-auto">
-                    <div className="flex items-center gap-1.5">
+              <FormControl>
+                <SearchableSelect<(typeof PRIORITY_OPTIONS)[number]>
+                  items={PRIORITY_OPTIONS}
+                  value={selected}
+                  onValueChange={(item) => field.onChange(item ? (item.value as ProjectPriority) : 0)}
+                  getItemLabel={(o) => o.label}
+                  getItemId={(o) => String(o.value)}
+                  trigger={
+                    <Button variant="outline" className="h-8 rounded-full px-3 text-xs">
                       <PriorityIcon className={cn('h-3 w-3', priorityIconColor)} />
                       <span>{getProjectPriorityLabel(priority)}</span>
-                    </div>
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {PRIORITY_OPTIONS.map((opt) => {
-                    const OptionIcon = getProjectPriorityIcon(opt.value);
-                    const optionColor = getProjectPriorityIconColor(opt.value);
-                    return (
-                      <SelectItem key={opt.value} value={String(opt.value)}>
-                        <div className="flex items-center gap-2">
-                          <OptionIcon className={cn('h-4 w-4', optionColor)} />
-                          <span>{opt.label}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                    </Button>
+                  }
+                />
+              </FormControl>
             </FormItem>
           );
         }}

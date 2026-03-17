@@ -13,7 +13,7 @@ import {
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
@@ -338,21 +338,24 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
               <Controller
                 control={control}
                 name="role"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isSubmitting}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={'TUTOR'}>Tutor</SelectItem>
-                      <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const ROLE_OPTIONS = [
+                    { value: 'TUTOR' as const, label: 'Tutor' },
+                    { value: 'ADMINSTAFF' as const, label: 'Admin Staff' },
+                  ];
+                  const selected = ROLE_OPTIONS.find((o) => o.value === field.value) ?? null;
+                  return (
+                    <SearchableSelect<typeof ROLE_OPTIONS[number]>
+                      items={ROLE_OPTIONS}
+                      value={selected}
+                      onValueChange={(item) => field.onChange(item?.value)}
+                      getItemLabel={(o) => o.label}
+                      getItemId={(o) => o.value}
+                      placeholder="Select role"
+                      disabled={isSubmitting}
+                    />
+                  );
+                }}
               />
               {errors.role && (
                 <p className="text-sm text-red-500">{errors.role.message}</p>
@@ -364,22 +367,25 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
               <Controller
                 control={control}
                 name="status"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isSubmitting}
-                    value={field.value}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                      <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                      <SelectItem value={'TRIAL'}>Trial</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const STATUS_OPTIONS = [
+                    { value: 'ACTIVE' as const, label: 'Active' },
+                    { value: 'INACTIVE' as const, label: 'Inactive' },
+                    { value: 'TRIAL' as const, label: 'Trial' },
+                  ];
+                  const selected = STATUS_OPTIONS.find((o) => o.value === field.value) ?? null;
+                  return (
+                    <SearchableSelect<typeof STATUS_OPTIONS[number]>
+                      items={STATUS_OPTIONS}
+                      value={selected}
+                      onValueChange={(item) => field.onChange(item?.value)}
+                      getItemLabel={(o) => o.label}
+                      getItemId={(o) => o.value}
+                      placeholder="Select status"
+                      disabled={isSubmitting}
+                    />
+                  );
+                }}
               />
               {errors.status && (
                 <p className="text-sm text-red-500">{errors.status.message}</p>
@@ -393,22 +399,26 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
               <Controller
                 control={control}
                 name="hasParkingRemote"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isSubmitting}
-                    value={field.value || 'NONE'}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select option" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="VIRTUAL">Virtual</SelectItem>
-                      <SelectItem value="PHYSICAL">Physical</SelectItem>
-                      <SelectItem value="NONE">None</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const PARKING_OPTIONS = [
+                    { value: 'VIRTUAL' as const, label: 'Virtual' },
+                    { value: 'PHYSICAL' as const, label: 'Physical' },
+                    { value: 'NONE' as const, label: 'None' },
+                  ];
+                  const effectiveValue = field.value || 'NONE';
+                  const selected = PARKING_OPTIONS.find((o) => o.value === effectiveValue) ?? null;
+                  return (
+                    <SearchableSelect<typeof PARKING_OPTIONS[number]>
+                      items={PARKING_OPTIONS}
+                      value={selected}
+                      onValueChange={(item) => field.onChange(item?.value)}
+                      getItemLabel={(o) => o.label}
+                      getItemId={(o) => o.value}
+                      placeholder="Select option"
+                      disabled={isSubmitting}
+                    />
+                  );
+                }}
               />
               {errors.hasParkingRemote && (
                 <p className="text-sm text-red-500">{errors.hasParkingRemote.message}</p>

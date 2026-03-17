@@ -5,7 +5,6 @@ import { Button } from './button';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuSub,
@@ -15,6 +14,7 @@ import {
 } from './dropdown-menu';
 import { Input } from './input';
 import { ScrollArea } from './scroll-area';
+import { SearchableSelect } from './searchable-select';
 import { SearchableSelectInline } from './searchable-select-inline';
 import { cn } from '../lib/cn';
 import { type JSONContent } from './rich-text-editor';
@@ -121,7 +121,6 @@ export interface EntityListProps<TItem> {
   };
   hideToolbar?: boolean;
   noPadding?: boolean;
-  noBorder?: boolean;
   compact?: boolean;
   /** Add button: 'default' = filled, 'ghost' = transparent (default) */
   addButtonVariant?: 'ghost' | 'default';
@@ -222,7 +221,6 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     descriptionConfig,
     hideToolbar = false,
     noPadding = false,
-    noBorder = false,
     compact = false,
     addButtonVariant,
     addButtonShowLabel = false,
@@ -403,12 +401,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   }, [sortedItems, groupBy, rightPills, statusColumn, getGroupLabel, getGroupOrder]);
 
   return (
-    <div
-      className={cn(
-        'flex flex-col h-full overflow-hidden w-full max-w-full',
-        noBorder ? 'rounded-none border-0 bg-transparent' : 'rounded-md border bg-background'
-      )}
-    >
+    <div className="flex flex-col h-full rounded-md border bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
       {!hideToolbar && (
         <div className="flex flex-wrap items-center gap-1 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">
@@ -1036,6 +1029,12 @@ function EntityListRow<TItem>({
   );
 }
 
+type StatusOption<TValue> = {
+  value: TValue;
+  label: string;
+  icon?: React.ComponentType<{ className?: string }>;
+};
+
 function EntityListStatusBubble<TItem, TValue>({
   item,
   column,
@@ -1045,52 +1044,59 @@ function EntityListStatusBubble<TItem, TValue>({
   column: EntityListStatusColumn<TItem, TValue>;
   compact?: boolean;
 }) {
-  const [open, setOpen] = React.useState(false);
   const value = column.getValue(item);
+  const selectedOption =
+    column.options.find((o) => String(o.value) === String(value)) ?? null;
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
-      <DropdownMenuTrigger asChild>
-        <button
-          type="button"
-          className={cn(
-            'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
-            'hover:bg-muted/80 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 bg-background',
-          )}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {compact ? (
-            column.renderBubble(value, true)
-          ) : (
-            <>
-              {/* Responsive: show full bubble on larger screens, icon on smaller */}
-              <div className="hidden sm:block">
-                {column.renderBubble(value, false)}
-              </div>
-              <div className="sm:hidden">
-                {column.renderBubble(value, true)}
-              </div>
-            </>
-          )}
-        </button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" onClick={(e) => e.stopPropagation()}>
-        {column.options.map((opt) => (
-          <DropdownMenuItem
-            key={String(opt.value)}
-            onClick={() => {
-              column.onStatusChange(item, opt.value);
-              setOpen(false);
-            }}
-          >
-            {opt.value === value && <Check className="h-4 w-4 mr-2" />}
+    <div onClick={(e) => e.stopPropagation()}>
+      <SearchableSelect<StatusOption<TValue>>
+        items={column.options}
+        value={selectedOption}
+        onValueChange={(opt) => {
+          if (opt) column.onStatusChange(item, opt.value);
+        }}
+        getItemId={(opt) => String(opt.value)}
+        getItemLabel={(opt) => opt.label}
+        renderItem={(opt, isSelected) => (
+          <>
+            <Check
+              className={cn(
+                'h-4 w-4 flex-shrink-0',
+                isSelected ? 'opacity-100' : 'opacity-0'
+              )}
+            />
             <div className="flex items-center gap-2">
               {opt.icon && <opt.icon className="h-4 w-4" />}
               {opt.label}
             </div>
-          </DropdownMenuItem>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
+          </>
+        )}
+        searchPlaceholder={`Search ${column.label.toLowerCase()}...`}
+        align="start"
+        trigger={
+          <button
+            type="button"
+            className={cn(
+              'inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium transition-colors',
+              'hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-1 bg-background',
+            )}
+          >
+            {compact ? (
+              column.renderBubble(value, true)
+            ) : (
+              <>
+                <div className="hidden sm:block">
+                  {column.renderBubble(value, false)}
+                </div>
+                <div className="sm:hidden">
+                  {column.renderBubble(value, true)}
+                </div>
+              </>
+            )}
+          </button>
+        }
+      />
+    </div>
   );
 }

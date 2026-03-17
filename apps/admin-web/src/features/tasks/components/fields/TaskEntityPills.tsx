@@ -1,13 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SearchableSelect,
-} from '@altitutor/ui';
+import { Button, SearchableSelect } from '@altitutor/ui';
 import { User, Gauge, ChevronDown, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import {
@@ -130,6 +124,8 @@ export function TaskAssigneeEntityPill({
   );
 }
 
+type PriorityOption = (typeof PRIORITY_OPTIONS)[number];
+
 export function TaskPriorityEntityPill({
   value,
   onChange,
@@ -143,41 +139,54 @@ export function TaskPriorityEntityPill({
   const iconColor = getPriorityIconColor(value);
   const Icon = getPriorityIcon(value);
   const isEmpty = value === 0;
+  const selectedItem = PRIORITY_OPTIONS.find((o) => o.value === value) ?? PRIORITY_OPTIONS[0];
 
   return (
-    <Select
-      value={String(value)}
-      onValueChange={(v) => onChange(Number(v) as TaskPriority)}
-    >
-      <SelectTrigger
-        className={cn(
-          "h-8 border rounded-full bg-background group gap-1.5",
-          collapsed ? "px-2 w-auto" : "px-3 text-xs w-auto"
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Icon className={cn('h-3 w-3 flex-shrink-0', iconColor, isEmpty && "opacity-40 group-hover:opacity-100")} />
-        {!collapsed && (
-          <span className={cn("truncate", isEmpty && "text-muted-foreground opacity-40 group-hover:opacity-100")}>{label}</span>
-        )}
-      </SelectTrigger>
-      <SelectContent>
-        {PRIORITY_OPTIONS.map((o) => {
-          const OptionIcon = getPriorityIcon(o.value);
-          const optionColor = getPriorityIconColor(o.value);
-          return (
-            <SelectItem key={o.value} value={String(o.value)}>
-              <div className="flex items-center gap-2">
-                <OptionIcon className={cn('h-4 w-4', optionColor)} />
-                <span>{o.label}</span>
-              </div>
-            </SelectItem>
-          );
-        })}
-      </SelectContent>
-    </Select>
+    <div onClick={(e) => e.stopPropagation()}>
+      <SearchableSelect<PriorityOption>
+        items={PRIORITY_OPTIONS}
+        value={selectedItem}
+        onValueChange={(item) => onChange(item ? (item.value as TaskPriority) : 0)}
+        getItemLabel={(o) => o.label}
+        getItemId={(o) => String(o.value)}
+        trigger={
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              'h-8 border rounded-full bg-background group gap-1.5',
+              collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
+            )}
+          >
+            <Icon
+              className={cn(
+                'h-3 w-3 flex-shrink-0',
+                isEmpty ? 'text-muted-foreground opacity-40 group-hover:opacity-100' : iconColor
+              )}
+            />
+            {!collapsed && (
+              <span
+                className={cn(
+                  'truncate',
+                  isEmpty && 'text-muted-foreground opacity-40 group-hover:opacity-100'
+                )}
+              >
+                {label}
+              </span>
+            )}
+          </Button>
+        }
+      />
+    </div>
   );
 }
+
+const NONE_ESTIMATE = { value: null, label: 'None' } as const;
+type EstimateOption = { value: number | null; label: string };
+const ESTIMATE_ITEMS: EstimateOption[] = [
+  NONE_ESTIMATE,
+  ...ESTIMATE_OPTIONS.map((o) => ({ value: o.value, label: o.label })),
+];
 
 export function TaskEstimateEntityPill({
   value,
@@ -190,33 +199,33 @@ export function TaskEstimateEntityPill({
 }) {
   const label = value ? getEstimateLabel(value) : null;
   const isEmpty = value == null;
+  const selectedItem = value == null ? NONE_ESTIMATE : ESTIMATE_ITEMS.find((o) => o.value === value) ?? NONE_ESTIMATE;
 
   return (
-    <Select
-      value={value ? String(value) : 'none'}
-      onValueChange={(v) => onChange(v === 'none' ? null : Number(v))}
-    >
-      <SelectTrigger
-        className={cn(
-          "h-8 border rounded-full bg-background group gap-1.5",
-          collapsed ? "px-2 w-auto" : "px-3 text-xs w-auto"
-        )}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <Gauge className={cn("h-3 w-3 text-muted-foreground flex-shrink-0", isEmpty && "opacity-40 group-hover:opacity-100")} />
-        {!collapsed && (
-          <span className={cn("truncate", isEmpty && "text-muted-foreground opacity-40 group-hover:opacity-100")}>{label || 'Estimate'}</span>
-        )}
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="none">None</SelectItem>
-        {ESTIMATE_OPTIONS.map((o: { value: number; label: string }) => (
-          <SelectItem key={o.value} value={String(o.value)}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    <div onClick={(e) => e.stopPropagation()}>
+      <SearchableSelect<EstimateOption>
+        items={ESTIMATE_ITEMS}
+        value={selectedItem}
+        onValueChange={(item) => onChange(item?.value ?? null)}
+        getItemLabel={(o) => o.label}
+        getItemId={(o) => (o.value == null ? 'none' : String(o.value))}
+        trigger={
+          <button
+            type="button"
+            className={cn(
+              "inline-flex h-8 items-center gap-1.5 rounded-full border bg-background group",
+              collapsed ? "px-2 w-auto" : "px-3 text-xs w-auto",
+              "hover:bg-accent hover:text-accent-foreground"
+            )}
+          >
+            <Gauge className={cn("h-3 w-3 text-muted-foreground flex-shrink-0", isEmpty && "opacity-40 group-hover:opacity-100")} />
+            {!collapsed && (
+              <span className={cn("truncate", isEmpty && "text-muted-foreground opacity-40 group-hover:opacity-100")}>{label || 'Estimate'}</span>
+            )}
+          </button>
+        }
+      />
+    </div>
   );
 }
 

@@ -13,7 +13,7 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
@@ -281,51 +281,62 @@ export function AdminTrialContactForm({
             <FormField
               control={form.control}
               name="curriculum"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Curriculum</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+              render={({ field }) => {
+                const CURRICULUM_OPTIONS = [
+                  { value: 'SACE' as const, label: 'SACE' },
+                  { value: 'IB' as const, label: 'IB' },
+                  { value: 'PRESACE' as const, label: 'Pre-SACE' },
+                  { value: 'PRIMARY' as const, label: 'Primary' },
+                ];
+                const selected = CURRICULUM_OPTIONS.find((o) => o.value === field.value) ?? null;
+                return (
+                  <FormItem>
+                    <FormLabel>Curriculum</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select curriculum" />
-                      </SelectTrigger>
+                      <SearchableSelect<typeof CURRICULUM_OPTIONS[number]>
+                        items={CURRICULUM_OPTIONS}
+                        value={selected}
+                        onValueChange={(item) => field.onChange(item?.value)}
+                        getItemLabel={(o) => o.label}
+                        getItemId={(o) => o.value}
+                        placeholder="Select curriculum"
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="SACE">SACE</SelectItem>
-                      <SelectItem value="IB">IB</SelectItem>
-                      <SelectItem value="PRESACE">Pre-SACE</SelectItem>
-                      <SelectItem value="PRIMARY">Primary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             <FormField
               control={form.control}
               name="year_level"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Year Level</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value || ''}>
+              render={({ field }) => {
+                const YEAR_OPTIONS: Array<{ value: string; label: string }> = [
+                  { value: 'Reception', label: 'Reception' },
+                  ...Array.from({ length: 13 }, (_, i) => ({
+                    value: String(i + 1),
+                    label: `Year ${i + 1}`,
+                  })),
+                ];
+                const selected = YEAR_OPTIONS.find((o) => o.value === field.value) ?? null;
+                return (
+                  <FormItem>
+                    <FormLabel>Year Level</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select year level" />
-                      </SelectTrigger>
+                      <SearchableSelect<typeof YEAR_OPTIONS[number]>
+                        items={YEAR_OPTIONS}
+                        value={selected}
+                        onValueChange={(item) => field.onChange(item?.value)}
+                        getItemLabel={(o) => o.label}
+                        getItemId={(o) => o.value}
+                        placeholder="Select year level"
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="Reception">Reception</SelectItem>
-                      {Array.from({ length: 13 }, (_, i) => i + 1).map((year) => (
-                        <SelectItem key={year} value={String(year)}>
-                          Year {year}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
           </div>
 

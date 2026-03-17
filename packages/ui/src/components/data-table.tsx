@@ -23,7 +23,7 @@ import {
 } from "./table"
 import { Button } from "./button"
 import { Input } from "./input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./select"
+import { SearchableSelect } from "./searchable-select"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -141,23 +141,14 @@ export function DataTable<TData, TValue>({
         <div className="flex items-center justify-between space-x-2 py-4">
           <div className="flex items-center space-x-2">
             <p className="text-sm font-medium">Rows per page</p>
-            <Select
-              value={`${pageSize}`}
-              onValueChange={(value: string) => {
-                setPageSize(Number(value))
-              }}
-            >
-              <SelectTrigger className="h-8 w-[70px]">
-                <SelectValue placeholder={pageSize} />
-              </SelectTrigger>
-              <SelectContent side="top">
-                {pageSizeOptions.map((size) => (
-                  <SelectItem key={size} value={`${size}`}>
-                    {size}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: number }>
+              items={pageSizeOptions.map((n) => ({ value: n }))}
+              value={pageSizeOptions.map((n) => ({ value: n })).find((i) => i.value === pageSize) ?? { value: pageSizeOptions[0] }}
+              onValueChange={(item) => item && setPageSize(item.value)}
+              getItemLabel={(i) => String(i.value)}
+              getItemId={(i) => String(i.value)}
+              triggerClassName="h-8 w-[70px]"
+            />
           </div>
           <div className="flex items-center space-x-2">
             <div className="flex w-[100px] items-center justify-center text-sm font-medium">

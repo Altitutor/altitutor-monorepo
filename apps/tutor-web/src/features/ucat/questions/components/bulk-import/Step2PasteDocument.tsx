@@ -1,15 +1,7 @@
 'use client'
 
 import type { Json } from '@altitutor/shared'
-import {
-  Checkbox,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui'
+import { Checkbox, Label, SearchableSelect } from '@altitutor/ui'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import type {
   AnswerOptionIndicatorKind,
@@ -31,6 +23,22 @@ const DEFAULT_PARSING_OPTIONS: ParsingOptions = {
   questionNumberOnOwnLine: false,
   answerOptionOnOwnLine: false,
 }
+
+const QUESTION_INDICATOR_OPTIONS: { value: QuestionIndicatorKind; label: string }[] = [
+  { value: 'dot', label: '1. 2. 3.' },
+  { value: 'paren', label: '1) 2) 3)' },
+]
+
+const ANSWER_OPTION_INDICATOR_OPTIONS: { value: AnswerOptionIndicatorKind; label: string }[] = [
+  { value: 'paren', label: 'a) b) c)' },
+  { value: 'dot', label: 'a. b. c.' },
+]
+
+const PASTE_TABLE_BEHAVIOR_OPTIONS: { value: PasteTableBehavior; label: string }[] = [
+  { value: 'strip_all', label: 'Strip all tables' },
+  { value: 'strip_outside', label: 'Strip outside tables only' },
+  { value: 'keep', label: 'Keep formatting' },
+]
 
 type Step2PasteDocumentProps = {
   value: Json | null
@@ -66,37 +74,36 @@ export function Step2PasteDocument({
       <div className="flex flex-wrap items-end gap-6 rounded-md border bg-muted/40 p-3">
         <div className="space-y-2">
           <Label className="text-xs">Question indicator</Label>
-          <Select
-            value={opts.questionIndicator}
-            onValueChange={(v) =>
-              setOpts({ ...opts, questionIndicator: v as QuestionIndicatorKind })
+          <SearchableSelect<{ value: QuestionIndicatorKind; label: string }>
+            items={QUESTION_INDICATOR_OPTIONS}
+            value={
+              QUESTION_INDICATOR_OPTIONS.find((i) => i.value === opts.questionIndicator) ??
+              QUESTION_INDICATOR_OPTIONS[0]
             }
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="dot">1. 2. 3.</SelectItem>
-              <SelectItem value="paren">1) 2) 3)</SelectItem>
-            </SelectContent>
-          </Select>
+            onValueChange={(item) =>
+              item && setOpts({ ...opts, questionIndicator: item.value })
+            }
+            getItemLabel={(i) => i.label}
+            getItemId={(i) => i.value}
+            triggerClassName="w-[140px]"
+          />
         </div>
         <div className="space-y-2">
           <Label className="text-xs">Answer option indicator</Label>
-          <Select
-            value={opts.answerOptionIndicator}
-            onValueChange={(v) =>
-              setOpts({ ...opts, answerOptionIndicator: v as AnswerOptionIndicatorKind })
+          <SearchableSelect<{ value: AnswerOptionIndicatorKind; label: string }>
+            items={ANSWER_OPTION_INDICATOR_OPTIONS}
+            value={
+              ANSWER_OPTION_INDICATOR_OPTIONS.find(
+                (i) => i.value === opts.answerOptionIndicator
+              ) ?? ANSWER_OPTION_INDICATOR_OPTIONS[0]
             }
-          >
-            <SelectTrigger className="w-[140px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="paren">a) b) c)</SelectItem>
-              <SelectItem value="dot">a. b. c.</SelectItem>
-            </SelectContent>
-          </Select>
+            onValueChange={(item) =>
+              item && setOpts({ ...opts, answerOptionIndicator: item.value })
+            }
+            getItemLabel={(i) => i.label}
+            getItemId={(i) => i.value}
+            triggerClassName="w-[140px]"
+          />
         </div>
         <div className="flex items-center gap-2">
           <Checkbox
@@ -124,19 +131,17 @@ export function Step2PasteDocument({
         </div>
         <div className="space-y-2">
           <Label className="text-xs">Paste table handling</Label>
-          <Select
-            value={pasteTableBehavior}
-            onValueChange={(v) => onPasteTableBehaviorChange?.(v as PasteTableBehavior)}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="strip_all">Strip all tables</SelectItem>
-              <SelectItem value="strip_outside">Strip outside tables only</SelectItem>
-              <SelectItem value="keep">Keep formatting</SelectItem>
-            </SelectContent>
-          </Select>
+          <SearchableSelect<{ value: PasteTableBehavior; label: string }>
+            items={PASTE_TABLE_BEHAVIOR_OPTIONS}
+            value={
+              PASTE_TABLE_BEHAVIOR_OPTIONS.find((i) => i.value === pasteTableBehavior) ??
+              PASTE_TABLE_BEHAVIOR_OPTIONS[0]
+            }
+            onValueChange={(item) => item && onPasteTableBehaviorChange?.(item.value)}
+            getItemLabel={(i) => i.label}
+            getItemId={(i) => i.value}
+            triggerClassName="w-[180px]"
+          />
         </div>
       </div>
 

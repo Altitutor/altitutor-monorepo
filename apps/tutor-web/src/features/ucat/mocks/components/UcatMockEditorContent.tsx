@@ -20,11 +20,7 @@ import {
   getUcatVisibilityColor,
   Input,
   ListToolbar,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Tabs,
   TabsContent,
   TabsList,
@@ -324,15 +320,20 @@ export function UcatMockEditorContent({
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>
-                <Select value={isPrivate ? 'private' : 'public'} onValueChange={(v) => setIsPrivate(v === 'private')}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect<{ value: string; label: string }>
+                  items={[
+                    { value: 'public', label: 'Public' },
+                    { value: 'private', label: 'Private' },
+                  ]}
+                  value={
+                    isPrivate
+                      ? { value: 'private', label: 'Private' }
+                      : { value: 'public', label: 'Public' }
+                  }
+                  onValueChange={(item) => item && setIsPrivate(item.value === 'private')}
+                  getItemLabel={(i) => i.label}
+                  getItemId={(i) => i.value}
+                />
               </label>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Instructions</span>

@@ -17,13 +17,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@altitutor/ui';
 import { useCreateFolder } from '../hooks/useNoteMutations';
 import { useFolders } from '../api/queries';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { useDialogHotkeys } from '@/shared/hooks';
 import {
   ExpandButton,
@@ -128,30 +122,32 @@ export function CreateFolderDialog({
             <FormField
               control={form.control}
               name="parentId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Parent Folder (optional)</FormLabel>
-                  <Select
-                    value={field.value || '__none__'}
-                    onValueChange={(value) => field.onChange(value === '__none__' ? null : value)}
-                  >
+              render={({ field }) => {
+                const rootOption = { id: '__none__', name: 'None (Root)' } as const;
+                const folderItems = [rootOption, ...(folders ?? []).map((f) => ({ id: f.id, name: f.name }))];
+                const selected =
+                  !field.value || field.value === '__none__'
+                    ? rootOption
+                    : folderItems.find((f) => f.id === field.value) ?? rootOption;
+                return (
+                  <FormItem>
+                    <FormLabel>Parent Folder (optional)</FormLabel>
                     <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select a parent folder" />
-                      </SelectTrigger>
+                      <SearchableSelect<{ id: string; name: string }>
+                        items={folderItems}
+                        value={selected}
+                        onValueChange={(item) =>
+                          field.onChange(item?.id === '__none__' ? null : item?.id ?? null)
+                        }
+                        getItemLabel={(f) => f.name}
+                        getItemId={(f) => f.id}
+                        placeholder="Select a parent folder"
+                      />
                     </FormControl>
-                    <SelectContent>
-                      <SelectItem value="__none__">None (Root)</SelectItem>
-                      {folders?.map((folder) => (
-                        <SelectItem key={folder.id} value={folder.id}>
-                          {folder.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>

@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Badge, Button, getUcatVisibilityColor, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Slider, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui'
+import { Badge, Button, getUcatVisibilityColor, Input, ListToolbar, SearchableSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Slider, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { SortableRow } from '@/features/ucat/shared/drag-list'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -457,15 +457,20 @@ export function UcatSetEditorContent({
               </div>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>
-                <Select value={draftPrivate ? 'private' : 'public'} onValueChange={(v) => onChangePrivate(v === 'private')}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="public">Public</SelectItem>
-                    <SelectItem value="private">Private</SelectItem>
-                  </SelectContent>
-                </Select>
+                <SearchableSelect<{ value: string; label: string }>
+                  items={[
+                    { value: 'public', label: 'Public' },
+                    { value: 'private', label: 'Private' },
+                  ]}
+                  value={
+                    draftPrivate
+                      ? { value: 'private', label: 'Private' }
+                      : { value: 'public', label: 'Public' }
+                  }
+                  onValueChange={(item) => item && onChangePrivate(item.value === 'private')}
+                  getItemLabel={(i) => i.label}
+                  getItemId={(i) => i.value}
+                />
               </label>
             </TabsContent>
             <TabsContent value="add-stems" className="mt-3 m-0 pt-4 space-y-2">

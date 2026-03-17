@@ -13,13 +13,7 @@ import {
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@altitutor/ui";
+import { SearchableSelect } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { PhoneInput } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -408,24 +402,27 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
               <Controller
                 control={control}
                 name="curriculum"
-                render={({ field }) => (
-                  <Select 
-                    disabled={isSubmitting}
-                    value={field.value || ''}
-                    onValueChange={field.onChange}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select curriculum" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="SACE">SACE</SelectItem>
-                      <SelectItem value="IB">IB</SelectItem>
-                      <SelectItem value="PRESACE">PRESACE</SelectItem>
-                      <SelectItem value="PRIMARY">PRIMARY</SelectItem>
-                      <SelectItem value="MEDICINE">MEDICINE</SelectItem>
-                    </SelectContent>
-                  </Select>
-                )}
+                render={({ field }) => {
+                  const CURRICULUM_OPTIONS = [
+                    { value: 'SACE' as const, label: 'SACE' },
+                    { value: 'IB' as const, label: 'IB' },
+                    { value: 'PRESACE' as const, label: 'PRESACE' },
+                    { value: 'PRIMARY' as const, label: 'Primary' },
+                    { value: 'MEDICINE' as const, label: 'Medicine' },
+                  ];
+                  const selected = CURRICULUM_OPTIONS.find((o) => o.value === field.value) ?? null;
+                  return (
+                    <SearchableSelect<typeof CURRICULUM_OPTIONS[number]>
+                      items={CURRICULUM_OPTIONS}
+                      value={selected}
+                      onValueChange={(item) => field.onChange(item?.value)}
+                      getItemLabel={(o) => o.label}
+                      getItemId={(o) => o.value}
+                      placeholder="Select curriculum"
+                      disabled={isSubmitting}
+                    />
+                  );
+                }}
               />
             </div>
             
@@ -457,23 +454,26 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
             <Controller
               control={control}
               name="status"
-              render={({ field }) => (
-                <Select 
-                  disabled={isSubmitting}
-                  value={field.value}
-                  onValueChange={field.onChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={'TRIAL'}>Trial</SelectItem>
-                    <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                    <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                    <SelectItem value={'DISCONTINUED'}>Discontinued</SelectItem>
-                  </SelectContent>
-                </Select>
-              )}
+              render={({ field }) => {
+                const STATUS_OPTIONS = [
+                  { value: 'TRIAL' as const, label: 'Trial' },
+                  { value: 'ACTIVE' as const, label: 'Active' },
+                  { value: 'INACTIVE' as const, label: 'Inactive' },
+                  { value: 'DISCONTINUED' as const, label: 'Discontinued' },
+                ];
+                const selected = STATUS_OPTIONS.find((o) => o.value === field.value) ?? null;
+                return (
+                  <SearchableSelect<typeof STATUS_OPTIONS[number]>
+                    items={STATUS_OPTIONS}
+                    value={selected}
+                    onValueChange={(item) => field.onChange(item?.value)}
+                    getItemLabel={(o) => o.label}
+                    getItemId={(o) => o.value}
+                    placeholder="Select status"
+                    disabled={isSubmitting}
+                  />
+                );
+              }}
             />
             {errors.status && (
               <p className="text-sm text-red-500">{errors.status.message}</p>

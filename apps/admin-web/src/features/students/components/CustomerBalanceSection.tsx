@@ -15,7 +15,7 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { RadioGroup, RadioGroupItem } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -691,32 +691,24 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
                   <div className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="session-option">Select Session(s)</Label>
-                      <Select
-                        value={sessionSelectValue}
-                        onValueChange={(value) => {
-                          if (value && value !== 'none') {
-                            handleAddSession(value);
-                          }
+                      <SearchableSelect<SessionPriceOption>
+                        items={sessionPriceOptions}
+                        value={
+                          sessionSelectValue
+                            ? sessionPriceOptions.find((o) => o.id === sessionSelectValue) ?? null
+                            : null
+                        }
+                        onValueChange={(item) => {
+                          if (item) handleAddSession(item.id);
                         }}
+                        getItemLabel={(o) =>
+                          `${o.label} - $${(o.amount_cents / 100).toFixed(2)} ${o.currency.toUpperCase()}`
+                        }
+                        getItemId={(o) => o.id}
+                        placeholder="Select a session to add"
                         disabled={isAdjusting}
-                      >
-                        <SelectTrigger id="session-option">
-                          <SelectValue placeholder="Select a session to add" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {sessionPriceOptions.length > 0 ? (
-                            sessionPriceOptions.map((option) => (
-                              <SelectItem key={option.id} value={option.id}>
-                                {option.label} - ${(option.amount_cents / 100).toFixed(2)} {option.currency.toUpperCase()}
-                              </SelectItem>
-                            ))
-                          ) : (
-                            <SelectItem value="none" disabled>
-                              No session options available
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
+                        emptyMessage="No session options available"
+                      />
                     </div>
 
                     {/* Custom Amount - only show when no sessions selected */}

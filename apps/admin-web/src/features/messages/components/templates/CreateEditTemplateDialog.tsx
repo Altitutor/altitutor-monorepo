@@ -20,13 +20,7 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import { useCreateTemplate, useUpdateTemplate } from '../../api/templates';
 import { useSampleStudents, useStudentClassesForTemplate } from '../../hooks/useTemplatePreviewData';
@@ -333,26 +327,15 @@ export function CreateEditTemplateDialog({
           <div className="flex-1 lg:flex-[0_0_40%] overflow-y-auto p-6 space-y-6 lg:border-l min-w-0">
             <div className="space-y-2">
               <Label>Preview with Sample Data</Label>
-              <Select
-                value={selectedStudentId}
-                onValueChange={setSelectedStudentId}
+              <SearchableSelect<Tables<'students'>>
+                items={sampleStudents}
+                value={selectedStudent ?? null}
+                onValueChange={(student) => setSelectedStudentId(student?.id ?? '')}
+                getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+                getItemId={(s) => s.id}
+                placeholder={sampleStudents.length === 0 ? 'No students available' : 'Select a student'}
                 disabled={isLoadingStudents || sampleStudents.length === 0}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a student">
-                    {selectedStudent 
-                      ? `${selectedStudent.first_name} ${selectedStudent.last_name}`
-                      : 'No students available'}
-                  </SelectValue>
-                </SelectTrigger>
-                <SelectContent>
-                  {sampleStudents.map((student) => (
-                    <SelectItem key={student.id} value={student.id}>
-                      {student.first_name} {student.last_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              />
             </div>
 
             <div className="space-y-2">
