@@ -1,11 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Badge } from '@altitutor/ui'
 import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { useComingSoon } from '@/features/layout/context/coming-soon-context'
 import { useSections } from '@/features/progress/hooks/use-sections'
 import { appNavigation } from '@/features/layout/config/navigation'
@@ -29,6 +29,15 @@ export function AppSidebar({
   const [progressExpanded, setProgressExpanded] = useState(() =>
     pathname.startsWith('/progress')
   )
+
+  const isOnProgressSubPage =
+    pathname.startsWith('/progress/sections/') || pathname === '/progress/mocks'
+  useEffect(() => {
+    if (isOnProgressSubPage) {
+      setProgressExpanded(true)
+    }
+  }, [isOnProgressSubPage])
+
   // On mobile, visibility is driven only by mobileOpen. On desktop, by !collapsed.
   const isVisible = isMobile ? mobileOpen : !collapsed
   const logoSrc = '/images/logo-banner-dark.svg'
@@ -106,20 +115,18 @@ export function AppSidebar({
                       pathname.startsWith('/progress/mocks')
                     return (
                       <div key={item.href} className="space-y-0.5">
-                        <div className="flex items-center rounded-lg">
-                          <Link
-                            href={item.href}
-                            className={cn(
-                              'flex flex-1 items-center px-3 py-2.5 text-sm font-medium transition-colors',
-                              isProgressActive
-                                ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
-                                : 'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
-                            )}
-                            onClick={onCloseMobile}
-                          >
-                            <Icon className="h-4 w-4 shrink-0" />
-                            <span className="ml-3">{item.label}</span>
-                          </Link>
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                            isProgressActive
+                              ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
+                              : 'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                          )}
+                          onClick={onCloseMobile}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="ml-3 flex-1">{item.label}</span>
                           <button
                             type="button"
                             aria-expanded={progressExpanded}
@@ -130,20 +137,21 @@ export function AppSidebar({
                             }
                             onClick={(e) => {
                               e.preventDefault()
+                              e.stopPropagation()
                               setProgressExpanded((prev) => !prev)
                             }}
                             className={cn(
-                              'flex items-center justify-center p-2 rounded-md transition-colors',
+                              'flex items-center justify-center p-1 -m-1 transition-colors rounded',
                               'text-sidebar-foreground/70 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
                             )}
                           >
                             {progressExpanded ? (
                               <ChevronDown className="h-4 w-4" />
                             ) : (
-                              <ChevronRight className="h-4 w-4" />
+                              <ChevronLeft className="h-4 w-4" />
                             )}
                           </button>
-                        </div>
+                        </Link>
                         {progressExpanded && (
                           <div className="ml-4 space-y-0.5 border-l border-sidebar-foreground/20 pl-2">
                             {sections.map((sec) => {
