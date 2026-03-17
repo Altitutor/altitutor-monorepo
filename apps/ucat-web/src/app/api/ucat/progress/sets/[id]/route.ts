@@ -15,6 +15,8 @@ export type SetAttemptDetailResponse = {
   questionAttempts: {
     questionNumber: number
     questionId: string
+    /** 1-based stem index within the set */
+    stemIndex: number
     score: number | null
     timeSpentSeconds: number | null
     questionType: 'multiple_choice' | 'syllogism' | null
@@ -22,6 +24,10 @@ export type SetAttemptDetailResponse = {
     result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
     categoryName: string | null
     questionStemCategoryId: string | null
+    /** For answers view: selected option id (multiple choice) or null */
+    questionAnswerOptionId: string | null
+    /** For answers view: syllogism snapshot { optionId: boolean } */
+    answerSnapshot: Record<string, boolean> | null
   }[]
 }
 
@@ -29,6 +35,23 @@ type StemWithQuestions = {
   stem_id: string
   stem_text?: string
   questions_meta?: Array<{ id: string; index: number }>
+}
+
+function parseAnswerSnapshot(
+  snapshot: unknown
+): Record<string, boolean> | null {
+  if (!snapshot || typeof snapshot !== 'object') return null
+  const obj = snapshot as Record<string, unknown>
+  if (obj.type !== 'syllogism_v1' || !Array.isArray(obj.answers)) return null
+  const answers = obj.answers as Array<{
+    question_answer_option_id: string
+    answer: boolean
+  }>
+  const result: Record<string, boolean> = {}
+  for (const a of answers) {
+    result[a.question_answer_option_id] = a.answer
+  }
+  return result
 }
 
 export async function GET(
@@ -130,7 +153,7 @@ export async function GET(
 
   const { data: questionAttemptsRaw, error: qaError } = await supabase
     .from('vstudent_ucat_my_question_attempts')
-    .select('question_id, score, time_spent_seconds, question_type, category_name, question_stem_category_id')
+    .select('question_id, score, time_spent_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot')
     .eq('student_question_set_attempt_id', attemptId)
     .eq('is_submitted', true)
 
@@ -147,11 +170,19 @@ export async function GET(
         questionType: qa.question_type as 'multiple_choice' | 'syllogism' | null,
         categoryName: qa.category_name,
         questionStemCategoryId: qa.question_stem_category_id,
+        questionAnswerOptionId: qa.question_answer_option_id ?? null,
+        answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
       },
     ])
   )
 
+  let currentStemId: string | null = null
+  let stemIndex = 0
   const questionAttempts = orderedQuestions.map(({ questionId, stemId }, index) => {
+    if (stemId !== currentStemId) {
+      currentStemId = stemId
+      stemIndex += 1
+    }
     const attemptData = attemptsByQuestionId.get(questionId)
     const stemCategory = stemCategoryMap.get(stemId)
     const questionNumber = index + 1
@@ -178,15 +209,21 @@ export async function GET(
     const categoryName = attemptData?.categoryName ?? stemCategory?.categoryName ?? null
     const questionStemCategoryId = attemptData?.questionStemCategoryId ?? stemCategory?.categoryId ?? null
 
+    const questionAnswerOptionId = attemptData?.questionAnswerOptionId ?? null
+    const answerSnapshot = attemptData?.answerSnapshot ?? null
+
     return {
       questionNumber,
       questionId,
+      stemIndex,
       score,
       timeSpentSeconds,
       questionType,
       result,
       categoryName,
       questionStemCategoryId,
+      questionAnswerOptionId,
+      answerSnapshot,
     }
   })
 

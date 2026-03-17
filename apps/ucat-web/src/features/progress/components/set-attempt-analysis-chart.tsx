@@ -1,9 +1,9 @@
 'use client'
 
+import React, { useEffect, useRef } from 'react'
 import {
   Bar,
   BarChart,
-  Cell,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -14,6 +14,8 @@ import { cn } from '@/lib/utils'
 
 export type QuestionAttemptForChart = {
   questionNumber: number
+  /** 1-based stem index within the set */
+  stemIndex?: number
   timeSpentSeconds: number | null
   result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
 }
@@ -21,6 +23,10 @@ export type QuestionAttemptForChart = {
 type SetAttemptAnalysisChartProps = {
   data: QuestionAttemptForChart[]
   className?: string
+  /** 0-based index of the currently selected/viewing question */
+  selectedQuestionIndex?: number
+  /** Called when a bar/column is clicked with the 0-based question index */
+  onBarClick?: (questionIndex: number) => void
 }
 
 const RESULT_COLORS: Record<
@@ -46,20 +52,156 @@ const RESULT_LABELS: Record<
 export function SetAttemptAnalysisChart({
   data,
   className,
+  selectedQuestionIndex = -1,
+  onBarClick,
 }: SetAttemptAnalysisChartProps) {
-  const chartData = data.map((d) => ({
-    name: String(d.questionNumber),
-    value: d.timeSpentSeconds ?? 0,
-    result: d.result,
-  }))
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const chartData = data.map((d, i) => {
+    const prevStem = data[i - 1]?.stemIndex
+    const isStemStart = d.stemIndex != null && d.stemIndex !== prevStem
+    return {
+      name: String(d.questionNumber),
+      value: d.timeSpentSeconds ?? 0,
+      result: d.result,
+      stemIndex: d.stemIndex,
+      isStemStart: !!isStemStart,
+    }
+  })
+
+  // Compute stem ranges for centred labels and divider lines
+  const stemRanges = (() => {
+    const ranges: { stemIndex: number; startIndex: number; endIndex: number }[] = []
+    let currentStem: number | null = null
+    let startIndex = 0
+    chartData.forEach((entry, i) => {
+      if (entry.stemIndex != null && entry.stemIndex !== currentStem) {
+        if (currentStem != null) {
+          ranges.push({ stemIndex: currentStem, startIndex, endIndex: i - 1 })
+        }
+        currentStem = entry.stemIndex
+        startIndex = i
+      }
+    })
+    if (currentStem != null) {
+      ranges.push({ stemIndex: currentStem, startIndex, endIndex: chartData.length - 1 })
+    }
+    return ranges
+  })()
 
   const maxTime = Math.max(...chartData.map((d) => d.value), 1)
   const chartWidth = Math.max(600, chartData.length * 24)
+  const barWidth = Math.max(20, Math.min(32, (chartWidth - (chartData.length - 1) * 0) / chartData.length))
   const yAxisWidth = 52
 
   const yAxisTicks = [0, 0.25, 0.5, 0.75, 1].map((t) =>
     Math.round(t * maxTime * 1.1)
   )
+
+  // Auto-scroll chart so selected column is visible
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container || selectedQuestionIndex < 0 || chartData.length === 0)
+      return
+    const colWidth = chartWidth / chartData.length
+    const targetScroll = selectedQuestionIndex * colWidth - container.clientWidth / 2 + colWidth / 2
+    container.scrollTo({
+      left: Math.max(0, targetScroll),
+      behavior: 'smooth',
+    })
+  }, [selectedQuestionIndex, chartData.length, chartWidth])
+
+  const renderBarShape = (props: {
+    x: number
+    y: number
+    width: number
+    height: number
+    payload: { result: 'correct' | 'partial' | 'incorrect' | 'not_attempted' }
+    index: number
+    parentViewBox?: { height?: number }
+  }) => {
+    const { x, y, width, height, payload, index, parentViewBox } = props
+    const chartHeight = parentViewBox?.height ?? 300
+    const isSelected = index === selectedQuestionIndex
+    const fill = RESULT_COLORS[payload.result]
+    const entry = chartData[index]
+    const showStemDivider =
+      entry?.isStemStart && (entry?.stemIndex ?? 1) > 1
+
+    // Render stem label when this is the first bar of a stem (avoids Customized timing issues)
+    const stemRange = stemRanges.find((r) => r.startIndex === index)
+    const showStemLabel = stemRange != null
+    const stemLabelCenterX = showStemLabel
+      ? x + ((stemRange.endIndex - stemRange.startIndex + 1) * width) / 2
+      : 0
+    const stemLabelY = y + height + 28
+
+    return (
+      <g key={index}>
+        {/* Stem divider line - vertical line at left edge of first bar of new stem, only below x-axis */}
+        {showStemDivider && (
+          <line
+            x1={x}
+            y1={y + height}
+            x2={x}
+            y2={chartHeight}
+            stroke="hsl(var(--muted-foreground) / 0.8)"
+            strokeWidth={1}
+            strokeDasharray="2 2"
+          />
+        )}
+        {/* Stem label - rendered from first bar of each stem */}
+        {showStemLabel && stemRange && (
+          <text
+            x={stemLabelCenterX}
+            y={stemLabelY}
+            textAnchor="middle"
+            fontSize={10}
+            fill="hsl(var(--muted-foreground) / 0.8)"
+          >
+            Stem {stemRange.stemIndex}
+          </text>
+        )}
+        {/* Full-height transparent clickable area */}
+        <rect
+          x={x}
+          y={0}
+          width={width}
+          height={chartHeight}
+          fill="transparent"
+          className={onBarClick ? 'cursor-pointer' : ''}
+          style={
+            isSelected
+              ? { fill: 'hsl(var(--primary) / 0.15)' }
+              : undefined
+          }
+          onClick={() => onBarClick?.(index)}
+          onMouseEnter={(e) => {
+            if (onBarClick) {
+              e.currentTarget.style.fill = 'hsl(var(--muted-foreground) / 0.08)'
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.fill = isSelected
+              ? 'hsl(var(--primary) / 0.15)'
+              : 'transparent'
+          }}
+        />
+        {/* Visible bar - also clickable */}
+        <rect
+          x={x}
+          y={y}
+          width={width}
+          height={height}
+          fill={fill}
+          rx={4}
+          ry={0}
+          className={onBarClick ? 'cursor-pointer' : ''}
+          onClick={() => onBarClick?.(index)}
+        />
+      </g>
+    )
+  }
 
   return (
     <div className={cn('relative flex min-w-0 flex-col gap-2', className)}>
@@ -90,7 +232,10 @@ export function SetAttemptAnalysisChart({
             </span>
           ))}
         </div>
-        <div className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden">
+        <div
+          ref={scrollContainerRef}
+          className="min-h-0 min-w-0 flex-1 overflow-x-auto overflow-y-hidden"
+        >
           <div
             style={{ width: chartWidth, minWidth: chartWidth }}
             className="h-full"
@@ -98,19 +243,32 @@ export function SetAttemptAnalysisChart({
             <ResponsiveContainer width="100%" height="100%">
                   <BarChart
                 data={chartData}
-                margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
+                margin={{ top: 5, right: 5, left: 5, bottom: 36 }}
                 barCategoryGap={0}
                 barGap={0}
               >
                 <XAxis
                   dataKey="name"
-                  tick={{ fontSize: 11 }}
                   stroke="currentColor"
                   className="text-muted-foreground"
                   interval={0}
-                  tickFormatter={(v) => {
-                    const n = parseInt(v, 10)
-                    return n % 5 === 1 || n === chartData.length ? v : ''
+                  tick={({ x, y, index }) => {
+                    const entry = chartData[index]
+                    if (!entry) return null
+                    return (
+                      <g transform={`translate(${x}, ${y})`}>
+                        <text
+                          x={0}
+                          y={0}
+                          dy={8}
+                          textAnchor="middle"
+                          fontSize={11}
+                          fill="hsl(var(--muted-foreground))"
+                        >
+                          {entry.name}
+                        </text>
+                      </g>
+                    )
                   }}
                 />
                 <YAxis
@@ -136,18 +294,12 @@ export function SetAttemptAnalysisChart({
                 />
                 <Bar
                   dataKey="value"
-                  radius={[4, 4, 0, 0]}
+                  barSize={barWidth}
                   isAnimationActive
                   animationDuration={600}
                   animationEasing="ease-out"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell
-                      key={index}
-                      fill={RESULT_COLORS[entry.result]}
-                    />
-                  ))}
-                </Bar>
+                  shape={renderBarShape as React.ComponentProps<typeof Bar>['shape']}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>

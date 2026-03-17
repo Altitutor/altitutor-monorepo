@@ -1,10 +1,11 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { UcatPageHeader } from '@/features/layout'
 import { useSetAttemptDetail } from '../hooks/use-set-attempt-detail'
 import { useMockAttemptDetail } from '../hooks/use-mock-attempt-detail'
 import { SetAttemptAnalysisChart } from './set-attempt-analysis-chart'
+import { SetAnswersCard } from './set-answers-card'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { cn } from '@/lib/utils'
 
@@ -24,6 +25,7 @@ export function SetAttemptDetailPage({
 }: SetAttemptDetailPageProps) {
   const { data, isLoading, error } = useSetAttemptDetail(attemptId)
   const { data: mockData } = useMockAttemptDetail(mockAttemptId ?? null)
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0)
 
   const categoryBreakdown = useMemo(() => {
     const attempts = data?.questionAttempts ?? []
@@ -172,9 +174,20 @@ export function SetAttemptDetailPage({
           </CardTitle>
         </CardHeader>
         <CardContent className="min-w-0 overflow-hidden">
-          <SetAttemptAnalysisChart data={data.questionAttempts} />
+          <SetAttemptAnalysisChart
+            data={data.questionAttempts}
+            selectedQuestionIndex={selectedQuestionIndex}
+            onBarClick={(index) => setSelectedQuestionIndex(index)}
+          />
         </CardContent>
       </Card>
+
+      <SetAnswersCard
+        questionSetId={data.questionSetId}
+        questionAttempts={data.questionAttempts}
+        initialQuestionIndex={selectedQuestionIndex}
+        onQuestionIndexChange={setSelectedQuestionIndex}
+      />
     </div>
   )
 }
