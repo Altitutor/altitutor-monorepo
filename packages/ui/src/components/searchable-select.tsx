@@ -134,13 +134,12 @@ export function SearchableSelect<T>({
   }, [open, popoverContainer]);
   const setOpen = React.useCallback(
     (next: boolean) => {
-      if (onOpenChange) {
-        onOpenChange(next);
-      } else {
+      if (controlledOpen === undefined) {
         setInternalOpen(next);
       }
+      onOpenChange?.(next);
     },
-    [onOpenChange]
+    [onOpenChange, controlledOpen]
   );
 
   const isServerSideSearch = Boolean(onSearchChange);

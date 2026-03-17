@@ -14,11 +14,9 @@ import {
 import { Input } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Plus, X, Loader2 } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
 import type { RegistrationFormValues } from '../validations';
@@ -31,6 +29,8 @@ interface RegistrationStep1StudentDetailsProps {
     year_level: number | null;
     curriculum: string | null;
     color: string | null;
+    long_name?: string | null;
+    short_name?: string | null;
   }>;
 }
 
@@ -143,7 +143,6 @@ export function RegistrationStep1StudentDetails({
   }, [curriculum, form, getValidYearLevels]);
 
   // Subject search state
-  const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(subjectSearchQuery, 300);
   const [selectedSubjectsCache, setSelectedSubjectsCache] = useState<Map<string, Tables<'subjects'>>>(new Map());
@@ -177,13 +176,6 @@ export function RegistrationStep1StudentDetails({
 
   const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
 
-  // Reset search when popover closes
-  useEffect(() => {
-    if (!isSubjectPopoverOpen) {
-      setSubjectSearchQuery('');
-    }
-  }, [isSubjectPopoverOpen]);
-
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
     return subjectSearchResults.filter((s) => !selectedIds.has(s.id));
@@ -200,7 +192,6 @@ export function RegistrationStep1StudentDetails({
       const subject = mergedMap.get(id);
       if (subject) subjects.push(subject);
     });
-    
     return subjects;
   }, [selectedSubjectIds, allSubjects, subjectSearchResults, selectedSubjectsCache]);
 
@@ -208,7 +199,6 @@ export function RegistrationStep1StudentDetails({
     const currentIds = form.getValues('student.subject_ids') || [];
     form.setValue('student.subject_ids', [...currentIds, subject.id]);
     setSelectedSubjectsCache(prev => new Map(prev).set(subject.id, subject));
-    setIsSubjectPopoverOpen(false);
     setSubjectSearchQuery('');
   };
 
@@ -403,47 +393,26 @@ export function RegistrationStep1StudentDetails({
                   );
                 })}
               </div>
-              <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-                <PopoverTrigger asChild>
+              <SearchableSelect<Tables<'subjects'>>
+                items={availableSubjects}
+                value={null}
+                onValueChange={(item) => item && handleSelectSubject(item)}
+                getItemLabel={formatSubjectDisplay}
+                getItemId={(s) => s.id}
+                placeholder="Add subject"
+                searchPlaceholder="Search subjects..."
+                emptyMessage="No subjects found"
+                loading={isSearchingSubjects}
+                onSearchChange={(query) => setSubjectSearchQuery(query)}
+                onOpenChange={(open) => !open && setSubjectSearchQuery('')}
+                trigger={
                   <Button type="button" variant="outline" size="sm">
                     <Plus className="h-4 w-4 mr-2" />
                     Add Subject
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-80 p-0" align="start">
-                  <div className="p-3 border-b">
-                    <Input
-                      placeholder="Search subjects..."
-                      value={subjectSearchQuery}
-                      onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                    />
-                  </div>
-                  <ScrollArea className="h-64">
-                    {isSearchingSubjects ? (
-                      <div className="flex items-center justify-center py-4">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      </div>
-                    ) : availableSubjects.length === 0 ? (
-                      <div className="p-4 text-sm text-muted-foreground text-center">
-                        No subjects found
-                      </div>
-                    ) : (
-                      <div className="p-2">
-                        {availableSubjects.map((subject) => (
-                          <button
-                            key={subject.id}
-                            type="button"
-                            onClick={() => handleSelectSubject(subject)}
-                            className="w-full text-left p-2 hover:bg-muted rounded text-sm"
-                          >
-                            {formatSubjectDisplay(subject)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </ScrollArea>
-                </PopoverContent>
-              </Popover>
+                }
+                contentWidth="320px"
+              />
             </div>
             <FormMessage />
           </FormItem>

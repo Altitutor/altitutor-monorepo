@@ -19,10 +19,8 @@ import { Button } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-import { ScrollArea } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Loader2, Plus, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
 
@@ -192,7 +190,6 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
   }, [curriculum, form, getValidYearLevels]);
 
   // Subject search state
-  const [isSubjectPopoverOpen, setIsSubjectPopoverOpen] = useState(false);
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   const debouncedSearchQuery = useDebounce(subjectSearchQuery, 300);
   // Cache of selected subject objects (to show subjects that don't match current filters)
@@ -217,13 +214,6 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
   );
 
   const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
-
-  // Reset search when popover closes
-  useEffect(() => {
-    if (!isSubjectPopoverOpen) {
-      setSubjectSearchQuery('');
-    }
-  }, [isSubjectPopoverOpen]);
 
   const availableSubjects = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
@@ -255,7 +245,6 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     form.setValue('subject_ids', [...currentIds, subject.id]);
     // Cache the subject object so we can display it even if filters change
     setSelectedSubjectsCache(prev => new Map(prev).set(subject.id, subject));
-    setIsSubjectPopoverOpen(false);
     setSubjectSearchQuery('');
   };
 
@@ -477,56 +466,30 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                     })}
                   </div>
                 )}
-                <Popover open={isSubjectPopoverOpen} onOpenChange={setIsSubjectPopoverOpen}>
-                  <PopoverTrigger asChild>
+                <SearchableSelect<Tables<'subjects'>>
+                  items={availableSubjects}
+                  value={null}
+                  onValueChange={(item) => item && handleSelectSubject(item)}
+                  getItemLabel={formatSubjectDisplay}
+                  getItemId={(s) => s.id}
+                  placeholder="Add subject"
+                  searchPlaceholder="Search subjects..."
+                  emptyMessage={
+                    subjectSearchQuery
+                      ? 'No subjects match your search'
+                      : 'No available subjects found'
+                  }
+                  loading={isSearchingSubjects}
+                  onSearchChange={(query) => setSubjectSearchQuery(query)}
+                  onOpenChange={(open) => !open && setSubjectSearchQuery('')}
+                  trigger={
                     <Button type="button" variant="outline" size="sm" className="flex items-center gap-2">
                       <Plus className="h-4 w-4" />
                       <span>Add Subject</span>
                     </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-0 w-[400px]">
-                    <div className="p-3">
-                      <Input
-                        placeholder="Search subjects..."
-                        value={subjectSearchQuery}
-                        onChange={(e) => setSubjectSearchQuery(e.target.value)}
-                        className="mb-3"
-                      />
-                      <ScrollArea className="h-[300px]">
-                        <div className="space-y-1 pr-4">
-                          {isSearchingSubjects ? (
-                            <div className="p-3 text-center text-sm text-muted-foreground flex items-center justify-center gap-2">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Searching...
-                            </div>
-                          ) : availableSubjects.length === 0 ? (
-                            <div className="p-3 text-center text-sm text-muted-foreground">
-                              {subjectSearchQuery
-                                ? 'No subjects match your search'
-                                : 'No available subjects found'}
-                            </div>
-                          ) : (
-                            availableSubjects.map((subject) => (
-                              <Button
-                                key={subject.id}
-                                type="button"
-                                variant="ghost"
-                                className="w-full justify-start h-auto p-3"
-                                onClick={() => handleSelectSubject(subject)}
-                              >
-                                <div className="flex flex-col items-start w-full">
-                                  <div className="font-medium">
-                                    {formatSubjectDisplay(subject)}
-                                  </div>
-                                </div>
-                              </Button>
-                            ))
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                  }
+                  contentWidth="400px"
+                />
                 </div>
                 <FormMessage />
               </FormItem>
