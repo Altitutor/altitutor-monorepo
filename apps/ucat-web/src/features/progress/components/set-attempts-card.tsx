@@ -25,7 +25,11 @@ import { GraphTypeTabs } from './graph-type-tabs'
 import { format } from 'date-fns'
 import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { formatTimeSeconds } from '../lib/format-time'
-import { aggregateForGraph, filterByTimeFrame } from '../lib/progress-data-utils'
+import {
+  aggregateForGraph,
+  filterByTimeFrame,
+  type SharedDateRange,
+} from '../lib/progress-data-utils'
 import type { SetAttemptRow } from '@/app/api/ucat/progress/route'
 import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
 
@@ -33,6 +37,7 @@ type SetAttemptsCardProps = {
   attempts: SetAttemptRow[]
   mode: ProgressMode
   timeFrameDays: TimeFrameDays
+  sharedDateRange?: SharedDateRange
 }
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
@@ -54,25 +59,18 @@ export function SetAttemptsCard({
   attempts,
   mode,
   timeFrameDays,
+  sharedDateRange,
 }: SetAttemptsCardProps) {
   const router = useRouter()
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
-  const [wasTimedFilter, setWasTimedFilter] = useState<'all' | 'timed' | 'untimed'>(
-    'all'
-  )
-  const [setSourceFilter, setSetSourceFilter] = useState<'my' | 'public'>('public')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
 
   const standaloneAttempts = useMemo(() => {
-    let result = attempts.filter((a) => !a.studentUcatMockAttemptId)
-    if (wasTimedFilter === 'timed') result = result.filter((a) => a.wasTimed)
-    if (wasTimedFilter === 'untimed') result = result.filter((a) => !a.wasTimed)
-    if (setSourceFilter === 'my') result = result.filter((a) => a.isStudentGenerated)
-    if (setSourceFilter === 'public') result = result.filter((a) => !a.isStudentGenerated)
+    const result = attempts.filter((a) => !a.studentUcatMockAttemptId)
     return filterByTimeFrame(result, mode, timeFrameDays)
-  }, [attempts, wasTimedFilter, setSourceFilter, mode, timeFrameDays])
+  }, [attempts, mode, timeFrameDays])
 
   const { graphData, dateRangeLabel } = useMemo(() => {
     const isCountMetric = graphDataType === 'attempt_count'
@@ -91,13 +89,14 @@ export function SetAttemptsCard({
       },
       mode,
       timeFrameDays,
-      isCountMetric
+      isCountMetric,
+      sharedDateRange
     )
     return {
       graphData,
       dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
     }
-  }, [standaloneAttempts, graphDataType, mode, timeFrameDays])
+  }, [standaloneAttempts, graphDataType, mode, timeFrameDays, sharedDateRange])
 
   const paginatedAttempts = useMemo(() => {
     const start = (page - 1) * pageSize
@@ -109,25 +108,6 @@ export function SetAttemptsCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Set attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
-          <Select value={wasTimedFilter} onValueChange={(v) => setWasTimedFilter(v as 'all' | 'timed' | 'untimed')}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Timed" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="untimed">Untimed only</SelectItem>
-              <SelectItem value="timed">Timed only</SelectItem>
-              <SelectItem value="all">All</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={setSourceFilter} onValueChange={(v) => setSetSourceFilter(v as 'my' | 'public')}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue placeholder="Source" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="public">Public sets</SelectItem>
-              <SelectItem value="my">My sets</SelectItem>
-            </SelectContent>
-          </Select>
           <Select
             value={graphDataType}
             onValueChange={(v) => setGraphDataType(v as GraphDataType)}

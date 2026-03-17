@@ -1,5 +1,45 @@
+import { format } from 'date-fns'
+
 /** Progress view mode: all time (simple avg), weighted (EMA), or time frame (filtered) */
 export type ProgressMode = 'all_time' | 'weighted' | 'time_frame'
+
+/** Global filter for which attempts to show in progress graphs and tables */
+export type AttemptFilter =
+  | 'all'
+  | 'untimed'
+  | 'timed'
+  | 'altitutor'
+
+export const ATTEMPT_FILTER_OPTIONS: {
+  value: AttemptFilter
+  label: string
+  infoTooltip: string
+}[] = [
+  {
+    value: 'all',
+    label: 'All question attempts',
+    infoTooltip:
+      'Shows all question attempts and set attempts, including practice mode, timed sets, and untimed sets.',
+  },
+  {
+    value: 'untimed',
+    label: 'Untimed sets only',
+    infoTooltip:
+      'Only question attempts within untimed sets (no time limit). Includes both Altitutor and student-generated sets.',
+  },
+  {
+    value: 'timed',
+    label: 'Timed sets only',
+    infoTooltip:
+      'Only question attempts within timed sets. Includes both Altitutor and student-generated sets.',
+  },
+  {
+    value: 'altitutor',
+    label: 'Altitutor sets only',
+    infoTooltip:
+      'Only question attempts within non-student-generated sets that have a time limit. Excludes practice sets and student-created sets.',
+  },
+]
 
 export const TIME_FRAME_OPTIONS = [
   { value: '7', label: '7 days' },
@@ -10,9 +50,23 @@ export const TIME_FRAME_OPTIONS = [
 
 export type TimeFrameDays = (typeof TIME_FRAME_OPTIONS)[number]['value']
 
-/** Bucket size for graph aggregation: daily for ≤30 days, weekly for 90 days */
+/** Bucket size for graph aggregation: daily for ≤45 days, weekly for 90 days */
 export function getGraphBucketDays(days: number): 'day' | 'week' {
-  return days <= 30 ? 'day' : 'week'
+  return days <= 45 ? 'day' : 'week'
+}
+
+/** Format a week bucket key (Monday yyyy-MM-dd) as a day range for x-axis display */
+export function formatWeekRangeLabel(bucketKey: string): string {
+  try {
+    const start = new Date(bucketKey + 'T12:00:00')
+    const end = new Date(start)
+    end.setDate(end.getDate() + 6)
+    const startStr = format(start, 'MMM d')
+    const endStr = format(end, 'MMM d')
+    return `${startStr} – ${endStr}`
+  } catch {
+    return bucketKey
+  }
 }
 
 /** Format date as local yyyy-MM-dd (avoids timezone mismatch with getBucketKeysBetween) */

@@ -8,9 +8,11 @@ import {
   SelectValue,
 } from '@altitutor/ui'
 import { SegmentedControl } from './segmented-control'
+import { ProgressAttemptFilterSelector } from './progress-attempt-filter-selector'
 import {
   type ProgressMode,
   type TimeFrameDays,
+  type AttemptFilter,
   TIME_FRAME_OPTIONS,
 } from '../lib/progress-mode'
 
@@ -19,6 +21,10 @@ type ProgressModeSelectorProps = {
   onModeChange: (mode: ProgressMode) => void
   timeFrameDays: TimeFrameDays
   onTimeFrameDaysChange: (days: TimeFrameDays) => void
+  attemptFilter?: AttemptFilter
+  onAttemptFilterChange?: (filter: AttemptFilter) => void
+  /** When false, hides the attempt filter (e.g. for mocks page). Default true */
+  showAttemptFilter?: boolean
   className?: string
 }
 
@@ -27,6 +33,9 @@ export function ProgressModeSelector({
   onModeChange,
   timeFrameDays,
   onTimeFrameDaysChange,
+  attemptFilter = 'all',
+  onAttemptFilterChange,
+  showAttemptFilter = true,
   className,
 }: ProgressModeSelectorProps) {
   return (
@@ -62,6 +71,12 @@ export function ProgressModeSelector({
               ))}
             </SelectContent>
           </Select>
+        )}
+        {showAttemptFilter && onAttemptFilterChange && (
+          <ProgressAttemptFilterSelector
+            value={attemptFilter}
+            onValueChange={onAttemptFilterChange}
+          />
         )}
       </div>
     </div>

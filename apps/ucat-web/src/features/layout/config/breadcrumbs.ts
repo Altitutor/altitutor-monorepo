@@ -40,6 +40,7 @@ function isValidPagePath(path: string): boolean {
       )
     case 2:
       return (
+        (segments[0] === 'progress' && segments[1] === 'mocks') ||
         (segments[0] === 'sessions' && isDynamicSegment(segments[1])) ||
         (segments[0] === 'sets' && isDynamicSegment(segments[1])) ||
         (segments[0] === 'mocks' && isDynamicSegment(segments[1]))

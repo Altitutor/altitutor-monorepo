@@ -13,6 +13,9 @@ import {
   filterByTimeFrame,
   computeSingleSectionFromFiltered,
   computeCategoryProgressFromFiltered,
+  getBestAttemptPerQuestion,
+  applyAttemptFilterToProgress,
+  getSharedDateRange,
 } from '../lib/progress-data-utils'
 import type {
   SectionCategoryProgress,
@@ -86,27 +89,33 @@ export function SectionProgressPage({ sectionId }: SectionProgressPageProps) {
   const { data, isLoading, error } = useProgress()
   const progressMode = useProgressMode()
 
-  const { section, categoryProgress, filteredQuestionAttempts, filteredSetAttempts } =
+  const filteredData = useMemo(() => {
+    if (!data) return null
+    return applyAttemptFilterToProgress(data, progressMode.attemptFilter)
+  }, [data, progressMode.attemptFilter])
+
+  const { section, categoryProgress, filteredQuestionAttempts, filteredSetAttempts, sharedDateRange } =
     useMemo(() => {
-      if (!data) {
+      if (!filteredData) {
         return {
           section: null,
           categoryProgress: [] as SectionCategoryProgress[],
           filteredQuestionAttempts: [] as QuestionAttemptRow[],
           filteredSetAttempts: [] as SetAttemptRow[],
+          sharedDateRange: undefined,
         }
       }
       const { mode, timeFrameDays } = progressMode
-      const filteredQA = data.questionAttempts.filter(
+      const filteredQA = filteredData.questionAttempts.filter(
         (a) => a.ucatSectionId === sectionId
       )
-      const filteredSA = data.setAttempts.filter(
+      const filteredSA = filteredData.setAttempts.filter(
         (a) => a.sectionId === sectionId
       )
       const timeFilteredQA = filterByTimeFrame(filteredQA, mode, timeFrameDays)
       const timeFilteredSA = filterByTimeFrame(filteredSA, mode, timeFrameDays)
 
-      const baseSection = data.sectionProgress.find((s) => s.sectionId === sectionId)
+      const baseSection = filteredData.sectionProgress.find((s) => s.sectionId === sectionId)
       const section =
         mode === 'time_frame' && baseSection
           ? computeSingleSectionFromFiltered(
@@ -121,6 +130,13 @@ export function SectionProgressPage({ sectionId }: SectionProgressPageProps) {
           categoryProgress: [] as SectionCategoryProgress[],
           filteredQuestionAttempts: filteredQA,
           filteredSetAttempts: filteredSA,
+          sharedDateRange: getSharedDateRange(
+            filteredData.questionAttempts,
+            filteredData.setAttempts,
+            filteredData.mockAttempts,
+            mode,
+            timeFrameDays
+          ),
         }
       }
 
@@ -128,17 +144,24 @@ export function SectionProgressPage({ sectionId }: SectionProgressPageProps) {
         mode === 'time_frame'
           ? computeCategoryProgressFromFiltered(
               timeFilteredQA,
-              data.sectionCategoryProgress ?? {}
+              filteredData.sectionCategoryProgress ?? {}
             )[sectionId] ?? []
-          : data.sectionCategoryProgress?.[sectionId] ?? []
+          : filteredData.sectionCategoryProgress?.[sectionId] ?? []
 
       return {
         section,
         categoryProgress,
         filteredQuestionAttempts: filteredQA,
         filteredSetAttempts: filteredSA,
+        sharedDateRange: getSharedDateRange(
+          filteredData.questionAttempts,
+          filteredData.setAttempts,
+          filteredData.mockAttempts,
+          mode,
+          timeFrameDays
+        ),
       }
-    }, [data, sectionId, progressMode])
+    }, [filteredData, sectionId, progressMode])
 
   if (isLoading) {
     return (
@@ -216,6 +239,7 @@ export function SectionProgressPage({ sectionId }: SectionProgressPageProps) {
       filteredSetAttempts={filteredSetAttempts}
       categoryProgress={categoryProgress}
       progressMode={progressMode}
+      sharedDateRange={sharedDateRange}
     />
   )
 }
@@ -229,6 +253,7 @@ function SectionProgressContent({
   filteredSetAttempts,
   categoryProgress,
   progressMode,
+  sharedDateRange,
 }: {
   section: { sectionId: string; sectionName: string }
   score: number | null
@@ -238,6 +263,7 @@ function SectionProgressContent({
   filteredSetAttempts: SetAttemptRow[]
   categoryProgress: SectionCategoryProgress[]
   progressMode: ReturnType<typeof useProgressMode>
+  sharedDateRange?: ReturnType<typeof getSharedDateRange>
 }) {
   const stats = useMemo(() => {
     const timeFiltered =
@@ -248,9 +274,10 @@ function SectionProgressContent({
             progressMode.timeFrameDays
           )
         : filteredQuestionAttempts
+    const unique = getBestAttemptPerQuestion(timeFiltered)
     let completed = 0
     let correct = 0
-    for (const a of timeFiltered) {
+    for (const a of unique) {
       const maxPerQuestion = a.questionType === 'syllogism' ? 2 : 1
       completed += maxPerQuestion
       correct += a.score ?? 0
@@ -281,6 +308,8 @@ function SectionProgressContent({
         onModeChange={progressMode.onModeChange}
         timeFrameDays={progressMode.timeFrameDays}
         onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
+        attemptFilter={progressMode.attemptFilter}
+        onAttemptFilterChange={progressMode.onAttemptFilterChange}
       />
 
       <div className="flex flex-col gap-4">
@@ -291,7 +320,7 @@ function SectionProgressContent({
                 Scaled score
               </CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="flex flex-col gap-3">
               <div
                 className={cn(
                   'text-3xl font-bold tabular-nums',
@@ -300,6 +329,45 @@ function SectionProgressContent({
               >
                 {score != null ? Math.round(score) : '—'}
               </div>
+              {(() => {
+                const catsWithAttempts = categoryProgress.filter(
+                  (c) => c.maxScore > 0
+                )
+                const pct = (c: SectionCategoryProgress) =>
+                  progressMode.mode === 'weighted' &&
+                  c.weightedAveragePercentage != null
+                    ? c.weightedAveragePercentage
+                    : c.percentage
+                const best =
+                  catsWithAttempts.length > 0
+                    ? catsWithAttempts.reduce((a, b) =>
+                        pct(a) >= pct(b) ? a : b
+                      )
+                    : null
+                const worst =
+                  catsWithAttempts.length > 1
+                    ? catsWithAttempts.reduce((a, b) =>
+                        pct(a) <= pct(b) ? a : b
+                      )
+                    : null
+                if (!best && !worst) return null
+                return (
+                  <div className="border-t border-border pt-3 space-y-1 text-sm text-muted-foreground">
+                    {best && (
+                      <div>
+                        Best: <span className="text-foreground font-medium">{best.categoryName}</span>{' '}
+                        ({Math.round(pct(best))}%)
+                      </div>
+                    )}
+                    {worst && worst !== best && (
+                      <div>
+                        Worst: <span className="text-foreground font-medium">{worst.categoryName}</span>{' '}
+                        ({Math.round(pct(worst))}%)
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
             </CardContent>
           </Card>
 
@@ -360,11 +428,6 @@ function SectionProgressContent({
                     ? ` / ${totalPublicQuestions}`
                     : ''}
                 </span>
-                <span className="text-muted-foreground text-sm ml-1">
-                  {totalPublicQuestions != null
-                    ? 'of public questions'
-                    : 'question attempts'}
-                </span>
               </div>
               {categoryProgress.length > 0 ? (
                 <div className="border-t border-border pt-3">
@@ -399,11 +462,13 @@ function SectionProgressContent({
         attempts={filteredQuestionAttempts}
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
+        sharedDateRange={sharedDateRange}
       />
       <SetAttemptsCard
         attempts={filteredSetAttempts}
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
+        sharedDateRange={sharedDateRange}
       />
     </div>
   )

@@ -55,6 +55,8 @@ export type MockAttemptRow = {
 
 export type QuestionAttemptRow = {
   id: string
+  questionId: string
+  studentQuestionSetAttemptId: string | null
   attemptedAt: string
   score: number | null
   questionType: string | null
@@ -108,7 +110,7 @@ export async function GET() {
   const { data: questionAttemptsAll, error: qaError } = await supabase
     .from('vstudent_ucat_my_question_attempts')
     .select(
-      'id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name'
+      'id, question_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name'
     )
     .eq('is_submitted', true)
 
@@ -116,12 +118,32 @@ export async function GET() {
     return NextResponse.json({ error: qaError.message }, { status: 500 })
   }
 
-  // Compute section progress: for syllogism max score = 2, else 1
+  // Dedupe by question_id: keep best attempt per question (highest score, then most recent)
+  type QaRaw = (typeof questionAttemptsAll)[number]
+  const bestByQuestion = new Map<string, QaRaw>()
+  for (const qa of (questionAttemptsAll ?? []) as (QaRaw & { question_id?: string | null })[]) {
+    const qid = qa.question_id ?? qa.id
+    if (!qid) continue
+    const existing = bestByQuestion.get(qid)
+    const score = qa.score ?? 0
+    const existingScore = existing?.score ?? 0
+    if (
+      !existing ||
+      score > existingScore ||
+      (score === existingScore &&
+        (qa.attempted_at ?? '') > (existing.attempted_at ?? ''))
+    ) {
+      bestByQuestion.set(qid, qa)
+    }
+  }
+  const uniqueQuestionAttempts = [...bestByQuestion.values()]
+
+  // Compute section progress: for syllogism max score = 2, else 1 (unique questions only)
   const sectionMap = new Map<
     string,
     { name: string; number: number; correct: number; max: number }
   >()
-  for (const qa of questionAttemptsAll ?? []) {
+  for (const qa of uniqueQuestionAttempts) {
     const sectionId = qa.ucat_section_id
     if (!sectionId) continue
     const maxPerQuestion = qa.question_type === 'syllogism' ? 2 : 1
@@ -363,7 +385,7 @@ export async function GET() {
     sectionDailyPercentages.set(s.sectionId, [])
   }
   const qaBySectionDate = new Map<string, { correct: number; max: number }>()
-  for (const qa of questionAttemptsAll ?? []) {
+  for (const qa of uniqueQuestionAttempts) {
     const sectionId = qa.ucat_section_id
     if (!sectionId) continue
     const dateStr = qa.attempted_at
@@ -463,7 +485,7 @@ export async function GET() {
     question_stem_category_id?: string | null
     category_name?: string | null
   }
-  for (const qa of (questionAttemptsAll ?? []) as QaWithCategory[]) {
+  for (const qa of uniqueQuestionAttempts as QaWithCategory[]) {
     const sectionId = qa.ucat_section_id
     if (!sectionId) continue
     const categoryId = qa.question_stem_category_id ?? '__uncategorized__'
@@ -659,6 +681,8 @@ export async function GET() {
 
   type QuestionAttemptRaw = {
     id: string | null
+    question_id: string | null
+    student_question_set_attempt_id: string | null
     attempted_at: string | null
     score: number | null
     question_type: string | null
@@ -676,6 +700,8 @@ export async function GET() {
     questionAttemptsAll ?? []
   ).map((r: QuestionAttemptRaw) => ({
     id: r.id ?? '',
+    questionId: r.question_id ?? r.id ?? '',
+    studentQuestionSetAttemptId: r.student_question_set_attempt_id ?? null,
     attemptedAt: r.attempted_at ?? '',
     score: r.score,
     questionType: r.question_type,

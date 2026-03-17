@@ -11,8 +11,23 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
 import { formatTimeSeconds } from '../lib/format-time'
+
+function formatXAxisDate(dateStr: string): string {
+  try {
+    return format(new Date(dateStr + 'T12:00:00'), 'MMM d')
+  } catch {
+    return dateStr
+  }
+}
+
+function getXAxisLabel(data: { date: string; label?: string }[], index: number): string {
+  const point = data[index]
+  if (point?.label) return point.label
+  return formatXAxisDate(point?.date ?? '')
+}
 
 export type GraphDataType =
   | 'scaled_score'
@@ -52,6 +67,7 @@ export function ProgressGraph({
   dateRangeLabel,
   className,
 }: ProgressGraphProps) {
+  const hasAggregatedLabels = data.some((d) => d.label)
   const label = dataTypeLabels[dataType]
   const domain = getYAxisDomain(dataType)
 
@@ -63,11 +79,25 @@ export function ProgressGraph({
 
   const chartContent =
     type === 'line' ? (
-      <LineChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+      <LineChart
+        data={data}
+        margin={{
+          top: 5,
+          right: 5,
+          left: 5,
+          bottom: hasAggregatedLabels || data.length > 14 ? 60 : 5,
+        }}
+      >
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 12 }}
+          angle={hasAggregatedLabels ? -45 : 0}
+          tick={{
+            fontSize: data.length > 14 ? 10 : 12,
+            textAnchor: hasAggregatedLabels ? 'end' : 'middle',
+          }}
+          tickFormatter={(value, index) => getXAxisLabel(data, index)}
+          interval={0}
           stroke="currentColor"
           className="text-muted-foreground"
         />
@@ -89,7 +119,13 @@ export function ProgressGraph({
             borderRadius: '8px',
           }}
           formatter={(value: number | undefined) => [formatTooltipValue(value), label]}
-          labelFormatter={(l) => `Date: ${l}`}
+          labelFormatter={(l, payload) => {
+            const raw = payload?.[0]?.payload as
+              | { date: string; label?: string }
+              | undefined
+            const displayLabel = raw?.label ?? formatXAxisDate(l)
+            return raw?.label ? `Period: ${displayLabel}` : `Date: ${displayLabel}`
+          }}
         />
         <Line
           type="monotone"
@@ -105,11 +141,25 @@ export function ProgressGraph({
         />
       </LineChart>
     ) : (
-      <BarChart data={data} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+      <BarChart
+        data={data}
+        margin={{
+          top: 5,
+          right: 5,
+          left: 5,
+          bottom: hasAggregatedLabels || data.length > 14 ? 60 : 5,
+        }}
+      >
         <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
         <XAxis
           dataKey="date"
-          tick={{ fontSize: 12 }}
+          angle={hasAggregatedLabels ? -45 : 0}
+          tick={{
+            fontSize: data.length > 14 ? 10 : 12,
+            textAnchor: hasAggregatedLabels ? 'end' : 'middle',
+          }}
+          tickFormatter={(value, index) => getXAxisLabel(data, index)}
+          interval={0}
           stroke="currentColor"
           className="text-muted-foreground"
         />
@@ -131,7 +181,13 @@ export function ProgressGraph({
             borderRadius: '8px',
           }}
           formatter={(value: number | undefined) => [formatTooltipValue(value), label]}
-          labelFormatter={(l) => `Date: ${l}`}
+          labelFormatter={(l, payload) => {
+            const raw = payload?.[0]?.payload as
+              | { date: string; label?: string }
+              | undefined
+            const displayLabel = raw?.label ?? formatXAxisDate(l)
+            return raw?.label ? `Period: ${displayLabel}` : `Date: ${displayLabel}`
+          }}
         />
         <Bar
           dataKey="value"
