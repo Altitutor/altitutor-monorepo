@@ -6,5 +6,4 @@ export { UcatQuestionsPage } from '@/features/ucat/questions/components/UcatQues
 export { UcatSetsPage } from '@/features/ucat/sets/components/UcatSetsPage'
 export { UcatMocksPage } from '@/features/ucat/mocks/components/UcatMocksPage'
 export { UcatStudentsPage } from '@/features/ucat/students/components/UcatStudentsPage'
-export { UcatStudentDetailPage } from '@/features/ucat/students/components/UcatStudentDetailPage'
 export { UcatClassesPage } from '@/features/ucat/classes/components/UcatClassesPage'

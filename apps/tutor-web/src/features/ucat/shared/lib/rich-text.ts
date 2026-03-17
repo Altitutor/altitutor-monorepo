@@ -1,5 +1,24 @@
 import type { Json } from '@altitutor/shared'
 
+export type JsonLike = string | number | boolean | null | JsonLike[] | { [key: string]: JsonLike }
+
+/** Extract plain text from rich JSON (ProseMirror/TipTap or similar). */
+export function extractTextFromRichJson(value: JsonLike): string {
+  if (value == null) return ''
+  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  if (Array.isArray(value)) {
+    return value.map(extractTextFromRichJson).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+  }
+  const record = value as { [key: string]: JsonLike }
+  if (Array.isArray(record.content)) {
+    return record.content.map(extractTextFromRichJson).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+  }
+  if (typeof record.text === 'string') return record.text
+  return Object.values(record).map(extractTextFromRichJson).filter(Boolean).join(' ').replace(/\s+/g, ' ').trim()
+}
+
 export function plainTextToProseMirror(text: string): Json {
   return {
     type: 'doc',
