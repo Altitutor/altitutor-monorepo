@@ -17,17 +17,18 @@ import {
   DialogDescription,
   DialogFooter,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { Edit2, Trash2, Plus } from 'lucide-react';
 import { QuickFilter } from '@altitutor/shared';
 import { useCreateQuickFilter, useUpdateQuickFilter, useDeleteQuickFilter } from '../hooks/useQuickFilters';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { SUPPORTED_ENTITIES, FilterField } from '../config/entities';
+import { SUPPORTED_ENTITIES, FilterField, type EntityConfig } from '../config/entities';
+
+const SCOPE_OPTIONS: { id: string; label: string }[] = [
+  { id: 'global', label: 'Global (All Admins)' },
+  { id: 'personal', label: 'Personal (Just Me)' },
+];
 import { cn } from '@/shared/utils';
 import {
   ExpandButton,
@@ -260,31 +261,31 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
               </div>
               <div className="space-y-2">
                 <Label htmlFor="target-entity">Target Entity</Label>
-                <Select 
-                  value={formData.target_entity} 
-                  onValueChange={(val) => setFormData({ ...formData, target_entity: val, config: {} })}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select entity" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUPPORTED_ENTITIES.map(entity => (
-                      <SelectItem key={entity.id} value={entity.id}>
-                        {entity.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SearchableSelect<EntityConfig>
+                  items={SUPPORTED_ENTITIES}
+                  value={selectedEntity ?? null}
+                  onValueChange={(v) => v && setFormData({ ...formData, target_entity: v.id, config: {} })}
+                  getItemId={(item) => item.id}
+                  getItemLabel={(item) => item.label}
+                  placeholder="Select entity"
+                  trigger={
+                    <Button variant="outline" className="w-full justify-start font-normal">
+                      {selectedEntity?.label ?? 'Select entity'}
+                    </Button>
+                  }
+                />
               </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="scope">Scope</Label>
-                <Select 
-                  value={formData.user_id ? 'personal' : 'global'} 
-                  onValueChange={async (val) => {
-                    if (val === 'global') {
+                <SearchableSelect<{ id: string; label: string }>
+                  items={SCOPE_OPTIONS}
+                  value={SCOPE_OPTIONS.find((s) => s.id === (formData.user_id ? 'personal' : 'global')) ?? null}
+                  onValueChange={async (v) => {
+                    if (!v) return;
+                    if (v.id === 'global') {
                       setFormData({ ...formData, user_id: null });
                     } else {
                       const supabase = getSupabaseClient();
@@ -292,15 +293,15 @@ export function QuickFiltersTable({ filters, onUpdate }: QuickFiltersTableProps)
                       setFormData({ ...formData, user_id: user?.id || null });
                     }
                   }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select scope" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="global">Global (All Admins)</SelectItem>
-                    <SelectItem value="personal">Personal (Just Me)</SelectItem>
-                  </SelectContent>
-                </Select>
+                  getItemId={(item) => item.id}
+                  getItemLabel={(item) => item.label}
+                  placeholder="Select scope"
+                  trigger={
+                    <Button variant="outline" className="w-full justify-start font-normal">
+                      {SCOPE_OPTIONS.find((s) => s.id === (formData.user_id ? 'personal' : 'global'))?.label ?? 'Select scope'}
+                    </Button>
+                  }
+                />
               </div>
             </div>
 

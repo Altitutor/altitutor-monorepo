@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, Plus } from 'lucide-react';
-import { Button, Popover, PopoverContent, PopoverTrigger, ScrollArea } from '@altitutor/ui';
+import { Button, SearchableSelect } from '@altitutor/ui';
 import { useMessageTemplates } from '../api/templates';
 import type { Tables } from '@altitutor/shared';
 
@@ -19,15 +19,32 @@ export function MessageTemplatesPicker({ onSelect, disabled, expanded = false }:
   const { data: allTemplates = [], isLoading } = useMessageTemplates();
   const templates = allTemplates.filter((t) => !t.template_key);
 
-  const handleSelect = (template: Tables<'message_templates'>) => {
-    onSelect(template);
-    setOpen(false);
-  };
-
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        {expanded ? (
+    <SearchableSelect<Tables<'message_templates'>>
+      items={templates}
+      value={null}
+      onValueChange={(template) => {
+        if (template) {
+          onSelect(template);
+        }
+      }}
+      getItemLabel={(t) => t.name}
+      getItemId={(t) => t.id}
+      searchPlaceholder="Search templates..."
+      emptyMessage="No templates yet"
+      loading={isLoading}
+      disabled={disabled}
+      open={open}
+      onOpenChange={setOpen}
+      contentWidth="320px"
+      renderItem={(template) => (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium text-sm">{template.name}</span>
+          <span className="text-xs text-muted-foreground line-clamp-2">{template.content}</span>
+        </div>
+      )}
+      trigger={
+        expanded ? (
           <Button
             variant="outline"
             size="sm"
@@ -48,64 +65,24 @@ export function MessageTemplatesPicker({ onSelect, disabled, expanded = false }:
           >
             <FileText className="h-4 w-4" />
           </Button>
-        )}
-      </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start">
-        <div className="p-3 border-b">
-          <h4 className="font-semibold text-sm">Message Templates</h4>
-          <p className="text-xs text-muted-foreground mt-1">
-            Select a template to insert into your message
-          </p>
-        </div>
-        
-        {isLoading ? (
-          <div className="p-4 text-center text-sm text-muted-foreground">
-            Loading templates...
-          </div>
-        ) : templates.length === 0 ? (
-          <div className="p-4 text-center">
-            <p className="text-sm text-muted-foreground mb-3">
-              No templates yet
-            </p>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => {
-                setOpen(false);
-                router.push('/settings/templates');
-              }}
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Create Template
-            </Button>
-          </div>
-        ) : (
-          <ScrollArea className="h-[300px]">
-            <div className="space-y-1 pr-4 p-2">
-              {templates.map((template) => (
-                <button
-                  key={template.id}
-                  onClick={() => handleSelect(template)}
-                  className="w-full text-left p-3 rounded-md hover:bg-muted transition-colors"
-                >
-                  <div className="font-medium text-sm">{template.name}</div>
-                  <div className="text-xs text-muted-foreground mt-1 line-clamp-2">
-                    {template.content}
-                  </div>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        )}
-      </PopoverContent>
-    </Popover>
+        )
+      }
+      footer={
+        templates.length === 0 && !isLoading ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              setOpen(false);
+              router.push('/settings/templates');
+            }}
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Create Template
+          </Button>
+        ) : undefined
+      }
+    />
   );
 }
-
-
-
-
-
-
-
-

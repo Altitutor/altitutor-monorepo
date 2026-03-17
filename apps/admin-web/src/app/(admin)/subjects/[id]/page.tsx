@@ -22,13 +22,7 @@ import {
   FormMessage,
 } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@altitutor/ui";
+import { SearchableSelect } from "@altitutor/ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,6 +44,24 @@ import { TopicsHierarchy, AddTopicModal } from '@/features/topics';
 import { useTopics } from '@/features/topics/hooks';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useSubjectActions } from '@/features/subjects/hooks/useSubjectActions';
+
+const CURRICULUM_OPTIONS: { id: string; label: string }[] = [
+  { id: 'SACE', label: 'SACE' },
+  { id: 'IB', label: 'IB' },
+  { id: 'PRESACE', label: 'PRESACE' },
+  { id: 'PRIMARY', label: 'PRIMARY' },
+  { id: 'MEDICINE', label: 'MEDICINE' },
+];
+
+const DISCIPLINE_OPTIONS: { id: string; label: string }[] = [
+  { id: 'MATHEMATICS', label: 'MATHEMATICS' },
+  { id: 'SCIENCE', label: 'SCIENCE' },
+  { id: 'HUMANITIES', label: 'HUMANITIES' },
+  { id: 'ENGLISH', label: 'ENGLISH' },
+  { id: 'ART', label: 'ART' },
+  { id: 'LANGUAGE', label: 'LANGUAGE' },
+  { id: 'MEDICINE', label: 'MEDICINE' },
+];
 
 const formSchema = z.object({
   name: z.string().min(1, "Subject name is required"),
@@ -354,23 +366,22 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Curriculum</FormLabel>
-                      <Select 
-                        onValueChange={value => field.onChange(value || null)} 
-                        value={field.value || ""} 
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select curriculum" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={'SACE'}>{'SACE'}</SelectItem>
-                          <SelectItem value={'IB'}>{'IB'}</SelectItem>
-                          <SelectItem value={'PRESACE'}>{'PRESACE'}</SelectItem>
-                          <SelectItem value={'PRIMARY'}>{'PRIMARY'}</SelectItem>
-                          <SelectItem value={'MEDICINE'}>{'MEDICINE'}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect<{ id: string; label: string }>
+                          items={CURRICULUM_OPTIONS}
+                          value={field.value ? CURRICULUM_OPTIONS.find((c) => c.id === field.value) ?? null : null}
+                          onValueChange={(v) => field.onChange(v?.id ?? null)}
+                          getItemId={(item) => item.id}
+                          getItemLabel={(item) => item.label}
+                          placeholder="Select curriculum"
+                          allowClear
+                          trigger={
+                            <Button variant="outline" className="w-full justify-start font-normal">
+                              {field.value ? CURRICULUM_OPTIONS.find((c) => c.id === field.value)?.label ?? field.value : 'Select curriculum'}
+                            </Button>
+                          }
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -382,25 +393,22 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Discipline</FormLabel>
-                      <Select 
-                        onValueChange={value => field.onChange(value || null)} 
-                        value={field.value || ""} 
-                      >
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select discipline" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value={'MATHEMATICS'}>{'MATHEMATICS'}</SelectItem>
-                          <SelectItem value={'SCIENCE'}>{'SCIENCE'}</SelectItem>
-                          <SelectItem value={'HUMANITIES'}>{'HUMANITIES'}</SelectItem>
-                          <SelectItem value={'ENGLISH'}>{'ENGLISH'}</SelectItem>
-                          <SelectItem value={'ART'}>{'ART'}</SelectItem>
-                          <SelectItem value={'LANGUAGE'}>{'LANGUAGE'}</SelectItem>
-                          <SelectItem value={'MEDICINE'}>{'MEDICINE'}</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <FormControl>
+                        <SearchableSelect<{ id: string; label: string }>
+                          items={DISCIPLINE_OPTIONS}
+                          value={field.value ? DISCIPLINE_OPTIONS.find((d) => d.id === field.value) ?? null : null}
+                          onValueChange={(v) => field.onChange(v?.id ?? null)}
+                          getItemId={(item) => item.id}
+                          getItemLabel={(item) => item.label}
+                          placeholder="Select discipline"
+                          allowClear
+                          trigger={
+                            <Button variant="outline" className="w-full justify-start font-normal">
+                              {field.value ? DISCIPLINE_OPTIONS.find((d) => d.id === field.value)?.label ?? field.value : 'Select discipline'}
+                            </Button>
+                          }
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -10,12 +10,8 @@ import {
   DialogTitle,
   Button,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   Input,
+  SearchableSelect,
 } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
@@ -139,16 +135,23 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
 
           <div className="space-y-2">
             <Label htmlFor="billing-type">Billing Type</Label>
-            <Select value={billingType} onValueChange={(value) => setBillingType(value as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING')}>
-              <SelectTrigger id="billing-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="CLASS">CLASS</SelectItem>
-                <SelectItem value="EXAM_COURSE">EXAM_COURSE</SelectItem>
-                <SelectItem value="DRAFTING">DRAFTING</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ id: string; label: string }>
+              items={[
+                { id: 'CLASS', label: 'CLASS' },
+                { id: 'EXAM_COURSE', label: 'EXAM_COURSE' },
+                { id: 'DRAFTING', label: 'DRAFTING' },
+              ]}
+              value={billingType ? { id: billingType, label: billingType } : null}
+              onValueChange={(v) => v && setBillingType(v.id as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING')}
+              getItemId={(item) => item.id}
+              getItemLabel={(item) => item.label}
+              placeholder="Select billing type"
+              trigger={
+                <Button variant="outline" className="w-full justify-start font-normal" id="billing-type">
+                  {billingType || 'Select billing type'}
+                </Button>
+              }
+            />
           </div>
 
           <div className="space-y-2">
@@ -169,15 +172,22 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
 
           <div className="space-y-2">
             <Label htmlFor="currency">Currency</Label>
-            <Select value={currency} onValueChange={setCurrency}>
-              <SelectTrigger id="currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="AUD">AUD</SelectItem>
-                <SelectItem value="USD">USD</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ id: string; label: string }>
+              items={[
+                { id: 'AUD', label: 'AUD' },
+                { id: 'USD', label: 'USD' },
+              ]}
+              value={currency ? { id: currency, label: currency } : null}
+              onValueChange={(v) => v && setCurrency(v.id)}
+              getItemId={(item) => item.id}
+              getItemLabel={(item) => item.label}
+              placeholder="Select currency"
+              trigger={
+                <Button variant="outline" className="w-full justify-start font-normal" id="currency">
+                  {currency || 'Select currency'}
+                </Button>
+              }
+            />
           </div>
 
           <div className="space-y-2">

@@ -1,8 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Separator, Button, Input, Label } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { Badge, Separator, Button, Input, Label, SearchableSelect } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -40,6 +39,11 @@ import { ClassSelectPopover } from '@/features/classes/components/ClassSelectPop
 import type { MinimalClass } from '@/features/classes/api/classes';
 
 const SESSION_TYPES = Supabase.Constants.public.Enums.session_type;
+
+const SESSION_TYPE_ITEMS: { id: string; label: string }[] = SESSION_TYPES.map((t) => ({
+  id: t,
+  label: formatSessionType(t),
+}));
 
 const sessionEditSchema = z
   .object({
@@ -289,22 +293,20 @@ export function SessionDetailsTab({
                 control={form.control}
                 name="type"
                 render={({ field }) => (
-                  <Select
-                    value={field.value}
-                    onValueChange={field.onChange}
+                  <SearchableSelect<{ id: string; label: string }>
+                    items={SESSION_TYPE_ITEMS}
+                    value={SESSION_TYPE_ITEMS.find((t) => t.id === field.value) ?? null}
+                    onValueChange={(v) => v && field.onChange(v.id)}
+                    getItemId={(item) => item.id}
+                    getItemLabel={(item) => item.label}
+                    placeholder="Session type"
                     disabled={isUpdating}
-                  >
-                    <SelectTrigger id="session-type">
-                      <SelectValue placeholder="Session type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SESSION_TYPES.map((t) => (
-                        <SelectItem key={t} value={t}>
-                          {formatSessionType(t)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    trigger={
+                      <Button variant="outline" className="w-full justify-start font-normal" id="session-type">
+                        {SESSION_TYPE_ITEMS.find((t) => t.id === field.value)?.label ?? 'Session type'}
+                      </Button>
+                    }
+                  />
                 )}
               />
             </div>

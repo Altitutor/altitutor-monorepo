@@ -66,7 +66,6 @@ export function AddResourceFileModal({
   const [selectedType, setSelectedType] = useState<Enums<'resource_type'> | null>(null);
   const [isSolutions, setIsSolutions] = useState(false);
   const [selectedSolutionOfId, setSelectedSolutionOfId] = useState<string | null>(null);
-  const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -194,13 +193,11 @@ export function AddResourceFileModal({
                 preselectedSubjectId={preselectedSubjectId}
                 preselectedTopicId={preselectedTopicId}
                 hasMultipleFiles={hasMultipleFiles}
-                subjectSearchQuery={subjectSearchQuery}
                 onSubjectIdChange={setSelectedSubjectId}
                 onTopicIdChange={setSelectedTopicId}
                 onTypeChange={setSelectedType}
                 onIsSolutionsChange={setIsSolutions}
                 onSolutionOfIdChange={setSelectedSolutionOfId}
-                onSubjectSearchQueryChange={setSubjectSearchQuery}
               />
             </div>
 
