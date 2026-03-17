@@ -41,6 +41,7 @@ export function useDataTable({
   const pathname = usePathname();
   const isInitialLoad = useRef(true);
   const hasSyncedInitialDefaults = useRef(false);
+  const pendingUrlUpdateRef = useRef(false);
   const managedParamKeys = useMemo(() => ['search', 'sort', 'order', 'group', 'page', 'pageSize', 'columns'], []);
   const isManagedKey = useCallback((key: string) => {
     return managedParamKeys.includes(key) || (filterKeys ? filterKeys.includes(key) : !managedParamKeys.includes(key));
@@ -104,13 +105,30 @@ export function useDataTable({
 
   const [state, setState] = useState<DataTableState>(getInitialState);
 
+  // Update state helper
+  const updateState = useCallback((updates: Partial<DataTableState>) => {
+    setState((prev) => {
+      const next = { ...prev, ...updates };
+      if ('filters' in updates || 'search' in updates || 'sortBy' in updates || 'pageSize' in updates) {
+        next.page = 1;
+      }
+      return isEqual(prev, next) ? prev : next;
+    });
+  }, []);
+
   // Sync state with URL changes
   useEffect(() => {
     const derivedState = getInitialState();
+    if (pendingUrlUpdateRef.current) {
+      if (isEqual(derivedState, state)) {
+        pendingUrlUpdateRef.current = false;
+      }
+      if (isInitialLoad.current) isInitialLoad.current = false;
+      return;
+    }
     if (!isEqual(derivedState, state)) {
       setState(derivedState);
     }
-    // Mark initial load as complete after first sync
     if (isInitialLoad.current) {
       isInitialLoad.current = false;
     }
@@ -140,6 +158,8 @@ export function useDataTable({
 
   // Update URL helper - stable and minimal dependencies
   const updateUrl = useCallback((updates: Partial<DataTableState>) => {
+    updateState(updates);
+    pendingUrlUpdateRef.current = true;
     const params = new URLSearchParams(searchParams.toString());
     
     if ('search' in updates) {
@@ -203,7 +223,7 @@ export function useDataTable({
     }
 
     router.push(`${pathname}?${params.toString()}`);
-  }, [filterKeys, managedParamKeys, router, pathname, searchParams, initialPageSize, state.sortBy]);
+  }, [filterKeys, managedParamKeys, router, pathname, searchParams, initialPageSize, state.sortBy, updateState]);
 
   const setSearch = useCallback((search: string) => {
     updateUrl({ search, page: 1 });

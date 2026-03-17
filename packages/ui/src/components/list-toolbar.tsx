@@ -1,7 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import type { DataTableFilterDefinition, DataTableSortOption, DataTableState } from '@altitutor/shared';
+import type {
+  DataTableFilterDefinition,
+  DataTableSortOption,
+  DataTableGroupByOption,
+  DataTableColumnDefinition,
+  DataTableState,
+} from '@altitutor/shared';
 import { DataTableToolbar } from './data-table-toolbar';
 
 export interface ListToolbarProps {
@@ -18,6 +24,14 @@ export interface ListToolbarProps {
   sortBy?: string | null;
   sortDirection?: 'asc' | 'desc';
   onSortChange?: (field: string | null, direction: 'asc' | 'desc') => void;
+  /** Optional group by: when provided, the Group by dropdown is shown */
+  groupByOptions?: DataTableGroupByOption[];
+  groupBy?: string | null;
+  onGroupByChange?: (field: string | null) => void;
+  /** Optional columns: when provided, the View dropdown is shown */
+  columnDefinitions?: DataTableColumnDefinition[];
+  visibleColumns?: string[];
+  onVisibleColumnsChange?: (columns: string[]) => void;
 }
 
 const emptyState: DataTableState = {
@@ -46,6 +60,12 @@ export function ListToolbar({
   sortBy = null,
   sortDirection = 'desc',
   onSortChange,
+  groupByOptions = [],
+  groupBy = null,
+  onGroupByChange,
+  columnDefinitions = [],
+  visibleColumns = [],
+  onVisibleColumnsChange,
 }: ListToolbarProps) {
   const state: DataTableState = React.useMemo(
     () => ({
@@ -54,8 +74,10 @@ export function ListToolbar({
       filters,
       sortBy: sortOptions.length > 0 ? sortBy : null,
       sortDirection,
+      groupBy: groupByOptions.length > 0 ? groupBy : null,
+      visibleColumns: columnDefinitions.length > 0 ? visibleColumns : [],
     }),
-    [search, filters, sortOptions.length, sortBy, sortDirection]
+    [search, filters, sortOptions.length, sortBy, sortDirection, groupByOptions.length, groupBy, columnDefinitions.length, visibleColumns]
   );
 
   const handleSortChange = React.useCallback(
@@ -65,11 +87,26 @@ export function ListToolbar({
     [onSortChange]
   );
 
+  const handleGroupByChange = React.useCallback(
+    (field: string | null) => {
+      onGroupByChange?.(field);
+    },
+    [onGroupByChange]
+  );
+
+  const handleVisibleColumnsChange = React.useCallback(
+    (columns: string[]) => {
+      onVisibleColumnsChange?.(columns);
+    },
+    [onVisibleColumnsChange]
+  );
+
   const handleReset = React.useCallback(() => {
     onSearchChange('');
     onFiltersChange({});
     if (onSortChange) onSortChange(null, 'desc');
-  }, [onSearchChange, onFiltersChange, onSortChange]);
+    if (onGroupByChange) onGroupByChange(null);
+  }, [onSearchChange, onFiltersChange, onSortChange, onGroupByChange]);
 
   return (
     <DataTableToolbar
@@ -77,14 +114,14 @@ export function ListToolbar({
       onSearchChange={onSearchChange}
       onFiltersChange={onFiltersChange}
       onSortChange={sortOptions.length > 0 ? handleSortChange : () => {}}
-      onGroupByChange={() => {}}
-      onVisibleColumnsChange={() => {}}
+      onGroupByChange={groupByOptions.length > 0 ? handleGroupByChange : () => {}}
+      onVisibleColumnsChange={columnDefinitions.length > 0 ? handleVisibleColumnsChange : () => {}}
       onQuickFilterApply={() => {}}
       onReset={handleReset}
       filterDefinitions={filterDefinitions}
       sortOptions={sortOptions}
-      columnDefinitions={[]}
-      groupByOptions={[]}
+      columnDefinitions={columnDefinitions}
+      groupByOptions={groupByOptions}
       searchPlaceholder={searchPlaceholder}
     />
   );
