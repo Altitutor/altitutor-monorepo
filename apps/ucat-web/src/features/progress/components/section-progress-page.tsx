@@ -39,7 +39,8 @@ function CircularProgress({
   const sw = strokeWidth ?? (size <= 56 ? 4 : 10)
   const radius = (size - sw) / 2
   const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percentage / 100) * circumference
+  const capped = Math.min(100, Math.max(0, percentage))
+  const offset = circumference - (capped / 100) * circumference
 
   return (
     <div
@@ -85,7 +86,7 @@ function CircularProgress({
               size <= 56 ? 'text-xs' : 'text-lg'
             )}
           >
-            {percentage}%
+            {capped}%
           </span>
         </div>
       )}
