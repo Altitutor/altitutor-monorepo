@@ -8,6 +8,7 @@ import { TaskPropertyPills } from '../fields/TaskPropertyPills';
 import { TaskActivityTab } from '@/features/activity/components/tabs/TaskActivityTab';
 import { TaskNotes } from '../TaskNotes';
 import type { TaskEditorRef } from '../TaskEditor';
+import type { RichTextEditorRef } from '@altitutor/ui';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewClassModal } from '@/features/classes/components/modal/ViewClassModal';
@@ -34,6 +35,7 @@ interface TaskContentPanelProps {
   taskStatus?: TaskStatus;
   enabled?: boolean;
   autoFocusTitle?: boolean;
+  descriptionRef?: React.RefObject<RichTextEditorRef>;
 }
 
 export function TaskContentPanel({
@@ -47,10 +49,12 @@ export function TaskContentPanel({
   taskStatus,
   enabled = true,
   autoFocusTitle = false,
+  descriptionRef: descriptionRefProp,
 }: TaskContentPanelProps) {
   // Refs for fields
   const titleFieldRef = useRef<HTMLInputElement>(null);
-  const descriptionFieldRef = useRef<TaskEditorRef>(null);
+  const internalDescriptionRef = useRef<TaskEditorRef>(null);
+  const descriptionFieldRef = descriptionRefProp ?? internalDescriptionRef;
 
   // Modal state for entity tags
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -103,7 +107,7 @@ export function TaskContentPanel({
         editor.commands.focus();
       }
     }
-  }, []);
+  }, [descriptionFieldRef]);
 
   // Listen for Tiptap mention clicks
   useEffect(() => {

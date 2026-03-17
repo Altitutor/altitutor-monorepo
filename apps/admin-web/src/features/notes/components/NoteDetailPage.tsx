@@ -10,6 +10,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
   Form,
   FormControl,
@@ -39,6 +40,7 @@ import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 import type { NoteFormData } from '../types';
 import type { Resolver } from 'react-hook-form';
 import { Check, CloudOff, MoreVertical, Trash2 } from 'lucide-react';
+import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -253,6 +255,11 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
+                    <RichTextTemplateMenuItems
+                      getEditor={() => noteEditorRef.current?.getEditor() ?? null}
+                      getCurrentContent={() => form.getValues('content') ?? null}
+                    />
+                    <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete note

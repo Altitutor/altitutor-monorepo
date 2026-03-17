@@ -23,10 +23,12 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
   ScrollArea,
   type JSONContent,
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Trash2, X, Loader2, Check, CloudOff } from 'lucide-react';
+import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import type { Editor } from '@tiptap/react';
 import { useNote, useFolders } from '../api/queries';
 import { useDeleteNote, useUpdateNote } from '../hooks/useNoteMutations';
@@ -205,6 +207,11 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open in page
                   </DropdownMenuItem>
+                  <RichTextTemplateMenuItems
+                    getEditor={() => noteEditorRef.current?.getEditor() ?? null}
+                    getCurrentContent={() => form.getValues('content') ?? null}
+                  />
+                  <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete

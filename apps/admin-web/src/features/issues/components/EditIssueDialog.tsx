@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   type JSONContent,
+  type RichTextEditorRef,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
@@ -94,6 +95,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
   const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const descriptionRef = useRef<RichTextEditorRef>(null);
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -232,6 +234,10 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                     // For now, no specific issue detail page implemented
                   }}
                   onDelete={() => setIsDeleteDialogOpen(true)}
+                  richTextTemplateConfig={{
+                    getEditor: () => descriptionRef.current?.getEditor() ?? null,
+                    getCurrentContent: () => form.getValues('description') ?? null,
+                  }}
                 />
               </div>
             </div>
@@ -259,6 +265,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated: _onI
                     notes={notes}
                     isOpen={isOpen}
                     onClose={onClose}
+                    descriptionRef={descriptionRef}
                   />
 
                   <IssueContentPanel 

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap, Phone, Users, FileCheck } from 'lucide-react';
+import { Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap, Phone, Users, FileCheck, FileStack } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
 export default function SettingsPage() {
@@ -43,6 +43,12 @@ export default function SettingsPage() {
           description: 'Create and manage message templates',
           href: '/settings/templates',
           icon: FileText,
+        },
+        {
+          title: 'Rich Text Templates',
+          description: 'Create and manage templates for issues, projects, tasks, and notes',
+          href: '/settings/rich-text-templates',
+          icon: FileStack,
         },
         {
           title: 'Call Routing',

@@ -19,6 +19,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   type JSONContent,
+  type RichTextEditorRef,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
@@ -121,6 +122,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
   const [openIssueId, setOpenIssueId] = useState<string | null>(null);
   const [openProjectId, setOpenProjectId] = useState<string | null>(null);
   const [, setFormKey] = useState(0);
+  const descriptionRef = useRef<RichTextEditorRef>(null);
 
   // Fetch notes for task
   const { data: notesData } = useNotes('tasks', taskId || '', !!taskId && isOpen);
@@ -309,6 +311,10 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
                   // Task detail page could be implemented here
                 }}
                 onDelete={() => setIsDeleteDialogOpen(true)}
+                richTextTemplateConfig={{
+                  getEditor: () => descriptionRef.current?.getEditor() ?? null,
+                  getCurrentContent: () => form.getValues('description') ?? null,
+                }}
               />
             </div>
           </div>
@@ -340,6 +346,7 @@ export function EditTaskDialog({ isOpen, onClose, taskId, onTaskUpdated, issue, 
                     onAssigneeChange={setSelectedAssignee}
                     taskStatus={task.status as TaskStatus}
                     enabled={isOpen}
+                    descriptionRef={descriptionRef}
                   />
                   <TaskPropertiesPanel
                     form={form}

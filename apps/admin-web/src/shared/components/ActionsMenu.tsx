@@ -14,8 +14,11 @@ import {
   useToast,
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, Plus, Copy, Receipt } from 'lucide-react';
+import type { Editor } from '@tiptap/react';
+import type { JSONContent } from '@tiptap/core';
 import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
+import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import type { IssueTagInsert } from '@/features/issues/types';
 
 interface BaseActionsMenuProps {
@@ -105,19 +108,27 @@ interface TutorLogActionsMenuProps extends BaseActionsMenuProps {
   onEdit: () => void;
 }
 
+interface RichTextTemplateConfig {
+  getEditor: () => Editor | null;
+  getCurrentContent: () => JSONContent | string | null;
+}
+
 interface IssueActionsMenuProps extends BaseActionsMenuProps {
   type: 'issue';
   onDelete: () => void;
+  richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface TaskActionsMenuProps extends BaseActionsMenuProps {
   type: 'task';
   onDelete: () => void;
+  richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 interface ProjectActionsMenuProps extends BaseActionsMenuProps {
   type: 'project';
   onDelete: () => void;
+  richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
 type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps | IssueActionsMenuProps | TaskActionsMenuProps | ProjectActionsMenuProps;
@@ -697,9 +708,15 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Open in page
           </DropdownMenuItem>
           {copyMenuItem}
+          {props.richTextTemplateConfig && (
+            <RichTextTemplateMenuItems
+              getEditor={props.richTextTemplateConfig.getEditor}
+              getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
+            />
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            onClick={props.onDelete} 
+          <DropdownMenuItem
+            onClick={props.onDelete}
             className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
           >
             <Trash2 className="h-4 w-4 mr-2" />
@@ -724,9 +741,15 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Open in page
           </DropdownMenuItem>
           {copyMenuItem}
+          {props.richTextTemplateConfig && (
+            <RichTextTemplateMenuItems
+              getEditor={props.richTextTemplateConfig.getEditor}
+              getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
+            />
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            onClick={props.onDelete} 
+          <DropdownMenuItem
+            onClick={props.onDelete}
             className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
           >
             <Trash2 className="h-4 w-4 mr-2" />
@@ -751,9 +774,15 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Open in page
           </DropdownMenuItem>
           {copyMenuItem}
+          {props.richTextTemplateConfig && (
+            <RichTextTemplateMenuItems
+              getEditor={props.richTextTemplateConfig.getEditor}
+              getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
+            />
+          )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem 
-            onClick={props.onDelete} 
+          <DropdownMenuItem
+            onClick={props.onDelete}
             className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
           >
             <Trash2 className="h-4 w-4 mr-2" />

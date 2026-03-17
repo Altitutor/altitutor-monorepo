@@ -294,6 +294,10 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                   entityId={projectId}
                   onOpenInPage={() => {}}
                   onDelete={() => setIsDeleteDialogOpen(true)}
+                  richTextTemplateConfig={{
+                    getEditor: () => descriptionFieldRef.current?.getEditor() ?? null,
+                    getCurrentContent: () => form.getValues('description') ?? null,
+                  }}
                 />
               </div>
             </div>
