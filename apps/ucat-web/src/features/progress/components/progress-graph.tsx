@@ -43,6 +43,10 @@ export type ProgressGraphProps = {
   dataType: GraphDataType
   dateRangeLabel?: string
   className?: string
+  /** When true, scaled_score uses dynamic max from data. Pass yAxisMax for mock context. */
+  isMockContext?: boolean
+  /** Max value for Y-axis when isMockContext (e.g. max scaled score across attempts). */
+  yAxisMax?: number
 }
 
 const dataTypeLabels: Record<GraphDataType, string> = {
@@ -54,8 +58,13 @@ const dataTypeLabels: Record<GraphDataType, string> = {
   attempt_count: 'Number of attempts',
 }
 
-function getYAxisDomain(dataType: GraphDataType): [number, number] | undefined {
-  if (dataType === 'scaled_score') return [300, 900]
+function getYAxisDomain(
+  dataType: GraphDataType,
+  isMockContext?: boolean,
+  yAxisMax?: number
+): [number, number] | undefined {
+  if (dataType === 'scaled_score')
+    return isMockContext && yAxisMax != null ? [0, yAxisMax] : [300, 900]
   if (dataType === 'percentage') return [0, 100]
   return undefined
 }
@@ -66,10 +75,12 @@ export function ProgressGraph({
   dataType,
   dateRangeLabel,
   className,
+  isMockContext = false,
+  yAxisMax,
 }: ProgressGraphProps) {
   const hasAggregatedLabels = data.some((d) => d.label)
   const label = dataTypeLabels[dataType]
-  const domain = getYAxisDomain(dataType)
+  const domain = getYAxisDomain(dataType, isMockContext, yAxisMax)
 
   const formatTooltipValue = (value: number | null | undefined): string => {
     if (value == null) return '—'

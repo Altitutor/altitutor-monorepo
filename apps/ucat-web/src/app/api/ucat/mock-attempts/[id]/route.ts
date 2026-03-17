@@ -67,7 +67,7 @@ export async function PATCH(
   const { data: setAttempts, error: setAttemptsError } = await supabaseAdmin
     .from('student_question_set_attempts')
     .select(
-      'score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds'
+      'question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds'
     )
     .eq('student_ucat_mock_attempt_id', attemptId)
     .eq('student_id', student.id)
@@ -77,9 +77,36 @@ export async function PATCH(
   }
 
   const attempts = setAttempts ?? []
-  const scorePoints = attempts.reduce((sum, a) => sum + (a.score_points ?? 0), 0)
-  const totalPoints = attempts.reduce((sum, a) => sum + (a.total_points ?? 0), 0)
-  const scaledScore = attempts.reduce((sum, a) => sum + (a.scaled_score ?? 0), 0)
+  const setIds = [...new Set(attempts.map((a) => a.question_set_id).filter(Boolean))]
+
+  // Fetch section info to exclude Section 4 (Situational Judgement) from mock score
+  const { data: setDetails } =
+    setIds.length > 0
+      ? await supabaseAdmin
+          .from('question_sets')
+          .select('id, sections')
+          .in('id', setIds)
+      : { data: [] }
+
+  const sectionNumberBySetId = new Map<string, number>()
+  for (const s of setDetails ?? []) {
+    const sections = s.sections as Array<{ section_number?: number }> | null
+    const firstNum =
+      Array.isArray(sections) && sections.length > 0
+        ? sections[0]?.section_number
+        : undefined
+    if (firstNum != null) sectionNumberBySetId.set(s.id, firstNum)
+  }
+
+  const SITUATIONAL_JUDGEMENT_SECTION = 4
+  const scoredAttempts = attempts.filter((a) => {
+    const sectionNum = a.question_set_id ? sectionNumberBySetId.get(a.question_set_id) : undefined
+    return sectionNum !== SITUATIONAL_JUDGEMENT_SECTION
+  })
+
+  const scorePoints = scoredAttempts.reduce((sum, a) => sum + (a.score_points ?? 0), 0)
+  const totalPoints = scoredAttempts.reduce((sum, a) => sum + (a.total_points ?? 0), 0)
+  const scaledScore = scoredAttempts.reduce((sum, a) => sum + (a.scaled_score ?? 0), 0)
   const timeTaken = attempts.reduce((sum, a) => sum + (a.time_taken_seconds ?? 0), 0)
   const mockTimeLimitSeconds = attempts.reduce(
     (sum, a) => sum + (a.set_time_limit_seconds ?? 0),

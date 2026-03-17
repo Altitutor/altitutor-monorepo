@@ -82,7 +82,11 @@ export function MockAttemptDetailPage({
               data.scaledScore == null && 'text-muted-foreground'
             )}
           >
-            {data.scaledScore != null ? Math.round(data.scaledScore) : '—'}
+            {data.scaledScore != null && data.scaledScoreMax != null
+              ? `${Math.round(data.scaledScore)} / ${data.scaledScoreMax}`
+              : data.scaledScore != null
+                ? String(Math.round(data.scaledScore))
+                : '—'}
           </div>
         </CardContent>
       </Card>
@@ -150,7 +154,7 @@ export function MockAttemptDetailPage({
                       )}
                     >
                       {set.scaledScore != null
-                        ? Math.round(set.scaledScore)
+                        ? `${Math.round(set.scaledScore)} / 900`
                         : '—'}
                     </div>
                   </div>

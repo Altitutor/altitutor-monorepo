@@ -46,6 +46,8 @@ export type MockAttemptRow = {
   scorePoints: number | null
   totalPoints: number | null
   scaledScore: number | null
+  /** Max possible scaled score (900 × section 1–3 sets). Section 4 excluded. */
+  scaledScoreMax: number | null
   timeTakenSeconds: number | null
   setTimeLimitSeconds: number | null
   studentSetSpeed: number | null
@@ -633,12 +635,19 @@ export async function GET() {
 
   type MockAttemptRaw = (typeof mockAttemptsRaw)[number]
 
+  // Section 4 (Situational Judgement) excluded from mock score
+  const section4Id = sectionProgress.find((s) => s.sectionNumber === 4)?.sectionId ?? null
+  const SCALED_MAX_PER_SECTION = 900
+
   // Enrich mock attempts with aggregated timing and scores from child set attempts
   const mockAttempts: MockAttemptRow[] = []
   for (const m of mockAttemptsRaw ?? []) {
     const row = m as MockAttemptRaw
     const childSets = setAttempts.filter(
       (s) => s.studentUcatMockAttemptId === row.id
+    )
+    const scoredChildSets = childSets.filter(
+      (s) => s.sectionId != null && s.sectionId !== section4Id
     )
     const timeTakenSeconds = childSets.reduce(
       (sum, s) => sum + (s.timeTakenSeconds ?? 0),
@@ -648,9 +657,9 @@ export async function GET() {
       (sum, s) => sum + (s.setTimeLimitSeconds ?? 0),
       0
     )
-    const scorePoints = childSets.reduce((sum, s) => sum + (s.scorePoints ?? 0), 0)
-    const totalPoints = childSets.reduce((sum, s) => sum + (s.totalPoints ?? 0), 0)
-    const scaledScore = childSets.reduce((sum, s) => sum + (s.scaledScore ?? 0), 0)
+    const scorePoints = scoredChildSets.reduce((sum, s) => sum + (s.scorePoints ?? 0), 0)
+    const totalPoints = scoredChildSets.reduce((sum, s) => sum + (s.totalPoints ?? 0), 0)
+    const scaledScore = scoredChildSets.reduce((sum, s) => sum + (s.scaledScore ?? 0), 0)
     const speeds = childSets.filter(
       (s) => s.studentSetSpeed != null || s.studentExamSpeed != null
     )
@@ -668,6 +677,9 @@ export async function GET() {
     const wasTimed =
       childSets.length > 0 && childSets.every((s) => s.wasTimed)
 
+    const scaledScoreMax =
+      scoredChildSets.length > 0 ? scoredChildSets.length * SCALED_MAX_PER_SECTION : null
+
     mockAttempts.push({
       id: row.id ?? '',
       attemptedAt: row.attempted_at ?? '',
@@ -679,6 +691,7 @@ export async function GET() {
       scorePoints: totalPoints > 0 ? scorePoints : null,
       totalPoints: totalPoints > 0 ? totalPoints : null,
       scaledScore: totalPoints > 0 ? scaledScore : null,
+      scaledScoreMax,
       timeTakenSeconds: setTimeLimitSeconds > 0 ? timeTakenSeconds : null,
       setTimeLimitSeconds: setTimeLimitSeconds > 0 ? setTimeLimitSeconds : null,
       studentSetSpeed,

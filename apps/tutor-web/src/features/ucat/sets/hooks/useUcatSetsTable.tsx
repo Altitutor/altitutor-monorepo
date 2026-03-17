@@ -8,9 +8,13 @@ import {
   useUcatTableState,
   useVisibleColumns,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
-import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
+import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
+import { getSetSectionStatus, parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
+import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
+import { cn } from '@/shared/utils'
 
 type SetRow = {
   id: string
@@ -20,15 +24,26 @@ type SetRow = {
   is_student_generated: boolean
   stem_count: number
   question_count: number
+  sectionCount: number
+  firstSectionNumber: number | null
   created_by_first_name: string | null
   created_by_last_name: string | null
   deleted_at: string | null
+}
+
+type UcatSectionForStatus = {
+  id: string | null
+  section_number: number | null
+  name: string | null
+  number_of_questions: number | null
+  time_limit_seconds: number | null
 }
 
 type UseUcatSetsTableParams<T> = {
   data: T[] | undefined
   showDeleted: boolean
   defaultFilters: Record<string, unknown[]>
+  sections?: UcatSectionForStatus[]
 }
 
 type SetRowInput = {
@@ -42,15 +57,18 @@ type SetRowInput = {
   stem_count?: number | null
   question_count?: number | null
   deleted_at?: string | null
+  sections?: unknown
 }
 
 export function useUcatSetsTable<T extends SetRowInput>({
   data,
   showDeleted,
   defaultFilters,
+  sections = [],
 }: UseUcatSetsTableParams<T>) {
   const baseColumns: Array<{ key: string; label: string }> = [
     { key: 'name', label: 'Name' },
+    { key: 'sections', label: 'Sections' },
     { key: 'time_limit_seconds', label: 'Time Limit' },
     { key: 'stem_count', label: 'Question stems' },
     { key: 'question_count', label: 'Questions' },
@@ -68,7 +86,8 @@ export function useUcatSetsTable<T extends SetRowInput>({
   const rows: SetRow[] = useMemo(
     () =>
       (data ?? []).map((row) => {
-        const r = row as T & { stem_count?: number; question_count?: number; deleted_at?: string | null }
+        const r = row as T & { stem_count?: number; question_count?: number; deleted_at?: string | null; sections?: unknown }
+        const parsed = parseSetSections(r.sections ?? null)
         return {
           id: row.id ?? '',
           name: proseMirrorToPlainText((row.name ?? null) as Json | null) || '—',
@@ -77,6 +96,8 @@ export function useUcatSetsTable<T extends SetRowInput>({
           is_student_generated: !!row.is_student_generated,
           stem_count: r.stem_count ?? 0,
           question_count: r.question_count ?? 0,
+          sectionCount: parsed.sectionCount,
+          firstSectionNumber: parsed.firstSectionNumber,
           created_by_first_name: row.created_by_first_name ?? null,
           created_by_last_name: row.created_by_last_name ?? null,
           deleted_at: r.deleted_at ?? null,
@@ -109,6 +130,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
     () =>
       applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
         name: (r) => r.name,
+        sections: (r) => r.sectionCount,
         time_limit_seconds: (r) => r.time_limit_seconds ?? -1,
         stem_count: (r) => r.stem_count,
         question_count: (r) => r.question_count,
@@ -122,11 +144,52 @@ export function useUcatSetsTable<T extends SetRowInput>({
   const allColumns: Array<{ key: string; column: ColumnDef<SetRow> }> = [
     { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
     {
+      key: 'sections',
+      column: {
+        accessorKey: 'sectionCount',
+        header: 'Sections',
+        cell: ({ row }) => {
+          const r = row.original
+          const status = getSetSectionStatus(
+            {
+              sectionCount: r.sectionCount,
+              firstSectionNumber: r.firstSectionNumber,
+              question_count: r.question_count,
+              time_limit_seconds: r.time_limit_seconds,
+            },
+            sections
+          )
+          const display = r.sectionCount === 0 ? '—' : r.sectionCount === 1 ? '1 section' : `${r.sectionCount} sections`
+          return (
+            <SetStatusSpan status={status.sectionsStatus} tooltip={status.sectionsTooltip}>
+              {display}
+            </SetStatusSpan>
+          )
+        },
+      },
+    },
+    {
       key: 'time_limit_seconds',
       column: {
         accessorKey: 'time_limit_seconds',
         header: 'Time Limit',
-        cell: ({ row }) => formatSecondsToDuration(row.original.time_limit_seconds),
+        cell: ({ row }) => {
+          const r = row.original
+          const status = getSetSectionStatus(
+            {
+              sectionCount: r.sectionCount,
+              firstSectionNumber: r.firstSectionNumber,
+              question_count: r.question_count,
+              time_limit_seconds: r.time_limit_seconds,
+            },
+            sections
+          )
+          return (
+            <SetStatusSpan status={status.timeLimitStatus} tooltip={status.timeLimitTooltip}>
+              {formatSetTimeLimit(r.time_limit_seconds)}
+            </SetStatusSpan>
+          )
+        },
       },
     },
     {
@@ -142,7 +205,23 @@ export function useUcatSetsTable<T extends SetRowInput>({
       column: {
         accessorKey: 'question_count',
         header: 'Questions',
-        cell: ({ row }) => String(row.original.question_count),
+        cell: ({ row }) => {
+          const r = row.original
+          const status = getSetSectionStatus(
+            {
+              sectionCount: r.sectionCount,
+              firstSectionNumber: r.firstSectionNumber,
+              question_count: r.question_count,
+              time_limit_seconds: r.time_limit_seconds,
+            },
+            sections
+          )
+          return (
+            <SetStatusSpan status={status.questionCountStatus} tooltip={status.questionCountTooltip}>
+              {String(r.question_count)}
+            </SetStatusSpan>
+          )
+        },
       },
     },
     {
@@ -150,7 +229,11 @@ export function useUcatSetsTable<T extends SetRowInput>({
       column: {
         accessorKey: 'is_private',
         header: 'Visibility',
-        cell: ({ row }) => (row.original.is_private ? 'Private' : 'Public'),
+        cell: ({ row }) => (
+          <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(row.original.is_private))}>
+            {row.original.is_private ? 'Private' : 'Public'}
+          </Badge>
+        ),
       },
     },
   ]

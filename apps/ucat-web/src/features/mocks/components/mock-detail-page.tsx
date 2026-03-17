@@ -154,7 +154,11 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
                           : '—'}
                       </td>
                       <td className="py-2 text-right">
-                        {a.scaledScore != null ? a.scaledScore : '—'}
+                        {a.scaledScore != null && a.scaledScoreMax != null
+                          ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
+                          : a.scaledScore != null
+                            ? String(Math.round(a.scaledScore))
+                            : '—'}
                       </td>
                     </tr>
                   ))}

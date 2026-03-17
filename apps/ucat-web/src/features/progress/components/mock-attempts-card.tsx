@@ -70,6 +70,14 @@ export function MockAttemptsCard({
     return filterByTimeFrame(attempts, mode, timeFrameDays)
   }, [attempts, mode, timeFrameDays])
 
+  const mockYAxisMax = useMemo(() => {
+    const max = Math.max(
+      ...filteredAttempts.map((a) => a.scaledScoreMax ?? a.scaledScore ?? 0),
+      900
+    )
+    return max
+  }, [filteredAttempts])
+
   const { graphData, dateRangeLabel } = useMemo(() => {
     const graphData = aggregateForGraph(
       filteredAttempts,
@@ -128,6 +136,8 @@ export function MockAttemptsCard({
           type={graphType}
           dataType={graphDataType}
           dateRangeLabel={dateRangeLabel}
+          isMockContext
+          yAxisMax={graphDataType === 'scaled_score' ? mockYAxisMax : undefined}
         />
         <div>
           <h4 className="mb-3 text-sm font-medium">All mock attempts</h4>
@@ -143,7 +153,7 @@ export function MockAttemptsCard({
                     Points
                   </TableHeaderWithTooltip>
                   <TableHeaderWithTooltip
-                    tooltip="Total UCAT mock score."
+                    tooltip="Total UCAT mock score. Section 4 Situational Judgement excluded."
                   >
                     Scaled score
                   </TableHeaderWithTooltip>
@@ -196,7 +206,13 @@ export function MockAttemptsCard({
                         <TableCell>
                           {total > 0 ? `${points} / ${total}` : '—'}
                         </TableCell>
-                        <TableCell>{a.scaledScore ?? '—'}</TableCell>
+                        <TableCell>
+                          {a.scaledScore != null && a.scaledScoreMax != null
+                            ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
+                            : a.scaledScore != null
+                              ? String(Math.round(a.scaledScore))
+                              : '—'}
+                        </TableCell>
                         <TableCell>
                           {timeLimit > 0 && timeTaken != null
                             ? `${formatTimeSeconds(Math.round(timeTaken))} / ${formatTimeSeconds(Math.round(timeLimit))}`

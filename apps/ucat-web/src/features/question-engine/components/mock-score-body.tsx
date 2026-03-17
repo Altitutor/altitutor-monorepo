@@ -1,5 +1,6 @@
 'use client'
 
+import { SCALED_MAX, SITUATIONAL_JUDGEMENT_SECTION_NAME } from '@altitutor/ucat-marking'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
 import type { QuestionEngineExam, QuestionItem } from '@/features/question-engine/model/types'
@@ -27,23 +28,32 @@ export function MockScoreBody({
   const summaries = exam.mockSetSummaries ?? []
   if (summaries.length === 0) return null
 
+  // Exclude Section 4 (Situational Judgement) from mock score
+  const scoredSummaries = summaries.filter((summary) => {
+    const firstQuestion = questions[summary.questionStartIndex]
+    return firstQuestion?.sectionName !== SITUATIONAL_JUDGEMENT_SECTION_NAME
+  })
+
   const setResults: Array<{ summary: (typeof summaries)[0]; result: MarkingResult }> = []
   let totalRawScore = 0
   let maxRawScore = 0
+  let totalScaledScore = 0
+  let scaledCount = 0
 
-  for (const summary of summaries) {
+  for (const summary of scoredSummaries) {
     const setQuestions = questions.slice(summary.questionStartIndex, summary.questionEndIndex)
     const result = computeMarkingResult(setQuestions, selectedAnswers, syllogismSnapshots)
     setResults.push({ summary, result })
     totalRawScore += result.totalRawScore
     maxRawScore += result.maxRawScore
+    if (result.scaledScore != null) {
+      totalScaledScore += result.scaledScore
+      scaledCount += 1
+    }
   }
 
-  const overallScaledScore =
-    maxRawScore > 0
-      ? setResults.reduce((sum, { result }) => sum + (result.scaledScore ?? 0), 0) /
-        setResults.filter((r) => r.result.scaledScore != null).length
-      : null
+  const totalScaled = scaledCount > 0 ? totalScaledScore : null
+  const maxScaled = scoredSummaries.length > 0 ? scoredSummaries.length * SCALED_MAX : 0
 
   return (
     <div className="flex flex-col h-full overflow-hidden gap-6 p-4" style={{ fontFamily: UCAT_FONTS.message }}>
@@ -56,9 +66,9 @@ export function MockScoreBody({
           <span>
             <strong>Raw score:</strong> {totalRawScore.toFixed(1)} / {maxRawScore}
           </span>
-          {overallScaledScore != null && (
+          {totalScaled != null && maxScaled > 0 && (
             <span>
-              <strong>Scaled score:</strong> {Math.round(overallScaledScore)}
+              <strong>Scaled score:</strong> {Math.round(totalScaled)} / {maxScaled}
             </span>
           )}
         </div>

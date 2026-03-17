@@ -17,6 +17,8 @@ export type MockAttemptDetailResponse = {
   ucatMockId: string
   mockName: string | null
   scaledScore: number | null
+  /** Max possible scaled score (900 × section 1–3 sets). Section 4 excluded. */
+  scaledScoreMax: number | null
   attemptedAt: string
   completedAt: string | null
   sets: MockSetInfo[]
@@ -113,6 +115,26 @@ export async function GET(
 
   const mockSets = (mockDetail?.sets ?? []) as MockSetFromDetail[]
   const mockSetIds = mockSets.map((s) => s.id)
+
+  const { data: setDetailsForSections } =
+    mockSetIds.length > 0
+      ? await supabase
+          .from('vstudent_ucat_question_sets')
+          .select('id, sections')
+          .in('id', mockSetIds)
+      : { data: [] }
+
+  const sectionNumberBySetId = new Map<string, number>()
+  for (const s of setDetailsForSections ?? []) {
+    const sections = s.sections as Array<{ section_number?: number }> | null
+    const firstNum =
+      Array.isArray(sections) && sections.length > 0
+        ? sections[0]?.section_number
+        : undefined
+    if (firstNum != null && s.id) sectionNumberBySetId.set(s.id, firstNum)
+  }
+
+  const SITUATIONAL_JUDGEMENT_SECTION = 4
 
   const { data: setAttemptsRaw, error: setAttemptsError } = await supabase
     .from('vstudent_ucat_my_set_attempts')
@@ -236,16 +258,32 @@ export async function GET(
       ? extractTextFromRichJson(mockDetail.name as JsonLike) || null
       : null
 
+  const scoredSetCount = sets.filter((s) => {
+    const sectionNum = s.questionSetId
+      ? sectionNumberBySetId.get(s.questionSetId)
+      : undefined
+    return sectionNum !== SITUATIONAL_JUDGEMENT_SECTION
+  }).length
+
   const scaledScore =
     sets.length > 0
-      ? sets.reduce((sum, s) => sum + (s.scaledScore ?? 0), 0)
+      ? sets.reduce((sum, s) => {
+          const sectionNum = s.questionSetId
+            ? sectionNumberBySetId.get(s.questionSetId)
+            : undefined
+          if (sectionNum === SITUATIONAL_JUDGEMENT_SECTION) return sum
+          return sum + (s.scaledScore ?? 0)
+        }, 0)
       : null
+
+  const scaledScoreMax = scoredSetCount > 0 ? scoredSetCount * 900 : null
 
   const response: MockAttemptDetailResponse = {
     id: mockAttempt.id ?? '',
     ucatMockId,
     mockName,
     scaledScore,
+    scaledScoreMax,
     attemptedAt: mockAttempt.attempted_at ?? '',
     completedAt: mockAttempt.completed_at,
     sets,
