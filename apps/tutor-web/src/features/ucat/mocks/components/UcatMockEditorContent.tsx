@@ -41,6 +41,8 @@ import {
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import type { RichTextJson } from '@/features/ucat/shared/types'
 import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
+import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
+import { getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
 import { cn } from '@/shared/utils'
 import { GripVertical, Pencil, Plus } from 'lucide-react'
 import React from 'react'
@@ -63,15 +65,54 @@ type UcatMockEditorContentProps = {
   setFilters?: (value: Record<string, unknown[]>) => void
   filterDefinitions?: DataTableFilterDefinition[]
   setCatalog: SetOption[]
+  sections?: Array<{ id: string | null; section_number: number | null; name: string | null; number_of_questions: number | null; time_limit_seconds: number | null }>
   onEditSet?: (setId: string) => void
+}
+
+function SetSubtitleParts({
+  set,
+  sections,
+}: {
+  set: SetOption
+  sections: Array<{ id: string | null; section_number: number | null; name: string | null; number_of_questions: number | null; time_limit_seconds: number | null }>
+}) {
+  const status = getSetSectionStatus(
+    {
+      sectionCount: set.sectionCount,
+      firstSectionNumber: set.firstSectionNumber,
+      question_count: set.question_count,
+      time_limit_seconds: set.time_limit_seconds,
+    },
+    sections
+  )
+  return (
+    <>
+      {set.sectionDisplay ? (
+        <SetStatusSpan status={status.sectionsStatus} tooltip={status.sectionsTooltip}>
+          {set.sectionDisplay}
+        </SetStatusSpan>
+      ) : null}
+      <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(!!set.is_private))}>
+        {set.is_private ? 'Private' : 'Public'}
+      </Badge>
+      <SetStatusSpan status={status.questionCountStatus} tooltip={status.questionCountTooltip}>
+        · {set.question_count != null ? `${set.question_count} Q` : '—'}
+      </SetStatusSpan>
+      <SetStatusSpan status={status.timeLimitStatus} tooltip={status.timeLimitTooltip}>
+        · {formatSetTimeLimit(set.time_limit_seconds)}
+      </SetStatusSpan>
+    </>
+  )
 }
 
 function DraggableSetItem({
   set,
+  sections,
   onAdd,
   onEdit,
 }: {
   set: SetOption
+  sections: Array<{ id: string | null; section_number: number | null; name: string | null; number_of_questions: number | null; time_limit_seconds: number | null }>
   onAdd: () => void
   onEdit?: () => void
 }) {
@@ -94,12 +135,7 @@ function DraggableSetItem({
         <div className="min-w-0">
           <div className="font-medium">{set.name}</div>
           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-            {set.sectionDisplay ? <span>{set.sectionDisplay}</span> : null}
-            <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(!!set.is_private))}>
-              {set.is_private ? 'Private' : 'Public'}
-            </Badge>
-            <span>· {set.question_count != null ? `${set.question_count} Q` : '—'}</span>
-            <span>· {formatSetTimeLimit(set.time_limit_seconds)}</span>
+            <SetSubtitleParts set={set} sections={sections} />
           </div>
         </div>
       </div>
@@ -132,6 +168,7 @@ export function UcatMockEditorContent({
   setFilters = () => {},
   filterDefinitions = [],
   setCatalog,
+  sections = [],
   onEditSet,
 }: UcatMockEditorContentProps) {
   const [activeId, setActiveId] = React.useState<string | null>(null)
@@ -254,12 +291,7 @@ export function UcatMockEditorContent({
                             <span className="font-medium">{index + 1}.</span> {set.name}
                           </div>
                           <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                            {set.sectionDisplay ? <span>{set.sectionDisplay}</span> : null}
-                            <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(!!set.is_private))}>
-                              {set.is_private ? 'Private' : 'Public'}
-                            </Badge>
-                            <span>· {set.question_count != null ? `${set.question_count} Q` : '—'}</span>
-                            <span>· {formatSetTimeLimit(set.time_limit_seconds)}</span>
+                            <SetSubtitleParts set={set} sections={sections} />
                           </div>
                         </div>
                       }
@@ -343,6 +375,7 @@ export function UcatMockEditorContent({
                     <DraggableSetItem
                       key={set.id}
                       set={set}
+                      sections={sections}
                       onAdd={() => setDraftSetIds((prev) => (prev.includes(set.id) ? prev : [...prev, set.id]))}
                       onEdit={onEditSet ? () => onEditSet(set.id) : undefined}
                     />
@@ -363,12 +396,7 @@ export function UcatMockEditorContent({
               <div className="min-w-0">
                 <div className="font-medium">{activeSet.name}</div>
                 <div className="mt-0.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  {activeSet.sectionDisplay ? <span>{activeSet.sectionDisplay}</span> : null}
-                  <Badge variant="outline" className={cn('text-[10px] font-normal px-1.5 py-0', getUcatVisibilityColor(!!activeSet.is_private))}>
-                    {activeSet.is_private ? 'Private' : 'Public'}
-                  </Badge>
-                  <span>· {activeSet.question_count != null ? `${activeSet.question_count} Q` : '—'}</span>
-                  <span>· {formatSetTimeLimit(activeSet.time_limit_seconds)}</span>
+                  <SetSubtitleParts set={activeSet} sections={sections} />
                 </div>
               </div>
             </div>

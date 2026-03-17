@@ -34,6 +34,7 @@ import {
   useToast,
 } from '@altitutor/ui'
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -95,6 +96,7 @@ const filterDefinitions: DataTableFilterDefinition[] = [
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
+  { key: 'sections', label: 'Sections', visibleByDefault: true },
   { key: 'time_limit_seconds', label: 'Time Limit', visibleByDefault: true },
   { key: 'stem_count', label: 'Question stems', visibleByDefault: true },
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
@@ -105,6 +107,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
 
 const sortOptions: DataTableSortOption[] = [
   { key: 'name', label: 'Name' },
+  { key: 'sections', label: 'Sections' },
   { key: 'time_limit_seconds', label: 'Time Limit' },
   { key: 'stem_count', label: 'Question stems' },
   { key: 'question_count', label: 'Questions' },
@@ -117,6 +120,8 @@ export function UcatSetsPage() {
   const queryClient = useQueryClient()
   const access = useUcatAccess()
   const sets = useUcatSets()
+  const sectionsQuery = useUcatSections()
+  const sections = sectionsQuery.data ?? []
   const createSet = useCreateUcatSet()
   const deleteSet = useDeleteUcatSet()
   const restoreSet = useRestoreUcatSet()
@@ -154,6 +159,7 @@ export function UcatSetsPage() {
     data: sets.data,
     showDeleted,
     defaultFilters: DEFAULT_FILTERS,
+    sections,
   })
 
   const { page, pageSize } = tableState.state

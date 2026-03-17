@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import { Button, useToast } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
+import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
@@ -11,15 +12,8 @@ import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
-
-type SetOption = {
-  id: string
-  name: string
-  sectionDisplay: string
-  question_count: number | null
-  time_limit_seconds: number | null
-  is_private?: boolean | null
-}
+import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
+import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 
 function formatSectionsDisplay(sections: unknown): string {
   if (!Array.isArray(sections)) return ''
@@ -41,6 +35,8 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   const { toast } = useToast()
   const access = useUcatAccess()
   const sets = useUcatSets()
+  const sectionsQuery = useUcatSections()
+  const sections = sectionsQuery.data ?? []
   const [search, setSearch] = useState('')
 
   const {
@@ -61,14 +57,19 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   const setCatalog = useMemo<SetOption[]>(() => {
     return (sets.data ?? [])
       .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
-      .map((set) => ({
-        id: set.id ?? '',
-        name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
-        sectionDisplay: formatSectionsDisplay(set.sections ?? null),
-        question_count: set.question_count ?? null,
-        time_limit_seconds: set.time_limit_seconds ?? null,
-        is_private: (set as { is_private?: boolean | null }).is_private ?? null,
-      }))
+      .map((set) => {
+        const parsed = parseSetSections(set.sections ?? null)
+        return {
+          id: set.id ?? '',
+          name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+          sectionDisplay: formatSectionsDisplay(set.sections ?? null),
+          sectionCount: parsed.sectionCount,
+          firstSectionNumber: parsed.firstSectionNumber,
+          question_count: set.question_count ?? null,
+          time_limit_seconds: set.time_limit_seconds ?? null,
+          is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+        }
+      })
   }, [sets.data])
 
   const setsThatWillBecomePublicCount = useMemo(() => {
@@ -139,6 +140,7 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
           search={search}
           setSearch={setSearch}
           setCatalog={setCatalog}
+          sections={sections}
         />
       </div>
     </div>

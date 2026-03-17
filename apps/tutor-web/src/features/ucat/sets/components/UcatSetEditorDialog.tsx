@@ -62,6 +62,8 @@ export function UcatSetEditorDialog({
   const [draftIsTimed, setDraftIsTimed] = useState(true)
   const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
   const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
+  const [draftTimeLimitSource, setDraftTimeLimitSource] = useState<'untimed' | 'section_full' | 'section_auto' | 'custom'>('custom')
+  const [draftTimeLimitSpeed, setDraftTimeLimitSpeed] = useState(1)
   const [draftPrivate, setDraftPrivate] = useState(false)
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
@@ -79,6 +81,8 @@ export function UcatSetEditorDialog({
     setDraftIsTimed(sec > 0)
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
     setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
+    setDraftTimeLimitSource(sec > 0 ? 'custom' : 'untimed')
+    setDraftTimeLimitSpeed(1)
     setDraftPrivate(!!current.is_private)
     setDraftStemIds(stemIds)
     setBaseline(
@@ -98,10 +102,58 @@ export function UcatSetEditorDialog({
   const stemDetail = useUcatQuestionDetail(editingStemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
 
-  const timeLimitSeconds = draftIsTimed
-    ? minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
+  const setSectionsFromStems = useMemo(() => {
+    const sectionMap = new Map<string, { sectionId: string; questionCount: number }>()
+    for (const stemId of draftStemIds) {
+      const stem = stemCatalog.find((s) => s.id === stemId)
+      if (!stem?.sectionId) continue
+      const existing = sectionMap.get(stem.sectionId)
+      if (existing) {
+        existing.questionCount += stem.questionsCount
+      } else {
+        sectionMap.set(stem.sectionId, { sectionId: stem.sectionId, questionCount: stem.questionsCount })
+      }
+    }
+    return Array.from(sectionMap.values())
+  }, [draftStemIds, stemCatalog])
+
+  const setSectionCount = setSectionsFromStems.length
+  const firstSetSection = setSectionsFromStems[0]
+  const firstUcatSection = firstSetSection
+    ? (sectionsQuery.data ?? []).find((s) => s.id === firstSetSection.sectionId)
     : null
-  const isTimeLimitValid = !draftIsTimed || (timeLimitSeconds != null && timeLimitSeconds > 0)
+
+  const sectionFullTimeSeconds = firstUcatSection?.time_limit_seconds ?? null
+  const sectionAutoTimeSeconds = useMemo(() => {
+    let total = 0
+    const sectionsData = sectionsQuery.data ?? []
+    for (const ss of setSectionsFromStems) {
+      const sec = sectionsData.find((s) => s.id === ss.sectionId)
+      const tpq = sec?.time_per_question
+      if (tpq != null && tpq > 0) {
+        total += ss.questionCount * tpq
+      }
+    }
+    return total > 0 ? total : null
+  }, [setSectionsFromStems, sectionsQuery.data])
+
+  const timeLimitSeconds = (() => {
+    if (draftTimeLimitSource === 'untimed' || !draftIsTimed) return null
+    if (draftTimeLimitSource === 'section_full' && setSectionCount === 1 && sectionFullTimeSeconds != null && sectionFullTimeSeconds > 0) {
+      return sectionFullTimeSeconds
+    }
+    if (draftTimeLimitSource === 'section_auto' && setSectionCount === 1 && sectionAutoTimeSeconds != null) {
+      const speed = Math.max(0.1, Math.min(2, draftTimeLimitSpeed))
+      return Math.round(sectionAutoTimeSeconds / speed)
+    }
+    return minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
+  })()
+
+  const isTimeLimitValid =
+    !draftIsTimed ||
+    (timeLimitSeconds != null &&
+      timeLimitSeconds > 0 &&
+      !(draftTimeLimitSource === 'section_auto' && setSectionCount > 1))
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
       name: draftName,
@@ -301,6 +353,8 @@ export function UcatSetEditorDialog({
           draftIsTimed={draftIsTimed}
           draftTimeLimitMinutes={draftTimeLimitMinutes}
           draftTimeLimitSeconds={draftTimeLimitSeconds}
+          draftTimeLimitSource={draftTimeLimitSource}
+          draftTimeLimitSpeed={draftTimeLimitSpeed}
           draftPrivate={draftPrivate}
           draftStemIds={draftStemIds}
           setDraftStemIds={setDraftStemIds}
@@ -318,15 +372,20 @@ export function UcatSetEditorDialog({
             if (!v) {
               setDraftTimeLimitMinutes('')
               setDraftTimeLimitSeconds('')
+              setDraftTimeLimitSource('untimed')
             }
           }}
           onChangeTimeLimitMinutes={setDraftTimeLimitMinutes}
           onChangeTimeLimitSeconds={setDraftTimeLimitSeconds}
+          onChangeTimeLimitSource={setDraftTimeLimitSource}
+          onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
           onChangePrivate={(value) => setDraftPrivate(value)}
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,
             time_limit_seconds: s.time_limit_seconds ?? null,
+            time_per_question: s.time_per_question ?? null,
+            number_of_questions: s.number_of_questions ?? null,
           }))}
         />
         </div>

@@ -14,18 +14,20 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Badge, Button, getUcatVisibilityColor, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, Tabs, TabsContent, TabsList, TabsTrigger, Textarea } from '@altitutor/ui'
+import { Badge, Button, getUcatVisibilityColor, Input, ListToolbar, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Slider, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { SortableRow } from '@/features/ucat/shared/drag-list'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { formatSecondsToDuration, secondsToMinutesAndSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { cn } from '@/shared/utils'
-import { Pencil, Plus } from 'lucide-react'
+import { Info, Pencil, Plus } from 'lucide-react'
 
 export type UcatSectionForTimeLimit = {
   id: string
   name: string | null
   time_limit_seconds: number | null
+  time_per_question?: number | null
+  number_of_questions?: number | null
 }
 import React from 'react'
 
@@ -37,6 +39,8 @@ type UcatSetEditorContentProps = {
   draftIsTimed: boolean
   draftTimeLimitMinutes: string
   draftTimeLimitSeconds: string
+  draftTimeLimitSource: 'untimed' | 'section_full' | 'section_auto' | 'custom'
+  draftTimeLimitSpeed: number
   draftPrivate: boolean
   draftStemIds: string[]
   setDraftStemIds: React.Dispatch<React.SetStateAction<string[]>>
@@ -52,6 +56,8 @@ type UcatSetEditorContentProps = {
   onChangeIsTimed: (value: boolean) => void
   onChangeTimeLimitMinutes: (value: string) => void
   onChangeTimeLimitSeconds: (value: string) => void
+  onChangeTimeLimitSource: (value: 'untimed' | 'section_full' | 'section_auto' | 'custom') => void
+  onChangeTimeLimitSpeed: (value: number) => void
   onChangePrivate: (value: boolean) => void
   sections?: UcatSectionForTimeLimit[]
 }
@@ -109,6 +115,8 @@ export function UcatSetEditorContent({
   draftIsTimed,
   draftTimeLimitMinutes,
   draftTimeLimitSeconds,
+  draftTimeLimitSource,
+  draftTimeLimitSpeed,
   draftPrivate,
   draftStemIds,
   setDraftStemIds,
@@ -124,13 +132,92 @@ export function UcatSetEditorContent({
   onChangeIsTimed,
   onChangeTimeLimitMinutes,
   onChangeTimeLimitSeconds,
+  onChangeTimeLimitSource,
+  onChangeTimeLimitSpeed,
   onChangePrivate,
   sections = [],
 }: UcatSetEditorContentProps) {
-  const sectionsWithTimeLimit = React.useMemo(
-    () => sections.filter((s) => s.time_limit_seconds != null && s.time_limit_seconds > 0),
-    [sections]
-  )
+  const setSectionsFromStems = React.useMemo(() => {
+    const sectionMap = new Map<
+      string,
+      { sectionId: string; sectionNumber: number; questionCount: number }
+    >()
+    for (const stemId of draftStemIds) {
+      const stem = stemCatalog.find((s) => s.id === stemId)
+      if (!stem?.sectionId) continue
+      const existing = sectionMap.get(stem.sectionId)
+      if (existing) {
+        existing.questionCount += stem.questionsCount
+      } else {
+        sectionMap.set(stem.sectionId, {
+          sectionId: stem.sectionId,
+          sectionNumber: stem.sectionNumber,
+          questionCount: stem.questionsCount,
+        })
+      }
+    }
+    return Array.from(sectionMap.values())
+  }, [draftStemIds, stemCatalog])
+
+  const setSectionCount = setSectionsFromStems.length
+  const firstSetSection = setSectionsFromStems[0]
+  const firstUcatSection = firstSetSection
+    ? sections.find((s) => s.id === firstSetSection.sectionId)
+    : null
+
+  const sectionFullTimeSeconds = firstUcatSection?.time_limit_seconds ?? null
+  const sectionAutoTimeSeconds = React.useMemo(() => {
+    let total = 0
+    for (const ss of setSectionsFromStems) {
+      const sec = sections.find((s) => s.id === ss.sectionId)
+      const tpq = sec?.time_per_question
+      if (tpq != null && tpq > 0) {
+        total += ss.questionCount * tpq
+      }
+    }
+    return total > 0 ? total : null
+  }, [setSectionsFromStems, sections])
+
+  const sectionFullTimeFormatted =
+    sectionFullTimeSeconds != null && sectionFullTimeSeconds > 0
+      ? formatSecondsToDuration(sectionFullTimeSeconds)
+      : null
+  const sectionAutoTimeFormatted =
+    sectionAutoTimeSeconds != null && sectionAutoTimeSeconds > 0
+      ? formatSecondsToDuration(sectionAutoTimeSeconds)
+      : null
+
+  const effectiveTimeSeconds = React.useMemo(() => {
+    if (draftTimeLimitSource === 'untimed' || !draftIsTimed) return null
+    if (draftTimeLimitSource === 'section_full' && setSectionCount === 1 && sectionFullTimeSeconds != null && sectionFullTimeSeconds > 0) {
+      return sectionFullTimeSeconds
+    }
+    if (draftTimeLimitSource === 'section_auto' && setSectionCount === 1 && sectionAutoTimeSeconds != null) {
+      const speed = Math.max(0.1, Math.min(2, draftTimeLimitSpeed))
+      return Math.round(sectionAutoTimeSeconds / speed)
+    }
+    return minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
+  }, [
+    draftIsTimed,
+    draftTimeLimitSource,
+    draftTimeLimitSpeed,
+    draftTimeLimitMinutes,
+    draftTimeLimitSeconds,
+    setSectionCount,
+    sectionFullTimeSeconds,
+    sectionAutoTimeSeconds,
+  ])
+
+  const timeLimitTooltips: Record<string, string> = {
+    untimed: 'No time limit for this set.',
+    section_full:
+      "Uses the section's full exam time limit. Only available when the set contains questions from a single section.",
+    section_auto:
+      'Uses section time-per-question × number of questions for each section in the set. Speed: 1× = exam pace, higher = less time (faster), lower = more time (slower).',
+    custom: 'Set a custom time limit in minutes and seconds.',
+  }
+
+  const [isEditingTimeLimit, setIsEditingTimeLimit] = React.useState(false)
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
   const { setNodeRef: setDropRef, isOver } = useDroppable({ id: STEMS_DROP_ID })
@@ -240,63 +327,134 @@ export function UcatSetEditorContent({
                 <span className="mb-1 block font-medium">Description</span>
                 <Textarea className="min-h-24" value={draftDescription} onChange={(e) => onChangeDescription(e.target.value)} />
               </label>
-              <label className="block text-sm">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="font-medium">Time limit</span>
+              <div className="block text-sm">
+                <span className="mb-1 block font-medium">Time limit</span>
+                {!isEditingTimeLimit ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Untimed</span>
-                    <Switch checked={draftIsTimed} onCheckedChange={onChangeIsTimed} />
-                    <span className="text-xs text-muted-foreground">Timed</span>
+                    <span className="text-muted-foreground">
+                      {effectiveTimeSeconds != null && effectiveTimeSeconds > 0
+                        ? formatSecondsToDuration(effectiveTimeSeconds)
+                        : 'Untimed'}
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditingTimeLimit(true)}
+                    >
+                      Edit
+                    </Button>
                   </div>
-                </div>
-                {draftIsTimed && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Input
-                      type="number"
-                      min={0}
-                      placeholder="0"
-                      className="w-20"
-                      value={draftTimeLimitMinutes}
-                      onChange={(e) => onChangeTimeLimitMinutes(e.target.value)}
-                    />
-                    <span className="text-muted-foreground font-medium">:</span>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={59}
-                      placeholder="0"
-                      className="w-20"
-                      value={draftTimeLimitSeconds}
-                      onChange={(e) => onChangeTimeLimitSeconds(e.target.value)}
-                    />
-                    <span className="text-muted-foreground text-xs">min : sec</span>
-                    {sectionsWithTimeLimit.length > 0 && (
+                ) : (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
                       <Select
-                        value=""
-                        onValueChange={(value) => {
-                          const sec = sectionsWithTimeLimit.find((s) => s.id === value)
-                          if (sec?.time_limit_seconds != null) {
-                            const { minutes, seconds } = secondsToMinutesAndSeconds(sec.time_limit_seconds)
-                            onChangeTimeLimitMinutes(minutes)
-                            onChangeTimeLimitSeconds(seconds)
+                        value={draftTimeLimitSource}
+                        onValueChange={(v) => {
+                          const val = v as 'untimed' | 'section_full' | 'section_auto' | 'custom'
+                          onChangeTimeLimitSource(val)
+                          if (val === 'untimed') {
+                            onChangeIsTimed(false)
+                          } else {
+                            onChangeIsTimed(true)
                           }
                         }}
                       >
-                        <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder="Use section time" />
+                        <SelectTrigger className="flex-1">
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {sectionsWithTimeLimit.map((s) => (
-                            <SelectItem key={s.id} value={s.id}>
-                              {s.name ?? 'Unknown'} ({formatSecondsToDuration(s.time_limit_seconds)})
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="untimed">Untimed</SelectItem>
+                          <SelectItem value="section_full" disabled={setSectionCount !== 1}>
+                            Section full exam time
+                            {sectionFullTimeFormatted && (
+                              <span className="text-muted-foreground"> ({sectionFullTimeFormatted})</span>
+                            )}
+                          </SelectItem>
+                          <SelectItem value="section_auto" disabled={setSectionCount !== 1}>
+                            Section exam auto timing
+                            {sectionAutoTimeFormatted && (
+                              <span className="text-muted-foreground"> ({sectionAutoTimeFormatted})</span>
+                            )}
+                          </SelectItem>
+                          <SelectItem value="custom">Custom</SelectItem>
                         </SelectContent>
                       </Select>
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 shrink-0 cursor-help text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent side="left" className="max-w-xs">
+                            {timeLimitTooltips[draftTimeLimitSource]}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+                    {setSectionCount > 1 && draftTimeLimitSource === 'section_auto' && (
+                      <p className="text-xs text-destructive">
+                        Auto timing is not available for sets with multiple sections.
+                      </p>
                     )}
+                    {draftTimeLimitSource === 'section_full' &&
+                      firstUcatSection != null &&
+                      firstSetSection != null &&
+                      firstUcatSection.number_of_questions != null &&
+                      firstSetSection.questionCount !== firstUcatSection.number_of_questions && (
+                        <p className="text-xs text-amber-600 dark:text-amber-500">
+                          Warning: Section has {firstUcatSection.number_of_questions} questions; this set has{' '}
+                          {firstSetSection.questionCount}.
+                        </p>
+                      )}
+                    {draftTimeLimitSource === 'section_auto' && setSectionCount === 1 && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span>Speed</span>
+                          <span className="text-muted-foreground">
+                            {draftTimeLimitSpeed === 1 ? '1× exam pace' : `${draftTimeLimitSpeed.toFixed(1)}×`}
+                          </span>
+                        </div>
+                        <Slider
+                          min={0.1}
+                          max={2}
+                          step={0.1}
+                          value={[Math.max(0.1, Math.min(2, draftTimeLimitSpeed))]}
+                          onValueChange={([v]) => onChangeTimeLimitSpeed(v)}
+                        />
+                      </div>
+                    )}
+                    {draftTimeLimitSource === 'custom' && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="0"
+                          className="w-20"
+                          value={draftTimeLimitMinutes}
+                          onChange={(e) => onChangeTimeLimitMinutes(e.target.value)}
+                        />
+                        <span className="text-muted-foreground font-medium">:</span>
+                        <Input
+                          type="number"
+                          min={0}
+                          max={59}
+                          placeholder="0"
+                          className="w-20"
+                          value={draftTimeLimitSeconds}
+                          onChange={(e) => onChangeTimeLimitSeconds(e.target.value)}
+                        />
+                        <span className="text-muted-foreground text-xs">min : sec</span>
+                      </div>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      Time limit: {effectiveTimeSeconds != null && effectiveTimeSeconds > 0 ? formatSecondsToDuration(effectiveTimeSeconds) : 'Untimed'}
+                    </p>
+                    <Button type="button" size="sm" onClick={() => setIsEditingTimeLimit(false)}>
+                      Save
+                    </Button>
                   </div>
                 )}
-              </label>
+              </div>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>
                 <Select value={draftPrivate ? 'private' : 'public'} onValueChange={(v) => onChangePrivate(v === 'private')}>

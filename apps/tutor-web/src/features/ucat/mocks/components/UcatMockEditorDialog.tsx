@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react'
 import Link from 'next/link'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useToast } from '@altitutor/ui'
+import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatMockDraft } from '@/features/ucat/mocks/hooks/useUcatMockDraft'
@@ -13,11 +14,14 @@ import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMock
 import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 
 export type SetOption = {
   id: string
   name: string
   sectionDisplay: string
+  sectionCount: number
+  firstSectionNumber: number | null
   question_count: number | null
   time_limit_seconds: number | null
   is_private?: boolean | null
@@ -50,6 +54,8 @@ export function UcatMockEditorDialog({
   onDelete?: () => void
 }) {
   const sets = useUcatSets()
+  const sectionsQuery = useUcatSections()
+  const sections = sectionsQuery.data ?? []
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
@@ -110,15 +116,20 @@ export function UcatMockEditorDialog({
           (set as { deleted_at?: string | null }).deleted_at == null &&
           !(set as { is_student_generated?: boolean }).is_student_generated
       )
-      .map((set) => ({
-        id: set.id ?? '',
-        name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
-        sectionDisplay: formatSectionsDisplay(set.sections ?? null),
-        question_count: set.question_count ?? null,
-        time_limit_seconds: set.time_limit_seconds ?? null,
-        is_private: (set as { is_private?: boolean | null }).is_private ?? null,
-        stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
-      }))
+      .map((set) => {
+        const parsed = parseSetSections(set.sections ?? null)
+        return {
+          id: set.id ?? '',
+          name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+          sectionDisplay: formatSectionsDisplay(set.sections ?? null),
+          sectionCount: parsed.sectionCount,
+          firstSectionNumber: parsed.firstSectionNumber,
+          question_count: set.question_count ?? null,
+          time_limit_seconds: set.time_limit_seconds ?? null,
+          is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+          stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
+        }
+      })
   }, [sets.data])
 
   const setsThatWillBecomePublicCount = useMemo(() => {
@@ -209,6 +220,7 @@ export function UcatMockEditorDialog({
         setFilters={setFilters}
         filterDefinitions={setFilterDefinitions}
         setCatalog={setCatalog}
+        sections={sections}
         onEditSet={onEditSet}
       />
         </div>
