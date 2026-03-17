@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check, ChevronDown, Loader2 } from "lucide-react";
 
 import { cn } from "../lib/cn";
 import { Button } from "./button";
@@ -73,6 +73,8 @@ export interface SearchableSelectProps<T> {
   onOpenChange?: (open: boolean) => void;
   /** Portal container - when inside Dialog, pass the dialog content element to fix scroll */
   popoverContainer?: HTMLElement | null;
+  /** Show chevron on the right side of the trigger button (default: true) */
+  showChevron?: boolean;
 }
 
 /**
@@ -111,6 +113,7 @@ export function SearchableSelect<T>({
   open: controlledOpen,
   onOpenChange,
   popoverContainer,
+  showChevron = true,
 }: SearchableSelectProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -225,6 +228,9 @@ export function SearchableSelect<T>({
       className={cn("w-full justify-between font-normal", triggerClassName)}
     >
       <span className={cn(!value && "text-muted-foreground")}>{displayValue}</span>
+      {showChevron && (
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden />
+      )}
     </Button>
   );
 
