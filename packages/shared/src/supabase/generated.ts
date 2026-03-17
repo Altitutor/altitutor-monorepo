@@ -584,6 +584,155 @@ export type Database = {
           },
         ]
       }
+      billing_runner_logs: {
+        Row: {
+          created_at: string
+          error_message: string
+          error_type: string | null
+          id: string
+          invoice_date: string | null
+          run_id: string | null
+          session_id: string | null
+          sessions_students_id: string | null
+          student_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message: string
+          error_type?: string | null
+          id?: string
+          invoice_date?: string | null
+          run_id?: string | null
+          session_id?: string | null
+          sessions_students_id?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string
+          error_type?: string | null
+          id?: string
+          invoice_date?: string | null
+          run_id?: string | null
+          session_id?: string | null
+          sessions_students_id?: string | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_runner_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_uninvoiced_sessions"
+            referencedColumns: ["sessions_students_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["sessions_students_id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "billing_runner_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       billing_settings: {
         Row: {
           description: string | null
@@ -12349,6 +12498,10 @@ export type Database = {
       get_billing_cron_secret: { Args: never; Returns: string }
       get_excluded_fields_for_table: {
         Args: { table_name: string }
+        Returns: string[]
+      }
+      get_invoiced_sessions_students_ids: {
+        Args: { p_sessions_students_ids: string[] }
         Returns: string[]
       }
       get_service_role_key: { Args: never; Returns: string }
