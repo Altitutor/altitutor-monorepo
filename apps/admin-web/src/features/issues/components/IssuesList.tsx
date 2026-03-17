@@ -16,8 +16,8 @@ import { cn } from '@/shared/utils';
 import type { IssueWithTags, IssueStatus } from '../types';
 import {
   formatIssueDueDate,
-  getIssueStatusColor,
   getIssueStatusIcon,
+  getIssueStatusIconColor,
   getIssueStatusLabel,
   getIssueStatusOrder,
   ISSUE_STATUS_OPTIONS,
@@ -79,22 +79,18 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
     options: ISSUE_STATUS_OPTIONS.map((opt) => ({
       value: opt.value,
       label: opt.label,
-      icon: () => {
-        const Icon = getIssueStatusIcon(opt.value);
-        const color = getIssueStatusColor(opt.value);
-        return <Icon className={cn('h-3 w-3', color.replace('bg-', 'text-'))} />;
-      },
+      icon: getIssueStatusIcon(opt.value),
     })),
     renderBubble: (value: unknown, collapsed) => {
       const status = value as IssueStatus;
       const option = ISSUE_STATUS_OPTIONS.find((o) => o.value === status) ?? ISSUE_STATUS_OPTIONS[0];
       const Icon = getIssueStatusIcon(status);
-      const color = getIssueStatusColor(status);
+      const iconColor = getIssueStatusIconColor(status);
 
-      if (collapsed) return <Icon className={cn('h-3 w-3', color.replace('bg-', 'text-'))} />;
+      if (collapsed) return <Icon className={cn('h-3 w-3', iconColor)} />;
 
       return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', color.replace('bg-', 'text-'))}>
+        <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
           <Icon className="h-3 w-3" />
           {option.label}
         </span>
