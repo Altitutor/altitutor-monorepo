@@ -8,7 +8,7 @@ import { Label } from "@altitutor/ui";
 import { Checkbox } from "@altitutor/ui";
 import { PhoneInput } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@altitutor/ui";
+import { SearchableSelect } from "@altitutor/ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -326,20 +326,25 @@ export function StaffDetailsTab({
                     control={form.control}
                     name="hasParkingRemote"
                     render={({ field }) => (
-                      <Select
+                      <SearchableSelect<{ value: string; label: string }>
+                        items={[
+                          { value: 'VIRTUAL', label: 'Virtual' },
+                          { value: 'PHYSICAL', label: 'Physical' },
+                          { value: 'NONE', label: 'None' },
+                        ]}
+                        value={
+                          [
+                            { value: 'VIRTUAL', label: 'Virtual' },
+                            { value: 'PHYSICAL', label: 'Physical' },
+                            { value: 'NONE', label: 'None' },
+                          ].find((i) => i.value === (field.value || 'NONE')) ?? null
+                        }
+                        onValueChange={(item) => item && field.onChange(item.value)}
+                        getItemLabel={(i) => i.label}
+                        getItemId={(i) => i.value}
+                        placeholder="Select option"
                         disabled={isLoading}
-                        value={field.value || 'NONE'}
-                        onValueChange={field.onChange}
-                      >
-                        <SelectTrigger id="hasParkingRemote">
-                          <SelectValue placeholder="Select option" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="VIRTUAL">Virtual</SelectItem>
-                          <SelectItem value="PHYSICAL">Physical</SelectItem>
-                          <SelectItem value="NONE">None</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      />
                     )}
                   />
                   {form.formState.errors.hasParkingRemote && (
@@ -354,27 +359,24 @@ export function StaffDetailsTab({
                   <Controller
                     control={form.control}
                     name="role"
-                    render={({ field }) => {
-                      // Ensure we always pass a valid string or undefined (not empty string)
-                      const selectValue = field.value && (field.value === 'TUTOR' || field.value === 'ADMINSTAFF') ? field.value : undefined;
-                      return (
-                      <Select 
+                    render={({ field }) => (
+                      <SearchableSelect<{ value: 'TUTOR' | 'ADMINSTAFF'; label: string }>
+                        items={[
+                          { value: 'TUTOR', label: 'Tutor' },
+                          { value: 'ADMINSTAFF', label: 'Admin Staff' },
+                        ]}
+                        value={
+                          field.value && (field.value === 'TUTOR' || field.value === 'ADMINSTAFF')
+                            ? { value: field.value, label: field.value === 'TUTOR' ? 'Tutor' : 'Admin Staff' }
+                            : null
+                        }
+                        onValueChange={(item) => item && field.onChange(item.value)}
+                        getItemLabel={(i) => i.label}
+                        getItemId={(i) => i.value}
+                        placeholder="Select role"
                         disabled={isLoading}
-                        value={selectValue}
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select role" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={'TUTOR'}>Tutor</SelectItem>
-                          <SelectItem value={'ADMINSTAFF'}>Admin Staff</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      );
-                    }}
+                      />
+                    )}
                   />
                 </div>
                 
@@ -383,28 +385,33 @@ export function StaffDetailsTab({
                   <Controller
                     control={form.control}
                     name="status"
-                    render={({ field }) => {
-                      // Ensure we always pass a valid string or undefined (not empty string)
-                      const selectValue = field.value && (field.value === 'ACTIVE' || field.value === 'INACTIVE' || field.value === 'TRIAL') ? field.value : undefined;
-                      return (
-                      <Select 
+                    render={({ field }) => (
+                      <SearchableSelect<{ value: 'ACTIVE' | 'INACTIVE' | 'TRIAL'; label: string }>
+                        items={[
+                          { value: 'ACTIVE', label: 'Active' },
+                          { value: 'INACTIVE', label: 'Inactive' },
+                          { value: 'TRIAL', label: 'Trial' },
+                        ]}
+                        value={
+                          field.value && (field.value === 'ACTIVE' || field.value === 'INACTIVE' || field.value === 'TRIAL')
+                            ? {
+                                value: field.value,
+                                label:
+                                  field.value === 'ACTIVE'
+                                    ? 'Active'
+                                    : field.value === 'INACTIVE'
+                                      ? 'Inactive'
+                                      : 'Trial',
+                              }
+                            : null
+                        }
+                        onValueChange={(item) => item && field.onChange(item.value)}
+                        getItemLabel={(i) => i.label}
+                        getItemId={(i) => i.value}
+                        placeholder="Select status"
                         disabled={isLoading}
-                        value={selectValue}
-                        onValueChange={(value) => {
-                          field.onChange(value);
-                        }}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value={'ACTIVE'}>Active</SelectItem>
-                          <SelectItem value={'INACTIVE'}>Inactive</SelectItem>
-                          <SelectItem value={'TRIAL'}>Trial</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      );
-                    }}
+                      />
+                    )}
                   />
                 </div>
               </div>

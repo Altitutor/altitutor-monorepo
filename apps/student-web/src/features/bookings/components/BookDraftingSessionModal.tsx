@@ -9,7 +9,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from '@altitutor/ui';
-import { Button, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, useToast } from '@altitutor/ui';
+import { Button, SearchableSelect, useToast } from '@altitutor/ui';
 import { Loader2, Check, Upload, X, File } from 'lucide-react';
 import { sessionFilesApi } from '../api/session-files';
 import { TimeSlotPicker } from './TimeSlotPicker';
@@ -419,24 +419,20 @@ export function BookDraftingSessionModal({
               </div>
             ) : (
               <div className="space-y-2">
-                <Select 
-                  value={selectedSubjectId} 
-                  onValueChange={(value) => {
-                    setSelectedSubjectId(value);
-                    setSubjectError(false);
+                <SearchableSelect<Tables<'subjects'>>
+                  items={subjects}
+                  value={subjects.find((s) => s.id === selectedSubjectId) ?? null}
+                  onValueChange={(item) => {
+                    if (item) {
+                      setSelectedSubjectId(item.id);
+                      setSubjectError(false);
+                    }
                   }}
-                >
-                  <SelectTrigger className={cn(subjectError && 'border-destructive')}>
-                    <SelectValue placeholder="Select a subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {subjects.map((subject) => (
-                      <SelectItem key={subject.id} value={subject.id}>
-                        {formatSubjectDisplay(subject)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  getItemLabel={formatSubjectDisplay}
+                  getItemId={(s) => s.id}
+                  placeholder="Select a subject"
+                  triggerClassName={cn(subjectError && 'border-destructive')}
+                />
                 {subjectError && (
                   <p className="text-sm text-destructive">
                     Please select a subject to continue

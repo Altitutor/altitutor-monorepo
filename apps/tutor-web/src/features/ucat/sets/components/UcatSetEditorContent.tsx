@@ -14,7 +14,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Badge, Button, getUcatVisibilityColor, Input, ListToolbar, SearchableSelect, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Slider, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui'
+import { Badge, Button, getUcatVisibilityColor, Input, ListToolbar, SearchableSelect, Slider, Tabs, TabsContent, TabsList, TabsTrigger, Textarea, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { SortableRow } from '@/features/ucat/shared/drag-list'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -217,6 +217,29 @@ export function UcatSetEditorContent({
     custom: 'Set a custom time limit in minutes and seconds.',
   }
 
+  const timeLimitOptions = React.useMemo(
+    () =>
+      [
+        { value: 'untimed' as const, label: 'Untimed', disabled: false },
+        {
+          value: 'section_full' as const,
+          label: sectionFullTimeFormatted
+            ? `Section full exam time (${sectionFullTimeFormatted})`
+            : 'Section full exam time',
+          disabled: setSectionCount !== 1,
+        },
+        {
+          value: 'section_auto' as const,
+          label: sectionAutoTimeFormatted
+            ? `Section exam auto timing (${sectionAutoTimeFormatted})`
+            : 'Section exam auto timing',
+          disabled: setSectionCount !== 1,
+        },
+        { value: 'custom' as const, label: 'Custom', disabled: false },
+      ],
+    [sectionFullTimeFormatted, sectionAutoTimeFormatted, setSectionCount]
+  )
+
   const [isEditingTimeLimit, setIsEditingTimeLimit] = React.useState(false)
   const [activeId, setActiveId] = React.useState<string | null>(null)
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
@@ -348,38 +371,23 @@ export function UcatSetEditorContent({
                 ) : (
                   <div className="space-y-3">
                     <div className="flex items-center gap-2">
-                      <Select
-                        value={draftTimeLimitSource}
-                        onValueChange={(v) => {
-                          const val = v as 'untimed' | 'section_full' | 'section_auto' | 'custom'
-                          onChangeTimeLimitSource(val)
-                          if (val === 'untimed') {
+                      <SearchableSelect<(typeof timeLimitOptions)[number]>
+                        items={timeLimitOptions}
+                        value={timeLimitOptions.find((i) => i.value === draftTimeLimitSource) ?? null}
+                        onValueChange={(item) => {
+                          if (!item) return
+                          onChangeTimeLimitSource(item.value)
+                          if (item.value === 'untimed') {
                             onChangeIsTimed(false)
                           } else {
                             onChangeIsTimed(true)
                           }
                         }}
-                      >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="untimed">Untimed</SelectItem>
-                          <SelectItem value="section_full" disabled={setSectionCount !== 1}>
-                            Section full exam time
-                            {sectionFullTimeFormatted && (
-                              <span className="text-muted-foreground"> ({sectionFullTimeFormatted})</span>
-                            )}
-                          </SelectItem>
-                          <SelectItem value="section_auto" disabled={setSectionCount !== 1}>
-                            Section exam auto timing
-                            {sectionAutoTimeFormatted && (
-                              <span className="text-muted-foreground"> ({sectionAutoTimeFormatted})</span>
-                            )}
-                          </SelectItem>
-                          <SelectItem value="custom">Custom</SelectItem>
-                        </SelectContent>
-                      </Select>
+                        getItemLabel={(i) => i.label}
+                        getItemId={(i) => i.value}
+                        getItemDisabled={(i) => i.disabled}
+                        triggerClassName="flex-1"
+                      />
                       <TooltipProvider delayDuration={200}>
                         <Tooltip>
                           <TooltipTrigger asChild>

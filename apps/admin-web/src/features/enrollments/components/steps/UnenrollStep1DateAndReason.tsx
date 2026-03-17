@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { addDays } from 'date-fns';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
@@ -119,26 +119,20 @@ export function UnenrollStep1DateAndReason({
           {', their final session will be '}
           <span className="inline-flex items-center">
             {futureSessionDates.length > 0 ? (
-              <Select
-                value={selectedSessionDate || undefined}
-                onValueChange={handleSessionDateChange}
-              >
-                <SelectTrigger className={cn(
-                  "h-8 text-sm font-semibold border focus:ring-primary/20 w-auto min-w-[180px]",
+              <SearchableSelect<{ value: string; label: string }>
+                items={futureSessionDates}
+                value={futureSessionDates.find((d) => d.value === selectedSessionDate) ?? null}
+                onValueChange={(item) => item && handleSessionDateChange(item.value)}
+                getItemLabel={(d) => d.label}
+                getItemId={(d) => d.value}
+                placeholder="Select final session"
+                triggerClassName={cn(
+                  "h-8 text-sm font-semibold w-auto min-w-[180px]",
                   isDateChosen
                     ? "bg-primary/10 text-primary border-primary/20"
                     : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
-                )}>
-                  <SelectValue placeholder="Select final session" />
-                </SelectTrigger>
-                <SelectContent>
-                  {futureSessionDates.map((date) => (
-                    <SelectItem key={date.value} value={date.value}>
-                      {date.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                )}
+              />
             ) : (
               <span className="px-2 py-1 rounded-md bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20 text-sm font-semibold">
                 choose class

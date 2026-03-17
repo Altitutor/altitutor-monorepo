@@ -10,11 +10,7 @@ import {
   TableRow,
   Input,
   Button,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -33,6 +29,12 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+
+const BILLING_TYPE_OPTIONS: { value: 'CLASS' | 'EXAM_COURSE' | 'DRAFTING'; label: string }[] = [
+  { value: 'CLASS', label: 'CLASS' },
+  { value: 'EXAM_COURSE', label: 'EXAM_COURSE' },
+  { value: 'DRAFTING', label: 'DRAFTING' },
+];
 
 interface SubjectPricingOverridesTableProps {
   overrides: SubjectPricingOverrideRow[];
@@ -267,15 +269,13 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
 
             <div className="space-y-2">
               <Label htmlFor="edit-currency">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger id="edit-currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AUD">AUD</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<string>
+                items={['AUD', 'USD']}
+                value={currency}
+                onValueChange={(v) => v && setCurrency(v)}
+                getItemLabel={(v) => v}
+                getItemId={(v) => v}
+              />
             </div>
           </div>
           <DialogFooter>
@@ -311,39 +311,31 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="create-subject">Subject</Label>
-              <Select value={selectedSubjectId} onValueChange={setSelectedSubjectId} disabled={loadingSubjects}>
-                <SelectTrigger id="create-subject">
-                  <SelectValue placeholder={loadingSubjects ? 'Loading subjects...' : 'Select a subject'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {subjects.map((subject) => {
-                    const name = [
-                      subject.curriculum,
-                      subject.year_level ? `Year ${subject.year_level}` : null,
-                      subject.name
-                    ].filter(Boolean).join(' ');
-                    return (
-                      <SelectItem key={subject.id} value={subject.id}>
-                        {name}
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+              <SearchableSelect<Tables<'subjects'>>
+                items={subjects}
+                value={subjects.find((s) => s.id === selectedSubjectId) ?? null}
+                onValueChange={(item) => item && setSelectedSubjectId(item.id)}
+                getItemLabel={(s) =>
+                  [s.curriculum, s.year_level ? `Year ${s.year_level}` : null, s.name]
+                    .filter(Boolean)
+                    .join(' ')
+                }
+                getItemId={(s) => s.id}
+                placeholder={loadingSubjects ? 'Loading subjects...' : 'Select a subject'}
+                disabled={loadingSubjects}
+                loading={loadingSubjects}
+              />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="create-billing-type">Billing Type</Label>
-              <Select value={selectedBillingType} onValueChange={(value) => setSelectedBillingType(value as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING')}>
-                <SelectTrigger id="create-billing-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="CLASS">CLASS</SelectItem>
-                  <SelectItem value="EXAM_COURSE">EXAM_COURSE</SelectItem>
-                  <SelectItem value="DRAFTING">DRAFTING</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<(typeof BILLING_TYPE_OPTIONS)[number]>
+                items={BILLING_TYPE_OPTIONS}
+                value={BILLING_TYPE_OPTIONS.find((i) => i.value === selectedBillingType) ?? null}
+                onValueChange={(item) => item && setSelectedBillingType(item.value)}
+                getItemLabel={(i) => i.label}
+                getItemId={(i) => i.value}
+              />
             </div>
 
             <div className="space-y-2">
@@ -361,15 +353,13 @@ export function SubjectPricingOverridesTable({ overrides, onUpdate }: SubjectPri
 
             <div className="space-y-2">
               <Label htmlFor="create-currency">Currency</Label>
-              <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger id="create-currency">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="AUD">AUD</SelectItem>
-                  <SelectItem value="USD">USD</SelectItem>
-                </SelectContent>
-              </Select>
+              <SearchableSelect<string>
+                items={['AUD', 'USD']}
+                value={currency}
+                onValueChange={(v) => v && setCurrency(v)}
+                getItemLabel={(v) => v}
+                getItemId={(v) => v}
+              />
             </div>
           </div>
           <DialogFooter>

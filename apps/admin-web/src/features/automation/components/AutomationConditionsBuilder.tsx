@@ -14,7 +14,7 @@ import {
   FormDescription,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { X, Plus } from 'lucide-react';
@@ -204,18 +204,15 @@ export function AutomationConditionsBuilder({
               render={({ field }) => (
                 <FormItem className="w-[140px] [&>div]:w-full">
                   <FormControl>
-                    <Select onValueChange={field.onChange} value={field.value}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Operator" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableOperators.map((op) => (
-                          <SelectItem key={op.value} value={op.value}>
-                            {op.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SearchableSelect<{ value: ConditionOperator; label: string }>
+                      items={availableOperators}
+                      value={availableOperators.find((op) => op.value === field.value) ?? null}
+                      onValueChange={(item) => item && field.onChange(item.value)}
+                      getItemLabel={(op) => op.label}
+                      getItemId={(op) => op.value}
+                      placeholder="Operator"
+                      triggerClassName="h-9"
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -378,23 +375,21 @@ export function AutomationConditionsBuilder({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Operator</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {availableOperators.map((op) => (
-                        <SelectItem key={op.value} value={op.value}>
-                          <div>
-                            <div className="font-medium">{op.label}</div>
-                            <div className="text-xs text-muted-foreground">{op.description}</div>
-                          </div>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FormControl>
+                    <SearchableSelect<{ value: ConditionOperator; label: string; description: string }>
+                      items={availableOperators}
+                      value={availableOperators.find((op) => op.value === field.value) ?? null}
+                      onValueChange={(item) => item && field.onChange(item.value)}
+                      getItemLabel={(op) => op.label}
+                      getItemId={(op) => op.value}
+                      renderItem={(op, isSelected) => (
+                        <div>
+                          <div className={isSelected ? "font-semibold" : "font-medium"}>{op.label}</div>
+                          <div className="text-xs text-muted-foreground">{op.description}</div>
+                        </div>
+                      )}
+                    />
+                  </FormControl>
                   <FormDescription>
                     {isFieldChangeOperator && !hasUpdatedEvent
                       ? '⚠️ Field change operators only work with UPDATED events'

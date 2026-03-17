@@ -7,11 +7,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -108,21 +104,15 @@ export function SetAttemptsCard({
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Set attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
-          <Select
-            value={graphDataType}
-            onValueChange={(v) => setGraphDataType(v as GraphDataType)}
-          >
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Y-axis" />
-            </SelectTrigger>
-            <SelectContent>
-              {GRAPH_DATA_TYPES.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
+            items={GRAPH_DATA_TYPES}
+            value={GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null}
+            onValueChange={(item) => item && setGraphDataType(item.value)}
+            getItemLabel={(r) => r.label}
+            getItemId={(r) => r.value}
+            placeholder="Y-axis"
+            triggerClassName="w-[160px]"
+          />
           <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
         </div>
       </CardHeader>

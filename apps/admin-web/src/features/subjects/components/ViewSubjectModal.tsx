@@ -31,13 +31,7 @@ import {
 } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@altitutor/ui";
+import { SearchableSelect } from "@altitutor/ui";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -382,23 +376,17 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Curriculum</FormLabel>
-                  <Select 
-                            onValueChange={value => field.onChange(value || null)} 
-                            value={field.value || ""} 
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select curriculum" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value={'SACE'}>{'SACE'}</SelectItem>
-                              <SelectItem value={'IB'}>{'IB'}</SelectItem>
-                              <SelectItem value={'PRESACE'}>{'PRESACE'}</SelectItem>
-                              <SelectItem value={'PRIMARY'}>{'PRIMARY'}</SelectItem>
-                              <SelectItem value={'MEDICINE'}>{'MEDICINE'}</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <SearchableSelect<string>
+                              items={['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE']}
+                              value={field.value}
+                              onValueChange={(v) => field.onChange(v)}
+                              getItemLabel={(v) => v}
+                              getItemId={(v) => v}
+                              placeholder="Select curriculum"
+                              allowClear
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -410,25 +398,17 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Discipline</FormLabel>
-                  <Select 
-                            onValueChange={value => field.onChange(value || null)} 
-                            value={field.value || ""} 
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select discipline" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value={'MATHEMATICS'}>{'MATHEMATICS'}</SelectItem>
-                              <SelectItem value={'SCIENCE'}>{'SCIENCE'}</SelectItem>
-                              <SelectItem value={'HUMANITIES'}>{'HUMANITIES'}</SelectItem>
-                              <SelectItem value={'ENGLISH'}>{'ENGLISH'}</SelectItem>
-                              <SelectItem value={'ART'}>{'ART'}</SelectItem>
-                              <SelectItem value={'LANGUAGE'}>{'LANGUAGE'}</SelectItem>
-                              <SelectItem value={'MEDICINE'}>{'MEDICINE'}</SelectItem>
-                            </SelectContent>
-                          </Select>
+                          <FormControl>
+                            <SearchableSelect<string>
+                              items={['MATHEMATICS', 'SCIENCE', 'HUMANITIES', 'ENGLISH', 'ART', 'LANGUAGE', 'MEDICINE']}
+                              value={field.value}
+                              onValueChange={(v) => field.onChange(v)}
+                              getItemLabel={(v) => v}
+                              getItemId={(v) => v}
+                              placeholder="Select discipline"
+                              allowClear
+                            />
+                          </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}

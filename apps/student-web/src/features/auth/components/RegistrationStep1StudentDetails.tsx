@@ -12,7 +12,7 @@ import {
   FormMessage,
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { ScrollArea } from '@altitutor/ui';
@@ -311,44 +311,27 @@ export function RegistrationStep1StudentDetails({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Year Level *</FormLabel>
-              <div className="relative">
-                <Select
-                  value={field.value === 0 ? 'Reception' : field.value?.toString() || ""}
-                  onValueChange={(value) => {
-                    field.onChange(value === 'Reception' || value === "" ? (value === "" ? undefined : 0) : parseInt(value, 10));
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger className={cn(field.value !== undefined && "pr-10 [&_svg]:hidden")}>
-                      <SelectValue placeholder="Select year level" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {validYearLevels.map((year) => (
-                      <SelectItem key={year} value={year === 0 ? 'Reception' : year.toString()}>
-                        {year === 0 ? 'Reception' : `Year ${year}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {field.value !== undefined && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+              <FormControl>
+                <SearchableSelect<number>
+                  items={validYearLevels}
+                  value={field.value !== undefined ? field.value : null}
+                  onValueChange={(item) => {
+                    if (item === null) {
                       const currentCurriculum = form.getValues('student.curriculum');
                       form.setValue('student.year_level', undefined, { shouldValidate: true });
-                      // If curriculum requires a year level, clear it too
                       if (currentCurriculum && getValidYearLevels(currentCurriculum).length > 0) {
                         form.setValue('student.curriculum', undefined, { shouldValidate: true });
                       }
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
+                    } else {
+                      field.onChange(item);
+                    }
+                  }}
+                  getItemLabel={(year) => (year === 0 ? 'Reception' : `Year ${year}`)}
+                  getItemId={(year) => (year === 0 ? 'Reception' : year.toString())}
+                  placeholder="Select year level"
+                  allowClear
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
@@ -360,47 +343,30 @@ export function RegistrationStep1StudentDetails({
           render={({ field }) => (
             <FormItem>
               <FormLabel>Curriculum *</FormLabel>
-              <div className="relative">
-                <Select
-                  value={field.value || ""}
-                  onValueChange={(value) => {
-                    field.onChange(value === "" ? undefined : value);
-                  }}
-                >
-                  <FormControl>
-                    <SelectTrigger className={cn(field.value && "pr-10 [&_svg]:hidden")}>
-                      <SelectValue placeholder="Select curriculum" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {validCurriculums.map((curr) => (
-                      <SelectItem key={curr} value={curr}>
-                        {curr}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {field.value && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+              <FormControl>
+                <SearchableSelect<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'>
+                  items={validCurriculums}
+                  value={field.value ?? null}
+                  onValueChange={(item) => {
+                    if (item === null) {
                       const currentYearLevel = form.getValues('student.year_level');
                       form.setValue('student.curriculum', undefined as unknown as RegistrationFormValues['student']['curriculum'], { shouldValidate: true });
-                      // If year level requires a curriculum, clear it too
                       if (currentYearLevel !== undefined) {
                         const validCurriculumsForYear = getValidCurriculums(currentYearLevel);
                         if (validCurriculumsForYear.length > 0 && validCurriculumsForYear.length < 4) {
                           form.setValue('student.year_level', undefined as RegistrationFormValues['student']['year_level'], { shouldValidate: true });
                         }
                       }
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
+                    } else {
+                      field.onChange(item);
+                    }
+                  }}
+                  getItemLabel={(curr) => curr}
+                  getItemId={(curr) => curr}
+                  placeholder="Select curriculum"
+                  allowClear
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

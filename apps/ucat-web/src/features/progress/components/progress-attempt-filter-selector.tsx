@@ -2,11 +2,7 @@
 
 import { Info } from 'lucide-react'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+  SearchableSelect,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -33,18 +29,15 @@ export function ProgressAttemptFilterSelector({
 
   return (
     <div className={cn(className, 'flex items-center gap-1')}>
-      <Select value={value} onValueChange={(v) => onValueChange(v as AttemptFilter)}>
-        <SelectTrigger className="w-[220px]">
-          <SelectValue placeholder="Filter" />
-        </SelectTrigger>
-        <SelectContent>
-          {ATTEMPT_FILTER_OPTIONS.map((opt) => (
-            <SelectItem key={opt.value} value={opt.value}>
-              {opt.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <SearchableSelect<(typeof ATTEMPT_FILTER_OPTIONS)[number]>
+        items={ATTEMPT_FILTER_OPTIONS}
+        value={ATTEMPT_FILTER_OPTIONS.find((o) => o.value === value) ?? null}
+        onValueChange={(item) => item && onValueChange(item.value)}
+        getItemLabel={(o) => o.label}
+        getItemId={(o) => o.value}
+        placeholder="Filter"
+        triggerClassName="w-[220px]"
+      />
       {selectedOption && (
         <TooltipProvider delayDuration={200}>
           <Tooltip>

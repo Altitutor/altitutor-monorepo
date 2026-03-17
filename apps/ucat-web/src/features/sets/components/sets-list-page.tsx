@@ -2,15 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import {
-  Badge,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui'
+import { Badge, Label, SearchableSelect } from '@altitutor/ui'
 import { UcatPageHeader } from '@/features/layout'
 import { useAttemptedSetIds, useSets } from '@/features/sets/hooks/use-sets'
 import {
@@ -106,53 +98,63 @@ export function SetsListPage() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-2">
             <Label>Timing</Label>
-            <Select
-              value={filters.timed ?? 'all'}
-              onValueChange={(v) => handleFilterChange('timed', v)}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="timed">Timed</SelectItem>
-                <SelectItem value="untimed">Untimed</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: string; label: string }>
+              items={[
+                { value: 'all', label: 'All' },
+                { value: 'timed', label: 'Timed' },
+                { value: 'untimed', label: 'Untimed' },
+              ]}
+              value={
+                [
+                  { value: 'all', label: 'All' },
+                  { value: 'timed', label: 'Timed' },
+                  { value: 'untimed', label: 'Untimed' },
+                ].find((i) => i.value === (filters.timed ?? 'all')) ?? null
+              }
+              onValueChange={(item) => item && handleFilterChange('timed', item.value)}
+              getItemLabel={(i) => i.label}
+              getItemId={(i) => i.value}
+              placeholder="All"
+              triggerClassName="w-[140px]"
+            />
           </div>
           <div className="space-y-2">
             <Label>Source</Label>
-            <Select
-              value={filters.source ?? 'all'}
-              onValueChange={(v) => handleFilterChange('source', v)}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="my">My sets</SelectItem>
-                <SelectItem value="public">Public sets</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: string; label: string }>
+              items={[
+                { value: 'all', label: 'All' },
+                { value: 'my', label: 'My sets' },
+                { value: 'public', label: 'Public sets' },
+              ]}
+              value={
+                [
+                  { value: 'all', label: 'All' },
+                  { value: 'my', label: 'My sets' },
+                  { value: 'public', label: 'Public sets' },
+                ].find((i) => i.value === (filters.source ?? 'all')) ?? null
+              }
+              onValueChange={(item) => item && handleFilterChange('source', item.value)}
+              getItemLabel={(i) => i.label}
+              getItemId={(i) => i.value}
+              placeholder="All"
+              triggerClassName="w-[140px]"
+            />
           </div>
           <div className="space-y-2">
             <Label>Section</Label>
-            <Select
-              value={filters.sectionNumber?.toString() ?? 'all'}
-              onValueChange={(v) => handleFilterChange('sectionNumber', v)}
-            >
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All sections" />
-              </SelectTrigger>
-              <SelectContent>
-                {SECTION_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect<(typeof SECTION_OPTIONS)[number]>
+              items={SECTION_OPTIONS}
+              value={
+                SECTION_OPTIONS.find(
+                  (opt) => opt.value === (filters.sectionNumber?.toString() ?? 'all')
+                ) ?? null
+              }
+              onValueChange={(item) => item && handleFilterChange('sectionNumber', item.value)}
+              getItemLabel={(opt) => opt.label}
+              getItemId={(opt) => opt.value}
+              placeholder="All sections"
+              triggerClassName="w-[180px]"
+            />
           </div>
         </div>
 

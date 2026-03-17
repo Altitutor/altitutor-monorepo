@@ -16,7 +16,7 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
+import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
@@ -377,44 +377,27 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Year Level *</FormLabel>
-                  <div className="relative">
-                    <Select 
-                      value={field.value || ""} 
-                      onValueChange={(value) => {
-                        field.onChange(value === "" ? undefined : value);
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger className={cn(field.value && "pr-10 [&_svg]:hidden")}>
-                          <SelectValue placeholder="Select year level" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {validYearLevels.map((year: string) => (
-                          <SelectItem key={year} value={year}>
-                            {year === 'Reception' ? 'Reception' : `Year ${year}`}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {field.value && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                  <FormControl>
+                    <SearchableSelect<string>
+                      items={validYearLevels}
+                      value={field.value && validYearLevels.includes(field.value) ? field.value : null}
+                      onValueChange={(item) => {
+                        if (item === null) {
                           const currentCurriculum = form.getValues('curriculum');
                           form.setValue('year_level', undefined as unknown as TrialContactFormValues['year_level'], { shouldValidate: true });
-                          // If curriculum requires a year level, clear it too
                           if (currentCurriculum && getValidYearLevels(currentCurriculum).length > 0) {
                             form.setValue('curriculum', undefined as unknown as TrialContactFormValues['curriculum'], { shouldValidate: true });
                           }
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
+                        } else {
+                          field.onChange(item);
+                        }
+                      }}
+                      getItemLabel={(year) => (year === 'Reception' ? 'Reception' : `Year ${year}`)}
+                      getItemId={(year) => year}
+                      placeholder="Select year level"
+                      allowClear
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -426,47 +409,30 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Curriculum *</FormLabel>
-                  <div className="relative">
-                    <Select 
-                      value={field.value || ""} 
-                      onValueChange={(value) => {
-                        field.onChange(value === "" ? undefined : value);
-                      }}
-                    >
-                      <FormControl>
-                        <SelectTrigger className={cn(field.value && "pr-10 [&_svg]:hidden")}>
-                          <SelectValue placeholder="Select curriculum" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {validCurriculums.map((curr: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY') => (
-                          <SelectItem key={curr} value={curr}>
-                            {curr}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    {field.value && (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
+                  <FormControl>
+                    <SearchableSelect<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'>
+                      items={validCurriculums}
+                      value={field.value ?? null}
+                      onValueChange={(item) => {
+                        if (item === null) {
                           const currentYearLevel = form.getValues('year_level');
                           form.setValue('curriculum', undefined as unknown as TrialContactFormValues['curriculum'], { shouldValidate: true });
-                          // If year level requires a curriculum, clear it too
                           if (currentYearLevel) {
                             const validCurriculumsForYear = getValidCurriculums(currentYearLevel);
                             if (validCurriculumsForYear.length > 0 && validCurriculumsForYear.length < 4) {
                               form.setValue('year_level', undefined as unknown as TrialContactFormValues['year_level'], { shouldValidate: true });
                             }
                           }
-                        }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 flex items-center justify-center rounded-sm opacity-70 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 z-10"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    )}
-                  </div>
+                        } else {
+                          field.onChange(item);
+                        }
+                      }}
+                      getItemLabel={(curr) => curr}
+                      getItemId={(curr) => curr}
+                      placeholder="Select curriculum"
+                      allowClear
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

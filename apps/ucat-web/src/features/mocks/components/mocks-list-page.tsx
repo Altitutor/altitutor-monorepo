@@ -2,15 +2,7 @@
 
 import { useMemo, useState } from 'react'
 import Link from 'next/link'
-import {
-  Badge,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui'
+import { Badge, Label, SearchableSelect } from '@altitutor/ui'
 import { UcatPageHeader } from '@/features/layout'
 import { useAttemptedMockIds, useMocks } from '@/features/mocks/hooks/use-mocks'
 import {
@@ -89,35 +81,47 @@ export function MocksListPage() {
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-2">
             <Label>Timing</Label>
-            <Select
-              value={filters.timed ?? 'all'}
-              onValueChange={(v) => handleFilterChange('timed', v)}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="timed">Timed</SelectItem>
-                <SelectItem value="untimed">Untimed</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: string; label: string }>
+              items={[
+                { value: 'all', label: 'All' },
+                { value: 'timed', label: 'Timed' },
+                { value: 'untimed', label: 'Untimed' },
+              ]}
+              value={
+                [
+                  { value: 'all', label: 'All' },
+                  { value: 'timed', label: 'Timed' },
+                  { value: 'untimed', label: 'Untimed' },
+                ].find((i) => i.value === (filters.timed ?? 'all')) ?? null
+              }
+              onValueChange={(item) => item && handleFilterChange('timed', item.value)}
+              getItemLabel={(i) => i.label}
+              getItemId={(i) => i.value}
+              placeholder="All"
+              triggerClassName="w-[140px]"
+            />
           </div>
           <div className="space-y-2">
             <Label>Source</Label>
-            <Select
-              value={filters.source ?? 'all'}
-              onValueChange={(v) => handleFilterChange('source', v)}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="my">My mocks</SelectItem>
-                <SelectItem value="public">Public mocks</SelectItem>
-              </SelectContent>
-            </Select>
+            <SearchableSelect<{ value: string; label: string }>
+              items={[
+                { value: 'all', label: 'All' },
+                { value: 'my', label: 'My mocks' },
+                { value: 'public', label: 'Public mocks' },
+              ]}
+              value={
+                [
+                  { value: 'all', label: 'All' },
+                  { value: 'my', label: 'My mocks' },
+                  { value: 'public', label: 'Public mocks' },
+                ].find((i) => i.value === (filters.source ?? 'all')) ?? null
+              }
+              onValueChange={(item) => item && handleFilterChange('source', item.value)}
+              getItemLabel={(i) => i.label}
+              getItemId={(i) => i.value}
+              placeholder="All"
+              triggerClassName="w-[140px]"
+            />
           </div>
         </div>
 

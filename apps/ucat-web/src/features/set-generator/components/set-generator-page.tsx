@@ -3,14 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import {
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@altitutor/ui'
+import { Label, SearchableSelect } from '@altitutor/ui'
 import { UcatPageHeader } from '@/features/layout'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 import { sectionLabels, SECTION_KEY_TO_NUMBER } from '@/features/set-generator/model/mock-data'
@@ -187,18 +180,14 @@ export function SetGeneratorPage() {
                 UCAT section to include. The set will only contain questions from this section.
               </p>
             </div>
-            <Select value={input.section} onValueChange={(v) => handleSectionChange(v as SectionKey)}>
-              <SelectTrigger className="w-full sm:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(sectionLabels) as SectionKey[]).map((section) => (
-                  <SelectItem key={section} value={section}>
-                    {sectionLabels[section]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <SearchableSelect<SectionKey>
+              items={(Object.keys(sectionLabels) as SectionKey[])}
+              value={input.section}
+              onValueChange={(item) => item && handleSectionChange(item)}
+              getItemLabel={(s) => sectionLabels[s]}
+              getItemId={(s) => s}
+              triggerClassName="w-full sm:w-48"
+            />
           </div>
 
           {/* Time: label + description left, toggle right */}

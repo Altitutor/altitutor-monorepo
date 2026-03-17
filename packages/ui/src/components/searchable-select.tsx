@@ -63,6 +63,8 @@ export interface SearchableSelectProps<T> {
   onSearchChange?: (query: string) => void;
   /** Custom render for each item */
   renderItem?: (item: T, isSelected: boolean) => React.ReactNode;
+  /** Whether an item is disabled (non-selectable) */
+  getItemDisabled?: (item: T) => boolean;
   /** Additional class names */
   className?: string;
   triggerClassName?: string;
@@ -103,6 +105,7 @@ export function SearchableSelect<T>({
   contentWidth,
   onSearchChange,
   renderItem,
+  getItemDisabled,
   className,
   triggerClassName,
   open: controlledOpen,
@@ -242,12 +245,14 @@ export function SearchableSelect<T>({
                         const id = getItemId(item);
                         const isSelected = value ? getItemId(value) === id : false;
                         const itemValue = `${id}-${getValue(item)}`;
+                        const isDisabled = getItemDisabled?.(item) ?? false;
 
                         return (
                           <CommandItem
                             key={id}
                             value={itemValue}
-                            onSelect={() => handleSelect(item)}
+                            disabled={isDisabled}
+                            onSelect={() => !isDisabled && handleSelect(item)}
                             className="flex items-center gap-2"
                           >
                             {renderItem ? (
@@ -287,12 +292,14 @@ export function SearchableSelect<T>({
                       const id = getItemId(item);
                       const isSelected = value ? getItemId(value) === id : false;
                       const itemValue = `${id}-${getValue(item)}`;
+                      const isDisabled = getItemDisabled?.(item) ?? false;
 
                       return (
                         <CommandItem
                           key={id}
                           value={itemValue}
-                          onSelect={() => handleSelect(item)}
+                          disabled={isDisabled}
+                          onSelect={() => !isDisabled && handleSelect(item)}
                           className="flex items-center gap-2"
                         >
                           {renderItem ? (
