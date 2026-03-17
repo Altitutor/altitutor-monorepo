@@ -35,7 +35,6 @@ import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets, use
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
-import { useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
@@ -122,9 +121,6 @@ export function UcatSetsPage() {
   const deleteSet = useDeleteUcatSet()
   const restoreSet = useRestoreUcatSet()
   const [showDeleted, setShowDeleted] = useState(false)
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
-    defaultFilters: DEFAULT_FILTERS,
-  })
 
   const [openCreate, setOpenCreate] = useState(false)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
@@ -151,11 +147,12 @@ export function UcatSetsPage() {
     if (editId) setEditingSetId(editId)
   }, [searchParams])
 
-  const { rows, visibleColumns } = useUcatSetsTable({
+  const { rows, visibleColumns, tableState } = useUcatSetsTable({
     data: sets.data,
     showDeleted,
     defaultFilters: DEFAULT_FILTERS,
     sections,
+    initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
   })
 
   const { page, pageSize } = tableState.state

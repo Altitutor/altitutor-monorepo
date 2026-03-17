@@ -44,6 +44,8 @@ type UseUcatSetsTableParams<T> = {
   showDeleted: boolean
   defaultFilters: Record<string, unknown[]>
   sections?: UcatSectionForStatus[]
+  /** Initial visible column keys; defaults to all base columns if not provided */
+  initialVisibleColumns?: string[]
 }
 
 type SetRowInput = {
@@ -65,6 +67,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
   showDeleted,
   defaultFilters,
   sections = [],
+  initialVisibleColumns,
 }: UseUcatSetsTableParams<T>) {
   const baseColumns: Array<{ key: string; label: string }> = [
     { key: 'name', label: 'Name' },
@@ -77,7 +80,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
   ]
 
   const tableState = useUcatTableState(
-    baseColumns.map((c) => c.key),
+    initialVisibleColumns ?? baseColumns.map((c) => c.key),
     {
       defaultFilters,
     }
