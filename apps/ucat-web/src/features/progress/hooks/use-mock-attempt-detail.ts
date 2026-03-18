@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
-import type { MockAttemptDetailResponse } from '@/app/api/ucat/progress/mocks/[id]/route'
+import type { MockAttemptDetailResponse } from '@/app/api/ucat/progress/mock-attempts/[id]/route'
 
 async function fetchMockAttemptDetail(
   mockAttemptId: string
 ): Promise<MockAttemptDetailResponse> {
-  const res = await fetch(`/api/ucat/progress/mocks/${mockAttemptId}`)
+  const res = await fetch(`/api/ucat/progress/mock-attempts/${mockAttemptId}`)
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error(err.error ?? 'Failed to fetch mock attempt')

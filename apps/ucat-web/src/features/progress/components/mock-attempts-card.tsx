@@ -189,7 +189,7 @@ export function MockAttemptsCard({
                       <TableRow
                         key={a.id}
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => router.push(`/progress/mocks/${a.id}`)}
+                        onClick={() => router.push(`/progress/mock-attempts/${a.id}`)}
                       >
                         <TableCell>{dateStr}</TableCell>
                         <TableCell>{a.mockName ?? '—'}</TableCell>

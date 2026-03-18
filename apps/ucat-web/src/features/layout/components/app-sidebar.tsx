@@ -118,7 +118,8 @@ export function AppSidebar({
                     const isProgressActive =
                       pathname === '/progress' ||
                       pathname.startsWith('/progress/sections/') ||
-                      pathname.startsWith('/progress/mocks')
+                      pathname.startsWith('/progress/mocks') ||
+                      pathname.startsWith('/progress/mock-attempts')
                     return (
                       <div key={item.href} className="space-y-0.5">
                         <Link
@@ -185,7 +186,8 @@ export function AppSidebar({
                               href="/progress/mocks"
                               className={cn(
                                 'flex items-center rounded-md px-2 py-1.5 text-sm transition-colors',
-                                pathname === '/progress/mocks'
+                                pathname === '/progress/mocks' ||
+                                pathname.startsWith('/progress/mock-attempts')
                                   ? 'bg-sidebar-foreground/15 text-sidebar-foreground font-medium'
                                   : 'text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
                               )}

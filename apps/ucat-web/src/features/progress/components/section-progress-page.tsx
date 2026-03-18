@@ -284,7 +284,7 @@ function SectionProgressContent({
   progressMode,
   sharedDateRange,
 }: {
-  section: { sectionId: string; sectionName: string }
+  section: { sectionId: string; sectionName: string; sectionNumber: number }
   score: number | null
   percentage: number
   totalPublicQuestions?: number
@@ -602,6 +602,7 @@ function SectionProgressContent({
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
         sharedDateRange={sharedDateRange}
+        sectionNumber={section.sectionNumber}
       />
     </div>
   )

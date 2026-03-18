@@ -79,7 +79,7 @@ export function PracticeAttemptsCard({
                 <TableRow
                   key={a.id}
                   className="cursor-pointer hover:bg-muted/50"
-                  onClick={() => router.push(`/progress/practice/${a.id}`)}
+                  onClick={() => router.push(`/progress/practice-sessions/${a.id}`)}
                 >
                   <TableCell className="font-medium">
                     {a.sectionName}

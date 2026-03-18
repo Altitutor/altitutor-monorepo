@@ -8,7 +8,7 @@ import { useRefreshedContentCache } from '@/features/question-engine/hooks/use-r
 import { ResultsQuestionViewer } from '@/features/question-engine/components/results-question-viewer'
 import { computeMarkingResult } from '@/features/question-engine/components/marking-body'
 import type { QuestionEngineExam } from '@/features/question-engine/model/types'
-import type { SetAttemptDetailResponse } from '@/app/api/ucat/progress/sets/[id]/route'
+import type { SetAttemptDetailResponse } from '@/app/api/ucat/progress/set-attempts/[id]/route'
 
 type QuestionAttemptForCard = SetAttemptDetailResponse['questionAttempts'][number]
 

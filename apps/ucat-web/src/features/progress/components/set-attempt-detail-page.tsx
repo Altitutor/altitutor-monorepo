@@ -13,7 +13,7 @@ type SetAttemptDetailPageProps = {
   attemptId: string
   backHref?: string
   backLabel?: string
-  /** When in nested route /progress/mocks/[id]/sets/[setAttemptId], pass mockAttemptId to show mock name in breadcrumb. */
+  /** When in nested route /progress/mock-attempts/[id]/sets/[setAttemptId], pass mockAttemptId to show mock name in breadcrumb. */
   mockAttemptId?: string
 }
 

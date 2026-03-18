@@ -11,6 +11,9 @@ export const SEGMENT_LABELS: Record<string, string> = {
   sessions: 'Sessions',
   practice: 'Practice',
   'set-generator': 'Set Generator',
+  'set-attempts': 'Set attempt',
+  'mock-attempts': 'Mock attempt',
+  'practice-sessions': 'Practice session',
 }
 
 /** Label for dynamic segments (UUIDs, etc.) when parent is known. */
@@ -19,6 +22,9 @@ const DYNAMIC_SEGMENT_LABELS: Record<string, string> = {
   sections: 'Section',
   mocks: 'Mock',
   sessions: 'Session',
+  'set-attempts': 'Set attempt',
+  'mock-attempts': 'Mock attempt',
+  'practice-sessions': 'Practice session',
 }
 
 const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -29,7 +35,7 @@ function isDynamicSegment(segment: string): boolean {
 
 /**
  * Paths that have actual pages. Intermediate segments (e.g. /progress/mocks,
- * /progress/mocks/[id]/sets) are not valid - linking to them would 404.
+ * /progress/mock-attempts/[id]/sets) are not valid - linking to them would 404.
  */
 function isValidPagePath(path: string): boolean {
   if (!path || path === '/') return false
@@ -51,7 +57,9 @@ function isValidPagePath(path: string): boolean {
     case 3:
       return (
         (segments[0] === 'progress' &&
-          ['sets', 'sections', 'mocks'].includes(segments[1]) &&
+          ['set-attempts', 'sections', 'mock-attempts', 'practice-sessions'].includes(
+            segments[1]
+          ) &&
           isDynamicSegment(segments[2])) ||
         (segments[0] === 'sets' &&
           segments[1] === 'sections' &&
@@ -69,11 +77,16 @@ function isValidPagePath(path: string): boolean {
       )
     case 5:
       return (
-        segments[0] === 'progress' &&
-        segments[1] === 'mocks' &&
-        isDynamicSegment(segments[2]) &&
-        segments[3] === 'sets' &&
-        isDynamicSegment(segments[4])
+        (segments[0] === 'progress' &&
+          segments[1] === 'mock-attempts' &&
+          isDynamicSegment(segments[2]) &&
+          segments[3] === 'sets' &&
+          isDynamicSegment(segments[4])) ||
+        (segments[0] === 'progress' &&
+          segments[1] === 'sections' &&
+          /^[1-4]$/.test(segments[2]) &&
+          segments[3] === 'set-attempts' &&
+          isDynamicSegment(segments[4]))
       )
     default:
       return false

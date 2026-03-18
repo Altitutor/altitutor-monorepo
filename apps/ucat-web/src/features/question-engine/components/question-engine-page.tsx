@@ -13,7 +13,7 @@ import {
   Search,
   X,
 } from 'lucide-react'
-import { Button, UcatExamActionButton, UcatExamShell } from '@altitutor/ui'
+import { Button, UcatExamActionButton, UcatExamShell, useToast } from '@altitutor/ui'
 import { UCAT_COLORS } from '@altitutor/ui/src/components/ucat/ucat-theme'
 import { useQuestionEngineData } from '@/features/question-engine/hooks/use-question-engine-data'
 import { useQuestionEngineState } from '@/features/question-engine/hooks/use-question-engine-state'
@@ -145,6 +145,7 @@ export function QuestionEnginePage({
     setSyllogismSnapshot,
   } = useQuestionEngineState(exam, { practice, onNeedMoreStems })
   const router = useRouter()
+  const { toast } = useToast()
   const { isLagging, runWithLag } = useUcatLag()
   const [, setTick] = useState(0)
   const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false)
@@ -289,6 +290,8 @@ export function QuestionEnginePage({
           return state.currentIndex > 0
         })()
       : state.currentIndex > 0)
+  const hasPreviousReviewQuestion =
+    state.phase === 'review' && Boolean(state.reviewFilter) && state.reviewFilterIndex > 0
 
   const practiceMarkingResult = useMemo(
     () =>
@@ -322,7 +325,7 @@ export function QuestionEnginePage({
         score: r.points,
       }))
       try {
-        await completePracticeSession.mutateAsync({
+        const res = await completePracticeSession.mutateAsync({
           sessionId: practiceSessionId,
           scorePoints: practiceMarkingResult.totalRawScore,
           totalPoints: practiceMarkingResult.maxRawScore,
@@ -330,6 +333,12 @@ export function QuestionEnginePage({
           stemsSnapshot: questionStems ?? [],
           questionScores,
         })
+        if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
+          toast({
+            title: 'Practice day discount earned!',
+            description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
+          })
+        }
       } catch {
         // Session complete may fail; still show completion UI
       }
@@ -354,6 +363,7 @@ export function QuestionEnginePage({
     completePracticeSession,
     questionStems,
     setState,
+    toast,
   ])
 
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
@@ -579,7 +589,7 @@ export function QuestionEnginePage({
           })
           break
         case 'previousQuestion':
-          if (hasPreviousQuestion) {
+          if (hasPreviousQuestion || hasPreviousReviewQuestion) {
             void runWithLag(() => {
               goPrevious()
             })
@@ -678,6 +688,7 @@ export function QuestionEnginePage({
     showConfirmFinishPracticeDialog,
     handleFinishPractice,
     hasPreviousQuestion,
+    hasPreviousReviewQuestion,
     questions,
     mode,
     runWithLag,
@@ -821,7 +832,13 @@ export function QuestionEnginePage({
         return
       }
     }
-    await handleExamCompleted()
+    const { earnedDiscount, discountCents } = await handleExamCompleted()
+    if (earnedDiscount && discountCents > 0) {
+      toast({
+        title: 'Practice day discount earned!',
+        description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
+      })
+    }
     setState((current) => ({
       ...current,
       phase: exam.sourceType === 'mock' ? 'mockScore' : 'marking',
@@ -860,7 +877,13 @@ export function QuestionEnginePage({
 
     if (exam.sourceType === 'set') {
       void runWithLag(async () => {
-        await handleExamCompleted()
+        const { earnedDiscount, discountCents } = await handleExamCompleted()
+        if (earnedDiscount && discountCents > 0) {
+          toast({
+            title: 'Practice day discount earned!',
+            description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
+          })
+        }
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -877,7 +900,13 @@ export function QuestionEnginePage({
     const nextSeg = getNextMockSegment(exam, state)
     if (!nextSeg) {
       void runWithLag(async () => {
-        await handleExamCompleted()
+        const { earnedDiscount, discountCents } = await handleExamCompleted()
+        if (earnedDiscount && discountCents > 0) {
+          toast({
+            title: 'Practice day discount earned!',
+            description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
+          })
+        }
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -1518,7 +1547,7 @@ export function QuestionEnginePage({
               </Button>
               {practiceSessionId ? (
                 <Link
-                  href={`/progress/practice/${practiceSessionId}`}
+                  href={`/progress/practice-sessions/${practiceSessionId}`}
                   data-skip-leave-warning
                   className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
                 >

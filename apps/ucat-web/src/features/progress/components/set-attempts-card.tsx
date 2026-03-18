@@ -34,6 +34,8 @@ type SetAttemptsCardProps = {
   mode: ProgressMode
   timeFrameDays: TimeFrameDays
   sharedDateRange?: SharedDateRange
+  /** When set, links go to /progress/sections/{sectionNumber}/set-attempts/{id} so back returns to section. */
+  sectionNumber?: number
 }
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
@@ -56,6 +58,7 @@ export function SetAttemptsCard({
   mode,
   timeFrameDays,
   sharedDateRange,
+  sectionNumber,
 }: SetAttemptsCardProps) {
   const router = useRouter()
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
@@ -183,7 +186,13 @@ export function SetAttemptsCard({
                       <TableRow
                         key={a.id}
                         className="cursor-pointer hover:bg-muted/50"
-                        onClick={() => router.push(`/progress/sets/${a.id}`)}
+                        onClick={() =>
+                          router.push(
+                            sectionNumber != null
+                              ? `/progress/sections/${sectionNumber}/set-attempts/${a.id}`
+                              : `/progress/set-attempts/${a.id}`
+                          )
+                        }
                       >
                         <TableCell>{dateStr}</TableCell>
                         <TableCell>{a.questionSetName ?? '—'}</TableCell>

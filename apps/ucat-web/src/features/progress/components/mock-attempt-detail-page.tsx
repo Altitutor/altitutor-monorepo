@@ -119,7 +119,7 @@ export function MockAttemptDetailPage({
             const total = set.totalPoints ?? 0
             const points = set.scorePoints ?? 0
             const href = set.setAttemptId
-              ? `/progress/mocks/${mockAttemptId}/sets/${set.setAttemptId}`
+              ? `/progress/mock-attempts/${mockAttemptId}/sets/${set.setAttemptId}`
               : null
 
             const content = (
