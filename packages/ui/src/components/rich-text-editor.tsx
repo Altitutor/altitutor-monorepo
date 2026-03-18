@@ -353,7 +353,16 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         allowBase64: false,
         resize: {
           enabled: true,
-          directions: ['left', 'right'],
+          directions: [
+            'top',
+            'bottom',
+            'left',
+            'right',
+            'top-left',
+            'top-right',
+            'bottom-left',
+            'bottom-right',
+          ],
           minWidth: 50,
           minHeight: 50,
           alwaysPreserveAspectRatio: true,

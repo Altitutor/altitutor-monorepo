@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@altitutor/ui'
 import { UcatPageHeader } from '@/features/layout'
 import { useStemFilters } from '@/features/set-generator/hooks/use-stem-filters'
 import { StemFiltersPanel } from '@/features/set-generator/components/stem-filters-panel'
@@ -27,6 +28,7 @@ function isSetTimed(set: { time_limit_seconds: number | null }): boolean {
 export function SetGeneratorPage() {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const { toast } = useToast()
   const filters = useStemFilters()
   const { data: sets } = useSets()
   const { data: attemptedSetIds = new Set<string>() } = useAttemptedSetIds()
@@ -111,6 +113,10 @@ export function SetGeneratorPage() {
         setId: blockingSet.id,
         sectionNumber: SECTION_KEY_TO_NUMBER[filters.input.section],
       })
+      toast({
+        variant: 'destructive',
+        description: `You have an unattempted ${filters.selectedSectionLabel} set with the same timing. Complete it before generating another.`,
+      })
       return
     }
     setBlockedState(null)
@@ -154,14 +160,6 @@ export function SetGeneratorPage() {
         onCustomTimeMinutesChange={filters.handleCustomTimeMinutesChange}
         actionButton={actionButton}
       />
-      {blockedState && (
-        <div
-          role="alert"
-          className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-        >
-          You have an unattempted {filters.selectedSectionLabel} set with the same timing. Complete it before generating another.
-        </div>
-      )}
       <MyGeneratedSetsList
         initialFilters={
           blockedState

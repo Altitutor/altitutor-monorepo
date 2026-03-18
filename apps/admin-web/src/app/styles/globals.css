@@ -60,8 +60,8 @@
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 28%;
-    --input: 0 0% 28%;
+    --border: 0 0% 18%;
+    --input: 0 0% 18%;
     --ring: 198 29% 67%;
   }
 }
@@ -90,7 +90,7 @@
   }
 }
 
-/* Tiptap ResizableNodeView - image resize handles (Linear-style) */
+/* Tiptap ResizableNodeView - invisible handles, resize from any edge/corner */
 [data-resize-container] {
   display: flex;
   justify-content: center;
@@ -102,34 +102,51 @@
   display: inline-block;
 }
 
-/* Resize handles - visible on left/right when image is selected */
+/* Invisible handles - no visual, just hit area with resize cursor */
 [data-resize-handle] {
   position: absolute;
   z-index: 10;
-  width: 8px;
-  min-width: 8px;
-  cursor: col-resize;
-  background: hsl(var(--primary) / 0.15);
-  border-radius: 4px;
-  transition: background 0.15s ease, width 0.15s ease;
+  background: transparent;
 }
 
-[data-resize-handle]:hover {
-  background: hsl(var(--primary) / 0.35);
-  width: 10px;
-  min-width: 10px;
+/* Edge handles - thin hit area */
+[data-resize-handle="top"],
+[data-resize-handle="bottom"] {
+  height: 6px;
+  cursor: n-resize;
 }
-
-[data-resize-handle="left"] {
-  left: -4px;
-  top: 0;
-  bottom: 0;
+[data-resize-handle="bottom"] {
+  cursor: s-resize;
 }
-
+[data-resize-handle="left"],
 [data-resize-handle="right"] {
-  right: -4px;
-  top: 0;
-  bottom: 0;
+  width: 6px;
+  cursor: w-resize;
+}
+[data-resize-handle="right"] {
+  cursor: e-resize;
+}
+
+/* Corner handles */
+[data-resize-handle="top-left"] {
+  width: 8px;
+  height: 8px;
+  cursor: nw-resize;
+}
+[data-resize-handle="top-right"] {
+  width: 8px;
+  height: 8px;
+  cursor: ne-resize;
+}
+[data-resize-handle="bottom-left"] {
+  width: 8px;
+  height: 8px;
+  cursor: sw-resize;
+}
+[data-resize-handle="bottom-right"] {
+  width: 8px;
+  height: 8px;
+  cursor: se-resize;
 }
 
 /* Selection highlight when image is selected */

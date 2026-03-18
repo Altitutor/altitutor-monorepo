@@ -1,5 +1,6 @@
 'use client'
 
+import { ToastProvider } from '@altitutor/ui'
 import { ThemeProvider } from '@/components/theme/theme-provider'
 import { ReactQueryProvider } from '@/lib/react-query/provider'
 import { AuthProvider } from '@/features/auth'
@@ -9,7 +10,7 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <ReactQueryProvider>
       <AuthProvider>
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-          {children}
+          <ToastProvider>{children}</ToastProvider>
         </ThemeProvider>
       </AuthProvider>
     </ReactQueryProvider>

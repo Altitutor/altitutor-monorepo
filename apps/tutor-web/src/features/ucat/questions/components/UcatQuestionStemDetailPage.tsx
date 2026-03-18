@@ -19,7 +19,6 @@ import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/u
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
   DEFAULT_OPTIONS,
   EMPTY_DOC,
@@ -155,7 +154,7 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
         breadcrumbs={[
           { label: 'UCAT', href: '/ucat' },
           { label: 'Questions', href: '/ucat/questions' },
-          { label: initial?.id ? proseMirrorToPlainText(initial.stem_text as Json) || 'Question stem' : 'Question stem' },
+          { label: stemId ?? 'Question stem' },
         ]}
         actions={
           <Button

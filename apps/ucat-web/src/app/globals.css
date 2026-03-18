@@ -22,13 +22,15 @@
   --accent-foreground: 212 86% 14%;
   --secondary: 0 0% 96%;
   --secondary-foreground: 224 20% 12%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
 }
 
 .dark {
   --background: 220 16% 10%;
   --foreground: 220 20% 96%;
-  --border: 220 14% 24%;
-  --input: 220 14% 24%;
+  --border: 220 14% 30%;
+  --input: 220 14% 30%;
   --ring: 198 29% 67%;
   --muted: 220 14% 16%;
   --muted-foreground: 220 12% 74%;
@@ -44,6 +46,8 @@
   --accent-foreground: 0 0% 100%;
   --secondary: 220 14% 18%;
   --secondary-foreground: 220 20% 96%;
+  --destructive: 0 62.8% 45%;
+  --destructive-foreground: 0 0% 100%;
 }
 
 html,
@@ -56,6 +60,20 @@ body {
   color: hsl(var(--foreground));
 }
 
+/* Set generator: transient background highlight for blocked set card */
+@keyframes set-highlight-fade {
+  0% {
+    background-color: hsl(var(--primary) / 0.25);
+  }
+  100% {
+    background-color: hsl(var(--card));
+  }
+}
+
+.ucat-set-highlight-transient {
+  animation: set-highlight-fade 2s ease-out forwards;
+}
+
 /* Progress page: pagination uses accent for active page button */
 .ucat-pagination button.bg-primary {
   background-color: hsl(var(--accent)) !important;
@@ -63,4 +81,57 @@ body {
 }
 .ucat-pagination button.bg-primary:hover:not(:disabled) {
   background-color: hsl(var(--accent) / 0.9) !important;
+}
+
+/* Tiptap ResizableNodeView - image resize handles (Linear-style) */
+[data-resize-container] {
+  display: flex;
+  justify-content: center;
+  margin: 0.75rem 0;
+}
+
+[data-resize-wrapper] {
+  position: relative;
+  display: inline-block;
+}
+
+[data-resize-handle] {
+  position: absolute;
+  z-index: 10;
+  width: 8px;
+  min-width: 8px;
+  cursor: col-resize;
+  background: hsl(var(--primary) / 0.15);
+  border-radius: 4px;
+  transition: background 0.15s ease, width 0.15s ease;
+}
+
+[data-resize-handle]:hover {
+  background: hsl(var(--primary) / 0.35);
+  width: 10px;
+  min-width: 10px;
+}
+
+[data-resize-handle="left"] {
+  left: -4px;
+  top: 0;
+  bottom: 0;
+}
+
+[data-resize-handle="right"] {
+  right: -4px;
+  top: 0;
+  bottom: 0;
+}
+
+.ProseMirror-selectednode [data-resize-container] {
+  outline: 2px solid hsl(var(--primary) / 0.6);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+[data-resize-container][data-resize-state="true"] {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 0.375rem;
 }
