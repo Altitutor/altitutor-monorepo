@@ -2,7 +2,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
-import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export const ucatSetsApi = {
   async list() {
@@ -88,6 +88,23 @@ export const ucatSetsApi = {
       const body = await response.json().catch(() => ({}))
       throw new Error(body.error ?? 'Failed to assign sessions')
     }
+  },
+
+  async addStemsToSet(setId: string, stemIds: string[]) {
+    const detail = await this.detail(setId)
+    if (!detail) throw new Error('Set not found')
+    const stems = (detail.stems as Array<{ stem_id: string }> | null) ?? []
+    const existingStemIds = stems.map((s) => s.stem_id)
+    const merged = [...new Set([...existingStemIds, ...stemIds])]
+    const payload: UcatQuestionSetPayload = {
+      name: detail.name,
+      description: proseMirrorToPlainText(detail.description) ?? '',
+      timeLimitSeconds: detail.time_limit_seconds ?? null,
+      isPrivate: !!detail.is_private,
+      isStudentGenerated: !!detail.is_student_generated,
+      stemIds: merged,
+    }
+    return this.update(setId, payload)
   },
 }
 

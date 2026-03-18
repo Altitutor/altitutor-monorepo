@@ -16,9 +16,45 @@ export type QuestionWithNoExplanation = {
   questionIndex: number
 }
 
+export type PrivateStemNotInSet = {
+  id: string
+  sectionId: string
+  sectionName: string
+  categoryName: string | null
+  stemText: unknown
+  questions: Array<{ id: string; question_text: unknown; index: number }>
+}
+
+export type SetReconciliationRow = {
+  id: string
+  name: string
+  sectionDisplay: string
+  stemCount: number
+  questionCount: number
+  timeLimitSeconds?: number | null
+  sectionCount: number
+  firstSectionNumber: number | null
+  questionCountStatus: 'match' | 'mismatch'
+  questionCountTooltip: string
+  timeLimitStatus: 'match' | 'partial' | 'mismatch' | 'untimed'
+  timeLimitTooltip: string
+}
+
+export type MockWithIncorrectSets = {
+  id: string
+  name: string
+  setCount: number
+  sets: Array<{ id: string; name: string }>
+}
+
 export type ReconciliationData = {
   stemsWithNoCategory: StemWithNoCategory[]
   questionsWithNoExplanation: QuestionWithNoExplanation[]
+  privateStemsNotInSet: PrivateStemNotInSet[]
+  setsWithIncorrectQuestionCount: SetReconciliationRow[]
+  setsWithIncorrectTiming: SetReconciliationRow[]
+  setsWithMultipleSections: SetReconciliationRow[]
+  mocksWithIncorrectSets: MockWithIncorrectSets[]
 }
 
 export async function fetchReconciliationData(): Promise<ReconciliationData> {
