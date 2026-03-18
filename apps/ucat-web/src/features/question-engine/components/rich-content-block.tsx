@@ -38,7 +38,7 @@ export function RichContentBlock({
 
   if (hasContent(json)) {
     if (displayContent == null || (preloadedContent == null && isLoading)) {
-      return <p className={className}>{plainText || '\u00A0'}</p>
+      return <p className={`whitespace-pre-line ${className ?? ''}`}>{plainText || '\u00A0'}</p>
     }
     return (
       <div className={className}>
@@ -51,5 +51,5 @@ export function RichContentBlock({
       </div>
     )
   }
-  return <p className={className}>{plainText || '\u00A0'}</p>
+  return <p className={`whitespace-pre-line ${className ?? ''}`}>{plainText || '\u00A0'}</p>
 }

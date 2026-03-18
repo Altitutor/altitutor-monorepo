@@ -55,6 +55,7 @@ import { getStemBoundaries } from '@/features/question-engine/lib/practice'
 import { QUESTION_ENGINE_SHORTCUT_MAP } from '@/features/question-engine/model/shortcuts'
 import { useQuestionEnginePersistence } from '@/features/question-engine/hooks/use-question-engine-persistence'
 import { useRefreshedContentCache } from '@/features/question-engine/hooks/use-refreshed-content-cache'
+import { SECTION_NAME_TO_NUMBER } from '@/features/sets/lib/section-labels'
 
 export function QuestionEnginePage({
   mode,
@@ -159,6 +160,7 @@ export function QuestionEnginePage({
     recordAnswersForUnit,
     handleExamCompleted,
     completePracticeSession,
+    attemptIds,
   } = useQuestionEnginePersistence({
     mode,
     exam,
@@ -171,6 +173,33 @@ export function QuestionEnginePage({
       ? state.currentIndex
       : state.viewingQuestionIndex ?? 0
   const getCachedContent = useRefreshedContentCache(questions, markingOrQuestionIndex)
+
+  const isResultsPhaseForActions = state.phase === 'marking' || state.phase === 'mockScore'
+  const setMockResultsActions = useMemo(() => {
+    if (!exam || !isResultsPhaseForActions || state.viewingQuestionIndex != null) return null
+    if (exam.sourceType === 'set') {
+      const sectionNumber = questions[0]?.sectionName
+        ? SECTION_NAME_TO_NUMBER[questions[0].sectionName]
+        : undefined
+      const backHref =
+        sectionNumber != null
+          ? `/sets/sections/${sectionNumber}/${encodeURIComponent(exam.sourceId)}`
+          : `/sets/${encodeURIComponent(exam.sourceId)}`
+      const viewReportHref =
+        attemptIds.setAttemptId != null
+          ? `/progress/set-attempts/${attemptIds.setAttemptId}`
+          : undefined
+      return { backHref, backLabel: 'Back to sets' as const, viewReportHref }
+    }
+    if (exam.sourceType === 'mock') {
+      const viewReportHref =
+        attemptIds.mockAttemptId != null
+          ? `/progress/mock-attempts/${attemptIds.mockAttemptId}`
+          : undefined
+      return { backHref: '/mocks', backLabel: 'Back to mocks' as const, viewReportHref }
+    }
+    return null
+  }, [exam, isResultsPhaseForActions, state.viewingQuestionIndex, questions, attemptIds])
 
   const isSetOrMock = exam && (exam.sourceType === 'set' || exam.sourceType === 'mock')
   const isQuestionsOrStem =
@@ -1375,6 +1404,8 @@ export function QuestionEnginePage({
                   </span>
                 </UcatExamActionButton>
               </>
+            ) : (exam?.sourceType === 'set' || exam?.sourceType === 'mock') ? (
+              null
             ) : (
               <UcatExamActionButton
                 onClick={() =>
@@ -1614,6 +1645,9 @@ export function QuestionEnginePage({
                   setState((current) => ({ ...current, viewingQuestionIndex: index }))
                 )
               }
+              backHref={setMockResultsActions?.backHref}
+              backLabel={setMockResultsActions?.backLabel}
+              viewReportHref={setMockResultsActions?.viewReportHref}
             />
           ) : (
             <MarkingBody
@@ -1628,6 +1662,9 @@ export function QuestionEnginePage({
                   setState((current) => ({ ...current, viewingQuestionIndex: index }))
                 )
               }
+              backHref={setMockResultsActions?.backHref}
+              backLabel={setMockResultsActions?.backLabel}
+              viewReportHref={setMockResultsActions?.viewReportHref}
             />
           )
         ) : isReviewScreen ? (

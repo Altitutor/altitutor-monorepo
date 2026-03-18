@@ -208,7 +208,8 @@ export function useQuestionEnginePersistence({
     },
   })
 
-  const completeSetAttempt = useMutation<unknown, Error, CompleteSetAttemptInput>({
+  type SetAttemptResponse = { success?: boolean; earnedDiscount?: boolean; discountCents?: number }
+  const completeSetAttempt = useMutation<SetAttemptResponse, Error, CompleteSetAttemptInput>({
     mutationFn: async ({ studentQuestionSetAttemptId }) => {
       const response = await fetch(`/api/ucat/set-attempts/${studentQuestionSetAttemptId}`, {
         method: 'PATCH',
@@ -220,7 +221,7 @@ export function useQuestionEnginePersistence({
       if (!response.ok) {
         throw new Error('Failed to complete set attempt')
       }
-      return response.json()
+      return response.json() as Promise<SetAttemptResponse>
     },
   })
 
@@ -240,8 +241,9 @@ export function useQuestionEnginePersistence({
     },
   })
 
+  type PracticeSessionResponse = { success?: boolean; earnedDiscount?: boolean; discountCents?: number }
   const completePracticeSession = useMutation<
-    unknown,
+    PracticeSessionResponse,
     Error,
     CompletePracticeSessionInput
   >({
@@ -266,7 +268,7 @@ export function useQuestionEnginePersistence({
       if (!response.ok) {
         throw new Error('Failed to complete practice session')
       }
-      return response.json()
+      return response.json() as Promise<PracticeSessionResponse>
     },
   })
 
@@ -571,12 +573,15 @@ export function useQuestionEnginePersistence({
     upsertQuestionAttempt,
   ])
 
-  async function handleExamCompleted(): Promise<void> {
-    if (!isStudentEngine) return
-    if (!exam) return
+  async function handleExamCompleted(): Promise<{
+    earnedDiscount: boolean
+    discountCents: number
+  }> {
+    if (!isStudentEngine) return { earnedDiscount: false, discountCents: 0 }
+    if (!exam) return { earnedDiscount: false, discountCents: 0 }
 
     if (mode === 'questionStem' || mode === 'questions') {
-      return
+      return { earnedDiscount: false, discountCents: 0 }
     }
 
     const t = questionTimingRef.current
@@ -628,11 +633,24 @@ export function useQuestionEnginePersistence({
     const setIds = new Set<string>()
     exam.questions.forEach((q) => setIds.add(q.questionSetId))
 
+    for (const setId of setIds) {
+      const existing = attemptStateRef.current.setAttemptIdsBySetId.get(setId)
+      if (!existing) {
+        const wasTimed = getWasTimedForSetId(mode, exam, setId)
+        const data = await createSetAttempt.mutateAsync({
+          questionSetId: setId,
+          mockAttemptId: mode === 'mock' ? attemptStateRef.current.mockAttemptId : null,
+          wasTimed,
+        })
+        attemptStateRef.current.setAttemptIdsBySetId.set(setId, data.id)
+      }
+    }
+
     const setAttemptIds = Array.from(setIds)
       .map((setId) => attemptStateRef.current.setAttemptIdsBySetId.get(setId))
       .filter((id): id is string => id != null)
 
-    await Promise.all(
+    const setResults = await Promise.all(
       setAttemptIds.map((id) =>
         completeSetAttempt.mutateAsync({ studentQuestionSetAttemptId: id })
       )
@@ -642,6 +660,12 @@ export function useQuestionEnginePersistence({
       await completeMockAttempt.mutateAsync({
         studentMockAttemptId: attemptStateRef.current.mockAttemptId,
       })
+    }
+
+    const earned = setResults.find((r) => r?.earnedDiscount)
+    return {
+      earnedDiscount: earned?.earnedDiscount ?? false,
+      discountCents: earned?.discountCents ?? 0,
     }
   }
 
@@ -661,11 +685,27 @@ export function useQuestionEnginePersistence({
     }
   }
 
+  const attemptIds = useMemo(() => {
+    if (!exam) return { setAttemptId: null as string | null, mockAttemptId: null as string | null }
+    if (mode === 'set') {
+      const id = attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ?? null
+      return { setAttemptId: id, mockAttemptId: null }
+    }
+    if (mode === 'mock') {
+      return {
+        setAttemptId: null,
+        mockAttemptId: attemptStateRef.current.mockAttemptId,
+      }
+    }
+    return { setAttemptId: null, mockAttemptId: null }
+  }, [exam, mode])
+
   return {
     recordAnswer,
     recordAnswersForUnit,
     handleExamCompleted,
     completePracticeSession,
+    attemptIds,
   }
 }
 

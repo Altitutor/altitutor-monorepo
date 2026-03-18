@@ -5,6 +5,10 @@ export const SECTION_NUMBER_TO_NAME: Record<number, string> = {
   4: 'Situational Judgement',
 }
 
+export const SECTION_NAME_TO_NUMBER: Record<string, number> = Object.fromEntries(
+  Object.entries(SECTION_NUMBER_TO_NAME).map(([num, name]) => [name, Number(num)])
+)
+
 export function formatSetSections(sections: Array<{ section_number?: number; name?: string }> | null): string {
   if (!sections || !Array.isArray(sections) || sections.length === 0) {
     return ''
