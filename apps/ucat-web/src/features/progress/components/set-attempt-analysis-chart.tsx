@@ -91,7 +91,10 @@ export function SetAttemptAnalysisChart({
 
   const maxTime = Math.max(...chartData.map((d) => d.value), 1)
   const chartWidth = Math.max(600, chartData.length * 24)
-  const barWidth = Math.max(20, Math.min(32, (chartWidth - (chartData.length - 1) * 0) / chartData.length))
+  const marginHorizontal = 10 // left 5 + right 5
+  // Use full category width so bars touch with no gaps
+  const barWidth =
+    chartData.length > 0 ? (chartWidth - marginHorizontal) / chartData.length : 24
   const yAxisWidth = 52
 
   const yAxisTicks = [0, 0.25, 0.5, 0.75, 1].map((t) =>
