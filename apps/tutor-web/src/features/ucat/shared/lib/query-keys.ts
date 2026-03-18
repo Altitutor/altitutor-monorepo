@@ -17,4 +17,5 @@ export const ucatKeys = {
   classes: () => [...ucatKeys.all, 'classes'] as const,
   classSessions: (classId: string) => [...ucatKeys.classes(), classId, 'sessions'] as const,
   sessionResources: (sessionId: string) => [...ucatKeys.classes(), 'session', sessionId, 'resources'] as const,
+  reconciliation: () => [...ucatKeys.all, 'reconciliation'] as const,
 }

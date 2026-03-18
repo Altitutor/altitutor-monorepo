@@ -27,6 +27,11 @@ const sections: { heading: string; cards: Card[] }[] = [
         description: 'Assemble full mock exams from ordered sets',
         href: '/ucat/mocks',
       },
+      {
+        title: 'Reconciliation',
+        description: 'Fix uncategorized stems and questions missing explanations',
+        href: '/ucat/reconciliation',
+      },
     ],
   },
   {

@@ -29,6 +29,7 @@ const ucatDropdownChildren: NavLink[] = [
   { title: 'Mocks', href: '/ucat/mocks' },
   { title: 'Students', href: '/ucat/students' },
   { title: 'Classes', href: '/ucat/classes' },
+  { title: 'Reconciliation', href: '/ucat/reconciliation' },
   { title: 'Question Categories', href: '/ucat/question-stem-categories' },
   { title: 'Question Tags', href: '/ucat/question-tags' },
   { title: 'Sections', href: '/ucat/sections' },
