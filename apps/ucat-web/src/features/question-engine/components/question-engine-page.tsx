@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -62,6 +63,9 @@ export function QuestionEnginePage({
   practice = false,
   confirmPracticeTransitions = true,
   timePerQuestionSeconds = null,
+  backHref,
+  onBack,
+  onNeedMoreStems,
 }: {
   mode: QuestionEngineMode
   sourceId?: string
@@ -73,6 +77,12 @@ export function QuestionEnginePage({
   confirmPracticeTransitions?: boolean
   /** Questions/questionStem mode only. Seconds per question for timing. Omit or null = untimed. */
   timePerQuestionSeconds?: number | null
+  /** When provided, show a "Back" link in the toolbar that navigates here (e.g. /practice). */
+  backHref?: string
+  /** When provided, used instead of router.back() for Done/Exit. Enables clearing session state before navigating. */
+  onBack?: () => void
+  /** Unlimited mode: fetch next stems when we run out. Parent appends to questionStems and returns new stems. */
+  onNeedMoreStems?: (excludeStemIds: string[]) => Promise<QuestionStemWithQuestions[] | null>
 }) {
   const query = useQuestionEngineData({
     mode,
@@ -129,7 +139,7 @@ export function QuestionEnginePage({
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
     setSyllogismSnapshot,
-  } = useQuestionEngineState(exam, { practice })
+  } = useQuestionEngineState(exam, { practice, onNeedMoreStems })
   const router = useRouter()
   const { isLagging, runWithLag } = useUcatLag()
   const [, setTick] = useState(0)
@@ -382,7 +392,8 @@ export function QuestionEnginePage({
                 instructionsIndex: instructionsScreens.length - 1,
               }))
             } else {
-              router.back()
+              if (onBack) onBack()
+              else router.back()
             }
           }
         }
@@ -580,7 +591,47 @@ export function QuestionEnginePage({
     runWithLag,
     router,
     instructionsScreens.length,
+    onBack,
   ])
+
+  const practiceMarkingResult = useMemo(
+    () =>
+      isPracticeMode && (exam?.questions?.length ?? 0) > 0
+        ? computeMarkingResult(
+            exam!.questions,
+            state.selectedAnswers,
+            state.syllogismSnapshots
+          )
+        : null,
+    [
+      isPracticeMode,
+      exam?.questions,
+      state.selectedAnswers,
+      state.syllogismSnapshots,
+    ]
+  )
+  const practiceCorrectCount =
+    practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0
+
+  function handleFinishPractice() {
+    if (!isPracticeMode || !exam) return
+    const qs = exam.questions
+    if (state.phase === 'question') {
+      const { startIndex, endIndex } = getStemBoundaries(
+        qs,
+        state.currentIndex,
+        mode as 'questions' | 'questionStem'
+      )
+      recordAnswersForUnit(startIndex, endIndex)
+    }
+    setState((current) => ({
+      ...current,
+      phase: 'practiceComplete',
+      viewingQuestionIndex: null,
+      practiceAnswerUnitStartIndex: undefined,
+      practiceAnswerUnitEndIndex: undefined,
+    }))
+  }
 
   if ((mode === 'set' || mode === 'mock') && query.isLoading) {
     return <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-muted-foreground">Loading exam...</div>
@@ -604,17 +655,14 @@ export function QuestionEnginePage({
   const isResultsPhase = isMarkingPhase || isMockScorePhase
   const isPracticeAnswerPhase = state.phase === 'practiceAnswer'
   const isPracticeCompletePhase = state.phase === 'practiceComplete'
+  const isLoadingMorePhase = state.phase === 'loadingMore'
   const isReviewScreen = isReviewPhase && !state.reviewFilter
   const isReviewMode = isReviewPhase && state.reviewFilter
   const questionLabel = (() => {
     if ((isResultsPhase || isPracticeAnswerPhase) && state.viewingQuestionIndex != null) {
       const viewing = state.viewingQuestionIndex
-      const unitStart = state.practiceAnswerUnitStartIndex ?? viewing
-      const unitEnd = state.practiceAnswerUnitEndIndex ?? viewing
       if (isPracticeAnswerPhase) {
-        const posInUnit = viewing - unitStart + 1
-        const unitSize = unitEnd - unitStart + 1
-        return `${posInUnit} of ${unitSize}`
+        return `${viewing + 1} of ${questions.length}`
       }
       const q = questions[viewing]
       const displayIndex = q ? q.index + 1 : viewing + 1
@@ -630,6 +678,20 @@ export function QuestionEnginePage({
         }
       }
       return `${effectiveCurrentIndex + 1} of ${questions.length}`
+    }
+    if (
+      exam?.sourceType === 'questionStem' &&
+      state.phase === 'question' &&
+      onNeedMoreStems
+    ) {
+      const { startIndex, endIndex } = getStemBoundaries(
+        questions,
+        state.currentIndex,
+        'questionStem'
+      )
+      const posInStem = state.currentIndex - startIndex + 1
+      const stemSize = endIndex - startIndex + 1
+      return `${posInStem} of ${stemSize}`
     }
     if (exam?.sourceType === 'mock' && state.phase === 'question') {
       const seg = getCurrentMockSegment(exam, state)
@@ -905,7 +967,8 @@ export function QuestionEnginePage({
                     currentIndex: 0,
                     showExitResultsDialog: false,
                   }))
-                  router.back()
+                  if (onBack) onBack()
+                  else router.back()
                 })
               }
               onCancel={() =>
@@ -983,9 +1046,11 @@ export function QuestionEnginePage({
     <>
       <UcatExamShell
         sectionTitle={
-          isPracticeCompletePhase
-            ? `${exam.title} – Complete`
-            : isResultsPhase
+          isLoadingMorePhase
+            ? `${exam.title} – Loading…`
+            : isPracticeCompletePhase
+              ? `${exam.title} – Complete`
+              : isResultsPhase
               ? `${exam.title} – Results`
               : isReviewScreen
                 ? exam.title
@@ -1014,24 +1079,41 @@ export function QuestionEnginePage({
               <span className="text-[13pt]">Instructions</span>
             </button>
           ) : isInstructionsPhase ? null : (
-            <button
-              type="button"
-              className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
-              onClick={() =>
-                void runWithLag(() =>
-                  setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
-                )
-              }
-            >
-              <Calculator className="h-4 w-4" />
-              <span className="text-[13pt]">
-                <span className="underline">C</span>alculator
-              </span>
-            </button>
+            <>
+              {backHref ? (
+                <Link
+                  href={backHref}
+                  className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
+                  onClick={(e) => {
+                    if (onBack) {
+                      e.preventDefault()
+                      onBack()
+                    }
+                  }}
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  <span className="text-[13pt]">Back</span>
+                </Link>
+              ) : null}
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
+                onClick={() =>
+                  void runWithLag(() =>
+                    setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
+                  )
+                }
+              >
+                <Calculator className="h-4 w-4" />
+                <span className="text-[13pt]">
+                  <span className="underline">C</span>alculator
+                </span>
+              </button>
+            </>
           )
         }
         toolRight={
-          isResultsPhase || isReviewScreen || isInstructionsPhase || isPracticeAnswerPhase || isPracticeCompletePhase ? null : (
+          isResultsPhase || isReviewScreen || isInstructionsPhase || isPracticeAnswerPhase || isPracticeCompletePhase || isLoadingMorePhase ? null : (
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
@@ -1072,6 +1154,16 @@ export function QuestionEnginePage({
             >
               <span className="text-[14pt]">Back to results</span>
             </UcatExamActionButton>
+          ) : isPracticeMode &&
+            (state.phase === 'question' || state.phase === 'practiceAnswer') ? (
+            <UcatExamActionButton
+              onClick={() => void runWithLag(handleFinishPractice)}
+              icon={<LogOut className="h-4 w-4" />}
+            >
+              <span className="text-[14pt]">
+                <span className="underline">F</span>inish practice
+              </span>
+            </UcatExamActionButton>
           ) : isResultsPhase ? null : isReviewScreen ? (
             <UcatExamActionButton
               onClick={() =>
@@ -1111,35 +1203,37 @@ export function QuestionEnginePage({
                   <span className="text-[14pt]">Previous</span>
                 </UcatExamActionButton>
               ) : null}
-              <UcatExamActionButton
-                onClick={() =>
-                  void runWithLag(() => {
-                    const unitEnd = state.practiceAnswerUnitEndIndex ?? 0
-                    const viewing = state.viewingQuestionIndex ?? 0
-                    const isGoingToNextStem = viewing >= unitEnd
-                    if (isGoingToNextStem && confirmPracticeTransitions) {
-                      setShowConfirmNextStemDialog(true)
-                    } else {
-                      goNext()
-                    }
-                  })
-                }
-                variant="highlight"
-                icon={<ArrowRight className="h-4 w-4" />}
-                iconRight
-              >
-                <span className="text-[14pt]">
-                  {(state.viewingQuestionIndex ?? 0) >= (state.practiceAnswerUnitEndIndex ?? 0) ? (
-                    <>
-                      <span className="underline">N</span>ext question
-                    </>
-                  ) : (
-                    <>
-                      <span className="underline">N</span>ext
-                    </>
-                  )}
-                </span>
-              </UcatExamActionButton>
+              {!(state.viewingQuestionIndex === questions.length - 1 && !onNeedMoreStems) ? (
+                <UcatExamActionButton
+                  onClick={() =>
+                    void runWithLag(() => {
+                      const unitEnd = state.practiceAnswerUnitEndIndex ?? 0
+                      const viewing = state.viewingQuestionIndex ?? 0
+                      const isGoingToNextStem = viewing >= unitEnd
+                      if (isGoingToNextStem && confirmPracticeTransitions) {
+                        setShowConfirmNextStemDialog(true)
+                      } else {
+                        goNext()
+                      }
+                    })
+                  }
+                  variant="highlight"
+                  icon={<ArrowRight className="h-4 w-4" />}
+                  iconRight
+                >
+                  <span className="text-[14pt]">
+                    {(state.viewingQuestionIndex ?? 0) >= (state.practiceAnswerUnitEndIndex ?? 0) ? (
+                      <>
+                        <span className="underline">N</span>ext question
+                      </>
+                    ) : (
+                      <>
+                        <span className="underline">N</span>ext
+                      </>
+                    )}
+                  </span>
+                </UcatExamActionButton>
+              ) : null}
             </>
           ) : isResultsPhase ? (
             state.viewingQuestionIndex != null ? (
@@ -1265,7 +1359,9 @@ export function QuestionEnginePage({
             </>
           ) : isPracticeCompletePhase ? (
             <UcatExamActionButton
-              onClick={() => void runWithLag(() => router.back())}
+              onClick={() =>
+                void runWithLag(() => (onBack ? onBack() : router.back()))
+              }
               variant="highlight"
               icon={<ArrowRight className="h-4 w-4" />}
               iconRight
@@ -1349,8 +1445,14 @@ export function QuestionEnginePage({
           <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
             <p className="text-[14pt]">Practice complete.</p>
             <p className="text-[12pt] text-muted-foreground">
-              You have reviewed all questions.
+              {practiceMarkingResult
+                ? `${practiceCorrectCount} correct / ${questions.length} total`
+                : 'You have reviewed all questions.'}
             </p>
+          </div>
+        ) : isLoadingMorePhase ? (
+          <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">
+            <p className="text-[14pt]">Loading next question…</p>
           </div>
         ) : isPracticeAnswerPhase || isResultsPhase ? (
           state.viewingQuestionIndex != null &&

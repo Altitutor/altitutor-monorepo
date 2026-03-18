@@ -32,6 +32,11 @@ export type SetGeneratorInput = {
   customTimeMinutes: number | null
   questionCount: number
   /**
+   * Practice mode only. When true, ignore questionCount and fetch stems on demand.
+   * Engine keeps loading more as the user progresses.
+   */
+  unlimited?: boolean
+  /**
    * Practice mode only. Seconds per question for timing. Null = untimed.
    * When set, each question (or stem = perQuestion × questions in stem) is timed.
    */

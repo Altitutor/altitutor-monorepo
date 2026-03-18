@@ -1,22 +1,26 @@
 'use client'
 
-import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useMutation } from '@tanstack/react-query'
 import { UcatPageHeader } from '@/features/layout'
-import { QuestionEnginePage } from '@/features/question-engine'
-import { UcatLagProvider } from '@/features/question-engine/context/ucat-lag-context'
 import type { QuestionStemWithQuestions } from '@/features/question-engine/model/types'
 import { useStemFilters } from '@/features/set-generator/hooks/use-stem-filters'
 import { StemFiltersPanel } from '@/features/set-generator/components/stem-filters-panel'
 import type { SetGeneratorInput } from '@/features/set-generator/model/types'
+import { setPracticeSession } from '@/features/practice/lib/session-storage'
 
 export function PracticePage() {
-  const [stems, setStems] = useState<QuestionStemWithQuestions[] | null>(null)
-  const [timePerQuestionSeconds, setTimePerQuestionSeconds] = useState<number | null>(null)
-  const filters = useStemFilters({ timeControlType: 'perQuestion' })
+  const router = useRouter()
+  const filters = useStemFilters({
+    timeControlType: 'perQuestion',
+    showUnlimitedOption: true,
+  })
 
   const startMutation = useMutation({
-    mutationFn: async (payload: SetGeneratorInput) => {
+    mutationFn: async (payload: SetGeneratorInput & { unlimited?: boolean }) => {
+      if (payload.unlimited) {
+        return { unlimited: true as const, stems: [] }
+      }
       const response = await fetch('/api/ucat/practice-stems', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -36,39 +40,47 @@ export function PracticePage() {
       }
     },
     onSuccess: (data, variables) => {
-      setStems(data.stems)
-      setTimePerQuestionSeconds(
+      const timePerQuestionSeconds =
         variables.timePerQuestionSeconds != null && variables.timePerQuestionSeconds > 0
           ? variables.timePerQuestionSeconds
           : null
-      )
+
+      if ('unlimited' in data && data.unlimited) {
+        setPracticeSession({
+          mode: 'unlimited',
+          filters: variables,
+          timePerQuestionSeconds,
+        })
+      } else {
+        setPracticeSession({
+          mode: 'set',
+          stems: data.stems,
+          timePerQuestionSeconds,
+        })
+      }
+      router.push('/practice/session')
     },
   })
+
+  function handleStart() {
+    const unlimited = filters.questionCountMode === 'unlimited'
+    const payload = {
+      ...filters.input,
+      unlimited: unlimited || undefined,
+    }
+    startMutation.mutate(payload)
+  }
 
   const actionButton = (
     <button
       type="button"
-      onClick={() => !startMutation.isPending && startMutation.mutate(filters.input)}
+      onClick={() => !startMutation.isPending && handleStart()}
       disabled={startMutation.isPending}
       className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground disabled:opacity-60"
     >
       {startMutation.isPending ? 'Loading…' : 'Start practice'}
     </button>
   )
-
-  if (stems != null && stems.length > 0) {
-    return (
-      <UcatLagProvider>
-        <QuestionEnginePage
-          mode="questionStem"
-          sourceId="practice"
-          questionStems={stems}
-          practice
-          timePerQuestionSeconds={timePerQuestionSeconds}
-        />
-      </UcatLagProvider>
-    )
-  }
 
   return (
     <div className="space-y-6">
@@ -97,6 +109,9 @@ export function PracticePage() {
         onTimePerQuestionChange={filters.handleTimePerQuestionChange}
         timeControlType="perQuestion"
         sectionTimePerQuestionSeconds={filters.sectionTimePerQuestionSeconds}
+        showUnlimitedOption={filters.showUnlimitedOption}
+        questionCountMode={filters.questionCountMode}
+        onQuestionCountModeChange={filters.handleQuestionCountModeChange}
         actionButton={actionButton}
       />
     </div>

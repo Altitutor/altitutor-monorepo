@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type {
   QuestionEngineExam,
   QuestionEngineState,
@@ -21,6 +21,11 @@ import {
   getStemBoundaries,
   isLastQuestionOfUnit,
 } from '@/features/question-engine/lib/practice'
+import type { QuestionStemWithQuestions } from '@/features/question-engine/model/types'
+
+export type OnNeedMoreStems = (
+  excludeStemIds: string[]
+) => Promise<QuestionStemWithQuestions[] | null>
 
 const initialState: QuestionEngineState = {
   phase: 'intro',
@@ -49,16 +54,71 @@ const initialState: QuestionEngineState = {
 
 export function useQuestionEngineState(
   exam: QuestionEngineExam | undefined,
-  options?: { practice?: boolean }
+  options?: { practice?: boolean; onNeedMoreStems?: OnNeedMoreStems }
 ) {
   const practice = options?.practice ?? false
+  const onNeedMoreStems = options?.onNeedMoreStems
   const mode = exam?.sourceType
   const isPracticeMode =
     practice && (mode === 'questions' || mode === 'questionStem')
 
   const [state, setState] = useState<QuestionEngineState>(initialState)
+  const loadingMoreFiredRef = useRef<string | null>(null)
 
   const questions = useMemo(() => exam?.questions ?? [], [exam?.questions])
+
+  // When in loadingMore phase, fetch next stems via callback
+  useEffect(() => {
+    if (
+      state.phase !== 'loadingMore' ||
+      !onNeedMoreStems ||
+      state.loadingMoreTargetIndex == null ||
+      !state.loadingMoreExcludeStemIds
+    ) {
+      return
+    }
+    const key = `${state.loadingMoreTargetIndex}-${state.loadingMoreExcludeStemIds.join(',')}`
+    if (loadingMoreFiredRef.current === key) return
+    loadingMoreFiredRef.current = key
+
+    void (async () => {
+      const excludeIds = state.loadingMoreExcludeStemIds ?? []
+      const newStems = await onNeedMoreStems(excludeIds)
+      loadingMoreFiredRef.current = null
+      setState((current) => {
+        if (current.phase !== 'loadingMore') return current
+        if (newStems?.length) {
+          return {
+            ...current,
+            phase: 'question' as const,
+            currentIndex: current.loadingMoreTargetIndex!,
+            loadingMoreTargetIndex: undefined,
+            loadingMoreExcludeStemIds: undefined,
+            timerStartedAt:
+              exam?.sourceType === 'questionStem' &&
+              exam?.timePerQuestionSeconds != null &&
+              exam.timePerQuestionSeconds > 0
+                ? Date.now()
+                : current.timerStartedAt,
+          }
+        }
+        return {
+          ...current,
+          phase: 'practiceComplete' as const,
+          loadingMoreTargetIndex: undefined,
+          loadingMoreExcludeStemIds: undefined,
+        }
+      })
+    })()
+  }, [
+    state.phase,
+    state.loadingMoreTargetIndex,
+    state.loadingMoreExcludeStemIds,
+    onNeedMoreStems,
+    exam?.sourceType,
+    exam?.timePerQuestionSeconds,
+    setState,
+  ])
 
   // When exam loads with instructions, start in instructions phase (set/mock mode)
   useEffect(() => {
@@ -317,14 +377,31 @@ export function useQuestionEngineState(
       } else {
         const nextQuestionIndex = unitEnd + 1
         if (nextQuestionIndex >= questions.length) {
-          setState((current) => ({
-            ...current,
-            phase: 'practiceComplete',
-            currentIndex: nextQuestionIndex,
-            viewingQuestionIndex: null,
-            practiceAnswerUnitStartIndex: undefined,
-            practiceAnswerUnitEndIndex: undefined,
-          }))
+          if (onNeedMoreStems) {
+            const excludeStemIds = questions
+              .map((q) => q.stemId)
+              .filter((id): id is string => id != null)
+            const seenStemIds = [...new Set(excludeStemIds)]
+            setState((current) => ({
+              ...current,
+              phase: 'loadingMore',
+              currentIndex: nextQuestionIndex,
+              viewingQuestionIndex: null,
+              practiceAnswerUnitStartIndex: undefined,
+              practiceAnswerUnitEndIndex: undefined,
+              loadingMoreTargetIndex: nextQuestionIndex,
+              loadingMoreExcludeStemIds: seenStemIds,
+            }))
+          } else {
+            setState((current) => ({
+              ...current,
+              phase: 'practiceComplete',
+              currentIndex: nextQuestionIndex,
+              viewingQuestionIndex: null,
+              practiceAnswerUnitStartIndex: undefined,
+              practiceAnswerUnitEndIndex: undefined,
+            }))
+          }
         } else {
           setState((current) => {
             const next = {

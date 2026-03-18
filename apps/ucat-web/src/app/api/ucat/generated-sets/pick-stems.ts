@@ -66,6 +66,13 @@ function resolveEffectiveQuestionCount(
   return Math.min(clampedRequested, hardCap, availableQuestions)
 }
 
+export type PickStemsOptions = {
+  /** Exclude these stem IDs from the result. Used for unlimited mode to avoid repeats. */
+  excludeStemIds?: string[]
+  /** When set, return at most this many stems. For unlimited mode, use 1. */
+  limitStems?: number
+}
+
 export type PickStemsResult = {
   chosenStemIds: string[]
   totalMatchingQuestions: number
@@ -80,7 +87,8 @@ export type PickStemsResult = {
  */
 export async function pickStems(
   supabase: SupabaseClient,
-  input: SetGeneratorInput
+  input: SetGeneratorInput,
+  options?: PickStemsOptions
 ): Promise<PickStemsResult> {
   const sectionNumber = SECTION_KEY_TO_NUMBER[input.section]
   if (typeof sectionNumber !== 'number') {
@@ -230,9 +238,14 @@ export async function pickStems(
     })
   }
 
-  const candidateStems: StemAggregate[] = Array.from(aggregatesByStemId.values()).filter(
+  let candidateStems: StemAggregate[] = Array.from(aggregatesByStemId.values()).filter(
     (agg) => agg.matchingQuestionsCount > 0 && agg.allQuestionsCount > 0
   )
+
+  const excludeSet = new Set(options?.excludeStemIds ?? [])
+  if (excludeSet.size > 0) {
+    candidateStems = candidateStems.filter((agg) => !excludeSet.has(agg.stem.id))
+  }
 
   if (candidateStems.length === 0) {
     return {
@@ -252,11 +265,16 @@ export async function pickStems(
     (sum, agg) => sum + agg.allQuestionsCount,
     0
   )
-  const targetQuestionCount = resolveEffectiveQuestionCount(
-    input.questionCount,
-    sectionRows,
-    availableQuestions
-  )
+
+  const limitStems = options?.limitStems
+  const targetQuestionCount =
+    limitStems != null
+      ? Infinity
+      : resolveEffectiveQuestionCount(
+          input.questionCount,
+          sectionRows,
+          availableQuestions
+        )
 
   const chosenStems: StemDetailRow[] = []
   let runningQuestions = 0
@@ -264,6 +282,7 @@ export async function pickStems(
   candidateStems.sort((a, b) => a.stem.id.localeCompare(b.stem.id))
 
   for (const agg of candidateStems) {
+    if (limitStems != null && chosenStems.length >= limitStems) break
     if (runningQuestions + agg.allQuestionsCount > targetQuestionCount) {
       continue
     }
@@ -271,7 +290,7 @@ export async function pickStems(
     runningQuestions += agg.allQuestionsCount
   }
 
-  if (chosenStems.length === 0) {
+  if (chosenStems.length === 0 && limitStems == null) {
     const smallest = candidateStems.reduce((min, current) => {
       if (!min || current.allQuestionsCount < min.allQuestionsCount) return current
       return min

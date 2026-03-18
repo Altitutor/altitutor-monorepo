@@ -76,17 +76,21 @@ export type UseStemFiltersOptions = {
   previewApiPath?: string
   /** When 'perQuestion', show time-per-question controls instead of set-level time. For practice page. */
   timeControlType?: 'set' | 'perQuestion'
+  /** When true, show Set/Unlimited toggle for question count (practice page). */
+  showUnlimitedOption?: boolean
 }
 
 export function useStemFilters(options: UseStemFiltersOptions = {}) {
   const {
     previewApiPath = '/api/ucat/generated-sets/preview',
     timeControlType = 'set',
+    showUnlimitedOption = false,
   } = options
 
   const [input, setInput] = useState<SetGeneratorInput>(
     timeControlType === 'perQuestion' ? initialPracticeInput : initialInput
   )
+  const [questionCountMode, setQuestionCountMode] = useState<'set' | 'unlimited'>('set')
   const sectionNumber = SECTION_KEY_TO_NUMBER[input.section]
 
   const { data: selectedSection = null } = useQuery({
@@ -250,6 +254,10 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
     setInput((current) => ({ ...current, timePerQuestionSeconds: value }))
   }, [])
 
+  const handleQuestionCountModeChange = useCallback((mode: 'set' | 'unlimited') => {
+    setQuestionCountMode(mode)
+  }, [])
+
   const speedTimeMinutes =
     examTimeEstimateMinutes != null && input.timeSpeedMultiplier > 0
       ? Math.round(examTimeEstimateMinutes / input.timeSpeedMultiplier)
@@ -295,7 +303,10 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
     handleQuestionCountChange,
     handleCustomTimeMinutesChange,
     handleTimePerQuestionChange,
+    handleQuestionCountModeChange,
     sectionLabels,
     timeControlType,
+    showUnlimitedOption,
+    questionCountMode,
   }
 }

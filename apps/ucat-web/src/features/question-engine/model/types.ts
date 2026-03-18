@@ -163,7 +163,7 @@ export function mapQuestionsToItems(questions: QuestionEngineQuestion[]): Questi
 export type ReviewFilter = 'all' | 'incomplete' | 'flagged'
 
 export type QuestionEngineState = {
-  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'mockScore' | 'practiceAnswer' | 'practiceComplete' */
+  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'mockScore' | 'practiceAnswer' | 'practiceComplete' | 'loadingMore' */
   phase:
     | 'instructions'
     | 'intro'
@@ -173,6 +173,7 @@ export type QuestionEngineState = {
     | 'mockScore'
     | 'practiceAnswer'
     | 'practiceComplete'
+    | 'loadingMore'
   /** Mock only: which set we're in (0-based). Used when in review to scope to current set. */
   mockCurrentSetIndex?: number
   /** Which instructions screen (0-based). Only relevant when phase === 'instructions'. */
@@ -212,4 +213,8 @@ export type QuestionEngineState = {
   /** Practice mode only: unit being reviewed. viewingQuestionIndex is the current question in this range. */
   practiceAnswerUnitStartIndex?: number
   practiceAnswerUnitEndIndex?: number
+  /** Unlimited mode: when phase === 'loadingMore', the index we're waiting for. */
+  loadingMoreTargetIndex?: number
+  /** Unlimited mode: stem IDs to exclude when fetching next. */
+  loadingMoreExcludeStemIds?: string[]
 }

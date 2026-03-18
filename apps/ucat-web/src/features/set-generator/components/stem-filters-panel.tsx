@@ -44,6 +44,10 @@ export type StemFiltersPanelProps = {
   onTimePerQuestionChange?: (value: number | null) => void
   /** Section's exam time per question (seconds). Shown in subheading when timeControlType is perQuestion. */
   sectionTimePerQuestionSeconds?: number | null
+  /** When true (practice page), show Set/Unlimited toggle for question count. */
+  showUnlimitedOption?: boolean
+  questionCountMode?: 'set' | 'unlimited'
+  onQuestionCountModeChange?: (mode: 'set' | 'unlimited') => void
 }
 
 export function StemFiltersPanel({
@@ -68,6 +72,9 @@ export function StemFiltersPanel({
   timeControlType = 'set',
   onTimePerQuestionChange,
   sectionTimePerQuestionSeconds = null,
+  showUnlimitedOption = false,
+  questionCountMode = 'set',
+  onQuestionCountModeChange,
 }: StemFiltersPanelProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
@@ -369,19 +376,60 @@ export function StemFiltersPanel({
               Question count
             </Label>
             <p className="text-xs text-muted-foreground">
-              Number of questions in the set (max {maxQuestionsInSection} for this section). Actual
-              total may be lower if there aren&apos;t enough matching questions.
+              {showUnlimitedOption
+                ? 'Set a fixed number or practice unlimited questions.'
+                : `Number of questions in the set (max ${maxQuestionsInSection} for this section). Actual total may be lower if there aren't enough matching questions.`}
             </p>
           </div>
-          <input
-            id="question-count"
-            type="number"
-            min={1}
-            max={maxQuestionsInSection}
-            value={input.questionCount}
-            onChange={(event) => onQuestionCountChange(Number(event.target.value))}
-            className="w-24 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-          />
+          {showUnlimitedOption ? (
+            <div className="flex flex-col gap-2">
+              <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs">
+                <button
+                  type="button"
+                  onClick={() => onQuestionCountModeChange?.('set')}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                    questionCountMode === 'set'
+                      ? 'bg-sidebar text-sidebar-foreground'
+                      : 'text-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  Set
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onQuestionCountModeChange?.('unlimited')}
+                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                    questionCountMode === 'unlimited'
+                      ? 'bg-sidebar text-sidebar-foreground'
+                      : 'text-foreground hover:bg-muted/80'
+                  }`}
+                >
+                  Unlimited
+                </button>
+              </div>
+              {questionCountMode === 'set' && (
+                <input
+                  id="question-count"
+                  type="number"
+                  min={1}
+                  max={maxQuestionsInSection}
+                  value={input.questionCount}
+                  onChange={(event) => onQuestionCountChange(Number(event.target.value))}
+                  className="w-24 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                />
+              )}
+            </div>
+          ) : (
+            <input
+              id="question-count"
+              type="number"
+              min={1}
+              max={maxQuestionsInSection}
+              value={input.questionCount}
+              onChange={(event) => onQuestionCountChange(Number(event.target.value))}
+              className="w-24 rounded-lg border border-border bg-card px-3 py-2 text-sm"
+            />
+          )}
         </div>
       </section>
 
@@ -402,7 +450,10 @@ export function StemFiltersPanel({
                 : selectedCategories.map((c) => c.name).join(', ')}
           </p>
           <p>
-            <span className="font-medium">Questions:</span> {input.questionCount} / {matchingCount ?? '…'}
+            <span className="font-medium">Questions:</span>{' '}
+            {showUnlimitedOption && questionCountMode === 'unlimited'
+              ? `Unlimited (${matchingCount ?? '…'} available)`
+              : `${input.questionCount} / ${matchingCount ?? '…'}`}
           </p>
           <p>
             <span className="font-medium">Time:</span> {previewTimeLabel}
