@@ -42,7 +42,7 @@ const cards: DashboardCard[] = [
     icon: BrainCircuit,
   },
   {
-    href: '/set-generator',
+    href: '/sets/set-generator',
     label: 'Set Generator',
     description: 'Create custom question sets',
     icon: Sparkles,

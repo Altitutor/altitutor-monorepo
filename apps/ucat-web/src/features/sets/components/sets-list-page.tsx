@@ -10,7 +10,10 @@ import {
   type SetsFilters,
   type StudentSetRow,
 } from '@/features/sets/api/sets-api'
-import { formatSetSections } from '@/features/sets/lib/section-labels'
+import {
+  formatSetSections,
+  SECTION_NUMBER_TO_NAME,
+} from '@/features/sets/lib/section-labels'
 import { extractTextFromRichJson } from '@/features/question-engine/model/rich-text'
 import type { JsonLike } from '@/features/question-engine/model/rich-text'
 import { ListChecks } from 'lucide-react'
@@ -24,21 +27,33 @@ const SECTION_OPTIONS = [
   { value: '4', label: 'Situational Judgement' },
 ]
 
+export type SetsListPageProps = {
+  /** When provided, pre-filters sets to this section and hides the section filter */
+  sectionNumber?: number
+}
+
 function formatTimeLimit(seconds: number | null): string {
   if (seconds == null || seconds <= 0) return 'Untimed'
   return `${Math.round(seconds / 60)} min`
 }
 
-export function SetsListPage() {
+export function SetsListPage({ sectionNumber: sectionNumberProp }: SetsListPageProps = {}) {
   const { data: sets, isLoading, error } = useSets()
   const { data: attemptedSetIds = new Set<string>() } = useAttemptedSetIds()
-  const [filters, setFilters] = useState<SetsFilters>({})
+  const [filters, setFilters] = useState<SetsFilters>(() =>
+    sectionNumberProp != null ? { sectionNumber: sectionNumberProp } : {}
+  )
   const [page, setPage] = useState(0)
+
+  const effectiveFilters = useMemo(
+    () => (sectionNumberProp != null ? { ...filters, sectionNumber: sectionNumberProp } : filters),
+    [filters, sectionNumberProp]
+  )
 
   const filteredSets = useMemo(() => {
     if (!sets) return []
-    return filterSets(sets, filters)
-  }, [sets, filters])
+    return filterSets(sets, effectiveFilters, attemptedSetIds)
+  }, [sets, effectiveFilters, attemptedSetIds])
 
   const totalPages = Math.max(1, Math.ceil(filteredSets.length / PAGE_SIZE))
   const currentPage = Math.min(page, totalPages - 1)
@@ -54,6 +69,8 @@ export function SetsListPage() {
         delete next[key]
       } else if (key === 'sectionNumber') {
         next.sectionNumber = parseInt(value, 10)
+      } else if (key === 'attempted') {
+        next.attempted = value === 'unattempted' ? 'unattempted' : undefined
       } else {
         ;(next as Record<string, string>)[key] = value
       }
@@ -62,10 +79,24 @@ export function SetsListPage() {
     setPage(0)
   }
 
+  const sectionTitle =
+    sectionNumberProp != null
+      ? SECTION_NUMBER_TO_NAME[sectionNumberProp] ?? `Section ${sectionNumberProp}`
+      : null
+  const pageTitle = sectionTitle ? `${sectionTitle} sets` : 'Sets'
+  const pageDescription = sectionTitle
+    ? `Practice question sets for ${sectionTitle}.`
+    : 'Choose a set to start practicing.'
+
+  const backProps =
+    sectionNumberProp != null
+      ? { backHref: '/sets' as const, backLabel: 'Back to sets' as const }
+      : {}
+
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Sets" description="Practice question sets." />
+        <UcatPageHeader title={pageTitle} description={pageDescription} {...backProps} />
         <p className="text-sm text-muted-foreground">Loading sets...</p>
       </div>
     )
@@ -74,7 +105,7 @@ export function SetsListPage() {
   if (error) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Sets" description="Practice question sets." />
+        <UcatPageHeader title={pageTitle} description={pageDescription} {...backProps} />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : 'Failed to load sets'}
         </p>
@@ -85,7 +116,7 @@ export function SetsListPage() {
   if (!sets || sets.length === 0) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Sets" description="Practice question sets." />
+        <UcatPageHeader title={pageTitle} description={pageDescription} {...backProps} />
         <p className="text-sm text-muted-foreground">No sets available.</p>
       </div>
     )
@@ -93,7 +124,12 @@ export function SetsListPage() {
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader title="Sets" description="Choose a set to start practicing." />
+      <UcatPageHeader
+        title={pageTitle}
+        description={pageDescription}
+        backHref={sectionNumberProp != null ? '/sets' : undefined}
+        backLabel={sectionNumberProp != null ? 'Back to sets' : undefined}
+      />
       <div className="space-y-4">
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-2">
@@ -140,27 +176,58 @@ export function SetsListPage() {
               triggerClassName="w-[140px]"
             />
           </div>
-          <div className="space-y-2">
-            <Label>Section</Label>
-            <SearchableSelect<(typeof SECTION_OPTIONS)[number]>
-              items={SECTION_OPTIONS}
-              value={
-                SECTION_OPTIONS.find(
-                  (opt) => opt.value === (filters.sectionNumber?.toString() ?? 'all')
-                ) ?? null
-              }
-              onValueChange={(item) => item && handleFilterChange('sectionNumber', item.value)}
-              getItemLabel={(opt) => opt.label}
-              getItemId={(opt) => opt.value}
-              placeholder="All sections"
-              triggerClassName="w-[180px]"
-            />
-          </div>
+          {sectionNumberProp == null ? (
+            <div className="space-y-2">
+              <Label>Section</Label>
+              <SearchableSelect<(typeof SECTION_OPTIONS)[number]>
+                items={SECTION_OPTIONS}
+                value={
+                  SECTION_OPTIONS.find(
+                    (opt) => opt.value === (filters.sectionNumber?.toString() ?? 'all')
+                  ) ?? null
+                }
+                onValueChange={(item) => item && handleFilterChange('sectionNumber', item.value)}
+                getItemLabel={(opt) => opt.label}
+                getItemId={(opt) => opt.value}
+                placeholder="All sections"
+                triggerClassName="w-[180px]"
+              />
+            </div>
+          ) : null}
+          {sectionNumberProp != null ? (
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <SearchableSelect<{ value: string; label: string }>
+                items={[
+                  { value: 'all', label: 'All' },
+                  { value: 'unattempted', label: 'Unattempted' },
+                ]}
+                value={
+                  [
+                    { value: 'all', label: 'All' },
+                    { value: 'unattempted', label: 'Unattempted' },
+                  ].find((i) => i.value === (filters.attempted ?? 'all')) ?? null
+                }
+                onValueChange={(item) =>
+                  item && handleFilterChange('attempted', item.value)
+                }
+                getItemLabel={(i) => i.label}
+                getItemId={(i) => i.value}
+                placeholder="All"
+                triggerClassName="w-[140px]"
+              />
+            </div>
+          ) : null}
         </div>
 
         <ul className="space-y-3">
           {paginatedSets.map((set) => (
-            <SetCard key={set.id} set={set} attemptedSetIds={attemptedSetIds} />
+            <SetCard
+              key={set.id}
+              set={set}
+              attemptedSetIds={attemptedSetIds}
+              sectionNumber={sectionNumberProp}
+            />
           ))}
         </ul>
 
@@ -198,9 +265,11 @@ export function SetsListPage() {
 function SetCard({
   set,
   attemptedSetIds,
+  sectionNumber,
 }: {
   set: StudentSetRow
   attemptedSetIds: Set<string>
+  sectionNumber?: number
 }) {
   const title =
     extractTextFromRichJson(set.name as JsonLike) ||
@@ -209,11 +278,15 @@ function SetCard({
   const timeLabel = formatTimeLimit(set.time_limit_seconds)
   const sectionsText = formatSetSections(set.sections)
   const attempted = attemptedSetIds.has(set.id)
+  const setHref =
+    sectionNumber != null
+      ? `/sets/sections/${sectionNumber}/${encodeURIComponent(set.id)}`
+      : `/sets/${encodeURIComponent(set.id)}`
 
   return (
     <li>
       <Link
-        href={`/sets/${encodeURIComponent(set.id)}`}
+        href={setHref}
         className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:bg-muted"
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">

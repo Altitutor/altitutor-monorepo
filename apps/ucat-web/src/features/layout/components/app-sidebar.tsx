@@ -8,6 +8,7 @@ import { usePathname } from 'next/navigation'
 import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { useComingSoon } from '@/features/layout/context/coming-soon-context'
 import { useSections } from '@/features/progress/hooks/use-sections'
+import { SECTION_NUMBER_TO_NAME } from '@/features/sets/lib/section-labels'
 import { appNavigation } from '@/features/layout/config/navigation'
 import { isComingSoon } from '@/features/layout/config/coming-soon'
 import { cn } from '@/lib/utils'
@@ -29,10 +30,19 @@ export function AppSidebar({
   const [progressExpanded, setProgressExpanded] = useState(() =>
     pathname.startsWith('/progress')
   )
+  const [setsExpanded, setSetsExpanded] = useState(() =>
+    pathname.startsWith('/sets')
+  )
 
   useEffect(() => {
     if (pathname.startsWith('/progress')) {
       setProgressExpanded(true)
+    }
+  }, [pathname])
+
+  useEffect(() => {
+    if (pathname.startsWith('/sets')) {
+      setSetsExpanded(true)
     }
   }, [pathname])
 
@@ -184,6 +194,92 @@ export function AppSidebar({
                             >
                               Mocks
                             </Link>
+                          </div>
+                        )}
+                      </div>
+                    )
+                  }
+
+                  if (item.expandable && item.href === '/sets') {
+                    const isSetsActive =
+                      pathname === '/sets' ||
+                      pathname.startsWith('/sets/sections/') ||
+                      pathname.startsWith('/sets/set-generator')
+                    const setsSections = [1, 2, 3, 4] as const
+                    return (
+                      <div key={item.href} className="space-y-0.5">
+                        <Link
+                          href={item.href}
+                          className={cn(
+                            'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                            isSetsActive
+                              ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
+                              : 'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                          )}
+                          onClick={onCloseMobile}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="ml-3 flex-1">{item.label}</span>
+                          <button
+                            type="button"
+                            aria-expanded={setsExpanded}
+                            aria-label={
+                              setsExpanded
+                                ? 'Collapse sets menu'
+                                : 'Expand sets menu'
+                            }
+                            onClick={(e) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              setSetsExpanded((prev) => !prev)
+                            }}
+                            className={cn(
+                              'flex items-center justify-center p-1 -m-1 transition-colors rounded',
+                              'text-sidebar-foreground/70 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                            )}
+                          >
+                            {setsExpanded ? (
+                              <ChevronDown className="h-4 w-4" />
+                            ) : (
+                              <ChevronLeft className="h-4 w-4" />
+                            )}
+                          </button>
+                        </Link>
+                        {setsExpanded && (
+                          <div className="ml-4 space-y-0.5 border-l border-sidebar-foreground/20 pl-2">
+                            <Link
+                              href="/sets/set-generator"
+                              className={cn(
+                                'flex items-center rounded-md px-2 py-1.5 text-sm transition-colors',
+                                pathname === '/sets/set-generator'
+                                  ? 'bg-sidebar-foreground/15 text-sidebar-foreground font-medium'
+                                  : 'text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                              )}
+                              onClick={onCloseMobile}
+                            >
+                              Set Generator
+                            </Link>
+                            {setsSections.map((num) => {
+                              const secActive =
+                                pathname === `/sets/sections/${num}`
+                              const label =
+                                SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`
+                              return (
+                                <Link
+                                  key={num}
+                                  href={`/sets/sections/${num}`}
+                                  className={cn(
+                                    'flex items-center rounded-md px-2 py-1.5 text-sm transition-colors',
+                                    secActive
+                                      ? 'bg-sidebar-foreground/15 text-sidebar-foreground font-medium'
+                                      : 'text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                                  )}
+                                  onClick={onCloseMobile}
+                                >
+                                  {label}
+                                </Link>
+                              )
+                            })}
                           </div>
                         )}
                       </div>

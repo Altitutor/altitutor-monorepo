@@ -21,6 +21,7 @@ export type SetsFilters = {
   timed?: 'timed' | 'untimed' | 'all'
   source?: 'my' | 'public' | 'all'
   sectionNumber?: number | null
+  attempted?: 'all' | 'unattempted'
 }
 
 export async function getStudentSets(): Promise<StudentSetRow[]> {
@@ -74,7 +75,11 @@ export async function getAttemptedSetIds(): Promise<Set<string>> {
   return ids
 }
 
-export function filterSets(sets: StudentSetRow[], filters: SetsFilters): StudentSetRow[] {
+export function filterSets(
+  sets: StudentSetRow[],
+  filters: SetsFilters,
+  attemptedSetIds?: Set<string>
+): StudentSetRow[] {
   return sets.filter((set) => {
     if (filters.timed === 'timed' && (set.time_limit_seconds == null || set.time_limit_seconds <= 0)) {
       return false
@@ -92,6 +97,9 @@ export function filterSets(sets: StudentSetRow[], filters: SetsFilters): Student
       const sections = Array.isArray(set.sections) ? set.sections : []
       const hasSection = sections.some((s) => s.section_number === filters.sectionNumber)
       if (!hasSection) return false
+    }
+    if (filters.attempted === 'unattempted' && attemptedSetIds?.has(set.id)) {
+      return false
     }
     return true
   })

@@ -10,9 +10,11 @@ import { useSetAttempts, useSets } from '@/features/sets'
 
 type SetDetailPageProps = {
   setId: string
+  /** When provided, back button goes to section page */
+  sectionNumber?: number
 }
 
-export function SetDetailPage({ setId }: SetDetailPageProps) {
+export function SetDetailPage({ setId, sectionNumber }: SetDetailPageProps) {
   const { data: sets, isLoading, error } = useSets()
   const { data: attempts = [] } = useSetAttempts(setId)
 
@@ -21,14 +23,18 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
     [sets, setId]
   )
 
+  const backHref = sectionNumber != null ? `/sets/sections/${sectionNumber}` : '/sets'
+  const backLabel = sectionNumber != null ? 'Back to section' : 'Back to all sets'
+  const breadcrumbIndex = sectionNumber != null ? 3 : 1
+
   if (isLoading) {
     return (
       <div className="space-y-6">
         <UcatPageHeader
           title="Set"
           description="Practice question set details."
-          backHref="/sets"
-          backLabel="Back to all sets"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <p className="text-sm text-muted-foreground">Loading set...</p>
       </div>
@@ -41,8 +47,8 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
         <UcatPageHeader
           title="Set"
           description="Practice question set details."
-          backHref="/sets"
-          backLabel="Back to all sets"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : 'Failed to load set'}
@@ -57,8 +63,8 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
         <UcatPageHeader
           title="Set"
           description="Practice question set details."
-          backHref="/sets"
-          backLabel="Back to all sets"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <p className="text-sm text-muted-foreground">No sets available.</p>
       </div>
@@ -71,8 +77,8 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
         <UcatPageHeader
           title="Set"
           description="Practice question set details."
-          backHref="/sets"
-          backLabel="Back to all sets"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <p className="text-sm text-red-600 dark:text-red-400">Set not found.</p>
       </div>
@@ -104,9 +110,9 @@ export function SetDetailPage({ setId }: SetDetailPageProps) {
       <UcatPageHeader
         title={title}
         description={description ?? 'Review this practice set before starting.'}
-        backHref="/sets"
-        backLabel="Back to all sets"
-        breadcrumbOverrides={{ 1: title }}
+        backHref={backHref}
+        backLabel={backLabel}
+        breadcrumbOverrides={{ [breadcrumbIndex]: title }}
       />
 
       <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
