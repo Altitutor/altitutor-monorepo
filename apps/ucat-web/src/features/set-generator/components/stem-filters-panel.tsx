@@ -8,8 +8,12 @@ import {
   PopoverTrigger,
   SearchableSelect,
   SearchableSelectInline,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
 } from '@altitutor/ui'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Info } from 'lucide-react'
 import type { SectionKey, TimeMode } from '@/features/set-generator/model/types'
 import type { CategoryRow, PerformanceFilter } from '@/features/set-generator/hooks/use-stem-filters'
 import type { SetGeneratorInput } from '@/features/set-generator/model/types'
@@ -124,18 +128,27 @@ export function StemFiltersPanel({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-0.5 min-w-0 flex-1">
             <Label className="text-sm font-medium">Time</Label>
-            <p className="text-xs text-muted-foreground">
-              Off: no time limit. Exam: time limit matches UCAT pacing. Custom: set your own limit
-              (defaults to the exam estimate when you switch).
-            </p>
           </div>
           <div className="flex flex-col items-end gap-2">
-            <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs">
+            <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-muted p-0.5 text-xs">
               {(
                 [
-                  { mode: 'off' as const, label: 'Off' },
-                  { mode: 'exam' as const, label: 'Exam' },
-                  { mode: 'custom' as const, label: 'Custom' },
+                  {
+                    mode: 'off' as const,
+                    label: 'Off',
+                    tooltip: 'No time limit. Take as long as you need.',
+                  },
+                  {
+                    mode: 'exam' as const,
+                    label: 'Exam',
+                    tooltip: 'Time limit matches UCAT pacing for this section.',
+                  },
+                  {
+                    mode: 'custom' as const,
+                    label: 'Custom',
+                    tooltip:
+                      'Set your own time limit. Defaults to the exam estimate when you switch.',
+                  },
                 ] as const
               ).map((item) => {
                 const isActive = input.timeMode === item.mode
@@ -144,13 +157,30 @@ export function StemFiltersPanel({
                     key={item.mode}
                     type="button"
                     onClick={() => onTimeModeChange(item.mode)}
-                    className={`px-3 py-1.5 rounded-md transition-colors ${
+                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors ${
                       isActive
                         ? 'bg-sidebar text-sidebar-foreground'
                         : 'text-foreground hover:bg-muted/80'
                     }`}
                   >
                     {item.label}
+                    {isActive && (
+                      <TooltipProvider delayDuration={200}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span
+                              className="inline-flex opacity-80 hover:opacity-100 cursor-help"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <Info className="h-3 w-3" aria-hidden />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-[240px]">
+                            {item.tooltip}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
                   </button>
                 )
               })}
@@ -178,17 +208,25 @@ export function StemFiltersPanel({
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="space-y-0.5 min-w-0 flex-1">
             <Label className="text-sm font-medium">Performance</Label>
-            <p className="text-xs text-muted-foreground">
-              Any: include all questions. Unanswered: only questions you haven&apos;t answered.
-              Incorrect: only questions you&apos;ve got wrong before.
-            </p>
           </div>
-          <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs">
+          <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-muted p-0.5 text-xs">
             {(
               [
-                { mode: 'any' as const, label: 'Any' },
-                { mode: 'unanswered' as const, label: 'Unanswered' },
-                { mode: 'incorrect' as const, label: 'Incorrect' },
+                {
+                  mode: 'any' as const,
+                  label: 'Any',
+                  tooltip: 'Include all questions regardless of your past attempts.',
+                },
+                {
+                  mode: 'unanswered' as const,
+                  label: 'Unanswered',
+                  tooltip: "Only questions you haven't answered before.",
+                },
+                {
+                  mode: 'incorrect' as const,
+                  label: 'Incorrect',
+                  tooltip: "Only questions you've got wrong before.",
+                },
               ] as const
             ).map((item) => {
               const isActive = performanceFilter === item.mode
@@ -197,13 +235,30 @@ export function StemFiltersPanel({
                   key={item.mode}
                   type="button"
                   onClick={() => onPerformanceFilterChange(item.mode)}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors ${
                     isActive
                       ? 'bg-sidebar text-sidebar-foreground'
                       : 'text-foreground hover:bg-muted/80'
                   }`}
                 >
                   {item.label}
+                  {isActive && (
+                    <TooltipProvider delayDuration={200}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span
+                            className="inline-flex opacity-80 hover:opacity-100 cursor-help"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <Info className="h-3 w-3" aria-hidden />
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-[240px]">
+                          {item.tooltip}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
                 </button>
               )
             })}
