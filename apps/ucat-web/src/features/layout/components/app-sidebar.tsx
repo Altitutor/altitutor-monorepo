@@ -247,18 +247,6 @@ export function AppSidebar({
                         </Link>
                         {setsExpanded && (
                           <div className="ml-4 space-y-0.5 border-l border-sidebar-foreground/20 pl-2">
-                            <Link
-                              href="/sets/set-generator"
-                              className={cn(
-                                'flex items-center rounded-md px-2 py-1.5 text-sm transition-colors',
-                                pathname === '/sets/set-generator'
-                                  ? 'bg-sidebar-foreground/15 text-sidebar-foreground font-medium'
-                                  : 'text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
-                              )}
-                              onClick={onCloseMobile}
-                            >
-                              Set Generator
-                            </Link>
                             {setsSections.map((num) => {
                               const secActive =
                                 pathname === `/sets/sections/${num}`
@@ -280,6 +268,18 @@ export function AppSidebar({
                                 </Link>
                               )
                             })}
+                            <Link
+                              href="/sets/set-generator"
+                              className={cn(
+                                'flex items-center rounded-md px-2 py-1.5 text-sm transition-colors',
+                                pathname === '/sets/set-generator'
+                                  ? 'bg-sidebar-foreground/15 text-sidebar-foreground font-medium'
+                                  : 'text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                              )}
+                              onClick={onCloseMobile}
+                            >
+                              Set Generator
+                            </Link>
                           </div>
                         )}
                       </div>

@@ -55,7 +55,10 @@ function isValidPagePath(path: string): boolean {
           isDynamicSegment(segments[2])) ||
         (segments[0] === 'sets' &&
           segments[1] === 'sections' &&
-          /^[1-4]$/.test(segments[2]))
+          /^[1-4]$/.test(segments[2])) ||
+        (segments[0] === 'sets' &&
+          segments[1] === 'set-generator' &&
+          isDynamicSegment(segments[2]))
       )
     case 4:
       return (

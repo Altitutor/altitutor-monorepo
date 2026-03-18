@@ -1,7 +1,8 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import { useQueryClient } from '@tanstack/react-query'
 import { Badge, Label, SearchableSelect } from '@altitutor/ui'
 import { UcatPageHeader } from '@/features/layout'
 import { useAttemptedSetIds, useSets } from '@/features/sets/hooks/use-sets'
@@ -38,11 +39,16 @@ function formatTimeLimit(seconds: number | null): string {
 }
 
 export function SetsListPage({ sectionNumber: sectionNumberProp }: SetsListPageProps = {}) {
+  const queryClient = useQueryClient()
   const { data: sets, isLoading, error } = useSets()
   const { data: attemptedSetIds = new Set<string>() } = useAttemptedSetIds()
   const [filters, setFilters] = useState<SetsFilters>(() =>
     sectionNumberProp != null ? { sectionNumber: sectionNumberProp } : {}
   )
+
+  useEffect(() => {
+    queryClient.invalidateQueries({ queryKey: ['ucat', 'attempted-set-ids'] })
+  }, [queryClient])
   const [page, setPage] = useState(0)
 
   const effectiveFilters = useMemo(
@@ -132,7 +138,7 @@ export function SetsListPage({ sectionNumber: sectionNumberProp }: SetsListPageP
       />
       <div className="space-y-4">
         <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label>Timing</Label>
             <SearchableSelect<{ value: string; label: string }>
               items={[
@@ -154,7 +160,7 @@ export function SetsListPage({ sectionNumber: sectionNumberProp }: SetsListPageP
               triggerClassName="w-[140px]"
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-3">
             <Label>Source</Label>
             <SearchableSelect<{ value: string; label: string }>
               items={[
@@ -177,7 +183,7 @@ export function SetsListPage({ sectionNumber: sectionNumberProp }: SetsListPageP
             />
           </div>
           {sectionNumberProp == null ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Section</Label>
               <SearchableSelect<(typeof SECTION_OPTIONS)[number]>
                 items={SECTION_OPTIONS}
@@ -195,7 +201,7 @@ export function SetsListPage({ sectionNumber: sectionNumberProp }: SetsListPageP
             </div>
           ) : null}
           {sectionNumberProp != null ? (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label>Status</Label>
               <SearchableSelect<{ value: string; label: string }>
                 items={[

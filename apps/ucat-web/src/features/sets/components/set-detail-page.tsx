@@ -12,9 +12,18 @@ type SetDetailPageProps = {
   setId: string
   /** When provided, back button goes to section page */
   sectionNumber?: number
+  /** Override back link (e.g. when from set generator) */
+  backHref?: string
+  /** Override back label */
+  backLabel?: string
 }
 
-export function SetDetailPage({ setId, sectionNumber }: SetDetailPageProps) {
+export function SetDetailPage({
+  setId,
+  sectionNumber,
+  backHref: backHrefProp,
+  backLabel: backLabelProp,
+}: SetDetailPageProps) {
   const { data: sets, isLoading, error } = useSets()
   const { data: attempts = [] } = useSetAttempts(setId)
 
@@ -23,9 +32,14 @@ export function SetDetailPage({ setId, sectionNumber }: SetDetailPageProps) {
     [sets, setId]
   )
 
-  const backHref = sectionNumber != null ? `/sets/sections/${sectionNumber}` : '/sets'
-  const backLabel = sectionNumber != null ? 'Back to section' : 'Back to all sets'
-  const breadcrumbIndex = sectionNumber != null ? 3 : 1
+  const backHref =
+    backHrefProp ??
+    (sectionNumber != null ? `/sets/sections/${sectionNumber}` : '/sets')
+  const backLabel =
+    backLabelProp ??
+    (sectionNumber != null ? 'Back to section' : 'Back to all sets')
+  const breadcrumbIndex =
+    backHrefProp != null ? 2 : sectionNumber != null ? 3 : 1
 
   if (isLoading) {
     return (
