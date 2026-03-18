@@ -10,6 +10,7 @@ import {
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { StemsWithNoCategoryTable } from './StemsWithNoCategoryTable'
 import { QuestionsWithNoExplanationTable } from './QuestionsWithNoExplanationTable'
+import { UntaggedQuestionsTable } from './UntaggedQuestionsTable'
 import { PrivateStemsNotInSetTable } from './PrivateStemsNotInSetTable'
 import { SetsReconciliationTable } from './SetsReconciliationTable'
 import { MocksWithIncorrectSetsTable } from './MocksWithIncorrectSetsTable'
@@ -118,27 +119,45 @@ export function UcatReconciliationPage() {
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Reconciliation' }]}
       />
 
-      <div className="space-y-8">
-        <StemsWithNoCategoryTable onOpenStemDialog={handleOpenStemDialog} />
-        <QuestionsWithNoExplanationTable onOpenStemDialog={handleOpenStemDialog} />
-        <PrivateStemsNotInSetTable onOpenStemDialog={handleOpenStemDialog} />
-        <SetsReconciliationTable
-          title="Sets with incorrect number of questions"
-          dataKey="setsWithIncorrectQuestionCount"
-          onEditSet={setEditingSetId}
-        />
-        <SetsReconciliationTable
-          title="Sets with incorrect timing"
-          dataKey="setsWithIncorrectTiming"
-          onEditSet={setEditingSetId}
-          showTimeColumn
-        />
-        <SetsReconciliationTable
-          title="Sets with more than 1 section"
-          dataKey="setsWithMultipleSections"
-          onEditSet={setEditingSetId}
-        />
-        <MocksWithIncorrectSetsTable onEditMock={setEditingMockId} />
+      <div className="space-y-10">
+        <section className="space-y-6">
+          <h2 className="text-xl font-semibold tracking-tight">Questions</h2>
+          <div className="space-y-8">
+            <StemsWithNoCategoryTable onOpenStemDialog={handleOpenStemDialog} />
+            <QuestionsWithNoExplanationTable onOpenStemDialog={handleOpenStemDialog} />
+            <UntaggedQuestionsTable onOpenStemDialog={handleOpenStemDialog} />
+            <PrivateStemsNotInSetTable onOpenStemDialog={handleOpenStemDialog} />
+          </div>
+        </section>
+
+        <section className="space-y-6">
+          <h2 className="text-xl font-semibold tracking-tight">Sets</h2>
+          <div className="space-y-8">
+            <SetsReconciliationTable
+              title="Sets with incorrect number of questions"
+              dataKey="setsWithIncorrectQuestionCount"
+              onEditSet={setEditingSetId}
+            />
+            <SetsReconciliationTable
+              title="Sets with incorrect timing"
+              dataKey="setsWithIncorrectTiming"
+              onEditSet={setEditingSetId}
+              showTimeColumn
+            />
+            <SetsReconciliationTable
+              title="Sets with more than 1 section"
+              dataKey="setsWithMultipleSections"
+              onEditSet={setEditingSetId}
+            />
+          </div>
+        </section>
+
+        <section className="space-y-6">
+          <h2 className="text-xl font-semibold tracking-tight">Mocks</h2>
+          <div className="space-y-8">
+            <MocksWithIncorrectSetsTable onEditMock={setEditingMockId} />
+          </div>
+        </section>
       </div>
 
       <UcatQuestionStemDialog

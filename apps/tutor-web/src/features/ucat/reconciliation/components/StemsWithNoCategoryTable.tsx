@@ -252,6 +252,7 @@ export function StemsWithNoCategoryTable({
             selection={sel}
             onSetCategory={(categoryId) => handleSetCategory(item, categoryId)}
             isSettingCategory={setCategoryMutation.isPending}
+            onOpenStemDialog={onOpenStemDialog}
           />
         )}
       />
@@ -315,6 +316,7 @@ function StemWithNoCategoryRow({
   selection,
   onSetCategory,
   isSettingCategory,
+  onOpenStemDialog,
 }: {
   item: StemWithNoCategory
   categories: Array<{ id: string | null; name: string | null; ucat_section_id: string | null }>
@@ -327,6 +329,7 @@ function StemWithNoCategoryRow({
   }
   onSetCategory: (categoryId: string) => Promise<void>
   isSettingCategory: boolean
+  onOpenStemDialog?: (stemId: string) => void
 }) {
   const stemText = proseMirrorToPlainText(item.stemText as import('@altitutor/shared').Json) ?? ''
   const stemTruncated = truncate(stemText, TRUNCATE_LEN)
@@ -376,11 +379,20 @@ function StemWithNoCategoryRow({
       )}
       {visibleColumnKeys.map((key) => cells[key]).filter((c): c is React.ReactNode => c != null)}
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <AddCategorySelect
-          categories={sectionCategories}
-          onSelect={onSetCategory}
-          disabled={isSettingCategory}
-        />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => onOpenStemDialog?.(item.id)}
+          >
+            View stem
+          </Button>
+          <AddCategorySelect
+            categories={sectionCategories}
+            onSelect={onSetCategory}
+            disabled={isSettingCategory}
+          />
+        </div>
       </TableCell>
     </TableRow>
   )

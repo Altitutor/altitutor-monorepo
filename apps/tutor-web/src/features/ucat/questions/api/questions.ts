@@ -162,6 +162,21 @@ export const ucatQuestionsApi = {
     return response.json() as Promise<{ id: string }>
   },
 
+  async addQuestionTag(stemId: string, questionId: string, tagId: string) {
+    const detail = await this.getDetail(stemId)
+    if (!detail) throw new Error('Question stem not found')
+    const questions = (detail.questions ?? []) as StemDetailQuestion[]
+    const questionIndex = questions.findIndex((q) => q.id === questionId)
+    if (questionIndex === -1) throw new Error('Question not found')
+    const existingTagIds = (questions[questionIndex].tags ?? []).map((t) => t.id)
+    if (existingTagIds.includes(tagId)) return
+    const newTagIds = [...existingTagIds, tagId]
+    const payload = stemDetailToBundlePayload(detail, (q, i) =>
+      i === questionIndex ? newTagIds : (q.tags ?? []).map((t) => t.id)
+    )
+    return this.update(stemId, payload)
+  },
+
   async remove(stemId: string) {
     const response = await fetch(`/api/ucat/question-stems/${stemId}`, { method: 'DELETE' })
     if (!response.ok) {
@@ -237,6 +252,35 @@ function toJsonOrNull(value: unknown): Json | null {
   if (value == null) return null
   if (typeof value === 'string' && value === 'null') return null
   return value as Json
+}
+
+function stemDetailToBundlePayload(
+  detail: StemDetailRow,
+  getTagIds: (q: StemDetailQuestion, index: number) => string[]
+): UcatQuestionStemBundlePayload {
+  const questions = (detail.questions ?? []) as StemDetailQuestion[]
+  return {
+    stemId: detail.id,
+    sectionId: detail.section_id,
+    categoryId: detail.question_stem_category_id ?? null,
+    stemText: detail.stem_text ?? {},
+    isPrivate: !!detail.is_private,
+    questions: questions.map((q, i) => ({
+      index: q.index,
+      questionText: q.question_text ?? {},
+      questionType: q.question_type ?? 'multiple_choice',
+      answerExplanation: toJsonOrNull(q.answer_explanation),
+      difficulty: q.difficulty ?? null,
+      timeBurdenSeconds: q.time_burden_seconds ?? null,
+      tagIds: getTagIds(q, i),
+      options: (q.answer_options ?? []).map((opt) => ({
+        index: opt.index,
+        answerText: opt.answer_text ?? {},
+        answerExplanation: toJsonOrNull(opt.answer_explanation),
+        isAnswer: opt.is_answer,
+      })),
+    })),
+  }
 }
 
 function serializePayload(payload: UcatQuestionStemBundlePayload) {

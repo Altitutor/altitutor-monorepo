@@ -22,3 +22,17 @@ export function useSetStemCategory() {
     },
   })
 }
+
+export function useAddQuestionTag() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ stemId, questionId, tagId }: { stemId: string; questionId: string; tagId: string }) =>
+      ucatQuestionsApi.addQuestionTag(stemId, questionId, tagId),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
+    },
+  })
+}

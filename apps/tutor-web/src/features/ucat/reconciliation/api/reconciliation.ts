@@ -16,6 +16,16 @@ export type QuestionWithNoExplanation = {
   questionIndex: number
 }
 
+export type UntaggedQuestion = {
+  stemId: string
+  stemText: unknown
+  sectionId: string
+  sectionName: string
+  questionId: string
+  questionText: unknown
+  questionIndex: number
+}
+
 export type PrivateStemNotInSet = {
   id: string
   sectionId: string
@@ -50,6 +60,7 @@ export type MockWithIncorrectSets = {
 export type ReconciliationData = {
   stemsWithNoCategory: StemWithNoCategory[]
   questionsWithNoExplanation: QuestionWithNoExplanation[]
+  untaggedQuestions: UntaggedQuestion[]
   privateStemsNotInSet: PrivateStemNotInSet[]
   setsWithIncorrectQuestionCount: SetReconciliationRow[]
   setsWithIncorrectTiming: SetReconciliationRow[]

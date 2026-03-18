@@ -33,7 +33,14 @@ type QuestionRow = {
   answer_explanation: unknown
   index: number
   deleted_at?: string | null
+  tags?: Array<{ id: string; name: string }> | null
   answer_options?: Array<{ answer_explanation: unknown; deleted_at?: string | null }>
+}
+
+function questionIsUntagged(q: QuestionRow): boolean {
+  if (q.deleted_at) return false
+  const tags = q.tags
+  return tags == null || (Array.isArray(tags) && tags.length === 0)
 }
 
 function questionLacksExplanation(q: QuestionRow): boolean {
@@ -112,6 +119,32 @@ export async function GET() {
     for (const q of questions) {
       if (questionLacksExplanation(q)) {
         questionsWithNoExplanation.push({
+          stemId: stem.id,
+          stemText: stem.stem_text,
+          sectionId: stem.section_id,
+          sectionName: stem.section_name ?? '',
+          questionId: q.id,
+          questionText: q.question_text,
+          questionIndex: q.index,
+        })
+      }
+    }
+  }
+
+  const untaggedQuestions: Array<{
+    stemId: string
+    stemText: unknown
+    sectionId: string
+    sectionName: string
+    questionId: string
+    questionText: unknown
+    questionIndex: number
+  }> = []
+  for (const stem of rows) {
+    const questions = (stem.questions ?? []) as QuestionRow[]
+    for (const q of questions) {
+      if (questionIsUntagged(q)) {
+        untaggedQuestions.push({
           stemId: stem.id,
           stemText: stem.stem_text,
           sectionId: stem.section_id,
@@ -262,6 +295,7 @@ export async function GET() {
   return NextResponse.json({
     stemsWithNoCategory,
     questionsWithNoExplanation,
+    untaggedQuestions,
     privateStemsNotInSet,
     setsWithIncorrectQuestionCount,
     setsWithIncorrectTiming,
