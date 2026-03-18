@@ -95,12 +95,18 @@ function CircularProgress({
 }
 
 type SectionProgressPageProps = {
-  sectionId: string
+  sectionNumber: number
 }
 
-export function SectionProgressPage({ sectionId }: SectionProgressPageProps) {
+export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps) {
   const { data, isLoading, error } = useProgress()
   const progressMode = useProgressMode()
+
+  const sectionId = useMemo(() => {
+    if (!data) return null
+    const section = data.sectionProgress.find((s) => s.sectionNumber === sectionNumber)
+    return section?.sectionId ?? null
+  }, [data, sectionNumber])
 
   const filteredData = useMemo(() => {
     if (!data) return null
@@ -109,7 +115,7 @@ export function SectionProgressPage({ sectionId }: SectionProgressPageProps) {
 
   const { section, categoryProgress, filteredQuestionAttempts, filteredSetAttempts, sharedDateRange } =
     useMemo(() => {
-      if (!filteredData) {
+      if (!filteredData || sectionId == null) {
         return {
           section: null,
           categoryProgress: [] as SectionCategoryProgress[],
@@ -248,12 +254,12 @@ export function SectionProgressPage({ sectionId }: SectionProgressPageProps) {
       score={score}
       percentage={percentage}
       totalPublicQuestions={section.totalPublicQuestions}
-      totalPublicSets={filteredData?.totalPublicSetsBySection?.[sectionId]}
+      totalPublicSets={filteredData?.totalPublicSetsBySection?.[section.sectionId]}
       totalPublicUntimedSets={
-        filteredData?.totalPublicUntimedSetsBySection?.[sectionId]
+        filteredData?.totalPublicUntimedSetsBySection?.[section.sectionId]
       }
       totalPublicTimedSets={
-        filteredData?.totalPublicTimedSetsBySection?.[sectionId]
+        filteredData?.totalPublicTimedSetsBySection?.[section.sectionId]
       }
       filteredQuestionAttempts={filteredQuestionAttempts}
       filteredSetAttempts={filteredSetAttempts}

@@ -124,9 +124,8 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
         ? DYNAMIC_SEGMENT_LABELS[segments[i - 1]] ?? 'Detail'
         : segment)
 
-    // For /sets/sections/[1-4], show section name (e.g. "Verbal Reasoning") instead of "Section"
+    // For /sets/sections/[1-4] or /progress/sections/[1-4], show section name (e.g. "Verbal Reasoning") instead of "Section"
     if (
-      segments[0] === 'sets' &&
       segments[1] === 'sections' &&
       i === 2 &&
       /^[1-4]$/.test(segment)

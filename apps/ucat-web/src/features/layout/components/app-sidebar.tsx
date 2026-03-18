@@ -7,7 +7,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { useComingSoon } from '@/features/layout/context/coming-soon-context'
-import { useSections } from '@/features/progress/hooks/use-sections'
 import { SECTION_NUMBER_TO_NAME } from '@/features/sets/lib/section-labels'
 import { appNavigation } from '@/features/layout/config/navigation'
 import { isComingSoon } from '@/features/layout/config/coming-soon'
@@ -26,7 +25,6 @@ export function AppSidebar({
 }) {
   const pathname = usePathname()
   const { showComingSoonModal } = useComingSoon()
-  const { data: sections = [] } = useSections()
   const [progressExpanded, setProgressExpanded] = useState(() =>
     pathname.startsWith('/progress')
   )
@@ -162,14 +160,15 @@ export function AppSidebar({
                         </Link>
                         {progressExpanded && (
                           <div className="ml-4 space-y-0.5 border-l border-sidebar-foreground/20 pl-2">
-                            {sections.map((sec) => {
+                            {([1, 2, 3, 4] as const).map((num) => {
                               const secActive =
-                                pathname ===
-                                `/progress/sections/${sec.id}`
+                                pathname === `/progress/sections/${num}`
+                              const label =
+                                SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`
                               return (
                                 <Link
-                                  key={sec.id}
-                                  href={`/progress/sections/${sec.id}`}
+                                  key={num}
+                                  href={`/progress/sections/${num}`}
                                   className={cn(
                                     'flex items-center rounded-md px-2 py-1.5 text-sm transition-colors',
                                     secActive
@@ -178,7 +177,7 @@ export function AppSidebar({
                                   )}
                                   onClick={onCloseMobile}
                                 >
-                                  {sec.name}
+                                  {label}
                                 </Link>
                               )
                             })}

@@ -142,7 +142,7 @@ export function SectionProgressCards({
             </Card>
           )
           return linkToSection ? (
-            <Link key={section.sectionId} href={`/progress/sections/${section.sectionId}`}>
+            <Link key={section.sectionId} href={`/progress/sections/${section.sectionNumber}`}>
               {card}
             </Link>
           ) : (
