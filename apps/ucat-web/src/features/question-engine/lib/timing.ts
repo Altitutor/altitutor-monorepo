@@ -9,7 +9,7 @@ import type {
 
 /**
  * Returns the current segment's time limit in seconds, or null if untimed.
- * Used for set and mock modes only.
+ * For questions mode: time per question. For questionStem mode: time per question × questions in stem.
  */
 export function getCurrentSegmentTimeLimitSeconds(
   exam: QuestionEngineExam,
@@ -26,6 +26,29 @@ export function getCurrentSegmentTimeLimitSeconds(
   if (exam.sourceType === 'mock' && exam.mockTimingSegments?.length) {
     const seg = getCurrentMockSegment(exam, state)
     return seg?.timeLimitSeconds ?? null
+  }
+
+  // Questions/questionStem mode: only timed when in question phase (answer phase is untimed)
+  if (
+    (exam.sourceType === 'questions' || exam.sourceType === 'questionStem') &&
+    state.phase === 'question' &&
+    exam.timePerQuestionSeconds != null &&
+    exam.timePerQuestionSeconds > 0
+  ) {
+    const perQuestion = exam.timePerQuestionSeconds
+    if (exam.sourceType === 'questions') {
+      return perQuestion
+    }
+    // questionStem: stem time = perQuestion × questions in current stem
+    const questions = exam.questions
+    const currentQ = questions[state.currentIndex]
+    if (!currentQ) return perQuestion
+    const stemId = currentQ.stemId
+    let count = 0
+    for (const q of questions) {
+      if (q.stemId === stemId) count += 1
+    }
+    return perQuestion * Math.max(1, count)
   }
 
   return null

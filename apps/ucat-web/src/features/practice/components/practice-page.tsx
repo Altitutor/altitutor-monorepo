@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useMutation } from '@tanstack/react-query'
 import { UcatPageHeader } from '@/features/layout'
 import { QuestionEnginePage } from '@/features/question-engine'
+import { UcatLagProvider } from '@/features/question-engine/context/ucat-lag-context'
 import type { QuestionStemWithQuestions } from '@/features/question-engine/model/types'
 import { useStemFilters } from '@/features/set-generator/hooks/use-stem-filters'
 import { StemFiltersPanel } from '@/features/set-generator/components/stem-filters-panel'
@@ -11,7 +12,8 @@ import type { SetGeneratorInput } from '@/features/set-generator/model/types'
 
 export function PracticePage() {
   const [stems, setStems] = useState<QuestionStemWithQuestions[] | null>(null)
-  const filters = useStemFilters()
+  const [timePerQuestionSeconds, setTimePerQuestionSeconds] = useState<number | null>(null)
+  const filters = useStemFilters({ timeControlType: 'perQuestion' })
 
   const startMutation = useMutation({
     mutationFn: async (payload: SetGeneratorInput) => {
@@ -33,8 +35,13 @@ export function PracticePage() {
         totalMatchingQuestions: number
       }
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       setStems(data.stems)
+      setTimePerQuestionSeconds(
+        variables.timePerQuestionSeconds != null && variables.timePerQuestionSeconds > 0
+          ? variables.timePerQuestionSeconds
+          : null
+      )
     },
   })
 
@@ -51,12 +58,15 @@ export function PracticePage() {
 
   if (stems != null && stems.length > 0) {
     return (
-      <QuestionEnginePage
-        mode="questionStem"
-        sourceId="practice"
-        questionStems={stems}
-        practice
-      />
+      <UcatLagProvider>
+        <QuestionEnginePage
+          mode="questionStem"
+          sourceId="practice"
+          questionStems={stems}
+          practice
+          timePerQuestionSeconds={timePerQuestionSeconds}
+        />
+      </UcatLagProvider>
     )
   }
 
@@ -81,8 +91,12 @@ export function PracticePage() {
         onCategoryChange={filters.handleCategoryChange}
         onPerformanceFilterChange={filters.handlePerformanceFilterChange}
         onTimeModeChange={filters.handleTimeModeChange}
+        onTimeSpeedChange={filters.handleTimeSpeedChange}
         onQuestionCountChange={filters.handleQuestionCountChange}
         onCustomTimeMinutesChange={filters.handleCustomTimeMinutesChange}
+        onTimePerQuestionChange={filters.handleTimePerQuestionChange}
+        timeControlType="perQuestion"
+        sectionTimePerQuestionSeconds={filters.sectionTimePerQuestionSeconds}
         actionButton={actionButton}
       />
     </div>

@@ -82,6 +82,20 @@ export function useQuestionEngineState(
     })
   }, [exam])
 
+  // In question/questionStem mode (no instructions), skip intro and go directly to question phase
+  useEffect(() => {
+    if (!exam || (exam.sourceType !== 'questions' && exam.sourceType !== 'questionStem')) return
+    setState((prev) => {
+      if (prev.phase !== 'intro') return prev
+      const next: QuestionEngineState = { ...prev, phase: 'question' as const }
+      const timePerQuestion = exam.timePerQuestionSeconds
+      if (timePerQuestion != null && timePerQuestion > 0) {
+        next.timerStartedAt = Date.now()
+      }
+      return next
+    })
+  }, [exam])
+
   const reviewFilterIndices = useMemo(() => {
     if (state.phase !== 'review' || !state.reviewFilter) return []
     // Use snapshot when in incomplete/flagged mode so the list stays fixed while navigating
@@ -312,14 +326,24 @@ export function useQuestionEngineState(
             practiceAnswerUnitEndIndex: undefined,
           }))
         } else {
-          setState((current) => ({
-            ...current,
-            phase: 'question',
-            currentIndex: nextQuestionIndex,
-            viewingQuestionIndex: null,
-            practiceAnswerUnitStartIndex: undefined,
-            practiceAnswerUnitEndIndex: undefined,
-          }))
+          setState((current) => {
+            const next = {
+              ...current,
+              phase: 'question' as const,
+              currentIndex: nextQuestionIndex,
+              viewingQuestionIndex: null,
+              practiceAnswerUnitStartIndex: undefined,
+              practiceAnswerUnitEndIndex: undefined,
+            }
+            const timePerQuestion =
+              exam?.sourceType === 'questions' || exam?.sourceType === 'questionStem'
+                ? exam?.timePerQuestionSeconds
+                : null
+            if (timePerQuestion != null && timePerQuestion > 0) {
+              next.timerStartedAt = Date.now()
+            }
+            return next
+          })
         }
       }
       return
@@ -340,7 +364,29 @@ export function useQuestionEngineState(
     }
 
     if (state.phase === 'question') {
-      setState((current) => ({ ...current, currentIndex: current.currentIndex + 1 }))
+      setState((current) => {
+        const nextIndex = current.currentIndex + 1
+        const next = { ...current, currentIndex: nextIndex }
+        const timePerQuestion =
+          exam?.sourceType === 'questions' || exam?.sourceType === 'questionStem'
+            ? exam?.timePerQuestionSeconds
+            : null
+        if (timePerQuestion != null && timePerQuestion > 0) {
+          // In questionStem mode, only reset timer when moving to a new stem.
+          // Within the same stem, keep the countdown running.
+          const currentStemId = questions[current.currentIndex]?.stemId
+          const nextStemId = questions[nextIndex]?.stemId
+          const isNewStem =
+            exam?.sourceType === 'questionStem' &&
+            currentStemId != null &&
+            nextStemId != null &&
+            currentStemId !== nextStemId
+          if (exam?.sourceType === 'questions' || isNewStem) {
+            next.timerStartedAt = Date.now()
+          }
+        }
+        return next
+      })
     }
   }
 

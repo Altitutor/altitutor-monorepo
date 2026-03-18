@@ -18,6 +18,10 @@ import { useQuestionEngineData } from '@/features/question-engine/hooks/use-ques
 import { useQuestionEngineState } from '@/features/question-engine/hooks/use-question-engine-state'
 import { useUcatLag } from '@/features/question-engine/context/ucat-lag-context'
 import { CalculatorPanel } from '@/features/question-engine/components/calculator-panel'
+import {
+  ConfirmNextStemDialog,
+  ConfirmSubmitDialog,
+} from '@/features/question-engine/components/confirm-practice-transition-dialog'
 import { EndReviewDialog } from '@/features/question-engine/components/end-review-dialog'
 import { ExitResultsDialog } from '@/features/question-engine/components/exit-results-dialog'
 import { EngineIntroDialog } from '@/features/question-engine/components/engine-intro-dialog'
@@ -56,6 +60,8 @@ export function QuestionEnginePage({
   questionStems,
   standaloneQuestions,
   practice = false,
+  confirmPracticeTransitions = true,
+  timePerQuestionSeconds = null,
 }: {
   mode: QuestionEngineMode
   sourceId?: string
@@ -63,6 +69,10 @@ export function QuestionEnginePage({
   standaloneQuestions?: QuestionEngineQuestion[]
   /** When true (questions/questionStem mode only): submit after each question/stem, show answer immediately, no final review phase. */
   practice?: boolean
+  /** When true (default): show confirmation popup before submit→answer and before next question stem in answer mode. */
+  confirmPracticeTransitions?: boolean
+  /** Questions/questionStem mode only. Seconds per question for timing. Omit or null = untimed. */
+  timePerQuestionSeconds?: number | null
 }) {
   const query = useQuestionEngineData({
     mode,
@@ -79,6 +89,7 @@ export function QuestionEnginePage({
             title: 'Question Stems',
             questions: mapQuestionStemsToItems(questionStems),
             instructionsScreens: [],
+            timePerQuestionSeconds: timePerQuestionSeconds ?? null,
           }
         : mode === 'questions'
           ? standaloneQuestions && {
@@ -87,9 +98,10 @@ export function QuestionEnginePage({
               title: 'Questions',
               questions: mapQuestionsToItems(standaloneQuestions),
               instructionsScreens: [],
+              timePerQuestionSeconds: timePerQuestionSeconds ?? null,
             }
           : query.data,
-    [mode, sourceId, questionStems, standaloneQuestions, query.data]
+    [mode, sourceId, questionStems, standaloneQuestions, query.data, timePerQuestionSeconds]
   )
 
   const instructionsScreens =
@@ -121,6 +133,8 @@ export function QuestionEnginePage({
   const router = useRouter()
   const { isLagging, runWithLag } = useUcatLag()
   const [, setTick] = useState(0)
+  const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false)
+  const [showConfirmNextStemDialog, setShowConfirmNextStemDialog] = useState(false)
   const timeExpiredFiredRef = useRef<string | null>(null)
 
   const { recordAnswer, recordAnswersForUnit, handleExamCompleted } = useQuestionEnginePersistence({
@@ -136,16 +150,21 @@ export function QuestionEnginePage({
   const getCachedContent = useRefreshedContentCache(questions, markingOrQuestionIndex)
 
   const isSetOrMock = exam && (exam.sourceType === 'set' || exam.sourceType === 'mock')
-  const currentSegmentTimeLimit = isSetOrMock
-    ? getCurrentSegmentTimeLimitSeconds(exam!, state)
-    : null
+  const isQuestionsOrStem =
+    exam && (exam.sourceType === 'questions' || exam.sourceType === 'questionStem')
+  const currentSegmentTimeLimit =
+    exam && (isSetOrMock || isQuestionsOrStem)
+      ? getCurrentSegmentTimeLimitSeconds(exam, state)
+      : null
   const isTimed = currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0
-  const remainingSeconds = isSetOrMock && isTimed
-    ? getRemainingSeconds(exam!, state, state.timerStartedAt)
-    : null
+  const remainingSeconds =
+    exam && isTimed
+      ? getRemainingSeconds(exam, state, state.timerStartedAt)
+      : null
   const segmentKey =
     exam?.sourceType === 'mock'
-      ? getCurrentMockSegment(exam, state)?.segmentIndex ?? `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`
+      ? getCurrentMockSegment(exam, state)?.segmentIndex ??
+        `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`
       : `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`
 
   useEffect(() => {
@@ -155,7 +174,7 @@ export function QuestionEnginePage({
   }, [isTimed])
 
   useEffect(() => {
-    if (!isSetOrMock || remainingSeconds === null) return
+    if (!exam || remainingSeconds === null) return
     if (remainingSeconds > 0) {
       timeExpiredFiredRef.current = null
       return
@@ -170,7 +189,7 @@ export function QuestionEnginePage({
           next.currentIndex = 0
           next.timerStartedAt =
             (exam!.setModeTiming?.setTimeLimitSeconds ?? 0) > 0 ? Date.now() : null
-        } else {
+        } else if (exam!.sourceType === 'mock') {
           const nextSeg = getNextMockSegment(exam!, prev)
           if (nextSeg?.type === 'questions') {
             next.currentIndex = nextSeg.questionStartIndex
@@ -179,6 +198,12 @@ export function QuestionEnginePage({
           } else {
             next.currentIndex = prev.currentIndex
           }
+        } else if (
+          (exam!.sourceType === 'questions' || exam!.sourceType === 'questionStem') &&
+          exam!.timePerQuestionSeconds != null &&
+          exam!.timePerQuestionSeconds > 0
+        ) {
+          next.timerStartedAt = Date.now()
         }
         return next
       })
@@ -193,7 +218,7 @@ export function QuestionEnginePage({
       }
       return next
     })
-  }, [isSetOrMock, remainingSeconds, segmentKey, state.phase, exam, setState])
+  }, [exam, remainingSeconds, segmentKey, state.phase, setState])
 
   // Warn before leaving the UCAT exam page (tab close, reload, or navigation)
   useEffect(() => {
@@ -275,7 +300,9 @@ export function QuestionEnginePage({
         state.showEndReviewDialog ||
         state.showExitResultsDialog ||
         state.showNoFlaggedDialog ||
-        state.showReviewInstructionsDialog
+        state.showReviewInstructionsDialog ||
+        showConfirmSubmitDialog ||
+        showConfirmNextStemDialog
       const isQuestionView =
         (state.phase === 'question' || (state.phase === 'review' && state.reviewFilter)) &&
         currentQuestion &&
@@ -308,6 +335,33 @@ export function QuestionEnginePage({
           : key
       parts.push(letterForShortcut)
       const shortcutKey = parts.join('+')
+
+      // When confirm practice transition dialogs are open, Alt+Y / Alt+N = Yes / No
+      if (showConfirmSubmitDialog || showConfirmNextStemDialog) {
+        if (shortcutKey === 'alt+y') {
+          event.preventDefault()
+          if (showConfirmSubmitDialog) {
+            const { startIndex, endIndex } = getStemBoundaries(
+              questions,
+              state.currentIndex,
+              mode as 'questions' | 'questionStem'
+            )
+            recordAnswersForUnit(startIndex, endIndex)
+            handlePracticeSubmit()
+            setShowConfirmSubmitDialog(false)
+          } else {
+            goNext()
+            setShowConfirmNextStemDialog(false)
+          }
+          return
+        }
+        if (shortcutKey === 'alt+n') {
+          event.preventDefault()
+          setShowConfirmSubmitDialog(false)
+          setShowConfirmNextStemDialog(false)
+          return
+        }
+      }
 
       // When Ready to Begin dialog is open (on instructions or intro), Alt+Y / Alt+N = Yes / No
       const readyOverlay = state.phase === 'intro' || state.showReadyDialog
@@ -348,6 +402,28 @@ export function QuestionEnginePage({
       if (state.showNavigator && shortcutKey === 'alt+c') {
         event.preventDefault()
         setState((current) => ({ ...current, showNavigator: false }))
+        return
+      }
+
+      // In practice mode (question phase), Alt+S = Submit
+      if (
+        isPracticeMode &&
+        state.phase === 'question' &&
+        isLastQuestionOfCurrentUnit &&
+        shortcutKey === 'alt+s'
+      ) {
+        event.preventDefault()
+        if (confirmPracticeTransitions) {
+          setShowConfirmSubmitDialog(true)
+        } else {
+          const { startIndex, endIndex } = getStemBoundaries(
+            questions,
+            state.currentIndex,
+            mode as 'questions' | 'questionStem'
+          )
+          recordAnswersForUnit(startIndex, endIndex)
+          handlePracticeSubmit()
+        }
         return
       }
 
@@ -421,14 +497,26 @@ export function QuestionEnginePage({
         }
         case 'nextQuestion':
           void runWithLag(() => {
-            if (isPracticeMode && isLastQuestionOfCurrentUnit) {
-              const { startIndex, endIndex } = getStemBoundaries(
-                questions,
-                state.currentIndex,
-                mode as 'questions' | 'questionStem'
-              )
-              recordAnswersForUnit(startIndex, endIndex)
-              handlePracticeSubmit()
+            if (isPracticeMode && state.phase === 'question' && isLastQuestionOfCurrentUnit) {
+              if (confirmPracticeTransitions) {
+                setShowConfirmSubmitDialog(true)
+              } else {
+                const { startIndex, endIndex } = getStemBoundaries(
+                  questions,
+                  state.currentIndex,
+                  mode as 'questions' | 'questionStem'
+                )
+                recordAnswersForUnit(startIndex, endIndex)
+                handlePracticeSubmit()
+              }
+            } else if (isPracticeMode && state.phase === 'practiceAnswer') {
+              const unitEnd = state.practiceAnswerUnitEndIndex ?? 0
+              const viewing = state.viewingQuestionIndex ?? 0
+              if (viewing >= unitEnd && confirmPracticeTransitions) {
+                setShowConfirmNextStemDialog(true)
+              } else {
+                goNext()
+              }
             } else {
               goNext()
             }
@@ -468,6 +556,8 @@ export function QuestionEnginePage({
     state.showReviewInstructionsDialog,
     state.flaggedIds,
     state.currentIndex,
+    state.viewingQuestionIndex,
+    state.practiceAnswerUnitEndIndex,
     currentQuestion,
     setState,
     setAnswer,
@@ -481,6 +571,9 @@ export function QuestionEnginePage({
     handlePracticeSubmit,
     isPracticeMode,
     isLastQuestionOfCurrentUnit,
+    confirmPracticeTransitions,
+    showConfirmSubmitDialog,
+    showConfirmNextStemDialog,
     hasPreviousQuestion,
     questions,
     mode,
@@ -556,7 +649,9 @@ export function QuestionEnginePage({
     state.showEndReviewDialog ||
     state.showExitResultsDialog ||
     state.showNoFlaggedDialog ||
-    state.showReviewInstructionsDialog
+    state.showReviewInstructionsDialog ||
+    showConfirmSubmitDialog ||
+    showConfirmNextStemDialog
 
   const incompleteCount = (() => {
     const count = getIncompleteCount(
@@ -623,7 +718,30 @@ export function QuestionEnginePage({
   }
 
   function handleTimeExpiredOk() {
-    if (!exam || (exam.sourceType !== 'set' && exam.sourceType !== 'mock')) return
+    if (!exam) return
+
+    // Practice mode (questions/questionStem): transition to answer view
+    if (exam.sourceType === 'questions' || exam.sourceType === 'questionStem') {
+      void runWithLag(() => {
+        const { startIndex, endIndex } = getStemBoundaries(
+          questions,
+          state.currentIndex,
+          exam.sourceType as 'questions' | 'questionStem'
+        )
+        recordAnswersForUnit(startIndex, endIndex)
+        setState((current) => ({
+          ...current,
+          showTimeExpiredDialog: false,
+          phase: 'practiceAnswer',
+          practiceAnswerUnitStartIndex: startIndex,
+          practiceAnswerUnitEndIndex: endIndex,
+          viewingQuestionIndex: startIndex,
+          showNavigator: false,
+        }))
+      })
+      return
+    }
+
     if (exam.sourceType === 'set') {
       void runWithLag(async () => {
         await handleExamCompleted()
@@ -730,10 +848,47 @@ export function QuestionEnginePage({
           </div>
         ) : null}
 
+        {showConfirmSubmitDialog ? (
+          <div className="absolute inset-0 z-30 grid place-items-center bg-black/20 p-6">
+            <ConfirmSubmitDialog
+              onConfirm={() =>
+                void runWithLag(() => {
+                  const { startIndex, endIndex } = getStemBoundaries(
+                    questions,
+                    state.currentIndex,
+                    mode as 'questions' | 'questionStem'
+                  )
+                  recordAnswersForUnit(startIndex, endIndex)
+                  handlePracticeSubmit()
+                  setShowConfirmSubmitDialog(false)
+                })
+              }
+              onCancel={() => setShowConfirmSubmitDialog(false)}
+            />
+          </div>
+        ) : null}
+
+        {showConfirmNextStemDialog ? (
+          <div className="absolute inset-0 z-30 grid place-items-center bg-black/20 p-6">
+            <ConfirmNextStemDialog
+              onConfirm={() =>
+                void runWithLag(() => {
+                  goNext()
+                  setShowConfirmNextStemDialog(false)
+                })
+              }
+              onCancel={() => setShowConfirmNextStemDialog(false)}
+            />
+          </div>
+        ) : null}
+
         {state.showTimeExpiredDialog ? (
           <div className="absolute inset-0 z-[35] grid place-items-center bg-black/20 p-6">
             <TimeExpiredDialog
               isSetMode={exam?.sourceType === 'set'}
+              isPracticeMode={
+                exam?.sourceType === 'questions' || exam?.sourceType === 'questionStem'
+              }
               onOk={() => void runWithLag(handleTimeExpiredOk)}
             />
           </div>
@@ -957,13 +1112,32 @@ export function QuestionEnginePage({
                 </UcatExamActionButton>
               ) : null}
               <UcatExamActionButton
-                onClick={() => void runWithLag(() => goNext())}
+                onClick={() =>
+                  void runWithLag(() => {
+                    const unitEnd = state.practiceAnswerUnitEndIndex ?? 0
+                    const viewing = state.viewingQuestionIndex ?? 0
+                    const isGoingToNextStem = viewing >= unitEnd
+                    if (isGoingToNextStem && confirmPracticeTransitions) {
+                      setShowConfirmNextStemDialog(true)
+                    } else {
+                      goNext()
+                    }
+                  })
+                }
                 variant="highlight"
                 icon={<ArrowRight className="h-4 w-4" />}
                 iconRight
               >
                 <span className="text-[14pt]">
-                  <span className="underline">N</span>ext
+                  {(state.viewingQuestionIndex ?? 0) >= (state.practiceAnswerUnitEndIndex ?? 0) ? (
+                    <>
+                      <span className="underline">N</span>ext question
+                    </>
+                  ) : (
+                    <>
+                      <span className="underline">N</span>ext
+                    </>
+                  )}
                 </span>
               </UcatExamActionButton>
             </>
@@ -1132,13 +1306,17 @@ export function QuestionEnginePage({
                 onClick={() =>
                   void runWithLag(() => {
                     if (isPracticeMode && isLastQuestionOfCurrentUnit) {
-                      const { startIndex, endIndex } = getStemBoundaries(
-                        questions,
-                        state.currentIndex,
-                        mode as 'questions' | 'questionStem'
-                      )
-                      recordAnswersForUnit(startIndex, endIndex)
-                      handlePracticeSubmit()
+                      if (confirmPracticeTransitions) {
+                        setShowConfirmSubmitDialog(true)
+                      } else {
+                        const { startIndex, endIndex } = getStemBoundaries(
+                          questions,
+                          state.currentIndex,
+                          mode as 'questions' | 'questionStem'
+                        )
+                        recordAnswersForUnit(startIndex, endIndex)
+                        handlePracticeSubmit()
+                      }
                     } else {
                       goNext()
                     }
@@ -1149,7 +1327,9 @@ export function QuestionEnginePage({
                 iconRight
               >
                 {isPracticeMode && isLastQuestionOfCurrentUnit ? (
-                  <span className="text-[14pt]">Submit</span>
+                  <span className="text-[14pt]">
+                    <span className="underline">S</span>ubmit
+                  </span>
                 ) : isLastQuestion && !isPracticeMode ? (
                   <span className="text-[14pt]">Review</span>
                 ) : (
@@ -1182,9 +1362,15 @@ export function QuestionEnginePage({
               preloadedContent={getCachedContent(questions[state.viewingQuestionIndex]!.id)}
               points={(() => {
                 const idx = state.viewingQuestionIndex!
-                if (isMockScorePhase && exam?.mockSetSummaries) {
+                if (
+                  isMockScorePhase &&
+                  exam &&
+                  exam.sourceType === 'mock' &&
+                  exam.mockSetSummaries
+                ) {
                   const summary = exam.mockSetSummaries.find(
-                    (s) => idx >= s.questionStartIndex && idx < s.questionEndIndex
+                    (s: { questionStartIndex: number; questionEndIndex: number }) =>
+                      idx >= s.questionStartIndex && idx < s.questionEndIndex
                   )
                   if (summary) {
                     const setQuestions = questions.slice(
@@ -1209,7 +1395,7 @@ export function QuestionEnginePage({
                 state.syllogismSnapshots?.[questions[state.viewingQuestionIndex]!.id]
               }
             />
-          ) : isMockScorePhase && exam?.mockSetSummaries?.length ? (
+          ) : isMockScorePhase && exam?.sourceType === 'mock' && exam.mockSetSummaries?.length ? (
             <MockScoreBody
               exam={exam}
               questions={questions}

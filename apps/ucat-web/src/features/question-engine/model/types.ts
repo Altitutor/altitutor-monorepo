@@ -79,6 +79,8 @@ export type QuestionEngineExam = {
     questionStartIndex: number
     questionEndIndex: number
   }>
+  /** Questions/questionStem mode only. Seconds per question for timing. Null = untimed. */
+  timePerQuestionSeconds?: number | null
 }
 
 export type QuestionStemWithQuestions = {

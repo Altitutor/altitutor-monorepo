@@ -61,6 +61,12 @@ const initialInput: SetGeneratorInput = {
   timeSpeedMultiplier: 1,
   customTimeMinutes: null,
   questionCount: DEFAULT_QUESTION_COUNT,
+  timePerQuestionSeconds: null,
+}
+
+const initialPracticeInput: SetGeneratorInput = {
+  ...initialInput,
+  timePerQuestionSeconds: null,
 }
 
 export type PerformanceFilter = 'any' | 'unanswered' | 'incorrect'
@@ -68,12 +74,19 @@ export type PerformanceFilter = 'any' | 'unanswered' | 'incorrect'
 export type UseStemFiltersOptions = {
   /** API path for preview (matching count). Default: /api/ucat/generated-sets/preview */
   previewApiPath?: string
+  /** When 'perQuestion', show time-per-question controls instead of set-level time. For practice page. */
+  timeControlType?: 'set' | 'perQuestion'
 }
 
 export function useStemFilters(options: UseStemFiltersOptions = {}) {
-  const { previewApiPath = '/api/ucat/generated-sets/preview' } = options
+  const {
+    previewApiPath = '/api/ucat/generated-sets/preview',
+    timeControlType = 'set',
+  } = options
 
-  const [input, setInput] = useState<SetGeneratorInput>(initialInput)
+  const [input, setInput] = useState<SetGeneratorInput>(
+    timeControlType === 'perQuestion' ? initialPracticeInput : initialInput
+  )
   const sectionNumber = SECTION_KEY_TO_NUMBER[input.section]
 
   const { data: selectedSection = null } = useQuery({
@@ -137,6 +150,22 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
       setInput((c) => ({ ...c, questionCount: Math.max(1, maxQuestionsInSection) }))
     }
   }, [maxQuestionsInSection, input.questionCount])
+
+  // Per-question mode: when section changes or when switching to Timed, use section's time_per_question
+  const sectionTimePerQuestionSeconds = selectedSection?.time_per_question ?? null
+
+  useEffect(() => {
+    if (timeControlType !== 'perQuestion' || !selectedSection) return
+    const sec = selectedSection.time_per_question
+    if (sec == null || sec <= 0) return
+    setInput((c) => {
+      const isTimed = c.timePerQuestionSeconds != null && c.timePerQuestionSeconds > 0
+      if (isTimed) {
+        return { ...c, timePerQuestionSeconds: sec }
+      }
+      return c
+    })
+  }, [timeControlType, selectedSection])
 
   const selectedSectionLabel = sectionLabels[input.section]
 
@@ -217,30 +246,39 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
     setInput((current) => ({ ...current, customTimeMinutes: value }))
   }, [])
 
+  const handleTimePerQuestionChange = useCallback((value: number | null) => {
+    setInput((current) => ({ ...current, timePerQuestionSeconds: value }))
+  }, [])
+
   const speedTimeMinutes =
     examTimeEstimateMinutes != null && input.timeSpeedMultiplier > 0
       ? Math.round(examTimeEstimateMinutes / input.timeSpeedMultiplier)
       : null
 
   const previewTimeLabel =
-    input.timeMode === 'off'
-      ? 'No time limit'
-      : input.timeMode === 'exam'
-        ? examTimeEstimateMinutes != null
-          ? `${examTimeEstimateMinutes} min`
-          : '—'
-        : input.timeMode === 'speed'
-          ? speedTimeMinutes != null
-            ? `${speedTimeMinutes} min (${(1 / input.timeSpeedMultiplier).toFixed(1)}×)`
+    timeControlType === 'perQuestion'
+      ? input.timePerQuestionSeconds != null && input.timePerQuestionSeconds > 0
+        ? `${Number(input.timePerQuestionSeconds).toFixed(1)} sec per question`
+        : 'No time limit'
+      : input.timeMode === 'off'
+        ? 'No time limit'
+        : input.timeMode === 'exam'
+          ? examTimeEstimateMinutes != null
+            ? `${examTimeEstimateMinutes} min`
             : '—'
-          : input.customTimeMinutes != null
-            ? `${input.customTimeMinutes} min (custom)`
-            : '—'
+          : input.timeMode === 'speed'
+            ? speedTimeMinutes != null
+              ? `${speedTimeMinutes} min (${(1 / input.timeSpeedMultiplier).toFixed(1)}×)`
+              : '—'
+            : input.customTimeMinutes != null
+              ? `${input.customTimeMinutes} min (custom)`
+              : '—'
 
   return {
     input,
     setInput,
     selectedSection,
+    sectionTimePerQuestionSeconds,
     sectionCategories,
     selectedCategories,
     matchingCount,
@@ -256,6 +294,8 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
     handleTimeSpeedChange,
     handleQuestionCountChange,
     handleCustomTimeMinutesChange,
+    handleTimePerQuestionChange,
     sectionLabels,
+    timeControlType,
   }
 }

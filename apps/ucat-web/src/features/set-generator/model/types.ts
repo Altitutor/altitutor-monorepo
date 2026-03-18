@@ -31,6 +31,11 @@ export type SetGeneratorInput = {
    */
   customTimeMinutes: number | null
   questionCount: number
+  /**
+   * Practice mode only. Seconds per question for timing. Null = untimed.
+   * When set, each question (or stem = perQuestion × questions in stem) is timed.
+   */
+  timePerQuestionSeconds?: number | null
 }
 
 export type GeneratedPracticeSet = {
