@@ -17,14 +17,14 @@ export const notesApi = {
     let query = supabase.from('notes_documents').select('*');
 
     // Folder filter
-    if (folderId !== undefined && folderId !== null) {
+    if (folderId !== undefined && folderId !== null && folderId !== '') {
       query = query.eq('folder_id', folderId);
     } else if (folderId === null) {
       // Explicitly filter for notes without a folder
       query = query.is('folder_id', null);
     }
 
-    if (projectId !== undefined && projectId !== null) {
+    if (projectId !== undefined && projectId !== null && projectId !== '') {
       query = query.eq('project_id', projectId);
     } else if (projectId === null) {
       query = query.is('project_id', null);

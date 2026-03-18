@@ -3,6 +3,8 @@ import { forwardRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { JumpHighlightExtension } from '../extensions/JumpHighlightExtension';
+import { useAdminRichTextImageUpload } from '@/features/rich-text-images';
+import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
 
 export type { NoteEditorRef };
 
@@ -19,15 +21,29 @@ interface NoteEditorProps {
 /**
  * Tiptap ProseMirror JSON editor component.
  * Now a wrapper around the shared RichTextEditor.
+ * Supports image paste and drag-and-drop for notes_documents.
  */
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref) => {
+  const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
+    context: 'notes_documents',
+    editorRef: ref as React.RefObject<NoteEditorRef | null>,
+  });
+  const slashMenuSuggestions = useSlashCommandSuggestions();
+
   return (
-    <RichTextEditor
-      {...props}
-      ref={ref}
-      minHeight="full"
-      extensions={[JumpHighlightExtension]}
-    />
+    <div
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleDrop}
+    >
+      <RichTextEditor
+        {...props}
+        ref={ref}
+        minHeight="full"
+        extensions={[JumpHighlightExtension]}
+        slashMenuSuggestions={slashMenuSuggestions}
+        onPasteImages={handlePasteImages}
+      />
+    </div>
   );
 });
 

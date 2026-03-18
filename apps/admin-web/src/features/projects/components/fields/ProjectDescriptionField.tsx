@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import {
   FormControl,
   FormField,
@@ -11,6 +12,8 @@ import {
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
+import { useAdminRichTextImageUpload } from '@/features/rich-text-images';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
 import type { ProjectFormData } from '../../types';
 
@@ -23,6 +26,13 @@ interface ProjectDescriptionFieldProps {
 
 export function ProjectDescriptionField({ form, descriptionRef }: ProjectDescriptionFieldProps) {
   const mentionSuggestions = useMentionSuggestions();
+  const slashMenuSuggestions = useSlashCommandSuggestions();
+  const localRef = useRef<RichTextEditorRef>(null);
+  const effectiveRef = descriptionRef ?? localRef;
+  const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
+    context: 'projects',
+    editorRef: effectiveRef,
+  });
 
   return (
     <FormField
@@ -31,14 +41,21 @@ export function ProjectDescriptionField({ form, descriptionRef }: ProjectDescrip
       render={({ field }) => (
         <FormItem>
           <FormControl>
-            <RichTextEditor
-              ref={descriptionRef}
-              content={field.value || ''}
-              onChange={field.onChange}
-              placeholder="Add project description..."
-              className="min-h-0"
-              mentionSuggestions={mentionSuggestions}
-            />
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              <RichTextEditor
+                ref={effectiveRef}
+                content={field.value || ''}
+                onChange={field.onChange}
+                placeholder="Add project description..."
+                className="min-h-0"
+                mentionSuggestions={mentionSuggestions}
+                slashMenuSuggestions={slashMenuSuggestions}
+                onPasteImages={handlePasteImages}
+              />
+            </div>
           </FormControl>
           <FormMessage />
         </FormItem>

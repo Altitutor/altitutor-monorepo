@@ -3,6 +3,7 @@
 import { generateHTML } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Mention from '@tiptap/extension-mention';
+import Image from '@tiptap/extension-image';
 import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
@@ -15,7 +16,7 @@ interface NoteViewerProps {
   className?: string;
 }
 
-/** Extensions for generateHTML - must include Mention to render mention nodes */
+/** Extensions for generateHTML - must include Mention and Image to render mention and image nodes */
 const VIEW_EXTENSIONS = [
   StarterKit.configure({
     bulletList: { keepMarks: true, keepAttributes: false },
@@ -37,6 +38,11 @@ const VIEW_EXTENSIONS = [
     },
   }),
   TableKit.configure({ table: { resizable: true } }),
+  Image.configure({
+    HTMLAttributes: {
+      class: 'my-3 rounded-md max-w-full h-auto',
+    },
+  }),
   TextStyleKit.configure({
     fontFamily: { types: ['textStyle'] },
     fontSize: { types: ['textStyle'] },

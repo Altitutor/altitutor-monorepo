@@ -9,8 +9,8 @@ import {
   type EntityListPillColumn,
   type EntityListStatusColumn,
   type EntityListAddRowRenderProps,
-  RichTextEditor,
 } from '@altitutor/ui';
+import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
 import { useTasks } from '../api/queries';
 import { useUpdateTask, useCreateTask } from '../api/mutations';
 import { useStaffSearch } from '../hooks/useStaffSearch';
@@ -823,12 +823,13 @@ export function TasksList({
         descriptionConfig={{
           enabled: true,
           renderEditor: ({ value, onChange, placeholder, ref }) => (
-            <RichTextEditor
+            <AdminRichTextEditorWithImages
               ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
               content={value}
               onChange={onChange}
               placeholder={placeholder}
               className="min-h-[60px]"
+              context="tasks"
               mentionSuggestions={mentionSuggestions}
             />
           ),
