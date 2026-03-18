@@ -190,18 +190,22 @@ export function SetAttemptAnalysisChart({
               : 'transparent'
           }}
         />
-        {/* Visible bar - also clickable */}
-        <rect
-          x={x}
-          y={y}
-          width={width}
-          height={height}
-          fill={fill}
-          rx={4}
-          ry={0}
-          className={onBarClick ? 'cursor-pointer' : ''}
-          onClick={() => onBarClick?.(index)}
-        />
+        {/* Visible bar with rounded top corners */}
+        {height > 0 && (
+          <path
+            d={(() => {
+              const r = Math.min(4, width / 2, height / 2)
+              const x0 = x
+              const y0 = y
+              const x1 = x + width
+              const y1 = y + height
+              return `M ${x0} ${y1} L ${x1} ${y1} L ${x1} ${y0 + r} Q ${x1} ${y0} ${x1 - r} ${y0} L ${x0 + r} ${y0} Q ${x0} ${y0} ${x0} ${y0 + r} Z`
+            })()}
+            fill={fill}
+            className={onBarClick ? 'cursor-pointer' : ''}
+            onClick={() => onBarClick?.(index)}
+          />
+        )}
       </g>
     )
   }
