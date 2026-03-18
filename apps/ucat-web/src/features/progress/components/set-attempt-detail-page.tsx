@@ -1,6 +1,8 @@
 'use client'
 
 import { useMemo, useState } from 'react'
+import { usePathname } from 'next/navigation'
+import { format } from 'date-fns'
 import { UcatPageHeader } from '@/features/layout'
 import { useSetAttemptDetail } from '../hooks/use-set-attempt-detail'
 import { useMockAttemptDetail } from '../hooks/use-mock-attempt-detail'
@@ -23,6 +25,7 @@ export function SetAttemptDetailPage({
   backLabel = 'Back to progress',
   mockAttemptId,
 }: SetAttemptDetailPageProps) {
+  const pathname = usePathname()
   const { data, isLoading, error } = useSetAttemptDetail(attemptId)
   const { data: mockData } = useMockAttemptDetail(mockAttemptId ?? null)
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0)
@@ -97,13 +100,19 @@ export function SetAttemptDetailPage({
   const total = data.totalPoints ?? 0
   const points = data.scorePoints ?? 0
 
+  const attemptDate = format(new Date(data.attemptedAt), 'd MMM yyyy')
+  const lastSegmentLabel = `${data.questionSetName ?? 'Set'} (${attemptDate})`
+
   const breadcrumbOverrides: Record<number, string> = {}
-  const setName = data.questionSetName ?? 'Set'
   if (mockAttemptId) {
     breadcrumbOverrides[2] = mockData?.mockName ?? 'Mock'
-    breadcrumbOverrides[4] = setName
+    breadcrumbOverrides[4] = lastSegmentLabel
+  } else if (pathname.includes('/sections/')) {
+    // Section route: segment 2 = section number (shows "Verbal Reasoning" from path), segment 4 = attempt id
+    breadcrumbOverrides[4] = lastSegmentLabel
   } else {
-    breadcrumbOverrides[2] = setName
+    // Flat set-attempts route: segment 2 = attempt id
+    breadcrumbOverrides[2] = lastSegmentLabel
   }
 
   return (
