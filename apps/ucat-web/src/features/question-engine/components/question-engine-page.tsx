@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,13 +13,14 @@ import {
   Search,
   X,
 } from 'lucide-react'
-import { UcatExamActionButton, UcatExamShell } from '@altitutor/ui'
+import { Button, UcatExamActionButton, UcatExamShell } from '@altitutor/ui'
 import { UCAT_COLORS } from '@altitutor/ui/src/components/ucat/ucat-theme'
 import { useQuestionEngineData } from '@/features/question-engine/hooks/use-question-engine-data'
 import { useQuestionEngineState } from '@/features/question-engine/hooks/use-question-engine-state'
 import { useUcatLag } from '@/features/question-engine/context/ucat-lag-context'
 import { CalculatorPanel } from '@/features/question-engine/components/calculator-panel'
 import {
+  ConfirmFinishPracticeDialog,
   ConfirmNextStemDialog,
   ConfirmSubmitDialog,
 } from '@/features/question-engine/components/confirm-practice-transition-dialog'
@@ -148,6 +149,8 @@ export function QuestionEnginePage({
   const [, setTick] = useState(0)
   const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false)
   const [showConfirmNextStemDialog, setShowConfirmNextStemDialog] = useState(false)
+  const [showConfirmFinishPracticeDialog, setShowConfirmFinishPracticeDialog] =
+    useState(false)
   const timeExpiredFiredRef = useRef<string | null>(null)
 
   const {
@@ -251,6 +254,9 @@ export function QuestionEnginePage({
       const anchor = target?.closest?.('a')
       if (!anchor || !anchor.href) return
 
+      // Skip warning for intentional navigation (e.g. Review answers, Back to practice)
+      if (anchor.hasAttribute('data-skip-leave-warning')) return
+
       // Ignore clicks that don't change location
       const nextUrl = new URL(anchor.href, window.location.href)
       if (nextUrl.href === window.location.href) return
@@ -321,7 +327,8 @@ export function QuestionEnginePage({
         state.showNoFlaggedDialog ||
         state.showReviewInstructionsDialog ||
         showConfirmSubmitDialog ||
-        showConfirmNextStemDialog
+        showConfirmNextStemDialog ||
+        showConfirmFinishPracticeDialog
       const isQuestionView =
         (state.phase === 'question' || (state.phase === 'review' && state.reviewFilter)) &&
         currentQuestion &&
@@ -356,7 +363,11 @@ export function QuestionEnginePage({
       const shortcutKey = parts.join('+')
 
       // When confirm practice transition dialogs are open, Alt+Y / Alt+N = Yes / No
-      if (showConfirmSubmitDialog || showConfirmNextStemDialog) {
+      if (
+        showConfirmSubmitDialog ||
+        showConfirmNextStemDialog ||
+        showConfirmFinishPracticeDialog
+      ) {
         if (shortcutKey === 'alt+y') {
           event.preventDefault()
           if (showConfirmSubmitDialog) {
@@ -368,6 +379,9 @@ export function QuestionEnginePage({
             recordAnswersForUnit(startIndex, endIndex)
             handlePracticeSubmit()
             setShowConfirmSubmitDialog(false)
+          } else if (showConfirmFinishPracticeDialog) {
+            setShowConfirmFinishPracticeDialog(false)
+            void handleFinishPractice()
           } else {
             goNext()
             setShowConfirmNextStemDialog(false)
@@ -378,6 +392,7 @@ export function QuestionEnginePage({
           event.preventDefault()
           setShowConfirmSubmitDialog(false)
           setShowConfirmNextStemDialog(false)
+          setShowConfirmFinishPracticeDialog(false)
           return
         }
       }
@@ -594,6 +609,8 @@ export function QuestionEnginePage({
     confirmPracticeTransitions,
     showConfirmSubmitDialog,
     showConfirmNextStemDialog,
+    showConfirmFinishPracticeDialog,
+    handleFinishPractice,
     hasPreviousQuestion,
     questions,
     mode,
@@ -617,7 +634,7 @@ export function QuestionEnginePage({
   const practiceCorrectCount =
     practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0
 
-  async function handleFinishPractice() {
+  const handleFinishPractice = useCallback(async () => {
     if (!isPracticeMode || !exam) return
     const qs = exam.questions
     if (state.phase === 'question') {
@@ -655,7 +672,19 @@ export function QuestionEnginePage({
       practiceAnswerUnitStartIndex: undefined,
       practiceAnswerUnitEndIndex: undefined,
     }))
-  }
+  }, [
+    isPracticeMode,
+    exam,
+    state.phase,
+    state.currentIndex,
+    mode,
+    recordAnswersForUnit,
+    practiceSessionId,
+    practiceMarkingResult,
+    completePracticeSession,
+    questionStems,
+    setState,
+  ])
 
   if ((mode === 'set' || mode === 'mock') && query.isLoading) {
     return <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-muted-foreground">Loading exam...</div>
@@ -968,6 +997,20 @@ export function QuestionEnginePage({
           </div>
         ) : null}
 
+        {showConfirmFinishPracticeDialog ? (
+          <div className="absolute inset-0 z-30 grid place-items-center bg-black/20 p-6">
+            <ConfirmFinishPracticeDialog
+              onConfirm={() =>
+                void runWithLag(() => {
+                  setShowConfirmFinishPracticeDialog(false)
+                  void handleFinishPractice()
+                })
+              }
+              onCancel={() => setShowConfirmFinishPracticeDialog(false)}
+            />
+          </div>
+        ) : null}
+
         {state.showTimeExpiredDialog ? (
           <div className="absolute inset-0 z-[35] grid place-items-center bg-black/20 p-6">
             <TimeExpiredDialog
@@ -1181,7 +1224,9 @@ export function QuestionEnginePage({
           ) : isPracticeMode &&
             (state.phase === 'question' || state.phase === 'practiceAnswer') ? (
             <UcatExamActionButton
-              onClick={() => void runWithLag(handleFinishPractice)}
+              onClick={() =>
+                void runWithLag(() => setShowConfirmFinishPracticeDialog(true))
+              }
               icon={<LogOut className="h-4 w-4" />}
             >
               <span className="text-[14pt]">
@@ -1381,18 +1426,7 @@ export function QuestionEnginePage({
                 </span>
               </UcatExamActionButton>
             </>
-          ) : isPracticeCompletePhase ? (
-            <UcatExamActionButton
-              onClick={() =>
-                void runWithLag(() => (onBack ? onBack() : router.back()))
-              }
-              variant="highlight"
-              icon={<ArrowRight className="h-4 w-4" />}
-              iconRight
-            >
-              <span className="text-[14pt]">Done</span>
-            </UcatExamActionButton>
-          ) : (
+          ) : isPracticeCompletePhase ? null : (
             <>
               {hasPreviousQuestion ? (
                 <UcatExamActionButton
@@ -1473,14 +1507,24 @@ export function QuestionEnginePage({
                 ? `${practiceCorrectCount} correct / ${questions.length} total`
                 : 'You have reviewed all questions.'}
             </p>
-            {practiceSessionId ? (
-              <Link
-                href={`/progress/practice/${practiceSessionId}`}
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <Button
+                variant="outline"
+                onClick={() => (onBack ? onBack() : router.back())}
+                className="h-10 px-4"
               >
-                Review answers
-              </Link>
-            ) : null}
+                Back to practice
+              </Button>
+              {practiceSessionId ? (
+                <Link
+                  href={`/progress/practice/${practiceSessionId}`}
+                  data-skip-leave-warning
+                  className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
+                >
+                  Review answers
+                </Link>
+              ) : null}
+            </div>
           </div>
         ) : isLoadingMorePhase ? (
           <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">

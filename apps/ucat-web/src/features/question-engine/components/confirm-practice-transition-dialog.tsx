@@ -61,3 +61,33 @@ export function ConfirmNextStemDialog({
     />
   )
 }
+
+export function ConfirmFinishPracticeDialog({
+  onConfirm,
+  onCancel,
+}: {
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  return (
+    <UcatExamDialog
+      title="Finish practice"
+      message={<p>Are you sure you want to finish this practice session?</p>}
+      actions={
+        <>
+          <UcatExamActionButton borders="all" onClick={onConfirm}>
+            <span>
+              <span className="underline">Y</span>es
+            </span>
+          </UcatExamActionButton>
+          <UcatExamActionButton borders="all" onClick={onCancel}>
+            <span>
+              <span className="underline">N</span>o
+            </span>
+          </UcatExamActionButton>
+        </>
+      }
+      className="max-w-lg"
+    />
+  )
+}
