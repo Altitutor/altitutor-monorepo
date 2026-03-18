@@ -7,7 +7,11 @@ import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/
 export const ucatSetsApi = {
   async list() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase.from('vtutor_ucat_question_sets').select('*').order('updated_at', { ascending: false })
+    const { data, error } = await supabase
+      .from('vtutor_ucat_question_sets')
+      .select('*')
+      .eq('is_student_generated', false)
+      .order('updated_at', { ascending: false })
     if (error) throw error
     return data ?? []
   },

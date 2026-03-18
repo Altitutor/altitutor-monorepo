@@ -45,6 +45,13 @@ export function getSingleFilterValue(state: DataTableState, key: string): string
   return String(values[0])
 }
 
+/** Get all filter values for a key (for multi-select OR filtering). */
+export function getFilterValues(state: DataTableState, key: string): unknown[] {
+  const values = state.filters[key]
+  if (!Array.isArray(values)) return []
+  return values.filter((v) => v !== 'all')
+}
+
 export function applyCoreStringFilter(value: string | null | undefined, search: string) {
   if (!search.trim()) return true
   return (value ?? '').toLowerCase().includes(search.toLowerCase())

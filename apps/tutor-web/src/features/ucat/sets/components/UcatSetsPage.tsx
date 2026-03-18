@@ -43,47 +43,53 @@ import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
 
-const DEFAULT_FILTERS: Record<string, unknown[]> = { is_student_generated: ['staff'] }
-
-const filterDefinitions: DataTableFilterDefinition[] = [
-  {
-    key: 'is_student_generated',
-    label: 'Origin',
-    options: [
-      { label: 'Staff', value: 'staff' },
-      { label: 'Student', value: 'student' },
-    ],
-  },
-  {
-    key: 'visibility',
-    label: 'Visibility',
-    options: [
-      { label: 'Public', value: 'public' },
-      { label: 'Private', value: 'private' },
-    ],
-  },
-  {
-    key: 'time_limit',
-    label: 'Time limit (s)',
-    type: 'number-range',
-    minKey: 'time_limit_min',
-    maxKey: 'time_limit_max',
-  },
-  {
-    key: 'stem_count',
-    label: 'Question stems',
-    type: 'number-range',
-    minKey: 'stem_count_min',
-    maxKey: 'stem_count_max',
-  },
-  {
-    key: 'question_count',
-    label: 'Questions',
-    type: 'number-range',
-    minKey: 'question_count_min',
-    maxKey: 'question_count_max',
-  },
-]
+function buildFilterDefinitions(sections: Array<{ id: string | null; section_number: number | null; name: string | null }>): DataTableFilterDefinition[] {
+  return [
+    {
+      key: 'visibility',
+      label: 'Visibility',
+      options: [
+        { label: 'Public', value: 'public' },
+        { label: 'Private', value: 'private' },
+      ],
+    },
+    {
+      key: 'section',
+      label: 'Section',
+      options: [
+        { label: 'All sections', value: 'all' },
+        ...sections
+          .filter((s) => s.section_number != null)
+          .sort((a, b) => (a.section_number ?? 0) - (b.section_number ?? 0))
+          .map((s) => ({
+            label: `${s.name ?? `Section ${s.section_number}`}`,
+            value: String(s.section_number),
+          })),
+      ],
+    },
+    {
+      key: 'time_limit',
+      label: 'Time limit (s)',
+      type: 'number-range',
+      minKey: 'time_limit_min',
+      maxKey: 'time_limit_max',
+    },
+    {
+      key: 'stem_count',
+      label: 'Question stems',
+      type: 'number-range',
+      minKey: 'stem_count_min',
+      maxKey: 'stem_count_max',
+    },
+    {
+      key: 'question_count',
+      label: 'Questions',
+      type: 'number-range',
+      minKey: 'question_count_min',
+      maxKey: 'question_count_max',
+    },
+  ]
+}
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
@@ -146,7 +152,7 @@ export function UcatSetsPage() {
   const { rows, visibleColumns, tableState } = useUcatSetsTable({
     data: sets.data,
     showDeleted,
-    defaultFilters: DEFAULT_FILTERS,
+    defaultFilters: {},
     sections,
     initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
   })
@@ -286,7 +292,7 @@ export function UcatSetsPage() {
         onVisibleColumnsChange={tableState.actions.onVisibleColumnsChange}
         onQuickFilterApply={tableState.actions.onQuickFilterApply}
         onReset={tableState.actions.onReset}
-        filterDefinitions={filterDefinitions}
+        filterDefinitions={buildFilterDefinitions(sections)}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         searchPlaceholder="Search sets"
