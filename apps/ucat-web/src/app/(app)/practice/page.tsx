@@ -1,10 +1,5 @@
-import { UcatPageHeader } from '@/features/layout'
+import { PracticePage } from '@/features/practice/components/practice-page'
 
 export default function PracticeRoute() {
-  return (
-    <div className="space-y-6">
-      <UcatPageHeader title="Practice" description="UCAT practice hub." />
-      <p className="text-sm text-muted-foreground">Practice content coming soon.</p>
-    </div>
-  )
+  return <PracticePage />
 }

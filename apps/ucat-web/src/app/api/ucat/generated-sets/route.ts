@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
 import { sectionLabels } from '@/features/set-generator/model/mock-data'
 import type { SetGeneratorInput, TimeMode } from '@/features/set-generator/model/types'
+import { pickStems } from './pick-stems'
 
 type SectionRow = {
   id: string
@@ -11,26 +12,10 @@ type SectionRow = {
   number_of_questions: number | null
 }
 
-type StemListRow = {
-  id: string
-  section_id: string
-  question_stem_category_id: string | null
-}
-
-type StemDetailQuestion = {
-  id: string
-}
-
 type StemDetailRow = {
   id: string
   section_id: string
-  questions: StemDetailQuestion[] | null
-}
-
-type QuestionAttemptRow = {
-  question_id: string
-  score: number | null
-  is_submitted: boolean
+  questions: Array<{ id: string }> | null
 }
 
 type GeneratorResponse = {
@@ -38,42 +23,6 @@ type GeneratorResponse = {
   questionCount: number
   totalMatchingQuestions: number
   examTimeSeconds: number | null
-}
-
-const SECTION_KEY_TO_NUMBER: Record<string, number> = {
-  verbal_reasoning: 1,
-  decision_making: 2,
-  quantitative_reasoning: 3,
-  situational_judgement: 4,
-}
-
-function resolveEffectiveQuestionCount(
-  requested: number,
-  sections: SectionRow[],
-  availableQuestions: number
-): number {
-  const maxBySections = sections.reduce((sum, section) => {
-    return sum + (section.number_of_questions ?? 0)
-  }, 0)
-
-  const hardCap = maxBySections > 0 ? maxBySections : availableQuestions
-  const clampedRequested = Math.max(1, Math.floor(requested))
-
-  return Math.min(clampedRequested, hardCap, availableQuestions)
-}
-
-function computeQuestionStatus(attempts: QuestionAttemptRow[] | undefined) {
-  if (!attempts || attempts.length === 0) {
-    return 'unanswered' as const
-  }
-
-  const submitted = attempts.filter((row) => row.is_submitted)
-  if (submitted.length === 0) {
-    return 'unanswered' as const
-  }
-
-  const anyCorrect = submitted.some((row) => (row.score ?? 0) > 0)
-  return anyCorrect ? ('correct' as const) : ('incorrect' as const)
 }
 
 function computeTimeLimitSeconds(
@@ -170,189 +119,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'A section must be selected.' }, { status: 400 })
   }
 
-  const sectionNumber = SECTION_KEY_TO_NUMBER[input.section]
-  if (typeof sectionNumber !== 'number') {
-    return NextResponse.json({ error: 'Invalid section selection.' }, { status: 400 })
-  }
+  const result = await pickStems(supabase, input)
 
-  const sectionNumbers = [sectionNumber]
-
-  // 1) Load section timing metadata (student-safe view)
-  const { data: sections, error: sectionsError } = await supabase
-    .from('vstudent_ucat_sections')
-    .select('id,section_number,time_per_question,number_of_questions')
-    .in('section_number', sectionNumbers)
-
-  if (sectionsError) {
-    return NextResponse.json({ error: sectionsError.message }, { status: 500 })
-  }
-
-  const sectionRows = (sections ?? []) as SectionRow[]
-  if (sectionRows.length === 0) {
-    return NextResponse.json({ error: 'No UCAT sections available for these filters.' }, { status: 400 })
-  }
-
-  const sectionIds = sectionRows.map((row) => row.id)
-  const sectionsById = new Map<string, SectionRow>(sectionRows.map((row) => [row.id, row]))
-
-  // 2) Load stems in those sections, optionally filtered by category
-  let stemsQuery = supabase
-    .from('vstudent_ucat_question_stems')
-    .select('id,section_id,question_stem_category_id')
-    .in('section_id', sectionIds)
-
-  if (input.categoryIds && input.categoryIds.length > 0) {
-    stemsQuery = stemsQuery.in('question_stem_category_id', input.categoryIds)
-  }
-
-  const { data: stems, error: stemsError } = await stemsQuery
-
-  if (stemsError) {
-    return NextResponse.json({ error: stemsError.message }, { status: 500 })
-  }
-
-  const stemRows = (stems ?? []) as StemListRow[]
-  if (stemRows.length === 0) {
+  if (result.chosenStemIds.length === 0) {
     return NextResponse.json(
-      { error: 'No question stems found for these filters.', details: { totalMatchingQuestions: 0 } },
+      { error: 'No question stems match these filters.', details: { totalMatchingQuestions: 0 } },
       { status: 400 }
     )
   }
 
-  const stemIds = stemRows.map((row) => row.id)
-
-  // 3) Load stem details (questions per stem)
-  const { data: stemDetails, error: stemDetailsError } = await supabase
-    .from('vstudent_ucat_question_stem_detail')
-    .select('id,section_id,questions')
-    .in('id', stemIds)
-
-  if (stemDetailsError) {
-    return NextResponse.json({ error: stemDetailsError.message }, { status: 500 })
-  }
-
-  const stemDetailRows = (stemDetails ?? []) as StemDetailRow[]
-
-  // Collect all question IDs first
-  const allQuestions: { stemId: string; question: StemDetailQuestion }[] = []
-  for (const stem of stemDetailRows) {
-    for (const q of stem.questions ?? []) {
-      allQuestions.push({ stemId: stem.id, question: q })
-    }
-  }
-
-  if (allQuestions.length === 0) {
-    return NextResponse.json(
-      { error: 'No questions available for these filters.', details: { totalMatchingQuestions: 0 } },
-      { status: 400 }
-    )
-  }
-
-  // 4) Load student attempts only if performance filters are enabled
-  let attemptsByQuestionId = new Map<string, QuestionAttemptRow[]>()
-
-  if (input.unansweredOnly || input.incorrectOnly) {
-    const questionIds = Array.from(new Set(allQuestions.map((q) => q.question.id)))
-
-    const { data: attempts, error: attemptsError } = await supabase
-      .from('vstudent_ucat_my_question_attempts')
-      .select('question_id,score,is_submitted')
-      .in('question_id', questionIds)
-
-    if (attemptsError) {
-      return NextResponse.json({ error: attemptsError.message }, { status: 500 })
-    }
-
-    const attemptRows = (attempts ?? []) as QuestionAttemptRow[]
-    attemptsByQuestionId = attemptRows.reduce((map, row) => {
-      const existing = map.get(row.question_id) ?? []
-      existing.push(row)
-      map.set(row.question_id, existing)
-      return map
-    }, new Map<string, QuestionAttemptRow[]>())
-  }
-
-  // 5) Apply filters at question level (performance only; no difficulty filter), then aggregate per stem
-  type StemAggregate = {
-    stem: StemDetailRow
-    allQuestionsCount: number
-    matchingQuestionsCount: number
-  }
-
-  const aggregatesByStemId = new Map<string, StemAggregate>()
-
-  for (const stem of stemDetailRows) {
-    const questions = stem.questions ?? []
-    let allCount = 0
-    let matchingCount = 0
-
-    for (const q of questions) {
-      allCount += 1
-
-      let performanceOk = true
-      if (input.unansweredOnly || input.incorrectOnly) {
-        const status = computeQuestionStatus(attemptsByQuestionId.get(q.id))
-        if (input.unansweredOnly) {
-          performanceOk = status === 'unanswered'
-        } else if (input.incorrectOnly) {
-          performanceOk = status === 'incorrect'
-        }
-      }
-
-      if (performanceOk) {
-        matchingCount += 1
-      }
-    }
-
-    aggregatesByStemId.set(stem.id, {
-      stem,
-      allQuestionsCount: allCount,
-      matchingQuestionsCount: matchingCount,
-    })
-  }
-
-  const candidateStems: StemAggregate[] = Array.from(aggregatesByStemId.values()).filter(
-    (agg) => agg.matchingQuestionsCount > 0 && agg.allQuestionsCount > 0
+  const sectionsById = new Map<string, SectionRow>(
+    result.sectionRows.map((row) => [row.id, row])
   )
-
-  if (candidateStems.length === 0) {
-    return NextResponse.json(
-      { error: 'No questions match these filters.', details: { totalMatchingQuestions: 0 } },
-      { status: 400 }
-    )
-  }
-
-  const totalMatchingQuestions = candidateStems.reduce((sum, agg) => sum + agg.matchingQuestionsCount, 0)
-  const availableQuestions = candidateStems.reduce((sum, agg) => sum + agg.allQuestionsCount, 0)
-
-  const targetQuestionCount = resolveEffectiveQuestionCount(input.questionCount, sectionRows, availableQuestions)
-
-  // 6) Pick stems until total questions <= targetQuestionCount
-  const chosenStems: StemDetailRow[] = []
-  let runningQuestions = 0
-
-  // Deterministic ordering: by stem id
-  candidateStems.sort((a, b) => a.stem.id.localeCompare(b.stem.id))
-
-  for (const agg of candidateStems) {
-    if (runningQuestions + agg.allQuestionsCount > targetQuestionCount) {
-      continue
-    }
-    chosenStems.push(agg.stem)
-    runningQuestions += agg.allQuestionsCount
-  }
-
-  if (chosenStems.length === 0) {
-    // If we couldn't fit even a single stem under the cap, fall back to the smallest stem
-    const smallest = candidateStems.reduce((min, current) => {
-      if (!min || current.allQuestionsCount < min.allQuestionsCount) return current
-      return min
-    })
-    if (smallest) {
-      chosenStems.push(smallest.stem)
-      runningQuestions = smallest.allQuestionsCount
-    }
-  }
+  const chosenStems: StemDetailRow[] = result.chosenStemIds
+    .map((id) => result.stemDetailRows.find((s) => s.id === id))
+    .filter((s): s is StemDetailRow => s != null)
 
   const timeLimitSeconds = computeTimeLimitSeconds(
     input.timeMode,
@@ -401,8 +182,8 @@ export async function POST(request: NextRequest) {
 
   const response: GeneratorResponse = {
     setId,
-    questionCount: runningQuestions,
-    totalMatchingQuestions,
+    questionCount: result.questionCount,
+    totalMatchingQuestions: result.totalMatchingQuestions,
     examTimeSeconds: timeLimitSeconds,
   }
 
