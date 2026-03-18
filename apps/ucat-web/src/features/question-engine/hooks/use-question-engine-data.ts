@@ -8,10 +8,12 @@ export function useQuestionEngineData({
   mode,
   setId,
   mockId,
+  enabled = true,
 }: {
   mode: QuestionEngineMode
   setId?: string
   mockId?: string
+  enabled?: boolean
 }) {
   const isDbMode = mode === 'set' || mode === 'mock'
 
@@ -24,6 +26,6 @@ export function useQuestionEngineData({
 
       return getQuestionEngineExam({ mode, setId, mockId })
     },
-    enabled: isDbMode,
+    enabled: isDbMode && enabled,
   })
 }

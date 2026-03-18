@@ -61,6 +61,7 @@ export function QuestionEnginePage({
   questionStems,
   standaloneQuestions,
   practice = false,
+  practiceSessionId,
   confirmPracticeTransitions = true,
   timePerQuestionSeconds = null,
   backHref,
@@ -73,6 +74,8 @@ export function QuestionEnginePage({
   standaloneQuestions?: QuestionEngineQuestion[]
   /** When true (questions/questionStem mode only): submit after each question/stem, show answer immediately, no final review phase. */
   practice?: boolean
+  /** When provided (practice mode): links question attempts to this session for persistence. */
+  practiceSessionId?: string | null
   /** When true (default): show confirmation popup before submit→answer and before next question stem in answer mode. */
   confirmPracticeTransitions?: boolean
   /** Questions/questionStem mode only. Seconds per question for timing. Omit or null = untimed. */
@@ -147,10 +150,16 @@ export function QuestionEnginePage({
   const [showConfirmNextStemDialog, setShowConfirmNextStemDialog] = useState(false)
   const timeExpiredFiredRef = useRef<string | null>(null)
 
-  const { recordAnswer, recordAnswersForUnit, handleExamCompleted } = useQuestionEnginePersistence({
+  const {
+    recordAnswer,
+    recordAnswersForUnit,
+    handleExamCompleted,
+    completePracticeSession,
+  } = useQuestionEnginePersistence({
     mode,
     exam,
     state,
+    practiceSessionId,
   })
 
   const markingOrQuestionIndex =
@@ -603,17 +612,12 @@ export function QuestionEnginePage({
             state.syllogismSnapshots
           )
         : null,
-    [
-      isPracticeMode,
-      exam?.questions,
-      state.selectedAnswers,
-      state.syllogismSnapshots,
-    ]
+    [isPracticeMode, exam, state.selectedAnswers, state.syllogismSnapshots]
   )
   const practiceCorrectCount =
     practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0
 
-  function handleFinishPractice() {
+  async function handleFinishPractice() {
     if (!isPracticeMode || !exam) return
     const qs = exam.questions
     if (state.phase === 'question') {
@@ -624,6 +628,26 @@ export function QuestionEnginePage({
       )
       recordAnswersForUnit(startIndex, endIndex)
     }
+
+    if (practiceSessionId && practiceMarkingResult) {
+      const questionScores = practiceMarkingResult.rows.map((r) => ({
+        questionId: r.question.id,
+        score: r.points,
+      }))
+      try {
+        await completePracticeSession.mutateAsync({
+          sessionId: practiceSessionId,
+          scorePoints: practiceMarkingResult.totalRawScore,
+          totalPoints: practiceMarkingResult.maxRawScore,
+          questionCount: qs.length,
+          stemsSnapshot: questionStems ?? [],
+          questionScores,
+        })
+      } catch {
+        // Session complete may fail; still show completion UI
+      }
+    }
+
     setState((current) => ({
       ...current,
       phase: 'practiceComplete',
@@ -1449,6 +1473,14 @@ export function QuestionEnginePage({
                 ? `${practiceCorrectCount} correct / ${questions.length} total`
                 : 'You have reviewed all questions.'}
             </p>
+            {practiceSessionId ? (
+              <Link
+                href={`/progress/practice/${practiceSessionId}`}
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
+              >
+                Review answers
+              </Link>
+            ) : null}
           </div>
         ) : isLoadingMorePhase ? (
           <div className="flex flex-col items-center justify-center gap-4 p-8 text-center">

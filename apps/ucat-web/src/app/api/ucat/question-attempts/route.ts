@@ -25,6 +25,7 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as {
     studentQuestionSetAttemptId: string | null
+    studentPracticeSessionId?: string | null
     questionId: string
     questionAnswerOptionId: string | null
     answerSnapshot?: Json | null
@@ -58,8 +59,14 @@ export async function POST(request: NextRequest) {
     .eq('student_id', student.id)
     .eq('question_id', body.questionId)
 
-  if (body.studentQuestionSetAttemptId === null) {
-    query = query.is('student_question_set_attempt_id', null)
+  if (body.studentPracticeSessionId != null && body.studentPracticeSessionId !== '') {
+    query = query
+      .is('student_question_set_attempt_id', null)
+      .eq('student_practice_session_id', body.studentPracticeSessionId)
+  } else if (body.studentQuestionSetAttemptId === null) {
+    query = query
+      .is('student_question_set_attempt_id', null)
+      .is('student_practice_session_id', null)
   } else {
     query = query.eq('student_question_set_attempt_id', body.studentQuestionSetAttemptId)
   }
@@ -116,9 +123,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ id: existing.id })
   }
 
+  const practiceSessionId =
+    body.studentPracticeSessionId != null && body.studentPracticeSessionId !== ''
+      ? body.studentPracticeSessionId
+      : null
+  const setAttemptId = practiceSessionId ? null : body.studentQuestionSetAttemptId
+
   const insertPayload: {
     student_id: string
     student_question_set_attempt_id: string | null
+    student_practice_session_id: string | null
     question_id: string
     question_answer_option_id: string | null
     answer_snapshot: Json | null
@@ -129,7 +143,8 @@ export async function POST(request: NextRequest) {
     mode: 'question' | 'question_stem' | 'set' | 'mock' | null
   } = {
     student_id: student.id,
-    student_question_set_attempt_id: body.studentQuestionSetAttemptId,
+    student_question_set_attempt_id: setAttemptId,
+    student_practice_session_id: practiceSessionId,
     question_id: body.questionId,
     question_answer_option_id: body.questionAnswerOptionId,
     answer_snapshot: body.answerSnapshot ?? null,

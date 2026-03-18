@@ -7,13 +7,18 @@ import { useQuestionEngineData } from '@/features/question-engine/hooks/use-ques
 import { useRefreshedContentCache } from '@/features/question-engine/hooks/use-refreshed-content-cache'
 import { ResultsQuestionViewer } from '@/features/question-engine/components/results-question-viewer'
 import { computeMarkingResult } from '@/features/question-engine/components/marking-body'
+import type { QuestionEngineExam } from '@/features/question-engine/model/types'
 import type { SetAttemptDetailResponse } from '@/app/api/ucat/progress/sets/[id]/route'
 
+type QuestionAttemptForCard = SetAttemptDetailResponse['questionAttempts'][number]
+
 type SetAnswersCardProps = {
-  questionSetId: string
-  questionAttempts: SetAttemptDetailResponse['questionAttempts']
+  questionSetId?: string
+  questionAttempts: QuestionAttemptForCard[]
   initialQuestionIndex?: number
   onQuestionIndexChange?: (index: number) => void
+  /** When provided, use this exam instead of fetching by questionSetId. For practice review. */
+  exam?: QuestionEngineExam | null
 }
 
 export function SetAnswersCard({
@@ -21,11 +26,17 @@ export function SetAnswersCard({
   questionAttempts,
   initialQuestionIndex = 0,
   onQuestionIndexChange,
+  exam: examProp,
 }: SetAnswersCardProps) {
-  const { data: exam, isLoading, error } = useQuestionEngineData({
+  const { data: examFromQuery, isLoading, error } = useQuestionEngineData({
     mode: 'set',
-    setId: questionSetId,
+    setId: questionSetId ?? '',
+    enabled: !examProp && Boolean(questionSetId),
   })
+
+  const exam = examProp ?? examFromQuery
+  const isLoadingExam = !examProp && isLoading
+  const examError = !examProp && error
 
   const { selectedAnswers, syllogismSnapshots } = useMemo(() => {
     const selected: Record<string, string> = {}
@@ -44,7 +55,7 @@ export function SetAnswersCard({
   const [viewingIndex, setViewingIndex] = useState(initialQuestionIndex)
 
   const questions = useMemo(
-    () => exam?.questions ?? [],
+    () => (exam?.questions ?? []),
     [exam?.questions]
   )
 
@@ -84,7 +95,7 @@ export function SetAnswersCard({
     onQuestionIndexChange?.(next)
   }
 
-  if (isLoading) {
+  if (isLoadingExam) {
     return (
       <Card className="overflow-hidden rounded-xl border-border">
         <CardHeader className="pb-2">
@@ -99,7 +110,7 @@ export function SetAnswersCard({
     )
   }
 
-  if (error) {
+  if (examError) {
     return (
       <Card className="overflow-hidden rounded-xl border-border">
         <CardHeader className="pb-2">

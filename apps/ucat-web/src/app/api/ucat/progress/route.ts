@@ -6,6 +6,7 @@ import type {
   SectionProgress,
   SetAttemptRow,
   MockAttemptRow,
+  PracticeAttemptRow,
   QuestionAttemptRow,
   SectionCategoryProgress,
   ProgressResponse,
@@ -16,6 +17,7 @@ export type {
   SectionProgress,
   SetAttemptRow,
   MockAttemptRow,
+  PracticeAttemptRow,
   QuestionAttemptRow,
   SectionCategoryProgress,
 } from '@altitutor/shared'
@@ -620,6 +622,46 @@ export async function GET() {
     })
   }
 
+  // Fetch practice sessions (completed only)
+  const { data: practiceAttemptsRaw, error: practiceError } = await (
+    supabase as { from: (t: string) => ReturnType<typeof supabase.from> }
+  )
+    .from('vstudent_ucat_my_practice_sessions')
+    .select(
+      'id, started_at, completed_at, ucat_section_id, section_name, score_points, total_points, question_count, unlimited'
+    )
+    .not('completed_at', 'is', null)
+
+  if (practiceError) {
+    return NextResponse.json({ error: practiceError.message }, { status: 500 })
+  }
+
+  type PracticeRaw = {
+    id?: string | null
+    started_at?: string | null
+    completed_at?: string | null
+    ucat_section_id?: string | null
+    section_name?: string | null
+    score_points?: number | null
+    total_points?: number | null
+    question_count?: number | null
+    unlimited?: boolean | null
+  }
+  const practiceAttempts: PracticeAttemptRow[] = (
+    (practiceAttemptsRaw ?? []) as PracticeRaw[]
+  ).map((row) => ({
+      id: row.id ?? '',
+      attemptedAt: row.started_at ?? '',
+      completedAt: row.completed_at ?? null,
+      ucatSectionId: row.ucat_section_id ?? '',
+      sectionName: row.section_name ?? 'Unknown',
+      scorePoints: row.score_points ?? null,
+      totalPoints: row.total_points ?? null,
+      questionCount: row.question_count ?? null,
+      unlimited: row.unlimited ?? false,
+    })
+  )
+
   type QuestionAttemptRaw = {
     id: string | null
     question_id: string | null
@@ -708,6 +750,7 @@ export async function GET() {
     sectionProgress,
     setAttempts,
     mockAttempts,
+    practiceAttempts,
     questionAttempts,
     sectionCategoryProgress,
     totalPublicMocks: totalPublicMocks ?? 0,

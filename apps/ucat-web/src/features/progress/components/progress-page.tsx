@@ -8,6 +8,7 @@ import { ProgressModeSelector } from './progress-mode-selector'
 import { SectionProgressCards } from './section-progress-cards'
 import { SetAttemptsCard } from './set-attempts-card'
 import { MockAttemptsCard } from './mock-attempts-card'
+import { PracticeAttemptsCard } from './practice-attempts-card'
 import { QuestionAttemptsCard } from './question-attempts-card'
 import {
   filterByTimeFrame,
@@ -124,6 +125,11 @@ export function ProgressPage() {
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
         sharedDateRange={sharedDateRange}
+      />
+      <PracticeAttemptsCard
+        attempts={filteredData.practiceAttempts ?? []}
+        mode={progressMode.mode}
+        timeFrameDays={progressMode.timeFrameDays}
       />
       <MockAttemptsCard
         attempts={filteredData.mockAttempts}

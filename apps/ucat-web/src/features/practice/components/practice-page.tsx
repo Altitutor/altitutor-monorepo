@@ -17,43 +17,98 @@ export function PracticePage() {
   })
 
   const startMutation = useMutation({
-    mutationFn: async (payload: SetGeneratorInput & { unlimited?: boolean }) => {
-      if (payload.unlimited) {
-        return { unlimited: true as const, stems: [] }
+    mutationFn: async ({
+      payload,
+      ucatSectionId,
+    }: {
+      payload: SetGeneratorInput & { unlimited?: boolean }
+      ucatSectionId: string
+    }) => {
+      const { unlimited, ...input } = payload
+      const sectionKey = input.section
+
+      if (unlimited) {
+        const createSessionRes = await fetch('/api/ucat/practice-sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sectionKey,
+            ucatSectionId,
+            filtersSnapshot: input,
+            unlimited: true,
+          }),
+        })
+
+        if (!createSessionRes.ok) {
+          const body = await createSessionRes.json().catch(() => ({}))
+          throw new Error(body.error ?? 'Failed to create practice session')
+        }
+
+        const { id: sessionId } = (await createSessionRes.json()) as { id: string }
+        return { unlimited: true as const, stems: [], sessionId }
       }
-      const response = await fetch('/api/ucat/practice-stems', {
+
+      const stemsRes = await fetch('/api/ucat/practice-stems', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ input: payload }),
       })
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}))
-        const message = body.error ?? 'Failed to load practice stems'
-        throw new Error(message)
+      if (!stemsRes.ok) {
+        const body = await stemsRes.json().catch(() => ({}))
+        throw new Error(body.error ?? 'Failed to load practice stems')
       }
 
-      return (await response.json()) as {
+      const stemsData = (await stemsRes.json()) as {
         stems: QuestionStemWithQuestions[]
         questionCount: number
         totalMatchingQuestions: number
       }
+
+      const createSessionRes = await fetch('/api/ucat/practice-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sectionKey,
+          ucatSectionId,
+          filtersSnapshot: input,
+          stemsSnapshot: stemsData.stems,
+          unlimited: false,
+        }),
+      })
+
+      if (!createSessionRes.ok) {
+        const body = await createSessionRes.json().catch(() => ({}))
+        throw new Error(body.error ?? 'Failed to create practice session')
+      }
+
+      const { id: sessionId } = (await createSessionRes.json()) as { id: string }
+
+      return {
+        stems: stemsData.stems,
+        questionCount: stemsData.questionCount,
+        totalMatchingQuestions: stemsData.totalMatchingQuestions,
+        sessionId,
+      }
     },
     onSuccess: (data, variables) => {
       const timePerQuestionSeconds =
-        variables.timePerQuestionSeconds != null && variables.timePerQuestionSeconds > 0
-          ? variables.timePerQuestionSeconds
+        variables.payload.timePerQuestionSeconds != null &&
+        variables.payload.timePerQuestionSeconds > 0
+          ? variables.payload.timePerQuestionSeconds
           : null
 
       if ('unlimited' in data && data.unlimited) {
         setPracticeSession({
           mode: 'unlimited',
-          filters: variables,
+          sessionId: data.sessionId,
+          filters: variables.payload,
           timePerQuestionSeconds,
         })
       } else {
         setPracticeSession({
           mode: 'set',
+          sessionId: data.sessionId,
           stems: data.stems,
           timePerQuestionSeconds,
         })
@@ -63,19 +118,22 @@ export function PracticePage() {
   })
 
   function handleStart() {
+    const ucatSectionId = filters.selectedSection?.id
+    if (!ucatSectionId) return
+
     const unlimited = filters.questionCountMode === 'unlimited'
     const payload = {
       ...filters.input,
       unlimited: unlimited || undefined,
     }
-    startMutation.mutate(payload)
+    startMutation.mutate({ payload, ucatSectionId })
   }
 
   const actionButton = (
     <button
       type="button"
       onClick={() => !startMutation.isPending && handleStart()}
-      disabled={startMutation.isPending}
+      disabled={startMutation.isPending || !filters.selectedSection?.id}
       className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground disabled:opacity-60"
     >
       {startMutation.isPending ? 'Loading…' : 'Start practice'}

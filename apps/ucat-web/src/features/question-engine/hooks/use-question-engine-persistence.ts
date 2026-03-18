@@ -21,6 +21,7 @@ type QuestionAttemptMode = 'question' | 'question_stem' | 'set' | 'mock'
 
 type UpsertQuestionAttemptInput = {
   studentQuestionSetAttemptId: string | null
+  studentPracticeSessionId?: string | null
   questionId: string
   questionAnswerOptionId: string | null
   answerSnapshot?: unknown
@@ -36,6 +37,15 @@ type CompleteSetAttemptInput = {
 
 type CompleteMockAttemptInput = {
   studentMockAttemptId: string
+}
+
+type CompletePracticeSessionInput = {
+  sessionId: string
+  scorePoints: number
+  totalPoints: number
+  questionCount: number
+  stemsSnapshot: unknown
+  questionScores: Array<{ questionId: string; score: number }>
 }
 
 type SetAttemptState = {
@@ -120,10 +130,12 @@ export function useQuestionEnginePersistence({
   mode,
   exam,
   state,
+  practiceSessionId,
 }: {
   mode: QuestionEngineMode
   exam: QuestionEngineExam | undefined
   state: QuestionEngineState
+  practiceSessionId?: string | null
 }) {
   const isStudentEngine = true
 
@@ -223,6 +235,36 @@ export function useQuestionEnginePersistence({
       })
       if (!response.ok) {
         throw new Error('Failed to complete mock attempt')
+      }
+      return response.json()
+    },
+  })
+
+  const completePracticeSession = useMutation<
+    unknown,
+    Error,
+    CompletePracticeSessionInput
+  >({
+    mutationFn: async (input) => {
+      const response = await fetch(
+        `/api/ucat/practice-sessions/${input.sessionId}`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            complete: true,
+            scorePoints: input.scorePoints,
+            totalPoints: input.totalPoints,
+            questionCount: input.questionCount,
+            stemsSnapshot: input.stemsSnapshot,
+            questionScores: input.questionScores,
+          }),
+        }
+      )
+      if (!response.ok) {
+        throw new Error('Failed to complete practice session')
       }
       return response.json()
     },
@@ -329,7 +371,8 @@ export function useQuestionEnginePersistence({
     const isSyllogism = question?.questionType === 'syllogism'
 
     const inputBase: UpsertQuestionAttemptInput = {
-      studentQuestionSetAttemptId: null,
+      studentQuestionSetAttemptId: practiceSessionId ? null : null,
+      studentPracticeSessionId: practiceSessionId ?? undefined,
       questionId,
       questionAnswerOptionId: isSyllogism ? null : questionAnswerOptionId,
       answerSnapshot: undefined,
@@ -409,13 +452,20 @@ export function useQuestionEnginePersistence({
           ? attemptStateRef.current.setAttemptIdsBySetId.get(question.questionSetId) ??
             ensureSetAttemptForQuestion(question)
           : null
+        const canRecord =
+          (prevAnswerOptionId || hasSyllogismAnswer) &&
+          question &&
+          (setAttemptId || practiceSessionId)
 
-        if ((prevAnswerOptionId || hasSyllogismAnswer) && question && setAttemptId) {
+        if (canRecord) {
           const isFlagged = state.flaggedIds.includes(t.currentQuestionId)
           const isSyllogism = question.questionType === 'syllogism'
-          const wasTimed = getWasTimedForSet(mode, exam, question)
+          const wasTimed = practiceSessionId
+            ? false
+            : getWasTimedForSet(mode, exam, question)
           const base: UpsertQuestionAttemptInput = {
-            studentQuestionSetAttemptId: setAttemptId,
+            studentQuestionSetAttemptId: setAttemptId ?? null,
+            studentPracticeSessionId: practiceSessionId ?? undefined,
             questionId: t.currentQuestionId,
             questionAnswerOptionId: isSyllogism ? null : (prevAnswerOptionId ?? null),
             timeSpentSeconds: newTotal,
@@ -467,13 +517,19 @@ export function useQuestionEnginePersistence({
         ? attemptStateRef.current.setAttemptIdsBySetId.get(question.questionSetId)
         : undefined
       const setAttemptId = setAttemptIdExisting ?? (question ? ensureSetAttemptForQuestion(question) : null)
+      const canRecord =
+        (prevAnswerOptionId || hasSyllogismAnswer) &&
+        question &&
+        (setAttemptId || practiceSessionId)
 
-      if (prevAnswerOptionId || hasSyllogismAnswer) {
-        if (question && setAttemptId) {
-          const isSyllogism = question.questionType === 'syllogism'
-          const wasTimed = getWasTimedForSet(mode, exam, question)
-          const base: UpsertQuestionAttemptInput = {
-            studentQuestionSetAttemptId: setAttemptId,
+      if (canRecord) {
+        const isSyllogism = question.questionType === 'syllogism'
+        const wasTimed = practiceSessionId
+          ? false
+          : getWasTimedForSet(mode, exam, question)
+        const base: UpsertQuestionAttemptInput = {
+          studentQuestionSetAttemptId: setAttemptId ?? null,
+          studentPracticeSessionId: practiceSessionId ?? undefined,
             questionId: timing.currentQuestionId,
             questionAnswerOptionId: isSyllogism ? null : (prevAnswerOptionId ?? null),
             timeSpentSeconds: newTotal,
@@ -495,8 +551,7 @@ export function useQuestionEnginePersistence({
             }
           }
 
-          upsertQuestionAttempt.mutate(base)
-        }
+        upsertQuestionAttempt.mutate(base)
       }
     }
 
@@ -506,7 +561,15 @@ export function useQuestionEnginePersistence({
     } else if (timing.startedAt == null) {
       timing.startedAt = now
     }
-  }, [state, exam, mode, isStudentEngine, ensureSetAttemptForQuestion, upsertQuestionAttempt])
+  }, [
+    state,
+    exam,
+    mode,
+    isStudentEngine,
+    practiceSessionId,
+    ensureSetAttemptForQuestion,
+    upsertQuestionAttempt,
+  ])
 
   async function handleExamCompleted(): Promise<void> {
     if (!isStudentEngine) return
@@ -602,6 +665,7 @@ export function useQuestionEnginePersistence({
     recordAnswer,
     recordAnswersForUnit,
     handleExamCompleted,
+    completePracticeSession,
   }
 }
 
