@@ -351,6 +351,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }).configure({
         inline: false,
         allowBase64: false,
+        resize: {
+          enabled: true,
+          directions: ['left', 'right'],
+          minWidth: 50,
+          minHeight: 50,
+          alwaysPreserveAspectRatio: true,
+        },
         HTMLAttributes: {
           class: 'my-3 rounded-md max-w-full h-auto cursor-pointer',
         },
