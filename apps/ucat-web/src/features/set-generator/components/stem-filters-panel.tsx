@@ -8,6 +8,7 @@ import {
   PopoverTrigger,
   SearchableSelect,
   SearchableSelectInline,
+  Slider,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -33,6 +34,7 @@ export type StemFiltersPanelProps = {
   onCategoryChange: (categories: CategoryRow[]) => void
   onPerformanceFilterChange: (mode: PerformanceFilter) => void
   onTimeModeChange: (mode: TimeMode) => void
+  onTimeSpeedChange: (value: number) => void
   onQuestionCountChange: (value: number) => void
   onCustomTimeMinutesChange: (value: number | null) => void
   /** Action button (e.g. "Generate set" or "Start practice") */
@@ -54,6 +56,7 @@ export function StemFiltersPanel({
   onCategoryChange,
   onPerformanceFilterChange,
   onTimeModeChange,
+  onTimeSpeedChange,
   onQuestionCountChange,
   onCustomTimeMinutesChange,
   actionButton,
@@ -144,6 +147,12 @@ export function StemFiltersPanel({
                     tooltip: 'Time limit matches UCAT pacing for this section.',
                   },
                   {
+                    mode: 'speed' as const,
+                    label: 'Speed',
+                    tooltip:
+                      'Scale exam timing. 1 = exam pace, 0.5 = 2× time, 0.1 = 10× time. Drag the slider to adjust.',
+                  },
+                  {
                     mode: 'custom' as const,
                     label: 'Custom',
                     tooltip:
@@ -185,7 +194,22 @@ export function StemFiltersPanel({
                 )
               })}
             </div>
-            {input.timeMode === 'custom' ? (
+            {input.timeMode === 'speed' ? (
+              <div className="flex flex-col gap-1.5 w-full sm:w-48">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">
+                    {(1 / (input.timeSpeedMultiplier ?? 1)).toFixed(1)}× time
+                  </span>
+                </div>
+                <Slider
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={[input.timeSpeedMultiplier ?? 1]}
+                  onValueChange={([v]) => onTimeSpeedChange(v)}
+                />
+              </div>
+            ) : input.timeMode === 'custom' ? (
               <label className="flex items-center gap-2 text-sm">
                 <input
                   type="number"

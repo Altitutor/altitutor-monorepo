@@ -58,6 +58,7 @@ const initialInput: SetGeneratorInput = {
   incorrectOnly: false,
   categoryIds: [],
   timeMode: 'exam',
+  timeSpeedMultiplier: 1,
   customTimeMinutes: null,
   questionCount: DEFAULT_QUESTION_COUNT,
 }
@@ -183,6 +184,10 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
         return {
           ...current,
           timeMode: mode,
+          timeSpeedMultiplier:
+            mode === 'speed'
+              ? Math.min(1, Math.max(0.1, current.timeSpeedMultiplier ?? 1))
+              : current.timeSpeedMultiplier ?? 1,
           customTimeMinutes:
             mode === 'custom' ? (current.customTimeMinutes ?? defaultCustomMinutes) : null,
         }
@@ -190,6 +195,13 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
     },
     [examTimeEstimateMinutes]
   )
+
+  const handleTimeSpeedChange = useCallback((value: number) => {
+    setInput((current) => ({
+      ...current,
+      timeSpeedMultiplier: Math.min(1, Math.max(0.1, value)),
+    }))
+  }, [])
 
   const handleQuestionCountChange = useCallback(
     (value: number) => {
@@ -205,6 +217,11 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
     setInput((current) => ({ ...current, customTimeMinutes: value }))
   }, [])
 
+  const speedTimeMinutes =
+    examTimeEstimateMinutes != null && input.timeSpeedMultiplier > 0
+      ? Math.round(examTimeEstimateMinutes / input.timeSpeedMultiplier)
+      : null
+
   const previewTimeLabel =
     input.timeMode === 'off'
       ? 'No time limit'
@@ -212,9 +229,13 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
         ? examTimeEstimateMinutes != null
           ? `${examTimeEstimateMinutes} min`
           : '—'
-        : input.customTimeMinutes != null
-          ? `${input.customTimeMinutes} min (custom)`
-          : '—'
+        : input.timeMode === 'speed'
+          ? speedTimeMinutes != null
+            ? `${speedTimeMinutes} min (${(1 / input.timeSpeedMultiplier).toFixed(1)}×)`
+            : '—'
+          : input.customTimeMinutes != null
+            ? `${input.customTimeMinutes} min (custom)`
+            : '—'
 
   return {
     input,
@@ -232,6 +253,7 @@ export function useStemFilters(options: UseStemFiltersOptions = {}) {
     handleCategoryChange,
     handlePerformanceFilterChange,
     handleTimeModeChange,
+    handleTimeSpeedChange,
     handleQuestionCountChange,
     handleCustomTimeMinutesChange,
     sectionLabels,

@@ -69,6 +69,7 @@ export function SetGeneratorPage() {
         onCategoryChange={filters.handleCategoryChange}
         onPerformanceFilterChange={filters.handlePerformanceFilterChange}
         onTimeModeChange={filters.handleTimeModeChange}
+        onTimeSpeedChange={filters.handleTimeSpeedChange}
         onQuestionCountChange={filters.handleQuestionCountChange}
         onCustomTimeMinutesChange={filters.handleCustomTimeMinutesChange}
         actionButton={actionButton}

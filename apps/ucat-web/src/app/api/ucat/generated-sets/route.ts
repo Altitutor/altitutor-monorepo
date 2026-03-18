@@ -28,6 +28,7 @@ type GeneratorResponse = {
 function computeTimeLimitSeconds(
   mode: TimeMode,
   customTimeMinutes: number | null,
+  timeSpeedMultiplier: number,
   chosenStems: StemDetailRow[],
   sectionsById: Map<string, SectionRow>
 ): number | null {
@@ -42,7 +43,7 @@ function computeTimeLimitSeconds(
     return Math.round(customTimeMinutes * 60)
   }
 
-  // Exam mode: sum (questions in section) * (section time_per_question)
+  // Exam and speed modes: sum (questions in section) * (section time_per_question)
   const sectionQuestionCounts = new Map<string, number>()
 
   for (const stem of chosenStems) {
@@ -66,6 +67,14 @@ function computeTimeLimitSeconds(
 
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
     return null
+  }
+
+  if (mode === 'speed') {
+    const multiplier =
+      timeSpeedMultiplier > 0 && Number.isFinite(timeSpeedMultiplier)
+        ? 1 / Math.min(1, Math.max(0.1, timeSpeedMultiplier))
+        : 1
+    return Math.round(totalSeconds * multiplier)
   }
 
   return Math.round(totalSeconds)
@@ -138,6 +147,7 @@ export async function POST(request: NextRequest) {
   const timeLimitSeconds = computeTimeLimitSeconds(
     input.timeMode,
     input.customTimeMinutes,
+    input.timeSpeedMultiplier ?? 1,
     chosenStems,
     sectionsById
   )
