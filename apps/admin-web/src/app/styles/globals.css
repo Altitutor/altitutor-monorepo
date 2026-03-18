@@ -127,25 +127,23 @@
   cursor: e-resize;
 }
 
-/* Corner handles */
-[data-resize-handle="top-left"] {
-  width: 8px;
-  height: 8px;
-  cursor: nw-resize;
-}
-[data-resize-handle="top-right"] {
-  width: 8px;
-  height: 8px;
-  cursor: ne-resize;
-}
-[data-resize-handle="bottom-left"] {
-  width: 8px;
-  height: 8px;
-  cursor: sw-resize;
-}
+[data-resize-handle="top-left"],
+[data-resize-handle="top-right"],
+[data-resize-handle="bottom-left"],
 [data-resize-handle="bottom-right"] {
   width: 8px;
   height: 8px;
+}
+[data-resize-handle="top-left"] {
+  cursor: nw-resize;
+}
+[data-resize-handle="top-right"] {
+  cursor: ne-resize;
+}
+[data-resize-handle="bottom-left"] {
+  cursor: sw-resize;
+}
+[data-resize-handle="bottom-right"] {
   cursor: se-resize;
 }
 

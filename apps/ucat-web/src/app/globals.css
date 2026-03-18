@@ -83,7 +83,7 @@ body {
   background-color: hsl(var(--accent) / 0.9) !important;
 }
 
-/* Tiptap ResizableNodeView - image resize handles (Linear-style) */
+/* Tiptap ResizableNodeView - invisible handles, resize from any edge/corner */
 [data-resize-container] {
   display: flex;
   justify-content: center;
@@ -98,30 +98,44 @@ body {
 [data-resize-handle] {
   position: absolute;
   z-index: 10;
-  width: 8px;
-  min-width: 8px;
-  cursor: col-resize;
-  background: hsl(var(--primary) / 0.15);
-  border-radius: 4px;
-  transition: background 0.15s ease, width 0.15s ease;
+  background: transparent;
 }
 
-[data-resize-handle]:hover {
-  background: hsl(var(--primary) / 0.35);
-  width: 10px;
-  min-width: 10px;
+[data-resize-handle="top"],
+[data-resize-handle="bottom"] {
+  height: 6px;
+  cursor: n-resize;
 }
-
-[data-resize-handle="left"] {
-  left: -4px;
-  top: 0;
-  bottom: 0;
+[data-resize-handle="bottom"] {
+  cursor: s-resize;
 }
-
+[data-resize-handle="left"],
 [data-resize-handle="right"] {
-  right: -4px;
-  top: 0;
-  bottom: 0;
+  width: 6px;
+  cursor: w-resize;
+}
+[data-resize-handle="right"] {
+  cursor: e-resize;
+}
+
+[data-resize-handle="top-left"],
+[data-resize-handle="top-right"],
+[data-resize-handle="bottom-left"],
+[data-resize-handle="bottom-right"] {
+  width: 8px;
+  height: 8px;
+}
+[data-resize-handle="top-left"] {
+  cursor: nw-resize;
+}
+[data-resize-handle="top-right"] {
+  cursor: ne-resize;
+}
+[data-resize-handle="bottom-left"] {
+  cursor: sw-resize;
+}
+[data-resize-handle="bottom-right"] {
+  cursor: se-resize;
 }
 
 .ProseMirror-selectednode [data-resize-container] {
