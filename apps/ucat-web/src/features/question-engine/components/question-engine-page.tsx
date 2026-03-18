@@ -290,6 +290,72 @@ export function QuestionEnginePage({
         })()
       : state.currentIndex > 0)
 
+  const practiceMarkingResult = useMemo(
+    () =>
+      isPracticeMode && (exam?.questions?.length ?? 0) > 0
+        ? computeMarkingResult(
+            exam!.questions,
+            state.selectedAnswers,
+            state.syllogismSnapshots
+          )
+        : null,
+    [isPracticeMode, exam, state.selectedAnswers, state.syllogismSnapshots]
+  )
+  const practiceCorrectCount =
+    practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0
+
+  const handleFinishPractice = useCallback(async () => {
+    if (!isPracticeMode || !exam) return
+    const qs = exam.questions
+    if (state.phase === 'question') {
+      const { startIndex, endIndex } = getStemBoundaries(
+        qs,
+        state.currentIndex,
+        mode as 'questions' | 'questionStem'
+      )
+      recordAnswersForUnit(startIndex, endIndex)
+    }
+
+    if (practiceSessionId && practiceMarkingResult) {
+      const questionScores = practiceMarkingResult.rows.map((r) => ({
+        questionId: r.question.id,
+        score: r.points,
+      }))
+      try {
+        await completePracticeSession.mutateAsync({
+          sessionId: practiceSessionId,
+          scorePoints: practiceMarkingResult.totalRawScore,
+          totalPoints: practiceMarkingResult.maxRawScore,
+          questionCount: qs.length,
+          stemsSnapshot: questionStems ?? [],
+          questionScores,
+        })
+      } catch {
+        // Session complete may fail; still show completion UI
+      }
+    }
+
+    setState((current) => ({
+      ...current,
+      phase: 'practiceComplete',
+      viewingQuestionIndex: null,
+      practiceAnswerUnitStartIndex: undefined,
+      practiceAnswerUnitEndIndex: undefined,
+    }))
+  }, [
+    isPracticeMode,
+    exam,
+    state.phase,
+    state.currentIndex,
+    mode,
+    recordAnswersForUnit,
+    practiceSessionId,
+    practiceMarkingResult,
+    completePracticeSession,
+    questionStems,
+    setState,
+  ])
+
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
   useEffect(() => {
     const preventDefault = (event: Event) => {
@@ -620,72 +686,6 @@ export function QuestionEnginePage({
     onBack,
   ])
 
-  const practiceMarkingResult = useMemo(
-    () =>
-      isPracticeMode && (exam?.questions?.length ?? 0) > 0
-        ? computeMarkingResult(
-            exam!.questions,
-            state.selectedAnswers,
-            state.syllogismSnapshots
-          )
-        : null,
-    [isPracticeMode, exam, state.selectedAnswers, state.syllogismSnapshots]
-  )
-  const practiceCorrectCount =
-    practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0
-
-  const handleFinishPractice = useCallback(async () => {
-    if (!isPracticeMode || !exam) return
-    const qs = exam.questions
-    if (state.phase === 'question') {
-      const { startIndex, endIndex } = getStemBoundaries(
-        qs,
-        state.currentIndex,
-        mode as 'questions' | 'questionStem'
-      )
-      recordAnswersForUnit(startIndex, endIndex)
-    }
-
-    if (practiceSessionId && practiceMarkingResult) {
-      const questionScores = practiceMarkingResult.rows.map((r) => ({
-        questionId: r.question.id,
-        score: r.points,
-      }))
-      try {
-        await completePracticeSession.mutateAsync({
-          sessionId: practiceSessionId,
-          scorePoints: practiceMarkingResult.totalRawScore,
-          totalPoints: practiceMarkingResult.maxRawScore,
-          questionCount: qs.length,
-          stemsSnapshot: questionStems ?? [],
-          questionScores,
-        })
-      } catch {
-        // Session complete may fail; still show completion UI
-      }
-    }
-
-    setState((current) => ({
-      ...current,
-      phase: 'practiceComplete',
-      viewingQuestionIndex: null,
-      practiceAnswerUnitStartIndex: undefined,
-      practiceAnswerUnitEndIndex: undefined,
-    }))
-  }, [
-    isPracticeMode,
-    exam,
-    state.phase,
-    state.currentIndex,
-    mode,
-    recordAnswersForUnit,
-    practiceSessionId,
-    practiceMarkingResult,
-    completePracticeSession,
-    questionStems,
-    setState,
-  ])
-
   if ((mode === 'set' || mode === 'mock') && query.isLoading) {
     return <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-muted-foreground">Loading exam...</div>
   }
@@ -766,7 +766,8 @@ export function QuestionEnginePage({
     state.showNoFlaggedDialog ||
     state.showReviewInstructionsDialog ||
     showConfirmSubmitDialog ||
-    showConfirmNextStemDialog
+    showConfirmNextStemDialog ||
+    showConfirmFinishPracticeDialog
 
   const incompleteCount = (() => {
     const count = getIncompleteCount(
