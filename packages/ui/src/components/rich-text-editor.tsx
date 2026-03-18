@@ -10,7 +10,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
-import { TextSelection } from '@tiptap/pm/state';
+import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
 import { SlashCommandExtension } from '../extensions/slash-command';
 import type { JSONContent } from '@tiptap/core';
@@ -438,6 +438,37 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     editable,
     immediatelyRender: false,
     editorProps: {
+      handleKeyDown: (view, event) => {
+        const { state } = view;
+        const { selection } = state;
+        if (!(selection instanceof NodeSelection)) return false;
+        if (selection.node.type.name !== 'image') return false;
+
+        const posAfter = selection.$to.pos;
+
+        if (
+          event.key.length === 1 &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
+          event.preventDefault();
+          const tr = state.tr
+            .setSelection(TextSelection.create(state.doc, posAfter))
+            .insertText(event.key);
+          view.dispatch(tr);
+          return true;
+        }
+
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+          event.preventDefault();
+          const tr = state.tr.deleteSelection();
+          view.dispatch(tr);
+          return true;
+        }
+
+        return false;
+      },
       handleClick: (view, _pos, event) => {
         const target = event.target as HTMLElement;
         const mentionNode = target.closest('[data-mention]') as HTMLElement | null;
