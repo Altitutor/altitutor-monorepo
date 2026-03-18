@@ -18,6 +18,7 @@ export type StudentSetRow = {
 }
 
 export type SetsFilters = {
+  search?: string
   timed?: 'timed' | 'untimed' | 'all'
   source?: 'my' | 'public' | 'all'
   sectionNumber?: number | null
@@ -78,9 +79,18 @@ export async function getAttemptedSetIds(): Promise<Set<string>> {
 export function filterSets(
   sets: StudentSetRow[],
   filters: SetsFilters,
-  attemptedSetIds?: Set<string>
+  attemptedSetIds?: Set<string>,
+  extractText?: (value: unknown) => string
 ): StudentSetRow[] {
+  const getText = extractText ?? ((v: unknown) => (typeof v === 'string' ? v : ''))
   return sets.filter((set) => {
+    if (filters.search?.trim()) {
+      const searchLower = filters.search.trim().toLowerCase()
+      const nameText = getText(set.name) ?? ''
+      const descText = getText(set.description) ?? ''
+      const combined = `${nameText} ${descText}`.toLowerCase()
+      if (!combined.includes(searchLower)) return false
+    }
     if (filters.timed === 'timed' && (set.time_limit_seconds == null || set.time_limit_seconds <= 0)) {
       return false
     }

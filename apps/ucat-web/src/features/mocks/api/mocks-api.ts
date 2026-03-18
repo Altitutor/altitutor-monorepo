@@ -168,6 +168,7 @@ export type StudentMockRow = {
 }
 
 export type MocksFilters = {
+  search?: string
   timed?: 'timed' | 'untimed' | 'all'
   source?: 'my' | 'public' | 'all'
 }
@@ -183,6 +184,11 @@ export async function getStudentMocks(): Promise<StudentMockRow[]> {
 
 export function filterMocks(mocks: StudentMockRow[], filters: MocksFilters): StudentMockRow[] {
   return mocks.filter((mock) => {
+    if (filters.search?.trim()) {
+      const searchLower = filters.search.trim().toLowerCase()
+      const nameText = (mock.name ?? '').toLowerCase()
+      if (!nameText.includes(searchLower)) return false
+    }
     if (filters.timed === 'timed' && !mock.has_timed_sets) {
       return false
     }

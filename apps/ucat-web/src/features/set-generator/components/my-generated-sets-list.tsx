@@ -1,26 +1,38 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useQueryClient } from '@tanstack/react-query'
-import { Badge, Label, SearchableSelect } from '@altitutor/ui'
+import { Badge, ListToolbar, TablePagination } from '@altitutor/ui'
+import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { useAttemptedSetIds, useSets } from '@/features/sets/hooks/use-sets'
 import {
   filterSets,
   type SetsFilters,
   type StudentSetRow,
 } from '@/features/sets/api/sets-api'
+import { recordToSetsFilters } from '@/features/sets/lib/filter-adapters'
 import { formatSetSections } from '@/features/sets/lib/section-labels'
 import { extractTextFromRichJson } from '@/features/question-engine/model/rich-text'
 import type { JsonLike } from '@/features/question-engine/model/rich-text'
 import { ListChecks } from 'lucide-react'
 
-const SECTION_OPTIONS = [
-  { value: 'all', label: 'All sections' },
-  { value: '1', label: 'Verbal Reasoning' },
-  { value: '2', label: 'Decision Making' },
-  { value: '3', label: 'Quantitative Reasoning' },
-  { value: '4', label: 'Situational Judgement' },
+const DEFAULT_PAGE_SIZE = 10
+
+const SECTION_OPTIONS: DataTableFilterDefinition['options'] = [
+  { value: 1, label: 'Verbal Reasoning' },
+  { value: 2, label: 'Decision Making' },
+  { value: 3, label: 'Quantitative Reasoning' },
+  { value: 4, label: 'Situational Judgement' },
+]
+
+const ATTEMPTED_OPTIONS: DataTableFilterDefinition['options'] = [
+  { value: 'unattempted', label: 'Unattempted' },
+]
+
+const FILTER_DEFINITIONS: DataTableFilterDefinition[] = [
+  { key: 'sectionNumber', label: 'Section', options: SECTION_OPTIONS },
+  { key: 'attempted', label: 'Status', options: ATTEMPTED_OPTIONS },
 ]
 
 function formatTimeLimit(seconds: number | null): string {
@@ -52,20 +64,38 @@ export function MyGeneratedSetsList({
   const queryClient = useQueryClient()
   const { data: sets, isLoading, error } = useSets()
   const { data: attemptedSetIds = new Set<string>() } = useAttemptedSetIds()
-  const [filters, setFilters] = useState<SetsFilters>(() => ({
-    source: 'my',
-    ...initialFilters,
-  }))
+  const [search, setSearch] = useState('')
+  const [filtersRecord, setFiltersRecord] = useState<Record<string, unknown[]>>(
+    () =>
+      initialFilters?.sectionNumber != null
+        ? {
+            sectionNumber: [initialFilters.sectionNumber],
+            ...(initialFilters.attempted === 'unattempted' && {
+              attempted: ['unattempted'],
+            }),
+          }
+        : ({} as Record<string, unknown[]>)
+  )
+  const [page, setPage] = useState(0)
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE)
 
   useEffect(() => {
     queryClient.invalidateQueries({ queryKey: ['ucat', 'attempted-set-ids'] })
   }, [queryClient])
 
   useEffect(() => {
-    if (initialFilters && Object.keys(initialFilters).length > 0) {
-      setFilters((prev) => ({ ...prev, ...initialFilters }))
+    if (initialFilters?.sectionNumber != null || initialFilters?.attempted) {
+      setFiltersRecord((prev) => ({
+        ...prev,
+        ...(initialFilters.sectionNumber != null && {
+          sectionNumber: [initialFilters.sectionNumber],
+        }),
+        ...(initialFilters.attempted === 'unattempted' && {
+          attempted: ['unattempted'],
+        }),
+      }))
+      setPage(0)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- only sync when section/attempted from parent change
   }, [initialFilters?.sectionNumber, initialFilters?.attempted])
 
   const mySets = useMemo(() => {
@@ -73,29 +103,45 @@ export function MyGeneratedSetsList({
     return sets.filter((s) => s.is_student_generated === true)
   }, [sets])
 
-  const filteredSets = useMemo(() => {
-    return filterSets(mySets, filters, attemptedSetIds)
-  }, [mySets, filters, attemptedSetIds])
+  const effectiveFilters = useMemo(
+    () => recordToSetsFilters(filtersRecord),
+    [filtersRecord]
+  )
 
-  const handleFilterChange = (key: keyof SetsFilters, value: string) => {
-    setFilters((prev) => {
-      const next = { ...prev }
-      if (value === 'all' || !value) {
-        delete next[key as keyof SetsFilters]
-      } else if (key === 'sectionNumber') {
-        next.sectionNumber = parseInt(value, 10)
-      } else if (key === 'attempted') {
-        next.attempted = value === 'unattempted' ? 'unattempted' : undefined
-      } else {
-        ;(next as Record<string, string>)[key] = value
-      }
-      return next
-    })
-  }
+  const filteredSets = useMemo(() => {
+    return filterSets(
+      mySets,
+      { ...effectiveFilters, search: search.trim() || undefined },
+      attemptedSetIds,
+      (v) => extractTextFromRichJson(v as JsonLike)
+    )
+  }, [mySets, effectiveFilters, search, attemptedSetIds])
+
+  const totalPages = Math.max(1, Math.ceil(filteredSets.length / pageSize))
+  const currentPage = Math.min(page, totalPages - 1)
+  const paginatedSets = useMemo(() => {
+    const start = currentPage * pageSize
+    return filteredSets.slice(start, start + pageSize)
+  }, [filteredSets, currentPage, pageSize])
+
+  const handleFiltersChange = useCallback((filters: Record<string, unknown[]>) => {
+    setFiltersRecord(filters)
+    setPage(0)
+  }, [])
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value)
+    setPage(0)
+  }, [])
+
+  const handlePageSizeChange = useCallback((size: number) => {
+    setPageSize(size)
+    setPage(0)
+  }, [])
 
   if (isLoading) {
     return (
-      <section className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <section className="space-y-4">
         <h2 className="text-lg font-semibold">My generated sets</h2>
         <p className="text-sm text-muted-foreground">Loading...</p>
       </section>
@@ -104,7 +150,7 @@ export function MyGeneratedSetsList({
 
   if (error) {
     return (
-      <section className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+      <section className="space-y-4">
         <h2 className="text-lg font-semibold">My generated sets</h2>
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : 'Failed to load sets'}
@@ -114,7 +160,7 @@ export function MyGeneratedSetsList({
   }
 
   return (
-    <section className="space-y-4 rounded-xl border border-border bg-card p-4 shadow-sm">
+    <section className="space-y-4">
       <h2 className="text-lg font-semibold">My generated sets</h2>
       {mySets.length === 0 ? (
         <p className="text-sm text-muted-foreground">
@@ -122,50 +168,16 @@ export function MyGeneratedSetsList({
         </p>
       ) : (
         <>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-3">
-              <Label>Section</Label>
-              <SearchableSelect<(typeof SECTION_OPTIONS)[number]>
-                items={SECTION_OPTIONS}
-                value={
-                  SECTION_OPTIONS.find(
-                    (opt) => opt.value === (filters.sectionNumber?.toString() ?? 'all')
-                  ) ?? null
-                }
-                onValueChange={(item) =>
-                  item && handleFilterChange('sectionNumber', item.value)
-                }
-                getItemLabel={(opt) => opt.label}
-                getItemId={(opt) => opt.value}
-                placeholder="All sections"
-                triggerClassName="w-[180px]"
-              />
-            </div>
-            <div className="space-y-3">
-              <Label>Status</Label>
-              <SearchableSelect<{ value: string; label: string }>
-                items={[
-                  { value: 'all', label: 'All' },
-                  { value: 'unattempted', label: 'Unattempted' },
-                ]}
-                value={
-                  [
-                    { value: 'all', label: 'All' },
-                    { value: 'unattempted', label: 'Unattempted' },
-                  ].find((i) => i.value === (filters.attempted ?? 'all')) ?? null
-                }
-                onValueChange={(item) =>
-                  item && handleFilterChange('attempted', item.value)
-                }
-                getItemLabel={(i) => i.label}
-                getItemId={(i) => i.value}
-                placeholder="All"
-                triggerClassName="w-[140px]"
-              />
-            </div>
-          </div>
+          <ListToolbar
+            search={search}
+            onSearchChange={handleSearchChange}
+            searchPlaceholder="Search sets..."
+            filterDefinitions={FILTER_DEFINITIONS}
+            filters={filtersRecord}
+            onFiltersChange={handleFiltersChange}
+          />
           <ul className="space-y-3">
-            {filteredSets.map((set) => (
+            {paginatedSets.map((set) => (
               <GeneratedSetCard
                 key={set.id}
                 set={set}
@@ -175,6 +187,17 @@ export function MyGeneratedSetsList({
               />
             ))}
           </ul>
+          {filteredSets.length > 0 && (
+            <div className="border-t border-border pt-4 ucat-pagination">
+              <TablePagination
+                page={currentPage + 1}
+                pageSize={pageSize}
+                total={filteredSets.length}
+                onPageChange={(p) => setPage(p - 1)}
+                onPageSizeChange={handlePageSizeChange}
+              />
+            </div>
+          )}
         </>
       )}
     </section>
@@ -203,13 +226,10 @@ function GeneratedSetCard({
   const setHref = `/sets/set-generator/${encodeURIComponent(set.id)}`
 
   return (
-    <li
-      ref={ref}
-      className={isHighlighted ? 'rounded-xl ring-2 ring-primary ring-offset-2 ring-offset-background' : undefined}
-    >
+    <li ref={ref}>
       <Link
         href={setHref}
-        className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:bg-muted"
+        className={`flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:bg-muted ${isHighlighted ? 'ucat-set-highlight-transient' : ''}`}
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
           <ListChecks className="h-5 w-5" />
@@ -217,7 +237,9 @@ function GeneratedSetCard({
         <div className="min-w-0 flex-1">
           <p className="font-medium truncate">{title}</p>
           {sectionsText ? (
-            <p className="text-xs text-muted-foreground truncate">{sectionsText}</p>
+            <p className="text-xs text-muted-foreground truncate">
+              {sectionsText}
+            </p>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2 text-right text-sm text-muted-foreground">

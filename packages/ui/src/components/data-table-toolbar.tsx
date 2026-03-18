@@ -256,7 +256,7 @@ export function DataTableToolbar({
                   <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[240px] p-0">
+              <DropdownMenuContent align="end" className="w-[200px] p-0">
                 <DropdownMenuLabel className="px-2 py-1.5">Show columns</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <SearchableSelectInline<DataTableColumnDefinition>
@@ -288,7 +288,7 @@ export function DataTableToolbar({
                     <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[220px] p-0">
+                <DropdownMenuContent align="end" className="w-[200px] p-0">
                   <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <SearchableSelectInline<DataTableGroupByOption>
@@ -344,7 +344,7 @@ export function DataTableToolbar({
                     <ChevronDown className="h-4 w-4 ml-1 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[240px] p-0">
+                <DropdownMenuContent align="end" className="w-[200px] p-0">
                   <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <SearchableSelectInline<DataTableSortOption>
@@ -416,7 +416,7 @@ export function DataTableToolbar({
                   <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
+              <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">
                 <DropdownMenuLabel>Filters</DropdownMenuLabel>
                 
                 {quickFilters.length > 0 && (
@@ -595,7 +595,7 @@ export function DataTableToolbar({
                       return (
                         <DropdownMenuSub key={def.key}>
                           <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[320px] p-0">
+                          <DropdownMenuSubContent className="w-[260px] p-0">
                             <DateRangeFilter
                               fromValue={fromVal}
                               toValue={toVal}
@@ -623,7 +623,7 @@ export function DataTableToolbar({
                       return (
                         <DropdownMenuSub key={def.key}>
                           <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[280px] p-0">
+                          <DropdownMenuSubContent className="w-[240px] p-0">
                             {customContent}
                           </DropdownMenuSubContent>
                         </DropdownMenuSub>
@@ -637,7 +637,7 @@ export function DataTableToolbar({
                       return (
                         <DropdownMenuSub key={def.key}>
                           <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[220px]">
+                          <DropdownMenuSubContent className="w-[200px]">
                             <div className="p-2 flex items-center gap-2">
                               <div className="flex-1 min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground">Min</label>
@@ -674,7 +674,7 @@ export function DataTableToolbar({
                     return (
                       <DropdownMenuSub key={def.key}>
                         <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                        <DropdownMenuSubContent className="w-[280px] p-0">
+                        <DropdownMenuSubContent className="w-[240px] p-0">
                           <SearchableSelectInline<DataTableFilterOption<unknown>>
                             items={options}
                             value={selectedOptions}

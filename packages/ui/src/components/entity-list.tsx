@@ -419,7 +419,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                   <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[240px] p-0">
+              <DropdownMenuContent align="start" className="w-[200px] p-0">
                 <DropdownMenuLabel className="px-2 py-1.5">Show pills</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
@@ -448,7 +448,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                     <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[220px] p-0">
+                <DropdownMenuContent align="end" className="w-[200px] p-0">
                   <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <SearchableSelectInline<{ key: string; label: string }>
@@ -492,7 +492,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                     <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[240px] p-0">
+                <DropdownMenuContent align="end" className="w-[200px] p-0">
                   <DropdownMenuLabel className="px-2 py-1.5">Sort by</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <SearchableSelectInline<{ key: string; label: string }>
@@ -567,7 +567,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                   <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[320px] max-h-[500px] overflow-hidden flex flex-col">
+              <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">
                 <DropdownMenuLabel>Filters</DropdownMenuLabel>
                 
                 {quickFilters.length > 0 && (
@@ -677,7 +677,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                       filterElements.push(
                         <DropdownMenuSub key={statusColumn.key}>
                           <DropdownMenuSubTrigger>{statusColumn.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[280px] p-0">
+                          <DropdownMenuSubContent className="w-[240px] p-0">
                             <SearchableSelectInline<FilterOption>
                               items={options}
                               value={selectedOptions}
@@ -722,7 +722,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                           filterElements.push(
                             <DropdownMenuSub key={p.key}>
                               <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                              <DropdownMenuSubContent className="w-[320px] p-0">
+                              <DropdownMenuSubContent className="w-[260px] p-0">
                                 <DateRangeFilter
                                   fromValue={fromVal}
                                   toValue={toVal}
@@ -785,7 +785,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                         filterElements.push(
                           <DropdownMenuSub key={p.key}>
                             <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
-                            <DropdownMenuSubContent className="w-[280px] p-0">
+                            <DropdownMenuSubContent className="w-[240px] p-0">
                               <SearchableSelectInline<FilterOption>
                                 items={options}
                                 value={selectedOptions}
