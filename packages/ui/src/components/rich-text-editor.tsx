@@ -12,6 +12,7 @@ import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
 import { TextSelection } from '@tiptap/pm/state';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
+import { SlashCommandExtension } from '../extensions/slash-command';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
@@ -155,6 +156,14 @@ export interface RichTextEditorProps {
    * Additional TipTap extensions to add to the editor (e.g. JumpHighlightExtension for note TOC).
    */
   extensions?: import('@tiptap/core').AnyExtension[];
+  /**
+   * Optional configuration for slash commands (triggered by typing "/").
+   * When provided, typing "/" opens a menu with formatting options and optionally templates.
+   */
+  slashMenuSuggestions?: Omit<
+    import('@tiptap/suggestion').SuggestionOptions,
+    'editor' | 'char'
+  >;
 }
 
 const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
@@ -272,6 +281,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   pastePlainTextAsParagraphs = false,
   pasteTableBehavior,
   extensions: extraExtensions,
+  slashMenuSuggestions,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -346,6 +356,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         },
       }),
       ImageUploadPlaceholderExtension,
+      ...(slashMenuSuggestions
+        ? [
+            SlashCommandExtension.configure({
+              suggestion: slashMenuSuggestions,
+            }),
+          ]
+        : []),
       ...(mentionSuggestions ? [
         Mention.configure({
           HTMLAttributes: {
