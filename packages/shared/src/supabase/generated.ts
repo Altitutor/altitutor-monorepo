@@ -6073,6 +6073,127 @@ export type Database = {
           },
         ]
       }
+      student_ucat_practice_day_credits: {
+        Row: {
+          created_at: string
+          credit_date: string
+          discount_cents: number
+          id: string
+          stripe_invoice_item_id: string
+          student_id: string
+        }
+        Insert: {
+          created_at?: string
+          credit_date: string
+          discount_cents: number
+          id?: string
+          stripe_invoice_item_id: string
+          student_id: string
+        }
+        Update: {
+          created_at?: string
+          credit_date?: string
+          discount_cents?: number
+          id?: string
+          stripe_invoice_item_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_ucat_practice_day_credits_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_practice_day_credits_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_practice_day_credits_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_practice_day_credits_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      student_ucat_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string
+          status: string
+          stripe_price_id: string | null
+          stripe_subscription_id: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          status: string
+          stripe_price_id?: string | null
+          stripe_subscription_id: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string
+          status?: string
+          stripe_price_id?: string | null
+          stripe_subscription_id?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_ucat_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       students: {
         Row: {
           active_at: string | null
@@ -6098,6 +6219,7 @@ export type Database = {
           registered_at: string | null
           school: string | null
           status: string
+          timezone: string
           updated_at: string | null
           user_id: string | null
           welcome_modal_acknowledged_at: string | null
@@ -6127,6 +6249,7 @@ export type Database = {
           registered_at?: string | null
           school?: string | null
           status: string
+          timezone?: string
           updated_at?: string | null
           user_id?: string | null
           welcome_modal_acknowledged_at?: string | null
@@ -6156,6 +6279,7 @@ export type Database = {
           registered_at?: string | null
           school?: string | null
           status?: string
+          timezone?: string
           updated_at?: string | null
           user_id?: string | null
           welcome_modal_acknowledged_at?: string | null
@@ -7719,6 +7843,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ucat_subscription_config: {
+        Row: {
+          base_price_cents: number
+          billing_interval: string
+          created_at: string
+          currency: string
+          discount_per_day_cents: number
+          id: string
+          min_questions_per_day: number
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          trial_days: number
+          updated_at: string
+        }
+        Insert: {
+          base_price_cents?: number
+          billing_interval?: string
+          created_at?: string
+          currency?: string
+          discount_per_day_cents?: number
+          id?: string
+          min_questions_per_day?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          trial_days?: number
+          updated_at?: string
+        }
+        Update: {
+          base_price_cents?: number
+          billing_interval?: string
+          created_at?: string
+          currency?: string
+          discount_per_day_cents?: number
+          id?: string
+          min_questions_per_day?: number
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          trial_days?: number
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -12797,6 +12963,10 @@ export type Database = {
           p_year_level?: number
         }
         Returns: Json
+      }
+      count_submitted_attempts_today: {
+        Args: { p_student_id: string; p_timezone?: string }
+        Returns: number
       }
       create_admin_trial_booking: {
         Args: {
