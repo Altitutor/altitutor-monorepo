@@ -12227,6 +12227,7 @@ export type Database = {
           id: string | null
           index: number | null
           question_set_id: string | null
+          question_stem_id: string | null
           session_id: string | null
           ucat_mock_id: string | null
         }
@@ -12236,6 +12237,7 @@ export type Database = {
           id?: string | null
           index?: number | null
           question_set_id?: string | null
+          question_stem_id?: string | null
           session_id?: string | null
           ucat_mock_id?: string | null
         }
@@ -12245,6 +12247,7 @@ export type Database = {
           id?: string | null
           index?: number | null
           question_set_id?: string | null
+          question_stem_id?: string | null
           session_id?: string | null
           ucat_mock_id?: string | null
         }
@@ -12296,6 +12299,41 @@ export type Database = {
             columns: ["question_set_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_sets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_detail"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems"
             referencedColumns: ["id"]
           },
           {
