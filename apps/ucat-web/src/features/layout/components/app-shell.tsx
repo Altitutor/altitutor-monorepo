@@ -35,11 +35,14 @@ export function AppShell({ children }: AppShellProps) {
     }
   }, [isExamRoute])
 
+  const isPublicSubscribeRoute = pathname.startsWith('/subscribe')
+
   useEffect(() => {
+    if (isPublicSubscribeRoute) return
     if (!isLoading && !user) {
       router.replace('/login')
     }
-  }, [isLoading, router, user])
+  }, [isLoading, router, user, isPublicSubscribeRoute])
 
   useEffect(() => {
     setMobileOpen(false)
@@ -68,7 +71,7 @@ export function AppShell({ children }: AppShellProps) {
     setCollapsed((prev) => !prev)
   }
 
-  if (isLoading || !user) {
+  if (!isPublicSubscribeRoute && (isLoading || !user)) {
     return <div className="p-6 text-sm text-muted-foreground">Loading...</div>
   }
 

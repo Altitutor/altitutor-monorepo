@@ -473,6 +473,8 @@ Deno.serve(async (req: Request) => {
 
       case 'invoice.payment_failed': {
         // CRITICAL: Invoice payment failed
+        // For UCAT subscriptions: customer.subscription.updated will sync past_due status.
+        // Configure Stripe Smart Retries + Customer emails in Dashboard for payment failure notifications.
         const invoice = event.data.object as { id: string };
         const lastError = invoice.last_payment_error;
         const failure_code = lastError?.code || 'unknown_error';
@@ -590,6 +592,146 @@ Deno.serve(async (req: Request) => {
           .update({ status: 'uncollectible' })
           .eq('stripe_invoice_id', invoice.id);
         
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'checkout.session.completed': {
+        // UCAT subscription: provision access when checkout completes
+        const session = event.data.object as {
+          id: string;
+          mode?: string;
+          subscription?: string;
+          customer?: string;
+          customer_email?: string;
+          metadata?: { student_id?: string };
+        };
+
+        if (session.mode !== 'subscription' || !session.subscription) {
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('stripe_event_id', event.id);
+          return json({ received: true });
+        }
+
+        const studentId = session.metadata?.student_id;
+        if (!studentId) {
+          console.warn('[webhook] checkout.session.completed: missing student_id in metadata');
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('stripe_event_id', event.id);
+          return json({ received: true });
+        }
+
+        try {
+          const subscription = await stripe.subscriptions.retrieve(session.subscription, {
+            expand: ['items.data.price'],
+          });
+          const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+
+          // Ensure students_billing exists (Checkout may have created new customer)
+          const customerId = session.customer as string;
+          if (customerId) {
+            await supabase.from('students_billing').upsert(
+              {
+                student_id: studentId,
+                stripe_customer_id: customerId,
+              },
+              { onConflict: 'student_id' }
+            );
+          }
+
+          await supabase.from('student_ucat_subscriptions').upsert(
+            {
+              student_id: studentId,
+              stripe_subscription_id: subscription.id,
+              stripe_price_id: priceId,
+              status: subscription.status,
+              current_period_start: subscription.current_period_start
+                ? new Date(subscription.current_period_start * 1000).toISOString()
+                : null,
+              current_period_end: subscription.current_period_end
+                ? new Date(subscription.current_period_end * 1000).toISOString()
+                : null,
+              updated_at: new Date().toISOString(),
+            },
+            { onConflict: 'student_id' }
+          );
+          console.log('[webhook] UCAT subscription provisioned for student', studentId);
+        } catch (e: unknown) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error('[webhook] checkout.session.completed UCAT handler error:', msg);
+        }
+
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'customer.subscription.updated': {
+        const subscription = event.data.object as {
+          id: string;
+          status: string;
+          current_period_start?: number;
+          current_period_end?: number;
+          items?: { data?: Array<{ price?: { id?: string } }> };
+        };
+
+        const { data: existing } = await supabase
+          .from('student_ucat_subscriptions')
+          .select('id')
+          .eq('stripe_subscription_id', subscription.id)
+          .maybeSingle();
+
+        if (!existing) {
+          await supabase
+            .from('stripe_webhook_events')
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq('stripe_event_id', event.id);
+          return json({ received: true });
+        }
+
+        const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+        await supabase
+          .from('student_ucat_subscriptions')
+          .update({
+            status: subscription.status,
+            stripe_price_id: priceId,
+            current_period_start: subscription.current_period_start
+              ? new Date(subscription.current_period_start * 1000).toISOString()
+              : null,
+            current_period_end: subscription.current_period_end
+              ? new Date(subscription.current_period_end * 1000).toISOString()
+              : null,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', subscription.id);
+
+        await supabase
+          .from('stripe_webhook_events')
+          .update({ processed: true, processed_at: new Date().toISOString() })
+          .eq('stripe_event_id', event.id);
+        return json({ received: true });
+      }
+
+      case 'customer.subscription.deleted': {
+        const subscription = event.data.object as { id: string };
+
+        await supabase
+          .from('student_ucat_subscriptions')
+          .update({
+            status: 'canceled',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('stripe_subscription_id', subscription.id);
+
         await supabase
           .from('stripe_webhook_events')
           .update({ processed: true, processed_at: new Date().toISOString() })

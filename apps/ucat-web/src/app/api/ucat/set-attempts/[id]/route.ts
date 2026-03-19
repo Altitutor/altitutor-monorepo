@@ -7,6 +7,7 @@ import {
   scaleTo300_900,
 } from '@altitutor/ucat-marking'
 import type { QuestionMeta } from '@altitutor/ucat-marking'
+import { maybeGrantPracticeDayDiscount } from '@/lib/ucat/practice-day-discount'
 
 type QuestionRow = {
   id: string
@@ -303,5 +304,10 @@ export async function PATCH(
     return NextResponse.json({ error: updateSetError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true })
+  const discount = await maybeGrantPracticeDayDiscount(supabaseAdmin, student.id)
+  return NextResponse.json({
+    success: true,
+    earnedDiscount: discount.earnedDiscount,
+    discountCents: discount.discountCents,
+  })
 }

@@ -42,9 +42,9 @@ export function ProfileDropdown() {
           </Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href="/dashboard" className="flex cursor-pointer items-center">
+          <Link href="/settings" className="flex cursor-pointer items-center">
             <User className="mr-2 h-4 w-4" />
-            Profile
+            Settings
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

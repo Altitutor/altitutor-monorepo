@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase/server'
 import { supabaseAdmin } from '@/lib/supabase/admin'
+import { maybeGrantPracticeDayDiscount } from '@/lib/ucat/practice-day-discount'
 
 export async function PATCH(
   request: NextRequest,
@@ -132,5 +133,10 @@ export async function PATCH(
     return NextResponse.json({ error: updateError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ success: true })
+  const discount = await maybeGrantPracticeDayDiscount(supabaseAdmin, student.id)
+  return NextResponse.json({
+    success: true,
+    earnedDiscount: discount.earnedDiscount,
+    discountCents: discount.discountCents,
+  })
 }

@@ -108,6 +108,7 @@ const mockStudents: Tables<'students'>[] = [
     user_id: null,
     invite_token: null,
     welcome_modal_acknowledged_at: null,
+    timezone: 'Australia/Adelaide',
   },
   {
     id: 'student-2',
@@ -137,6 +138,7 @@ const mockStudents: Tables<'students'>[] = [
     user_id: null,
     invite_token: null,
     welcome_modal_acknowledged_at: null,
+    timezone: 'Australia/Adelaide',
   },
 ];
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
   DndContext,
   PointerSensor,
@@ -21,6 +22,8 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatClassSessions } from '@/features/ucat/classes/hooks/useUcatClassSessions'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
@@ -55,12 +58,14 @@ function DroppableSessionWithDraft({
   draftResources,
   setLookup,
   mockLookup,
+  stemLookup,
   onRemove,
 }: {
   session: UcatSessionWithResources
   draftResources: DraftResource[]
   setLookup: (id: string) => { name: string; section_index: number; section_name: string; question_count: number } | null
   mockLookup: (id: string) => { name: string; set_count: number } | null
+  stemLookup: (id: string) => { name: string; question_count: number } | null
   onRemove: (sessionId: string, draftId: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `session-${session.session_id}` })
@@ -80,6 +85,7 @@ function DroppableSessionWithDraft({
               resource={r}
               setLookup={setLookup}
               mockLookup={mockLookup}
+              stemLookup={stemLookup}
               onRemove={() => onRemove(session.session_id, r.draftId)}
             />
           ))}
@@ -93,11 +99,13 @@ function DraftResourceRow({
   resource,
   setLookup,
   mockLookup,
+  stemLookup,
   onRemove,
 }: {
   resource: DraftResource
   setLookup: (id: string) => { name: string; section_index: number; section_name: string; question_count: number } | null
   mockLookup: (id: string) => { name: string; set_count: number } | null
+  stemLookup: (id: string) => { name: string; question_count: number } | null
   onRemove: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -107,6 +115,7 @@ function DraftResourceRow({
 
   const setInfo = resource.type === 'set' ? setLookup(resource.resource_id) : null
   const mockInfo = resource.type === 'mock' ? mockLookup(resource.resource_id) : null
+  const stemInfo = resource.type === 'stem' ? stemLookup(resource.resource_id) : null
 
   return (
     <div
@@ -127,6 +136,8 @@ function DraftResourceRow({
           </>
         ) : resource.type === 'mock' && mockInfo ? (
           <div>{mockInfo.name}</div>
+        ) : resource.type === 'stem' && stemInfo ? (
+          <div>{stemInfo.name}</div>
         ) : (
           <div className="text-muted-foreground">{resource.resource_id}</div>
         )}
@@ -135,6 +146,8 @@ function DraftResourceRow({
         <span className="shrink-0 text-muted-foreground">{setInfo.question_count} q</span>
       ) : resource.type === 'mock' && mockInfo ? (
         <span className="shrink-0 text-muted-foreground">{mockInfo.set_count} sets</span>
+      ) : resource.type === 'stem' && stemInfo ? (
+        <span className="shrink-0 text-muted-foreground">{stemInfo.question_count} q</span>
       ) : null}
       <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onRemove}>
         <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -201,6 +214,27 @@ function DraggableMockItem({ id, name, setCount }: { id: string; name: string; s
   )
 }
 
+function DraggableStemItem({ id, name, questionCount }: { id: string; name: string; questionCount: number }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `stem-${id}`,
+    data: { type: 'stem', stemId: id },
+  })
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? 'opacity-60' : ''}`}
+    >
+      <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="min-w-0 flex-1">{name}</div>
+      <span className="shrink-0 text-muted-foreground">{questionCount} q</span>
+    </div>
+  )
+}
+
 export function UcatClassDialog({
   open,
   classId,
@@ -216,6 +250,11 @@ export function UcatClassDialog({
   const sessions = sessionsData ?? EMPTY_SESSIONS
   const { data: setsList = [] } = useUcatSets()
   const { data: mocksList = [] } = useUcatMocks()
+  const { data: stemsList = [] } = useQuery({
+    queryKey: ucatKeys.questions(),
+    queryFn: () => ucatQuestionsApi.list(),
+    enabled: open,
+  })
 
   // Only use non-deleted sets/mocks when assigning resources to sessions
   const activeSetsList = useMemo(
@@ -232,10 +271,18 @@ export function UcatClassDialog({
       ),
     [mocksList]
   )
+  const activeStemsList = useMemo(
+    () =>
+      (stemsList as Array<{ deleted_at?: string | null }>).filter(
+        (row) => row.deleted_at == null
+      ),
+    [stemsList]
+  )
 
   const [searchSessions, setSearchSessions] = useState('')
   const [searchSets, setSearchSets] = useState('')
   const [searchMocks, setSearchMocks] = useState('')
+  const [searchStems, setSearchStems] = useState('')
   const [filtersSessions, setFiltersSessions] = useState<Record<string, unknown[]>>(() => ({
     from: [format(new Date(), 'yyyy-MM-dd')],
   }))
@@ -243,6 +290,7 @@ export function UcatClassDialog({
   const [sortSessionDirection, setSortSessionDirection] = useState<'asc' | 'desc'>('asc')
   const [filtersSets, setFiltersSets] = useState<Record<string, unknown[]>>({})
   const [filtersMocks, setFiltersMocks] = useState<Record<string, unknown[]>>({})
+  const [filtersStems, setFiltersStems] = useState<Record<string, unknown[]>>({})
   const [, setActiveId] = useState<string | null>(null)
   const {
     draftBySession,
@@ -322,6 +370,20 @@ export function UcatClassDialog({
     []
   )
 
+  const stemFilterDefinitions: DataTableFilterDefinition[] = useMemo(
+    () => [
+      {
+        key: 'visibility',
+        label: 'Visibility',
+        options: [
+          { label: 'Public', value: 'public' },
+          { label: 'Private', value: 'private' },
+        ],
+      },
+    ],
+    []
+  )
+
   useEffect(() => {
     if (open && sessions.length > 0) {
       initializeFromSessions(sessions)
@@ -360,18 +422,34 @@ export function UcatClassDialog({
     return (id: string) => map.get(id) ?? null
   }, [activeMocksList])
 
-  /** Session list (left): only show resources that reference non-deleted sets/mocks. */
+  const stemLookup = useMemo(() => {
+    const map = new Map<string, { name: string; question_count: number }>()
+    for (const row of activeStemsList as Array<{
+      id: string | null
+      stem_text: unknown
+      question_count: number | null
+    }>) {
+      if (!row.id) continue
+      const raw = proseMirrorToPlainText(row.stem_text as Json | undefined).trim() || 'Question stem'
+      const name = raw.length > 60 ? `${raw.slice(0, 57)}…` : raw
+      map.set(row.id, { name, question_count: row.question_count ?? 0 })
+    }
+    return (id: string) => map.get(id) ?? null
+  }, [activeStemsList])
+
+  /** Session list (left): only show resources that reference non-deleted sets/mocks/stems. */
   const visibleDraftBySession = useMemo(() => {
     const out: Record<string, DraftResource[]> = {}
     for (const [sessionId, resources] of Object.entries(draftBySession)) {
       out[sessionId] = resources.filter(
         (r) =>
           (r.type === 'set' && setLookup(r.resource_id) !== null) ||
-          (r.type === 'mock' && mockLookup(r.resource_id) !== null)
+          (r.type === 'mock' && mockLookup(r.resource_id) !== null) ||
+          (r.type === 'stem' && stemLookup(r.resource_id) !== null)
       )
     }
     return out
-  }, [draftBySession, setLookup, mockLookup])
+  }, [draftBySession, setLookup, mockLookup, stemLookup])
 
   const filteredSessions = useMemo(() => {
     let list = sessions
@@ -465,6 +543,39 @@ export function UcatClassDialog({
     })
   }, [activeMocksList, searchMocks, mocksTableState])
 
+  const stemsTableState = useMemo(
+    () => ({
+      search: searchStems,
+      filters: filtersStems,
+      sortBy: null,
+      sortDirection: 'desc' as const,
+      groupBy: null,
+      page: 1,
+      pageSize: 20,
+      visibleColumns: [],
+    }),
+    [searchStems, filtersStems]
+  )
+
+  const filteredStems = useMemo(() => {
+    const list = activeStemsList as Array<{
+      id: string | null
+      stem_text: unknown
+      section_name?: string | null
+      question_count: number | null
+      is_private?: boolean | null
+    }>
+    return list.filter((row) => {
+      const plain = proseMirrorToPlainText(row.stem_text as Json | undefined)
+      const searchHit =
+        !searchStems.trim() ||
+        applyCoreStringFilter(plain, searchStems) ||
+        applyCoreStringFilter(row.section_name ?? '', searchStems)
+      const visibilityHit = applyBooleanTextFilter(stemsTableState, 'visibility', !!row.is_private)
+      return searchHit && visibilityHit
+    })
+  }, [activeStemsList, searchStems, stemsTableState])
+
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
 
   const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id))
@@ -485,10 +596,21 @@ export function UcatClassDialog({
       return
     }
 
-    if ((activeStr.startsWith('set-') || activeStr.startsWith('mock-')) && overStr.startsWith('session-')) {
+    if (
+      (activeStr.startsWith('set-') || activeStr.startsWith('mock-') || activeStr.startsWith('stem-')) &&
+      overStr.startsWith('session-')
+    ) {
       const sessionId = overStr.replace('session-', '')
-      const type = activeStr.startsWith('set-') ? 'set' : 'mock'
-      const resource_id = activeStr.startsWith('set-') ? activeStr.replace('set-', '') : activeStr.replace('mock-', '')
+      const type = activeStr.startsWith('set-')
+        ? 'set'
+        : activeStr.startsWith('mock-')
+          ? 'mock'
+          : 'stem'
+      const resource_id = activeStr.startsWith('set-')
+        ? activeStr.replace('set-', '')
+        : activeStr.startsWith('mock-')
+          ? activeStr.replace('mock-', '')
+          : activeStr.replace('stem-', '')
       appendResourceToSession(sessionId, type, resource_id)
     }
   }
@@ -509,7 +631,7 @@ export function UcatClassDialog({
       open={open}
       onClose={onClose}
       title="Edit class sessions"
-      subtitle="Assign sets and mocks to sessions. Reorder or remove with the list. Save when done."
+      subtitle="Assign sets, mocks, and question stems to sessions. Reorder or remove with the list. Save when done."
       onSave={handleSave}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
@@ -551,6 +673,7 @@ export function UcatClassDialog({
                     draftResources={visibleDraftBySession[session.session_id] ?? []}
                     setLookup={setLookup}
                     mockLookup={mockLookup}
+                    stemLookup={stemLookup}
                     onRemove={handleRemove}
                   />
                 ))}
@@ -561,8 +684,15 @@ export function UcatClassDialog({
           <aside className="w-96 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
             <Tabs defaultValue="sets">
               <TabsList className="w-full">
-                <TabsTrigger value="sets" className="flex-1">Sets</TabsTrigger>
-                <TabsTrigger value="mocks" className="flex-1">Mocks</TabsTrigger>
+                <TabsTrigger value="sets" className="flex-1">
+                  Sets
+                </TabsTrigger>
+                <TabsTrigger value="mocks" className="flex-1">
+                  Mocks
+                </TabsTrigger>
+                <TabsTrigger value="stems" className="flex-1">
+                  Stems
+                </TabsTrigger>
               </TabsList>
               <TabsContent value="sets" className="mt-3 pt-4 space-y-2 m-0">
                 <ListToolbar
@@ -615,6 +745,30 @@ export function UcatClassDialog({
                       setCount={row.set_count ?? 0}
                     />
                   ))}
+                </div>
+              </TabsContent>
+              <TabsContent value="stems" className="mt-3 pt-4 space-y-2 m-0">
+                <ListToolbar
+                  search={searchStems}
+                  onSearchChange={setSearchStems}
+                  searchPlaceholder="Filter stems"
+                  filterDefinitions={stemFilterDefinitions}
+                  filters={filtersStems}
+                  onFiltersChange={setFiltersStems}
+                />
+                <div className="space-y-1.5 max-h-96 overflow-auto">
+                  {filteredStems.map((row) => {
+                    const id = row.id ?? ''
+                    const info = stemLookup(id)
+                    return (
+                      <DraggableStemItem
+                        key={id}
+                        id={id}
+                        name={info?.name ?? 'Question stem'}
+                        questionCount={row.question_count ?? 0}
+                      />
+                    )
+                  })}
                 </div>
               </TabsContent>
             </Tabs>

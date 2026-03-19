@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ListChecks, NotebookText } from 'lucide-react'
+import { BrainCircuit, ListChecks, NotebookText } from 'lucide-react'
 import { UcatPageHeader } from '@/features/layout'
 import { useStudentUcatSessionResources } from '@/features/sessions/hooks/use-sessions'
 import { extractTextFromRichJson, type JsonLike } from '@/features/question-engine/model/rich-text'
@@ -22,7 +22,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
       <div className="space-y-6">
         <UcatPageHeader
           title="Session resources"
-          description="Sets and mocks linked to this session."
+          description="Resources linked to this session."
           backHref="/sessions"
           backLabel="Back to sessions"
         />
@@ -36,7 +36,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
       <div className="space-y-6">
         <UcatPageHeader
           title="Session resources"
-          description="Sets and mocks linked to this session."
+          description="Resources linked to this session."
           backHref="/sessions"
           backLabel="Back to sessions"
         />
@@ -52,11 +52,11 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
       <div className="space-y-6">
         <UcatPageHeader
           title="Session resources"
-          description="Sets and mocks linked to this session."
+          description="Resources linked to this session."
           backHref="/sessions"
           backLabel="Back to sessions"
         />
-        <p className="text-sm text-muted-foreground">No UCAT sets or mocks have been attached to this session yet.</p>
+        <p className="text-sm text-muted-foreground">No UCAT resources have been attached to this session yet.</p>
       </div>
     )
   }
@@ -72,13 +72,33 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
     <div className="space-y-6">
       <UcatPageHeader
         title="Session resources"
-        description="Launch the sets and mocks linked to this class session."
+        description="Launch the resources linked to this class session."
         backHref="/sessions"
         backLabel="Back to sessions"
       />
 
       <ul className="space-y-2">
           {resources.map((resource) => {
+            if (resource.type === 'stem') {
+              const href = `/practice/stem/${encodeURIComponent(resource.question_stem_id)}`
+              return (
+                <li key={resource.id}>
+                  <Link
+                    href={href}
+                    className="flex items-center gap-3 rounded-lg bg-card text-card-foreground p-3 shadow-sm transition-colors hover:bg-muted border border-border"
+                  >
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
+                      <BrainCircuit className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">Question stem</p>
+                      <p className="text-xs text-muted-foreground">Practice questions for this stem</p>
+                    </div>
+                  </Link>
+                </li>
+              )
+            }
+
             if (resource.type === 'set') {
               const set = setsById.get(resource.question_set_id)
               const title =

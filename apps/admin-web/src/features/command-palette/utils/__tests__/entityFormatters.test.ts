@@ -17,6 +17,7 @@ describe('getEntityDisplayText', () => {
           first_name: 'John',
           last_name: 'Doe',
           school: 'Test School',
+          timezone: 'Australia/Adelaide',
         } as Tables<'students'>,
       };
 
@@ -57,6 +58,7 @@ describe('getEntityDisplayText', () => {
           user_id: null,
           welcome_modal_acknowledged_at: null,
           year_level: null,
+          timezone: 'Australia/Adelaide',
         },
       };
 
@@ -97,6 +99,7 @@ describe('getEntityDisplayText', () => {
           user_id: null,
           welcome_modal_acknowledged_at: null,
           year_level: null,
+          timezone: 'Australia/Adelaide',
         },
       };
 

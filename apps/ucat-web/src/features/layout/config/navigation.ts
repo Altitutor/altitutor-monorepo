@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react'
-import { BookOpen, BrainCircuit, CalendarDays, LayoutDashboard, ListChecks, NotebookText, TrendingUp } from 'lucide-react'
+import { BookOpen, BrainCircuit, CalendarDays, LayoutDashboard, ListChecks, NotebookText, Settings, TrendingUp } from 'lucide-react'
 
 export type NavItem = {
   href: string
@@ -24,6 +24,7 @@ export const appNavigation: NavSection[] = [
     items: [
       { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
       { href: '/progress', label: 'Progress', icon: TrendingUp, expandable: true },
+      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
   {

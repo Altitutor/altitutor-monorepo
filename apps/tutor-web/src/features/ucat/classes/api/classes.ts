@@ -11,6 +11,7 @@ export type UcatSessionWithResources = (SessionRow & { session_id: string }) & {
   resources: Array<
     | { type: 'set'; id: string; set_id: string; name: string; section_index: number; section_name: string; question_count: number; index: number }
     | { type: 'mock'; id: string; mock_id: string; name: string; set_count: number; question_counts: number[]; index: number }
+    | { type: 'stem'; id: string; stem_id: string; name: string; index: number }
   >
 }
 
@@ -52,7 +53,6 @@ export const ucatClassesApi = {
 
     const setIds = [...new Set(resources.map((r) => r.question_set_id).filter(Boolean))] as string[]
     const mockIds = [...new Set(resources.map((r) => r.ucat_mock_id).filter(Boolean))] as string[]
-
     const setsMap: Record<string, { name: unknown; sections: unknown; question_count: number }> = {}
     const mocksMap: Record<string, { name: string | null; sets: unknown }> = {}
 
@@ -139,11 +139,11 @@ export const ucatClassesApi = {
 
   /**
    * Replace all session resources for the given assignments (batch save).
-   * Payload: { assignments: Array<{ session_id, resources: Array<{ resource_type: 'set'|'mock', resource_id, index }> }> }
+   * Payload: { assignments: Array<{ session_id, resources: Array<{ resource_type: 'set'|'mock'|'stem', resource_id, index }> }> }
    */
   async replaceSessionResources(assignments: Array<{
     session_id: string
-    resources: Array<{ resource_type: 'set' | 'mock'; resource_id: string; index: number }>
+    resources: Array<{ resource_type: 'set' | 'mock' | 'stem'; resource_id: string; index: number }>
   }>): Promise<void> {
     const res = await fetch('/api/ucat/classes/sessions-resources', {
       method: 'PUT',

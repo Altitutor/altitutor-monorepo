@@ -30,6 +30,11 @@ export type StudentUcatSessionResource =
       type: 'mock'
       ucat_mock_id: string
     }
+  | {
+      id: string
+      type: 'stem'
+      question_stem_id: string
+    }
 
 type SupabaseClient = ReturnType<typeof getSupabaseBrowserClient>
 
@@ -98,7 +103,7 @@ export async function getStudentUcatSessionResources(sessionId: string): Promise
 
   const { data, error } = await supabase
     .from('vstudent_ucat_sessions_resources')
-    .select('id, session_id, question_set_id, ucat_mock_id, index')
+    .select('id, session_id, question_set_id, ucat_mock_id, question_stem_id, index')
     .eq('session_id', sessionId)
     .order('index', { ascending: true })
 
@@ -120,6 +125,13 @@ export async function getStudentUcatSessionResources(sessionId: string): Promise
           id: row.id ?? '',
           type: 'mock',
           ucat_mock_id: row.ucat_mock_id,
+        }
+      }
+      if (row.question_stem_id) {
+        return {
+          id: row.id ?? '',
+          type: 'stem',
+          question_stem_id: row.question_stem_id,
         }
       }
       return null

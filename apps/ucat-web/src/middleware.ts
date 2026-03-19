@@ -38,8 +38,12 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  const publicPaths = ['/login']
-  const isPublicPath = publicPaths.includes(pathname) || pathname.startsWith('/api/auth')
+  const publicPaths = ['/', '/login', '/signup', '/pricing', '/subscribe', '/subscribe/success']
+  const isPublicPath =
+    publicPaths.includes(pathname) ||
+    pathname.startsWith('/subscribe') ||
+    pathname.startsWith('/api/auth') ||
+    pathname === '/api/ucat/subscription-config'
 
   const {
     data: { user },
@@ -49,8 +53,12 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', origin))
   }
 
-  if (user && pathname === '/login') {
-    return NextResponse.redirect(new URL('/dashboard', origin))
+  if (user && (pathname === '/login' || pathname === '/signup')) {
+    const redirectTo =
+      request.nextUrl.searchParams.get('redirect')?.startsWith('/') === true
+        ? request.nextUrl.searchParams.get('redirect')!
+        : '/dashboard'
+    return NextResponse.redirect(new URL(redirectTo, origin))
   }
 
   return response

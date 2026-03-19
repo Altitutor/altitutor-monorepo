@@ -9,6 +9,13 @@ import { ChevronDown, ChevronLeft } from 'lucide-react'
 import { useComingSoon } from '@/features/layout/context/coming-soon-context'
 import { SECTION_NUMBER_TO_NAME } from '@/features/sets/lib/section-labels'
 import { appNavigation } from '@/features/layout/config/navigation'
+import { useUcatAccess } from '@/features/ucat-access/hooks/use-ucat-access'
+import { AccessUpsellModal } from '@/features/ucat-access/components/access-upsell-modal'
+import {
+  getUpsellConfigForPath,
+  hasAccessForPath,
+  type RequiredUcatAccess,
+} from '@/features/ucat-access/lib/route-access'
 import { isComingSoon } from '@/features/layout/config/coming-soon'
 import { cn } from '@/lib/utils'
 
@@ -24,7 +31,10 @@ export function AppSidebar({
   onCloseMobile: () => void
 }) {
   const pathname = usePathname()
+  const access = useUcatAccess()
   const { showComingSoonModal } = useComingSoon()
+  const [upsellOpen, setUpsellOpen] = useState(false)
+  const [upsellRequiredAccess, setUpsellRequiredAccess] = useState<RequiredUcatAccess | null>(null)
   const [progressExpanded, setProgressExpanded] = useState(() =>
     pathname.startsWith('/progress')
   )
@@ -47,6 +57,13 @@ export function AppSidebar({
   // On mobile, visibility is driven only by mobileOpen. On desktop, by !collapsed.
   const isVisible = isMobile ? mobileOpen : !collapsed
   const logoSrc = '/images/logo-banner-dark.svg'
+
+  const openUpsellForPath = (path: string) => {
+    const config = getUpsellConfigForPath(path)
+    if (!config) return
+    setUpsellRequiredAccess(config.requiredAccess)
+    setUpsellOpen(true)
+  }
 
   return (
     <>
@@ -202,11 +219,39 @@ export function AppSidebar({
                   }
 
                   if (item.expandable && item.href === '/sets') {
+                    const accessConfig = getUpsellConfigForPath(item.href)
+                    const blocked = !hasAccessForPath(item.href, access)
                     const isSetsActive =
                       pathname === '/sets' ||
                       pathname.startsWith('/sets/sections/') ||
                       pathname.startsWith('/sets/set-generator')
                     const setsSections = [1, 2, 3, 4] as const
+
+                    if (blocked) {
+                      return (
+                        <button
+                          key={item.href}
+                          type="button"
+                          onClick={() => {
+                            openUpsellForPath(item.href)
+                            onCloseMobile()
+                          }}
+                          className={cn(
+                            'flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                            'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                          )}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="ml-3 flex-1">{item.label}</span>
+                          {accessConfig ? (
+                            <Badge variant="secondary" className="shrink-0 text-[10px]">
+                              {accessConfig.badgeLabel}
+                            </Badge>
+                          ) : null}
+                        </button>
+                      )
+                    }
+
                     return (
                       <div key={item.href} className="space-y-0.5">
                         <Link
@@ -288,20 +333,52 @@ export function AppSidebar({
                   }
 
                   return (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      className={cn(
-                        'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                        active
-                          ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
-                          : 'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
-                      )}
-                      onClick={onCloseMobile}
-                    >
-                      <Icon className="h-4 w-4 shrink-0" />
-                      <span className="ml-3">{item.label}</span>
-                    </Link>
+                    (() => {
+                      const accessConfig = getUpsellConfigForPath(item.href)
+                      const blocked = !hasAccessForPath(item.href, access)
+
+                      if (blocked) {
+                        return (
+                          <button
+                            key={item.href}
+                            type="button"
+                            onClick={() => {
+                              openUpsellForPath(item.href)
+                              onCloseMobile()
+                            }}
+                            className={cn(
+                              'flex w-full items-center rounded-lg px-3 py-2.5 text-left text-sm font-medium transition-colors',
+                              'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                            )}
+                          >
+                            <Icon className="h-4 w-4 shrink-0" />
+                            <span className="ml-3 flex-1">{item.label}</span>
+                            {accessConfig ? (
+                              <Badge variant="secondary" className="shrink-0 text-[10px]">
+                                {accessConfig.badgeLabel}
+                              </Badge>
+                            ) : null}
+                          </button>
+                        )
+                      }
+
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          className={cn(
+                            'flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                            active
+                              ? 'bg-sidebar-foreground/20 text-sidebar-foreground'
+                              : 'text-sidebar-foreground/90 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground'
+                          )}
+                          onClick={onCloseMobile}
+                        >
+                          <Icon className="h-4 w-4 shrink-0" />
+                          <span className="ml-3">{item.label}</span>
+                        </Link>
+                      )
+                    })()
                   )
                 })}
               </div>
@@ -309,6 +386,14 @@ export function AppSidebar({
           </nav>
         </div>
       </aside>
+      <AccessUpsellModal
+        open={upsellOpen}
+        requiredAccess={upsellRequiredAccess}
+        onOpenChange={(open) => {
+          setUpsellOpen(open)
+          if (!open) setUpsellRequiredAccess(null)
+        }}
+      />
     </>
   )
 }

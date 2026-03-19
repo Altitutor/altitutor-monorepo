@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Button, Input, Label } from '@altitutor/ui'
 import { getSupabaseBrowserClient } from '@/lib/supabase/client'
 
-export function LoginForm() {
+export function LoginForm({ redirectTo = '/dashboard' }: { redirectTo?: string }) {
   const router = useRouter()
   const supabase = useMemo(() => getSupabaseBrowserClient(), [])
   const [email, setEmail] = useState('')
@@ -29,7 +29,7 @@ export function LoginForm() {
       return
     }
 
-    router.push('/dashboard')
+    router.push(redirectTo)
     router.refresh()
   }
 
