@@ -1,7 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { Clock, Ban, FileText, CreditCard, Calendar, Link2, Zap, Phone, Users, FileCheck, FileStack } from 'lucide-react';
+import {
+  Clock,
+  Ban,
+  FileText,
+  CreditCard,
+  Calendar,
+  Link2,
+  Zap,
+  Phone,
+  Users,
+  FileCheck,
+  FileStack,
+  GraduationCap,
+} from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
 export default function SettingsPage() {
@@ -84,6 +97,12 @@ export default function SettingsPage() {
           description: 'Sync Stripe customers to students and manage payment methods',
           href: '/settings/stripe-sync',
           icon: Link2,
+        },
+        {
+          title: 'UCAT subscription',
+          description: 'UCAT online trial, pricing, practice-day discounts, and Stripe price IDs',
+          href: '/settings/ucat-subscription',
+          icon: GraduationCap,
         },
       ],
     },

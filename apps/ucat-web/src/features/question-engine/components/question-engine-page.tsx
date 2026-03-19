@@ -273,8 +273,10 @@ export function QuestionEnginePage({
   }, [exam, remainingSeconds, segmentKey, state.phase, setState])
 
   // Warn before leaving the UCAT exam page (tab close, reload, or navigation)
+  const skipBeforeUnloadRef = useRef(false)
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (skipBeforeUnloadRef.current) return
       event.preventDefault()
       event.returnValue = ''
     }
@@ -284,8 +286,11 @@ export function QuestionEnginePage({
       const anchor = target?.closest?.('a')
       if (!anchor || !anchor.href) return
 
-      // Skip warning for intentional navigation (e.g. Review answers, Back to practice)
-      if (anchor.hasAttribute('data-skip-leave-warning')) return
+      // Skip warning for intentional navigation (e.g. Back to sets, View performance report)
+      if (anchor.hasAttribute('data-skip-leave-warning')) {
+        skipBeforeUnloadRef.current = true
+        return
+      }
 
       // Ignore clicks that don't change location
       const nextUrl = new URL(anchor.href, window.location.href)

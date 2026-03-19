@@ -142,6 +142,13 @@ export const additionalPages: CommandPalettePage[] = [
     icon: Link2,
     keywords: ['stripe', 'sync', 'payment'],
   },
+  {
+    id: 'settings-ucat-subscription',
+    title: 'UCAT subscription',
+    href: '/settings/ucat-subscription',
+    icon: GraduationCap,
+    keywords: ['ucat', 'subscription', 'trial', 'stripe', 'practice', 'discount'],
+  },
   // Main settings page
   {
     id: 'settings',
