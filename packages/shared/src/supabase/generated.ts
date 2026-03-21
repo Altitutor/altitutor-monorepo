@@ -2032,8 +2032,8 @@ export type Database = {
           invoice_id: string
           is_fee: boolean
           is_subsidy: boolean
-          session_id: string
-          sessions_students_id: string
+          session_id: string | null
+          sessions_students_id: string | null
           stripe_invoice_item_id: string
           student_id: string
         }
@@ -2045,8 +2045,8 @@ export type Database = {
           invoice_id: string
           is_fee?: boolean
           is_subsidy?: boolean
-          session_id: string
-          sessions_students_id: string
+          session_id?: string | null
+          sessions_students_id?: string | null
           stripe_invoice_item_id: string
           student_id: string
         }
@@ -2058,8 +2058,8 @@ export type Database = {
           invoice_id?: string
           is_fee?: boolean
           is_subsidy?: boolean
-          session_id?: string
-          sessions_students_id?: string
+          session_id?: string | null
+          sessions_students_id?: string | null
           stripe_invoice_item_id?: string
           student_id?: string
         }
@@ -2198,6 +2198,7 @@ export type Database = {
           amount_paid_cents: number
           amount_paid_from_balance_cents: number | null
           auto_advance: boolean | null
+          billing_source: Database["public"]["Enums"]["invoice_billing_source"]
           collection_method: string | null
           created_at: string
           credited_at: string | null
@@ -2230,6 +2231,7 @@ export type Database = {
           stripe_invoice_number: string | null
           stripe_payment_intent_id: string | null
           student_id: string
+          student_subscription_id: string | null
           subtotal_cents: number | null
           total_cents: number | null
           updated_at: string
@@ -2240,6 +2242,7 @@ export type Database = {
           amount_paid_cents?: number
           amount_paid_from_balance_cents?: number | null
           auto_advance?: boolean | null
+          billing_source?: Database["public"]["Enums"]["invoice_billing_source"]
           collection_method?: string | null
           created_at?: string
           credited_at?: string | null
@@ -2272,6 +2275,7 @@ export type Database = {
           stripe_invoice_number?: string | null
           stripe_payment_intent_id?: string | null
           student_id: string
+          student_subscription_id?: string | null
           subtotal_cents?: number | null
           total_cents?: number | null
           updated_at?: string
@@ -2282,6 +2286,7 @@ export type Database = {
           amount_paid_cents?: number
           amount_paid_from_balance_cents?: number | null
           auto_advance?: boolean | null
+          billing_source?: Database["public"]["Enums"]["invoice_billing_source"]
           collection_method?: string | null
           created_at?: string
           credited_at?: string | null
@@ -2314,6 +2319,7 @@ export type Database = {
           stripe_invoice_number?: string | null
           stripe_payment_intent_id?: string | null
           student_id?: string
+          student_subscription_id?: string | null
           subtotal_cents?: number | null
           total_cents?: number | null
           updated_at?: string
@@ -2347,6 +2353,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "invoices_student_subscription_id_fkey"
+            columns: ["student_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "student_subscriptions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -8467,6 +8480,9 @@ export type Database = {
         Row: {
           amount_due_cents: number | null
           amount_paid_cents: number | null
+          billing_source:
+            | Database["public"]["Enums"]["invoice_billing_source"]
+            | null
           created_at: string | null
           currency: string | null
           finalized_at: string | null
@@ -8481,6 +8497,7 @@ export type Database = {
           stripe_invoice_id: string | null
           stripe_invoice_number: string | null
           student_id: string | null
+          student_subscription_id: string | null
           total_charges_cents: number | null
           total_subsidies_cents: number | null
         }
@@ -8512,6 +8529,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "invoices_student_subscription_id_fkey"
+            columns: ["student_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "student_subscriptions"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -13817,6 +13841,7 @@ export type Database = {
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
+      invoice_billing_source: "session_runner" | "subscription"
       resource_answers: "BLANK" | "ANSWERS"
       resource_type:
         | "NOTES"
@@ -13973,6 +13998,7 @@ export const Constants = {
   public: {
     Enums: {
       billing_type: ["CLASS", "EXAM_COURSE", "DRAFTING"],
+      invoice_billing_source: ["session_runner", "subscription"],
       resource_answers: ["BLANK", "ANSWERS"],
       resource_type: [
         "NOTES",
