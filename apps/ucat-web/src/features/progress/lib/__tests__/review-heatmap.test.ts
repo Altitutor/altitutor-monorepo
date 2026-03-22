@@ -1,13 +1,24 @@
 import {
   addLocalDays,
   aggregateDailyActivity,
-  buildReviewHeatmapWeeks,
-  getSundayOnOrBefore,
+  buildReviewHeatmapModel,
+  expandWeekToColumns,
+  getMondayOnOrBefore,
   isoTimestampToLocalDateKey,
   localDateKey,
   reviewHeatmapIntensityLevel,
   startOfLocalDay,
+  type HeatmapDay,
 } from "../review-heatmap";
+
+function heatmapDay(dateKey: string, isFuture = false): HeatmapDay {
+  return {
+    dateKey,
+    questionAttempts: 0,
+    setAttempts: 0,
+    isFuture,
+  };
+}
 
 describe("review-heatmap", () => {
   it("reviewHeatmapIntensityLevel buckets totals", () => {
@@ -43,28 +54,67 @@ describe("review-heatmap", () => {
     expect(map.get(q11!)).toEqual({ questionAttempts: 0, setAttempts: 1 });
   });
 
-  it("buildReviewHeatmapWeeks returns fixed column count and marks future days", () => {
-    const now = new Date(2025, 2, 22); // Mar 22 2025 local
-    const weeks = buildReviewHeatmapWeeks(
+  it("expandWeekToColumns splits a week that crosses a month boundary", () => {
+    const week: HeatmapDay[] = [
+      heatmapDay("2025-03-31"),
+      heatmapDay("2025-04-01"),
+      heatmapDay("2025-04-02"),
+      heatmapDay("2025-04-03"),
+      heatmapDay("2025-04-04"),
+      heatmapDay("2025-04-05"),
+      heatmapDay("2025-04-06"),
+    ];
+    const cols = expandWeekToColumns(week);
+    expect(cols).toHaveLength(2);
+    expect(cols[0].monthKey).toBe("2025-03");
+    expect(cols[1].monthKey).toBe("2025-04");
+    expect(cols[0].cells[0]).toEqual({ kind: "day", day: week[0] });
+    expect(cols[0].cells[1]).toEqual({ kind: "blank" });
+    expect(cols[1].cells[0]).toEqual({ kind: "blank" });
+    expect(cols[1].cells[1]).toEqual({ kind: "day", day: week[1] });
+  });
+
+  it("expandWeekToColumns keeps a single column when the week is one month", () => {
+    const week: HeatmapDay[] = [
+      heatmapDay("2025-04-07"),
+      heatmapDay("2025-04-08"),
+      heatmapDay("2025-04-09"),
+      heatmapDay("2025-04-10"),
+      heatmapDay("2025-04-11"),
+      heatmapDay("2025-04-12"),
+      heatmapDay("2025-04-13"),
+    ];
+    const cols = expandWeekToColumns(week);
+    expect(cols).toHaveLength(1);
+    expect(cols[0].cells.every((c) => c.kind === "day")).toBe(true);
+  });
+
+  it("buildReviewHeatmapModel uses Monday-first rows and includes today", () => {
+    const now = new Date(2025, 2, 22); // Mar 22 2025 local (Saturday)
+    const groups = buildReviewHeatmapModel(
       now,
       { questionAttempts: [], setAttempts: [] },
       53,
     );
-    expect(weeks).toHaveLength(53);
-    expect(weeks[0]).toHaveLength(7);
-    const flat = weeks.flat();
-    const future = flat.filter((d) => d.isFuture);
-    const pastOrToday = flat.filter((d) => !d.isFuture);
-    expect(future.length + pastOrToday.length).toBe(53 * 7);
-    expect(pastOrToday.some((d) => d.dateKey === localDateKey(now))).toBe(true);
+    expect(groups.length).toBeGreaterThan(0);
+    const allColumns = groups.flatMap((g) => g.columns);
+    expect(allColumns.length).toBeGreaterThanOrEqual(53);
+    const flatDays = allColumns
+      .flatMap((c) => c.cells)
+      .filter(
+        (cell): cell is { kind: "day"; day: HeatmapDay } => cell.kind === "day",
+      )
+      .map((c) => c.day);
+    expect(flatDays.some((d) => d.dateKey === localDateKey(now))).toBe(true);
+    const future = flatDays.filter((d) => d.isFuture);
     expect(future.every((d) => d.questionAttempts === 0)).toBe(true);
   });
 
-  it("getSundayOnOrBefore returns same week Sunday", () => {
+  it("getMondayOnOrBefore returns Monday of the same week", () => {
     const wed = new Date(2025, 2, 19); // Wed Mar 19 2025
-    const sun = getSundayOnOrBefore(wed);
-    expect(sun.getDay()).toBe(0);
-    expect(localDateKey(sun)).toBe("2025-03-16");
+    const mon = getMondayOnOrBefore(wed);
+    expect(mon.getDay()).toBe(1);
+    expect(localDateKey(mon)).toBe("2025-03-17");
   });
 
   it("startOfLocalDay strips time", () => {
