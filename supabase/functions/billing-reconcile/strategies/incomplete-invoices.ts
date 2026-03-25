@@ -32,6 +32,7 @@ export async function reconcileIncompleteInvoices(
   const { data: invoices, error: invoicesError } = await supabase
     .from('invoices')
     .select('id, stripe_invoice_id, student_id, invoice_date, amount_due_cents, total_cents, subtotal_cents')
+    .eq('billing_source', 'session_runner')
     .gte('invoice_date', startDateStr)
     .order('invoice_date', { ascending: false });
   

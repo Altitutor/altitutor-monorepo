@@ -249,6 +249,7 @@ export async function saveInvoiceToDatabase(
     .from('invoices')
     .insert({
       student_id: studentId,
+      billing_source: 'session_runner',
       stripe_invoice_id: finalizedInvoice.id,
       stripe_invoice_number: finalizedInvoice.number,
       invoice_date: invoiceDate,

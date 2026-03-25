@@ -1,14 +1,23 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import { validateStripeEnv, validateSignatureHeader } from './shared/validation.ts';
 import { shouldSkipEvent, getEventId, getEventType } from './shared/idempotency.ts';
+import {
+  syncSubscriptionInvoiceFromStripe,
+  retrieveInvoiceWithLines,
+} from './shared/subscription-invoice-sync.ts';
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
     headers: { 'Content-Type': 'application/json' },
   });
+}
+
+async function getUcatSubjectId(supabase: SupabaseClient): Promise<string | null> {
+  const { data } = await supabase.from('subjects').select('id').eq('name', 'UCAT').maybeSingle();
+  return data?.id ?? null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -327,6 +336,11 @@ Deno.serve(async (req: Request) => {
         // Invoice finalized, ready to charge (optional, for tracking)
         const invoice = event.data.object as { id: string; status?: string; status_transitions?: { finalized_at?: number } };
         console.log('[webhook] Invoice finalized:', invoice.id);
+
+        const subSync = await syncSubscriptionInvoiceFromStripe(supabase, stripe, invoice.id);
+        if (!subSync.ok && !('skipped' in subSync && subSync.skipped)) {
+          console.error('[webhook] subscription invoice sync (finalized):', subSync);
+        }
         
         // Check current invoice status before updating
         // Don't overwrite 'paid' status if invoice was already paid
@@ -389,9 +403,15 @@ Deno.serve(async (req: Request) => {
         // Also needed for reliable subtotal/total (customer balance, etc.)
         let fullInvoice: Stripe.Invoice | null = null;
         try {
-          fullInvoice = await stripe.invoices.retrieve(invoice.id, {
-            expand: ['latest_charge', 'payment_intent']
-          });
+          fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id, [
+            'latest_charge',
+            'payment_intent',
+          ]);
+
+          const paidSync = await syncSubscriptionInvoiceFromStripe(supabase, stripe, fullInvoice);
+          if (!paidSync.ok && !('skipped' in paidSync && paidSync.skipped)) {
+            console.error('[webhook] subscription invoice sync (paid):', paidSync);
+          }
 
           if (!chargeId && fullInvoice.latest_charge) {
             const lc = fullInvoice.latest_charge;
@@ -475,18 +495,38 @@ Deno.serve(async (req: Request) => {
         // CRITICAL: Invoice payment failed
         // For UCAT subscriptions: customer.subscription.updated will sync past_due status.
         // Configure Stripe Smart Retries + Customer emails in Dashboard for payment failure notifications.
-        const invoice = event.data.object as { id: string };
+        const invoice = event.data.object as Stripe.Invoice;
+
+        const failSync = await syncSubscriptionInvoiceFromStripe(supabase, stripe, invoice.id);
+        if (!failSync.ok && !('skipped' in failSync && failSync.skipped)) {
+          console.error('[webhook] subscription invoice sync (payment_failed):', failSync);
+        }
+
         const lastError = invoice.last_payment_error;
         const failure_code = lastError?.code || 'unknown_error';
         const failure_message = lastError?.message || 'payment_failed';
-        
+
+        const { data: prevInv } = await supabase
+          .from('invoices')
+          .select('metadata')
+          .eq('stripe_invoice_id', invoice.id)
+          .maybeSingle();
+
+        const prevMeta =
+          prevInv?.metadata &&
+          typeof prevInv.metadata === 'object' &&
+          !Array.isArray(prevInv.metadata)
+            ? (prevInv.metadata as Record<string, unknown>)
+            : {};
+
         // Update invoice status (remains 'open' for retries)
-        // Store failure details in metadata
+        // Store failure details in metadata (merge so we do not wipe other keys)
         const { error: updErr } = await supabase
           .from('invoices')
           .update({
             // Status remains 'open' for Stripe's automatic retries
             metadata: {
+              ...prevMeta,
               last_payment_error: {
                 code: failure_code,
                 message: failure_message,
@@ -522,7 +562,11 @@ Deno.serve(async (req: Request) => {
         // Webhook payloads may not include these fields or may have them as null
         let fullInvoice: Stripe.Invoice | null = null;
         try {
-          fullInvoice = await stripe.invoices.retrieve(invoice.id);
+          fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id);
+          const updSync = await syncSubscriptionInvoiceFromStripe(supabase, stripe, fullInvoice);
+          if (!updSync.ok && !('skipped' in updSync && updSync.skipped)) {
+            console.error('[webhook] subscription invoice sync (updated):', updSync);
+          }
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error('[webhook] Error fetching invoice from Stripe for invoice.updated:', msg);
@@ -629,40 +673,55 @@ Deno.serve(async (req: Request) => {
         }
 
         try {
-          const subscription = await stripe.subscriptions.retrieve(session.subscription, {
-            expand: ['items.data.price'],
-          });
-          const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+          const ucatSubjectId = await getUcatSubjectId(supabase);
+          if (!ucatSubjectId) {
+            console.warn('[webhook] checkout.session.completed: UCAT subject not found');
+          } else {
+            const subscription = await stripe.subscriptions.retrieve(session.subscription, {
+              expand: ['items.data.price'],
+            });
+            const price = subscription.items?.data?.[0]?.price;
+            const priceId = price && typeof price === 'object' && 'id' in price ? price.id : null;
+            const productRaw = price && typeof price === 'object' && 'product' in price ? price.product : null;
+            const productId =
+              typeof productRaw === 'string'
+                ? productRaw
+                : productRaw && typeof productRaw === 'object' && 'id' in productRaw
+                  ? (productRaw as { id: string }).id
+                  : null;
 
-          // Ensure students_billing exists (Checkout may have created new customer)
-          const customerId = session.customer as string;
-          if (customerId) {
-            await supabase.from('students_billing').upsert(
+            // Ensure students_billing exists (Checkout may have created new customer)
+            const customerId = session.customer as string;
+            if (customerId) {
+              await supabase.from('students_billing').upsert(
+                {
+                  student_id: studentId,
+                  stripe_customer_id: customerId,
+                },
+                { onConflict: 'student_id' }
+              );
+            }
+
+            await supabase.from('student_subscriptions').upsert(
               {
                 student_id: studentId,
-                stripe_customer_id: customerId,
+                subject_id: ucatSubjectId,
+                stripe_subscription_id: subscription.id,
+                stripe_price_id: priceId,
+                stripe_product_id: productId,
+                status: subscription.status,
+                current_period_start: subscription.current_period_start
+                  ? new Date(subscription.current_period_start * 1000).toISOString()
+                  : null,
+                current_period_end: subscription.current_period_end
+                  ? new Date(subscription.current_period_end * 1000).toISOString()
+                  : null,
+                updated_at: new Date().toISOString(),
               },
-              { onConflict: 'student_id' }
+              { onConflict: 'student_id,subject_id' }
             );
+            console.log('[webhook] UCAT subscription provisioned for student', studentId);
           }
-
-          await supabase.from('student_ucat_subscriptions').upsert(
-            {
-              student_id: studentId,
-              stripe_subscription_id: subscription.id,
-              stripe_price_id: priceId,
-              status: subscription.status,
-              current_period_start: subscription.current_period_start
-                ? new Date(subscription.current_period_start * 1000).toISOString()
-                : null,
-              current_period_end: subscription.current_period_end
-                ? new Date(subscription.current_period_end * 1000).toISOString()
-                : null,
-              updated_at: new Date().toISOString(),
-            },
-            { onConflict: 'student_id' }
-          );
-          console.log('[webhook] UCAT subscription provisioned for student', studentId);
         } catch (e: unknown) {
           const msg = e instanceof Error ? e.message : String(e);
           console.error('[webhook] checkout.session.completed UCAT handler error:', msg);
@@ -685,7 +744,7 @@ Deno.serve(async (req: Request) => {
         };
 
         const { data: existing } = await supabase
-          .from('student_ucat_subscriptions')
+          .from('student_subscriptions')
           .select('id')
           .eq('stripe_subscription_id', subscription.id)
           .maybeSingle();
@@ -698,12 +757,22 @@ Deno.serve(async (req: Request) => {
           return json({ received: true });
         }
 
-        const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
+        const price = subscription.items?.data?.[0]?.price;
+        const priceId = price && typeof price === 'object' && 'id' in price ? price.id : null;
+        const productRaw = price && typeof price === 'object' && 'product' in price ? price.product : null;
+        const productId =
+          typeof productRaw === 'string'
+            ? productRaw
+            : productRaw && typeof productRaw === 'object' && 'id' in productRaw
+              ? (productRaw as { id: string }).id
+              : null;
+
         await supabase
-          .from('student_ucat_subscriptions')
+          .from('student_subscriptions')
           .update({
             status: subscription.status,
             stripe_price_id: priceId,
+            stripe_product_id: productId,
             current_period_start: subscription.current_period_start
               ? new Date(subscription.current_period_start * 1000).toISOString()
               : null,
@@ -725,7 +794,7 @@ Deno.serve(async (req: Request) => {
         const subscription = event.data.object as { id: string };
 
         await supabase
-          .from('student_ucat_subscriptions')
+          .from('student_subscriptions')
           .update({
             status: 'canceled',
             updated_at: new Date().toISOString(),
