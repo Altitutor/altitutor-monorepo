@@ -59,6 +59,7 @@ import {
   BulkImportQuestionStemsModal,
   type BulkImportSubmitArgs,
 } from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
+import { GenerateQuestionStemsModal } from '@/features/ucat/questions/components/generated/GenerateQuestionStemsModal'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import {
@@ -94,6 +95,7 @@ type QuestionRow = {
   stem_text: string
   set_names: string
   deleted_at: string | null
+  approval_status: 'approved' | 'pending' | 'rejected'
 }
 
 const filterDefinitions: DataTableFilterDefinition[] = [
@@ -115,6 +117,15 @@ const filterDefinitions: DataTableFilterDefinition[] = [
       { label: 'Syllogism', value: 'syllogism' },
     ],
   },
+  {
+    key: 'approval_status',
+    label: 'Approval status',
+    options: [
+      { label: 'Approved', value: 'approved' },
+      { label: 'Pending', value: 'pending' },
+      { label: 'Rejected', value: 'rejected' },
+    ],
+  },
 ]
 
 const columnDefinitions: DataTableColumnDefinition[] = [
@@ -124,6 +135,7 @@ const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'question_count', label: 'Questions', visibleByDefault: true },
   { key: 'sets', label: 'Sets', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
+  { key: 'approval_status', label: 'Approval', visibleByDefault: false },
   { key: 'type_summary', label: 'Type', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
 ]
@@ -135,11 +147,17 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'sets', label: 'Sets' },
   { key: 'type_summary', label: 'Type' },
   { key: 'visibility', label: 'Visibility' },
+  { key: 'approval_status', label: 'Approval status' },
 ]
 
-export function UcatQuestionsPage() {
+type UcatQuestionsPageProps = {
+  mode?: 'default' | 'generated'
+}
+
+export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) {
   const [createOpen, setCreateOpen] = useState(false)
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
+  const [generateOpen, setGenerateOpen] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
   const [showDeleted, setShowDeleted] = useState(false)
@@ -163,7 +181,11 @@ export function UcatQuestionsPage() {
 
   const stemTypesQuery = useUcatQuestionStemTypes()
   const stemTypes = stemTypesQuery.data ?? {}
-  const tableState = useUcatTableState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key))
+  const initialVisibleColumns =
+    mode === 'generated'
+      ? [...columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), 'approval_status']
+      : columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key)
+  const tableState = useUcatTableState(initialVisibleColumns)
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
   const detailQueries = useQueries({
@@ -182,7 +204,7 @@ export function UcatQuestionsPage() {
   }, [detailQueries, expandedStemArray])
 
   const access = useUcatAccess()
-  const questions = useUcatQuestions()
+  const questions = useUcatQuestions({ mode })
   const sections = useUcatSections()
   const categories = useUcatCategories()
   const tags = useUcatTags()
@@ -288,6 +310,9 @@ export function UcatQuestionsPage() {
       stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as import('@altitutor/shared').Json) : '',
       set_names: setsDisplay,
       deleted_at: (row as { deleted_at?: string | null }).deleted_at ?? null,
+      approval_status:
+        ((row as { approval_status?: 'approved' | 'pending' | 'rejected' | null }).approval_status ??
+          'approved') as 'approved' | 'pending' | 'rejected',
     }
   })
 
@@ -307,6 +332,8 @@ export function UcatQuestionsPage() {
       const sectionHit = applySingleSelectFilter(tableState.state, 'section_id', row.section_id)
       const categoryHit = applySingleSelectFilter(tableState.state, 'question_stem_category_id', row.question_stem_category_id)
       const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
+      const approvalHit =
+        mode !== 'generated' || applySingleSelectFilter(tableState.state, 'approval_status', row.approval_status)
 
       const typeSelected = (tableState.state.filters.question_type?.[0] as string | undefined) ?? 'all'
       const typeHit =
@@ -314,9 +341,9 @@ export function UcatQuestionsPage() {
         (typeSelected === 'multiple_choice' && row.type_summary.includes('multiple_choice')) ||
         (typeSelected === 'syllogism' && row.type_summary.includes('syllogism'))
 
-      return searchHit && sectionHit && categoryHit && visibilityHit && typeHit
+      return searchHit && sectionHit && categoryHit && visibilityHit && typeHit && approvalHit
     })
-  }, [rows, tableState.state, showDeleted])
+  }, [rows, tableState.state, showDeleted, mode])
 
   const sortedRows = useMemo(
     () =>
@@ -328,6 +355,7 @@ export function UcatQuestionsPage() {
         sets: (r) => r.set_names,
         type_summary: (r) => r.type_summary,
         visibility: (r) => (r.is_private ? 'Private' : 'Public'),
+        approval_status: (r) => r.approval_status,
       }),
     [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
   )
@@ -369,6 +397,7 @@ export function UcatQuestionsPage() {
     (visible('question_count') ? 1 : 0) +
     (visible('sets') ? 1 : 0) +
     (visible('visibility') ? 1 : 0) +
+    (visible('approval_status') ? 1 : 0) +
     (visible('type_summary') ? 1 : 0) +
     (visible('actions') ? 1 : 0)
 
@@ -531,7 +560,8 @@ export function UcatQuestionsPage() {
     setBulkCategoryPending(true)
     try {
       await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), { categoryId: bulkCategoryId })
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       setBulkCategoryOpen(false)
       setBulkCategoryId(null)
       setSelectedStemIds(new Set())
@@ -545,7 +575,8 @@ export function UcatQuestionsPage() {
     setBulkVisibilityPending(true)
     try {
       await ucatQuestionsApi.bulkUpdateMetadata(Array.from(selectedStemIds), { isPrivate: bulkVisibilityPrivate })
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       setBulkVisibilityOpen(false)
       setBulkVisibilityPrivate(null)
       setSelectedStemIds(new Set())
@@ -582,7 +613,8 @@ export function UcatQuestionsPage() {
       setBulkSetsOpen(false)
       setBulkSetIds([])
       setSelectedStemIds(new Set())
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
     } finally {
       setBulkSetsPending(false)
@@ -595,7 +627,8 @@ export function UcatQuestionsPage() {
     setBulkDeletePending(true)
     try {
       await ucatQuestionsApi.bulkRemove(ids)
-      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') })
       setBulkDeleteOpen(false)
       setSelectedStemIds(new Set())
     } catch (err) {
@@ -623,21 +656,36 @@ export function UcatQuestionsPage() {
     },
     filterDefinitions[2],
     filterDefinitions[3],
+    ...(mode === 'generated' ? [filterDefinitions[4]] : []),
   ]
 
   return (
     <div className="p-6">
       <UcatPageHeader
-        title="UCAT Questions"
-        description="Manage question stems and nested questions"
+        title={mode === 'generated' ? 'Generated UCAT Questions' : 'UCAT Questions'}
+        description={
+          mode === 'generated'
+            ? 'Review and manage AI-generated question stems'
+            : 'Manage question stems and nested questions'
+        }
         backHref="/ucat"
-        breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Questions' }]}
+        breadcrumbs={[
+          { label: 'UCAT', href: '/ucat' },
+          { label: 'Questions', href: '/ucat/questions' },
+          ...(mode === 'generated' ? [{ label: 'Generated' }] : []),
+        ]}
         actions={
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
-              Bulk Import
-            </Button>
-            <Button onClick={() => setCreateOpen(true)}>Add Question Stem</Button>
+            {mode === 'generated' ? (
+              <Button onClick={() => setGenerateOpen(true)}>Generate questions</Button>
+            ) : (
+              <>
+                <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+                  Bulk Import
+                </Button>
+                <Button onClick={() => setCreateOpen(true)}>Add Question Stem</Button>
+              </>
+            )}
           </div>
         }
       />
@@ -654,7 +702,7 @@ export function UcatQuestionsPage() {
         filterDefinitions={sectionFilterDefs}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
-        searchPlaceholder="Search questions"
+        searchPlaceholder={mode === 'generated' ? 'Search generated questions' : 'Search questions'}
         filterFooter={
           <div className="px-2 py-2 border-t">
             <Button
@@ -699,6 +747,7 @@ export function UcatQuestionsPage() {
               {visible('question_count') && <TableHead>Questions</TableHead>}
               {visible('sets') && <TableHead>Sets</TableHead>}
               {visible('visibility') && <TableHead>Visibility</TableHead>}
+              {visible('approval_status') && <TableHead>Approval</TableHead>}
               {visible('type_summary') && <TableHead>Type</TableHead>}
               {visible('actions') && <TableHead className="w-16 shrink-0" />}
             </TableRow>
@@ -755,6 +804,7 @@ export function UcatQuestionsPage() {
                     {visible('visibility') && (
                       <TableCell>{row.is_private ? 'Private' : 'Public'}</TableCell>
                     )}
+                    {visible('approval_status') && <TableCell className="capitalize">{row.approval_status}</TableCell>}
                     {visible('type_summary') && <TableCell>{row.type_summary}</TableCell>}
                     {visible('actions') && (
                     <TableCell className="w-16 shrink-0" onClick={(e) => e.stopPropagation()}>
@@ -1110,6 +1160,7 @@ export function UcatQuestionsPage() {
         onSubmit={handleBulkImportSubmit}
         onEditSet={(setId) => setEditingSetId(setId)}
       />
+      <GenerateQuestionStemsModal open={generateOpen} onClose={() => setGenerateOpen(false)} />
 
       <UcatSetEditorDialog
         open={!!editingSetId}
