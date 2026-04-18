@@ -1,132 +1,134 @@
-import { Calculator, Sigma } from 'lucide-react'
-import { useEffect, useRef } from 'react'
-import { UcatFloatingPanel } from '@altitutor/ui'
-import { useUcatCalculator } from '@/features/question-engine/hooks/use-ucat-calculator'
-import { useDraggablePanel } from '@/features/question-engine/hooks/use-draggable-panel'
+import { Calculator, Sigma } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { UcatFloatingPanel } from "@altitutor/ui";
+import { useUcatCalculator } from "@/features/question-engine/hooks/use-ucat-calculator";
+import { useDraggablePanel } from "@/features/question-engine/hooks/use-draggable-panel";
 
 const ROWS_1_4: string[][] = [
-  ['+/-', 'sqrt', '%', '÷'],
-  ['MRC', 'M-', 'M+', '×'],
-  ['7', '8', '9', '-'],
-  ['4', '5', '6', '+'],
-]
-const ROW_5_LEFT = ['1', '2', '3']
-const ROW_6_LEFT = ['ON/C', '0', '.']
+  ["+/-", "sqrt", "%", "÷"],
+  ["MRC", "M-", "M+", "×"],
+  ["7", "8", "9", "-"],
+  ["4", "5", "6", "+"],
+];
+const ROW_5_LEFT = ["1", "2", "3"];
+const ROW_6_LEFT = ["ON/C", "0", "."];
 
 const BUTTON_BASE =
-  'flex min-h-[36px] w-full items-center justify-center rounded-[4px] border border-[#414042] text-center font-semibold shadow-[0_1px_0_rgba(0,0,0,0.4)]'
+  "flex min-h-[36px] w-full items-center justify-center rounded-[4px] border border-[#414042] text-center font-semibold shadow-[0_1px_0_rgba(0,0,0,0.4)]";
 
 function CalcButton({
   label,
   onKey,
 }: {
-  label: string
-  onKey: (label: string) => void
+  label: string;
+  onKey: (label: string) => void;
 }) {
-  const isNumberOrDot = /^[0-9.]$/.test(label)
+  const isNumberOrDot = /^[0-9.]$/.test(label);
   const variant = isNumberOrDot
-    ? 'bg-[#F5F5F5] text-black text-[12pt]'
-    : 'bg-[#DE1F2A] text-white text-[10pt]'
+    ? "bg-[#F5F5F5] text-black text-[12pt]"
+    : "bg-[#DE1F2A] text-white text-[10pt]";
   return (
     <button
       type="button"
       onClick={() => onKey(label)}
       className={`${BUTTON_BASE} ${variant}`}
     >
-      {label === 'sqrt' ? '√' : label}
+      {label === "sqrt" ? "√" : label}
     </button>
-  )
+  );
 }
 
 export function CalculatorPanel({ onClose }: { onClose: () => void }) {
-  const { display, onKey } = useUcatCalculator()
-  const { position, handleMouseDown, setPosition } = useDraggablePanel()
-  const panelRef = useRef<HTMLDivElement | null>(null)
+  const { display, onKey } = useUcatCalculator();
+  const { position, handleMouseDown, setPosition } = useDraggablePanel();
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   // Allow typing directly into the calculator when it is open
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.altKey || event.metaKey || event.ctrlKey) {
-        return
+        return;
       }
 
-      let label: string | null = null
+      let label: string | null = null;
 
       if (/^[0-9]$/.test(event.key)) {
-        label = event.key
+        label = event.key;
       } else {
         switch (event.key) {
-          case '.':
-            label = '.'
-            break
-          case '+':
-            label = '+'
-            break
-          case '-':
-            label = '-'
-            break
-          case '*':
-          case 'x':
-          case 'X':
-            label = '×'
-            break
-          case '/':
-            label = '÷'
-            break
-          case 'Enter':
-          case '=':
-            label = '='
-            break
+          case ".":
+            label = ".";
+            break;
+          case "+":
+            label = "+";
+            break;
+          case "-":
+            label = "-";
+            break;
+          case "*":
+          case "x":
+          case "X":
+            label = "×";
+            break;
+          case "/":
+            label = "÷";
+            break;
+          case "Enter":
+          case "=":
+            label = "=";
+            break;
           default:
-            break
+            break;
         }
       }
 
       if (!label) {
-        return
+        return;
       }
 
-      event.preventDefault()
-      onKey(label)
-    }
+      event.preventDefault();
+      onKey(label);
+    };
 
-    window.addEventListener('keydown', handleKeyDown)
+    window.addEventListener("keydown", handleKeyDown);
     return () => {
-      window.removeEventListener('keydown', handleKeyDown)
-    }
-  }, [onKey])
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [onKey]);
 
   // Keep calculator panel fully within the UCAT exam shell
   useEffect(() => {
-    const shell = document.querySelector('[data-ucat-shell-root="true"]') as HTMLElement | null
-    const panel = panelRef.current
-    if (!shell || !panel) return
+    const shell = document.querySelector(
+      '[data-ucat-shell-root="true"]',
+    ) as HTMLElement | null;
+    const panel = panelRef.current;
+    if (!shell || !panel) return;
 
-    const shellRect = shell.getBoundingClientRect()
-    const panelRect = panel.getBoundingClientRect()
+    const shellRect = shell.getBoundingClientRect();
+    const panelRect = panel.getBoundingClientRect();
 
-    let dx = 0
-    let dy = 0
+    let dx = 0;
+    let dy = 0;
 
     if (panelRect.left < shellRect.left) {
-      dx = shellRect.left - panelRect.left
+      dx = shellRect.left - panelRect.left;
     } else if (panelRect.right > shellRect.right) {
-      dx = shellRect.right - panelRect.right
+      dx = shellRect.right - panelRect.right;
     }
 
     if (panelRect.top < shellRect.top) {
-      dy = shellRect.top - panelRect.top
+      dy = shellRect.top - panelRect.top;
     } else if (panelRect.bottom > shellRect.bottom) {
-      dy = shellRect.bottom - panelRect.bottom
+      dy = shellRect.bottom - panelRect.bottom;
     }
 
     if (dx !== 0 || dy !== 0) {
       setPosition((current) => ({
         x: current.x + dx,
         y: current.y + dy,
-      }))
+      }));
     }
-  }, [position.x, position.y, setPosition])
+  }, [position.x, position.y, setPosition]);
 
   return (
     <div
@@ -151,7 +153,7 @@ export function CalculatorPanel({ onClose }: { onClose: () => void }) {
           </div>
           <div
             className="grid grid-cols-4 gap-1.5 text-[12pt]"
-            style={{ gridAutoRows: 'minmax(36px, 1fr)' }}
+            style={{ gridAutoRows: "minmax(36px, 1fr)" }}
           >
             {ROWS_1_4.flat().map((label) => (
               <CalcButton key={label} label={label} onKey={onKey} />
@@ -161,7 +163,7 @@ export function CalculatorPanel({ onClose }: { onClose: () => void }) {
             ))}
             <button
               type="button"
-              onClick={() => onKey('=')}
+              onClick={() => onKey("=")}
               className={`col-start-4 row-start-5 row-span-2 min-h-0 ${BUTTON_BASE} bg-[#DE1F2A] text-[10pt] font-semibold text-white shadow-[0_1px_0_rgba(0,0,0,0.4)]`}
             >
               =
@@ -173,5 +175,5 @@ export function CalculatorPanel({ onClose }: { onClose: () => void }) {
         </div>
       </UcatFloatingPanel>
     </div>
-  )
+  );
 }

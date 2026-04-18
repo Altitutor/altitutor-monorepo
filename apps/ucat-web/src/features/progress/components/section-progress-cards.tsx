@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
-import { cn } from '@/lib/utils'
-import type { SectionProgress } from '@/app/api/ucat/progress/route'
-import type { ProgressMode } from '../lib/progress-mode'
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { cn } from "@/lib/utils";
+import type { SectionProgress } from "@/app/api/ucat/progress/route";
+import type { ProgressMode } from "../lib/progress-mode";
 
 type SectionProgressCardsProps = {
-  sections: SectionProgress[]
+  sections: SectionProgress[];
   /** When true, cards link to section detail page */
-  linkToSection?: boolean
-  mode: ProgressMode
-  timeFrameDays: string
-}
+  linkToSection?: boolean;
+  mode: ProgressMode;
+  timeFrameDays: string;
+};
 
 function CircularProgress({
   percentage,
@@ -21,21 +21,21 @@ function CircularProgress({
   strokeWidth = 10,
   className,
 }: {
-  percentage: number
-  total: number
-  size?: number
-  strokeWidth?: number
-  className?: string
+  percentage: number;
+  total: number;
+  size?: number;
+  strokeWidth?: number;
+  className?: string;
 }) {
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percentage / 100) * circumference
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percentage / 100) * circumference;
 
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-2',
-        className
+        "flex flex-col items-center justify-center gap-2",
+        className,
       )}
     >
       <div className="relative" style={{ width: size, height: size }}>
@@ -77,7 +77,7 @@ function CircularProgress({
         {total} questions completed
       </span>
     </div>
-  )
+  );
 }
 
 export function SectionProgressCards({
@@ -87,26 +87,26 @@ export function SectionProgressCards({
   timeFrameDays: _timeFrameDays,
 }: SectionProgressCardsProps) {
   const getScaledScore = (section: SectionProgress): number | null =>
-    mode === 'weighted'
+    mode === "weighted"
       ? section.weightedAverageScaledScore
-      : section.averageScaledScore
+      : section.averageScaledScore;
 
   const getPercentage = (section: SectionProgress): number =>
-    mode === 'weighted' && section.weightedAveragePercentage != null
+    mode === "weighted" && section.weightedAveragePercentage != null
       ? Math.round(section.weightedAveragePercentage)
-      : section.percentage
+      : section.percentage;
 
   return (
     <div className="flex flex-col gap-4">
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sections.map((section) => {
-          const score = getScaledScore(section)
+          const score = getScaledScore(section);
           const card = (
             <Card
               key={section.sectionId}
               className={cn(
-                'rounded-xl border-border',
-                linkToSection && 'transition-colors hover:bg-muted/50'
+                "rounded-xl border-border",
+                linkToSection && "transition-colors hover:bg-muted/50",
               )}
             >
               <CardHeader className="pb-2">
@@ -121,11 +121,11 @@ export function SectionProgressCards({
                   </div>
                   <div
                     className={cn(
-                      'text-3xl font-bold tabular-nums',
-                      score == null && 'text-muted-foreground'
+                      "text-3xl font-bold tabular-nums",
+                      score == null && "text-muted-foreground",
                     )}
                   >
-                    {score != null ? Math.round(score) : '—'}
+                    {score != null ? Math.round(score) : "—"}
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
@@ -140,16 +140,19 @@ export function SectionProgressCards({
                 </div>
               </CardContent>
             </Card>
-          )
+          );
           return linkToSection ? (
-            <Link key={section.sectionId} href={`/progress/sections/${section.sectionNumber}`}>
+            <Link
+              key={section.sectionId}
+              href={`/progress/sections/${section.sectionNumber}`}
+            >
               {card}
             </Link>
           ) : (
             card
-          )
+          );
         })}
       </div>
     </div>
-  )
+  );
 }

@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import { useQuery } from '@tanstack/react-query'
-import { getQuestionEngineExam } from '@/features/question-engine/api/question-engine-api'
-import type { QuestionEngineMode } from '@/features/question-engine/model/types'
+import { useQuery } from "@tanstack/react-query";
+import { getQuestionEngineExam } from "@/features/question-engine/api/question-engine-api";
+import type { QuestionEngineMode } from "@/features/question-engine/model/types";
 
 export function useQuestionEngineData({
   mode,
@@ -10,22 +10,24 @@ export function useQuestionEngineData({
   mockId,
   enabled = true,
 }: {
-  mode: QuestionEngineMode
-  setId?: string
-  mockId?: string
-  enabled?: boolean
+  mode: QuestionEngineMode;
+  setId?: string;
+  mockId?: string;
+  enabled?: boolean;
 }) {
-  const isDbMode = mode === 'set' || mode === 'mock'
+  const isDbMode = mode === "set" || mode === "mock";
 
   return useQuery({
-    queryKey: ['question-engine', mode, setId ?? null, mockId ?? null],
+    queryKey: ["question-engine", mode, setId ?? null, mockId ?? null],
     queryFn: () => {
       if (!isDbMode) {
-        throw new Error('getQuestionEngineExam is only supported for set and mock modes')
+        throw new Error(
+          "getQuestionEngineExam is only supported for set and mock modes",
+        );
       }
 
-      return getQuestionEngineExam({ mode, setId, mockId })
+      return getQuestionEngineExam({ mode, setId, mockId });
     },
     enabled: isDbMode && enabled,
-  })
+  });
 }

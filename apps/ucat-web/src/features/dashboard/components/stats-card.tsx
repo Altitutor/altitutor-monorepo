@@ -1,27 +1,22 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@altitutor/ui'
-import type { ProgressResponse } from '@/app/api/ucat/progress/route'
-import { ChevronRight } from 'lucide-react'
+import Link from "next/link";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import type { ProgressResponse } from "@/app/api/ucat/progress/route";
+import { ChevronRight } from "lucide-react";
 
 type StatsCardProps = {
-  data: ProgressResponse
-}
+  data: ProgressResponse;
+};
 
 export function StatsCard({ data }: StatsCardProps) {
   const questionsCompleted = new Set(
-    data.questionAttempts.map((a) => a.questionId)
-  ).size
+    data.questionAttempts.map((a) => a.questionId),
+  ).size;
   const setsCompleted = data.setAttempts.filter(
-    (a) => !a.studentUcatMockAttemptId
-  ).length
-  const mocksCompleted = data.mockAttempts.length
+    (a) => !a.studentUcatMockAttemptId,
+  ).length;
+  const mocksCompleted = data.mockAttempts.length;
 
   return (
     <Card className="border-border">
@@ -38,16 +33,28 @@ export function StatsCard({ data }: StatsCardProps) {
       <CardContent className="space-y-4 min-w-0 overflow-hidden">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-2xl font-semibold tabular-nums">{questionsCompleted}</p>
-            <p className="text-xs text-muted-foreground break-words">Questions completed</p>
+            <p className="text-2xl font-semibold tabular-nums">
+              {questionsCompleted}
+            </p>
+            <p className="text-xs text-muted-foreground break-words">
+              Questions completed
+            </p>
           </div>
           <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-2xl font-semibold tabular-nums">{setsCompleted}</p>
-            <p className="text-xs text-muted-foreground break-words">Sets completed</p>
+            <p className="text-2xl font-semibold tabular-nums">
+              {setsCompleted}
+            </p>
+            <p className="text-xs text-muted-foreground break-words">
+              Sets completed
+            </p>
           </div>
           <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
-            <p className="text-2xl font-semibold tabular-nums">{mocksCompleted}</p>
-            <p className="text-xs text-muted-foreground break-words">Mocks completed</p>
+            <p className="text-2xl font-semibold tabular-nums">
+              {mocksCompleted}
+            </p>
+            <p className="text-xs text-muted-foreground break-words">
+              Mocks completed
+            </p>
           </div>
         </div>
         {data.sectionProgress.length > 0 ? (
@@ -67,7 +74,7 @@ export function StatsCard({ data }: StatsCardProps) {
                   <p className="text-lg font-semibold tabular-nums">
                     {section.weightedAverageScaledScore != null
                       ? Math.round(section.weightedAverageScaledScore)
-                      : '—'}
+                      : "—"}
                   </p>
                 </div>
               ))}
@@ -76,5 +83,5 @@ export function StatsCard({ data }: StatsCardProps) {
         ) : null}
       </CardContent>
     </Card>
-  )
+  );
 }

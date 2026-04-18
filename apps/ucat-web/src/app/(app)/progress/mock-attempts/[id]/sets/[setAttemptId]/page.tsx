@@ -1,8 +1,8 @@
-import { SetAttemptDetailPage } from '@/features/progress'
+import { SetAttemptDetailPage } from "@/features/progress";
 
 type PageProps = {
-  params: { id: string; setAttemptId: string }
-}
+  params: { id: string; setAttemptId: string };
+};
 
 export default function Page({ params }: PageProps) {
   return (
@@ -12,5 +12,5 @@ export default function Page({ params }: PageProps) {
       backHref={`/progress/mock-attempts/${params.id}`}
       backLabel="Back to mock attempt"
     />
-  )
+  );
 }

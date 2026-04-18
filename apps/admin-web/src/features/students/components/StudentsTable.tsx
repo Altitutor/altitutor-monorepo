@@ -79,7 +79,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject'],
+    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'subscriptionOnline', 'inPersonClass'],
   });
 
   const { 
@@ -94,6 +94,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     curriculums: state.filters.curriculum as string[],
     yearLevels: state.filters.yearLevel as number[],
     subjectIds: state.filters.subject as string[],
+    subscriptionOnline: state.filters.subscriptionOnline as string[] | undefined,
+    inPersonClass: state.filters.inPersonClass as string[] | undefined,
     page: state.page,
     pageSize: state.pageSize,
     orderBy: (state.sortBy || 'status') as keyof Tables<'students'>,
@@ -148,6 +150,22 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       options: allSubjects
         .sort((a, b) => (a.long_name ?? '').localeCompare(b.long_name ?? ''))
         .map(s => ({ label: s.long_name ?? '', value: s.id })),
+    },
+    {
+      key: 'subscriptionOnline',
+      label: 'Online (subscription)',
+      options: [
+        { label: 'Has subscription', value: 'has' },
+        { label: 'No subscription', value: 'none' },
+      ],
+    },
+    {
+      key: 'inPersonClass',
+      label: 'In person (classes)',
+      options: [
+        { label: 'Enrolled in a class', value: 'has' },
+        { label: 'Not in any class', value: 'none' },
+      ],
     },
   ], [allSubjects]);
 
@@ -439,7 +457,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
               </TableRow>
             ) : (
               filteredStudents.map((student, index) => {
-                const studentWithClasses = student as Tables<'students'> & { classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }> };
+                const studentWithClasses = student as Tables<'students'> & {
+                  classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }>;
+                  has_online_subscription?: boolean;
+                  has_in_person_class?: boolean;
+                };
                 const classes = studentWithClasses.classes || [];
                 return (
                   <TableRow
@@ -450,9 +472,21 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   >
                     {state.visibleColumns.includes('status') && (
                       <TableCell>
-                        <Badge className={cn("text-xs", getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'))}>
-                          {student.status}
-                        </Badge>
+                        <div className="flex flex-wrap gap-1 items-center">
+                          <Badge className={cn("text-xs", getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'))}>
+                            {student.status}
+                          </Badge>
+                          {studentWithClasses.has_online_subscription ? (
+                            <Badge variant="outline" className="text-xs border-sky-500/40 text-sky-800 dark:text-sky-200">
+                              ONLINE
+                            </Badge>
+                          ) : null}
+                          {studentWithClasses.has_in_person_class ? (
+                            <Badge variant="outline" className="text-xs border-emerald-500/40 text-emerald-900 dark:text-emerald-200">
+                              IN PERSON
+                            </Badge>
+                          ) : null}
+                        </div>
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('education') && (

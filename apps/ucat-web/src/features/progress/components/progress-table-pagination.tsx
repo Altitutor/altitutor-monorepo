@@ -1,9 +1,11 @@
-'use client'
+"use client";
 
-import { TablePagination } from '@altitutor/ui'
-import { cn } from '@/lib/utils'
+import { TablePagination } from "@altitutor/ui";
+import { cn } from "@/lib/utils";
 
-type ProgressTablePaginationProps = React.ComponentProps<typeof TablePagination>
+type ProgressTablePaginationProps = React.ComponentProps<
+  typeof TablePagination
+>;
 
 /** TablePagination with padding and ucat accent styling for the active page button. */
 export function ProgressTablePagination({
@@ -11,8 +13,8 @@ export function ProgressTablePagination({
   ...props
 }: ProgressTablePaginationProps) {
   return (
-    <div className={cn('pt-4 ucat-pagination', className)}>
+    <div className={cn("pt-4 ucat-pagination", className)}>
       <TablePagination {...props} />
     </div>
-  )
+  );
 }

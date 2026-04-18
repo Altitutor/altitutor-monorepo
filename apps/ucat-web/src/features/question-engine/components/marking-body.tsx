@@ -1,14 +1,14 @@
-'use client'
+"use client";
 
 import {
   computeMaxRawScore,
   computeRawScore,
   scaleTo300_900,
-} from '@altitutor/ucat-marking'
-import type { QuestionMeta } from '@altitutor/ucat-marking'
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
-import { cn } from '@/lib/utils'
-import type { QuestionItem } from '@/features/question-engine/model/types'
+} from "@altitutor/ucat-marking";
+import type { QuestionMeta } from "@altitutor/ucat-marking";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { cn } from "@/lib/utils";
+import type { QuestionItem } from "@/features/question-engine/model/types";
 
 function CircularProgress({
   percentage,
@@ -17,21 +17,21 @@ function CircularProgress({
   strokeWidth = 10,
   className,
 }: {
-  percentage: number
-  label: React.ReactNode
-  size?: number
-  strokeWidth?: number
-  className?: string
+  percentage: number;
+  label: React.ReactNode;
+  size?: number;
+  strokeWidth?: number;
+  className?: string;
 }) {
-  const radius = (size - strokeWidth) / 2
-  const circumference = 2 * Math.PI * radius
-  const offset = circumference - (percentage / 100) * circumference
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (percentage / 100) * circumference;
 
   return (
     <div
       className={cn(
-        'flex flex-col items-center justify-center gap-2',
-        className
+        "flex flex-col items-center justify-center gap-2",
+        className,
       )}
     >
       <div className="relative" style={{ width: size, height: size }}>
@@ -73,23 +73,23 @@ function CircularProgress({
         {label}
       </span>
     </div>
-  )
+  );
 }
 
 export type MarkingRow = {
-  question: QuestionItem
-  index: number
-  correctAnswerText: string
-  studentAnswerText: string
-  points: number
-}
+  question: QuestionItem;
+  index: number;
+  correctAnswerText: string;
+  studentAnswerText: string;
+  points: number;
+};
 
 export type MarkingResult = {
-  rows: MarkingRow[]
-  totalRawScore: number
-  maxRawScore: number
-  scaledScore: number | null
-}
+  rows: MarkingRow[];
+  totalRawScore: number;
+  maxRawScore: number;
+  scaledScore: number | null;
+};
 
 function buildQuestionMeta(questions: QuestionItem[]): QuestionMeta[] {
   return questions.map((q) => ({
@@ -97,95 +97,103 @@ function buildQuestionMeta(questions: QuestionItem[]): QuestionMeta[] {
     stemId: q.stemId,
     sectionName: q.sectionName,
     questionType: q.questionType,
-    correctOptionId: q.correctOptionId ?? '',
+    correctOptionId: q.correctOptionId ?? "",
     options: q.options.map((o) => ({ id: o.id, index: o.index })),
-  }))
+  }));
 }
 
 export function computeMarkingResult(
   questions: QuestionItem[],
   selectedAnswers: Record<string, string>,
-  syllogismSnapshots?: Record<string, Record<string, boolean>>
+  syllogismSnapshots?: Record<string, Record<string, boolean>>,
 ): MarkingResult {
-  const questionMeta = buildQuestionMeta(questions)
+  const questionMeta = buildQuestionMeta(questions);
 
   // Non-syllogism questions scored via shared marking package
-  const nonSyllogismMeta = questionMeta.filter((q) => q.questionType !== 'syllogism')
-  const nonSyllogismIds = new Set(nonSyllogismMeta.map((q) => q.id))
+  const nonSyllogismMeta = questionMeta.filter(
+    (q) => q.questionType !== "syllogism",
+  );
+  const nonSyllogismIds = new Set(nonSyllogismMeta.map((q) => q.id));
 
   const attempts = Object.entries(selectedAnswers)
-    .filter(([questionId]) => nonSyllogismIds.has(questionId) && selectedAnswers[questionId])
-    .map(([questionId, selectedOptionId]) => ({ questionId, selectedOptionId }))
+    .filter(
+      ([questionId]) =>
+        nonSyllogismIds.has(questionId) && selectedAnswers[questionId],
+    )
+    .map(([questionId, selectedOptionId]) => ({
+      questionId,
+      selectedOptionId,
+    }));
 
   const base = computeRawScore({
     attempts,
     questions: nonSyllogismMeta,
-  })
+  });
 
-  const questionScores = new Map(base.questionScores)
+  const questionScores = new Map(base.questionScores);
 
   // Syllogism questions: score from snapshots against option.isAnswer flags
   for (const q of questions) {
-    if (q.questionType !== 'syllogism') continue
+    if (q.questionType !== "syllogism") continue;
 
-    const snapshot = syllogismSnapshots?.[q.id]
+    const snapshot = syllogismSnapshots?.[q.id];
     if (!snapshot) {
-      questionScores.set(q.id, 0)
-      continue
+      questionScores.set(q.id, 0);
+      continue;
     }
 
-    const optionsSorted = [...q.options].sort((a, b) => a.index - b.index)
-    let correctCount = 0
+    const optionsSorted = [...q.options].sort((a, b) => a.index - b.index);
+    let correctCount = 0;
     for (const opt of optionsSorted) {
-      const student = snapshot[opt.id]
-      const correctYes = opt.isAnswer === true
+      const student = snapshot[opt.id];
+      const correctYes = opt.isAnswer === true;
       if (student === undefined) {
         // treat unanswered as incorrect
-        continue
+        continue;
       }
       if (student === correctYes) {
-        correctCount += 1
+        correctCount += 1;
       }
     }
 
-    let stemPoints = 0
+    let stemPoints = 0;
     if (correctCount >= 5) {
-      stemPoints = 2
+      stemPoints = 2;
     } else if (correctCount >= 3) {
-      stemPoints = 1
+      stemPoints = 1;
     } else {
-      stemPoints = 0
+      stemPoints = 0;
     }
 
-    questionScores.set(q.id, stemPoints)
+    questionScores.set(q.id, stemPoints);
   }
 
   const totalRawScore = Array.from(questionScores.values()).reduce(
     (sum, s) => sum + s,
-    0
-  )
+    0,
+  );
 
-  const maxRawScore = computeMaxRawScore(questionMeta)
+  const maxRawScore = computeMaxRawScore(questionMeta);
   const scaledScore =
-    maxRawScore > 0 ? scaleTo300_900(totalRawScore, maxRawScore) : null
+    maxRawScore > 0 ? scaleTo300_900(totalRawScore, maxRawScore) : null;
 
-  const optionByQuestionAndId = new Map<string, Map<string, string>>()
+  const optionByQuestionAndId = new Map<string, Map<string, string>>();
   for (const q of questions) {
-    const map = new Map<string, string>()
+    const map = new Map<string, string>();
     for (const opt of q.options) {
-      map.set(opt.id, opt.text)
+      map.set(opt.id, opt.text);
     }
-    optionByQuestionAndId.set(q.id, map)
+    optionByQuestionAndId.set(q.id, map);
   }
 
   const rows: MarkingRow[] = questions.map((q, index) => {
-    const optMap = optionByQuestionAndId.get(q.id)
+    const optMap = optionByQuestionAndId.get(q.id);
     const correctText = q.correctOptionId
-      ? (optMap?.get(q.correctOptionId) ?? '—')
-      : '—'
-    const selectedId = selectedAnswers[q.id]
-    const studentText = selectedId ? (optMap?.get(selectedId) ?? '—') : '—'
-    const points = questionScores.get(q.id) ?? 0
+      ? (optMap?.get(q.correctOptionId) ?? "—")
+      : "—";
+    const selectedId = selectedAnswers[q.id];
+    const studentText = selectedId ? (optMap?.get(selectedId) ?? "—") : "—";
+    const points = questionScores.get(q.id) ?? 0;
 
     return {
       question: q,
@@ -193,15 +201,15 @@ export function computeMarkingResult(
       correctAnswerText: correctText,
       studentAnswerText: studentText,
       points,
-    }
-  })
+    };
+  });
 
   return {
     rows,
     totalRawScore,
     maxRawScore,
     scaledScore,
-  }
+  };
 }
 
 export function MarkingBody({
@@ -213,19 +221,19 @@ export function MarkingBody({
   backLabel,
   viewReportHref,
 }: {
-  result: MarkingResult
-  onViewQuestion?: (index: number) => void
-  syllogismSnapshots?: Record<string, Record<string, boolean>>
+  result: MarkingResult;
+  onViewQuestion?: (index: number) => void;
+  syllogismSnapshots?: Record<string, Record<string, boolean>>;
   /** When true, omit the score header (e.g. when embedded in a card with its own header). */
-  hideHeader?: boolean
+  hideHeader?: boolean;
   /** When provided, show "Back to sets/mocks" button below score. */
-  backHref?: string
-  backLabel?: string
+  backHref?: string;
+  backLabel?: string;
   /** When provided, show "View performance report" button below score. */
-  viewReportHref?: string
+  viewReportHref?: string;
 }) {
-  const { rows, totalRawScore, maxRawScore, scaledScore } = result
-  const isSummaryView = backHref != null || viewReportHref != null
+  const { rows, totalRawScore, maxRawScore, scaledScore } = result;
+  const isSummaryView = backHref != null || viewReportHref != null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -261,8 +269,8 @@ export function MarkingBody({
                 <CardContent>
                   <div
                     className={cn(
-                      'text-3xl font-bold tabular-nums',
-                      scaledScore == null && 'text-muted-foreground'
+                      "text-3xl font-bold tabular-nums",
+                      scaledScore == null && "text-muted-foreground",
                     )}
                   >
                     {Math.round(scaledScore)}
@@ -279,7 +287,7 @@ export function MarkingBody({
                   data-skip-leave-warning
                   className="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium hover:bg-muted hover:text-muted-foreground"
                 >
-                  {backLabel ?? 'Back'}
+                  {backLabel ?? "Back"}
                 </a>
               )}
               {viewReportHref != null && (
@@ -312,33 +320,36 @@ export function MarkingBody({
             </thead>
             <tbody>
               {rows.map((row) => {
-                const questionPreview = (row.question.stemText && row.question.questionText
-                  ? `${row.question.stemText} ${row.question.questionText}`
-                  : row.question.questionText || row.question.stemText || '—'
-                ).replace(/\s+/g, ' ').trim()
+                const questionPreview = (
+                  row.question.stemText && row.question.questionText
+                    ? `${row.question.stemText} ${row.question.questionText}`
+                    : row.question.questionText || row.question.stemText || "—"
+                )
+                  .replace(/\s+/g, " ")
+                  .trim();
                 const truncate = (t: string, max = 60) =>
-                  t.length <= max ? t : t.slice(0, max - 1) + '…'
+                  t.length <= max ? t : t.slice(0, max - 1) + "…";
 
-                let correctDisplay = row.correctAnswerText
-                let studentDisplay = row.studentAnswerText
+                let correctDisplay = row.correctAnswerText;
+                let studentDisplay = row.studentAnswerText;
 
-                if (row.question.questionType === 'syllogism') {
+                if (row.question.questionType === "syllogism") {
                   const options = [...row.question.options].sort(
-                    (a, b) => a.index - b.index
-                  )
-                  const snapshot = syllogismSnapshots?.[row.question.id] ?? {}
+                    (a, b) => a.index - b.index,
+                  );
+                  const snapshot = syllogismSnapshots?.[row.question.id] ?? {};
                   correctDisplay = options
-                    .map((opt) => (opt.isAnswer ? 'Y' : 'N'))
-                    .join('')
+                    .map((opt) => (opt.isAnswer ? "Y" : "N"))
+                    .join("");
                   studentDisplay = options
                     .map((opt) =>
                       snapshot[opt.id] === true
-                        ? 'Y'
+                        ? "Y"
                         : snapshot[opt.id] === false
-                          ? 'N'
-                          : '-'
+                          ? "N"
+                          : "-",
                     )
-                    .join('')
+                    .join("");
                 }
 
                 return (
@@ -347,16 +358,27 @@ export function MarkingBody({
                     className="border-b border-border/50 hover:bg-muted/50"
                   >
                     <td className="px-3 py-2">{row.index + 1}</td>
-                    <td className="px-3 py-2 max-w-[200px]" title={questionPreview}>
+                    <td
+                      className="px-3 py-2 max-w-[200px]"
+                      title={questionPreview}
+                    >
                       {truncate(questionPreview, 80)}
                     </td>
-                    <td className="px-3 py-2 max-w-[120px]" title={correctDisplay}>
+                    <td
+                      className="px-3 py-2 max-w-[120px]"
+                      title={correctDisplay}
+                    >
                       {truncate(correctDisplay, 50)}
                     </td>
-                    <td className="px-3 py-2 max-w-[120px]" title={studentDisplay}>
+                    <td
+                      className="px-3 py-2 max-w-[120px]"
+                      title={studentDisplay}
+                    >
                       {truncate(studentDisplay, 50)}
                     </td>
-                    <td className="px-3 py-2 text-right">{row.points.toFixed(1)}</td>
+                    <td className="px-3 py-2 text-right">
+                      {row.points.toFixed(1)}
+                    </td>
                     {onViewQuestion ? (
                       <td className="px-3 py-2">
                         <button
@@ -369,12 +391,12 @@ export function MarkingBody({
                       </td>
                     ) : null}
                   </tr>
-                )
+                );
               })}
             </tbody>
           </table>
         </div>
       )}
     </div>
-  )
+  );
 }

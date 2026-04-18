@@ -1,98 +1,111 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { useMemo, useState } from 'react'
-import { CalendarDays, ChevronDown, ChevronUp, Clock, Users } from 'lucide-react'
-import { UcatPageHeader } from '@/features/layout'
-import { useStudentUcatSessions } from '@/features/sessions/hooks/use-sessions'
-import type { StudentUcatSession } from '@/features/sessions/api/sessions-api'
+import Link from "next/link";
+import { useMemo, useState } from "react";
+import {
+  CalendarDays,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Users,
+} from "lucide-react";
+import { UcatPageHeader } from "@/features/layout";
+import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
+import type { StudentUcatSession } from "@/features/sessions/api/sessions-api";
 
-const MAX_SESSIONS_VISIBLE = 5
+const MAX_SESSIONS_VISIBLE = 5;
 
-function getAdelaideDayStatus(startAtIso: string | null | undefined): 'past' | 'today' | 'future' {
-  if (!startAtIso) return 'future'
+function getAdelaideDayStatus(
+  startAtIso: string | null | undefined,
+): "past" | "today" | "future" {
+  if (!startAtIso) return "future";
 
-  const adelaideTz = 'Australia/Adelaide'
-  const now = new Date()
+  const adelaideTz = "Australia/Adelaide";
+  const now = new Date();
 
-  const todayParts = new Intl.DateTimeFormat('en-AU', {
+  const todayParts = new Intl.DateTimeFormat("en-AU", {
     timeZone: adelaideTz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   })
     .formatToParts(now)
     .reduce<Record<string, string>>((acc, part) => {
-      if (part.type !== 'literal') acc[part.type] = part.value
-      return acc
-    }, {})
+      if (part.type !== "literal") acc[part.type] = part.value;
+      return acc;
+    }, {});
 
-  const startDate = new Date(startAtIso)
-  const startParts = new Intl.DateTimeFormat('en-AU', {
+  const startDate = new Date(startAtIso);
+  const startParts = new Intl.DateTimeFormat("en-AU", {
     timeZone: adelaideTz,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
   })
     .formatToParts(startDate)
     .reduce<Record<string, string>>((acc, part) => {
-      if (part.type !== 'literal') acc[part.type] = part.value
-      return acc
-    }, {})
+      if (part.type !== "literal") acc[part.type] = part.value;
+      return acc;
+    }, {});
 
-  const todayKey = `${todayParts.year}-${todayParts.month}-${todayParts.day}`
-  const startKey = `${startParts.year}-${startParts.month}-${startParts.day}`
+  const todayKey = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+  const startKey = `${startParts.year}-${startParts.month}-${startParts.day}`;
 
-  if (startKey === todayKey) return 'today'
-  if (startKey < todayKey) return 'past'
-  return 'future'
+  if (startKey === todayKey) return "today";
+  if (startKey < todayKey) return "past";
+  return "future";
 }
 
-function filterSessionsToTodayAndPast(sessions: StudentUcatSession[]): StudentUcatSession[] {
+function filterSessionsToTodayAndPast(
+  sessions: StudentUcatSession[],
+): StudentUcatSession[] {
   return sessions.filter((s) => {
-    const status = getAdelaideDayStatus(s.start_at)
-    return status === 'today' || status === 'past'
-  })
+    const status = getAdelaideDayStatus(s.start_at);
+    return status === "today" || status === "past";
+  });
 }
 
 function SessionListItem({ session }: { session: StudentUcatSession }) {
-  const status = getAdelaideDayStatus(session.start_at)
-  const isPast = status === 'past'
-  const isToday = status === 'today'
+  const status = getAdelaideDayStatus(session.start_at);
+  const isPast = status === "past";
+  const isToday = status === "today";
 
   const baseClasses =
-    'flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors'
+    "flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors";
   const variantClasses = isToday
-    ? 'bg-sidebar/80 text-sidebar-foreground'
+    ? "bg-sidebar/80 text-sidebar-foreground"
     : isPast
-      ? 'bg-muted/60 text-muted-foreground'
-      : 'bg-card text-card-foreground hover:bg-muted'
+      ? "bg-muted/60 text-muted-foreground"
+      : "bg-card text-card-foreground hover:bg-muted";
 
   const href = session.session_id
     ? `/sessions/${encodeURIComponent(session.session_id as string)}`
-    : '#'
+    : "#";
 
   const dateLabel = session.start_at
-    ? new Intl.DateTimeFormat('en-AU', {
-        timeZone: 'Australia/Adelaide',
-        weekday: 'short',
-        day: '2-digit',
-        month: 'short',
+    ? new Intl.DateTimeFormat("en-AU", {
+        timeZone: "Australia/Adelaide",
+        weekday: "short",
+        day: "2-digit",
+        month: "short",
       }).format(new Date(session.start_at))
-    : 'Date TBC'
+    : "Date TBC";
 
   const timeLabel =
     session.start_at && session.end_at
-      ? `${new Intl.DateTimeFormat('en-AU', {
-          timeZone: 'Australia/Adelaide',
-          hour: 'numeric',
-          minute: '2-digit',
-        }).format(new Date(session.start_at))} - ${new Intl.DateTimeFormat('en-AU', {
-          timeZone: 'Australia/Adelaide',
-          hour: 'numeric',
-          minute: '2-digit',
-        }).format(new Date(session.end_at))}`
-      : null
+      ? `${new Intl.DateTimeFormat("en-AU", {
+          timeZone: "Australia/Adelaide",
+          hour: "numeric",
+          minute: "2-digit",
+        }).format(new Date(session.start_at))} - ${new Intl.DateTimeFormat(
+          "en-AU",
+          {
+            timeZone: "Australia/Adelaide",
+            hour: "numeric",
+            minute: "2-digit",
+          },
+        ).format(new Date(session.end_at))}`
+      : null;
 
   return (
     <li>
@@ -102,9 +115,15 @@ function SessionListItem({ session }: { session: StudentUcatSession }) {
           <div>
             <p className="font-medium">
               {dateLabel}
-              {isToday ? <span className="ml-2 rounded bg-background px-1 text-xs font-semibold">Today</span> : null}
+              {isToday ? (
+                <span className="ml-2 rounded bg-background px-1 text-xs font-semibold">
+                  Today
+                </span>
+              ) : null}
             </p>
-            {timeLabel ? <p className="text-xs opacity-80">{timeLabel}</p> : null}
+            {timeLabel ? (
+              <p className="text-xs opacity-80">{timeLabel}</p>
+            ) : null}
           </div>
         </div>
         <div className="flex items-center gap-3 text-xs">
@@ -117,13 +136,17 @@ function SessionListItem({ session }: { session: StudentUcatSession }) {
           {session.students ? (
             <span className="inline-flex items-center gap-1">
               <Users className="h-3 w-3" />
-              <span>{Array.isArray(session.students) ? session.students.length : 'Classmates'}</span>
+              <span>
+                {Array.isArray(session.students)
+                  ? session.students.length
+                  : "Classmates"}
+              </span>
             </span>
           ) : null}
         </div>
       </Link>
     </li>
-  )
+  );
 }
 
 function ClassCard({
@@ -131,15 +154,15 @@ function ClassCard({
   subjectName,
   sessions,
 }: {
-  classId: string
-  subjectName: string
-  sessions: StudentUcatSession[]
+  classId: string;
+  subjectName: string;
+  sessions: StudentUcatSession[];
 }) {
-  const [expanded, setExpanded] = useState(false)
-  const visibleCount = expanded ? sessions.length : MAX_SESSIONS_VISIBLE
-  const visibleSessions = sessions.slice(0, visibleCount)
-  const hasMore = sessions.length > MAX_SESSIONS_VISIBLE
-  const hiddenCount = sessions.length - MAX_SESSIONS_VISIBLE
+  const [expanded, setExpanded] = useState(false);
+  const visibleCount = expanded ? sessions.length : MAX_SESSIONS_VISIBLE;
+  const visibleSessions = sessions.slice(0, visibleCount);
+  const hasMore = sessions.length > MAX_SESSIONS_VISIBLE;
+  const hiddenCount = sessions.length - MAX_SESSIONS_VISIBLE;
 
   return (
     <section key={classId} className="space-y-3">
@@ -171,57 +194,71 @@ function ClassCard({
         )}
       </div>
     </section>
-  )
+  );
 }
 
 export function SessionsListPage() {
-  const { data, isLoading, error } = useStudentUcatSessions()
+  const { data, isLoading, error } = useStudentUcatSessions();
 
   const grouped = useMemo(() => {
-    const raw = data ?? []
+    const raw = data ?? [];
     return raw.map((cls) => ({
       ...cls,
       sessions: filterSessionsToTodayAndPast(cls.sessions),
-    }))
-  }, [data])
+    }));
+  }, [data]);
 
   const visibleClasses = useMemo(
     () => grouped.filter((cls) => cls.sessions.length > 0),
-    [grouped]
-  )
+    [grouped],
+  );
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Sessions" description="Your upcoming and past UCAT class sessions." />
+        <UcatPageHeader
+          title="Sessions"
+          description="Your upcoming and past UCAT class sessions."
+        />
         <p className="text-sm text-muted-foreground">Loading sessions...</p>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Sessions" description="Your upcoming and past UCAT class sessions." />
+        <UcatPageHeader
+          title="Sessions"
+          description="Your upcoming and past UCAT class sessions."
+        />
         <p className="text-sm text-red-600 dark:text-red-400">
-          {error instanceof Error ? error.message : 'Failed to load sessions'}
+          {error instanceof Error ? error.message : "Failed to load sessions"}
         </p>
       </div>
-    )
+    );
   }
 
   if (visibleClasses.length === 0) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Sessions" description="Your upcoming and past UCAT class sessions." />
-        <p className="text-sm text-muted-foreground">You don&apos;t have any UCAT sessions yet.</p>
+        <UcatPageHeader
+          title="Sessions"
+          description="Your upcoming and past UCAT class sessions."
+        />
+        <p className="text-sm text-muted-foreground">
+          You don&apos;t have any UCAT sessions yet.
+        </p>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader title="Sessions" description="View your UCAT classes and sessions." />
+      <UcatPageHeader
+        title="Sessions"
+        description="View your UCAT classes and sessions."
+      />
       {visibleClasses.map((cls) => (
         <ClassCard
           key={cls.class_id}
@@ -231,6 +268,5 @@ export function SessionsListPage() {
         />
       ))}
     </div>
-  )
+  );
 }
-

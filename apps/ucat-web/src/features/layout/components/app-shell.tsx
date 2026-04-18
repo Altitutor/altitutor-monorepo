@@ -1,86 +1,86 @@
-'use client'
+"use client";
 
-import { useEffect, useRef, useState } from 'react'
-import { usePathname, useRouter } from 'next/navigation'
-import { useAuth } from '@/features/auth'
-import { AppSidebar } from '@/features/layout/components/app-sidebar'
-import { ComingSoonProvider } from '@/features/layout/context/coming-soon-context'
-import { FloatingAppActions } from '@/features/layout/components/floating-app-actions'
-import { UcatFloatingToolbar } from '@/features/layout/components/ucat-floating-toolbar'
-import { isComingSoon } from '@/features/layout/config/coming-soon'
-import { UcatLagProvider } from '@/features/question-engine/context/ucat-lag-context'
-import { useMediaQuery } from '@/shared/hooks/use-media-query'
-import { cn } from '@/lib/utils'
+import { useEffect, useRef, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from "@/features/auth";
+import { AppSidebar } from "@/features/layout/components/app-sidebar";
+import { ComingSoonProvider } from "@/features/layout/context/coming-soon-context";
+import { FloatingAppActions } from "@/features/layout/components/floating-app-actions";
+import { UcatFloatingToolbar } from "@/features/layout/components/ucat-floating-toolbar";
+import { isComingSoon } from "@/features/layout/config/coming-soon";
+import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
+import { useMediaQuery } from "@/shared/hooks/use-media-query";
+import { cn } from "@/lib/utils";
 
 type AppShellProps = {
-  children: React.ReactNode
-}
+  children: React.ReactNode;
+};
 
 export function AppShell({ children }: AppShellProps) {
-  const router = useRouter()
-  const pathname = usePathname()
-  const { user, isLoading } = useAuth()
-  const isMobile = useMediaQuery('(max-width: 767px)')
-  const prevIsMobileRef = useRef<boolean | null>(null)
-  const [collapsed, setCollapsed] = useState(false)
-  const [mobileOpen, setMobileOpen] = useState(false)
+  const router = useRouter();
+  const pathname = usePathname();
+  const { user, isLoading } = useAuth();
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const prevIsMobileRef = useRef<boolean | null>(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
-  const isExamRoute = pathname.startsWith('/exam')
+  const isExamRoute = pathname.startsWith("/exam");
 
   // For exam routes, start with sidebar collapsed (full-screen content) but allow toggling via floating menu.
   // This effect must be declared before any conditional returns to keep hook order stable.
   useEffect(() => {
     if (isExamRoute) {
-      setCollapsed(true)
+      setCollapsed(true);
     }
-  }, [isExamRoute])
+  }, [isExamRoute]);
 
-  const isPublicSubscribeRoute = pathname.startsWith('/subscribe')
+  const isPublicSubscribeRoute = pathname.startsWith("/subscribe");
 
   useEffect(() => {
-    if (isPublicSubscribeRoute) return
+    if (isPublicSubscribeRoute) return;
     if (!isLoading && !user) {
-      router.replace('/login')
+      router.replace("/login");
     }
-  }, [isLoading, router, user, isPublicSubscribeRoute])
+  }, [isLoading, router, user, isPublicSubscribeRoute]);
 
   useEffect(() => {
-    setMobileOpen(false)
-  }, [pathname])
+    setMobileOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
-    const prev = prevIsMobileRef.current
-    prevIsMobileRef.current = isMobile
-    if (prev === null) return
+    const prev = prevIsMobileRef.current;
+    prevIsMobileRef.current = isMobile;
+    if (prev === null) return;
 
     if (isMobile && !prev) {
-      if (!collapsed) setMobileOpen(true)
+      if (!collapsed) setMobileOpen(true);
     } else if (!isMobile && prev) {
       if (mobileOpen) {
-        setCollapsed(false)
-        setMobileOpen(false)
+        setCollapsed(false);
+        setMobileOpen(false);
       }
     }
-  }, [isMobile, collapsed, mobileOpen])
+  }, [isMobile, collapsed, mobileOpen]);
 
   const handleToggleNav = () => {
     if (isMobile) {
-      setMobileOpen((prev) => !prev)
-      return
+      setMobileOpen((prev) => !prev);
+      return;
     }
-    setCollapsed((prev) => !prev)
-  }
+    setCollapsed((prev) => !prev);
+  };
 
   if (!isPublicSubscribeRoute && (isLoading || !user)) {
-    return <div className="p-6 text-sm text-muted-foreground">Loading...</div>
+    return <div className="p-6 text-sm text-muted-foreground">Loading...</div>;
   }
 
-  const sidebarExpanded = isMobile ? mobileOpen : !collapsed
-  const comingSoonPath = isComingSoon(pathname)
+  const sidebarExpanded = isMobile ? mobileOpen : !collapsed;
+  const comingSoonPath = isComingSoon(pathname);
 
   const handleComingSoonConfirm = () => {
-    router.replace('/dashboard')
-  }
+    router.replace("/dashboard");
+  };
 
   return (
     <ComingSoonProvider
@@ -91,7 +91,7 @@ export function AppShell({ children }: AppShellProps) {
         {isExamRoute ? (
           <UcatLagProvider>
             <UcatFloatingToolbar />
-            <div className={cn('flex', 'w-screen')}>
+            <div className={cn("flex", "w-screen")}>
               <AppSidebar
                 collapsed={collapsed}
                 mobileOpen={mobileOpen}
@@ -100,9 +100,9 @@ export function AppShell({ children }: AppShellProps) {
               />
               <main
                 className={cn(
-                  'flex-1 min-h-0 transition-[margin] duration-200',
-                  'h-screen min-h-0 overflow-hidden p-0',
-                  sidebarExpanded ? 'md:ml-[240px]' : 'ml-0'
+                  "flex-1 min-h-0 transition-[margin] duration-200",
+                  "h-screen min-h-0 overflow-hidden p-0",
+                  sidebarExpanded ? "md:ml-[240px]" : "ml-0",
                 )}
               >
                 {children}
@@ -111,8 +111,11 @@ export function AppShell({ children }: AppShellProps) {
           </UcatLagProvider>
         ) : (
           <>
-            <FloatingAppActions onToggleNav={handleToggleNav} isMenuOpen={sidebarExpanded} />
-            <div className={cn('flex', 'mx-auto max-w-[1400px]')}>
+            <FloatingAppActions
+              onToggleNav={handleToggleNav}
+              isMenuOpen={sidebarExpanded}
+            />
+            <div className={cn("flex", "mx-auto max-w-[1400px]")}>
               <AppSidebar
                 collapsed={collapsed}
                 mobileOpen={mobileOpen}
@@ -121,9 +124,9 @@ export function AppShell({ children }: AppShellProps) {
               />
               <main
                 className={cn(
-                  'flex-1 min-h-0 min-w-0 transition-[margin] duration-200',
-                  'min-h-screen pt-16 p-6 overflow-x-hidden',
-                  sidebarExpanded ? 'md:ml-[240px]' : 'ml-0'
+                  "flex-1 min-h-0 min-w-0 transition-[margin] duration-200",
+                  "min-h-screen pt-16 p-6 overflow-x-hidden",
+                  sidebarExpanded ? "md:ml-[240px]" : "ml-0",
                 )}
               >
                 {children}
@@ -133,6 +136,5 @@ export function AppShell({ children }: AppShellProps) {
         )}
       </div>
     </ComingSoonProvider>
-  )
+  );
 }
-

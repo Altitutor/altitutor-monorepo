@@ -1,22 +1,22 @@
-import { notFound } from 'next/navigation'
-import { Suspense } from 'react'
-import { SectionProgressPage } from '@/features/progress'
+import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { SectionProgressPage } from "@/features/progress";
 
 type PageProps = {
-  params: Promise<{ sectionNumber: string }>
-}
+  params: Promise<{ sectionNumber: string }>;
+};
 
 export default async function Page({ params }: PageProps) {
-  const { sectionNumber } = await params
-  const num = parseInt(sectionNumber, 10)
+  const { sectionNumber } = await params;
+  const num = parseInt(sectionNumber, 10);
   if (Number.isNaN(num) || num < 1 || num > 4) {
-    notFound()
+    notFound();
   }
   return (
     <Suspense fallback={<SectionProgressSkeleton />}>
       <SectionProgressPage sectionNumber={num} />
     </Suspense>
-  )
+  );
 }
 
 function SectionProgressSkeleton() {
@@ -31,5 +31,5 @@ function SectionProgressSkeleton() {
       <div className="h-64 rounded-lg bg-muted" />
       <div className="h-64 rounded-lg bg-muted" />
     </div>
-  )
+  );
 }

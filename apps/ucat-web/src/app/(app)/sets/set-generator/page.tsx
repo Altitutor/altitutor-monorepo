@@ -1,5 +1,5 @@
-import { SetGeneratorPage } from '@/features/set-generator'
+import { SetGeneratorPage } from "@/features/set-generator";
 
 export default function SetGeneratorRoute() {
-  return <SetGeneratorPage />
+  return <SetGeneratorPage />;
 }

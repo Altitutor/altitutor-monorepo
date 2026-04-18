@@ -1,9 +1,9 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { Button } from '@altitutor/ui'
-import { MarketingHeader } from './marketing-header'
-import { BrainCircuit, BarChart3, BookOpen } from 'lucide-react'
+import Link from "next/link";
+import { Button } from "@altitutor/ui";
+import { MarketingHeader } from "./marketing-header";
+import { BrainCircuit, BarChart3, BookOpen } from "lucide-react";
 
 export function LandingPage() {
   return (
@@ -16,7 +16,8 @@ export function LandingPage() {
             UCAT practice that gets results
           </h1>
           <p className="mt-6 text-lg text-muted-foreground sm:text-xl">
-            Full-length mocks, timed practice sets, and progress tracking. Built for students preparing for the UCAT.
+            Full-length mocks, timed practice sets, and progress tracking. Built
+            for students preparing for the UCAT.
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button size="lg" asChild>
@@ -81,5 +82,5 @@ export function LandingPage() {
         </section>
       </main>
     </div>
-  )
+  );
 }

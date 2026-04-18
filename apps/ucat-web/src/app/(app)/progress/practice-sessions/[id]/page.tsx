@@ -1,9 +1,9 @@
-import { PracticeAttemptDetailPage } from '@/features/progress'
+import { PracticeAttemptDetailPage } from "@/features/progress";
 
 type PageProps = {
-  params: { id: string }
-}
+  params: { id: string };
+};
 
 export default function Page({ params }: PageProps) {
-  return <PracticeAttemptDetailPage attemptId={params.id} />
+  return <PracticeAttemptDetailPage attemptId={params.id} />;
 }

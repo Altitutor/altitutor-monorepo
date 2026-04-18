@@ -1,8 +1,8 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -12,35 +12,40 @@ import {
   Navigation,
   Search,
   X,
-} from 'lucide-react'
-import { Button, UcatExamActionButton, UcatExamShell, useToast } from '@altitutor/ui'
-import { UCAT_COLORS } from '@altitutor/ui/src/components/ucat/ucat-theme'
-import { useQuestionEngineData } from '@/features/question-engine/hooks/use-question-engine-data'
-import { useQuestionEngineState } from '@/features/question-engine/hooks/use-question-engine-state'
-import { useUcatLag } from '@/features/question-engine/context/ucat-lag-context'
-import { CalculatorPanel } from '@/features/question-engine/components/calculator-panel'
+} from "lucide-react";
+import {
+  Button,
+  UcatExamActionButton,
+  UcatExamShell,
+  useToast,
+} from "@altitutor/ui";
+import { UCAT_COLORS } from "@altitutor/ui/src/components/ucat/ucat-theme";
+import { useQuestionEngineData } from "@/features/question-engine/hooks/use-question-engine-data";
+import { useQuestionEngineState } from "@/features/question-engine/hooks/use-question-engine-state";
+import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
+import { CalculatorPanel } from "@/features/question-engine/components/calculator-panel";
 import {
   ConfirmFinishPracticeDialog,
   ConfirmNextStemDialog,
   ConfirmSubmitDialog,
-} from '@/features/question-engine/components/confirm-practice-transition-dialog'
-import { EndReviewDialog } from '@/features/question-engine/components/end-review-dialog'
-import { ExitResultsDialog } from '@/features/question-engine/components/exit-results-dialog'
-import { EngineIntroDialog } from '@/features/question-engine/components/engine-intro-dialog'
-import { InstructionsContent } from '@/features/question-engine/components/instructions-content'
-import { NavigatorPanel } from '@/features/question-engine/components/navigator-panel'
-import { QuestionContent } from '@/features/question-engine/components/question-content'
+} from "@/features/question-engine/components/confirm-practice-transition-dialog";
+import { EndReviewDialog } from "@/features/question-engine/components/end-review-dialog";
+import { ExitResultsDialog } from "@/features/question-engine/components/exit-results-dialog";
+import { EngineIntroDialog } from "@/features/question-engine/components/engine-intro-dialog";
+import { InstructionsContent } from "@/features/question-engine/components/instructions-content";
+import { NavigatorPanel } from "@/features/question-engine/components/navigator-panel";
+import { QuestionContent } from "@/features/question-engine/components/question-content";
 import {
   computeMarkingResult,
   MarkingBody,
-} from '@/features/question-engine/components/marking-body'
-import { MockScoreBody } from '@/features/question-engine/components/mock-score-body'
-import { ResultsQuestionViewer } from '@/features/question-engine/components/results-question-viewer'
-import { ReviewBody } from '@/features/question-engine/components/review-body'
-import { NoFlaggedDialog } from '@/features/question-engine/components/no-flagged-dialog'
-import { ReviewInstructionsDialog } from '@/features/question-engine/components/review-instructions-dialog'
-import { TimeExpiredDialog } from '@/features/question-engine/components/time-expired-dialog'
-import { getIncompleteCount } from '@/features/question-engine/lib/review'
+} from "@/features/question-engine/components/marking-body";
+import { MockScoreBody } from "@/features/question-engine/components/mock-score-body";
+import { ResultsQuestionViewer } from "@/features/question-engine/components/results-question-viewer";
+import { ReviewBody } from "@/features/question-engine/components/review-body";
+import { NoFlaggedDialog } from "@/features/question-engine/components/no-flagged-dialog";
+import { ReviewInstructionsDialog } from "@/features/question-engine/components/review-instructions-dialog";
+import { TimeExpiredDialog } from "@/features/question-engine/components/time-expired-dialog";
+import { getIncompleteCount } from "@/features/question-engine/lib/review";
 import {
   formatTimeRemaining,
   getCurrentMockSegment,
@@ -48,14 +53,21 @@ import {
   getNextMockSegment,
   getNextSetSegmentFromReview,
   getRemainingSeconds,
-} from '@/features/question-engine/lib/timing'
-import type { QuestionEngineMode, QuestionEngineQuestion, QuestionStemWithQuestions } from '@/features/question-engine/model/types'
-import { mapQuestionStemsToItems, mapQuestionsToItems } from '@/features/question-engine/model/types'
-import { getStemBoundaries } from '@/features/question-engine/lib/practice'
-import { QUESTION_ENGINE_SHORTCUT_MAP } from '@/features/question-engine/model/shortcuts'
-import { useQuestionEnginePersistence } from '@/features/question-engine/hooks/use-question-engine-persistence'
-import { useRefreshedContentCache } from '@/features/question-engine/hooks/use-refreshed-content-cache'
-import { SECTION_NAME_TO_NUMBER } from '@/features/sets/lib/section-labels'
+} from "@/features/question-engine/lib/timing";
+import type {
+  QuestionEngineMode,
+  QuestionEngineQuestion,
+  QuestionStemWithQuestions,
+} from "@/features/question-engine/model/types";
+import {
+  mapQuestionStemsToItems,
+  mapQuestionsToItems,
+} from "@/features/question-engine/model/types";
+import { getStemBoundaries } from "@/features/question-engine/lib/practice";
+import { QUESTION_ENGINE_SHORTCUT_MAP } from "@/features/question-engine/model/shortcuts";
+import { useQuestionEnginePersistence } from "@/features/question-engine/hooks/use-question-engine-persistence";
+import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
+import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 
 export function QuestionEnginePage({
   mode,
@@ -70,57 +82,66 @@ export function QuestionEnginePage({
   onBack,
   onNeedMoreStems,
 }: {
-  mode: QuestionEngineMode
-  sourceId?: string
-  questionStems?: QuestionStemWithQuestions[]
-  standaloneQuestions?: QuestionEngineQuestion[]
+  mode: QuestionEngineMode;
+  sourceId?: string;
+  questionStems?: QuestionStemWithQuestions[];
+  standaloneQuestions?: QuestionEngineQuestion[];
   /** When true (questions/questionStem mode only): submit after each question/stem, show answer immediately, no final review phase. */
-  practice?: boolean
+  practice?: boolean;
   /** When provided (practice mode): links question attempts to this session for persistence. */
-  practiceSessionId?: string | null
+  practiceSessionId?: string | null;
   /** When true (default): show confirmation popup before submit→answer and before next question stem in answer mode. */
-  confirmPracticeTransitions?: boolean
+  confirmPracticeTransitions?: boolean;
   /** Questions/questionStem mode only. Seconds per question for timing. Omit or null = untimed. */
-  timePerQuestionSeconds?: number | null
+  timePerQuestionSeconds?: number | null;
   /** When provided, show a "Back" link in the toolbar that navigates here (e.g. /practice). */
-  backHref?: string
+  backHref?: string;
   /** When provided, used instead of router.back() for Done/Exit. Enables clearing session state before navigating. */
-  onBack?: () => void
+  onBack?: () => void;
   /** Unlimited mode: fetch next stems when we run out. Parent appends to questionStems and returns new stems. */
-  onNeedMoreStems?: (excludeStemIds: string[]) => Promise<QuestionStemWithQuestions[] | null>
+  onNeedMoreStems?: (
+    excludeStemIds: string[],
+  ) => Promise<QuestionStemWithQuestions[] | null>;
 }) {
   const query = useQuestionEngineData({
     mode,
-    setId: mode === 'set' ? sourceId : undefined,
-    mockId: mode === 'mock' ? sourceId : undefined,
-  })
+    setId: mode === "set" ? sourceId : undefined,
+    mockId: mode === "mock" ? sourceId : undefined,
+  });
 
   const exam = useMemo(
     () =>
-      mode === 'questionStem'
+      mode === "questionStem"
         ? questionStems && {
             sourceType: mode,
-            sourceId: sourceId ?? 'question-stem',
-            title: 'Question Stems',
+            sourceId: sourceId ?? "question-stem",
+            title: "Question Stems",
             questions: mapQuestionStemsToItems(questionStems),
             instructionsScreens: [],
             timePerQuestionSeconds: timePerQuestionSeconds ?? null,
           }
-        : mode === 'questions'
+        : mode === "questions"
           ? standaloneQuestions && {
               sourceType: mode,
-              sourceId: sourceId ?? 'questions',
-              title: 'Questions',
+              sourceId: sourceId ?? "questions",
+              title: "Questions",
               questions: mapQuestionsToItems(standaloneQuestions),
               instructionsScreens: [],
               timePerQuestionSeconds: timePerQuestionSeconds ?? null,
             }
           : query.data,
-    [mode, sourceId, questionStems, standaloneQuestions, query.data, timePerQuestionSeconds]
-  )
+    [
+      mode,
+      sourceId,
+      questionStems,
+      standaloneQuestions,
+      query.data,
+      timePerQuestionSeconds,
+    ],
+  );
 
   const instructionsScreens =
-    exam && 'instructionsScreens' in exam ? exam.instructionsScreens : []
+    exam && "instructionsScreens" in exam ? exam.instructionsScreens : [];
 
   const {
     state,
@@ -144,16 +165,17 @@ export function QuestionEnginePage({
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
     setSyllogismSnapshot,
-  } = useQuestionEngineState(exam, { practice, onNeedMoreStems })
-  const router = useRouter()
-  const { toast } = useToast()
-  const { isLagging, runWithLag } = useUcatLag()
-  const [, setTick] = useState(0)
-  const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false)
-  const [showConfirmNextStemDialog, setShowConfirmNextStemDialog] = useState(false)
+  } = useQuestionEngineState(exam, { practice, onNeedMoreStems });
+  const router = useRouter();
+  const { toast } = useToast();
+  const { isLagging, runWithLag } = useUcatLag();
+  const [, setTick] = useState(0);
+  const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false);
+  const [showConfirmNextStemDialog, setShowConfirmNextStemDialog] =
+    useState(false);
   const [showConfirmFinishPracticeDialog, setShowConfirmFinishPracticeDialog] =
-    useState(false)
-  const timeExpiredFiredRef = useRef<string | null>(null)
+    useState(false);
+  const timeExpiredFiredRef = useRef<string | null>(null);
 
   const {
     recordAnswer,
@@ -166,166 +188,193 @@ export function QuestionEnginePage({
     exam,
     state,
     practiceSessionId,
-  })
+  });
 
   const markingOrQuestionIndex =
-    state.phase === 'question'
+    state.phase === "question"
       ? state.currentIndex
-      : state.viewingQuestionIndex ?? 0
-  const getCachedContent = useRefreshedContentCache(questions, markingOrQuestionIndex)
+      : (state.viewingQuestionIndex ?? 0);
+  const getCachedContent = useRefreshedContentCache(
+    questions,
+    markingOrQuestionIndex,
+  );
 
-  const isResultsPhaseForActions = state.phase === 'marking' || state.phase === 'mockScore'
+  const isResultsPhaseForActions =
+    state.phase === "marking" || state.phase === "mockScore";
   const setMockResultsActions = useMemo(() => {
-    if (!exam || !isResultsPhaseForActions || state.viewingQuestionIndex != null) return null
-    if (exam.sourceType === 'set') {
+    if (
+      !exam ||
+      !isResultsPhaseForActions ||
+      state.viewingQuestionIndex != null
+    )
+      return null;
+    if (exam.sourceType === "set") {
       const sectionNumber = questions[0]?.sectionName
         ? SECTION_NAME_TO_NUMBER[questions[0].sectionName]
-        : undefined
+        : undefined;
       const backHref =
         sectionNumber != null
           ? `/sets/sections/${sectionNumber}/${encodeURIComponent(exam.sourceId)}`
-          : `/sets/${encodeURIComponent(exam.sourceId)}`
+          : `/sets/${encodeURIComponent(exam.sourceId)}`;
       const viewReportHref =
         attemptIds.setAttemptId != null
           ? `/progress/set-attempts/${attemptIds.setAttemptId}`
-          : undefined
-      return { backHref, backLabel: 'Back to sets' as const, viewReportHref }
+          : undefined;
+      return { backHref, backLabel: "Back to sets" as const, viewReportHref };
     }
-    if (exam.sourceType === 'mock') {
+    if (exam.sourceType === "mock") {
       const viewReportHref =
         attemptIds.mockAttemptId != null
           ? `/progress/mock-attempts/${attemptIds.mockAttemptId}`
-          : undefined
-      return { backHref: '/mocks', backLabel: 'Back to mocks' as const, viewReportHref }
+          : undefined;
+      return {
+        backHref: "/mocks",
+        backLabel: "Back to mocks" as const,
+        viewReportHref,
+      };
     }
-    return null
-  }, [exam, isResultsPhaseForActions, state.viewingQuestionIndex, questions, attemptIds])
+    return null;
+  }, [
+    exam,
+    isResultsPhaseForActions,
+    state.viewingQuestionIndex,
+    questions,
+    attemptIds,
+  ]);
 
-  const isSetOrMock = exam && (exam.sourceType === 'set' || exam.sourceType === 'mock')
+  const isSetOrMock =
+    exam && (exam.sourceType === "set" || exam.sourceType === "mock");
   const isQuestionsOrStem =
-    exam && (exam.sourceType === 'questions' || exam.sourceType === 'questionStem')
+    exam &&
+    (exam.sourceType === "questions" || exam.sourceType === "questionStem");
   const currentSegmentTimeLimit =
     exam && (isSetOrMock || isQuestionsOrStem)
       ? getCurrentSegmentTimeLimitSeconds(exam, state)
-      : null
-  const isTimed = currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0
+      : null;
+  const isTimed =
+    currentSegmentTimeLimit != null && currentSegmentTimeLimit > 0;
   const remainingSeconds =
     exam && isTimed
       ? getRemainingSeconds(exam, state, state.timerStartedAt)
-      : null
+      : null;
   const segmentKey =
-    exam?.sourceType === 'mock'
-      ? getCurrentMockSegment(exam, state)?.segmentIndex ??
-        `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`
-      : `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`
+    exam?.sourceType === "mock"
+      ? (getCurrentMockSegment(exam, state)?.segmentIndex ??
+        `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`)
+      : `${state.phase}-${state.instructionsIndex}-${state.currentIndex}`;
 
   useEffect(() => {
-    if (!isTimed) return
-    const id = setInterval(() => setTick((t) => t + 1), 1000)
-    return () => clearInterval(id)
-  }, [isTimed])
+    if (!isTimed) return;
+    const id = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [isTimed]);
 
   useEffect(() => {
-    if (!exam || remainingSeconds === null) return
+    if (!exam || remainingSeconds === null) return;
     if (remainingSeconds > 0) {
-      timeExpiredFiredRef.current = null
-      return
+      timeExpiredFiredRef.current = null;
+      return;
     }
-    if (timeExpiredFiredRef.current === String(segmentKey)) return
-    timeExpiredFiredRef.current = String(segmentKey)
+    if (timeExpiredFiredRef.current === String(segmentKey)) return;
+    timeExpiredFiredRef.current = String(segmentKey);
 
-    if (state.phase === 'instructions') {
+    if (state.phase === "instructions") {
       setState((prev) => {
-        const next = { ...prev, phase: 'question' as const }
-        if (exam!.sourceType === 'set') {
-          next.currentIndex = 0
+        const next = { ...prev, phase: "question" as const };
+        if (exam!.sourceType === "set") {
+          next.currentIndex = 0;
           next.timerStartedAt =
-            (exam!.setModeTiming?.setTimeLimitSeconds ?? 0) > 0 ? Date.now() : null
-        } else if (exam!.sourceType === 'mock') {
-          const nextSeg = getNextMockSegment(exam!, prev)
-          if (nextSeg?.type === 'questions') {
-            next.currentIndex = nextSeg.questionStartIndex
+            (exam!.setModeTiming?.setTimeLimitSeconds ?? 0) > 0
+              ? Date.now()
+              : null;
+        } else if (exam!.sourceType === "mock") {
+          const nextSeg = getNextMockSegment(exam!, prev);
+          if (nextSeg?.type === "questions") {
+            next.currentIndex = nextSeg.questionStartIndex;
             next.timerStartedAt =
-              (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null
+              (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null;
           } else {
-            next.currentIndex = prev.currentIndex
+            next.currentIndex = prev.currentIndex;
           }
         } else if (
-          (exam!.sourceType === 'questions' || exam!.sourceType === 'questionStem') &&
+          (exam!.sourceType === "questions" ||
+            exam!.sourceType === "questionStem") &&
           exam!.timePerQuestionSeconds != null &&
           exam!.timePerQuestionSeconds > 0
         ) {
-          next.timerStartedAt = Date.now()
+          next.timerStartedAt = Date.now();
         }
-        return next
-      })
-      return
+        return next;
+      });
+      return;
     }
 
-    const now = Date.now()
+    const now = Date.now();
     setState((prev) => {
-      const next = { ...prev, showTimeExpiredDialog: true }
-      if (exam!.sourceType === 'mock') {
-        next.nextSegmentTimerStartedAt = now
+      const next = { ...prev, showTimeExpiredDialog: true };
+      if (exam!.sourceType === "mock") {
+        next.nextSegmentTimerStartedAt = now;
       }
-      return next
-    })
-  }, [exam, remainingSeconds, segmentKey, state.phase, setState])
+      return next;
+    });
+  }, [exam, remainingSeconds, segmentKey, state.phase, setState]);
 
   // Warn before leaving the UCAT exam page (tab close, reload, or navigation)
-  const skipBeforeUnloadRef = useRef(false)
+  const skipBeforeUnloadRef = useRef(false);
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (skipBeforeUnloadRef.current) return
-      event.preventDefault()
-      event.returnValue = ''
-    }
+      if (skipBeforeUnloadRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
 
     const handleClick = (event: MouseEvent) => {
-      const target = event.target as HTMLElement | null
-      const anchor = target?.closest?.('a')
-      if (!anchor || !anchor.href) return
+      const target = event.target as HTMLElement | null;
+      const anchor = target?.closest?.("a");
+      if (!anchor || !anchor.href) return;
 
       // Skip warning for intentional navigation (e.g. Back to sets, View performance report)
-      if (anchor.hasAttribute('data-skip-leave-warning')) {
-        skipBeforeUnloadRef.current = true
-        return
+      if (anchor.hasAttribute("data-skip-leave-warning")) {
+        skipBeforeUnloadRef.current = true;
+        return;
       }
 
       // Ignore clicks that don't change location
-      const nextUrl = new URL(anchor.href, window.location.href)
-      if (nextUrl.href === window.location.href) return
+      const nextUrl = new URL(anchor.href, window.location.href);
+      if (nextUrl.href === window.location.href) return;
 
       const confirmLeave = window.confirm(
-        'Are you sure you want to leave this UCAT exam? Your current progress may be lost.'
-      )
+        "Are you sure you want to leave this UCAT exam? Your current progress may be lost.",
+      );
       if (!confirmLeave) {
-        event.preventDefault()
+        event.preventDefault();
       }
-    }
+    };
 
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    window.addEventListener('click', handleClick, true)
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("click", handleClick, true);
 
     return () => {
-      window.removeEventListener('beforeunload', handleBeforeUnload)
-      window.removeEventListener('click', handleClick, true)
-    }
-  }, [])
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("click", handleClick, true);
+    };
+  }, []);
 
   const hasPreviousQuestion =
-    state.phase === 'question' &&
-    (exam?.sourceType === 'mock'
+    state.phase === "question" &&
+    (exam?.sourceType === "mock"
       ? (() => {
-          const seg = getCurrentMockSegment(exam, state)
-          if (seg?.type === 'questions') {
-            return state.currentIndex > seg.questionStartIndex
+          const seg = getCurrentMockSegment(exam, state);
+          if (seg?.type === "questions") {
+            return state.currentIndex > seg.questionStartIndex;
           }
-          return state.currentIndex > 0
+          return state.currentIndex > 0;
         })()
-      : state.currentIndex > 0)
+      : state.currentIndex > 0);
   const hasPreviousReviewQuestion =
-    state.phase === 'review' && Boolean(state.reviewFilter) && state.reviewFilterIndex > 0
+    state.phase === "review" &&
+    Boolean(state.reviewFilter) &&
+    state.reviewFilterIndex > 0;
 
   const practiceMarkingResult = useMemo(
     () =>
@@ -333,31 +382,31 @@ export function QuestionEnginePage({
         ? computeMarkingResult(
             exam!.questions,
             state.selectedAnswers,
-            state.syllogismSnapshots
+            state.syllogismSnapshots,
           )
         : null,
-    [isPracticeMode, exam, state.selectedAnswers, state.syllogismSnapshots]
-  )
+    [isPracticeMode, exam, state.selectedAnswers, state.syllogismSnapshots],
+  );
   const practiceCorrectCount =
-    practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0
+    practiceMarkingResult?.rows.filter((r) => r.points > 0).length ?? 0;
 
   const handleFinishPractice = useCallback(async () => {
-    if (!isPracticeMode || !exam) return
-    const qs = exam.questions
-    if (state.phase === 'question') {
+    if (!isPracticeMode || !exam) return;
+    const qs = exam.questions;
+    if (state.phase === "question") {
       const { startIndex, endIndex } = getStemBoundaries(
         qs,
         state.currentIndex,
-        mode as 'questions' | 'questionStem'
-      )
-      recordAnswersForUnit(startIndex, endIndex)
+        mode as "questions" | "questionStem",
+      );
+      recordAnswersForUnit(startIndex, endIndex);
     }
 
     if (practiceSessionId && practiceMarkingResult) {
       const questionScores = practiceMarkingResult.rows.map((r) => ({
         questionId: r.question.id,
         score: r.points,
-      }))
+      }));
       try {
         const res = await completePracticeSession.mutateAsync({
           sessionId: practiceSessionId,
@@ -366,12 +415,12 @@ export function QuestionEnginePage({
           questionCount: qs.length,
           stemsSnapshot: questionStems ?? [],
           questionScores,
-        })
+        });
         if (res?.earnedDiscount && (res?.discountCents ?? 0) > 0) {
           toast({
-            title: 'Practice day discount earned!',
+            title: "Practice day discount earned!",
             description: `You earned $${((res.discountCents ?? 0) / 100).toFixed(0)} off your next bill.`,
-          })
+          });
         }
       } catch {
         // Session complete may fail; still show completion UI
@@ -380,11 +429,11 @@ export function QuestionEnginePage({
 
     setState((current) => ({
       ...current,
-      phase: 'practiceComplete',
+      phase: "practiceComplete",
       viewingQuestionIndex: null,
       practiceAnswerUnitStartIndex: undefined,
       practiceAnswerUnitEndIndex: undefined,
-    }))
+    }));
   }, [
     isPracticeMode,
     exam,
@@ -398,38 +447,41 @@ export function QuestionEnginePage({
     questionStems,
     setState,
     toast,
-  ])
+  ]);
 
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
   useEffect(() => {
     const preventDefault = (event: Event) => {
-      event.preventDefault()
-    }
+      event.preventDefault();
+    };
 
     const handleKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null
-      const tagName = target?.tagName
+      const target = event.target as HTMLElement | null;
+      const tagName = target?.tagName;
       const isEditable =
         target?.isContentEditable ||
-        tagName === 'INPUT' ||
-        tagName === 'TEXTAREA' ||
-        tagName === 'SELECT'
+        tagName === "INPUT" ||
+        tagName === "TEXTAREA" ||
+        tagName === "SELECT";
 
-      const key = event.key.toLowerCase()
+      const key = event.key.toLowerCase();
 
       // Block common clipboard shortcuts
-      if ((event.ctrlKey || event.metaKey) && ['c', 'x', 'v', 'a'].includes(key)) {
-        event.preventDefault()
-        return
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        ["c", "x", "v", "a"].includes(key)
+      ) {
+        event.preventDefault();
+        return;
       }
 
       if (isEditable) {
-        return
+        return;
       }
 
       // Answer selection: a/b/c/d/e/f select option A/B/C/D/E/F when viewing a question (no modifiers)
       const overlayActive =
-        state.phase === 'intro' ||
+        state.phase === "intro" ||
         state.showReadyDialog ||
         state.showTimeExpiredDialog ||
         state.showEndReviewDialog ||
@@ -438,39 +490,40 @@ export function QuestionEnginePage({
         state.showReviewInstructionsDialog ||
         showConfirmSubmitDialog ||
         showConfirmNextStemDialog ||
-        showConfirmFinishPracticeDialog
+        showConfirmFinishPracticeDialog;
       const isQuestionView =
-        (state.phase === 'question' || (state.phase === 'review' && state.reviewFilter)) &&
+        (state.phase === "question" ||
+          (state.phase === "review" && state.reviewFilter)) &&
         currentQuestion &&
-        !overlayActive
+        !overlayActive;
       if (isQuestionView && !event.altKey && !event.ctrlKey && !event.metaKey) {
-        const answerKeys = ['a', 'b', 'c', 'd', 'e', 'f']
-        const keyIndex = answerKeys.indexOf(key)
+        const answerKeys = ["a", "b", "c", "d", "e", "f"];
+        const keyIndex = answerKeys.indexOf(key);
         if (keyIndex >= 0 && currentQuestion.options[keyIndex]) {
-          const optionId = currentQuestion.options[keyIndex].id
-          const flaggedCurrent = state.flaggedIds.includes(currentQuestion.id)
-          event.preventDefault()
+          const optionId = currentQuestion.options[keyIndex].id;
+          const flaggedCurrent = state.flaggedIds.includes(currentQuestion.id);
+          event.preventDefault();
           void runWithLag(() => {
-            setAnswer(optionId)
-            recordAnswer(currentQuestion.id, optionId, flaggedCurrent)
-          })
-          return
+            setAnswer(optionId);
+            recordAnswer(currentQuestion.id, optionId, flaggedCurrent);
+          });
+          return;
         }
       }
 
       // Handle UCAT engine shortcuts (Alt/Option + key).
       // On macOS, Option+letter yields a composed character in event.key (e.g. Option+C → "ç").
       // Use event.code (physical key, e.g. "KeyC") so shortcuts work regardless of keyboard layout.
-      const parts: string[] = []
+      const parts: string[] = [];
       if (event.altKey) {
-        parts.push('alt')
+        parts.push("alt");
       }
       const letterForShortcut =
-        event.altKey && event.code.startsWith('Key') && event.code.length === 4
+        event.altKey && event.code.startsWith("Key") && event.code.length === 4
           ? event.code.slice(3).toLowerCase()
-          : key
-      parts.push(letterForShortcut)
-      const shortcutKey = parts.join('+')
+          : key;
+      parts.push(letterForShortcut);
+      const shortcutKey = parts.join("+");
 
       // When confirm practice transition dialogs are open, Alt+Y / Alt+N = Yes / No
       if (
@@ -478,216 +531,238 @@ export function QuestionEnginePage({
         showConfirmNextStemDialog ||
         showConfirmFinishPracticeDialog
       ) {
-        if (shortcutKey === 'alt+y') {
-          event.preventDefault()
+        if (shortcutKey === "alt+y") {
+          event.preventDefault();
           if (showConfirmSubmitDialog) {
             const { startIndex, endIndex } = getStemBoundaries(
               questions,
               state.currentIndex,
-              mode as 'questions' | 'questionStem'
-            )
-            recordAnswersForUnit(startIndex, endIndex)
-            handlePracticeSubmit()
-            setShowConfirmSubmitDialog(false)
+              mode as "questions" | "questionStem",
+            );
+            recordAnswersForUnit(startIndex, endIndex);
+            handlePracticeSubmit();
+            setShowConfirmSubmitDialog(false);
           } else if (showConfirmFinishPracticeDialog) {
-            setShowConfirmFinishPracticeDialog(false)
-            void handleFinishPractice()
+            setShowConfirmFinishPracticeDialog(false);
+            void handleFinishPractice();
           } else {
-            goNext()
-            setShowConfirmNextStemDialog(false)
+            goNext();
+            setShowConfirmNextStemDialog(false);
           }
-          return
+          return;
         }
-        if (shortcutKey === 'alt+n') {
-          event.preventDefault()
-          setShowConfirmSubmitDialog(false)
-          setShowConfirmNextStemDialog(false)
-          setShowConfirmFinishPracticeDialog(false)
-          return
+        if (shortcutKey === "alt+n") {
+          event.preventDefault();
+          setShowConfirmSubmitDialog(false);
+          setShowConfirmNextStemDialog(false);
+          setShowConfirmFinishPracticeDialog(false);
+          return;
         }
       }
 
       // When Ready to Begin dialog is open (on instructions or intro), Alt+Y / Alt+N = Yes / No
-      const readyOverlay = state.phase === 'intro' || state.showReadyDialog
-      if (readyOverlay && (shortcutKey === 'alt+y' || shortcutKey === 'alt+n')) {
-        event.preventDefault()
-        if (shortcutKey === 'alt+y') {
-          if (state.phase === 'intro' || state.showReadyDialog) {
-            setState((current) => ({ ...current, phase: 'question', showReadyDialog: false }))
+      const readyOverlay = state.phase === "intro" || state.showReadyDialog;
+      if (
+        readyOverlay &&
+        (shortcutKey === "alt+y" || shortcutKey === "alt+n")
+      ) {
+        event.preventDefault();
+        if (shortcutKey === "alt+y") {
+          if (state.phase === "intro" || state.showReadyDialog) {
+            setState((current) => ({
+              ...current,
+              phase: "question",
+              showReadyDialog: false,
+            }));
           }
         } else {
           if (state.showReadyDialog) {
-            setState((current) => ({ ...current, showReadyDialog: false }))
-          } else if (state.phase === 'intro') {
+            setState((current) => ({ ...current, showReadyDialog: false }));
+          } else if (state.phase === "intro") {
             if (instructionsScreens.length > 0) {
               setState((current) => ({
                 ...current,
-                phase: 'instructions',
+                phase: "instructions",
                 instructionsIndex: instructionsScreens.length - 1,
-              }))
+              }));
             } else {
-              if (onBack) onBack()
-              else router.back()
+              if (onBack) onBack();
+              else router.back();
             }
           }
         }
-        return
+        return;
       }
 
       // When in instructions phase (and no Ready dialog), only Next applies (no Previous)
-      if (state.phase === 'instructions') {
-        if (shortcutKey === 'alt+n') {
-          event.preventDefault()
-          goNext()
+      if (state.phase === "instructions") {
+        if (shortcutKey === "alt+n") {
+          event.preventDefault();
+          goNext();
         }
-        return
+        return;
       }
 
       // When the navigator is open, Alt+C closes it instead of toggling the calculator
-      if (state.showNavigator && shortcutKey === 'alt+c') {
-        event.preventDefault()
-        setState((current) => ({ ...current, showNavigator: false }))
-        return
+      if (state.showNavigator && shortcutKey === "alt+c") {
+        event.preventDefault();
+        setState((current) => ({ ...current, showNavigator: false }));
+        return;
       }
 
       // In practice mode (question phase), Alt+S = Submit
       if (
         isPracticeMode &&
-        state.phase === 'question' &&
+        state.phase === "question" &&
         isLastQuestionOfCurrentUnit &&
-        shortcutKey === 'alt+s'
+        shortcutKey === "alt+s"
       ) {
-        event.preventDefault()
+        event.preventDefault();
         if (confirmPracticeTransitions) {
-          setShowConfirmSubmitDialog(true)
+          setShowConfirmSubmitDialog(true);
         } else {
           const { startIndex, endIndex } = getStemBoundaries(
             questions,
             state.currentIndex,
-            mode as 'questions' | 'questionStem'
-          )
-          recordAnswersForUnit(startIndex, endIndex)
-          handlePracticeSubmit()
+            mode as "questions" | "questionStem",
+          );
+          recordAnswersForUnit(startIndex, endIndex);
+          handlePracticeSubmit();
         }
-        return
+        return;
       }
 
       // In review mode, Alt+S returns to review screen
-      if (state.phase === 'review' && state.reviewFilter && shortcutKey === 'alt+s') {
-        event.preventDefault()
-        goToReviewScreen()
-        return
+      if (
+        state.phase === "review" &&
+        state.reviewFilter &&
+        shortcutKey === "alt+s"
+      ) {
+        event.preventDefault();
+        goToReviewScreen();
+        return;
       }
 
       // On review screen, Alt+A / Alt+I / Alt+V = Review All / Incomplete / Flagged
-      if (state.phase === 'review' && !state.reviewFilter) {
-        if (shortcutKey === 'alt+a') {
-          event.preventDefault()
-          void runWithLag(() => startReviewFilter('all'))
-          return
+      if (state.phase === "review" && !state.reviewFilter) {
+        if (shortcutKey === "alt+a") {
+          event.preventDefault();
+          void runWithLag(() => startReviewFilter("all"));
+          return;
         }
-        if (shortcutKey === 'alt+i') {
-          event.preventDefault()
-          void runWithLag(() => startReviewFilter('incomplete'))
-          return
+        if (shortcutKey === "alt+i") {
+          event.preventDefault();
+          void runWithLag(() => startReviewFilter("incomplete"));
+          return;
         }
-        if (shortcutKey === 'alt+v') {
-          event.preventDefault()
-          void runWithLag(() => startReviewFilter('flagged'))
-          return
+        if (shortcutKey === "alt+v") {
+          event.preventDefault();
+          void runWithLag(() => startReviewFilter("flagged"));
+          return;
         }
       }
 
-      const action = QUESTION_ENGINE_SHORTCUT_MAP[shortcutKey]
+      const action = QUESTION_ENGINE_SHORTCUT_MAP[shortcutKey];
 
       if (!action) {
-        return
+        return;
       }
 
-      event.preventDefault()
+      event.preventDefault();
 
       switch (action) {
-        case 'toggleCalculator': {
+        case "toggleCalculator": {
           // Only allow when calculator button is visible (not on review screen)
-          const isReviewScreen = state.phase === 'review' && !state.reviewFilter
+          const isReviewScreen =
+            state.phase === "review" && !state.reviewFilter;
           if (!isReviewScreen) {
             void runWithLag(() =>
-              setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
-            )
+              setState((current) => ({
+                ...current,
+                showCalculator: !current.showCalculator,
+              })),
+            );
           }
-          break
+          break;
         }
-        case 'toggleFlagForReview':
+        case "toggleFlagForReview":
           void runWithLag(() => {
-            toggleFlagCurrent()
-          })
-          break
-        case 'previousQuestion':
+            toggleFlagCurrent();
+          });
+          break;
+        case "previousQuestion":
           if (hasPreviousQuestion || hasPreviousReviewQuestion) {
             void runWithLag(() => {
-              goPrevious()
-            })
+              goPrevious();
+            });
           }
-          break
-        case 'openNavigator': {
+          break;
+        case "openNavigator": {
           // Only allow when navigator button is visible (question or intro phase)
           const showNavigatorButton =
-            state.phase === 'question' || state.phase === 'intro'
+            state.phase === "question" || state.phase === "intro";
           if (showNavigatorButton) {
             void runWithLag(() =>
-              setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
-            )
+              setState((current) => ({
+                ...current,
+                showNavigator: !current.showNavigator,
+              })),
+            );
           }
-          break
+          break;
         }
-        case 'nextQuestion':
+        case "nextQuestion":
           void runWithLag(() => {
-            if (isPracticeMode && state.phase === 'question' && isLastQuestionOfCurrentUnit) {
+            if (
+              isPracticeMode &&
+              state.phase === "question" &&
+              isLastQuestionOfCurrentUnit
+            ) {
               if (confirmPracticeTransitions) {
-                setShowConfirmSubmitDialog(true)
+                setShowConfirmSubmitDialog(true);
               } else {
                 const { startIndex, endIndex } = getStemBoundaries(
                   questions,
                   state.currentIndex,
-                  mode as 'questions' | 'questionStem'
-                )
-                recordAnswersForUnit(startIndex, endIndex)
-                handlePracticeSubmit()
+                  mode as "questions" | "questionStem",
+                );
+                recordAnswersForUnit(startIndex, endIndex);
+                handlePracticeSubmit();
               }
-            } else if (isPracticeMode && state.phase === 'practiceAnswer') {
-              const unitEnd = state.practiceAnswerUnitEndIndex ?? 0
-              const viewing = state.viewingQuestionIndex ?? 0
+            } else if (isPracticeMode && state.phase === "practiceAnswer") {
+              const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
+              const viewing = state.viewingQuestionIndex ?? 0;
               if (viewing >= unitEnd && confirmPracticeTransitions) {
-                setShowConfirmNextStemDialog(true)
+                setShowConfirmNextStemDialog(true);
               } else {
-                goNext()
+                goNext();
               }
             } else {
-              goNext()
+              goNext();
             }
-          })
-          break
-        case 'reviewScreen':
-          if (state.phase === 'review' && state.reviewFilter) {
-            void runWithLag(() => goToReviewScreen())
+          });
+          break;
+        case "reviewScreen":
+          if (state.phase === "review" && state.reviewFilter) {
+            void runWithLag(() => goToReviewScreen());
           }
-          break
+          break;
       }
-    }
+    };
 
-    document.addEventListener('copy', preventDefault)
-    document.addEventListener('cut', preventDefault)
-    document.addEventListener('paste', preventDefault)
-    document.addEventListener('contextmenu', preventDefault)
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener("copy", preventDefault);
+    document.addEventListener("cut", preventDefault);
+    document.addEventListener("paste", preventDefault);
+    document.addEventListener("contextmenu", preventDefault);
+    document.addEventListener("keydown", handleKeyDown);
 
     return () => {
-      document.removeEventListener('copy', preventDefault)
-      document.removeEventListener('cut', preventDefault)
-      document.removeEventListener('paste', preventDefault)
-      document.removeEventListener('contextmenu', preventDefault)
-      document.removeEventListener('keydown', handleKeyDown)
-    }
+      document.removeEventListener("copy", preventDefault);
+      document.removeEventListener("cut", preventDefault);
+      document.removeEventListener("paste", preventDefault);
+      document.removeEventListener("contextmenu", preventDefault);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, [
     state.phase,
     state.instructionsIndex,
@@ -729,80 +804,101 @@ export function QuestionEnginePage({
     router,
     instructionsScreens.length,
     onBack,
-  ])
+  ]);
 
-  if ((mode === 'set' || mode === 'mock') && query.isLoading) {
-    return <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-muted-foreground">Loading exam...</div>
+  if ((mode === "set" || mode === "mock") && query.isLoading) {
+    return (
+      <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-muted-foreground">
+        Loading exam...
+      </div>
+    );
   }
 
-  if (((mode === 'set' || mode === 'mock') && query.error) || !exam || exam.questions.length === 0) {
+  if (
+    ((mode === "set" || mode === "mock") && query.error) ||
+    !exam ||
+    exam.questions.length === 0
+  ) {
     return (
       <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-red-600 dark:text-red-400">
-        Unable to load questions for this {mode}. Ensure student has access via UCAT views and the selected source contains questions.
+        Unable to load questions for this {mode}. Ensure student has access via
+        UCAT views and the selected source contains questions.
       </div>
-    )
+    );
   }
 
-  const flaggedCurrent = currentQuestion ? state.flaggedIds.includes(currentQuestion.id) : false
+  const flaggedCurrent = currentQuestion
+    ? state.flaggedIds.includes(currentQuestion.id)
+    : false;
   const currentInstructionsScreen =
-    state.phase === 'instructions' && instructionsScreens[state.instructionsIndex]
-  const isInstructionsPhase = state.phase === 'instructions'
-  const isReviewPhase = state.phase === 'review'
-  const isMarkingPhase = state.phase === 'marking'
-  const isMockScorePhase = state.phase === 'mockScore'
-  const isResultsPhase = isMarkingPhase || isMockScorePhase
-  const isPracticeAnswerPhase = state.phase === 'practiceAnswer'
-  const isPracticeCompletePhase = state.phase === 'practiceComplete'
-  const isLoadingMorePhase = state.phase === 'loadingMore'
-  const isReviewScreen = isReviewPhase && !state.reviewFilter
-  const isReviewMode = isReviewPhase && state.reviewFilter
+    state.phase === "instructions" &&
+    instructionsScreens[state.instructionsIndex];
+  const isInstructionsPhase = state.phase === "instructions";
+  const isReviewPhase = state.phase === "review";
+  const isMarkingPhase = state.phase === "marking";
+  const isMockScorePhase = state.phase === "mockScore";
+  const isResultsPhase = isMarkingPhase || isMockScorePhase;
+  const isPracticeAnswerPhase = state.phase === "practiceAnswer";
+  const isPracticeCompletePhase = state.phase === "practiceComplete";
+  const isLoadingMorePhase = state.phase === "loadingMore";
+  const isReviewScreen = isReviewPhase && !state.reviewFilter;
+  const isReviewMode = isReviewPhase && state.reviewFilter;
   const questionLabel = (() => {
-    if ((isResultsPhase || isPracticeAnswerPhase) && state.viewingQuestionIndex != null) {
-      const viewing = state.viewingQuestionIndex
+    if (
+      (isResultsPhase || isPracticeAnswerPhase) &&
+      state.viewingQuestionIndex != null
+    ) {
+      const viewing = state.viewingQuestionIndex;
       if (isPracticeAnswerPhase) {
-        return `${viewing + 1} of ${questions.length}`
+        return `${viewing + 1} of ${questions.length}`;
       }
-      const q = questions[viewing]
-      const displayIndex = q ? q.index + 1 : viewing + 1
-      return `${displayIndex} of ${questions.length}`
+      const q = questions[viewing];
+      const displayIndex = q ? q.index + 1 : viewing + 1;
+      return `${displayIndex} of ${questions.length}`;
     }
     if (isReviewMode && reviewFilterIndices.length > 0) {
-      if (exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
-        const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      if (
+        exam?.sourceType === "mock" &&
+        state.mockCurrentSetIndex != null &&
+        exam.mockSetSummaries
+      ) {
+        const summary = exam.mockSetSummaries[state.mockCurrentSetIndex];
         if (summary) {
-          const posInSet = effectiveCurrentIndex - summary.questionStartIndex + 1
-          const setSize = summary.questionEndIndex - summary.questionStartIndex
-          return `${posInSet} of ${setSize}`
+          const posInSet =
+            effectiveCurrentIndex - summary.questionStartIndex + 1;
+          const setSize = summary.questionEndIndex - summary.questionStartIndex;
+          return `${posInSet} of ${setSize}`;
         }
       }
-      return `${effectiveCurrentIndex + 1} of ${questions.length}`
+      return `${effectiveCurrentIndex + 1} of ${questions.length}`;
     }
     if (
-      exam?.sourceType === 'questionStem' &&
-      state.phase === 'question' &&
+      exam?.sourceType === "questionStem" &&
+      state.phase === "question" &&
       onNeedMoreStems
     ) {
       const { startIndex, endIndex } = getStemBoundaries(
         questions,
         state.currentIndex,
-        'questionStem'
-      )
-      const posInStem = state.currentIndex - startIndex + 1
-      const stemSize = endIndex - startIndex + 1
-      return `${posInStem} of ${stemSize}`
+        "questionStem",
+      );
+      const posInStem = state.currentIndex - startIndex + 1;
+      const stemSize = endIndex - startIndex + 1;
+      return `${posInStem} of ${stemSize}`;
     }
-    if (exam?.sourceType === 'mock' && state.phase === 'question') {
-      const seg = getCurrentMockSegment(exam, state)
-      if (seg?.type === 'questions') {
-        const posInSet = state.currentIndex - seg.questionStartIndex + 1
-        const setSize = seg.questionEndIndex - seg.questionStartIndex
-        return `${posInSet} of ${setSize}`
+    if (exam?.sourceType === "mock" && state.phase === "question") {
+      const seg = getCurrentMockSegment(exam, state);
+      if (seg?.type === "questions") {
+        const posInSet = state.currentIndex - seg.questionStartIndex + 1;
+        const setSize = seg.questionEndIndex - seg.questionStartIndex;
+        return `${posInSet} of ${setSize}`;
       }
     }
-    return `${Math.min(effectiveCurrentIndex + 1, questions.length)} of ${questions.length}`
-  })()
-  const hasPreviousInstructions = false
-  const showReadyToBeginDialog = state.phase === 'intro' || state.showReadyDialog
+    return `${Math.min(effectiveCurrentIndex + 1, questions.length)} of ${questions.length}`;
+  })();
+  const hasPreviousInstructions = false;
+  const showReadyToBeginDialog =
+    state.phase === "intro" || state.showReadyDialog;
   const overlayActive =
     showReadyToBeginDialog ||
     state.showTimeExpiredDialog ||
@@ -812,35 +908,51 @@ export function QuestionEnginePage({
     state.showReviewInstructionsDialog ||
     showConfirmSubmitDialog ||
     showConfirmNextStemDialog ||
-    showConfirmFinishPracticeDialog
+    showConfirmFinishPracticeDialog;
 
   const incompleteCount = (() => {
     const count = getIncompleteCount(
       questions,
       state.visitedQuestionIds,
       state.selectedAnswers,
-      state.syllogismSnapshots
-    )
-    if (exam?.sourceType === 'mock' && state.phase === 'review' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
-      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      state.syllogismSnapshots,
+    );
+    if (
+      exam?.sourceType === "mock" &&
+      state.phase === "review" &&
+      state.mockCurrentSetIndex != null &&
+      exam.mockSetSummaries
+    ) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex];
       if (summary) {
-        const setQuestions = questions.slice(summary.questionStartIndex, summary.questionEndIndex)
+        const setQuestions = questions.slice(
+          summary.questionStartIndex,
+          summary.questionEndIndex,
+        );
         return getIncompleteCount(
           setQuestions,
           state.visitedQuestionIds,
           state.selectedAnswers,
-          state.syllogismSnapshots
-        )
+          state.syllogismSnapshots,
+        );
       }
     }
-    return count
-  })()
+    return count;
+  })();
 
   async function handleEndReview() {
-    if (!exam) return
-    if (exam.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
-      const isLastSet = state.mockCurrentSetIndex >= exam.mockSetSummaries.length - 1
-      const nextSeg = getNextSetSegmentFromReview(exam, state.mockCurrentSetIndex)
+    if (!exam) return;
+    if (
+      exam.sourceType === "mock" &&
+      state.mockCurrentSetIndex != null &&
+      exam.mockSetSummaries
+    ) {
+      const isLastSet =
+        state.mockCurrentSetIndex >= exam.mockSetSummaries.length - 1;
+      const nextSeg = getNextSetSegmentFromReview(
+        exam,
+        state.mockCurrentSetIndex,
+      );
       if (!isLastSet && nextSeg) {
         setState((current) => {
           const next = {
@@ -850,111 +962,112 @@ export function QuestionEnginePage({
             reviewFilterIndex: 0,
             reviewFilterIndicesSnapshot: null,
             mockCurrentSetIndex: current.mockCurrentSetIndex! + 1,
-          }
-          if (nextSeg.type === 'instructions') {
-            next.phase = 'instructions'
-            next.instructionsIndex = nextSeg.instructionsIndex
-            const timeLimit = nextSeg.timeLimitSeconds ?? 0
-            next.timerStartedAt = timeLimit > 0 ? Date.now() : null
+          };
+          if (nextSeg.type === "instructions") {
+            next.phase = "instructions";
+            next.instructionsIndex = nextSeg.instructionsIndex;
+            const timeLimit = nextSeg.timeLimitSeconds ?? 0;
+            next.timerStartedAt = timeLimit > 0 ? Date.now() : null;
           } else {
-            next.phase = 'question'
-            next.currentIndex = nextSeg.questionStartIndex
-            next.timerStartedAt = (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null
+            next.phase = "question";
+            next.currentIndex = nextSeg.questionStartIndex;
+            next.timerStartedAt =
+              (nextSeg.timeLimitSeconds ?? 0) > 0 ? Date.now() : null;
           }
-          return next
-        })
-        return
+          return next;
+        });
+        return;
       }
     }
-    const { earnedDiscount, discountCents } = await handleExamCompleted()
+    const { earnedDiscount, discountCents } = await handleExamCompleted();
     if (earnedDiscount && discountCents > 0) {
       toast({
-        title: 'Practice day discount earned!',
+        title: "Practice day discount earned!",
         description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
-      })
+      });
     }
     setState((current) => ({
       ...current,
-      phase: exam.sourceType === 'mock' ? 'mockScore' : 'marking',
+      phase: exam.sourceType === "mock" ? "mockScore" : "marking",
       showEndReviewDialog: false,
       reviewFilter: null,
       reviewFilterIndex: 0,
       reviewFilterIndicesSnapshot: null,
       viewingQuestionIndex: null,
-    }))
+    }));
   }
 
   function handleTimeExpiredOk() {
-    if (!exam) return
+    if (!exam) return;
 
     // Practice mode (questions/questionStem): transition to answer view
-    if (exam.sourceType === 'questions' || exam.sourceType === 'questionStem') {
+    if (exam.sourceType === "questions" || exam.sourceType === "questionStem") {
       void runWithLag(() => {
         const { startIndex, endIndex } = getStemBoundaries(
           questions,
           state.currentIndex,
-          exam.sourceType as 'questions' | 'questionStem'
-        )
-        recordAnswersForUnit(startIndex, endIndex)
+          exam.sourceType as "questions" | "questionStem",
+        );
+        recordAnswersForUnit(startIndex, endIndex);
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
-          phase: 'practiceAnswer',
+          phase: "practiceAnswer",
           practiceAnswerUnitStartIndex: startIndex,
           practiceAnswerUnitEndIndex: endIndex,
           viewingQuestionIndex: startIndex,
           showNavigator: false,
-        }))
-      })
-      return
+        }));
+      });
+      return;
     }
 
-    if (exam.sourceType === 'set') {
+    if (exam.sourceType === "set") {
       void runWithLag(async () => {
-        const { earnedDiscount, discountCents } = await handleExamCompleted()
+        const { earnedDiscount, discountCents } = await handleExamCompleted();
         if (earnedDiscount && discountCents > 0) {
           toast({
-            title: 'Practice day discount earned!',
+            title: "Practice day discount earned!",
             description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
-          })
+          });
         }
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
-          phase: 'marking',
+          phase: "marking",
           reviewFilter: null,
           reviewFilterIndex: 0,
           reviewFilterIndicesSnapshot: null,
           viewingQuestionIndex: null,
           showExitResultsDialog: false,
-        }))
-      })
-      return
+        }));
+      });
+      return;
     }
-    const nextSeg = getNextMockSegment(exam, state)
+    const nextSeg = getNextMockSegment(exam, state);
     if (!nextSeg) {
       void runWithLag(async () => {
-        const { earnedDiscount, discountCents } = await handleExamCompleted()
+        const { earnedDiscount, discountCents } = await handleExamCompleted();
         if (earnedDiscount && discountCents > 0) {
           toast({
-            title: 'Practice day discount earned!',
+            title: "Practice day discount earned!",
             description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
-          })
+          });
         }
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
-          phase: 'mockScore',
+          phase: "mockScore",
           reviewFilter: null,
           reviewFilterIndex: 0,
           reviewFilterIndicesSnapshot: null,
           viewingQuestionIndex: null,
           showExitResultsDialog: false,
-        }))
-      })
-      return
+        }));
+      });
+      return;
     }
-    const timerStartedAt = state.nextSegmentTimerStartedAt ?? Date.now()
+    const timerStartedAt = state.nextSegmentTimerStartedAt ?? Date.now();
     void runWithLag(() => {
       setState((current) => {
         const next: typeof current = {
@@ -962,17 +1075,17 @@ export function QuestionEnginePage({
           showTimeExpiredDialog: false,
           nextSegmentTimerStartedAt: null,
           timerStartedAt,
-        }
-        if (nextSeg.type === 'instructions') {
-          next.phase = 'instructions'
-          next.instructionsIndex = nextSeg.instructionsIndex
+        };
+        if (nextSeg.type === "instructions") {
+          next.phase = "instructions";
+          next.instructionsIndex = nextSeg.instructionsIndex;
         } else {
-          next.phase = 'question'
-          next.currentIndex = nextSeg.questionStartIndex
+          next.phase = "question";
+          next.currentIndex = nextSeg.questionStartIndex;
         }
-        return next
-      })
-    })
+        return next;
+      });
+    });
   }
 
   const overlay =
@@ -981,31 +1094,38 @@ export function QuestionEnginePage({
         {showReadyToBeginDialog ? (
           <div className="absolute inset-0 z-30 grid place-items-center p-6">
             <EngineIntroDialog
-              title={mode === 'mock' ? 'Ready to Begin Exam' : 'Ready to Begin Practice Set'}
+              title={
+                mode === "mock"
+                  ? "Ready to Begin Exam"
+                  : "Ready to Begin Practice Set"
+              }
               description="If you are ready to begin the exam, select the Yes button. Otherwise, select the No button to return to the previous screen."
               onStart={() =>
                 void runWithLag(() => {
-                  const nextSeg = exam?.sourceType === 'mock' ? getNextMockSegment(exam, state) : null
+                  const nextSeg =
+                    exam?.sourceType === "mock"
+                      ? getNextMockSegment(exam, state)
+                      : null;
                   const questionsSegmentTimed =
                     exam &&
-                    (exam.sourceType === 'set'
+                    (exam.sourceType === "set"
                       ? (exam.setModeTiming?.setTimeLimitSeconds ?? 0) > 0
-                      : (nextSeg?.timeLimitSeconds ?? 0) > 0)
+                      : (nextSeg?.timeLimitSeconds ?? 0) > 0);
                   setState((current) => {
                     const next = {
                       ...current,
-                      phase: 'question' as const,
+                      phase: "question" as const,
                       showReadyDialog: false,
                       timerStartedAt: questionsSegmentTimed ? Date.now() : null,
+                    };
+                    if (exam?.sourceType === "set") {
+                      next.currentIndex = 0;
+                    } else if (nextSeg?.type === "questions") {
+                      next.currentIndex = nextSeg.questionStartIndex;
+                      next.mockCurrentSetIndex = nextSeg.setIndex;
                     }
-                    if (exam?.sourceType === 'set') {
-                      next.currentIndex = 0
-                    } else if (nextSeg?.type === 'questions') {
-                      next.currentIndex = nextSeg.questionStartIndex
-                      next.mockCurrentSetIndex = nextSeg.setIndex
-                    }
-                    return next
-                  })
+                    return next;
+                  });
                 })
               }
               onCancel={() =>
@@ -1016,11 +1136,11 @@ export function QuestionEnginePage({
                       : instructionsScreens.length > 0
                         ? {
                             ...current,
-                            phase: 'instructions',
+                            phase: "instructions",
                             instructionsIndex: instructionsScreens.length - 1,
                           }
-                        : { ...current, phase: 'intro' }
-                  )
+                        : { ...current, phase: "intro" },
+                  ),
                 )
               }
             />
@@ -1035,11 +1155,11 @@ export function QuestionEnginePage({
                   const { startIndex, endIndex } = getStemBoundaries(
                     questions,
                     state.currentIndex,
-                    mode as 'questions' | 'questionStem'
-                  )
-                  recordAnswersForUnit(startIndex, endIndex)
-                  handlePracticeSubmit()
-                  setShowConfirmSubmitDialog(false)
+                    mode as "questions" | "questionStem",
+                  );
+                  recordAnswersForUnit(startIndex, endIndex);
+                  handlePracticeSubmit();
+                  setShowConfirmSubmitDialog(false);
                 })
               }
               onCancel={() => setShowConfirmSubmitDialog(false)}
@@ -1052,8 +1172,8 @@ export function QuestionEnginePage({
             <ConfirmNextStemDialog
               onConfirm={() =>
                 void runWithLag(() => {
-                  goNext()
-                  setShowConfirmNextStemDialog(false)
+                  goNext();
+                  setShowConfirmNextStemDialog(false);
                 })
               }
               onCancel={() => setShowConfirmNextStemDialog(false)}
@@ -1066,8 +1186,8 @@ export function QuestionEnginePage({
             <ConfirmFinishPracticeDialog
               onConfirm={() =>
                 void runWithLag(() => {
-                  setShowConfirmFinishPracticeDialog(false)
-                  void handleFinishPractice()
+                  setShowConfirmFinishPracticeDialog(false);
+                  void handleFinishPractice();
                 })
               }
               onCancel={() => setShowConfirmFinishPracticeDialog(false)}
@@ -1078,9 +1198,10 @@ export function QuestionEnginePage({
         {state.showTimeExpiredDialog ? (
           <div className="absolute inset-0 z-[35] grid place-items-center bg-black/20 p-6">
             <TimeExpiredDialog
-              isSetMode={exam?.sourceType === 'set'}
+              isSetMode={exam?.sourceType === "set"}
               isPracticeMode={
-                exam?.sourceType === 'questions' || exam?.sourceType === 'questionStem'
+                exam?.sourceType === "questions" ||
+                exam?.sourceType === "questionStem"
               }
               onOk={() => void runWithLag(handleTimeExpiredOk)}
             />
@@ -1094,17 +1215,20 @@ export function QuestionEnginePage({
                 void runWithLag(() => {
                   setState((current) => ({
                     ...current,
-                    phase: 'intro',
+                    phase: "intro",
                     currentIndex: 0,
                     showExitResultsDialog: false,
-                  }))
-                  if (onBack) onBack()
-                  else router.back()
+                  }));
+                  if (onBack) onBack();
+                  else router.back();
                 })
               }
               onCancel={() =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, showExitResultsDialog: false }))
+                  setState((current) => ({
+                    ...current,
+                    showExitResultsDialog: false,
+                  })),
                 )
               }
             />
@@ -1118,7 +1242,10 @@ export function QuestionEnginePage({
               onConfirm={() => void runWithLag(handleEndReview)}
               onCancel={() =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, showEndReviewDialog: false }))
+                  setState((current) => ({
+                    ...current,
+                    showEndReviewDialog: false,
+                  })),
                 )
               }
             />
@@ -1130,7 +1257,10 @@ export function QuestionEnginePage({
             <NoFlaggedDialog
               onClose={() =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, showNoFlaggedDialog: false }))
+                  setState((current) => ({
+                    ...current,
+                    showNoFlaggedDialog: false,
+                  })),
                 )
               }
             />
@@ -1142,7 +1272,10 @@ export function QuestionEnginePage({
             <ReviewInstructionsDialog
               onClose={() =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, showReviewInstructionsDialog: false }))
+                  setState((current) => ({
+                    ...current,
+                    showReviewInstructionsDialog: false,
+                  })),
                 )
               }
             />
@@ -1150,10 +1283,13 @@ export function QuestionEnginePage({
         ) : null}
 
         {isLagging ? (
-          <div className="absolute inset-0 z-50 cursor-wait bg-transparent" aria-hidden="true" />
+          <div
+            className="absolute inset-0 z-50 cursor-wait bg-transparent"
+            aria-hidden="true"
+          />
         ) : null}
       </>
-    ) : null
+    ) : null;
 
   const headerRight = (
     <div className="flex flex-col items-end gap-0.5">
@@ -1171,7 +1307,7 @@ export function QuestionEnginePage({
         <span className="text-[12pt] font-normal">{questionLabel}</span>
       ) : null}
     </div>
-  )
+  );
 
   return (
     <>
@@ -1182,10 +1318,10 @@ export function QuestionEnginePage({
             : isPracticeCompletePhase
               ? `${exam.title} – Complete`
               : isResultsPhase
-              ? `${exam.title} – Results`
-              : isReviewScreen
-                ? exam.title
-                : (currentQuestion?.sectionName ?? exam.title)
+                ? `${exam.title} – Results`
+                : isReviewScreen
+                  ? exam.title
+                  : (currentQuestion?.sectionName ?? exam.title)
         }
         sectionTitleRight={
           isReviewScreen
@@ -1203,7 +1339,10 @@ export function QuestionEnginePage({
               className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
               onClick={() =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, showReviewInstructionsDialog: true }))
+                  setState((current) => ({
+                    ...current,
+                    showReviewInstructionsDialog: true,
+                  })),
                 )
               }
             >
@@ -1217,8 +1356,8 @@ export function QuestionEnginePage({
                   className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
                   onClick={(e) => {
                     if (onBack) {
-                      e.preventDefault()
-                      onBack()
+                      e.preventDefault();
+                      onBack();
                     }
                   }}
                 >
@@ -1231,7 +1370,10 @@ export function QuestionEnginePage({
                 className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
                 onClick={() =>
                   void runWithLag(() =>
-                    setState((current) => ({ ...current, showCalculator: !current.showCalculator }))
+                    setState((current) => ({
+                      ...current,
+                      showCalculator: !current.showCalculator,
+                    })),
                   )
                 }
               >
@@ -1244,13 +1386,18 @@ export function QuestionEnginePage({
           )
         }
         toolRight={
-          isResultsPhase || isReviewScreen || isInstructionsPhase || isPracticeAnswerPhase || isPracticeCompletePhase || isLoadingMorePhase ? null : (
+          isResultsPhase ||
+          isReviewScreen ||
+          isInstructionsPhase ||
+          isPracticeAnswerPhase ||
+          isPracticeCompletePhase ||
+          isLoadingMorePhase ? null : (
             <button
               type="button"
               className="inline-flex items-center gap-1 hover:text-[#fffd6f]"
               onClick={() =>
                 void runWithLag(() => {
-                  toggleFlagCurrent()
+                  toggleFlagCurrent();
                 })
               }
             >
@@ -1278,7 +1425,10 @@ export function QuestionEnginePage({
             <UcatExamActionButton
               onClick={() =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, viewingQuestionIndex: null }))
+                  setState((current) => ({
+                    ...current,
+                    viewingQuestionIndex: null,
+                  })),
                 )
               }
               icon={<ArrowLeft className="h-4 w-4" />}
@@ -1286,7 +1436,7 @@ export function QuestionEnginePage({
               <span className="text-[14pt]">Back to results</span>
             </UcatExamActionButton>
           ) : isPracticeMode &&
-            (state.phase === 'question' || state.phase === 'practiceAnswer') ? (
+            (state.phase === "question" || state.phase === "practiceAnswer") ? (
             <UcatExamActionButton
               onClick={() =>
                 void runWithLag(() => setShowConfirmFinishPracticeDialog(true))
@@ -1302,9 +1452,12 @@ export function QuestionEnginePage({
               onClick={() =>
                 void runWithLag(() => {
                   if (incompleteCount > 0) {
-                    setState((current) => ({ ...current, showEndReviewDialog: true }))
+                    setState((current) => ({
+                      ...current,
+                      showEndReviewDialog: true,
+                    }));
                   } else {
-                    void runWithLag(handleEndReview)
+                    void runWithLag(handleEndReview);
                   }
                 })
               }
@@ -1328,7 +1481,8 @@ export function QuestionEnginePage({
         footerRight={
           isPracticeAnswerPhase ? (
             <>
-              {(state.viewingQuestionIndex ?? 0) > (state.practiceAnswerUnitStartIndex ?? 0) ? (
+              {(state.viewingQuestionIndex ?? 0) >
+              (state.practiceAnswerUnitStartIndex ?? 0) ? (
                 <UcatExamActionButton
                   onClick={() => void runWithLag(() => goPrevious())}
                   icon={<ArrowLeft className="h-4 w-4" />}
@@ -1336,17 +1490,20 @@ export function QuestionEnginePage({
                   <span className="text-[14pt]">Previous</span>
                 </UcatExamActionButton>
               ) : null}
-              {!(state.viewingQuestionIndex === questions.length - 1 && !onNeedMoreStems) ? (
+              {!(
+                state.viewingQuestionIndex === questions.length - 1 &&
+                !onNeedMoreStems
+              ) ? (
                 <UcatExamActionButton
                   onClick={() =>
                     void runWithLag(() => {
-                      const unitEnd = state.practiceAnswerUnitEndIndex ?? 0
-                      const viewing = state.viewingQuestionIndex ?? 0
-                      const isGoingToNextStem = viewing >= unitEnd
+                      const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
+                      const viewing = state.viewingQuestionIndex ?? 0;
+                      const isGoingToNextStem = viewing >= unitEnd;
                       if (isGoingToNextStem && confirmPracticeTransitions) {
-                        setShowConfirmNextStemDialog(true)
+                        setShowConfirmNextStemDialog(true);
                       } else {
-                        goNext()
+                        goNext();
                       }
                     })
                   }
@@ -1355,7 +1512,8 @@ export function QuestionEnginePage({
                   iconRight
                 >
                   <span className="text-[14pt]">
-                    {(state.viewingQuestionIndex ?? 0) >= (state.practiceAnswerUnitEndIndex ?? 0) ? (
+                    {(state.viewingQuestionIndex ?? 0) >=
+                    (state.practiceAnswerUnitEndIndex ?? 0) ? (
                       <>
                         <span className="underline">N</span>ext question
                       </>
@@ -1377,8 +1535,11 @@ export function QuestionEnginePage({
                       void runWithLag(() =>
                         setState((current) => ({
                           ...current,
-                          viewingQuestionIndex: Math.max(0, (current.viewingQuestionIndex ?? 0) - 1),
-                        }))
+                          viewingQuestionIndex: Math.max(
+                            0,
+                            (current.viewingQuestionIndex ?? 0) - 1,
+                          ),
+                        })),
                       )
                     }
                     icon={<ArrowLeft className="h-4 w-4" />}
@@ -1389,14 +1550,17 @@ export function QuestionEnginePage({
                 <UcatExamActionButton
                   onClick={() =>
                     void runWithLag(() => {
-                      const idx = state.viewingQuestionIndex ?? 0
+                      const idx = state.viewingQuestionIndex ?? 0;
                       if (idx < questions.length - 1) {
                         setState((current) => ({
                           ...current,
                           viewingQuestionIndex: idx + 1,
-                        }))
+                        }));
                       } else {
-                        setState((current) => ({ ...current, viewingQuestionIndex: null }))
+                        setState((current) => ({
+                          ...current,
+                          viewingQuestionIndex: null,
+                        }));
                       }
                     })
                   }
@@ -1405,17 +1569,21 @@ export function QuestionEnginePage({
                   iconRight
                 >
                   <span className="text-[14pt]">
-                    {(state.viewingQuestionIndex ?? 0) < questions.length - 1 ? 'Next' : 'Done'}
+                    {(state.viewingQuestionIndex ?? 0) < questions.length - 1
+                      ? "Next"
+                      : "Done"}
                   </span>
                 </UcatExamActionButton>
               </>
-            ) : (exam?.sourceType === 'set' || exam?.sourceType === 'mock') ? (
-              null
-            ) : (
+            ) : exam?.sourceType === "set" ||
+              exam?.sourceType === "mock" ? null : (
               <UcatExamActionButton
                 onClick={() =>
                   void runWithLag(() =>
-                    setState((current) => ({ ...current, showExitResultsDialog: true }))
+                    setState((current) => ({
+                      ...current,
+                      showExitResultsDialog: true,
+                    })),
                   )
                 }
                 variant="highlight"
@@ -1428,22 +1596,32 @@ export function QuestionEnginePage({
           ) : isReviewScreen ? (
             <>
               <UcatExamActionButton
-                onClick={() => void runWithLag(() => startReviewFilter('all'))}
+                onClick={() => void runWithLag(() => startReviewFilter("all"))}
                 icon={<Search className="h-4 w-4" />}
               >
-                <span className="text-[14pt]">Review <span className="underline">A</span>ll</span>
+                <span className="text-[14pt]">
+                  Review <span className="underline">A</span>ll
+                </span>
               </UcatExamActionButton>
               <UcatExamActionButton
-                onClick={() => void runWithLag(() => startReviewFilter('incomplete'))}
+                onClick={() =>
+                  void runWithLag(() => startReviewFilter("incomplete"))
+                }
                 icon={<X className="h-4 w-4" />}
               >
-                <span className="text-[14pt]">Review <span className="underline">I</span>ncomplete</span>
+                <span className="text-[14pt]">
+                  Review <span className="underline">I</span>ncomplete
+                </span>
               </UcatExamActionButton>
               <UcatExamActionButton
-                onClick={() => void runWithLag(() => startReviewFilter('flagged'))}
+                onClick={() =>
+                  void runWithLag(() => startReviewFilter("flagged"))
+                }
                 icon={<Flag className="h-4 w-4" />}
               >
-                <span className="text-[14pt]">Re<span className="underline">v</span>iew Flagged</span>
+                <span className="text-[14pt]">
+                  Re<span className="underline">v</span>iew Flagged
+                </span>
               </UcatExamActionButton>
             </>
           ) : isReviewMode ? (
@@ -1498,7 +1676,7 @@ export function QuestionEnginePage({
                 <UcatExamActionButton
                   onClick={() =>
                     void runWithLag(() => {
-                      goPrevious()
+                      goPrevious();
                     })
                   }
                   icon={<ArrowLeft className="h-4 w-4" />}
@@ -1512,7 +1690,10 @@ export function QuestionEnginePage({
                 <UcatExamActionButton
                   onClick={() =>
                     void runWithLag(() =>
-                      setState((current) => ({ ...current, showNavigator: !current.showNavigator }))
+                      setState((current) => ({
+                        ...current,
+                        showNavigator: !current.showNavigator,
+                      })),
                     )
                   }
                   icon={<Navigation className="h-4 w-4" />}
@@ -1527,18 +1708,18 @@ export function QuestionEnginePage({
                   void runWithLag(() => {
                     if (isPracticeMode && isLastQuestionOfCurrentUnit) {
                       if (confirmPracticeTransitions) {
-                        setShowConfirmSubmitDialog(true)
+                        setShowConfirmSubmitDialog(true);
                       } else {
                         const { startIndex, endIndex } = getStemBoundaries(
                           questions,
                           state.currentIndex,
-                          mode as 'questions' | 'questionStem'
-                        )
-                        recordAnswersForUnit(startIndex, endIndex)
-                        handlePracticeSubmit()
+                          mode as "questions" | "questionStem",
+                        );
+                        recordAnswersForUnit(startIndex, endIndex);
+                        handlePracticeSubmit();
                       }
                     } else {
-                      goNext()
+                      goNext();
                     }
                   })
                 }
@@ -1571,7 +1752,7 @@ export function QuestionEnginePage({
             <p className="text-[12pt] text-muted-foreground">
               {practiceMarkingResult
                 ? `${practiceCorrectCount} correct / ${questions.length} total`
-                : 'You have reviewed all questions.'}
+                : "You have reviewed all questions."}
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Button
@@ -1601,45 +1782,59 @@ export function QuestionEnginePage({
           questions[state.viewingQuestionIndex] ? (
             <ResultsQuestionViewer
               question={questions[state.viewingQuestionIndex]!}
-              selectedOptionId={state.selectedAnswers[questions[state.viewingQuestionIndex]!.id]}
-              correctOptionId={questions[state.viewingQuestionIndex]!.correctOptionId}
-              preloadedContent={getCachedContent(questions[state.viewingQuestionIndex]!.id)}
+              selectedOptionId={
+                state.selectedAnswers[questions[state.viewingQuestionIndex]!.id]
+              }
+              correctOptionId={
+                questions[state.viewingQuestionIndex]!.correctOptionId
+              }
+              preloadedContent={getCachedContent(
+                questions[state.viewingQuestionIndex]!.id,
+              )}
               points={(() => {
-                const idx = state.viewingQuestionIndex!
+                const idx = state.viewingQuestionIndex!;
                 if (
                   isMockScorePhase &&
                   exam &&
-                  exam.sourceType === 'mock' &&
+                  exam.sourceType === "mock" &&
                   exam.mockSetSummaries
                 ) {
                   const summary = exam.mockSetSummaries.find(
-                    (s: { questionStartIndex: number; questionEndIndex: number }) =>
-                      idx >= s.questionStartIndex && idx < s.questionEndIndex
-                  )
+                    (s: {
+                      questionStartIndex: number;
+                      questionEndIndex: number;
+                    }) =>
+                      idx >= s.questionStartIndex && idx < s.questionEndIndex,
+                  );
                   if (summary) {
                     const setQuestions = questions.slice(
                       summary.questionStartIndex,
-                      summary.questionEndIndex
-                    )
+                      summary.questionEndIndex,
+                    );
                     const result = computeMarkingResult(
                       setQuestions,
                       state.selectedAnswers,
-                      state.syllogismSnapshots
-                    )
-                    return result.rows[idx - summary.questionStartIndex]?.points
+                      state.syllogismSnapshots,
+                    );
+                    return result.rows[idx - summary.questionStartIndex]
+                      ?.points;
                   }
                 }
                 return computeMarkingResult(
                   questions,
                   state.selectedAnswers,
-                  state.syllogismSnapshots
-                ).rows[idx]?.points
+                  state.syllogismSnapshots,
+                ).rows[idx]?.points;
               })()}
               syllogismSnapshot={
-                state.syllogismSnapshots?.[questions[state.viewingQuestionIndex]!.id]
+                state.syllogismSnapshots?.[
+                  questions[state.viewingQuestionIndex]!.id
+                ]
               }
             />
-          ) : isMockScorePhase && exam?.sourceType === 'mock' && exam.mockSetSummaries?.length ? (
+          ) : isMockScorePhase &&
+            exam?.sourceType === "mock" &&
+            exam.mockSetSummaries?.length ? (
             <MockScoreBody
               exam={exam}
               questions={questions}
@@ -1647,7 +1842,10 @@ export function QuestionEnginePage({
               syllogismSnapshots={state.syllogismSnapshots}
               onViewQuestion={(index) =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, viewingQuestionIndex: index }))
+                  setState((current) => ({
+                    ...current,
+                    viewingQuestionIndex: index,
+                  })),
                 )
               }
               backHref={setMockResultsActions?.backHref}
@@ -1659,12 +1857,15 @@ export function QuestionEnginePage({
               result={computeMarkingResult(
                 questions,
                 state.selectedAnswers,
-                state.syllogismSnapshots
+                state.syllogismSnapshots,
               )}
               syllogismSnapshots={state.syllogismSnapshots}
               onViewQuestion={(index) =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, viewingQuestionIndex: index }))
+                  setState((current) => ({
+                    ...current,
+                    viewingQuestionIndex: index,
+                  })),
                 )
               }
               backHref={setMockResultsActions?.backHref}
@@ -1685,15 +1886,13 @@ export function QuestionEnginePage({
           <QuestionContent
             question={currentQuestion}
             selectedOptionId={state.selectedAnswers[currentQuestion.id]}
-            syllogismSnapshot={
-              state.syllogismSnapshots?.[currentQuestion.id]
-            }
+            syllogismSnapshot={state.syllogismSnapshots?.[currentQuestion.id]}
             onChangeSyllogismSnapshot={(snapshot) =>
               setSyllogismSnapshot(currentQuestion.id, snapshot)
             }
             onSelectOption={(optionId) => {
-              setAnswer(optionId)
-              recordAnswer(currentQuestion.id, optionId, flaggedCurrent)
+              setAnswer(optionId);
+              recordAnswer(currentQuestion.id, optionId, flaggedCurrent);
             }}
             preloadedContent={getCachedContent(currentQuestion.id)}
           />
@@ -1704,7 +1903,7 @@ export function QuestionEnginePage({
         <CalculatorPanel
           onClose={() =>
             void runWithLag(() =>
-              setState((current) => ({ ...current, showCalculator: false }))
+              setState((current) => ({ ...current, showCalculator: false })),
             )
           }
         />
@@ -1715,27 +1914,27 @@ export function QuestionEnginePage({
           <div className="absolute left-1/2 top-24 -translate-x-1/2 pointer-events-auto">
             <NavigatorPanel
               questions={
-                exam?.sourceType === 'mock' && state.phase === 'question'
+                exam?.sourceType === "mock" && state.phase === "question"
                   ? (() => {
-                      const seg = getCurrentMockSegment(exam, state)
-                      if (seg?.type === 'questions') {
+                      const seg = getCurrentMockSegment(exam, state);
+                      if (seg?.type === "questions") {
                         return questions.slice(
                           seg.questionStartIndex,
-                          seg.questionEndIndex
-                        )
+                          seg.questionEndIndex,
+                        );
                       }
-                      return questions
+                      return questions;
                     })()
                   : questions
               }
               currentIndex={
-                exam?.sourceType === 'mock' && state.phase === 'question'
+                exam?.sourceType === "mock" && state.phase === "question"
                   ? (() => {
-                      const seg = getCurrentMockSegment(exam, state)
-                      if (seg?.type === 'questions') {
-                        return state.currentIndex - seg.questionStartIndex
+                      const seg = getCurrentMockSegment(exam, state);
+                      if (seg?.type === "questions") {
+                        return state.currentIndex - seg.questionStartIndex;
                       }
-                      return state.currentIndex
+                      return state.currentIndex;
                     })()
                   : state.currentIndex
               }
@@ -1746,21 +1945,21 @@ export function QuestionEnginePage({
               onSelect={(index: number) =>
                 void runWithLag(() => {
                   const globalIndex =
-                    exam?.sourceType === 'mock' && state.phase === 'question'
+                    exam?.sourceType === "mock" && state.phase === "question"
                       ? (() => {
-                          const seg = getCurrentMockSegment(exam, state)
-                          if (seg?.type === 'questions') {
-                            return seg.questionStartIndex + index
+                          const seg = getCurrentMockSegment(exam, state);
+                          if (seg?.type === "questions") {
+                            return seg.questionStartIndex + index;
                           }
-                          return index
+                          return index;
                         })()
-                      : index
-                  setQuestionByIndex(globalIndex)
+                      : index;
+                  setQuestionByIndex(globalIndex);
                 })
               }
               onClose={() =>
                 void runWithLag(() =>
-                  setState((current) => ({ ...current, showNavigator: false }))
+                  setState((current) => ({ ...current, showNavigator: false })),
                 )
               }
             />
@@ -1768,5 +1967,5 @@ export function QuestionEnginePage({
         </div>
       ) : null}
     </>
-  )
+  );
 }

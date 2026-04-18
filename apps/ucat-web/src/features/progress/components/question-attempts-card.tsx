@@ -1,38 +1,44 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
+import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   SearchableSelect,
-} from '@altitutor/ui'
-import { GraphTypeTabs } from './graph-type-tabs'
-import { ProgressGraph, type GraphDataType } from './progress-graph'
-import { aggregateForGraph, type SharedDateRange } from '../lib/progress-data-utils'
-import type { QuestionAttemptRow } from '@/app/api/ucat/progress/route'
-import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
+} from "@altitutor/ui";
+import { GraphTypeTabs } from "./graph-type-tabs";
+import { ProgressGraph, type GraphDataType } from "./progress-graph";
+import {
+  aggregateForGraph,
+  type SharedDateRange,
+} from "../lib/progress-data-utils";
+import type { QuestionAttemptRow } from "@/app/api/ucat/progress/route";
+import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
 
 type QuestionAttemptsCardProps = {
-  attempts: QuestionAttemptRow[]
-  mode: ProgressMode
-  timeFrameDays: TimeFrameDays
-  sharedDateRange?: SharedDateRange
-}
+  attempts: QuestionAttemptRow[];
+  mode: ProgressMode;
+  timeFrameDays: TimeFrameDays;
+  sharedDateRange?: SharedDateRange;
+};
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
-  { value: 'attempt_count', label: 'Number of attempts' },
-  { value: 'percentage', label: 'Percentage correct' },
-  { value: 'time_taken', label: 'Time taken' },
-  { value: 'question_speed', label: 'Question speed' },
-]
+  { value: "attempt_count", label: "Number of attempts" },
+  { value: "percentage", label: "Percentage correct" },
+  { value: "time_taken", label: "Time taken" },
+  { value: "question_speed", label: "Question speed" },
+];
 
-function getDateRangeLabel(mode: ProgressMode, timeFrameDays: TimeFrameDays): string {
-  if (mode === 'time_frame') {
-    return `Last ${timeFrameDays} days`
+function getDateRangeLabel(
+  mode: ProgressMode,
+  timeFrameDays: TimeFrameDays,
+): string {
+  if (mode === "time_frame") {
+    return `Last ${timeFrameDays} days`;
   }
-  return mode === 'weighted' ? 'Weighted average (all time)' : 'All time'
+  return mode === "weighted" ? "Weighted average (all time)" : "All time";
 }
 
 export function QuestionAttemptsCard({
@@ -41,34 +47,39 @@ export function QuestionAttemptsCard({
   timeFrameDays,
   sharedDateRange,
 }: QuestionAttemptsCardProps) {
-  const [graphDataType, setGraphDataType] = useState<GraphDataType>('percentage')
-  const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
+  const [graphDataType, setGraphDataType] =
+    useState<GraphDataType>("percentage");
+  const [graphType, setGraphType] = useState<"line" | "bar">("line");
 
   const { graphData, dateRangeLabel } = useMemo(() => {
-    const isCountMetric = graphDataType === 'attempt_count'
+    const isCountMetric = graphDataType === "attempt_count";
     const graphData = aggregateForGraph(
       attempts,
       (a) => a.attemptedAt,
       (a) => {
-        const maxPerQuestion = a.questionType === 'syllogism' ? 2 : 1
-        if (graphDataType === 'attempt_count') return 1
-        if (graphDataType === 'percentage') {
-          return maxPerQuestion > 0 ? ((a.score ?? 0) / maxPerQuestion) * 100 : 0
+        const maxPerQuestion = a.questionType === "syllogism" ? 2 : 1;
+        if (graphDataType === "attempt_count") return 1;
+        if (graphDataType === "percentage") {
+          return maxPerQuestion > 0
+            ? ((a.score ?? 0) / maxPerQuestion) * 100
+            : 0;
         }
-        if (graphDataType === 'time_taken') return Math.round(a.timeSpentSeconds ?? 0)
-        if (graphDataType === 'question_speed') return (a.studentQuestionSpeed ?? 0) * 100
-        return 0
+        if (graphDataType === "time_taken")
+          return Math.round(a.timeSpentSeconds ?? 0);
+        if (graphDataType === "question_speed")
+          return (a.studentQuestionSpeed ?? 0) * 100;
+        return 0;
       },
       mode,
       timeFrameDays,
       isCountMetric,
-      sharedDateRange
-    )
+      sharedDateRange,
+    );
     return {
       graphData,
       dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
-    }
-  }, [attempts, graphDataType, mode, timeFrameDays, sharedDateRange])
+    };
+  }, [attempts, graphDataType, mode, timeFrameDays, sharedDateRange]);
 
   return (
     <Card className="rounded-xl border-border">
@@ -77,7 +88,9 @@ export function QuestionAttemptsCard({
         <div className="flex flex-wrap items-center gap-2">
           <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
             items={GRAPH_DATA_TYPES}
-            value={GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null}
+            value={
+              GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
+            }
             onValueChange={(item) => item && setGraphDataType(item.value)}
             getItemLabel={(r) => r.label}
             getItemId={(r) => r.value}
@@ -96,5 +109,5 @@ export function QuestionAttemptsCard({
         />
       </CardContent>
     </Card>
-  )
+  );
 }

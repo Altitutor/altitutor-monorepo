@@ -1,4 +1,5 @@
 export * from "./placeholder";
+export * from "./theme/marketing-tokens";
 export * as Supabase from "./supabase/generated";
 export type { Database, Tables, TablesInsert, TablesUpdate, Enums, Json } from "./supabase/generated";
 export * from "./types/helpers";

@@ -1,13 +1,13 @@
-'use client'
+"use client";
 
-import { UcatExamActionButton, UcatExamDialog } from '@altitutor/ui'
+import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
 
 export function ConfirmSubmitDialog({
   onConfirm,
   onCancel,
 }: {
-  onConfirm: () => void
-  onCancel: () => void
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
   return (
     <UcatExamDialog
@@ -29,15 +29,15 @@ export function ConfirmSubmitDialog({
       }
       className="max-w-lg"
     />
-  )
+  );
 }
 
 export function ConfirmNextStemDialog({
   onConfirm,
   onCancel,
 }: {
-  onConfirm: () => void
-  onCancel: () => void
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
   return (
     <UcatExamDialog
@@ -59,15 +59,15 @@ export function ConfirmNextStemDialog({
       }
       className="max-w-lg"
     />
-  )
+  );
 }
 
 export function ConfirmFinishPracticeDialog({
   onConfirm,
   onCancel,
 }: {
-  onConfirm: () => void
-  onCancel: () => void
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
   return (
     <UcatExamDialog
@@ -89,5 +89,5 @@ export function ConfirmFinishPracticeDialog({
       }
       className="max-w-lg"
     />
-  )
+  );
 }

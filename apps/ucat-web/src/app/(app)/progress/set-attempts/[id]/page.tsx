@@ -1,9 +1,9 @@
-import { SetAttemptDetailPage } from '@/features/progress'
+import { SetAttemptDetailPage } from "@/features/progress";
 
 type PageProps = {
-  params: { id: string }
-}
+  params: { id: string };
+};
 
 export default function Page({ params }: PageProps) {
-  return <SetAttemptDetailPage attemptId={params.id} />
+  return <SetAttemptDetailPage attemptId={params.id} />;
 }

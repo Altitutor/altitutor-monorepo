@@ -1,12 +1,12 @@
-import { Suspense } from 'react'
-import { ProgressPage } from '@/features/progress'
+import { Suspense } from "react";
+import { ProgressPage } from "@/features/progress";
 
 export default function Page() {
   return (
     <Suspense fallback={<ProgressPageSkeleton />}>
       <ProgressPage />
     </Suspense>
-  )
+  );
 }
 
 function ProgressPageSkeleton() {
@@ -21,5 +21,5 @@ function ProgressPageSkeleton() {
       <div className="h-64 rounded-lg bg-muted" />
       <div className="h-64 rounded-lg bg-muted" />
     </div>
-  )
+  );
 }

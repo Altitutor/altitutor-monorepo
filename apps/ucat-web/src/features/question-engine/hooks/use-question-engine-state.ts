@@ -1,34 +1,34 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from "react";
 import type {
   QuestionEngineExam,
   QuestionEngineState,
   ReviewFilter,
-} from '@/features/question-engine/model/types'
+} from "@/features/question-engine/model/types";
 import {
   getCurrentSegmentTimeLimitSeconds,
   getCurrentMockSegment,
   getNextMockSegment,
   isLastQuestionOfCurrentMockSet,
-} from '@/features/question-engine/lib/timing'
+} from "@/features/question-engine/lib/timing";
 import {
   getReviewFilterIndices,
   getReviewQuestionStatus,
   type ReviewQuestionStatus,
-} from '@/features/question-engine/lib/review'
+} from "@/features/question-engine/lib/review";
 import {
   getStemBoundaries,
   isLastQuestionOfUnit,
-} from '@/features/question-engine/lib/practice'
-import type { QuestionStemWithQuestions } from '@/features/question-engine/model/types'
+} from "@/features/question-engine/lib/practice";
+import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 
 export type OnNeedMoreStems = (
-  excludeStemIds: string[]
-) => Promise<QuestionStemWithQuestions[] | null>
+  excludeStemIds: string[],
+) => Promise<QuestionStemWithQuestions[] | null>;
 
 const initialState: QuestionEngineState = {
-  phase: 'intro',
+  phase: "intro",
   instructionsIndex: 0,
   showReadyDialog: false,
   timerStartedAt: null,
@@ -50,66 +50,66 @@ const initialState: QuestionEngineState = {
   showEndReviewDialog: false,
   viewingQuestionIndex: null,
   showExitResultsDialog: false,
-}
+};
 
 export function useQuestionEngineState(
   exam: QuestionEngineExam | undefined,
-  options?: { practice?: boolean; onNeedMoreStems?: OnNeedMoreStems }
+  options?: { practice?: boolean; onNeedMoreStems?: OnNeedMoreStems },
 ) {
-  const practice = options?.practice ?? false
-  const onNeedMoreStems = options?.onNeedMoreStems
-  const mode = exam?.sourceType
+  const practice = options?.practice ?? false;
+  const onNeedMoreStems = options?.onNeedMoreStems;
+  const mode = exam?.sourceType;
   const isPracticeMode =
-    practice && (mode === 'questions' || mode === 'questionStem')
+    practice && (mode === "questions" || mode === "questionStem");
 
-  const [state, setState] = useState<QuestionEngineState>(initialState)
-  const loadingMoreFiredRef = useRef<string | null>(null)
+  const [state, setState] = useState<QuestionEngineState>(initialState);
+  const loadingMoreFiredRef = useRef<string | null>(null);
 
-  const questions = useMemo(() => exam?.questions ?? [], [exam?.questions])
+  const questions = useMemo(() => exam?.questions ?? [], [exam?.questions]);
 
   // When in loadingMore phase, fetch next stems via callback
   useEffect(() => {
     if (
-      state.phase !== 'loadingMore' ||
+      state.phase !== "loadingMore" ||
       !onNeedMoreStems ||
       state.loadingMoreTargetIndex == null ||
       !state.loadingMoreExcludeStemIds
     ) {
-      return
+      return;
     }
-    const key = `${state.loadingMoreTargetIndex}-${state.loadingMoreExcludeStemIds.join(',')}`
-    if (loadingMoreFiredRef.current === key) return
-    loadingMoreFiredRef.current = key
+    const key = `${state.loadingMoreTargetIndex}-${state.loadingMoreExcludeStemIds.join(",")}`;
+    if (loadingMoreFiredRef.current === key) return;
+    loadingMoreFiredRef.current = key;
 
     void (async () => {
-      const excludeIds = state.loadingMoreExcludeStemIds ?? []
-      const newStems = await onNeedMoreStems(excludeIds)
-      loadingMoreFiredRef.current = null
+      const excludeIds = state.loadingMoreExcludeStemIds ?? [];
+      const newStems = await onNeedMoreStems(excludeIds);
+      loadingMoreFiredRef.current = null;
       setState((current) => {
-        if (current.phase !== 'loadingMore') return current
+        if (current.phase !== "loadingMore") return current;
         if (newStems?.length) {
           return {
             ...current,
-            phase: 'question' as const,
+            phase: "question" as const,
             currentIndex: current.loadingMoreTargetIndex!,
             loadingMoreTargetIndex: undefined,
             loadingMoreExcludeStemIds: undefined,
             timerStartedAt:
-              exam?.sourceType === 'questionStem' &&
+              exam?.sourceType === "questionStem" &&
               exam?.timePerQuestionSeconds != null &&
               exam.timePerQuestionSeconds > 0
                 ? Date.now()
                 : current.timerStartedAt,
-          }
+          };
         }
         return {
           ...current,
-          phase: 'practiceComplete' as const,
+          phase: "practiceComplete" as const,
           loadingMoreTargetIndex: undefined,
           loadingMoreExcludeStemIds: undefined,
-        }
-      })
-    })()
+        };
+      });
+    })();
   }, [
     state.phase,
     state.loadingMoreTargetIndex,
@@ -118,49 +118,61 @@ export function useQuestionEngineState(
     exam?.sourceType,
     exam?.timePerQuestionSeconds,
     setState,
-  ])
+  ]);
 
   // When exam loads with instructions, start in instructions phase (set/mock mode)
   useEffect(() => {
     if (
       !exam ||
-      !('instructionsScreens' in exam) ||
+      !("instructionsScreens" in exam) ||
       exam.instructionsScreens.length === 0
     ) {
-      return
+      return;
     }
     setState((prev) => {
-      if (prev.phase !== 'intro' || prev.instructionsIndex !== 0 || prev.currentIndex !== 0) {
-        return prev
+      if (
+        prev.phase !== "intro" ||
+        prev.instructionsIndex !== 0 ||
+        prev.currentIndex !== 0
+      ) {
+        return prev;
       }
-      const next: QuestionEngineState = { ...prev, phase: 'instructions', instructionsIndex: 0 }
-      const timeLimit = getCurrentSegmentTimeLimitSeconds(exam, next)
+      const next: QuestionEngineState = {
+        ...prev,
+        phase: "instructions",
+        instructionsIndex: 0,
+      };
+      const timeLimit = getCurrentSegmentTimeLimitSeconds(exam, next);
       if (timeLimit != null && timeLimit > 0) {
-        next.timerStartedAt = Date.now()
+        next.timerStartedAt = Date.now();
       }
-      return next
-    })
-  }, [exam])
+      return next;
+    });
+  }, [exam]);
 
   // In question/questionStem mode (no instructions), skip intro and go directly to question phase
   useEffect(() => {
-    if (!exam || (exam.sourceType !== 'questions' && exam.sourceType !== 'questionStem')) return
+    if (
+      !exam ||
+      (exam.sourceType !== "questions" && exam.sourceType !== "questionStem")
+    )
+      return;
     setState((prev) => {
-      if (prev.phase !== 'intro') return prev
-      const next: QuestionEngineState = { ...prev, phase: 'question' as const }
-      const timePerQuestion = exam.timePerQuestionSeconds
+      if (prev.phase !== "intro") return prev;
+      const next: QuestionEngineState = { ...prev, phase: "question" as const };
+      const timePerQuestion = exam.timePerQuestionSeconds;
       if (timePerQuestion != null && timePerQuestion > 0) {
-        next.timerStartedAt = Date.now()
+        next.timerStartedAt = Date.now();
       }
-      return next
-    })
-  }, [exam])
+      return next;
+    });
+  }, [exam]);
 
   const reviewFilterIndices = useMemo(() => {
-    if (state.phase !== 'review' || !state.reviewFilter) return []
+    if (state.phase !== "review" || !state.reviewFilter) return [];
     // Use snapshot when in incomplete/flagged mode so the list stays fixed while navigating
     if (state.reviewFilterIndicesSnapshot != null) {
-      return state.reviewFilterIndicesSnapshot
+      return state.reviewFilterIndicesSnapshot;
     }
     let indices = getReviewFilterIndices(
       questions,
@@ -168,17 +180,22 @@ export function useQuestionEngineState(
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots
-    )
-    if (exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
-      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      state.syllogismSnapshots,
+    );
+    if (
+      exam?.sourceType === "mock" &&
+      state.mockCurrentSetIndex != null &&
+      exam.mockSetSummaries
+    ) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex];
       if (summary) {
         indices = indices.filter(
-          (i) => i >= summary.questionStartIndex && i < summary.questionEndIndex
-        )
+          (i) =>
+            i >= summary.questionStartIndex && i < summary.questionEndIndex,
+        );
       }
     }
-    return indices
+    return indices;
   }, [
     state.phase,
     state.reviewFilter,
@@ -191,49 +208,70 @@ export function useQuestionEngineState(
     questions,
     exam?.sourceType,
     exam?.mockSetSummaries,
-  ])
+  ]);
 
   const effectiveCurrentIndex =
-    state.phase === 'practiceAnswer' && state.viewingQuestionIndex != null
+    state.phase === "practiceAnswer" && state.viewingQuestionIndex != null
       ? state.viewingQuestionIndex
-      : state.phase === 'review' && state.reviewFilter && reviewFilterIndices.length > 0
-        ? reviewFilterIndices[
+      : state.phase === "review" &&
+          state.reviewFilter &&
+          reviewFilterIndices.length > 0
+        ? (reviewFilterIndices[
             Math.min(state.reviewFilterIndex, reviewFilterIndices.length - 1)
-          ] ?? state.currentIndex
-        : state.currentIndex
+          ] ?? state.currentIndex)
+        : state.currentIndex;
 
-  const currentQuestion = questions[effectiveCurrentIndex]
+  const currentQuestion = questions[effectiveCurrentIndex];
   const isLastQuestion =
-    state.phase === 'practiceAnswer'
-      ? (state.viewingQuestionIndex ?? 0) >= (state.practiceAnswerUnitEndIndex ?? 0)
-      : state.phase === 'review' && state.reviewFilter
+    state.phase === "practiceAnswer"
+      ? (state.viewingQuestionIndex ?? 0) >=
+        (state.practiceAnswerUnitEndIndex ?? 0)
+      : state.phase === "review" && state.reviewFilter
         ? state.reviewFilterIndex >= Math.max(reviewFilterIndices.length - 1, 0)
-        : state.currentIndex >= Math.max(questions.length - 1, 0)
+        : state.currentIndex >= Math.max(questions.length - 1, 0);
 
   const isLastQuestionOfCurrentUnit =
     isPracticeMode &&
     currentQuestion &&
-    isLastQuestionOfUnit(questions, state.currentIndex, mode as 'questions' | 'questionStem')
+    isLastQuestionOfUnit(
+      questions,
+      state.currentIndex,
+      mode as "questions" | "questionStem",
+    );
 
   const submittedCount = useMemo(
     () => Object.keys(state.selectedAnswers).length,
-    [state.selectedAnswers]
-  )
+    [state.selectedAnswers],
+  );
 
   const reviewListRows = useMemo(() => {
-    let qs = questions
-    if (exam?.sourceType === 'mock' && state.phase === 'review' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
-      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+    let qs = questions;
+    if (
+      exam?.sourceType === "mock" &&
+      state.phase === "review" &&
+      state.mockCurrentSetIndex != null &&
+      exam.mockSetSummaries
+    ) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex];
       if (summary) {
-        qs = questions.slice(summary.questionStartIndex, summary.questionEndIndex)
+        qs = questions.slice(
+          summary.questionStartIndex,
+          summary.questionEndIndex,
+        );
       }
     }
     return qs.map((question, idx) => {
-      const index = exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries
-        ? (exam.mockSetSummaries[state.mockCurrentSetIndex]?.questionStartIndex ?? 0) + idx
-        : idx
+      const index =
+        exam?.sourceType === "mock" &&
+        state.mockCurrentSetIndex != null &&
+        exam.mockSetSummaries
+          ? (exam.mockSetSummaries[state.mockCurrentSetIndex]
+              ?.questionStartIndex ?? 0) + idx
+          : idx;
       const displayNumber =
-        exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null ? idx + 1 : undefined
+        exam?.sourceType === "mock" && state.mockCurrentSetIndex != null
+          ? idx + 1
+          : undefined;
       return {
         question,
         index,
@@ -242,11 +280,11 @@ export function useQuestionEngineState(
           question,
           state.visitedQuestionIds,
           state.selectedAnswers,
-          state.syllogismSnapshots
+          state.syllogismSnapshots,
         ) as ReviewQuestionStatus,
         flagged: state.flaggedIds.includes(question.id),
-      }
-    })
+      };
+    });
   }, [
     questions,
     state.phase,
@@ -257,213 +295,238 @@ export function useQuestionEngineState(
     state.syllogismSnapshots,
     exam?.sourceType,
     exam?.mockSetSummaries,
-  ])
+  ]);
 
   useEffect(() => {
-    if (state.phase !== 'question' && !(state.phase === 'review' && state.reviewFilter)) return
-    const q = questions[effectiveCurrentIndex]
-    if (!q || state.visitedQuestionIds.includes(q.id)) return
+    if (
+      state.phase !== "question" &&
+      !(state.phase === "review" && state.reviewFilter)
+    )
+      return;
+    const q = questions[effectiveCurrentIndex];
+    if (!q || state.visitedQuestionIds.includes(q.id)) return;
     setState((current) => ({
       ...current,
       visitedQuestionIds: [...current.visitedQuestionIds, q.id],
-    }))
-  }, [state.phase, state.reviewFilter, effectiveCurrentIndex, questions, state.visitedQuestionIds])
+    }));
+  }, [
+    state.phase,
+    state.reviewFilter,
+    effectiveCurrentIndex,
+    questions,
+    state.visitedQuestionIds,
+  ]);
 
   function goPrevious() {
-    if (state.phase === 'instructions') {
+    if (state.phase === "instructions") {
       if (state.instructionsIndex > 0) {
-        setState((current) => ({ ...current, instructionsIndex: current.instructionsIndex - 1 }))
+        setState((current) => ({
+          ...current,
+          instructionsIndex: current.instructionsIndex - 1,
+        }));
       }
-      return
+      return;
     }
-    if (state.phase === 'intro') return
-    if (state.phase === 'practiceAnswer') {
-      const unitStart = state.practiceAnswerUnitStartIndex ?? 0
-      const viewing = state.viewingQuestionIndex ?? 0
+    if (state.phase === "intro") return;
+    if (state.phase === "practiceAnswer") {
+      const unitStart = state.practiceAnswerUnitStartIndex ?? 0;
+      const viewing = state.viewingQuestionIndex ?? 0;
       if (viewing > unitStart) {
         setState((current) => ({
           ...current,
           viewingQuestionIndex: viewing - 1,
-        }))
+        }));
       }
-      return
+      return;
     }
-    if (state.phase === 'review' && state.reviewFilter) {
+    if (state.phase === "review" && state.reviewFilter) {
       if (state.reviewFilterIndex > 0) {
-        const prevIndex = reviewFilterIndices[state.reviewFilterIndex - 1]
+        const prevIndex = reviewFilterIndices[state.reviewFilterIndex - 1];
         setState((current) => ({
           ...current,
           reviewFilterIndex: current.reviewFilterIndex - 1,
           currentIndex: prevIndex ?? current.currentIndex,
-        }))
+        }));
       }
-      return
+      return;
     }
-    setState((current) => ({ ...current, currentIndex: Math.max(0, current.currentIndex - 1) }))
+    setState((current) => ({
+      ...current,
+      currentIndex: Math.max(0, current.currentIndex - 1),
+    }));
   }
 
   function goNext() {
-    if (state.phase === 'instructions' && exam) {
-      if (exam.sourceType === 'mock') {
-        const nextSeg = getNextMockSegment(exam, state)
-        if (nextSeg?.type === 'questions') {
-          setState((current) => ({ ...current, showReadyDialog: true }))
-          return
+    if (state.phase === "instructions" && exam) {
+      if (exam.sourceType === "mock") {
+        const nextSeg = getNextMockSegment(exam, state);
+        if (nextSeg?.type === "questions") {
+          setState((current) => ({ ...current, showReadyDialog: true }));
+          return;
         }
-        if (nextSeg?.type === 'instructions') {
+        if (nextSeg?.type === "instructions") {
           setState((current) => ({
             ...current,
             instructionsIndex: nextSeg.instructionsIndex,
-          }))
-          return
+          }));
+          return;
         }
-        setState((current) => ({ ...current, showReadyDialog: true }))
-        return
+        setState((current) => ({ ...current, showReadyDialog: true }));
+        return;
       }
-      const screens = ('instructionsScreens' in exam && exam.instructionsScreens) || []
+      const screens =
+        ("instructionsScreens" in exam && exam.instructionsScreens) || [];
       if (state.instructionsIndex < screens.length - 1) {
-        setState((current) => ({ ...current, instructionsIndex: current.instructionsIndex + 1 }))
-        return
+        setState((current) => ({
+          ...current,
+          instructionsIndex: current.instructionsIndex + 1,
+        }));
+        return;
       }
-      setState((current) => ({ ...current, showReadyDialog: true }))
-      return
+      setState((current) => ({ ...current, showReadyDialog: true }));
+      return;
     }
 
-    if (state.phase === 'intro') {
-      setState((current) => ({ ...current, phase: 'question' }))
-      return
+    if (state.phase === "intro") {
+      setState((current) => ({ ...current, phase: "question" }));
+      return;
     }
 
-    if (state.phase === 'question' && !isPracticeMode) {
+    if (state.phase === "question" && !isPracticeMode) {
       const goToReview = () =>
         setState((current) => {
           const next: QuestionEngineState = {
             ...current,
-            phase: 'review',
+            phase: "review",
             reviewFilter: null,
             reviewFilterIndex: 0,
             showNavigator: false,
-          }
-          if (exam?.sourceType === 'mock') {
-            const seg = getCurrentMockSegment(exam, current)
-            if (seg?.type === 'questions') {
-              next.mockCurrentSetIndex = seg.setIndex
+          };
+          if (exam?.sourceType === "mock") {
+            const seg = getCurrentMockSegment(exam, current);
+            if (seg?.type === "questions") {
+              next.mockCurrentSetIndex = seg.setIndex;
             }
           }
-          return next
-        })
+          return next;
+        });
 
-      if (exam?.sourceType === 'mock' && isLastQuestionOfCurrentMockSet(exam, state)) {
-        goToReview()
-        return
+      if (
+        exam?.sourceType === "mock" &&
+        isLastQuestionOfCurrentMockSet(exam, state)
+      ) {
+        goToReview();
+        return;
       }
       if (
-        exam?.sourceType !== 'mock' &&
+        exam?.sourceType !== "mock" &&
         state.currentIndex >= Math.max(questions.length - 1, 0)
       ) {
-        goToReview()
-        return
+        goToReview();
+        return;
       }
     }
 
-    if (state.phase === 'practiceAnswer') {
-      const unitEnd = state.practiceAnswerUnitEndIndex ?? 0
-      const viewing = state.viewingQuestionIndex ?? 0
+    if (state.phase === "practiceAnswer") {
+      const unitEnd = state.practiceAnswerUnitEndIndex ?? 0;
+      const viewing = state.viewingQuestionIndex ?? 0;
       if (viewing < unitEnd) {
         setState((current) => ({
           ...current,
           viewingQuestionIndex: viewing + 1,
-        }))
+        }));
       } else {
-        const nextQuestionIndex = unitEnd + 1
+        const nextQuestionIndex = unitEnd + 1;
         if (nextQuestionIndex >= questions.length) {
           if (onNeedMoreStems) {
             const excludeStemIds = questions
               .map((q) => q.stemId)
-              .filter((id): id is string => id != null)
-            const seenStemIds = [...new Set(excludeStemIds)]
+              .filter((id): id is string => id != null);
+            const seenStemIds = [...new Set(excludeStemIds)];
             setState((current) => ({
               ...current,
-              phase: 'loadingMore',
+              phase: "loadingMore",
               currentIndex: nextQuestionIndex,
               viewingQuestionIndex: null,
               practiceAnswerUnitStartIndex: undefined,
               practiceAnswerUnitEndIndex: undefined,
               loadingMoreTargetIndex: nextQuestionIndex,
               loadingMoreExcludeStemIds: seenStemIds,
-            }))
+            }));
           } else {
             setState((current) => ({
               ...current,
-              phase: 'practiceComplete',
+              phase: "practiceComplete",
               currentIndex: nextQuestionIndex,
               viewingQuestionIndex: null,
               practiceAnswerUnitStartIndex: undefined,
               practiceAnswerUnitEndIndex: undefined,
-            }))
+            }));
           }
         } else {
           setState((current) => {
             const next = {
               ...current,
-              phase: 'question' as const,
+              phase: "question" as const,
               currentIndex: nextQuestionIndex,
               viewingQuestionIndex: null,
               practiceAnswerUnitStartIndex: undefined,
               practiceAnswerUnitEndIndex: undefined,
-            }
+            };
             const timePerQuestion =
-              exam?.sourceType === 'questions' || exam?.sourceType === 'questionStem'
+              exam?.sourceType === "questions" ||
+              exam?.sourceType === "questionStem"
                 ? exam?.timePerQuestionSeconds
-                : null
+                : null;
             if (timePerQuestion != null && timePerQuestion > 0) {
-              next.timerStartedAt = Date.now()
+              next.timerStartedAt = Date.now();
             }
-            return next
-          })
+            return next;
+          });
         }
       }
-      return
+      return;
     }
 
-    if (state.phase === 'review' && state.reviewFilter) {
+    if (state.phase === "review" && state.reviewFilter) {
       if (state.reviewFilterIndex < reviewFilterIndices.length - 1) {
-        const nextIndex = reviewFilterIndices[state.reviewFilterIndex + 1]
+        const nextIndex = reviewFilterIndices[state.reviewFilterIndex + 1];
         setState((current) => ({
           ...current,
           reviewFilterIndex: current.reviewFilterIndex + 1,
           currentIndex: nextIndex ?? current.currentIndex,
-        }))
+        }));
       } else {
-        goToReviewScreen()
+        goToReviewScreen();
       }
-      return
+      return;
     }
 
-    if (state.phase === 'question') {
+    if (state.phase === "question") {
       setState((current) => {
-        const nextIndex = current.currentIndex + 1
-        const next = { ...current, currentIndex: nextIndex }
+        const nextIndex = current.currentIndex + 1;
+        const next = { ...current, currentIndex: nextIndex };
         const timePerQuestion =
-          exam?.sourceType === 'questions' || exam?.sourceType === 'questionStem'
+          exam?.sourceType === "questions" ||
+          exam?.sourceType === "questionStem"
             ? exam?.timePerQuestionSeconds
-            : null
+            : null;
         if (timePerQuestion != null && timePerQuestion > 0) {
           // In questionStem mode, only reset timer when moving to a new stem.
           // Within the same stem, keep the countdown running.
-          const currentStemId = questions[current.currentIndex]?.stemId
-          const nextStemId = questions[nextIndex]?.stemId
+          const currentStemId = questions[current.currentIndex]?.stemId;
+          const nextStemId = questions[nextIndex]?.stemId;
           const isNewStem =
-            exam?.sourceType === 'questionStem' &&
+            exam?.sourceType === "questionStem" &&
             currentStemId != null &&
             nextStemId != null &&
-            currentStemId !== nextStemId
-          if (exam?.sourceType === 'questions' || isNewStem) {
-            next.timerStartedAt = Date.now()
+            currentStemId !== nextStemId;
+          if (exam?.sourceType === "questions" || isNewStem) {
+            next.timerStartedAt = Date.now();
           }
         }
-        return next
-      })
+        return next;
+      });
     }
   }
 
@@ -472,8 +535,8 @@ export function useQuestionEngineState(
       ...current,
       currentIndex: index,
       showNavigator: false,
-      phase: current.phase === 'review' ? 'review' : 'question',
-    }))
+      phase: current.phase === "review" ? "review" : "question",
+    }));
   }
 
   function goToReviewScreen() {
@@ -482,24 +545,24 @@ export function useQuestionEngineState(
       reviewFilter: null,
       reviewFilterIndex: 0,
       reviewFilterIndicesSnapshot: null,
-    }))
+    }));
   }
 
   function handlePracticeSubmit() {
-    if (!isPracticeMode || !currentQuestion) return
+    if (!isPracticeMode || !currentQuestion) return;
     const { startIndex, endIndex } = getStemBoundaries(
       questions,
       state.currentIndex,
-      mode as 'questions' | 'questionStem'
-    )
+      mode as "questions" | "questionStem",
+    );
     setState((current) => ({
       ...current,
-      phase: 'practiceAnswer',
+      phase: "practiceAnswer",
       practiceAnswerUnitStartIndex: startIndex,
       practiceAnswerUnitEndIndex: endIndex,
       viewingQuestionIndex: startIndex,
       showNavigator: false,
-    }))
+    }));
   }
 
   function startReviewFilter(filter: ReviewFilter) {
@@ -509,53 +572,58 @@ export function useQuestionEngineState(
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots
-    )
-    if (exam?.sourceType === 'mock' && state.mockCurrentSetIndex != null && exam.mockSetSummaries) {
-      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex]
+      state.syllogismSnapshots,
+    );
+    if (
+      exam?.sourceType === "mock" &&
+      state.mockCurrentSetIndex != null &&
+      exam.mockSetSummaries
+    ) {
+      const summary = exam.mockSetSummaries[state.mockCurrentSetIndex];
       if (summary) {
         indices = indices.filter(
-          (i) => i >= summary.questionStartIndex && i < summary.questionEndIndex
-        )
+          (i) =>
+            i >= summary.questionStartIndex && i < summary.questionEndIndex,
+        );
       }
     }
-    if (filter === 'flagged' && indices.length === 0) {
-      setState((current) => ({ ...current, showNoFlaggedDialog: true }))
-      return
+    if (filter === "flagged" && indices.length === 0) {
+      setState((current) => ({ ...current, showNoFlaggedDialog: true }));
+      return;
     }
-    const firstIndex = indices[0] ?? 0
+    const firstIndex = indices[0] ?? 0;
     setState((current) => ({
       ...current,
       reviewFilter: filter,
       reviewFilterIndex: 0,
       reviewFilterIndicesSnapshot: indices,
       currentIndex: firstIndex,
-    }))
+    }));
   }
 
   function goToReviewQuestionByGlobalIndex(globalIndex: number) {
     const indices = getReviewFilterIndices(
       questions,
-      'all',
+      "all",
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots
-    )
-    const pos = indices.indexOf(globalIndex)
-    const reviewFilterIndex = pos >= 0 ? pos : 0
-    const index = indices[reviewFilterIndex] ?? globalIndex
+      state.syllogismSnapshots,
+    );
+    const pos = indices.indexOf(globalIndex);
+    const reviewFilterIndex = pos >= 0 ? pos : 0;
+    const index = indices[reviewFilterIndex] ?? globalIndex;
     setState((current) => ({
       ...current,
-      reviewFilter: 'all',
+      reviewFilter: "all",
       reviewFilterIndex,
       currentIndex: index,
-    }))
+    }));
   }
 
   function toggleFlagCurrent() {
-    if (!currentQuestion) return
-    toggleFlagById(currentQuestion.id)
+    if (!currentQuestion) return;
+    toggleFlagById(currentQuestion.id);
   }
 
   function toggleFlagById(questionId: string) {
@@ -564,12 +632,12 @@ export function useQuestionEngineState(
       flaggedIds: current.flaggedIds.includes(questionId)
         ? current.flaggedIds.filter((id) => id !== questionId)
         : [...current.flaggedIds, questionId],
-    }))
+    }));
   }
 
   function setAnswer(optionId: string) {
     if (!currentQuestion) {
-      return
+      return;
     }
 
     setState((current) => ({
@@ -578,12 +646,12 @@ export function useQuestionEngineState(
         ...current.selectedAnswers,
         [currentQuestion.id]: optionId,
       },
-    }))
+    }));
   }
 
   function setSyllogismSnapshot(
     questionId: string,
-    snapshot: Record<string, boolean>
+    snapshot: Record<string, boolean>,
   ) {
     setState((current) => ({
       ...current,
@@ -591,7 +659,7 @@ export function useQuestionEngineState(
         ...(current.syllogismSnapshots ?? {}),
         [questionId]: snapshot,
       },
-    }))
+    }));
   }
 
   return {
@@ -617,5 +685,5 @@ export function useQuestionEngineState(
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,
-  }
+  };
 }

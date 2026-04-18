@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
+import { NextResponse } from "next/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
-  const supabase = await getSupabaseServerClient()
+  const supabase = await getSupabaseServerClient();
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   return NextResponse.json({
     user: user
@@ -14,5 +14,5 @@ export async function GET() {
           email: user.email ?? null,
         }
       : null,
-  })
+  });
 }

@@ -1,5 +1,5 @@
-import { LandingPage } from '@/features/landing'
+import { UcatMarketingLandingPage } from "@/features/landing";
 
-export default function HomePage() {
-  return <LandingPage />
+export default function LandingPage() {
+  return <UcatMarketingLandingPage />;
 }

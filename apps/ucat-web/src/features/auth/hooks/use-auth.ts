@@ -1,1 +1,1 @@
-export { useAuth } from '@/features/auth/providers/auth-provider'
+export { useAuth } from "@/features/auth/providers/auth-provider";

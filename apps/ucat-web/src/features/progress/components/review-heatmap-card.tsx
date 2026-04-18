@@ -23,17 +23,21 @@ import {
 } from "../lib/review-heatmap";
 
 const INTENSITY_CLASS: Record<0 | 1 | 2 | 3 | 4, string> = {
-  0: "bg-muted/35 dark:bg-muted/25",
+  /* Zero activity: visible on white; in dark, foreground tint reads above card */
+  0: "bg-primary/5",
   1: "bg-primary/25",
   2: "bg-primary/45",
   3: "bg-primary/65",
   4: "bg-primary/85",
 };
 
-const FUTURE_CLASS = "bg-muted/20 dark:bg-muted/15";
+const FUTURE_CLASS =
+  "bg-[hsl(var(--foreground)_/_0.08)] dark:bg-[hsl(var(--foreground)_/_0.14)]";
 
-/** Matches square + focus ring padding so rows align with weekday labels */
-const ROW_CLASS = "flex h-[22px] shrink-0 items-center sm:h-6";
+/** Row height matches dot + focus padding (compact, same as original heatmap) */
+const ROW_CLASS = "flex h-[14px] shrink-0 items-center sm:h-4";
+
+const CELL_GAP = "gap-px";
 
 const DOW_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -44,7 +48,7 @@ type ReviewHeatmapCardProps = {
 
 function BlankCell() {
   return (
-    <div className={cn(ROW_CLASS, "w-5 justify-center sm:w-6")} aria-hidden>
+    <div className={cn(ROW_CLASS, "w-4 justify-center sm:w-4")} aria-hidden>
       <div className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
     </div>
   );
@@ -71,7 +75,7 @@ function DayCell({ day }: { day: HeatmapDay }) {
   if (day.isFuture) {
     return (
       <div
-        className={cn(ROW_CLASS, "w-5 justify-center sm:w-6")}
+        className={cn(ROW_CLASS, "w-4 justify-center sm:w-4")}
         aria-label={aria}
       >
         {square}
@@ -80,7 +84,7 @@ function DayCell({ day }: { day: HeatmapDay }) {
   }
 
   return (
-    <div className={cn(ROW_CLASS, "w-5 justify-center sm:w-6")}>
+    <div className={cn(ROW_CLASS, "w-4 justify-center sm:w-4")}>
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -124,10 +128,7 @@ function WeekColumnStrip({
   colKey: string;
 }) {
   return (
-    <div
-      className="flex flex-col gap-[3px]"
-      role="presentation"
-    >
+    <div className={cn("flex flex-col", CELL_GAP)} role="presentation">
       {column.cells.map((cell, rowIdx) => (
         <HeatmapCellView
           key={`${colKey}-r${rowIdx}`}
@@ -167,13 +168,13 @@ export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
       </CardHeader>
       <CardContent className="min-w-0 space-y-3">
         <TooltipProvider delayDuration={200}>
-          <div ref={scrollRef} className="flex gap-2 overflow-x-auto pb-1">
+          <div ref={scrollRef} className="flex gap-1.5 overflow-x-auto pb-1">
             <div
-              className="sticky left-0 z-10 flex shrink-0 flex-col gap-1 bg-card pr-2"
+              className="sticky left-0 z-10 flex shrink-0 flex-col gap-0.5 bg-card pr-1.5"
               aria-hidden
             >
-              <div className="flex h-5 shrink-0 sm:h-6" />
-              <div className="flex flex-col gap-[3px]">
+              <div className="flex h-4 shrink-0 sm:h-5" />
+              <div className={cn("flex flex-col", CELL_GAP)}>
                 {DOW_LABELS.map((label) => (
                   <div
                     key={label}
@@ -193,17 +194,17 @@ export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
                 <div
                   key={`${group.monthKey}-${gi}`}
                   className={cn(
-                    "flex shrink-0 flex-col gap-1",
+                    "flex shrink-0 flex-col gap-0.5",
                     gi > 0 &&
-                      "border-l border-dashed border-border pl-2 ml-1",
+                      "border-l border-dashed border-border pl-1.5 ml-0.5",
                   )}
                 >
-                  <div className="flex h-5 min-w-0 items-end justify-center px-0.5 sm:h-6">
+                  <div className="flex h-4 min-w-0 items-end justify-center px-0.5 sm:h-5">
                     <span className="text-center text-[10px] font-medium leading-none text-muted-foreground whitespace-nowrap">
                       {group.label}
                     </span>
                   </div>
-                  <div className="flex gap-[3px]">
+                  <div className={cn("flex", CELL_GAP)}>
                     {group.columns.map((column, ci) => (
                       <WeekColumnStrip
                         key={`${group.monthKey}-${gi}-${ci}`}
@@ -218,7 +219,7 @@ export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
           </div>
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             <span>Less</span>
-            <div className="flex gap-1">
+            <div className="flex gap-px">
               {([0, 1, 2, 3, 4] as const).map((lvl) => (
                 <div
                   key={lvl}

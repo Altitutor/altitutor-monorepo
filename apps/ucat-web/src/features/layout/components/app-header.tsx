@@ -1,14 +1,14 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
-import { LogOut, Menu } from 'lucide-react'
-import { ThemeToggle } from '@/components/theme/theme-toggle'
-import { useAuth } from '@/features/auth'
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { LogOut, Menu } from "lucide-react";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { useAuth } from "@/features/auth";
 
 export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
-  const router = useRouter()
-  const { user, signOut } = useAuth()
+  const router = useRouter();
+  const { user, signOut } = useAuth();
 
   return (
     <header className="sticky top-0 z-20 h-14 border-b border-border bg-background/90 backdrop-blur">
@@ -22,7 +22,10 @@ export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
           >
             <Menu className="h-4 w-4" />
           </button>
-          <Link href="/dashboard" className="text-sm font-semibold tracking-wide">
+          <Link
+            href="/dashboard"
+            className="text-sm font-semibold tracking-wide"
+          >
             UCAT Web
           </Link>
         </div>
@@ -34,9 +37,9 @@ export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
               type="button"
               className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm hover:bg-muted"
               onClick={async () => {
-                await signOut()
-                router.push('/login')
-                router.refresh()
+                await signOut();
+                router.push("/login");
+                router.refresh();
               }}
             >
               <LogOut className="h-4 w-4" />
@@ -46,5 +49,5 @@ export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
         </div>
       </div>
     </header>
-  )
+  );
 }

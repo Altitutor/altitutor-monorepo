@@ -1,6 +1,6 @@
-'use client'
+"use client";
 
-import { UcatExamActionButton, UcatExamDialog } from '@altitutor/ui'
+import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
 
 export function NoFlaggedDialog({ onClose }: { onClose: () => void }) {
   return (
@@ -9,9 +9,11 @@ export function NoFlaggedDialog({ onClose }: { onClose: () => void }) {
       message="There are no flagged questions."
       actions={
         <UcatExamActionButton borders="all" onClick={onClose}>
-          <span><span className="underline">O</span>K</span>
+          <span>
+            <span className="underline">O</span>K
+          </span>
         </UcatExamActionButton>
       }
     />
-  )
+  );
 }

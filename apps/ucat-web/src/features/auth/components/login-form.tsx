@@ -1,36 +1,40 @@
-'use client'
+"use client";
 
-import { FormEvent, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Button, Input, Label } from '@altitutor/ui'
-import { getSupabaseBrowserClient } from '@/lib/supabase/client'
+import { FormEvent, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button, Input, Label } from "@altitutor/ui";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
-export function LoginForm({ redirectTo = '/dashboard' }: { redirectTo?: string }) {
-  const router = useRouter()
-  const supabase = useMemo(() => getSupabaseBrowserClient(), [])
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+export function LoginForm({
+  redirectTo = "/dashboard",
+}: {
+  redirectTo?: string;
+}) {
+  const router = useRouter();
+  const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    setIsSubmitting(true)
-    setError(null)
+    event.preventDefault();
+    setIsSubmitting(true);
+    setError(null);
 
     const { error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
-    })
+    });
 
     if (signInError) {
-      setError(signInError.message)
-      setIsSubmitting(false)
-      return
+      setError(signInError.message);
+      setIsSubmitting(false);
+      return;
     }
 
-    router.push(redirectTo)
-    router.refresh()
+    router.push(redirectTo);
+    router.refresh();
   }
 
   return (
@@ -77,9 +81,9 @@ export function LoginForm({ redirectTo = '/dashboard' }: { redirectTo?: string }
           className="w-full bg-sidebar text-sidebar-foreground hover:bg-sidebar/90"
           size="default"
         >
-          {isSubmitting ? 'Signing in...' : 'Sign in'}
+          {isSubmitting ? "Signing in..." : "Sign in"}
         </Button>
       </form>
     </div>
-  )
+  );
 }

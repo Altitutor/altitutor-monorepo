@@ -1,5 +1,5 @@
-import { SetsLandingPage } from '@/features/sets'
+import { SetsLandingPage } from "@/features/sets";
 
 export default function SetsRoute() {
-  return <SetsLandingPage />
+  return <SetsLandingPage />;
 }

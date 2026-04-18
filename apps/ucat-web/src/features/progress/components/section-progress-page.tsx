@@ -1,14 +1,14 @@
-'use client'
+"use client";
 
-import { useMemo } from 'react'
-import { UcatPageHeader } from '@/features/layout'
-import { useProgress } from '../hooks/use-progress'
-import { useProgressMode } from '../hooks/use-progress-mode'
-import { ProgressModeSelector } from './progress-mode-selector'
-import { SetAttemptsCard } from './set-attempts-card'
-import { QuestionAttemptsCard } from './question-attempts-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
-import { cn } from '@/lib/utils'
+import { useMemo } from "react";
+import { UcatPageHeader } from "@/features/layout";
+import { useProgress } from "../hooks/use-progress";
+import { useProgressMode } from "../hooks/use-progress-mode";
+import { ProgressModeSelector } from "./progress-mode-selector";
+import { SetAttemptsCard } from "./set-attempts-card";
+import { QuestionAttemptsCard } from "./question-attempts-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { cn } from "@/lib/utils";
 import {
   filterByTimeFrame,
   computeSingleSectionFromFiltered,
@@ -16,12 +16,12 @@ import {
   getBestAttemptPerQuestion,
   applyAttemptFilterToProgress,
   getSharedDateRange,
-} from '../lib/progress-data-utils'
+} from "../lib/progress-data-utils";
 import type {
   SectionCategoryProgress,
   QuestionAttemptRow,
   SetAttemptRow,
-} from '@/app/api/ucat/progress/route'
+} from "@/app/api/ucat/progress/route";
 
 function CircularProgress({
   percentage,
@@ -30,23 +30,23 @@ function CircularProgress({
   className,
   showLabel = true,
 }: {
-  percentage: number
-  size?: number
-  strokeWidth?: number
-  className?: string
-  showLabel?: boolean
+  percentage: number;
+  size?: number;
+  strokeWidth?: number;
+  className?: string;
+  showLabel?: boolean;
 }) {
-  const sw = strokeWidth ?? (size <= 56 ? 4 : 10)
-  const radius = (size - sw) / 2
-  const circumference = 2 * Math.PI * radius
-  const capped = Math.min(100, Math.max(0, percentage))
-  const offset = circumference - (capped / 100) * circumference
+  const sw = strokeWidth ?? (size <= 56 ? 4 : 10);
+  const radius = (size - sw) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const capped = Math.min(100, Math.max(0, percentage));
+  const offset = circumference - (capped / 100) * circumference;
 
   return (
     <div
       className={cn(
-        'relative inline-flex flex-col items-center justify-center shrink-0',
-        className
+        "relative inline-flex flex-col items-center justify-center shrink-0",
+        className,
       )}
       style={{ width: size, height: size }}
     >
@@ -82,8 +82,8 @@ function CircularProgress({
         <div className="absolute inset-0 flex flex-col items-center justify-center">
           <span
             className={cn(
-              'font-semibold tabular-nums',
-              size <= 56 ? 'text-xs' : 'text-lg'
+              "font-semibold tabular-nums",
+              size <= 56 ? "text-xs" : "text-lg",
             )}
           >
             {capped}%
@@ -91,85 +91,73 @@ function CircularProgress({
         </div>
       )}
     </div>
-  )
+  );
 }
 
 type SectionProgressPageProps = {
-  sectionNumber: number
-}
+  sectionNumber: number;
+};
 
-export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps) {
-  const { data, isLoading, error } = useProgress()
-  const progressMode = useProgressMode()
+export function SectionProgressPage({
+  sectionNumber,
+}: SectionProgressPageProps) {
+  const { data, isLoading, error } = useProgress();
+  const progressMode = useProgressMode();
 
   const sectionId = useMemo(() => {
-    if (!data) return null
-    const section = data.sectionProgress.find((s) => s.sectionNumber === sectionNumber)
-    return section?.sectionId ?? null
-  }, [data, sectionNumber])
+    if (!data) return null;
+    const section = data.sectionProgress.find(
+      (s) => s.sectionNumber === sectionNumber,
+    );
+    return section?.sectionId ?? null;
+  }, [data, sectionNumber]);
 
   const filteredData = useMemo(() => {
-    if (!data) return null
-    return applyAttemptFilterToProgress(data, progressMode.attemptFilter)
-  }, [data, progressMode.attemptFilter])
+    if (!data) return null;
+    return applyAttemptFilterToProgress(data, progressMode.attemptFilter);
+  }, [data, progressMode.attemptFilter]);
 
-  const { section, categoryProgress, filteredQuestionAttempts, filteredSetAttempts, sharedDateRange } =
-    useMemo(() => {
-      if (!filteredData || sectionId == null) {
-        return {
-          section: null,
-          categoryProgress: [] as SectionCategoryProgress[],
-          filteredQuestionAttempts: [] as QuestionAttemptRow[],
-          filteredSetAttempts: [] as SetAttemptRow[],
-          sharedDateRange: undefined,
-        }
-      }
-      const { mode, timeFrameDays } = progressMode
-      const filteredQA = filteredData.questionAttempts.filter(
-        (a) => a.ucatSectionId === sectionId
-      )
-      const filteredSA = filteredData.setAttempts.filter(
-        (a) => a.sectionId === sectionId
-      )
-      const timeFilteredQA = filterByTimeFrame(filteredQA, mode, timeFrameDays)
-      const timeFilteredSA = filterByTimeFrame(filteredSA, mode, timeFrameDays)
-
-      const baseSection = filteredData.sectionProgress.find((s) => s.sectionId === sectionId)
-      const section =
-        mode === 'time_frame' && baseSection
-          ? computeSingleSectionFromFiltered(
-              timeFilteredQA,
-              timeFilteredSA,
-              baseSection
-            )
-          : baseSection ?? null
-      if (!section) {
-        return {
-          section: null,
-          categoryProgress: [] as SectionCategoryProgress[],
-          filteredQuestionAttempts: filteredQA,
-          filteredSetAttempts: filteredSA,
-          sharedDateRange: getSharedDateRange(
-            filteredData.questionAttempts,
-            filteredData.setAttempts,
-            filteredData.mockAttempts,
-            mode,
-            timeFrameDays
-          ),
-        }
-      }
-
-      const categoryProgress =
-        mode === 'time_frame'
-          ? computeCategoryProgressFromFiltered(
-              timeFilteredQA,
-              filteredData.sectionCategoryProgress ?? {}
-            )[sectionId] ?? []
-          : filteredData.sectionCategoryProgress?.[sectionId] ?? []
-
+  const {
+    section,
+    categoryProgress,
+    filteredQuestionAttempts,
+    filteredSetAttempts,
+    sharedDateRange,
+  } = useMemo(() => {
+    if (!filteredData || sectionId == null) {
       return {
-        section,
-        categoryProgress,
+        section: null,
+        categoryProgress: [] as SectionCategoryProgress[],
+        filteredQuestionAttempts: [] as QuestionAttemptRow[],
+        filteredSetAttempts: [] as SetAttemptRow[],
+        sharedDateRange: undefined,
+      };
+    }
+    const { mode, timeFrameDays } = progressMode;
+    const filteredQA = filteredData.questionAttempts.filter(
+      (a) => a.ucatSectionId === sectionId,
+    );
+    const filteredSA = filteredData.setAttempts.filter(
+      (a) => a.sectionId === sectionId,
+    );
+    const timeFilteredQA = filterByTimeFrame(filteredQA, mode, timeFrameDays);
+    const timeFilteredSA = filterByTimeFrame(filteredSA, mode, timeFrameDays);
+
+    const baseSection = filteredData.sectionProgress.find(
+      (s) => s.sectionId === sectionId,
+    );
+    const section =
+      mode === "time_frame" && baseSection
+        ? computeSingleSectionFromFiltered(
+            timeFilteredQA,
+            timeFilteredSA,
+            baseSection,
+          )
+        : (baseSection ?? null);
+    if (!section) {
+      return {
+        section: null,
+        categoryProgress: [] as SectionCategoryProgress[],
         filteredQuestionAttempts: filteredQA,
         filteredSetAttempts: filteredSA,
         sharedDateRange: getSharedDateRange(
@@ -177,10 +165,33 @@ export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps)
           filteredData.setAttempts,
           filteredData.mockAttempts,
           mode,
-          timeFrameDays
+          timeFrameDays,
         ),
-      }
-    }, [filteredData, sectionId, progressMode])
+      };
+    }
+
+    const categoryProgress =
+      mode === "time_frame"
+        ? (computeCategoryProgressFromFiltered(
+            timeFilteredQA,
+            filteredData.sectionCategoryProgress ?? {},
+          )[sectionId] ?? [])
+        : (filteredData.sectionCategoryProgress?.[sectionId] ?? []);
+
+    return {
+      section,
+      categoryProgress,
+      filteredQuestionAttempts: filteredQA,
+      filteredSetAttempts: filteredSA,
+      sharedDateRange: getSharedDateRange(
+        filteredData.questionAttempts,
+        filteredData.setAttempts,
+        filteredData.mockAttempts,
+        mode,
+        timeFrameDays,
+      ),
+    };
+  }, [filteredData, sectionId, progressMode]);
 
   if (isLoading) {
     return (
@@ -195,7 +206,7 @@ export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps)
           <div className="h-64 rounded-lg bg-muted" />
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -209,7 +220,7 @@ export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps)
         />
         <p className="text-sm text-destructive">{error.message}</p>
       </div>
-    )
+    );
   }
 
   if (!data) {
@@ -222,7 +233,7 @@ export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps)
           backLabel="Back to progress"
         />
       </div>
-    )
+    );
   }
 
   if (!section) {
@@ -235,18 +246,18 @@ export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps)
           backLabel="Back to progress"
         />
       </div>
-    )
+    );
   }
 
   const score =
-    progressMode.mode === 'weighted'
+    progressMode.mode === "weighted"
       ? section.weightedAverageScaledScore
-      : section.averageScaledScore
+      : section.averageScaledScore;
   const percentage =
-    progressMode.mode === 'weighted' &&
+    progressMode.mode === "weighted" &&
     section.weightedAveragePercentage != null
       ? Math.round(section.weightedAveragePercentage)
-      : section.percentage
+      : section.percentage;
 
   return (
     <SectionProgressContent
@@ -254,7 +265,9 @@ export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps)
       score={score}
       percentage={percentage}
       totalPublicQuestions={section.totalPublicQuestions}
-      totalPublicSets={filteredData?.totalPublicSetsBySection?.[section.sectionId]}
+      totalPublicSets={
+        filteredData?.totalPublicSetsBySection?.[section.sectionId]
+      }
       totalPublicUntimedSets={
         filteredData?.totalPublicUntimedSetsBySection?.[section.sectionId]
       }
@@ -267,7 +280,7 @@ export function SectionProgressPage({ sectionNumber }: SectionProgressPageProps)
       progressMode={progressMode}
       sharedDateRange={sharedDateRange}
     />
-  )
+  );
 }
 
 function SectionProgressContent({
@@ -284,74 +297,72 @@ function SectionProgressContent({
   progressMode,
   sharedDateRange,
 }: {
-  section: { sectionId: string; sectionName: string; sectionNumber: number }
-  score: number | null
-  percentage: number
-  totalPublicQuestions?: number
-  totalPublicSets?: number
-  totalPublicUntimedSets?: number
-  totalPublicTimedSets?: number
-  filteredQuestionAttempts: QuestionAttemptRow[]
-  filteredSetAttempts: SetAttemptRow[]
-  categoryProgress: SectionCategoryProgress[]
-  progressMode: ReturnType<typeof useProgressMode>
-  sharedDateRange?: ReturnType<typeof getSharedDateRange>
+  section: { sectionId: string; sectionName: string; sectionNumber: number };
+  score: number | null;
+  percentage: number;
+  totalPublicQuestions?: number;
+  totalPublicSets?: number;
+  totalPublicUntimedSets?: number;
+  totalPublicTimedSets?: number;
+  filteredQuestionAttempts: QuestionAttemptRow[];
+  filteredSetAttempts: SetAttemptRow[];
+  categoryProgress: SectionCategoryProgress[];
+  progressMode: ReturnType<typeof useProgressMode>;
+  sharedDateRange?: ReturnType<typeof getSharedDateRange>;
 }) {
   const stats = useMemo(() => {
     const timeFiltered =
-      progressMode.mode === 'time_frame'
+      progressMode.mode === "time_frame"
         ? filterByTimeFrame(
             filteredQuestionAttempts,
             progressMode.mode,
-            progressMode.timeFrameDays
+            progressMode.timeFrameDays,
           )
-        : filteredQuestionAttempts
-    const unique = getBestAttemptPerQuestion(timeFiltered)
-    let completed = 0
-    let correct = 0
+        : filteredQuestionAttempts;
+    const unique = getBestAttemptPerQuestion(timeFiltered);
+    let completed = 0;
+    let correct = 0;
     for (const a of unique) {
-      const maxPerQuestion = a.questionType === 'syllogism' ? 2 : 1
-      completed += maxPerQuestion
-      correct += a.score ?? 0
+      const maxPerQuestion = a.questionType === "syllogism" ? 2 : 1;
+      completed += maxPerQuestion;
+      correct += a.score ?? 0;
     }
     return {
       completed,
       correct,
       incorrect: completed - correct,
-    }
-  }, [
-    filteredQuestionAttempts,
-    progressMode.mode,
-    progressMode.timeFrameDays,
-  ])
+    };
+  }, [filteredQuestionAttempts, progressMode.mode, progressMode.timeFrameDays]);
 
   const setsStats = useMemo(() => {
     const timeFiltered =
-      progressMode.mode === 'time_frame'
+      progressMode.mode === "time_frame"
         ? filterByTimeFrame(
             filteredSetAttempts,
             progressMode.mode,
-            progressMode.timeFrameDays
+            progressMode.timeFrameDays,
           )
-        : filteredSetAttempts
-    const nonStudentGenerated = timeFiltered.filter((a) => !a.isStudentGenerated)
-    const uniqueSetIds = new Set(nonStudentGenerated.map((a) => a.questionSetId))
+        : filteredSetAttempts;
+    const nonStudentGenerated = timeFiltered.filter(
+      (a) => !a.isStudentGenerated,
+    );
+    const uniqueSetIds = new Set(
+      nonStudentGenerated.map((a) => a.questionSetId),
+    );
     const untimedCompleted = new Set(
-      nonStudentGenerated.filter((a) => !a.wasTimed).map((a) => a.questionSetId)
-    )
+      nonStudentGenerated
+        .filter((a) => !a.wasTimed)
+        .map((a) => a.questionSetId),
+    );
     const timedCompleted = new Set(
-      nonStudentGenerated.filter((a) => a.wasTimed).map((a) => a.questionSetId)
-    )
+      nonStudentGenerated.filter((a) => a.wasTimed).map((a) => a.questionSetId),
+    );
     return {
       totalCompleted: uniqueSetIds.size,
       untimedCompleted: untimedCompleted.size,
       timedCompleted: timedCompleted.size,
-    }
-  }, [
-    filteredSetAttempts,
-    progressMode.mode,
-    progressMode.timeFrameDays,
-  ])
+    };
+  }, [filteredSetAttempts, progressMode.mode, progressMode.timeFrameDays]);
 
   return (
     <div className="space-y-6">
@@ -383,11 +394,11 @@ function SectionProgressContent({
             <CardContent>
               <div
                 className={cn(
-                  'text-4xl font-bold tabular-nums text-center',
-                  score == null && 'text-muted-foreground'
+                  "text-4xl font-bold tabular-nums text-center",
+                  score == null && "text-muted-foreground",
                 )}
               >
-                {score != null ? Math.round(score) : '—'}
+                {score != null ? Math.round(score) : "—"}
               </div>
             </CardContent>
           </Card>
@@ -419,25 +430,25 @@ function SectionProgressContent({
                   <div className="flex flex-col gap-1.5">
                     {(() => {
                       const catsWithAttempts = categoryProgress.filter(
-                        (c) => c.maxScore > 0
-                      )
+                        (c) => c.maxScore > 0,
+                      );
                       const pct = (c: SectionCategoryProgress) =>
-                        progressMode.mode === 'weighted' &&
+                        progressMode.mode === "weighted" &&
                         c.weightedAveragePercentage != null
                           ? c.weightedAveragePercentage
-                          : c.percentage
+                          : c.percentage;
                       const best =
                         catsWithAttempts.length > 0
                           ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) >= pct(b) ? a : b
+                              pct(a) >= pct(b) ? a : b,
                             )
-                          : null
+                          : null;
                       const worst =
                         catsWithAttempts.length > 1
                           ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) <= pct(b) ? a : b
+                              pct(a) <= pct(b) ? a : b,
                             )
-                          : null
+                          : null;
                       return categoryProgress.map((cat) => (
                         <div
                           key={cat.categoryId}
@@ -459,10 +470,10 @@ function SectionProgressContent({
                           <span className="shrink-0">
                             {cat.maxScore > 0
                               ? `${cat.correctScore} / ${cat.maxScore}`
-                              : '—'}
+                              : "—"}
                           </span>
                         </div>
-                      ))
+                      ));
                     })()}
                   </div>
                 </div>
@@ -479,17 +490,17 @@ function SectionProgressContent({
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
                     {stats.completed}
-                    {progressMode.mode !== 'time_frame' &&
+                    {progressMode.mode !== "time_frame" &&
                     totalPublicQuestions != null
                       ? ` / ${totalPublicQuestions}`
-                      : ''}
+                      : ""}
                   </span>
                 </div>
                 <CircularProgress
                   percentage={
                     totalPublicQuestions != null && totalPublicQuestions > 0
                       ? Math.round(
-                          (stats.completed / totalPublicQuestions) * 100
+                          (stats.completed / totalPublicQuestions) * 100,
                         )
                       : stats.completed > 0
                         ? 100
@@ -535,17 +546,17 @@ function SectionProgressContent({
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
                     {setsStats.totalCompleted}
-                    {progressMode.mode !== 'time_frame' &&
+                    {progressMode.mode !== "time_frame" &&
                     totalPublicSets != null
                       ? ` / ${totalPublicSets}`
-                      : ''}
+                      : ""}
                   </span>
                 </div>
                 <CircularProgress
                   percentage={
                     totalPublicSets != null && totalPublicSets > 0
                       ? Math.round(
-                          (setsStats.totalCompleted / totalPublicSets) * 100
+                          (setsStats.totalCompleted / totalPublicSets) * 100,
                         )
                       : setsStats.totalCompleted > 0
                         ? 100
@@ -566,10 +577,10 @@ function SectionProgressContent({
                     </span>
                     <span className="shrink-0">
                       {setsStats.untimedCompleted}
-                      {progressMode.mode !== 'time_frame' &&
+                      {progressMode.mode !== "time_frame" &&
                       totalPublicUntimedSets != null
                         ? ` / ${totalPublicUntimedSets}`
-                        : ''}
+                        : ""}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -578,10 +589,10 @@ function SectionProgressContent({
                     </span>
                     <span className="shrink-0">
                       {setsStats.timedCompleted}
-                      {progressMode.mode !== 'time_frame' &&
+                      {progressMode.mode !== "time_frame" &&
                       totalPublicTimedSets != null
                         ? ` / ${totalPublicTimedSets}`
-                        : ''}
+                        : ""}
                     </span>
                   </div>
                 </div>
@@ -605,5 +616,5 @@ function SectionProgressContent({
         sectionNumber={section.sectionNumber}
       />
     </div>
-  )
+  );
 }

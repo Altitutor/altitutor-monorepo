@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Cormorant+Garamond:ital,wght@1,300;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap");
+
 :root {
   --background: 220 20% 95%;
   --foreground: 224 20% 12%;

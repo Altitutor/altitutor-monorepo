@@ -1,15 +1,15 @@
-import { notFound } from 'next/navigation'
-import { SetDetailPage } from '@/features/sets'
+import { notFound } from "next/navigation";
+import { SetDetailPage } from "@/features/sets";
 
 type PageProps = {
-  params: Promise<{ sectionNumber: string; setId: string }>
-}
+  params: Promise<{ sectionNumber: string; setId: string }>;
+};
 
 export default async function SetDetailSectionRoute({ params }: PageProps) {
-  const { sectionNumber, setId } = await params
-  const num = parseInt(sectionNumber, 10)
+  const { sectionNumber, setId } = await params;
+  const num = parseInt(sectionNumber, 10);
   if (Number.isNaN(num) || num < 1 || num > 4) {
-    notFound()
+    notFound();
   }
-  return <SetDetailPage setId={setId} sectionNumber={num} />
+  return <SetDetailPage setId={setId} sectionNumber={num} />;
 }

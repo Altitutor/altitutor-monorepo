@@ -1,12 +1,12 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { Card, CardContent } from '@altitutor/ui'
-import { UcatPageHeader } from '@/features/layout'
-import { SECTION_NUMBER_TO_NAME } from '@/features/sets/lib/section-labels'
-import { ListChecks, Sparkles } from 'lucide-react'
+import Link from "next/link";
+import { Card, CardContent } from "@altitutor/ui";
+import { UcatPageHeader } from "@/features/layout";
+import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
+import { ListChecks, Sparkles } from "lucide-react";
 
-const SECTIONS = [1, 2, 3, 4] as const
+const SECTIONS = [1, 2, 3, 4] as const;
 
 export function SetsLandingPage() {
   return (
@@ -17,7 +17,7 @@ export function SetsLandingPage() {
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {SECTIONS.map((num) => {
-          const label = SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`
+          const label = SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`;
           return (
             <Link key={num} href={`/sets/sections/${num}`}>
               <Card className="h-full transition-colors hover:bg-muted/50">
@@ -29,7 +29,7 @@ export function SetsLandingPage() {
                 </CardContent>
               </Card>
             </Link>
-          )
+          );
         })}
       </div>
       <section className="space-y-3">
@@ -45,7 +45,8 @@ export function SetsLandingPage() {
               <div className="text-center sm:text-left">
                 <span className="font-medium">Set Generator</span>
                 <p className="text-sm text-muted-foreground">
-                  Build a custom practice set from section, timing, and performance filters.
+                  Build a custom practice set from section, timing, and
+                  performance filters.
                 </p>
               </div>
             </CardContent>
@@ -53,5 +54,5 @@ export function SetsLandingPage() {
         </Link>
       </section>
     </div>
-  )
+  );
 }

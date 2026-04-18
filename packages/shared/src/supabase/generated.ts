@@ -13631,12 +13631,14 @@ export type Database = {
           p_ascending?: boolean
           p_exclude_class_search?: boolean
           p_include_relationships?: boolean
+          p_in_person_filter?: string
           p_limit?: number
           p_offset?: number
           p_order_by?: string
           p_search?: string
           p_statuses?: string[]
           p_subject_ids?: string[]
+          p_subscription_filter?: string
         }
         Returns: Json
       }

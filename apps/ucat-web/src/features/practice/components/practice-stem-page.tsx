@@ -1,56 +1,60 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { QuestionEnginePage } from '@/features/question-engine'
-import type { QuestionStemWithQuestions } from '@/features/question-engine/model/types'
-import { UcatLagProvider } from '@/features/question-engine/context/ucat-lag-context'
-import { fetchStemForPracticeSession } from '@/features/practice/lib/fetch-stem-for-practice'
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { QuestionEnginePage } from "@/features/question-engine";
+import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
+import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
+import { fetchStemForPracticeSession } from "@/features/practice/lib/fetch-stem-for-practice";
 
 type PracticeStemPageProps = {
-  stemId: string
-}
+  stemId: string;
+};
 
 export function PracticeStemPage({ stemId }: PracticeStemPageProps) {
-  const router = useRouter()
-  const [stem, setStem] = useState<QuestionStemWithQuestions | null | 'loading' | 'error'>('loading')
+  const router = useRouter();
+  const [stem, setStem] = useState<
+    QuestionStemWithQuestions | null | "loading" | "error"
+  >("loading");
 
   useEffect(() => {
-    let cancelled = false
-    ;(async () => {
+    let cancelled = false;
+    (async () => {
       try {
-        const data = await fetchStemForPracticeSession(stemId)
-        if (!cancelled) setStem(data)
+        const data = await fetchStemForPracticeSession(stemId);
+        if (!cancelled) setStem(data);
       } catch {
-        if (!cancelled) setStem('error')
+        if (!cancelled) setStem("error");
       }
-    })()
+    })();
     return () => {
-      cancelled = true
-    }
-  }, [stemId])
+      cancelled = true;
+    };
+  }, [stemId]);
 
-  if (stem === 'loading') {
+  if (stem === "loading") {
     return (
       <div className="flex min-h-[200px] items-center justify-center">
         <p className="text-muted-foreground">Loading…</p>
       </div>
-    )
+    );
   }
 
-  if (stem === 'error' || !stem) {
+  if (stem === "error" || !stem) {
     return (
       <div className="flex min-h-[200px] flex-col items-center justify-center gap-4 p-6">
-        <p className="text-sm text-destructive">Could not load this question stem.</p>
+        <p className="text-sm text-destructive">
+          Could not load this question stem.
+        </p>
         <button
           type="button"
           className="text-sm text-primary underline"
-          onClick={() => router.replace('/sessions')}
+          onClick={() => router.replace("/sessions")}
         >
           Back to sessions
         </button>
       </div>
-    )
+    );
   }
 
   return (
@@ -62,8 +66,8 @@ export function PracticeStemPage({ stemId }: PracticeStemPageProps) {
         practice
         timePerQuestionSeconds={null}
         backHref="/sessions"
-        onBack={() => router.push('/sessions')}
+        onBack={() => router.push("/sessions")}
       />
     </UcatLagProvider>
-  )
+  );
 }

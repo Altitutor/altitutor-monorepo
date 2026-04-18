@@ -1,12 +1,12 @@
-import { Info } from 'lucide-react'
-import { UcatExamActionButton, UcatExamDialog } from '@altitutor/ui'
+import { Info } from "lucide-react";
+import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
 
 export function EndExamDialog({
   onConfirm,
   onCancel,
 }: {
-  onConfirm: () => void
-  onCancel: () => void
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
   return (
     <UcatExamDialog
@@ -21,14 +21,18 @@ export function EndExamDialog({
       actions={
         <>
           <UcatExamActionButton borders="all" onClick={onConfirm}>
-            <span><span className="underline">Y</span>es</span>
+            <span>
+              <span className="underline">Y</span>es
+            </span>
           </UcatExamActionButton>
           <UcatExamActionButton borders="all" onClick={onCancel}>
-            <span><span className="underline">N</span>o</span>
+            <span>
+              <span className="underline">N</span>o
+            </span>
           </UcatExamActionButton>
         </>
       }
       className="max-w-3xl"
     />
-  )
+  );
 }

@@ -1,26 +1,26 @@
-'use client'
+"use client";
 
-import { Info } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Info } from "lucide-react";
+import { cn } from "@/lib/utils";
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@altitutor/ui'
+} from "@altitutor/ui";
 
 type SegmentedControlOption<T> = {
-  value: T
-  label: string
-  infoTooltip?: string
-}
+  value: T;
+  label: string;
+  infoTooltip?: string;
+};
 
 type SegmentedControlProps<T extends string> = {
-  value: T
-  onValueChange: (value: T) => void
-  options: SegmentedControlOption<T>[]
-  className?: string
-}
+  value: T;
+  onValueChange: (value: T) => void;
+  options: SegmentedControlOption<T>[];
+  className?: string;
+};
 
 /** Matches the set generator page tab selector style. */
 export function SegmentedControl<T extends string>({
@@ -32,13 +32,13 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       className={cn(
-        'inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs',
-        className
+        "inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs",
+        className,
       )}
       role="tablist"
     >
       {options.map((option) => {
-        const isActive = value === option.value
+        const isActive = value === option.value;
         return (
           <button
             key={option.value}
@@ -47,10 +47,10 @@ export function SegmentedControl<T extends string>({
             aria-selected={isActive}
             onClick={() => onValueChange(option.value)}
             className={cn(
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors',
+              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors",
               isActive
-                ? 'bg-sidebar text-sidebar-foreground'
-                : 'text-foreground hover:bg-muted/80'
+                ? "bg-sidebar text-sidebar-foreground"
+                : "text-foreground hover:bg-muted/80",
             )}
           >
             {option.label}
@@ -72,8 +72,8 @@ export function SegmentedControl<T extends string>({
               </TooltipProvider>
             )}
           </button>
-        )
+        );
       })}
     </div>
-  )
+  );
 }

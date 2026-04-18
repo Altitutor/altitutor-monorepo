@@ -1,5 +1,5 @@
-import { SubscribePage } from '@/features/subscription'
+import { SubscribePage } from "@/features/subscription";
 
 export default function Page() {
-  return <SubscribePage />
+  return <SubscribePage />;
 }

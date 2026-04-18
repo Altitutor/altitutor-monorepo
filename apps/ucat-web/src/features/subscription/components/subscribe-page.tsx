@@ -1,54 +1,54 @@
-'use client'
+"use client";
 
-import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
-import { Button } from '@altitutor/ui'
-import { UcatPageHeader } from '@/features/layout'
-import { createUcatCheckoutSession } from '@/features/subscription/api/create-checkout'
-import { fetchPublicSubscriptionConfig } from '@/features/subscription/api/fetch-public-subscription-config'
-import { defaultPublicSubscriptionConfig } from '@/features/subscription/types/public-subscription-config'
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Button } from "@altitutor/ui";
+import { UcatPageHeader } from "@/features/layout";
+import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
+import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
 import {
   billingIntervalLabel,
   billingIntervalNoun,
   formatMoneyFromMinorUnits,
-} from '@/features/subscription/lib/format-subscription-copy'
-import { useAuth } from '@/features/auth'
+} from "@/features/subscription/lib/format-subscription-copy";
+import { useAuth } from "@/features/auth";
 
 export function SubscribePage() {
-  const searchParams = useSearchParams()
-  const { user } = useAuth()
-  const canceled = searchParams.get('canceled') === '1'
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig)
+  const searchParams = useSearchParams();
+  const { user } = useAuth();
+  const canceled = searchParams.get("canceled") === "1";
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
 
   useEffect(() => {
-    let cancelled = false
+    let cancelled = false;
     void (async () => {
-      const next = await fetchPublicSubscriptionConfig()
-      if (!cancelled) setCfg(next)
-    })()
+      const next = await fetchPublicSubscriptionConfig();
+      if (!cancelled) setCfg(next);
+    })();
     return () => {
-      cancelled = true
-    }
-  }, [])
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubscribe = async () => {
     if (!user) {
-      window.location.href = `/login?redirect=${encodeURIComponent('/subscribe')}`
-      return
+      window.location.href = `/login?redirect=${encodeURIComponent("/subscribe")}`;
+      return;
     }
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const { url } = await createUcatCheckoutSession()
-      window.location.href = url
+      const { url } = await createUcatCheckoutSession();
+      window.location.href = url;
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to start checkout')
-      setLoading(false)
+      setError(e instanceof Error ? e.message : "Failed to start checkout");
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="space-y-6">
@@ -69,9 +69,7 @@ export function SubscribePage() {
           <li>Full access to practice sets and mocks</li>
           <li>Progress tracking and analytics</li>
           {cfg.trialDays > 0 ? (
-            <li>
-              {cfg.trialDays}-day free trial
-            </li>
+            <li>{cfg.trialDays}-day free trial</li>
           ) : (
             <li>No trial period — billing starts when you subscribe</li>
           )}
@@ -80,34 +78,36 @@ export function SubscribePage() {
           </li>
           {cfg.basePriceCents > 0 ? (
             <li>
-              {formatMoneyFromMinorUnits(cfg.basePriceCents, cfg.currency)} per{' '}
+              {formatMoneyFromMinorUnits(cfg.basePriceCents, cfg.currency)} per{" "}
               {billingIntervalNoun(cfg.billingInterval)} after
-              {cfg.trialDays > 0 ? ' your free trial' : ' signup'}
+              {cfg.trialDays > 0 ? " your free trial" : " signup"}
             </li>
           ) : null}
           <li>
-            Earn {formatMoneyFromMinorUnits(cfg.discountPerDayCents, cfg.currency)} off for every{' '}
-            {cfg.minQuestionsPerDay} questions you complete in a day
+            Earn{" "}
+            {formatMoneyFromMinorUnits(cfg.discountPerDayCents, cfg.currency)}{" "}
+            off for every {cfg.minQuestionsPerDay} questions you complete in a
+            day
           </li>
         </ul>
 
         {user ? (
-          <Button
-            className="mt-6"
-            onClick={handleSubscribe}
-            disabled={loading}
-          >
-            {loading ? 'Redirecting...' : 'Subscribe now'}
+          <Button className="mt-6" onClick={handleSubscribe} disabled={loading}>
+            {loading ? "Redirecting..." : "Subscribe now"}
           </Button>
         ) : (
           <div className="mt-6 flex flex-col gap-3 sm:flex-row">
             <Button asChild>
-              <Link href={`/signup?redirect=${encodeURIComponent('/subscribe')}`}>
+              <Link
+                href={`/signup?redirect=${encodeURIComponent("/subscribe")}`}
+              >
                 Create account
               </Link>
             </Button>
             <Button variant="outline" asChild>
-              <Link href={`/login?redirect=${encodeURIComponent('/subscribe')}`}>
+              <Link
+                href={`/login?redirect=${encodeURIComponent("/subscribe")}`}
+              >
                 Log in
               </Link>
             </Button>
@@ -119,5 +119,5 @@ export function SubscribePage() {
         ) : null}
       </div>
     </div>
-  )
+  );
 }

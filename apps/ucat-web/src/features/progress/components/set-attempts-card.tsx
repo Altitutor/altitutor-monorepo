@@ -1,7 +1,7 @@
-'use client'
+"use client";
 
-import { useRouter } from 'next/navigation'
-import { useMemo, useState } from 'react'
+import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -14,43 +14,46 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from '@altitutor/ui'
-import { TableHeaderWithTooltip } from './table-header-with-tooltip'
-import { ProgressTablePagination } from './progress-table-pagination'
-import { GraphTypeTabs } from './graph-type-tabs'
-import { format } from 'date-fns'
-import { ProgressGraph, type GraphDataType } from './progress-graph'
-import { formatTimeSeconds } from '../lib/format-time'
+} from "@altitutor/ui";
+import { TableHeaderWithTooltip } from "./table-header-with-tooltip";
+import { ProgressTablePagination } from "./progress-table-pagination";
+import { GraphTypeTabs } from "./graph-type-tabs";
+import { format } from "date-fns";
+import { ProgressGraph, type GraphDataType } from "./progress-graph";
+import { formatTimeSeconds } from "../lib/format-time";
 import {
   aggregateForGraph,
   filterByTimeFrame,
   type SharedDateRange,
-} from '../lib/progress-data-utils'
-import type { SetAttemptRow } from '@/app/api/ucat/progress/route'
-import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
+} from "../lib/progress-data-utils";
+import type { SetAttemptRow } from "@/app/api/ucat/progress/route";
+import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
 
 type SetAttemptsCardProps = {
-  attempts: SetAttemptRow[]
-  mode: ProgressMode
-  timeFrameDays: TimeFrameDays
-  sharedDateRange?: SharedDateRange
+  attempts: SetAttemptRow[];
+  mode: ProgressMode;
+  timeFrameDays: TimeFrameDays;
+  sharedDateRange?: SharedDateRange;
   /** When set, links go to /progress/sections/{sectionNumber}/set-attempts/{id} so back returns to section. */
-  sectionNumber?: number
-}
+  sectionNumber?: number;
+};
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
-  { value: 'scaled_score', label: 'Scaled score' },
-  { value: 'percentage', label: 'Percentage' },
-  { value: 'time_taken', label: 'Time taken' },
-  { value: 'exam_speed', label: 'Exam speed' },
-  { value: 'attempt_count', label: 'Number of attempts' },
-]
+  { value: "scaled_score", label: "Scaled score" },
+  { value: "percentage", label: "Percentage" },
+  { value: "time_taken", label: "Time taken" },
+  { value: "exam_speed", label: "Exam speed" },
+  { value: "attempt_count", label: "Number of attempts" },
+];
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50]
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
-function getDateRangeLabel(mode: ProgressMode, timeFrameDays: TimeFrameDays): string {
-  if (mode === 'time_frame') return `Last ${timeFrameDays} days`
-  return mode === 'weighted' ? 'Weighted average (all time)' : 'All time'
+function getDateRangeLabel(
+  mode: ProgressMode,
+  timeFrameDays: TimeFrameDays,
+): string {
+  if (mode === "time_frame") return `Last ${timeFrameDays} days`;
+  return mode === "weighted" ? "Weighted average (all time)" : "All time";
 }
 
 export function SetAttemptsCard({
@@ -60,47 +63,49 @@ export function SetAttemptsCard({
   sharedDateRange,
   sectionNumber,
 }: SetAttemptsCardProps) {
-  const router = useRouter()
-  const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
-  const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
-  const [page, setPage] = useState(1)
-  const [pageSize, setPageSize] = useState(10)
+  const router = useRouter();
+  const [graphDataType, setGraphDataType] =
+    useState<GraphDataType>("scaled_score");
+  const [graphType, setGraphType] = useState<"line" | "bar">("line");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const standaloneAttempts = useMemo(() => {
-    const result = attempts.filter((a) => !a.studentUcatMockAttemptId)
-    return filterByTimeFrame(result, mode, timeFrameDays)
-  }, [attempts, mode, timeFrameDays])
+    const result = attempts.filter((a) => !a.studentUcatMockAttemptId);
+    return filterByTimeFrame(result, mode, timeFrameDays);
+  }, [attempts, mode, timeFrameDays]);
 
   const { graphData, dateRangeLabel } = useMemo(() => {
-    const isCountMetric = graphDataType === 'attempt_count'
+    const isCountMetric = graphDataType === "attempt_count";
     const graphData = aggregateForGraph(
       standaloneAttempts,
       (a) => a.completedAt ?? a.attemptedAt,
       (a) => {
-        if (graphDataType === 'scaled_score') return a.scaledScore ?? 0
-        if (graphDataType === 'percentage') {
-          const total = a.totalPoints ?? 0
-          return total > 0 ? ((a.scorePoints ?? 0) / total) * 100 : 0
+        if (graphDataType === "scaled_score") return a.scaledScore ?? 0;
+        if (graphDataType === "percentage") {
+          const total = a.totalPoints ?? 0;
+          return total > 0 ? ((a.scorePoints ?? 0) / total) * 100 : 0;
         }
-        if (graphDataType === 'time_taken') return Math.round(a.timeTakenSeconds ?? 0)
-        if (graphDataType === 'attempt_count') return 1
-        return (a.studentExamSpeed ?? 0) * 100
+        if (graphDataType === "time_taken")
+          return Math.round(a.timeTakenSeconds ?? 0);
+        if (graphDataType === "attempt_count") return 1;
+        return (a.studentExamSpeed ?? 0) * 100;
       },
       mode,
       timeFrameDays,
       isCountMetric,
-      sharedDateRange
-    )
+      sharedDateRange,
+    );
     return {
       graphData,
       dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
-    }
-  }, [standaloneAttempts, graphDataType, mode, timeFrameDays, sharedDateRange])
+    };
+  }, [standaloneAttempts, graphDataType, mode, timeFrameDays, sharedDateRange]);
 
   const paginatedAttempts = useMemo(() => {
-    const start = (page - 1) * pageSize
-    return standaloneAttempts.slice(start, start + pageSize)
-  }, [standaloneAttempts, page, pageSize])
+    const start = (page - 1) * pageSize;
+    return standaloneAttempts.slice(start, start + pageSize);
+  }, [standaloneAttempts, page, pageSize]);
 
   return (
     <Card className="rounded-xl border-border">
@@ -109,7 +114,9 @@ export function SetAttemptsCard({
         <div className="flex flex-wrap items-center gap-2">
           <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
             items={GRAPH_DATA_TYPES}
-            value={GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null}
+            value={
+              GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
+            }
             onValueChange={(item) => item && setGraphDataType(item.value)}
             getItemLabel={(r) => r.label}
             getItemId={(r) => r.value}
@@ -134,29 +141,19 @@ export function SetAttemptsCard({
                 <TableRow>
                   <TableHead>Date</TableHead>
                   <TableHead>Set</TableHead>
-                  <TableHeaderWithTooltip
-                    tooltip="Raw score: correct points earned out of total possible points for this set."
-                  >
+                  <TableHeaderWithTooltip tooltip="Raw score: correct points earned out of total possible points for this set.">
                     Points
                   </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip
-                    tooltip="Scaled score (0–900) normalised to UCAT exam scale for this section."
-                  >
+                  <TableHeaderWithTooltip tooltip="Scaled score (0–900) normalised to UCAT exam scale for this section.">
                     Scaled score
                   </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip
-                    tooltip="Time taken vs time limit for this set (e.g. 25:00 / 30:00)."
-                  >
+                  <TableHeaderWithTooltip tooltip="Time taken vs time limit for this set (e.g. 25:00 / 30:00).">
                     Time
                   </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip
-                    tooltip="How fast you completed this set vs its time limit. >100% means you finished early."
-                  >
+                  <TableHeaderWithTooltip tooltip="How fast you completed this set vs its time limit. >100% means you finished early.">
                     Set speed
                   </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip
-                    tooltip="How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace."
-                  >
+                  <TableHeaderWithTooltip tooltip="How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace.">
                     Exam speed
                   </TableHeaderWithTooltip>
                 </TableRow>
@@ -164,23 +161,30 @@ export function SetAttemptsCard({
               <TableBody>
                 {standaloneAttempts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={7}
+                      className="text-center text-muted-foreground"
+                    >
                       No submitted set attempts yet
                     </TableCell>
                   </TableRow>
                 ) : (
                   paginatedAttempts.map((a) => {
                     const dateStr = a.completedAt
-                      ? format(new Date(a.completedAt), 'dd MMM yyyy')
-                      : format(new Date(a.attemptedAt), 'dd MMM yyyy')
-                    const total = a.totalPoints ?? 0
-                    const points = a.scorePoints ?? 0
-                    const timeLimit = a.setTimeLimitSeconds ?? 0
-                    const timeTaken = a.timeTakenSeconds ?? 0
+                      ? format(new Date(a.completedAt), "dd MMM yyyy")
+                      : format(new Date(a.attemptedAt), "dd MMM yyyy");
+                    const total = a.totalPoints ?? 0;
+                    const points = a.scorePoints ?? 0;
+                    const timeLimit = a.setTimeLimitSeconds ?? 0;
+                    const timeTaken = a.timeTakenSeconds ?? 0;
                     const setSpeed =
-                      a.studentSetSpeed != null ? `${(a.studentSetSpeed * 100).toFixed(1)}%` : '—'
+                      a.studentSetSpeed != null
+                        ? `${(a.studentSetSpeed * 100).toFixed(1)}%`
+                        : "—";
                     const examSpeed =
-                      a.studentExamSpeed != null ? `${(a.studentExamSpeed * 100).toFixed(1)}%` : '—'
+                      a.studentExamSpeed != null
+                        ? `${(a.studentExamSpeed * 100).toFixed(1)}%`
+                        : "—";
 
                     return (
                       <TableRow
@@ -190,25 +194,25 @@ export function SetAttemptsCard({
                           router.push(
                             sectionNumber != null
                               ? `/progress/sections/${sectionNumber}/set-attempts/${a.id}`
-                              : `/progress/set-attempts/${a.id}`
+                              : `/progress/set-attempts/${a.id}`,
                           )
                         }
                       >
                         <TableCell>{dateStr}</TableCell>
-                        <TableCell>{a.questionSetName ?? '—'}</TableCell>
+                        <TableCell>{a.questionSetName ?? "—"}</TableCell>
                         <TableCell>
-                          {total > 0 ? `${points} / ${total}` : '—'}
+                          {total > 0 ? `${points} / ${total}` : "—"}
                         </TableCell>
-                        <TableCell>{a.scaledScore ?? '—'}</TableCell>
+                        <TableCell>{a.scaledScore ?? "—"}</TableCell>
                         <TableCell>
                           {timeLimit > 0 && timeTaken != null
                             ? `${formatTimeSeconds(Math.round(timeTaken))} / ${formatTimeSeconds(Math.round(timeLimit))}`
-                            : '—'}
+                            : "—"}
                         </TableCell>
                         <TableCell>{setSpeed}</TableCell>
                         <TableCell>{examSpeed}</TableCell>
                       </TableRow>
-                    )
+                    );
                   })
                 )}
               </TableBody>
@@ -221,8 +225,8 @@ export function SetAttemptsCard({
               total={standaloneAttempts.length}
               onPageChange={setPage}
               onPageSizeChange={(size) => {
-                setPageSize(size)
-                setPage(1)
+                setPageSize(size);
+                setPage(1);
               }}
               pageSizeOptions={PAGE_SIZE_OPTIONS}
             />
@@ -230,5 +234,5 @@ export function SetAttemptsCard({
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,32 +1,32 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { Menu, Settings } from 'lucide-react'
-import { useUcatLag } from '@/features/question-engine/context/ucat-lag-context'
-import { cn } from '@/lib/utils'
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Menu, Settings } from "lucide-react";
+import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
+import { cn } from "@/lib/utils";
 
 export function UcatFloatingToolbar() {
-  const router = useRouter()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
-  const { enabled: lagEnabled, setEnabled: setLagEnabled } = useUcatLag()
+  const router = useRouter();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const { enabled: lagEnabled, setEnabled: setLagEnabled } = useUcatLag();
 
   const handleGoHome = () => {
     const confirmLeave = window.confirm(
-      'Are you sure you want to leave this UCAT exam? Your current progress may be lost.'
-    )
+      "Are you sure you want to leave this UCAT exam? Your current progress may be lost.",
+    );
     if (!confirmLeave) {
-      return
+      return;
     }
 
-    setMenuOpen(false)
-    router.push('/')
-  }
+    setMenuOpen(false);
+    router.push("/");
+  };
 
   const handleSettingsClick = () => {
-    setSettingsOpen((prev) => !prev)
-  }
+    setSettingsOpen((prev) => !prev);
+  };
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-2 z-[60] flex justify-center">
@@ -53,8 +53,8 @@ export function UcatFloatingToolbar() {
 
           <div
             className={cn(
-              'absolute left-1/2 top-9 z-[61] -translate-x-1/2 rounded-md border bg-background text-xs shadow-lg',
-              menuOpen ? 'block' : 'hidden'
+              "absolute left-1/2 top-9 z-[61] -translate-x-1/2 rounded-md border bg-background text-xs shadow-lg",
+              menuOpen ? "block" : "hidden",
             )}
           >
             <button
@@ -68,8 +68,8 @@ export function UcatFloatingToolbar() {
 
           <div
             className={cn(
-              'absolute right-0 top-9 z-[61] mt-1 w-56 rounded-md border bg-background text-xs shadow-lg',
-              settingsOpen ? 'block' : 'hidden'
+              "absolute right-0 top-9 z-[61] mt-1 w-56 rounded-md border bg-background text-xs shadow-lg",
+              settingsOpen ? "block" : "hidden",
             )}
           >
             <div className="px-3 py-2">
@@ -93,6 +93,5 @@ export function UcatFloatingToolbar() {
         </div>
       </div>
     </div>
-  )
+  );
 }
-

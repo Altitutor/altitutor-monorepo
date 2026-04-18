@@ -1,21 +1,21 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { Button } from '@altitutor/ui'
-import { MarketingHeader } from '@/features/landing'
-import { useAuth } from '@/features/auth'
-import { Check } from 'lucide-react'
+import Link from "next/link";
+import { Button } from "@altitutor/ui";
+import { MarketingHeader } from "@/features/landing";
+import { useAuth } from "@/features/auth";
+import { Check } from "lucide-react";
 
 const features = [
-  'Full access to practice sets and mocks',
-  'Progress tracking and analytics',
-  '7-day free trial',
-  'Weekly billing – cancel anytime',
-  'Earn $10 off for every 20 questions you complete in a day',
-]
+  "Full access to practice sets and mocks",
+  "Progress tracking and analytics",
+  "7-day free trial",
+  "Weekly billing – cancel anytime",
+  "Earn $10 off for every 20 questions you complete in a day",
+];
 
 export function PricingPage() {
-  const { user } = useAuth()
+  const { user } = useAuth();
   return (
     <div className="min-h-screen bg-background">
       <MarketingHeader />
@@ -25,11 +25,14 @@ export function PricingPage() {
             UCAT Online Platform
           </h1>
           <p className="mt-4 text-center text-muted-foreground">
-            Get full access to the UCAT online platform with practice sets, mocks, and progress tracking.
+            Get full access to the UCAT online platform with practice sets,
+            mocks, and progress tracking.
           </p>
 
           <div className="mt-10 rounded-xl border border-border bg-card p-8">
-            <h2 className="text-xl font-semibold text-foreground">What&apos;s included</h2>
+            <h2 className="text-xl font-semibold text-foreground">
+              What&apos;s included
+            </h2>
             <ul className="mt-6 space-y-4">
               {features.map((feature) => (
                 <li key={feature} className="flex items-start gap-3">
@@ -50,8 +53,11 @@ export function PricingPage() {
                     <Link href="/signup?redirect=/subscribe">Get started</Link>
                   </Button>
                   <p className="text-center text-sm text-muted-foreground">
-                    Already have an account?{' '}
-                    <Link href="/login?redirect=/subscribe" className="underline hover:text-foreground">
+                    Already have an account?{" "}
+                    <Link
+                      href="/login?redirect=/subscribe"
+                      className="underline hover:text-foreground"
+                    >
                       Log in
                     </Link>
                   </p>
@@ -62,5 +68,5 @@ export function PricingPage() {
         </section>
       </main>
     </div>
-  )
+  );
 }

@@ -1,73 +1,75 @@
-'use client'
+"use client";
 
-import { useRouter } from 'next/navigation'
-import { useMutation } from '@tanstack/react-query'
-import { UcatPageHeader } from '@/features/layout'
-import type { QuestionStemWithQuestions } from '@/features/question-engine/model/types'
-import { useStemFilters } from '@/features/set-generator/hooks/use-stem-filters'
-import { StemFiltersPanel } from '@/features/set-generator/components/stem-filters-panel'
-import type { SetGeneratorInput } from '@/features/set-generator/model/types'
-import { setPracticeSession } from '@/features/practice/lib/session-storage'
+import { useRouter } from "next/navigation";
+import { useMutation } from "@tanstack/react-query";
+import { UcatPageHeader } from "@/features/layout";
+import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
+import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
+import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
+import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import { setPracticeSession } from "@/features/practice/lib/session-storage";
 
 export function PracticePage() {
-  const router = useRouter()
+  const router = useRouter();
   const filters = useStemFilters({
-    timeControlType: 'perQuestion',
+    timeControlType: "perQuestion",
     showUnlimitedOption: true,
-  })
+  });
 
   const startMutation = useMutation({
     mutationFn: async ({
       payload,
       ucatSectionId,
     }: {
-      payload: SetGeneratorInput & { unlimited?: boolean }
-      ucatSectionId: string
+      payload: SetGeneratorInput & { unlimited?: boolean };
+      ucatSectionId: string;
     }) => {
-      const { unlimited, ...input } = payload
-      const sectionKey = input.section
+      const { unlimited, ...input } = payload;
+      const sectionKey = input.section;
 
       if (unlimited) {
-        const createSessionRes = await fetch('/api/ucat/practice-sessions', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const createSessionRes = await fetch("/api/ucat/practice-sessions", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sectionKey,
             ucatSectionId,
             filtersSnapshot: input,
             unlimited: true,
           }),
-        })
+        });
 
         if (!createSessionRes.ok) {
-          const body = await createSessionRes.json().catch(() => ({}))
-          throw new Error(body.error ?? 'Failed to create practice session')
+          const body = await createSessionRes.json().catch(() => ({}));
+          throw new Error(body.error ?? "Failed to create practice session");
         }
 
-        const { id: sessionId } = (await createSessionRes.json()) as { id: string }
-        return { unlimited: true as const, stems: [], sessionId }
+        const { id: sessionId } = (await createSessionRes.json()) as {
+          id: string;
+        };
+        return { unlimited: true as const, stems: [], sessionId };
       }
 
-      const stemsRes = await fetch('/api/ucat/practice-stems', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const stemsRes = await fetch("/api/ucat/practice-stems", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ input: payload }),
-      })
+      });
 
       if (!stemsRes.ok) {
-        const body = await stemsRes.json().catch(() => ({}))
-        throw new Error(body.error ?? 'Failed to load practice stems')
+        const body = await stemsRes.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to load practice stems");
       }
 
       const stemsData = (await stemsRes.json()) as {
-        stems: QuestionStemWithQuestions[]
-        questionCount: number
-        totalMatchingQuestions: number
-      }
+        stems: QuestionStemWithQuestions[];
+        questionCount: number;
+        totalMatchingQuestions: number;
+      };
 
-      const createSessionRes = await fetch('/api/ucat/practice-sessions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const createSessionRes = await fetch("/api/ucat/practice-sessions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sectionKey,
           ucatSectionId,
@@ -75,58 +77,60 @@ export function PracticePage() {
           stemsSnapshot: stemsData.stems,
           unlimited: false,
         }),
-      })
+      });
 
       if (!createSessionRes.ok) {
-        const body = await createSessionRes.json().catch(() => ({}))
-        throw new Error(body.error ?? 'Failed to create practice session')
+        const body = await createSessionRes.json().catch(() => ({}));
+        throw new Error(body.error ?? "Failed to create practice session");
       }
 
-      const { id: sessionId } = (await createSessionRes.json()) as { id: string }
+      const { id: sessionId } = (await createSessionRes.json()) as {
+        id: string;
+      };
 
       return {
         stems: stemsData.stems,
         questionCount: stemsData.questionCount,
         totalMatchingQuestions: stemsData.totalMatchingQuestions,
         sessionId,
-      }
+      };
     },
     onSuccess: (data, variables) => {
       const timePerQuestionSeconds =
         variables.payload.timePerQuestionSeconds != null &&
         variables.payload.timePerQuestionSeconds > 0
           ? variables.payload.timePerQuestionSeconds
-          : null
+          : null;
 
-      if ('unlimited' in data && data.unlimited) {
+      if ("unlimited" in data && data.unlimited) {
         setPracticeSession({
-          mode: 'unlimited',
+          mode: "unlimited",
           sessionId: data.sessionId,
           filters: variables.payload,
           timePerQuestionSeconds,
-        })
+        });
       } else {
         setPracticeSession({
-          mode: 'set',
+          mode: "set",
           sessionId: data.sessionId,
           stems: data.stems,
           timePerQuestionSeconds,
-        })
+        });
       }
-      router.push('/practice/session')
+      router.push("/practice/session");
     },
-  })
+  });
 
   function handleStart() {
-    const ucatSectionId = filters.selectedSection?.id
-    if (!ucatSectionId) return
+    const ucatSectionId = filters.selectedSection?.id;
+    if (!ucatSectionId) return;
 
-    const unlimited = filters.questionCountMode === 'unlimited'
+    const unlimited = filters.questionCountMode === "unlimited";
     const payload = {
       ...filters.input,
       unlimited: unlimited || undefined,
-    }
-    startMutation.mutate({ payload, ucatSectionId })
+    };
+    startMutation.mutate({ payload, ucatSectionId });
   }
 
   const actionButton = (
@@ -136,9 +140,9 @@ export function PracticePage() {
       disabled={startMutation.isPending || !filters.selectedSection?.id}
       className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground disabled:opacity-60"
     >
-      {startMutation.isPending ? 'Loading…' : 'Start practice'}
+      {startMutation.isPending ? "Loading…" : "Start practice"}
     </button>
-  )
+  );
 
   return (
     <div className="space-y-6">
@@ -173,5 +177,5 @@ export function PracticePage() {
         actionButton={actionButton}
       />
     </div>
-  )
+  );
 }

@@ -1,23 +1,22 @@
-'use client'
+"use client";
 
-import { UcatExamActionButton, UcatExamDialog } from '@altitutor/ui'
+import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
 
 export function TimeExpiredDialog({
   onOk,
   isSetMode,
   isPracticeMode,
 }: {
-  onOk: () => void
-  isSetMode?: boolean
+  onOk: () => void;
+  isSetMode?: boolean;
   /** When true: "Your time has run out. Click OK to view the answer." */
-  isPracticeMode?: boolean
+  isPracticeMode?: boolean;
 }) {
-  const message =
-    isPracticeMode
-      ? 'Your time has run out. Click OK to view the answer.'
-      : isSetMode
-        ? 'Your time on this section has expired. Click OK to end the set.'
-        : 'Your time on this section has expired. Timing has begun on the next section. Click OK to continue.'
+  const message = isPracticeMode
+    ? "Your time has run out. Click OK to view the answer."
+    : isSetMode
+      ? "Your time on this section has expired. Click OK to end the set."
+      : "Your time on this section has expired. Timing has begun on the next section. Click OK to continue.";
 
   return (
     <UcatExamDialog
@@ -32,5 +31,5 @@ export function TimeExpiredDialog({
       }
       className="max-w-2xl"
     />
-  )
+  );
 }

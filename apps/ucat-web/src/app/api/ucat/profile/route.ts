@@ -1,64 +1,73 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getSupabaseServerClient } from '@/lib/supabase/server'
-import { supabaseAdmin } from '@/lib/supabase/admin'
+import { NextRequest, NextResponse } from "next/server";
+import { getSupabaseServerClient } from "@/lib/supabase/server";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 const COMMON_TIMEZONES = [
-  'Australia/Adelaide',
-  'Australia/Brisbane',
-  'Australia/Darwin',
-  'Australia/Hobart',
-  'Australia/Melbourne',
-  'Australia/Perth',
-  'Australia/Sydney',
-  'Pacific/Auckland',
-  'Asia/Singapore',
-  'Europe/London',
-  'America/New_York',
-  'UTC',
-]
+  "Australia/Adelaide",
+  "Australia/Brisbane",
+  "Australia/Darwin",
+  "Australia/Hobart",
+  "Australia/Melbourne",
+  "Australia/Perth",
+  "Australia/Sydney",
+  "Pacific/Auckland",
+  "Asia/Singapore",
+  "Europe/London",
+  "America/New_York",
+  "UTC",
+];
 
 /**
  * GET /api/ucat/profile
  * Returns current student's profile (timezone).
  */
 export async function GET() {
-  const supabase = await getSupabaseServerClient()
+  const supabase = await getSupabaseServerClient();
 
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (authError) {
-    return NextResponse.json({ error: 'Failed to get user' }, { status: 500 })
+    return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!supabaseAdmin) {
-    return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
+    return NextResponse.json(
+      { error: "Server not configured" },
+      { status: 500 },
+    );
   }
 
   const { data: student, error: studentError } = await supabaseAdmin
-    .from('students')
-    .select('id, timezone')
-    .eq('user_id', user.id)
-    .maybeSingle()
+    .from("students")
+    .select("id, timezone")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   if (studentError) {
-    return NextResponse.json({ error: 'Failed to load profile' }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to load profile" },
+      { status: 500 },
+    );
   }
 
   if (!student) {
-    return NextResponse.json({ error: 'No student profile found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "No student profile found" },
+      { status: 404 },
+    );
   }
 
   return NextResponse.json({
-    timezone: student.timezone ?? 'Australia/Adelaide',
+    timezone: student.timezone ?? "Australia/Adelaide",
     timezoneOptions: COMMON_TIMEZONES,
-  })
+  });
 }
 
 /**
@@ -66,54 +75,66 @@ export async function GET() {
  * Updates current student's timezone.
  */
 export async function PATCH(request: NextRequest) {
-  const supabase = await getSupabaseServerClient()
+  const supabase = await getSupabaseServerClient();
 
   const {
     data: { user },
     error: authError,
-  } = await supabase.auth.getUser()
+  } = await supabase.auth.getUser();
 
   if (authError) {
-    return NextResponse.json({ error: 'Failed to get user' }, { status: 500 })
+    return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
   }
 
   if (!user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   if (!supabaseAdmin) {
-    return NextResponse.json({ error: 'Server not configured' }, { status: 500 })
+    return NextResponse.json(
+      { error: "Server not configured" },
+      { status: 500 },
+    );
   }
 
-  const body = (await request.json()) as { timezone?: string }
-  const timezone = body.timezone?.trim()
+  const body = (await request.json()) as { timezone?: string };
+  const timezone = body.timezone?.trim();
 
   if (!timezone) {
-    return NextResponse.json({ error: 'timezone is required' }, { status: 400 })
+    return NextResponse.json(
+      { error: "timezone is required" },
+      { status: 400 },
+    );
   }
 
   const { data: student, error: studentError } = await supabaseAdmin
-    .from('students')
-    .select('id')
-    .eq('user_id', user.id)
-    .maybeSingle()
+    .from("students")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
 
   if (studentError) {
-    return NextResponse.json({ error: 'Failed to resolve student' }, { status: 500 })
+    return NextResponse.json(
+      { error: "Failed to resolve student" },
+      { status: 500 },
+    );
   }
 
   if (!student) {
-    return NextResponse.json({ error: 'No student profile found' }, { status: 404 })
+    return NextResponse.json(
+      { error: "No student profile found" },
+      { status: 404 },
+    );
   }
 
   const { error: updateError } = await supabaseAdmin
-    .from('students')
+    .from("students")
     .update({ timezone })
-    .eq('id', student.id)
+    .eq("id", student.id);
 
   if (updateError) {
-    return NextResponse.json({ error: updateError.message }, { status: 500 })
+    return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ timezone })
+  return NextResponse.json({ timezone });
 }

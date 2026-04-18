@@ -1,6 +1,5 @@
-import { SessionsListPage } from '@/features/sessions'
+import { SessionsListPage } from "@/features/sessions";
 
 export default function SessionsRoute() {
-  return <SessionsListPage />
+  return <SessionsListPage />;
 }
-

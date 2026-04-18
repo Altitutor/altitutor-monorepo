@@ -1,9 +1,9 @@
-import { MockAttemptDetailPage } from '@/features/progress'
+import { MockAttemptDetailPage } from "@/features/progress";
 
 type PageProps = {
-  params: { id: string }
-}
+  params: { id: string };
+};
 
 export default function Page({ params }: PageProps) {
-  return <MockAttemptDetailPage mockAttemptId={params.id} />
+  return <MockAttemptDetailPage mockAttemptId={params.id} />;
 }
