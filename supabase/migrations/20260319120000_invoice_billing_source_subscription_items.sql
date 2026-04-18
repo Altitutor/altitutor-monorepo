@@ -33,6 +33,60 @@ CREATE INDEX IF NOT EXISTS idx_invoices_student_subscription_id
 -- Replace global (student_id, invoice_date) unique with session_runner-only partial unique
 ALTER TABLE public.invoices DROP CONSTRAINT IF EXISTS uq_invoices_student_date;
 
+-- Remote DBs may never have had uq_invoices_student_date, so duplicate (student_id, invoice_date)
+-- rows can exist. All existing rows are session_runner (default above). Move duplicates to the
+-- next calendar date free for that student (one row per loop) until no duplicates remain.
+DO $$
+DECLARE
+  v_student_id uuid;
+  v_invoice_date date;
+  v_move_id uuid;
+  v_keeper_id uuid;
+  v_new_d date;
+BEGIN
+  WHILE EXISTS (
+    SELECT 1
+    FROM public.invoices
+    GROUP BY student_id, invoice_date
+    HAVING COUNT(*) > 1
+  ) LOOP
+    SELECT i.student_id, i.invoice_date
+    INTO v_student_id, v_invoice_date
+    FROM public.invoices i
+    GROUP BY i.student_id, i.invoice_date
+    HAVING COUNT(*) > 1
+    LIMIT 1;
+
+    SELECT id
+    INTO v_keeper_id
+    FROM public.invoices
+    WHERE student_id = v_student_id AND invoice_date = v_invoice_date
+    ORDER BY created_at ASC NULLS LAST, id ASC
+    LIMIT 1;
+
+    SELECT id
+    INTO v_move_id
+    FROM public.invoices
+    WHERE student_id = v_student_id
+      AND invoice_date = v_invoice_date
+      AND id <> v_keeper_id
+    ORDER BY created_at ASC NULLS LAST, id ASC
+    LIMIT 1;
+
+    EXIT WHEN v_move_id IS NULL;
+
+    -- Strictly after this student's latest invoice_date, so no collision with existing rows
+    SELECT (COALESCE(MAX(i.invoice_date), v_invoice_date) + 1)
+    INTO v_new_d
+    FROM public.invoices i
+    WHERE i.student_id = v_student_id;
+
+    UPDATE public.invoices
+    SET invoice_date = v_new_d, updated_at = NOW()
+    WHERE id = v_move_id;
+  END LOOP;
+END $$;
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_invoices_session_runner_student_invoice_date
   ON public.invoices (student_id, invoice_date)
   WHERE billing_source = 'session_runner';
