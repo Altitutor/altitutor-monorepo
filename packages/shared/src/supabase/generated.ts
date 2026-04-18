@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       activity_events: {
@@ -3924,11 +3919,16 @@ export type Database = {
       }
       question_stems: {
         Row: {
+          ai_generation_metadata: Json | null
+          approval_status: string
+          approved_at: string | null
+          approved_by: string | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
           deleted_by: string | null
           id: string
+          is_ai_generated: boolean
           is_private: boolean
           question_stem_category_id: string | null
           section_id: string
@@ -3937,11 +3937,16 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          ai_generation_metadata?: Json | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          is_ai_generated?: boolean
           is_private?: boolean
           question_stem_category_id?: string | null
           section_id: string
@@ -3950,11 +3955,16 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          ai_generation_metadata?: Json | null
+          approval_status?: string
+          approved_at?: string | null
+          approved_by?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
           id?: string
+          is_ai_generated?: boolean
           is_private?: boolean
           question_stem_category_id?: string | null
           section_id?: string
@@ -3963,6 +3973,20 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
@@ -4122,6 +4146,20 @@ export type Database = {
             referencedRelation: "vtutor_ucat_question_stems"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "question_stems_files_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_files_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_generated"
+            referencedColumns: ["id"]
+          },
         ]
       }
       question_stems_question_sets: {
@@ -4238,6 +4276,20 @@ export type Database = {
             columns: ["question_stem_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_sets_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_generated"
             referencedColumns: ["id"]
           },
           {
@@ -6287,7 +6339,7 @@ export type Database = {
           discontinued_at?: string | null
           email?: string | null
           first_name: string
-          id?: string
+          id: string
           invite_token?: string | null
           last_name: string
           phone?: string | null
@@ -7640,6 +7692,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ucat_questions_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_questions_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_generated"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "ucat_questions_updated_by_fkey"
             columns: ["updated_by"]
             isOneToOne: false
@@ -7846,6 +7912,20 @@ export type Database = {
             columns: ["question_stem_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_generated"
             referencedColumns: ["id"]
           },
           {
@@ -9688,6 +9768,20 @@ export type Database = {
             referencedRelation: "vtutor_ucat_question_stems"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ucat_questions_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_questions_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_generated"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vstudent_ucat_my_set_attempts: {
@@ -10347,6 +10441,20 @@ export type Database = {
             columns: ["question_stem_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_generated"
             referencedColumns: ["id"]
           },
           {
@@ -11885,6 +11993,10 @@ export type Database = {
       }
       vtutor_ucat_question_stem_detail: {
         Row: {
+          ai_generation_metadata: Json | null
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
           category_name: string | null
           created_at: string | null
           created_by: string | null
@@ -11892,6 +12004,7 @@ export type Database = {
           deleted_by: string | null
           display_columns: number | null
           id: string | null
+          is_ai_generated: boolean | null
           is_private: boolean | null
           question_stem_category_id: string | null
           questions: Json | null
@@ -11903,6 +12016,20 @@ export type Database = {
           updated_by: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
@@ -12005,6 +12132,12 @@ export type Database = {
       }
       vtutor_ucat_question_stems: {
         Row: {
+          ai_generation_metadata: Json | null
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_first_name: string | null
+          approved_by_last_name: string | null
           category_name: string | null
           created_at: string | null
           created_by: string | null
@@ -12013,6 +12146,7 @@ export type Database = {
           deleted_at: string | null
           deleted_by: string | null
           id: string | null
+          is_ai_generated: boolean | null
           is_private: boolean | null
           question_count: number | null
           question_stem_category_id: string | null
@@ -12028,6 +12162,312 @@ export type Database = {
           updated_by_last_name: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_question_attempts"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vtutor_ucat_question_stems_approved: {
+        Row: {
+          ai_generation_metadata: Json | null
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_first_name: string | null
+          approved_by_last_name: string | null
+          category_name: string | null
+          created_at: string | null
+          created_by: string | null
+          created_by_first_name: string | null
+          created_by_last_name: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string | null
+          is_ai_generated: boolean | null
+          is_private: boolean | null
+          question_count: number | null
+          question_stem_category_id: string | null
+          section_display_columns: number | null
+          section_id: string | null
+          section_name: string | null
+          section_number: number | null
+          set_names: Json | null
+          stem_text: Json | null
+          updated_at: string | null
+          updated_by: string | null
+          updated_by_first_name: string | null
+          updated_by_last_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_deleted_by_fkey"
+            columns: ["deleted_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_question_stem_category_id_fkey"
+            columns: ["question_stem_category_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stem_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_question_attempts"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vtutor_ucat_question_stems_generated: {
+        Row: {
+          ai_generation_metadata: Json | null
+          approval_status: string | null
+          approved_at: string | null
+          approved_by: string | null
+          approved_by_first_name: string | null
+          approved_by_last_name: string | null
+          category_name: string | null
+          created_at: string | null
+          created_by: string | null
+          created_by_first_name: string | null
+          created_by_last_name: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string | null
+          is_ai_generated: boolean | null
+          is_private: boolean | null
+          question_count: number | null
+          question_stem_category_id: string | null
+          section_display_columns: number | null
+          section_id: string | null
+          section_name: string | null
+          section_number: number | null
+          set_names: Json | null
+          stem_text: Json | null
+          updated_at: string | null
+          updated_by: string | null
+          updated_by_first_name: string | null
+          updated_by_last_name: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_stems_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "question_stems_created_by_fkey"
             columns: ["created_by"]
@@ -12398,6 +12838,20 @@ export type Database = {
             columns: ["question_stem_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_stems"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_approved"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_sessions_resources_question_stem_id_fkey"
+            columns: ["question_stem_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_question_stems_generated"
             referencedColumns: ["id"]
           },
           {
@@ -13080,6 +13534,10 @@ export type Database = {
     }
     Functions: {
       _format_date_ordinal: { Args: { ts: string }; Returns: string }
+      add_enum_value: {
+        Args: { enum_name: string; new_value: string }
+        Returns: undefined
+      }
       assign_staff_to_booking: {
         Args: {
           p_available_staff_ids: string[]
@@ -13427,7 +13885,9 @@ export type Database = {
         Args: { student_id: string }
         Returns: boolean
       }
+      is_adminstaff: { Args: never; Returns: boolean }
       is_adminstaff_active: { Args: never; Returns: boolean }
+      is_staff: { Args: never; Returns: boolean }
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       is_ucat_in_person_student: { Args: never; Returns: boolean }
@@ -13462,8 +13922,6 @@ export type Database = {
         Args: { logged_by_student_id: string; operations: Json }
         Returns: Json
       }
-      map_day_to_number: { Args: { day_string: string }; Returns: number }
-      map_subject_to_id: { Args: { subject_code: string }; Returns: string }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -13693,10 +14151,6 @@ export type Database = {
         }
         Returns: Json
       }
-      set_claim: {
-        Args: { claim: string; uid: string; value: Json }
-        Returns: undefined
-      }
       staff_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -13738,6 +14192,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      tutor_ucat_bulk_upsert_generated_question_stem_bundles: {
+        Args: { p_section_id: string; p_stems: Json }
+        Returns: string[]
+      }
       tutor_ucat_bulk_upsert_question_stem_bundles: {
         Args: { p_section_id: string; p_stems: Json }
         Returns: string[]
@@ -13770,9 +14228,18 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
+      tutor_ucat_set_question_stem_approval: {
+        Args: {
+          p_approval_status: string
+          p_auto_publish_on_approval?: boolean
+          p_stem_id: string
+        }
+        Returns: undefined
+      }
       tutor_ucat_upsert_mock:
         | {
             Args: {
+              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -13782,7 +14249,6 @@ export type Database = {
           }
         | {
             Args: {
-              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -13825,6 +14291,7 @@ export type Database = {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
       }
+      user_role: { Args: never; Returns: string }
       validate_all_topic_codes: {
         Args: never
         Returns: {
@@ -13844,7 +14311,6 @@ export type Database = {
         }[]
       }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
-      verify_email: { Args: { user_email: string }; Returns: undefined }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
@@ -14040,3 +14506,4 @@ export const Constants = {
     },
   },
 } as const
+
