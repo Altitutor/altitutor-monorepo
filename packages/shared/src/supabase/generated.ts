@@ -13631,8 +13631,8 @@ export type Database = {
         Args: {
           p_ascending?: boolean
           p_exclude_class_search?: boolean
-          p_include_relationships?: boolean
           p_in_person_filter?: string
+          p_include_relationships?: boolean
           p_limit?: number
           p_offset?: number
           p_order_by?: string
