@@ -24,6 +24,7 @@ import { useQuestionEngineData } from "@/features/question-engine/hooks/use-ques
 import { useQuestionEngineState } from "@/features/question-engine/hooks/use-question-engine-state";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
 import { CalculatorPanel } from "@/features/question-engine/components/calculator-panel";
+import { useUcatCalculator } from "@/features/question-engine/hooks/use-ucat-calculator";
 import {
   ConfirmFinishPracticeDialog,
   ConfirmNextStemDialog,
@@ -169,6 +170,8 @@ export function QuestionEnginePage({
   const router = useRouter();
   const { toast } = useToast();
   const { isLagging, runWithLag } = useUcatLag();
+  const { display: calculatorDisplay, onKey: calculatorOnKey } =
+    useUcatCalculator();
   const [, setTick] = useState(0);
   const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false);
   const [showConfirmNextStemDialog, setShowConfirmNextStemDialog] =
@@ -1895,12 +1898,19 @@ export function QuestionEnginePage({
               recordAnswer(currentQuestion.id, optionId, flaggedCurrent);
             }}
             preloadedContent={getCachedContent(currentQuestion.id)}
+            showAnswerExplanations={Boolean(
+              isReviewMode &&
+                (exam?.sourceType === "questions" ||
+                  exam?.sourceType === "questionStem"),
+            )}
           />
         ) : null}
       </UcatExamShell>
 
       {state.showCalculator ? (
         <CalculatorPanel
+          display={calculatorDisplay}
+          onKey={calculatorOnKey}
           onClose={() =>
             void runWithLag(() =>
               setState((current) => ({ ...current, showCalculator: false })),

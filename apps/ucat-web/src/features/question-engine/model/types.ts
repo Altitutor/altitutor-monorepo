@@ -99,6 +99,8 @@ export type QuestionStemWithQuestions = {
     questionText: string;
     questionType: "multiple_choice" | "syllogism";
     options: AnswerOption[];
+    /** Question-level explanation (shown in review when present). */
+    answerExplanation?: string;
   }[];
 };
 
@@ -131,6 +133,7 @@ export function mapQuestionStemsToItems(
         questionType: question.questionType,
         options: sortedOptions,
         correctOptionId: correctOption?.id,
+        answerExplanation: question.answerExplanation,
       });
     }
   }
@@ -147,6 +150,8 @@ export type QuestionEngineQuestion = {
   questionText: string;
   questionType: "multiple_choice" | "syllogism";
   options: AnswerOption[];
+  /** Question-level explanation (shown in review when present). */
+  answerExplanation?: string;
 };
 
 export function mapQuestionsToItems(
@@ -169,6 +174,7 @@ export function mapQuestionsToItems(
       questionType: question.questionType,
       options: sortedOptions,
       correctOptionId: correctOption?.id,
+      answerExplanation: question.answerExplanation,
     };
   });
 }

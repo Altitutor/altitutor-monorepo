@@ -1,7 +1,6 @@
 import { Calculator, Sigma } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { UcatFloatingPanel } from "@altitutor/ui";
-import { useUcatCalculator } from "@/features/question-engine/hooks/use-ucat-calculator";
 import { useDraggablePanel } from "@/features/question-engine/hooks/use-draggable-panel";
 
 const ROWS_1_4: string[][] = [
@@ -38,8 +37,15 @@ function CalcButton({
   );
 }
 
-export function CalculatorPanel({ onClose }: { onClose: () => void }) {
-  const { display, onKey } = useUcatCalculator();
+export function CalculatorPanel({
+  display,
+  onKey,
+  onClose,
+}: {
+  display: string;
+  onKey: (label: string) => void;
+  onClose: () => void;
+}) {
   const { position, handleMouseDown, setPosition } = useDraggablePanel();
   const panelRef = useRef<HTMLDivElement | null>(null);
 
