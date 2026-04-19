@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -33,7 +34,6 @@ export function PracticeAttemptsCard({
   mode,
   timeFrameDays,
 }: PracticeAttemptsCardProps) {
-  const router = useRouter();
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -64,6 +64,7 @@ export function PracticeAttemptsCard({
               <TableHead>Score</TableHead>
               <TableHead>Questions</TableHead>
               <TableHead>Date</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -76,13 +77,7 @@ export function PracticeAttemptsCard({
                   : "—";
               const date = a.completedAt ?? a.attemptedAt;
               return (
-                <TableRow
-                  key={a.id}
-                  className="cursor-pointer hover:bg-muted/50"
-                  onClick={() =>
-                    router.push(`/progress/practice-sessions/${a.id}`)
-                  }
-                >
+                <TableRow key={a.id}>
                   <TableCell className="font-medium">
                     {a.sectionName}
                     {a.unlimited ? " (unlimited)" : ""}
@@ -91,6 +86,13 @@ export function PracticeAttemptsCard({
                   <TableCell>{a.questionCount ?? "—"}</TableCell>
                   <TableCell>
                     {date ? format(new Date(date), "PPp") : "—"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={`/progress/practice-sessions/${a.id}`}>
+                        View session
+                      </Link>
+                    </Button>
                   </TableCell>
                 </TableRow>
               );

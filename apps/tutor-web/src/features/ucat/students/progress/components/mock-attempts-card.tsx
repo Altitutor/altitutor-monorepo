@@ -1,8 +1,9 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -59,7 +60,6 @@ export function MockAttemptsCard({
   sharedDateRange,
   basePath = '',
 }: MockAttemptsCardProps) {
-  const router = useRouter()
   const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
   const [page, setPage] = useState(1)
@@ -168,12 +168,13 @@ export function MockAttemptsCard({
                   >
                     Exam speed
                   </TableHeaderWithTooltip>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAttempts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       No submitted mock attempts yet
                     </TableCell>
                   </TableRow>
@@ -181,11 +182,7 @@ export function MockAttemptsCard({
                   paginatedAttempts.map((a) => {
                     const href = mockDetailHref(a.id)
                     return (
-                      <TableRow
-                        key={a.id}
-                        className={href ? 'cursor-pointer hover:bg-muted/50' : ''}
-                        onClick={href ? () => router.push(href) : undefined}
-                      >
+                      <TableRow key={a.id}>
                         <TableCell>
                           {a.completedAt
                             ? format(new Date(a.completedAt), 'dd MMM yyyy')
@@ -218,6 +215,15 @@ export function MockAttemptsCard({
                           {a.studentExamSpeed != null
                             ? `${(a.studentExamSpeed * 100).toFixed(1)}%`
                             : '—'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {href ? (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={href}>View attempt</Link>
+                            </Button>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
                         </TableCell>
                       </TableRow>
                     )

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { ListChecks } from "lucide-react";
+import { Button } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import {
   extractTextFromRichJson,
@@ -130,6 +131,11 @@ export function SetDetailPage({
         })
       : null;
 
+  const setAttemptHref = (attemptId: string) =>
+    sectionNumber != null
+      ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
+      : `/progress/set-attempts/${attemptId}`;
+
   return (
     <div className="space-y-6">
       <UcatPageHeader
@@ -178,7 +184,7 @@ export function SetDetailPage({
             Previous attempts
           </h2>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[320px] text-sm">
+            <table className="w-full min-w-[420px] text-sm">
               <thead>
                 <tr className="border-b border-border">
                   <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">
@@ -187,8 +193,11 @@ export function SetDetailPage({
                   <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">
                     Score
                   </th>
-                  <th className="pb-2 text-right font-medium text-muted-foreground">
+                  <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">
                     Scaled
+                  </th>
+                  <th className="pb-2 text-right font-medium text-muted-foreground">
+                    Actions
                   </th>
                 </tr>
               </thead>
@@ -209,8 +218,13 @@ export function SetDetailPage({
                         ? `${a.scorePoints} / ${a.totalPoints}`
                         : "—"}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="py-2 pr-4 text-right">
                       {a.scaledScore != null ? a.scaledScore : "—"}
+                    </td>
+                    <td className="py-2 text-right">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={setAttemptHref(a.id)}>View attempt</Link>
+                      </Button>
                     </td>
                   </tr>
                 ))}

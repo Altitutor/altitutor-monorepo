@@ -217,23 +217,18 @@ export function MarkingBody({
   onViewQuestion,
   syllogismSnapshots,
   hideHeader = false,
-  backHref,
-  backLabel,
-  viewReportHref,
+  viewAttemptHref,
 }: {
   result: MarkingResult;
   onViewQuestion?: (index: number) => void;
   syllogismSnapshots?: Record<string, Record<string, boolean>>;
   /** When true, omit the score header (e.g. when embedded in a card with its own header). */
   hideHeader?: boolean;
-  /** When provided, show "Back to sets/mocks" button below score. */
-  backHref?: string;
-  backLabel?: string;
-  /** When provided, show "View performance report" button below score. */
-  viewReportHref?: string;
+  /** When provided, show "View attempt" below score (links to progress detail for this attempt). */
+  viewAttemptHref?: string;
 }) {
   const { rows, totalRawScore, maxRawScore, scaledScore } = result;
-  const isSummaryView = backHref != null || viewReportHref != null;
+  const isSummaryView = viewAttemptHref != null;
 
   return (
     <div className="flex flex-col h-full overflow-hidden">
@@ -279,26 +274,15 @@ export function MarkingBody({
               </Card>
             )}
           </div>
-          {(backHref != null || viewReportHref != null) && (
+          {viewAttemptHref != null && (
             <div className="mt-4 flex flex-wrap gap-3 justify-center">
-              {backHref != null && (
-                <a
-                  href={backHref}
-                  data-skip-leave-warning
-                  className="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium hover:bg-muted hover:text-muted-foreground"
-                >
-                  {backLabel ?? "Back"}
-                </a>
-              )}
-              {viewReportHref != null && (
-                <a
-                  href={viewReportHref}
-                  data-skip-leave-warning
-                  className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
-                >
-                  View performance report
-                </a>
-              )}
+              <a
+                href={viewAttemptHref}
+                data-skip-leave-warning
+                className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
+              >
+                View attempt
+              </a>
             </div>
           )}
         </div>

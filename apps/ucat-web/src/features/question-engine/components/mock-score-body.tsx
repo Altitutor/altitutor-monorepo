@@ -22,11 +22,8 @@ type MockScoreBodyProps = {
   selectedAnswers: Record<string, string>;
   syllogismSnapshots?: Record<string, Record<string, boolean>>;
   onViewQuestion?: (globalIndex: number) => void;
-  /** When provided, show "Back to mocks" button below score. */
-  backHref?: string;
-  backLabel?: string;
-  /** When provided, show "View performance report" button below score. */
-  viewReportHref?: string;
+  /** When provided, show "View attempt" below overall score. */
+  viewAttemptHref?: string;
 };
 
 export function MockScoreBody({
@@ -35,9 +32,7 @@ export function MockScoreBody({
   selectedAnswers,
   syllogismSnapshots,
   onViewQuestion,
-  backHref,
-  backLabel,
-  viewReportHref,
+  viewAttemptHref,
 }: MockScoreBodyProps) {
   const summaries = exam.mockSetSummaries ?? [];
   if (summaries.length === 0) return null;
@@ -102,26 +97,15 @@ export function MockScoreBody({
             </span>
           )}
         </div>
-        {(backHref != null || viewReportHref != null) && (
+        {viewAttemptHref != null && (
           <div className="mt-4 flex flex-wrap gap-3">
-            {backHref != null && (
-              <a
-                href={backHref}
-                data-skip-leave-warning
-                className="inline-flex h-10 items-center justify-center rounded-lg border border-input bg-background px-4 text-sm font-medium hover:bg-muted hover:text-muted-foreground"
-              >
-                {backLabel ?? "Back"}
-              </a>
-            )}
-            {viewReportHref != null && (
-              <a
-                href={viewReportHref}
-                data-skip-leave-warning
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
-              >
-                View performance report
-              </a>
-            )}
+            <a
+              href={viewAttemptHref}
+              data-skip-leave-warning
+              className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
+            >
+              View attempt
+            </a>
           </div>
         )}
       </div>
