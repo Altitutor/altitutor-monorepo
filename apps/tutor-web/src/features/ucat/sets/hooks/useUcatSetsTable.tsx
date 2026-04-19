@@ -15,6 +15,7 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { cn } from '@/shared/utils'
+import { UCAT_FILTER_NOT_IN_ANY_MOCK } from '@/features/ucat/shared/lib/table-filter-sentinel'
 
 type SetRow = {
   id: string
@@ -141,9 +142,12 @@ export function useUcatSetsTable<T extends SetRowInput>({
         row.question_count
       )
       const selectedMockIds = getFilterValues(tableState.state, 'ucat_mock_id').map(String)
+      const wantsNotInAnyMock = selectedMockIds.includes(UCAT_FILTER_NOT_IN_ANY_MOCK)
+      const specificMockIds = selectedMockIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_MOCK)
       const mockHit =
         selectedMockIds.length === 0 ||
-        selectedMockIds.some((mid) => row.ucat_mock_ids.includes(mid))
+        (wantsNotInAnyMock && row.ucat_mock_ids.length === 0) ||
+        specificMockIds.some((mid) => row.ucat_mock_ids.includes(mid))
       return searchHit && visibilityHit && sectionHit && timeLimitHit && stemCountHit && questionCountHit && mockHit
     })
   }, [rows, showDeleted, tableState.state])

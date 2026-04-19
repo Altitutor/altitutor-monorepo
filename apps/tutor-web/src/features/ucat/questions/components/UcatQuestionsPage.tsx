@@ -83,6 +83,7 @@ import {
   getFilterValues,
   useUcatTableState,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
+import { UCAT_FILTER_NOT_IN_ANY_SET } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
@@ -362,9 +363,12 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         (typeSelected === 'syllogism' && row.type_summary.includes('syllogism'))
 
       const selectedSetIds = getFilterValues(tableState.state, 'question_set_id').map(String)
+      const wantsNotInAnySet = selectedSetIds.includes(UCAT_FILTER_NOT_IN_ANY_SET)
+      const specificSetIds = selectedSetIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_SET)
       const setHit =
         selectedSetIds.length === 0 ||
-        selectedSetIds.some((sid) => row.set_ids.includes(sid))
+        (wantsNotInAnySet && row.set_ids.length === 0) ||
+        specificSetIds.some((sid) => row.set_ids.includes(sid))
 
       return searchHit && sectionHit && categoryHit && visibilityHit && typeHit && approvalHit && setHit
     })
@@ -669,7 +673,8 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
 
   const setFilterOptions = useMemo(() => {
     const q = setFilterSearch.trim().toLowerCase()
-    return setsList
+    const noneOption = { label: 'Not in any set', value: UCAT_FILTER_NOT_IN_ANY_SET }
+    const fromSets = setsList
       .filter((s) => {
         if (!s.id) return false
         const name = proseMirrorToPlainText(s.name as Json | undefined).toLowerCase()
@@ -684,6 +689,9 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         label: proseMirrorToPlainText(s.name as Json | undefined) || 'Untitled',
         value: s.id as string,
       }))
+    const combined = [noneOption, ...fromSets]
+    if (!q) return combined
+    return combined.filter((o) => o.label.toLowerCase().includes(q))
   }, [setsList, setFilterSearch])
 
   const sectionFilterDefs = useMemo((): DataTableFilterDefinition[] => {

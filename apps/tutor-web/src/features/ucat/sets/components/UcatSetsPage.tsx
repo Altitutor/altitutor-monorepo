@@ -38,6 +38,7 @@ import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEdit
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { UCAT_FILTER_NOT_IN_ANY_MOCK } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUcatSetsTable'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
@@ -113,9 +114,13 @@ export function UcatSetsPage() {
     const active = list.filter((m) => m.deleted_at == null && m.id)
     const q = mockFilterSearch.trim().toLowerCase()
     const filtered = q ? active.filter((m) => (m.name ?? '').toLowerCase().includes(q)) : active
-    return filtered
+    const fromMocks = filtered
       .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
       .map((m) => ({ label: m.name ?? 'Untitled', value: m.id as string }))
+    const noneOption = { label: 'Not in any mock', value: UCAT_FILTER_NOT_IN_ANY_MOCK }
+    const combined = [noneOption, ...fromMocks]
+    if (!q) return combined
+    return combined.filter((o) => o.label.toLowerCase().includes(q))
   }, [mocksQuery.data, mockFilterSearch])
 
   const filterDefinitions = useMemo((): DataTableFilterDefinition[] => {
