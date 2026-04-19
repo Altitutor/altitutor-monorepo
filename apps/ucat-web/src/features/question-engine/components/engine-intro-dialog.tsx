@@ -1,5 +1,5 @@
-import { HelpCircle } from 'lucide-react'
-import { UcatExamActionButton, UcatExamDialog } from '@altitutor/ui'
+import { HelpCircle } from "lucide-react";
+import { UcatExamActionButton, UcatExamDialog } from "@altitutor/ui";
 
 export function EngineIntroDialog({
   title,
@@ -7,10 +7,10 @@ export function EngineIntroDialog({
   onStart,
   onCancel,
 }: {
-  title: string
-  description: string
-  onStart: () => void
-  onCancel: () => void
+  title: string;
+  description: string;
+  onStart: () => void;
+  onCancel: () => void;
 }) {
   return (
     <UcatExamDialog
@@ -20,14 +20,18 @@ export function EngineIntroDialog({
       actions={
         <>
           <UcatExamActionButton borders="all" onClick={onStart}>
-            <span><span className="underline">Y</span>es</span>
+            <span>
+              <span className="underline">Y</span>es
+            </span>
           </UcatExamActionButton>
           <UcatExamActionButton borders="all" onClick={onCancel}>
-            <span><span className="underline">N</span>o</span>
+            <span>
+              <span className="underline">N</span>o
+            </span>
           </UcatExamActionButton>
         </>
       }
       className="max-w-6xl"
     />
-  )
+  );
 }

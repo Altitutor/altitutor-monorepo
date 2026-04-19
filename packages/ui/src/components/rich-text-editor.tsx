@@ -10,8 +10,9 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
-import { TextSelection } from '@tiptap/pm/state';
+import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
+import { SlashCommandExtension } from '../extensions/slash-command';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
@@ -155,6 +156,14 @@ export interface RichTextEditorProps {
    * Additional TipTap extensions to add to the editor (e.g. JumpHighlightExtension for note TOC).
    */
   extensions?: import('@tiptap/core').AnyExtension[];
+  /**
+   * Optional configuration for slash commands (triggered by typing "/").
+   * When provided, typing "/" opens a menu with formatting options and optionally templates.
+   */
+  slashMenuSuggestions?: Omit<
+    import('@tiptap/suggestion').SuggestionOptions,
+    'editor' | 'char'
+  >;
 }
 
 const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
@@ -272,6 +281,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   pastePlainTextAsParagraphs = false,
   pasteTableBehavior,
   extensions: extraExtensions,
+  slashMenuSuggestions,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -341,11 +351,34 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }).configure({
         inline: false,
         allowBase64: false,
+        resize: {
+          enabled: true,
+          directions: [
+            'top',
+            'bottom',
+            'left',
+            'right',
+            'top-left',
+            'top-right',
+            'bottom-left',
+            'bottom-right',
+          ],
+          minWidth: 50,
+          minHeight: 50,
+          alwaysPreserveAspectRatio: true,
+        },
         HTMLAttributes: {
           class: 'my-3 rounded-md max-w-full h-auto cursor-pointer',
         },
       }),
       ImageUploadPlaceholderExtension,
+      ...(slashMenuSuggestions
+        ? [
+            SlashCommandExtension.configure({
+              suggestion: slashMenuSuggestions,
+            }),
+          ]
+        : []),
       ...(mentionSuggestions ? [
         Mention.configure({
           HTMLAttributes: {
@@ -405,6 +438,37 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     editable,
     immediatelyRender: false,
     editorProps: {
+      handleKeyDown: (view, event) => {
+        const { state } = view;
+        const { selection } = state;
+        if (!(selection instanceof NodeSelection)) return false;
+        if (selection.node.type.name !== 'image') return false;
+
+        const posAfter = selection.$to.pos;
+
+        if (
+          event.key.length === 1 &&
+          !event.ctrlKey &&
+          !event.metaKey &&
+          !event.altKey
+        ) {
+          event.preventDefault();
+          const tr = state.tr
+            .setSelection(TextSelection.create(state.doc, posAfter))
+            .insertText(event.key);
+          view.dispatch(tr);
+          return true;
+        }
+
+        if (event.key === 'Backspace' || event.key === 'Delete') {
+          event.preventDefault();
+          const tr = state.tr.deleteSelection();
+          view.dispatch(tr);
+          return true;
+        }
+
+        return false;
+      },
       handleClick: (view, _pos, event) => {
         const target = event.target as HTMLElement;
         const mentionNode = target.closest('[data-mention]') as HTMLElement | null;

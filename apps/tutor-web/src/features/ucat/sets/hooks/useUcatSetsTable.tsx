@@ -4,12 +4,12 @@ import {
   applyBooleanTextFilter,
   applyRangeFilter,
   applySort,
-  applySingleSelectFilter,
+  getFilterValues,
   useUcatTableState,
   useVisibleColumns,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
-import { getSetSectionStatus, parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
+import { formatSetSectionsDisplay, getSetSectionStatus, parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
@@ -26,6 +26,8 @@ type SetRow = {
   question_count: number
   sectionCount: number
   firstSectionNumber: number | null
+  sectionNumbers: number[]
+  sectionDisplay: string
   created_by_first_name: string | null
   created_by_last_name: string | null
   deleted_at: string | null
@@ -101,6 +103,8 @@ export function useUcatSetsTable<T extends SetRowInput>({
           question_count: r.question_count ?? 0,
           sectionCount: parsed.sectionCount,
           firstSectionNumber: parsed.firstSectionNumber,
+          sectionNumbers: parsed.sectionNumbers,
+          sectionDisplay: formatSetSectionsDisplay(r.sections ?? null),
           created_by_first_name: row.created_by_first_name ?? null,
           created_by_last_name: row.created_by_last_name ?? null,
           deleted_at: r.deleted_at ?? null,
@@ -115,8 +119,10 @@ export function useUcatSetsTable<T extends SetRowInput>({
     return byDeleted.filter((row) => {
       const searchHit = search.length === 0 || row.name.toLowerCase().includes(search)
       const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
-      const originValue = row.is_student_generated ? 'student' : 'staff'
-      const originHit = applySingleSelectFilter(tableState.state, 'is_student_generated', originValue)
+      const selectedSections = getFilterValues(tableState.state, 'section')
+      const sectionHit =
+        selectedSections.length === 0 ||
+        selectedSections.some((v) => row.sectionNumbers.includes(Number(v)))
       const timeLimitHit = applyRangeFilter(tableState.state, 'time_limit_min', 'time_limit_max', row.time_limit_seconds)
       const stemCountHit = applyRangeFilter(tableState.state, 'stem_count_min', 'stem_count_max', row.stem_count)
       const questionCountHit = applyRangeFilter(
@@ -125,7 +131,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
         'question_count_max',
         row.question_count
       )
-      return searchHit && visibilityHit && originHit && timeLimitHit && stemCountHit && questionCountHit
+      return searchHit && visibilityHit && sectionHit && timeLimitHit && stemCountHit && questionCountHit
     })
   }, [rows, showDeleted, tableState.state])
 
@@ -162,7 +168,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
             },
             sections
           )
-          const display = r.sectionCount === 0 ? '—' : r.sectionCount === 1 ? '1 section' : `${r.sectionCount} sections`
+          const display = r.sectionDisplay || '—'
           return (
             <SetStatusSpan status={status.sectionsStatus} tooltip={status.sectionsTooltip}>
               {display}

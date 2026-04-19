@@ -25,10 +25,12 @@ type NavItem =
 
 const ucatDropdownChildren: NavLink[] = [
   { title: 'Questions', href: '/ucat/questions' },
+  { title: 'Generated Questions', href: '/ucat/questions/generated' },
   { title: 'Sets', href: '/ucat/sets' },
   { title: 'Mocks', href: '/ucat/mocks' },
   { title: 'Students', href: '/ucat/students' },
   { title: 'Classes', href: '/ucat/classes' },
+  { title: 'Reconciliation', href: '/ucat/reconciliation' },
   { title: 'Question Categories', href: '/ucat/question-stem-categories' },
   { title: 'Question Tags', href: '/ucat/question-tags' },
   { title: 'Sections', href: '/ucat/sections' },

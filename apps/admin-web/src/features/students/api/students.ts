@@ -2,6 +2,31 @@ import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSub
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+/** DataTable may send both `has` and `none`; treat that as no filter. */
+function exclusiveHasNoneFilter(values: string[] | undefined): 'has' | 'none' | undefined {
+  if (!values?.length) return undefined;
+  const has = values.includes('has');
+  const none = values.includes('none');
+  if (has && none) return undefined;
+  if (has) return 'has';
+  if (none) return 'none';
+  return undefined;
+}
+
+export type StudentMinimalListRow = Tables<'students'> & {
+  classes?: Array<{
+    id: string;
+    short_name: string | null;
+    long_name: string | null;
+    day_of_week: number;
+    start_time: string;
+    level: string | null;
+    subject?: Tables<'subjects'> | null;
+  }>;
+  has_online_subscription?: boolean;
+  has_in_person_class?: boolean;
+};
+
 /**
  * Students API client for working with student data
  */
@@ -111,11 +136,13 @@ export const studentsApi = {
     curriculums?: string[];
     yearLevels?: number[];
     subjectIds?: string[];
+    subscriptionOnline?: string[];
+    inPersonClass?: string[];
     limit?: number;
     offset?: number;
     orderBy?: keyof Tables<'students'>;
     ascending?: boolean;
-  }): Promise<{ students: (Tables<'students'> & { classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[]; total: number }> => {
+  }): Promise<{ students: StudentMinimalListRow[]; total: number }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const {
       search = '',
@@ -123,6 +150,8 @@ export const studentsApi = {
       curriculums = [],
       yearLevels = [],
       subjectIds = [],
+      subscriptionOnline,
+      inPersonClass,
       limit = 20,
       offset = 0,
       orderBy = 'last_name',
@@ -130,7 +159,9 @@ export const studentsApi = {
     } = params || {};
 
     const trimmed = search.trim();
-    
+    const subscriptionFilter = exclusiveHasNoneFilter(subscriptionOnline);
+    const inPersonFilter = exclusiveHasNoneFilter(inPersonClass);
+
     // Always use RPC function (supports both search and "get all" when search is empty)
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_students_admin', {
       p_search: trimmed.length > 0 ? trimmed : undefined,
@@ -142,6 +173,8 @@ export const studentsApi = {
       p_offset: offset,
       p_order_by: orderBy as string,
       p_ascending: ascending,
+      ...(subscriptionFilter ? { p_subscription_filter: subscriptionFilter } : {}),
+      ...(inPersonFilter ? { p_in_person_filter: inPersonFilter } : {}),
     });
 
     if (rpcError) throw rpcError;
@@ -157,6 +190,8 @@ export const studentsApi = {
       school: string | null;
       email?: string | null;
       phone?: string | null;
+      has_online_subscription?: boolean;
+      has_in_person_class?: boolean;
       classes?: Array<{ subject?: { id: string } }>;
       [key: string]: unknown;
     }
@@ -192,6 +227,8 @@ export const studentsApi = {
       phone: s.phone || null,
       created_at: s.created_at || null,
       updated_at: s.updated_at || null,
+      has_online_subscription: Boolean(s.has_online_subscription),
+      has_in_person_class: Boolean(s.has_in_person_class),
       classes: (s.classes || []).map((cls) => {
         if (!cls || typeof cls !== 'object' || !('id' in cls)) {
           return null;
@@ -208,13 +245,12 @@ export const studentsApi = {
       }).filter((cls): cls is NonNullable<typeof cls> => cls !== null),
     }));
 
-    // Use RPC total for pagination (client-side filters reduce visible items but don't affect total count for pagination)
-    // Note: If client-side filters are applied, the actual filtered total may be lower, but we use RPC total
-    // to maintain correct pagination. The UI will show fewer items on some pages due to filtering.
+    // RPC total reflects server-side filters (status, search, subscription, in-person). Curriculum/year/subject
+    // are still applied client-side below, so totals can be higher than visible rows when those filters are set.
     const total = rpcData.total;
 
     return {
-      students: transformedStudents as unknown as (Tables<'students'> & { classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number; start_time: string; level: string | null; subject?: Tables<'subjects'> | null }> })[],
+      students: transformedStudents as StudentMinimalListRow[],
       total,
     };
   },

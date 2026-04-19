@@ -55,6 +55,18 @@ export type MockAttemptRow = {
   wasTimed: boolean
 }
 
+export type PracticeAttemptRow = {
+  id: string
+  attemptedAt: string
+  completedAt: string | null
+  ucatSectionId: string
+  sectionName: string
+  scorePoints: number | null
+  totalPoints: number | null
+  questionCount: number | null
+  unlimited: boolean
+}
+
 export type QuestionAttemptRow = {
   id: string
   questionId: string
@@ -87,6 +99,7 @@ export type ProgressResponse = {
   sectionProgress: SectionProgress[]
   setAttempts: SetAttemptRow[]
   mockAttempts: MockAttemptRow[]
+  practiceAttempts: PracticeAttemptRow[]
   questionAttempts: QuestionAttemptRow[]
   /** Per-section category stats (all-time and weighted %) */
   sectionCategoryProgress: Record<string, SectionCategoryProgress[]>

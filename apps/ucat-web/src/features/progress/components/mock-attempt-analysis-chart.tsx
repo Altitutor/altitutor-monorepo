@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import {
   Bar,
@@ -9,74 +9,74 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts'
-import { formatTimeSeconds } from '../lib/format-time'
-import { cn } from '@/lib/utils'
+} from "recharts";
+import { formatTimeSeconds } from "../lib/format-time";
+import { cn } from "@/lib/utils";
 
 export type QuestionAttemptForChart = {
-  questionNumber: number
-  timeSpentSeconds: number | null
-  result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
-}
+  questionNumber: number;
+  timeSpentSeconds: number | null;
+  result: "correct" | "partial" | "incorrect" | "not_attempted";
+};
 
 export type SetInfoForChart = {
-  questionSetName: string | null
-}
+  questionSetName: string | null;
+};
 
 type MockAttemptAnalysisChartProps = {
-  data: QuestionAttemptForChart[]
+  data: QuestionAttemptForChart[];
   /** 0-based indices after which to draw set divider (last question index of each set except final) */
-  setBoundaryIndices: number[]
+  setBoundaryIndices: number[];
   /** Set names for section labels (one per set, in order) */
-  sets: SetInfoForChart[]
-  className?: string
-}
+  sets: SetInfoForChart[];
+  className?: string;
+};
 
 const RESULT_COLORS: Record<
-  'correct' | 'partial' | 'incorrect' | 'not_attempted',
+  "correct" | "partial" | "incorrect" | "not_attempted",
   string
 > = {
-  correct: 'hsl(142 76% 36%)',
-  partial: 'hsl(48 96% 53%)',
-  incorrect: 'hsl(0 84% 60%)',
-  not_attempted: 'hsl(var(--muted-foreground) / 0.3)',
-}
+  correct: "hsl(142 76% 36%)",
+  partial: "hsl(48 96% 53%)",
+  incorrect: "hsl(0 84% 60%)",
+  not_attempted: "hsl(var(--muted-foreground) / 0.3)",
+};
 
 const RESULT_LABELS: Record<
-  'correct' | 'partial' | 'incorrect' | 'not_attempted',
+  "correct" | "partial" | "incorrect" | "not_attempted",
   string
 > = {
-  correct: 'Correct',
-  partial: 'Partial',
-  incorrect: 'Incorrect',
-  not_attempted: 'Not attempted',
-}
+  correct: "Correct",
+  partial: "Partial",
+  incorrect: "Incorrect",
+  not_attempted: "Not attempted",
+};
 
 function getSetIndexForQuestion(
   questionIndex: number,
-  setBoundaryIndices: number[]
+  setBoundaryIndices: number[],
 ): number {
   for (let i = 0; i < setBoundaryIndices.length; i++) {
-    if (questionIndex <= setBoundaryIndices[i]) return i
+    if (questionIndex <= setBoundaryIndices[i]) return i;
   }
-  return setBoundaryIndices.length
+  return setBoundaryIndices.length;
 }
 
 function getLocalQuestionNumber(
   questionIndex: number,
-  setBoundaryIndices: number[]
+  setBoundaryIndices: number[],
 ): number {
-  const setIndex = getSetIndexForQuestion(questionIndex, setBoundaryIndices)
-  const startOfSet = setIndex === 0 ? 0 : setBoundaryIndices[setIndex - 1] + 1
-  return questionIndex - startOfSet + 1
+  const setIndex = getSetIndexForQuestion(questionIndex, setBoundaryIndices);
+  const startOfSet = setIndex === 0 ? 0 : setBoundaryIndices[setIndex - 1] + 1;
+  return questionIndex - startOfSet + 1;
 }
 
 function isFirstQuestionOfSet(
   questionIndex: number,
-  setBoundaryIndices: number[]
+  setBoundaryIndices: number[],
 ): boolean {
-  if (questionIndex === 0) return true
-  return setBoundaryIndices.includes(questionIndex - 1)
+  if (questionIndex === 0) return true;
+  return setBoundaryIndices.includes(questionIndex - 1);
 }
 
 export function MockAttemptAnalysisChart({
@@ -86,9 +86,9 @@ export function MockAttemptAnalysisChart({
   className,
 }: MockAttemptAnalysisChartProps) {
   const chartData = data.map((d, i) => {
-    const setIndex = getSetIndexForQuestion(i, setBoundaryIndices)
+    const setIndex = getSetIndexForQuestion(i, setBoundaryIndices);
     const sectionName =
-      sets[setIndex]?.questionSetName ?? `Set ${setIndex + 1}`
+      sets[setIndex]?.questionSetName ?? `Set ${setIndex + 1}`;
     return {
       index: i,
       name: String(i),
@@ -97,34 +97,34 @@ export function MockAttemptAnalysisChart({
       localQuestionNumber: getLocalQuestionNumber(i, setBoundaryIndices),
       sectionName,
       isFirstOfSet: isFirstQuestionOfSet(i, setBoundaryIndices),
-    }
-  })
+    };
+  });
 
-  const maxTime = Math.max(...chartData.map((d) => d.value), 1)
-  const chartWidth = Math.max(600, chartData.length * 24)
-  const yAxisWidth = 52
+  const maxTime = Math.max(...chartData.map((d) => d.value), 1);
+  const chartWidth = Math.max(600, chartData.length * 24);
+  const yAxisWidth = 52;
 
   const yAxisTicks = [0, 0.25, 0.5, 0.75, 1].map((t) =>
-    Math.round(t * maxTime * 1.1)
-  )
+    Math.round(t * maxTime * 1.1),
+  );
 
   const renderXAxisTick = (props: {
-    x?: string | number
-    y?: string | number
-    payload?: { value: string }
+    x?: string | number;
+    y?: string | number;
+    payload?: { value: string };
   }) => {
-    const { x = 0, y = 0, payload: p } = props
-    if (!p) return null
-    const idx = parseInt(p.value, 10)
-    const entry = chartData[idx]
-    if (!entry) return null
+    const { x = 0, y = 0, payload: p } = props;
+    if (!p) return null;
+    const idx = parseInt(p.value, 10);
+    const entry = chartData[idx];
+    if (!entry) return null;
     const showTick =
       entry.localQuestionNumber % 5 === 1 ||
       entry.isFirstOfSet ||
-      (entry.localQuestionNumber % 5 === 0 && entry.localQuestionNumber > 0)
-    if (!showTick) return null
-    const xNum = typeof x === 'number' ? x : parseFloat(String(x))
-    const yNum = typeof y === 'number' ? y : parseFloat(String(y))
+      (entry.localQuestionNumber % 5 === 0 && entry.localQuestionNumber > 0);
+    if (!showTick) return null;
+    const xNum = typeof x === "number" ? x : parseFloat(String(x));
+    const yNum = typeof y === "number" ? y : parseFloat(String(y));
     return (
       <g transform={`translate(${xNum},${yNum})`}>
         <text
@@ -151,16 +151,16 @@ export function MockAttemptAnalysisChart({
           </text>
         )}
       </g>
-    )
-  }
+    );
+  };
 
   return (
-    <div className={cn('relative flex min-w-0 flex-col gap-2', className)}>
+    <div className={cn("relative flex min-w-0 flex-col gap-2", className)}>
       <div className="text-sm text-muted-foreground">
         Time taken per question
       </div>
       <div className="absolute right-0 top-0 flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs">
-        {(['correct', 'partial', 'incorrect', 'not_attempted'] as const).map(
+        {(["correct", "partial", "incorrect", "not_attempted"] as const).map(
           (r) => (
             <span key={r} className="flex items-center gap-1.5">
               <span
@@ -169,7 +169,7 @@ export function MockAttemptAnalysisChart({
               />
               {RESULT_LABELS[r]}
             </span>
-          )
+          ),
         )}
       </div>
       <div className="flex h-[320px] min-h-0 pt-6">
@@ -209,50 +209,54 @@ export function MockAttemptAnalysisChart({
                   tick={false}
                   axisLine={false}
                 />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--border))',
-                  borderRadius: '8px',
-                }}
-                formatter={(value: number | undefined, _name, props) => {
-                  const payload = props.payload as {
-                    localQuestionNumber: number
-                    sectionName: string
-                    result: 'correct' | 'partial' | 'incorrect' | 'not_attempted'
-                  }
-                  return [
-                    `${formatTimeSeconds(value ?? 0)} · ${RESULT_LABELS[payload.result]}`,
-                    `${payload.sectionName} Q${payload.localQuestionNumber}`,
-                  ]
-                }}
-                labelFormatter={() => ''}
-              />
-              {setBoundaryIndices.map((idx) => (
-                <ReferenceLine
-                  key={idx}
-                  x={idx + 0.5}
-                  stroke="hsl(var(--border))"
-                  strokeWidth={2}
-                  strokeDasharray="4 2"
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "8px",
+                  }}
+                  formatter={(value: number | undefined, _name, props) => {
+                    const payload = props.payload as {
+                      localQuestionNumber: number;
+                      sectionName: string;
+                      result:
+                        | "correct"
+                        | "partial"
+                        | "incorrect"
+                        | "not_attempted";
+                    };
+                    return [
+                      `${formatTimeSeconds(value ?? 0)} · ${RESULT_LABELS[payload.result]}`,
+                      `${payload.sectionName} Q${payload.localQuestionNumber}`,
+                    ];
+                  }}
+                  labelFormatter={() => ""}
                 />
-              ))}
-              <Bar
-                dataKey="value"
-                radius={[4, 4, 0, 0]}
-                isAnimationActive
-                animationDuration={600}
-                animationEasing="ease-out"
-              >
-                {chartData.map((entry, index) => (
-                  <Cell key={index} fill={RESULT_COLORS[entry.result]} />
+                {setBoundaryIndices.map((idx) => (
+                  <ReferenceLine
+                    key={idx}
+                    x={idx + 0.5}
+                    stroke="hsl(var(--border))"
+                    strokeWidth={2}
+                    strokeDasharray="4 2"
+                  />
                 ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+                <Bar
+                  dataKey="value"
+                  radius={[4, 4, 0, 0]}
+                  isAnimationActive
+                  animationDuration={600}
+                  animationEasing="ease-out"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={index} fill={RESULT_COLORS[entry.result]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         </div>
       </div>
     </div>
-    </div>
-  )
+  );
 }

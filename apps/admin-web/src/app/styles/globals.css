@@ -88,4 +88,75 @@
   100% {
     background-color: transparent;
   }
+}
+
+/* Tiptap ResizableNodeView - invisible handles, resize from any edge/corner */
+[data-resize-container] {
+  display: flex;
+  justify-content: center;
+  margin: 0.75rem 0;
+}
+
+[data-resize-wrapper] {
+  position: relative;
+  display: inline-block;
+}
+
+/* Invisible handles - no visual, just hit area with resize cursor */
+[data-resize-handle] {
+  position: absolute;
+  z-index: 10;
+  background: transparent;
+}
+
+/* Edge handles - thin hit area */
+[data-resize-handle="top"],
+[data-resize-handle="bottom"] {
+  height: 6px;
+  cursor: n-resize;
+}
+[data-resize-handle="bottom"] {
+  cursor: s-resize;
+}
+[data-resize-handle="left"],
+[data-resize-handle="right"] {
+  width: 6px;
+  cursor: w-resize;
+}
+[data-resize-handle="right"] {
+  cursor: e-resize;
+}
+
+[data-resize-handle="top-left"],
+[data-resize-handle="top-right"],
+[data-resize-handle="bottom-left"],
+[data-resize-handle="bottom-right"] {
+  width: 8px;
+  height: 8px;
+}
+[data-resize-handle="top-left"] {
+  cursor: nw-resize;
+}
+[data-resize-handle="top-right"] {
+  cursor: ne-resize;
+}
+[data-resize-handle="bottom-left"] {
+  cursor: sw-resize;
+}
+[data-resize-handle="bottom-right"] {
+  cursor: se-resize;
+}
+
+/* Selection highlight when image is selected */
+.ProseMirror-selectednode [data-resize-container] {
+  outline: 2px solid hsl(var(--primary) / 0.6);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+/* Active resizing state */
+[data-resize-container][data-resize-state="true"] {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 0.375rem;
 } 

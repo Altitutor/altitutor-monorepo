@@ -12,6 +12,7 @@ import {
   useUcatCategories,
   useUcatQuestionDetail,
   useUcatSections,
+  useSetUcatQuestionStemApprovalStatus,
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
@@ -19,7 +20,6 @@ import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/u
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { parseTimeToSeconds, secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
   DEFAULT_OPTIONS,
   EMPTY_DOC,
@@ -30,15 +30,17 @@ import {
 
 type UcatQuestionStemDetailPageProps = {
   stemId: string
+  mode?: 'default' | 'generated'
 }
 
-export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPageProps) {
+export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQuestionStemDetailPageProps) {
   const access = useUcatAccess()
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const detailQuery = useUcatQuestionDetail(stemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
+  const approvalMutation = useSetUcatQuestionStemApprovalStatus()
 
   const isLoading =
     access.isLoading ||
@@ -143,27 +145,63 @@ export function UcatQuestionStemDetailPage({ stemId }: UcatQuestionStemDetailPag
     })
   }
 
+  const approvalStatus = (initial?.approval_status ?? 'approved') as
+    | 'approved'
+    | 'pending'
+    | 'rejected'
+
+  async function handleSetApproval(status: 'approved' | 'pending' | 'rejected') {
+    await approvalMutation.mutateAsync({ stemId, status })
+  }
+
   if (isLoading) return <UcatPageSkeleton rows={6} />
   if (!access.data) return <UcatAccessDenied />
 
   return (
     <div className="p-6">
       <UcatPageHeader
-        title="Edit UCAT Question Stem"
+        title={mode === 'generated' ? 'Review generated UCAT stem' : 'Edit UCAT Question Stem'}
         description={initial?.id ? `Editing stem ${initial.id}` : 'Edit question stem'}
-        backHref="/ucat/questions"
+        backHref={mode === 'generated' ? '/ucat/questions/generated' : '/ucat/questions'}
         breadcrumbs={[
           { label: 'UCAT', href: '/ucat' },
           { label: 'Questions', href: '/ucat/questions' },
-          { label: initial?.id ? proseMirrorToPlainText(initial.stem_text as Json) || 'Question stem' : 'Question stem' },
+          ...(mode === 'generated' ? [{ label: 'Generated', href: '/ucat/questions/generated' }] : []),
+          { label: stemId ?? 'Question stem' },
         ]}
         actions={
-          <Button
-            onClick={form.handleSubmit(onSubmit)}
-            disabled={!hasUnsavedChanges || updateStemMutation.isPending}
-          >
-            {updateStemMutation.isPending ? 'Saving...' : 'Save changes'}
-          </Button>
+          <div className="flex items-center gap-2">
+            {mode === 'generated' && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleSetApproval('rejected')}
+                  disabled={approvalMutation.isPending || approvalStatus === 'rejected'}
+                >
+                  Reject
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => void handleSetApproval('pending')}
+                  disabled={approvalMutation.isPending || approvalStatus === 'pending'}
+                >
+                  Mark pending
+                </Button>
+                <Button
+                  onClick={() => void handleSetApproval('approved')}
+                  disabled={approvalMutation.isPending || approvalStatus === 'approved'}
+                >
+                  Approve and publish
+                </Button>
+              </>
+            )}
+            <Button
+              onClick={form.handleSubmit(onSubmit)}
+              disabled={!hasUnsavedChanges || updateStemMutation.isPending}
+            >
+              {updateStemMutation.isPending ? 'Saving...' : 'Save changes'}
+            </Button>
+          </div>
         }
       />
 

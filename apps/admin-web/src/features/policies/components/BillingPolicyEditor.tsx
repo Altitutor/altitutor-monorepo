@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { RichTextEditor, type JSONContent } from '@altitutor/ui';
+import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
 import { Button } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { policiesApi, type PolicyRow } from '../api/policies';
@@ -12,6 +13,7 @@ const EMPTY_DOC: JSONContent = {
 };
 
 export function BillingPolicyEditor() {
+  const slashMenuSuggestions = useSlashCommandSuggestions();
   const [, setPolicy] = useState<PolicyRow | null>(null);
   const [content, setContent] = useState<JSONContent>(EMPTY_DOC);
   const [loading, setLoading] = useState(true);
@@ -72,8 +74,9 @@ export function BillingPolicyEditor() {
         <RichTextEditor
           content={content}
           onChange={setContent}
-          placeholder="Enter the billing policy content..."
+          placeholder="Enter the billing policy content... (type / for commands)"
           minHeight="300px"
+          slashMenuSuggestions={slashMenuSuggestions}
         />
       </div>
 

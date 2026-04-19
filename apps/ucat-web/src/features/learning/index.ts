@@ -1,1 +1,1 @@
-export { LearningPage } from '@/features/learning/components/learning-page'
+export { LearningPage } from "@/features/learning/components/learning-page";

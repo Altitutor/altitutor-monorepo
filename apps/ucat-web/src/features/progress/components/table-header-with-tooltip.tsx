@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
-import { Info } from 'lucide-react'
+import { Info } from "lucide-react";
 import {
   TableHead,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@altitutor/ui'
+} from "@altitutor/ui";
 
 type TableHeaderWithTooltipProps = {
-  children: React.ReactNode
-  tooltip?: string
-}
+  children: React.ReactNode;
+  tooltip?: string;
+};
 
 /** Table header with optional info icon and tooltip. Omit tooltip for name/date columns. */
 export function TableHeaderWithTooltip({
@@ -42,5 +42,5 @@ export function TableHeaderWithTooltip({
         )}
       </span>
     </TableHead>
-  )
+  );
 }

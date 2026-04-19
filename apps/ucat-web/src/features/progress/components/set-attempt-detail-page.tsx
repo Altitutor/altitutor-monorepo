@@ -1,55 +1,58 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import { UcatPageHeader } from '@/features/layout'
-import { useSetAttemptDetail } from '../hooks/use-set-attempt-detail'
-import { useMockAttemptDetail } from '../hooks/use-mock-attempt-detail'
-import { SetAttemptAnalysisChart } from './set-attempt-analysis-chart'
-import { SetAnswersCard } from './set-answers-card'
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
-import { cn } from '@/lib/utils'
+import { useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
+import { format } from "date-fns";
+import { UcatPageHeader } from "@/features/layout";
+import { useSetAttemptDetail } from "../hooks/use-set-attempt-detail";
+import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
+import { SetAttemptAnalysisChart } from "./set-attempt-analysis-chart";
+import { SetAnswersCard } from "./set-answers-card";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { cn } from "@/lib/utils";
 
 type SetAttemptDetailPageProps = {
-  attemptId: string
-  backHref?: string
-  backLabel?: string
-  /** When in nested route /progress/mocks/[id]/sets/[setAttemptId], pass mockAttemptId to show mock name in breadcrumb. */
-  mockAttemptId?: string
-}
+  attemptId: string;
+  backHref?: string;
+  backLabel?: string;
+  /** When in nested route /progress/mock-attempts/[id]/sets/[setAttemptId], pass mockAttemptId to show mock name in breadcrumb. */
+  mockAttemptId?: string;
+};
 
 export function SetAttemptDetailPage({
   attemptId,
-  backHref = '/progress',
-  backLabel = 'Back to progress',
+  backHref = "/progress",
+  backLabel = "Back to progress",
   mockAttemptId,
 }: SetAttemptDetailPageProps) {
-  const { data, isLoading, error } = useSetAttemptDetail(attemptId)
-  const { data: mockData } = useMockAttemptDetail(mockAttemptId ?? null)
-  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0)
+  const pathname = usePathname();
+  const { data, isLoading, error } = useSetAttemptDetail(attemptId);
+  const { data: mockData } = useMockAttemptDetail(mockAttemptId ?? null);
+  const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0);
 
   const categoryBreakdown = useMemo(() => {
-    const attempts = data?.questionAttempts ?? []
+    const attempts = data?.questionAttempts ?? [];
     const byCategory = new Map<
       string,
       { name: string; score: number; total: number }
-    >()
+    >();
     for (const q of attempts) {
-      const catKey = q.questionStemCategoryId ?? '__uncategorized__'
-      const catName = q.categoryName ?? 'Uncategorized'
-      const maxScore = q.questionType === 'syllogism' ? 2 : 1
-      const score = q.score ?? 0
-      const entry = byCategory.get(catKey)
+      const catKey = q.questionStemCategoryId ?? "__uncategorized__";
+      const catName = q.categoryName ?? "Uncategorized";
+      const maxScore = q.questionType === "syllogism" ? 2 : 1;
+      const score = q.score ?? 0;
+      const entry = byCategory.get(catKey);
       if (entry) {
-        entry.score += score
-        entry.total += maxScore
+        entry.score += score;
+        entry.total += maxScore;
       } else {
-        byCategory.set(catKey, { name: catName, score, total: maxScore })
+        byCategory.set(catKey, { name: catName, score, total: maxScore });
       }
     }
     return [...byCategory.entries()]
       .map(([, v]) => v)
-      .sort((a, b) => a.name.localeCompare(b.name))
-  }, [data?.questionAttempts])
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [data?.questionAttempts]);
 
   if (isLoading) {
     return (
@@ -64,7 +67,7 @@ export function SetAttemptDetailPage({
           <div className="h-64 rounded-lg bg-muted" />
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -78,7 +81,7 @@ export function SetAttemptDetailPage({
         />
         <p className="text-sm text-destructive">{error.message}</p>
       </div>
-    )
+    );
   }
 
   if (!data) {
@@ -91,29 +94,39 @@ export function SetAttemptDetailPage({
           backLabel={backLabel}
         />
       </div>
-    )
+    );
   }
 
-  const total = data.totalPoints ?? 0
-  const points = data.scorePoints ?? 0
+  const total = data.totalPoints ?? 0;
+  const points = data.scorePoints ?? 0;
 
-  const breadcrumbOverrides: Record<number, string> = {}
-  const setName = data.questionSetName ?? 'Set'
+  const attemptDate = format(new Date(data.attemptedAt), "d MMM yyyy");
+  const lastSegmentLabel = `${data.questionSetName ?? "Set"} (${attemptDate})`;
+
+  const breadcrumbOverrides: Record<number, string> = {};
   if (mockAttemptId) {
-    breadcrumbOverrides[2] = mockData?.mockName ?? 'Mock'
-    breadcrumbOverrides[4] = setName
+    breadcrumbOverrides[2] = mockData?.mockName ?? "Mock";
+    breadcrumbOverrides[4] = lastSegmentLabel;
+  } else if (pathname.includes("/sections/")) {
+    // Section route: segment 2 = section number (shows "Verbal Reasoning" from path), segment 4 = attempt id
+    breadcrumbOverrides[4] = lastSegmentLabel;
   } else {
-    breadcrumbOverrides[2] = setName
+    // Flat set-attempts route: segment 2 = attempt id
+    breadcrumbOverrides[2] = lastSegmentLabel;
   }
 
   return (
     <div className="min-w-0 max-w-full space-y-6">
       <UcatPageHeader
-        title={data.questionSetName ?? 'Set attempt'}
+        title={data.questionSetName ?? "Set attempt"}
         description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}
         backHref={backHref}
         backLabel={backLabel}
-        breadcrumbOverrides={Object.keys(breadcrumbOverrides).length > 0 ? breadcrumbOverrides : undefined}
+        breadcrumbOverrides={
+          Object.keys(breadcrumbOverrides).length > 0
+            ? breadcrumbOverrides
+            : undefined
+        }
       />
 
       <Card className="rounded-xl border-border max-w-sm">
@@ -127,11 +140,11 @@ export function SetAttemptDetailPage({
             </div>
             <div
               className={cn(
-                'text-3xl font-bold tabular-nums',
-                data.scaledScore == null && 'text-muted-foreground'
+                "text-3xl font-bold tabular-nums",
+                data.scaledScore == null && "text-muted-foreground",
               )}
             >
-              {data.scaledScore != null ? Math.round(data.scaledScore) : '—'}
+              {data.scaledScore != null ? Math.round(data.scaledScore) : "—"}
             </div>
           </div>
           <div>
@@ -139,7 +152,7 @@ export function SetAttemptDetailPage({
               Points
             </div>
             <div className="text-xl font-semibold tabular-nums">
-              {total > 0 ? `${points} / ${total}` : '—'}
+              {total > 0 ? `${points} / ${total}` : "—"}
             </div>
           </div>
           {categoryBreakdown.length > 0 ? (
@@ -157,7 +170,7 @@ export function SetAttemptDetailPage({
                       {cat.name}
                     </span>
                     <span className="shrink-0">
-                      {cat.total > 0 ? `${cat.score} / ${cat.total}` : '—'}
+                      {cat.total > 0 ? `${cat.score} / ${cat.total}` : "—"}
                     </span>
                   </div>
                 ))}
@@ -189,5 +202,5 @@ export function SetAttemptDetailPage({
         onQuestionIndexChange={setSelectedQuestionIndex}
       />
     </div>
-  )
+  );
 }

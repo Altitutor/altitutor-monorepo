@@ -5,8 +5,8 @@ import {
   EntityList,
   type EntityListStatusColumn,
   type EntityListPillColumn,
-  RichTextEditor,
 } from '@altitutor/ui';
+import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
 import { useIssues } from '../api/queries';
 import { useUpdateIssue, useCreateIssue } from '../api/mutations';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -200,12 +200,13 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         descriptionConfig={{
           enabled: true,
           renderEditor: ({ value, onChange, placeholder, ref }) => (
-            <RichTextEditor
+            <AdminRichTextEditorWithImages
               ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
               content={value}
               onChange={onChange}
               placeholder={placeholder}
               className="min-h-[60px]"
+              context="issues"
             />
           ),
           placeholder: "Add issue description..."

@@ -1,18 +1,21 @@
-import { useState, type DragEventHandler } from 'react'
-import type { QuestionItem } from '@/features/question-engine/model/types'
-import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
-import { RichContentBlock } from './rich-content-block'
-import type { CachedContent } from '@/features/question-engine/hooks/use-refreshed-content-cache'
+import { useState, type DragEventHandler } from "react";
+import type { QuestionItem } from "@/features/question-engine/model/types";
+import {
+  UCAT_COLORS,
+  UCAT_FONTS,
+} from "@altitutor/ui/src/components/ucat/ucat-theme";
+import { RichContentBlock } from "./rich-content-block";
+import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 
 type QuestionContentProps = {
-  question: QuestionItem
-  selectedOptionId?: string
-  onSelectOption: (optionId: string) => void
-  syllogismSnapshot?: Record<string, boolean>
-  onChangeSyllogismSnapshot?: (snapshot: Record<string, boolean>) => void
+  question: QuestionItem;
+  selectedOptionId?: string;
+  onSelectOption: (optionId: string) => void;
+  syllogismSnapshot?: Record<string, boolean>;
+  onChangeSyllogismSnapshot?: (snapshot: Record<string, boolean>) => void;
   /** Pre-refreshed stem/question content for instant image display. */
-  preloadedContent?: CachedContent | null
-}
+  preloadedContent?: CachedContent | null;
+};
 
 function SyllogismQuestionContent({
   question,
@@ -20,77 +23,77 @@ function SyllogismQuestionContent({
   onChangeSyllogismSnapshot,
   preloadedContent,
 }: QuestionContentProps) {
-  const isTwoColumn = question.sectionDisplayColumns === 2
+  const isTwoColumn = question.sectionDisplayColumns === 2;
 
-  const [answers, setAnswers] = useState<Record<string, 'yes' | 'no'>>(
-    () => {
-      const initial: Record<string, 'yes' | 'no'> = {}
-      if (syllogismSnapshot) {
-        for (const [optionId, value] of Object.entries(syllogismSnapshot)) {
-          initial[optionId] = value ? 'yes' : 'no'
-        }
+  const [answers, setAnswers] = useState<Record<string, "yes" | "no">>(() => {
+    const initial: Record<string, "yes" | "no"> = {};
+    if (syllogismSnapshot) {
+      for (const [optionId, value] of Object.entries(syllogismSnapshot)) {
+        initial[optionId] = value ? "yes" : "no";
       }
-      return initial
     }
-  )
+    return initial;
+  });
 
-  const syncSnapshot = (next: Record<string, 'yes' | 'no'>) => {
-    if (!onChangeSyllogismSnapshot) return
-    const snapshot: Record<string, boolean> = {}
+  const syncSnapshot = (next: Record<string, "yes" | "no">) => {
+    if (!onChangeSyllogismSnapshot) return;
+    const snapshot: Record<string, boolean> = {};
     for (const [optionId, choice] of Object.entries(next)) {
-      snapshot[optionId] = choice === 'yes'
+      snapshot[optionId] = choice === "yes";
     }
-    onChangeSyllogismSnapshot(snapshot)
-  }
+    onChangeSyllogismSnapshot(snapshot);
+  };
 
-  const handleAssign = (optionId: string, choice: 'yes' | 'no') => {
+  const handleAssign = (optionId: string, choice: "yes" | "no") => {
     setAnswers((prev) => {
-      const next = { ...prev, [optionId]: choice }
-      syncSnapshot(next)
-      return next
-    })
-  }
+      const next = { ...prev, [optionId]: choice };
+      syncSnapshot(next);
+      return next;
+    });
+  };
 
   const makeHandleDrop =
     (optionId: string): DragEventHandler<HTMLDivElement> =>
     (event) => {
-      event.preventDefault()
-      const choice = event.dataTransfer.getData('ucat-syllogism-choice') as
-        | 'yes'
-        | 'no'
-        | ''
-      if (choice !== 'yes' && choice !== 'no') return
+      event.preventDefault();
+      const choice = event.dataTransfer.getData("ucat-syllogism-choice") as
+        | "yes"
+        | "no"
+        | "";
+      if (choice !== "yes" && choice !== "no") return;
 
-      const fromOptionId = event.dataTransfer.getData('ucat-syllogism-source') || null
+      const fromOptionId =
+        event.dataTransfer.getData("ucat-syllogism-source") || null;
 
       setAnswers((prev) => {
-        const next = { ...prev }
+        const next = { ...prev };
         if (fromOptionId && fromOptionId !== optionId) {
-          delete next[fromOptionId]
+          delete next[fromOptionId];
         }
-        next[optionId] = choice
-        syncSnapshot(next)
-        return next
-      })
-    }
+        next[optionId] = choice;
+        syncSnapshot(next);
+        return next;
+      });
+    };
 
   const handleDragOver: DragEventHandler<HTMLDivElement> = (event) => {
-    event.preventDefault()
-  }
+    event.preventDefault();
+  };
 
   const handleTokenAreaDrop: DragEventHandler<HTMLDivElement> = (event) => {
-    event.preventDefault()
-    const fromOptionId = event.dataTransfer.getData('ucat-syllogism-source') || null
-    if (!fromOptionId) return
+    event.preventDefault();
+    const fromOptionId =
+      event.dataTransfer.getData("ucat-syllogism-source") || null;
+    if (!fromOptionId) return;
 
     setAnswers((prev) => {
-      if (!prev[fromOptionId]) return prev
-      const next = { ...prev }
-      delete next[fromOptionId]
-      syncSnapshot(next)
-      return next
-    })
-  }
+      if (!prev[fromOptionId]) return prev;
+      const next = { ...prev };
+      delete next[fromOptionId];
+      syncSnapshot(next);
+      return next;
+    });
+  };
 
   const content = (
     <section className="space-y-4">
@@ -104,7 +107,7 @@ function SyllogismQuestionContent({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1 space-y-3">
           {question.options.map((option) => {
-            const choice = answers[option.id] ?? null
+            const choice = answers[option.id] ?? null;
             return (
               <div
                 key={option.id}
@@ -122,26 +125,34 @@ function SyllogismQuestionContent({
                   role="button"
                   tabIndex={0}
                   aria-label="Drop Yes or No here"
-                  onClick={() => handleAssign(option.id, choice === 'yes' ? 'no' : 'yes')}
+                  onClick={() =>
+                    handleAssign(option.id, choice === "yes" ? "no" : "yes")
+                  }
                 >
                   {choice ? (
                     <div
                       className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
                       draggable
                       onDragStart={(event) => {
-                        event.dataTransfer.setData('ucat-syllogism-choice', choice)
-                        event.dataTransfer.setData('ucat-syllogism-source', option.id)
-                        event.dataTransfer.effectAllowed = 'move'
+                        event.dataTransfer.setData(
+                          "ucat-syllogism-choice",
+                          choice,
+                        );
+                        event.dataTransfer.setData(
+                          "ucat-syllogism-source",
+                          option.id,
+                        );
+                        event.dataTransfer.effectAllowed = "move";
                       }}
                     >
-                      {choice === 'yes' ? 'Yes' : 'No'}
+                      {choice === "yes" ? "Yes" : "No"}
                     </div>
                   ) : (
                     <span className="text-[9pt] text-transparent">_</span>
                   )}
                 </div>
               </div>
-            )
+            );
           })}
         </div>
         <div className="mt-1 w-[139px] rounded border border-black bg-[#dfdfdf] px-2 py-2">
@@ -154,9 +165,9 @@ function SyllogismQuestionContent({
               type="button"
               draggable
               onDragStart={(event) => {
-                event.dataTransfer.setData('ucat-syllogism-choice', 'yes')
-                event.dataTransfer.setData('ucat-syllogism-source', '')
-                event.dataTransfer.effectAllowed = 'copy'
+                event.dataTransfer.setData("ucat-syllogism-choice", "yes");
+                event.dataTransfer.setData("ucat-syllogism-source", "");
+                event.dataTransfer.effectAllowed = "copy";
               }}
               className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
@@ -166,9 +177,9 @@ function SyllogismQuestionContent({
               type="button"
               draggable
               onDragStart={(event) => {
-                event.dataTransfer.setData('ucat-syllogism-choice', 'no')
-                event.dataTransfer.setData('ucat-syllogism-source', '')
-                event.dataTransfer.effectAllowed = 'copy'
+                event.dataTransfer.setData("ucat-syllogism-choice", "no");
+                event.dataTransfer.setData("ucat-syllogism-source", "");
+                event.dataTransfer.effectAllowed = "copy";
               }}
               className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
@@ -178,11 +189,13 @@ function SyllogismQuestionContent({
         </div>
       </div>
     </section>
-  )
+  );
 
   if (isTwoColumn) {
     return (
-      <div className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}>
+      <div
+        className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
+      >
         <article
           className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
           style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
@@ -199,11 +212,13 @@ function SyllogismQuestionContent({
           {content}
         </section>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}>
+    <div
+      className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
+    >
       <div className="space-y-4 py-4 sm:py-5">
         <article className="space-y-3">
           <RichContentBlock
@@ -215,7 +230,7 @@ function SyllogismQuestionContent({
         {content}
       </div>
     </div>
-  )
+  );
 }
 
 export function QuestionContent({
@@ -226,9 +241,9 @@ export function QuestionContent({
   onChangeSyllogismSnapshot,
   preloadedContent,
 }: QuestionContentProps) {
-  const isTwoColumn = question.sectionDisplayColumns === 2
+  const isTwoColumn = question.sectionDisplayColumns === 2;
 
-  if (question.questionType === 'syllogism') {
+  if (question.questionType === "syllogism") {
     return (
       <SyllogismQuestionContent
         question={question}
@@ -238,12 +253,14 @@ export function QuestionContent({
         onChangeSyllogismSnapshot={onChangeSyllogismSnapshot}
         preloadedContent={preloadedContent}
       />
-    )
+    );
   }
 
   if (isTwoColumn) {
     return (
-      <div className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}>
+      <div
+        className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
+      >
         <article
           className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
           style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
@@ -267,7 +284,7 @@ export function QuestionContent({
             </div>
             <div className="space-y-2 pl-6">
               {question.options.map((option, index) => {
-                const letter = String.fromCharCode(65 + index)
+                const letter = String.fromCharCode(65 + index);
                 return (
                   <label key={option.id} className="flex items-start gap-2">
                     <input
@@ -282,17 +299,19 @@ export function QuestionContent({
                       <span className="ml-4">{option.text}</span>
                     </span>
                   </label>
-                )
+                );
               })}
             </div>
           </div>
         </section>
       </div>
-    )
+    );
   }
 
   return (
-    <div className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}>
+    <div
+      className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
+    >
       <div className="space-y-4 py-4 sm:py-5">
         <article className="space-y-3">
           <RichContentBlock
@@ -311,7 +330,7 @@ export function QuestionContent({
           </div>
           <div className="space-y-2 pl-6">
             {question.options.map((option, index) => {
-              const letter = String.fromCharCode(65 + index)
+              const letter = String.fromCharCode(65 + index);
               return (
                 <label key={option.id} className="flex items-start gap-2">
                   <input
@@ -326,12 +345,11 @@ export function QuestionContent({
                     <span className="ml-4">{option.text}</span>
                   </span>
                 </label>
-              )
+              );
             })}
           </div>
         </section>
       </div>
     </div>
-  )
+  );
 }
-

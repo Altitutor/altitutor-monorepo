@@ -1,15 +1,15 @@
-'use client'
+"use client";
 
-import Image from 'next/image'
-import { useTheme } from 'next-themes'
-import { ThemeToggle } from '@/components/theme/theme-toggle'
+import Image from "next/image";
+import { useTheme } from "next-themes";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 
 export function LoginPageLayout({ children }: { children: React.ReactNode }) {
-  const { resolvedTheme } = useTheme()
+  const { resolvedTheme } = useTheme();
   const logoSrc =
-    resolvedTheme === 'dark'
-      ? '/images/logo-banner-dark.svg'
-      : '/images/logo-banner-light.svg'
+    resolvedTheme === "dark"
+      ? "/images/logo-banner-dark.svg"
+      : "/images/logo-banner-light.svg";
 
   return (
     <div className="relative flex min-h-screen flex-col bg-background">
@@ -34,5 +34,5 @@ export function LoginPageLayout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
     </div>
-  )
+  );
 }

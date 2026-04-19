@@ -18,6 +18,7 @@ import { useToast } from '@altitutor/ui';
 import { useCreateRichTextTemplate, useUpdateRichTextTemplate } from '../api/templates';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
+import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
 import type { JSONContent } from '@tiptap/core';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 
@@ -37,6 +38,7 @@ export function CreateEditRichTextTemplateDialog({
   const { toast } = useToast();
   const createMutation = useCreateRichTextTemplate();
   const updateMutation = useUpdateRichTextTemplate();
+  const slashMenuSuggestions = useSlashCommandSuggestions();
 
   const [name, setName] = useState('');
   const [content, setContent] = useState<JSONContent | null>(null);
@@ -154,10 +156,11 @@ export function CreateEditRichTextTemplateDialog({
             <RichTextEditor
               content={content ?? { type: 'doc', content: [{ type: 'paragraph' }] }}
               onChange={(json) => setContent(json)}
-              placeholder="Type your template content here..."
+              placeholder="Type your template content here... (type / for commands)"
               minHeight="200px"
               className="min-h-[200px]"
               editable={!isLoading}
+              slashMenuSuggestions={slashMenuSuggestions}
             />
           </div>
         </div>

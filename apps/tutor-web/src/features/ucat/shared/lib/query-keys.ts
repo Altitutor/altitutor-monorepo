@@ -4,10 +4,11 @@ export const ucatKeys = {
   sections: () => [...ucatKeys.all, 'sections'] as const,
   categories: () => [...ucatKeys.all, 'categories'] as const,
   tags: () => [...ucatKeys.all, 'tags'] as const,
-  questions: () => [...ucatKeys.all, 'questions'] as const,
-  question: (id: string) => [...ucatKeys.questions(), id] as const,
-  questionStemTypes: () => [...ucatKeys.questions(), 'stem-types'] as const,
-  stemCatalog: () => [...ucatKeys.questions(), 'stem-catalog'] as const,
+  questions: (mode: 'default' | 'generated' | 'all' = 'default') =>
+    [...ucatKeys.all, 'questions', mode] as const,
+  question: (id: string) => [...ucatKeys.all, 'question', id] as const,
+  questionStemTypes: () => [...ucatKeys.questions('all'), 'stem-types'] as const,
+  stemCatalog: () => [...ucatKeys.questions('all'), 'stem-catalog'] as const,
   sets: () => [...ucatKeys.all, 'sets'] as const,
   set: (id: string) => [...ucatKeys.sets(), id] as const,
   mocks: () => [...ucatKeys.all, 'mocks'] as const,
@@ -17,4 +18,5 @@ export const ucatKeys = {
   classes: () => [...ucatKeys.all, 'classes'] as const,
   classSessions: (classId: string) => [...ucatKeys.classes(), classId, 'sessions'] as const,
   sessionResources: (sessionId: string) => [...ucatKeys.classes(), 'session', sessionId, 'resources'] as const,
+  reconciliation: () => [...ucatKeys.all, 'reconciliation'] as const,
 }

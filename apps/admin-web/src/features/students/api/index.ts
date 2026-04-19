@@ -1,2 +1,2 @@
-export { studentsApi } from './students';
+export { studentsApi, type StudentMinimalListRow } from './students';
 export * from './subsidies'; 

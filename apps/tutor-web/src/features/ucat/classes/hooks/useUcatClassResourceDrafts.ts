@@ -5,7 +5,12 @@ import { ucatClassesApi } from '@/features/ucat/classes/api/classes'
 import type { UcatSessionWithResources } from '@/features/ucat/classes/api/classes'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 
-export type DraftResource = { type: 'set' | 'mock'; resource_id: string; index: number; draftId: string }
+export type DraftResource = {
+  type: 'set' | 'mock' | 'stem'
+  resource_id: string
+  index: number
+  draftId: string
+}
 
 type DraftBySession = Record<string, DraftResource[]>
 
@@ -13,7 +18,7 @@ export function buildDraftFromSessions(sessions: UcatSessionWithResources[]): Dr
   const draft: DraftBySession = {}
   for (const s of sessions) {
     draft[s.session_id] = s.resources.map((r, i) => {
-      const resource_id = r.type === 'set' ? r.set_id : r.mock_id
+      const resource_id = r.type === 'set' ? r.set_id : r.type === 'mock' ? r.mock_id : r.stem_id
       return {
         type: r.type,
         resource_id,
@@ -67,7 +72,7 @@ export function useUcatClassResourceDrafts(classId: string | null) {
     })
   }, [])
 
-  const appendResourceToSession = useCallback((sessionId: string, type: 'set' | 'mock', resourceId: string) => {
+  const appendResourceToSession = useCallback((sessionId: string, type: 'set' | 'mock' | 'stem', resourceId: string) => {
     setDraftBySession((prev) => {
       const list = prev[sessionId] ?? []
       const draftId = `draft-${sessionId}-${type}-${resourceId}-${Date.now()}`
@@ -95,6 +100,7 @@ export function useUcatClassResourceDrafts(classId: string | null) {
       queryClient.invalidateQueries({ queryKey: ucatKeys.classes() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
     } finally {
       setIsSaving(false)
     }

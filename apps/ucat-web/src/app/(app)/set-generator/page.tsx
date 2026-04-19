@@ -1,5 +1,5 @@
-import { SetGeneratorPage } from '@/features/set-generator'
+import { redirect } from "next/navigation";
 
-export default function SetGeneratorRoute() {
-  return <SetGeneratorPage />
+export default function SetGeneratorRedirect() {
+  redirect("/sets/set-generator");
 }

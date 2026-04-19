@@ -52,6 +52,7 @@
     "@supabase/auth-helpers-nextjs": "^0.8.7",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.49.4",
+    "@tailwindcss/typography": "^0.5.19",
     "@tanstack/react-query": "^5.77.2",
     "@tanstack/react-query-devtools": "^5.77.2",
     "@tanstack/react-table": "^8.21.3",
@@ -63,6 +64,7 @@
     "date-fns": "^4.1.0",
     "datebook": "^8.0.1",
     "dotenv": "^16.5.0",
+    "gsap": "^3.14.2",
     "js-yaml": "^4.1.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^0.323.0",
@@ -76,7 +78,6 @@
     "stripe": "^20.1.0",
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
-    "@tailwindcss/typography": "^0.5.19",
     "uuid": "^11.1.0",
     "zod": "^3.24.2",
     "zustand": "^4.5.0"

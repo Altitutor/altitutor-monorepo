@@ -1,5 +1,6 @@
 import { RichTextEditor, type RichTextEditorRef as TaskEditorRef, type JSONContent } from '@altitutor/ui';
 import { forwardRef } from 'react';
+import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
 import type { Editor } from '@tiptap/react';
 
 export type { TaskEditorRef };
@@ -18,10 +19,12 @@ interface TaskEditorProps {
  * Now a wrapper around the shared RichTextEditor.
  */
 export const TaskEditor = forwardRef<TaskEditorRef, TaskEditorProps>((props, ref) => {
+  const slashMenuSuggestions = useSlashCommandSuggestions();
   return (
     <RichTextEditor
       {...props}
       ref={ref}
+      slashMenuSuggestions={slashMenuSuggestions}
     />
   );
 });

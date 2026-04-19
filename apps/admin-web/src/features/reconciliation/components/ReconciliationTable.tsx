@@ -235,17 +235,12 @@ export function UnpaidInvoicesTable({
       title="Unpaid Invoices"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Student', 'Amount Due', 'Status', 'Collection Method', 'Last Payment Error']}
+      columns={['Date', 'Student', 'Amount Due', 'Status', 'Collection Method']}
       renderRow={(item, _index) => {
         const collectionMethodLabel = item.collection_method === 'charge_automatically' 
           ? 'Charge Automatically' 
           : item.collection_method === 'send_invoice'
           ? 'Send Invoice'
-          : '—';
-        
-        const lastError = item.last_payment_error;
-        const errorDisplay = lastError 
-          ? `${lastError.code}: ${lastError.message}`
           : '—';
 
         return (
@@ -266,9 +261,6 @@ export function UnpaidInvoicesTable({
             </TableCell>
             <TableCell>
               <Badge variant="outline">{collectionMethodLabel}</Badge>
-            </TableCell>
-            <TableCell className="max-w-xs truncate" title={errorDisplay}>
-              {item.collection_method === 'charge_automatically' ? errorDisplay : '—'}
             </TableCell>
             <TableCell>
               <ReconciliationActions type="unpaid_invoices" item={item} />

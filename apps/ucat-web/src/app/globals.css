@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Cormorant+Garamond:ital,wght@1,300;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap");
+
 :root {
   --background: 220 20% 95%;
   --foreground: 224 20% 12%;
@@ -22,13 +24,15 @@
   --accent-foreground: 212 86% 14%;
   --secondary: 0 0% 96%;
   --secondary-foreground: 224 20% 12%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 0 0% 100%;
 }
 
 .dark {
   --background: 220 16% 10%;
   --foreground: 220 20% 96%;
-  --border: 220 14% 24%;
-  --input: 220 14% 24%;
+  --border: 220 14% 30%;
+  --input: 220 14% 30%;
   --ring: 198 29% 67%;
   --muted: 220 14% 16%;
   --muted-foreground: 220 12% 74%;
@@ -44,6 +48,8 @@
   --accent-foreground: 0 0% 100%;
   --secondary: 220 14% 18%;
   --secondary-foreground: 220 20% 96%;
+  --destructive: 0 62.8% 45%;
+  --destructive-foreground: 0 0% 100%;
 }
 
 html,
@@ -56,6 +62,20 @@ body {
   color: hsl(var(--foreground));
 }
 
+/* Set generator: transient background highlight for blocked set card */
+@keyframes set-highlight-fade {
+  0% {
+    background-color: hsl(var(--primary) / 0.25);
+  }
+  100% {
+    background-color: hsl(var(--card));
+  }
+}
+
+.ucat-set-highlight-transient {
+  animation: set-highlight-fade 2s ease-out forwards;
+}
+
 /* Progress page: pagination uses accent for active page button */
 .ucat-pagination button.bg-primary {
   background-color: hsl(var(--accent)) !important;
@@ -63,4 +83,71 @@ body {
 }
 .ucat-pagination button.bg-primary:hover:not(:disabled) {
   background-color: hsl(var(--accent) / 0.9) !important;
+}
+
+/* Tiptap ResizableNodeView - invisible handles, resize from any edge/corner */
+[data-resize-container] {
+  display: flex;
+  justify-content: center;
+  margin: 0.75rem 0;
+}
+
+[data-resize-wrapper] {
+  position: relative;
+  display: inline-block;
+}
+
+[data-resize-handle] {
+  position: absolute;
+  z-index: 10;
+  background: transparent;
+}
+
+[data-resize-handle="top"],
+[data-resize-handle="bottom"] {
+  height: 6px;
+  cursor: n-resize;
+}
+[data-resize-handle="bottom"] {
+  cursor: s-resize;
+}
+[data-resize-handle="left"],
+[data-resize-handle="right"] {
+  width: 6px;
+  cursor: w-resize;
+}
+[data-resize-handle="right"] {
+  cursor: e-resize;
+}
+
+[data-resize-handle="top-left"],
+[data-resize-handle="top-right"],
+[data-resize-handle="bottom-left"],
+[data-resize-handle="bottom-right"] {
+  width: 8px;
+  height: 8px;
+}
+[data-resize-handle="top-left"] {
+  cursor: nw-resize;
+}
+[data-resize-handle="top-right"] {
+  cursor: ne-resize;
+}
+[data-resize-handle="bottom-left"] {
+  cursor: sw-resize;
+}
+[data-resize-handle="bottom-right"] {
+  cursor: se-resize;
+}
+
+.ProseMirror-selectednode [data-resize-container] {
+  outline: 2px solid hsl(var(--primary) / 0.6);
+  outline-offset: 2px;
+  border-radius: 0.375rem;
+}
+
+[data-resize-container][data-resize-state="true"] {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+  border-radius: 0.375rem;
 }

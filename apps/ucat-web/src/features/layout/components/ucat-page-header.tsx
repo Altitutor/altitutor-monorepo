@@ -1,18 +1,18 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { getBreadcrumbItems } from '@/features/layout/config/breadcrumbs'
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { getBreadcrumbItems } from "@/features/layout/config/breadcrumbs";
 
 type UcatPageHeaderProps = {
-  title: string
-  description?: string
-  backHref?: string
-  backLabel?: string
+  title: string;
+  description?: string;
+  backHref?: string;
+  backLabel?: string;
   /** Override labels by segment index. E.g. { 2: mockName, 4: setName } for nested progress route. */
-  breadcrumbOverrides?: Record<number, string>
-}
+  breadcrumbOverrides?: Record<number, string>;
+};
 
 export function UcatPageHeader({
   title,
@@ -21,14 +21,14 @@ export function UcatPageHeader({
   backLabel,
   breadcrumbOverrides,
 }: UcatPageHeaderProps) {
-  const pathname = usePathname()
-  let breadcrumbItems = getBreadcrumbItems(pathname)
+  const pathname = usePathname();
+  let breadcrumbItems = getBreadcrumbItems(pathname);
 
   if (breadcrumbOverrides && Object.keys(breadcrumbOverrides).length > 0) {
     breadcrumbItems = breadcrumbItems.map((item, i) => {
-      const override = breadcrumbOverrides[i]
-      return override != null ? { ...item, label: override } : item
-    })
+      const override = breadcrumbOverrides[i];
+      return override != null ? { ...item, label: override } : item;
+    });
   }
 
   return (
@@ -45,7 +45,9 @@ export function UcatPageHeader({
                   />
                 ) : null}
                 {i === breadcrumbItems.length - 1 ? (
-                  <span className="font-medium text-foreground">{item.label}</span>
+                  <span className="font-medium text-foreground">
+                    {item.label}
+                  </span>
                 ) : item.effectiveHref ? (
                   <Link
                     href={item.effectiveHref}
@@ -66,7 +68,7 @@ export function UcatPageHeader({
           <Link
             href={backHref}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label={backLabel ?? 'Go back'}
+            aria-label={backLabel ?? "Go back"}
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>
@@ -74,10 +76,12 @@ export function UcatPageHeader({
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           {description ? (
-            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+            <p className="mt-0.5 text-sm text-muted-foreground">
+              {description}
+            </p>
           ) : null}
         </div>
       </div>
     </div>
-  )
+  );
 }

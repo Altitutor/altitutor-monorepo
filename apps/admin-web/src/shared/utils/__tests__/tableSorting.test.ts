@@ -41,6 +41,7 @@ describe('sortStudentsByStatus', () => {
       user_id: null,
       invite_token: null,
       welcome_modal_acknowledged_at: null,
+      timezone: 'Australia/Adelaide',
     },
     {
       id: 'student-2',
@@ -70,6 +71,7 @@ describe('sortStudentsByStatus', () => {
       user_id: null,
       invite_token: null,
       welcome_modal_acknowledged_at: null,
+      timezone: 'Australia/Adelaide',
     },
     {
       id: 'student-3',
@@ -99,6 +101,7 @@ describe('sortStudentsByStatus', () => {
       user_id: null,
       invite_token: null,
       welcome_modal_acknowledged_at: null,
+      timezone: 'Australia/Adelaide',
     },
   ];
 

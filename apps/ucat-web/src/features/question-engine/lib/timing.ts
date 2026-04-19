@@ -1,34 +1,58 @@
-'use client'
+"use client";
 
 import type {
   MockTimingSegment,
   QuestionEngineExam,
   QuestionEngineState,
   SetModeTiming,
-} from '@/features/question-engine/model/types'
+} from "@/features/question-engine/model/types";
 
 /**
  * Returns the current segment's time limit in seconds, or null if untimed.
- * Used for set and mock modes only.
+ * For questions mode: time per question. For questionStem mode: time per question × questions in stem.
  */
 export function getCurrentSegmentTimeLimitSeconds(
   exam: QuestionEngineExam,
-  state: QuestionEngineState
+  state: QuestionEngineState,
 ): number | null {
-  if (exam.sourceType === 'set' && exam.setModeTiming) {
-    const t = exam.setModeTiming as SetModeTiming
-    if (t.setTimeLimitSeconds == null || t.setTimeLimitSeconds <= 0) return null
-    if (state.phase === 'instructions') return t.instructionsTimeLimitSeconds
-    if (state.phase === 'question') return t.setTimeLimitSeconds
-    return null
+  if (exam.sourceType === "set" && exam.setModeTiming) {
+    const t = exam.setModeTiming as SetModeTiming;
+    if (t.setTimeLimitSeconds == null || t.setTimeLimitSeconds <= 0)
+      return null;
+    if (state.phase === "instructions") return t.instructionsTimeLimitSeconds;
+    if (state.phase === "question") return t.setTimeLimitSeconds;
+    return null;
   }
 
-  if (exam.sourceType === 'mock' && exam.mockTimingSegments?.length) {
-    const seg = getCurrentMockSegment(exam, state)
-    return seg?.timeLimitSeconds ?? null
+  if (exam.sourceType === "mock" && exam.mockTimingSegments?.length) {
+    const seg = getCurrentMockSegment(exam, state);
+    return seg?.timeLimitSeconds ?? null;
   }
 
-  return null
+  // Questions/questionStem mode: only timed when in question phase (answer phase is untimed)
+  if (
+    (exam.sourceType === "questions" || exam.sourceType === "questionStem") &&
+    state.phase === "question" &&
+    exam.timePerQuestionSeconds != null &&
+    exam.timePerQuestionSeconds > 0
+  ) {
+    const perQuestion = exam.timePerQuestionSeconds;
+    if (exam.sourceType === "questions") {
+      return perQuestion;
+    }
+    // questionStem: stem time = perQuestion × questions in current stem
+    const questions = exam.questions;
+    const currentQ = questions[state.currentIndex];
+    if (!currentQ) return perQuestion;
+    const stemId = currentQ.stemId;
+    let count = 0;
+    for (const q of questions) {
+      if (q.stemId === stemId) count += 1;
+    }
+    return perQuestion * Math.max(1, count);
+  }
+
+  return null;
 }
 
 /**
@@ -36,36 +60,38 @@ export function getCurrentSegmentTimeLimitSeconds(
  */
 export function getCurrentMockSegment(
   exam: QuestionEngineExam,
-  state: QuestionEngineState
+  state: QuestionEngineState,
 ): (MockTimingSegment & { segmentIndex: number }) | null {
-  const segments = exam.mockTimingSegments
-  if (!segments?.length) return null
+  const segments = exam.mockTimingSegments;
+  if (!segments?.length) return null;
 
-  if (state.phase === 'instructions') {
-    const idx = segments.findIndex(
-      (s) => s.type === 'instructions' && s.instructionsIndex === state.instructionsIndex
-    )
-    if (idx >= 0) {
-      const s = segments[idx]
-      return s.type === 'instructions' ? { ...s, segmentIndex: idx } : null
-    }
-    return null
-  }
-
-  if (state.phase === 'question') {
+  if (state.phase === "instructions") {
     const idx = segments.findIndex(
       (s) =>
-        s.type === 'questions' &&
-        state.currentIndex >= s.questionStartIndex &&
-        state.currentIndex < s.questionEndIndex
-    )
+        s.type === "instructions" &&
+        s.instructionsIndex === state.instructionsIndex,
+    );
     if (idx >= 0) {
-      const s = segments[idx]
-      return s.type === 'questions' ? { ...s, segmentIndex: idx } : null
+      const s = segments[idx];
+      return s.type === "instructions" ? { ...s, segmentIndex: idx } : null;
+    }
+    return null;
+  }
+
+  if (state.phase === "question") {
+    const idx = segments.findIndex(
+      (s) =>
+        s.type === "questions" &&
+        state.currentIndex >= s.questionStartIndex &&
+        state.currentIndex < s.questionEndIndex,
+    );
+    if (idx >= 0) {
+      const s = segments[idx];
+      return s.type === "questions" ? { ...s, segmentIndex: idx } : null;
     }
   }
 
-  return null
+  return null;
 }
 
 /**
@@ -74,12 +100,12 @@ export function getCurrentMockSegment(
 export function getRemainingSeconds(
   exam: QuestionEngineExam,
   state: QuestionEngineState,
-  timerStartedAt: number | null
+  timerStartedAt: number | null,
 ): number | null {
-  const limit = getCurrentSegmentTimeLimitSeconds(exam, state)
-  if (limit == null || limit <= 0 || timerStartedAt == null) return null
-  const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000)
-  return Math.max(0, limit - elapsed)
+  const limit = getCurrentSegmentTimeLimitSeconds(exam, state);
+  if (limit == null || limit <= 0 || timerStartedAt == null) return null;
+  const elapsed = Math.floor((Date.now() - timerStartedAt) / 1000);
+  return Math.max(0, limit - elapsed);
 }
 
 /**
@@ -87,12 +113,12 @@ export function getRemainingSeconds(
  */
 export function isLastQuestionOfCurrentMockSet(
   exam: QuestionEngineExam,
-  state: QuestionEngineState
+  state: QuestionEngineState,
 ): boolean {
-  if (exam.sourceType !== 'mock' || state.phase !== 'question') return false
-  const seg = getCurrentMockSegment(exam, state)
-  if (!seg || seg.type !== 'questions') return false
-  return state.currentIndex >= seg.questionEndIndex - 1
+  if (exam.sourceType !== "mock" || state.phase !== "question") return false;
+  const seg = getCurrentMockSegment(exam, state);
+  if (!seg || seg.type !== "questions") return false;
+  return state.currentIndex >= seg.questionEndIndex - 1;
 }
 
 /**
@@ -100,13 +126,14 @@ export function isLastQuestionOfCurrentMockSet(
  */
 export function getNextMockSegment(
   exam: QuestionEngineExam,
-  state: QuestionEngineState
+  state: QuestionEngineState,
 ): (MockTimingSegment & { segmentIndex: number }) | null {
-  const current = getCurrentMockSegment(exam, state)
-  const segments = exam.mockTimingSegments
-  if (!current || !segments || current.segmentIndex >= segments.length - 1) return null
-  const next = segments[current.segmentIndex + 1]
-  return { ...next, segmentIndex: current.segmentIndex + 1 }
+  const current = getCurrentMockSegment(exam, state);
+  const segments = exam.mockTimingSegments;
+  if (!current || !segments || current.segmentIndex >= segments.length - 1)
+    return null;
+  const next = segments[current.segmentIndex + 1];
+  return { ...next, segmentIndex: current.segmentIndex + 1 };
 }
 
 /**
@@ -115,27 +142,27 @@ export function getNextMockSegment(
  */
 export function getNextSetSegmentFromReview(
   exam: QuestionEngineExam,
-  mockCurrentSetIndex: number
+  mockCurrentSetIndex: number,
 ): (MockTimingSegment & { segmentIndex: number }) | null {
-  const segments = exam.mockTimingSegments
-  if (!segments?.length) return null
-  const nextSetIndex = mockCurrentSetIndex + 1
+  const segments = exam.mockTimingSegments;
+  if (!segments?.length) return null;
+  const nextSetIndex = mockCurrentSetIndex + 1;
   const questionsSegIdx = segments.findIndex(
-    (s) => s.type === 'questions' && s.setIndex === nextSetIndex
-  )
-  if (questionsSegIdx < 0) return null
-  const prevSeg = segments[questionsSegIdx - 1]
-  if (prevSeg?.type === 'instructions') {
-    return { ...prevSeg, segmentIndex: questionsSegIdx - 1 }
+    (s) => s.type === "questions" && s.setIndex === nextSetIndex,
+  );
+  if (questionsSegIdx < 0) return null;
+  const prevSeg = segments[questionsSegIdx - 1];
+  if (prevSeg?.type === "instructions") {
+    return { ...prevSeg, segmentIndex: questionsSegIdx - 1 };
   }
-  return { ...segments[questionsSegIdx], segmentIndex: questionsSegIdx }
+  return { ...segments[questionsSegIdx], segmentIndex: questionsSegIdx };
 }
 
 /**
  * Format seconds as MM:SS for timer display.
  */
 export function formatTimeRemaining(seconds: number): string {
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${m}:${s.toString().padStart(2, '0')}`
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
 }

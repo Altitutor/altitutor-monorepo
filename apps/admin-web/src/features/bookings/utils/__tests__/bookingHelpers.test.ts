@@ -42,6 +42,7 @@ describe('formatStudentDisplay', () => {
       user_id: null,
       invite_token: null,
       welcome_modal_acknowledged_at: null,
+      timezone: 'Australia/Adelaide',
     };
     
     expect(formatStudentDisplay(student)).toBe('John Doe (john@example.com)');
@@ -76,6 +77,7 @@ describe('formatStudentDisplay', () => {
       user_id: null,
       invite_token: null,
       welcome_modal_acknowledged_at: null,
+      timezone: 'Australia/Adelaide',
     };
     
     expect(formatStudentDisplay(student)).toBe('Jane Smith');

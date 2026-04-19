@@ -1,10 +1,9 @@
-import { SessionDetailPage } from '@/features/sessions'
+import { SessionDetailPage } from "@/features/sessions";
 
 export default function SessionDetailRoute({
   params,
 }: {
-  params: { sessionId: string }
+  params: { sessionId: string };
 }) {
-  return <SessionDetailPage sessionId={params.sessionId} />
+  return <SessionDetailPage sessionId={params.sessionId} />;
 }
-

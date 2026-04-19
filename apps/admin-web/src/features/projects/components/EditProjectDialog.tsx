@@ -108,7 +108,10 @@ function AutoSaveManager({ form, projectId, project, isInitialized, isLoading, o
 
 export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDialogProps) {
   const { data: project, isLoading } = useProject(projectId || '', !!projectId && isOpen);
-  const { data: projectNotes = [] } = useNotes({ projectId: projectId || '' });
+  const { data: projectNotes = [] } = useNotes(
+    { projectId: projectId && projectId.trim() ? projectId : undefined },
+    !!projectId && isOpen
+  );
   const { data: progressNotesData = [] } = useEntityNotes('projects', projectId || '', !!projectId && isOpen);
   const updateProject = useUpdateProject();
   const deleteProject = useDeleteProject();

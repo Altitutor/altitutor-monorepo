@@ -5,12 +5,15 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 type SessionRow = Database['public']['Views']['vtutor_sessions']['Row']
-type ResourceRow = Database['public']['Views']['vtutor_ucat_sessions_resources']['Row']
+type ResourceRow = Database['public']['Views']['vtutor_ucat_sessions_resources']['Row'] & {
+  question_stem_id?: string | null
+}
 
 export type UcatSessionWithResources = (SessionRow & { session_id: string }) & {
   resources: Array<
     | { type: 'set'; id: string; set_id: string; name: string; section_index: number; section_name: string; question_count: number; index: number }
     | { type: 'mock'; id: string; mock_id: string; name: string; set_count: number; question_counts: number[]; index: number }
+    | { type: 'stem'; id: string; stem_id: string; name: string; index: number }
   >
 }
 
@@ -52,9 +55,11 @@ export const ucatClassesApi = {
 
     const setIds = [...new Set(resources.map((r) => r.question_set_id).filter(Boolean))] as string[]
     const mockIds = [...new Set(resources.map((r) => r.ucat_mock_id).filter(Boolean))] as string[]
+    const stemIds = [...new Set(resources.map((r) => r.question_stem_id).filter(Boolean))] as string[]
 
     const setsMap: Record<string, { name: unknown; sections: unknown; question_count: number }> = {}
     const mocksMap: Record<string, { name: string | null; sets: unknown }> = {}
+    const stemsMap: Record<string, { stem_text: unknown }> = {}
 
     if (setIds.length > 0) {
       const { data: setsData } = await supabase
@@ -77,6 +82,18 @@ export const ucatClassesApi = {
         const r = row as { id: string; name: string | null; sets: unknown; deleted_at?: string | null }
         if (r.deleted_at != null) continue
         if (r.id) mocksMap[r.id] = { name: r.name, sets: r.sets }
+      }
+    }
+
+    if (stemIds.length > 0) {
+      const { data: stemsData } = await supabase
+        .from('vtutor_ucat_question_stems')
+        .select('id, stem_text, deleted_at')
+        .in('id', stemIds)
+      for (const row of stemsData ?? []) {
+        const r = row as { id: string; stem_text: unknown; deleted_at?: string | null }
+        if (r.deleted_at != null) continue
+        if (r.id) stemsMap[r.id] = { stem_text: r.stem_text }
       }
     }
 
@@ -126,6 +143,18 @@ export const ucatClassesApi = {
             index: r.index ?? 0,
           }
         }
+        if (r.question_stem_id) {
+          const stemInfo = stemsMap[r.question_stem_id]
+          const name =
+            proseMirrorToPlainText(stemInfo?.stem_text as Json | undefined).trim() || 'Question stem'
+          return {
+            type: 'stem' as const,
+            id: r.id ?? '',
+            stem_id: r.question_stem_id,
+            name: name.length > 80 ? `${name.slice(0, 77)}…` : name,
+            index: r.index ?? 0,
+          }
+        }
         return null
       })
       return { session: s, resources: mapped.filter(Boolean) as UcatSessionWithResources['resources'] }
@@ -139,11 +168,11 @@ export const ucatClassesApi = {
 
   /**
    * Replace all session resources for the given assignments (batch save).
-   * Payload: { assignments: Array<{ session_id, resources: Array<{ resource_type: 'set'|'mock', resource_id, index }> }> }
+   * Payload: { assignments: Array<{ session_id, resources: Array<{ resource_type: 'set'|'mock'|'stem', resource_id, index }> }> }
    */
   async replaceSessionResources(assignments: Array<{
     session_id: string
-    resources: Array<{ resource_type: 'set' | 'mock'; resource_id: string; index: number }>
+    resources: Array<{ resource_type: 'set' | 'mock' | 'stem'; resource_id: string; index: number }>
   }>): Promise<void> {
     const res = await fetch('/api/ucat/classes/sessions-resources', {
       method: 'PUT',

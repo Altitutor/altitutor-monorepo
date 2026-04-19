@@ -1,34 +1,34 @@
-'use client'
+"use client";
 
-import { Info } from 'lucide-react'
+import { Info } from "lucide-react";
 import {
   SearchableSelect,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from '@altitutor/ui'
-import { cn } from '@/lib/utils'
+} from "@altitutor/ui";
+import { cn } from "@/lib/utils";
 import {
   type AttemptFilter,
   ATTEMPT_FILTER_OPTIONS,
-} from '../lib/progress-mode'
+} from "../lib/progress-mode";
 
 type ProgressAttemptFilterSelectorProps = {
-  value: AttemptFilter
-  onValueChange: (value: AttemptFilter) => void
-  className?: string
-}
+  value: AttemptFilter;
+  onValueChange: (value: AttemptFilter) => void;
+  className?: string;
+};
 
 export function ProgressAttemptFilterSelector({
   value,
   onValueChange,
   className,
 }: ProgressAttemptFilterSelectorProps) {
-  const selectedOption = ATTEMPT_FILTER_OPTIONS.find((o) => o.value === value)
+  const selectedOption = ATTEMPT_FILTER_OPTIONS.find((o) => o.value === value);
 
   return (
-    <div className={cn(className, 'flex items-center gap-1')}>
+    <div className={cn(className, "flex items-center gap-1")}>
       <SearchableSelect<(typeof ATTEMPT_FILTER_OPTIONS)[number]>
         items={ATTEMPT_FILTER_OPTIONS}
         value={ATTEMPT_FILTER_OPTIONS.find((o) => o.value === value) ?? null}
@@ -53,5 +53,5 @@ export function ProgressAttemptFilterSelector({
         </TooltipProvider>
       )}
     </div>
-  )
+  );
 }

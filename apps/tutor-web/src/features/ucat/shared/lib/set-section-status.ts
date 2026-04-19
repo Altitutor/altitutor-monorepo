@@ -1,3 +1,6 @@
+import type { Json } from '@altitutor/shared'
+import { proseMirrorToPlainText } from './rich-text'
+
 /**
  * Centralized UCAT exam alignment status.
  * Green = matches UCAT exam timing and number of questions.
@@ -136,15 +139,44 @@ export function getSetSectionStatus(
 export function parseSetSections(sections: unknown): {
   sectionCount: number
   firstSectionNumber: number | null
+  sectionNumbers: number[]
 } {
   if (!Array.isArray(sections) || sections.length === 0) {
-    return { sectionCount: 0, firstSectionNumber: null }
+    return { sectionCount: 0, firstSectionNumber: null, sectionNumbers: [] }
   }
+  const sectionNumbers = sections
+    .map((s) => (s as { section_number?: number })?.section_number)
+    .filter((n): n is number => n != null)
   const first = sections[0] as { section_number?: number } | undefined
   return {
     sectionCount: sections.length,
     firstSectionNumber: first?.section_number ?? null,
+    sectionNumbers,
   }
+}
+
+function sectionNameToPlainText(name: unknown): string {
+  if (name == null) return ''
+  if (typeof name === 'string') return name.trim()
+  if (typeof name === 'object') return proseMirrorToPlainText(name as Json).trim()
+  return ''
+}
+
+/**
+ * Format set sections for display (e.g. "Section 1: Verbal Reasoning · Section 2: Decision Making").
+ */
+export function formatSetSectionsDisplay(sections: unknown): string {
+  if (!Array.isArray(sections)) return ''
+  return sections
+    .map((s: { section_number?: number; name?: unknown }) => {
+      const name = sectionNameToPlainText(s?.name)
+      if (s?.section_number != null && name) return `Section ${s.section_number}: ${name}`
+      if (name) return name
+      if (s?.section_number != null) return `Section ${s.section_number}`
+      return ''
+    })
+    .filter(Boolean)
+    .join(' · ')
 }
 
 /** True if set has single section and both question count and time limit match the section config. */
@@ -215,4 +247,29 @@ export function getMockExamStatus(
     status: 'partial',
     tooltip: 'Has one set per section, but at least one set does not match its section\'s question count or time limit.',
   }
+}
+
+/**
+ * Check if mock has correct number and order of sets.
+ * - set count must equal section count
+ * - set at position i must be for section at position i (sections ordered by section_number)
+ */
+export function isMockSetOrderCorrect(
+  setCount: number,
+  sets: MockSetForStatus[],
+  sections: UcatSectionForStatus[]
+): boolean {
+  const sectionCount = sections.length
+  if (setCount !== sectionCount || sectionCount === 0) return false
+  const sectionsSorted = [...sections].sort(
+    (a, b) => (a.section_number ?? 0) - (b.section_number ?? 0)
+  )
+  for (let i = 0; i < sectionCount; i++) {
+    const set = sets[i]
+    if (!set) return false
+    const parsed = parseSetSections(set.sections ?? null)
+    const expectedSectionNumber = sectionsSorted[i]?.section_number ?? null
+    if (parsed.firstSectionNumber !== expectedSectionNumber) return false
+  }
+  return true
 }

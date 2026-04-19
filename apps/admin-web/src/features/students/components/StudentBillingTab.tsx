@@ -18,6 +18,7 @@ import { StudentSubsidiesTable } from './StudentSubsidiesTable';
 import { AddSubsidyModal } from './AddSubsidyModal';
 import { fetchStudentSubsidies } from '../api/subsidies';
 import { getErrorMessage } from '@/shared/utils';
+import { StudentSubscriptionsTable } from './StudentSubscriptionsTable';
 
 type PaymentMethod = Tables<'student_payment_methods'>;
 
@@ -226,6 +227,19 @@ interface SubsidiesTabProps {
   studentId: string;
 }
 
+interface SubscriptionsTabProps {
+  studentId: string;
+}
+
+function SubscriptionsTab({ studentId }: SubscriptionsTabProps) {
+  return (
+    <div className="space-y-4">
+      <h3 className="text-lg font-semibold">Subscriptions</h3>
+      <StudentSubscriptionsTable studentId={studentId} />
+    </div>
+  );
+}
+
 function SubsidiesTab({ studentId }: SubsidiesTabProps) {
   const [isAddSubsidyModalOpen, setIsAddSubsidyModalOpen] = useState(false);
   const { data: subsidies = [], isLoading } = useQuery({
@@ -261,9 +275,10 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
 
   return (
     <Tabs defaultValue="invoices" className="w-full">
-      <TabsList className="grid w-full grid-cols-4">
+      <TabsList className="grid w-full grid-cols-2 gap-1 sm:grid-cols-3 lg:grid-cols-5">
         <TabsTrigger value="invoices">Invoices</TabsTrigger>
         <TabsTrigger value="payment-methods">Payment Methods</TabsTrigger>
+        <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
         <TabsTrigger value="subsidies">Subsidies</TabsTrigger>
         <TabsTrigger value="billing-preferences">Billing Preferences</TabsTrigger>
       </TabsList>
@@ -274,6 +289,10 @@ export function StudentBillingTab({ student }: { student: Tables<'students'> }) 
 
       <TabsContent value="payment-methods" className="mt-6">
         <PaymentMethodsTab student={student} />
+      </TabsContent>
+
+      <TabsContent value="subscriptions" className="mt-6">
+        <SubscriptionsTab studentId={student.id} />
       </TabsContent>
 
       <TabsContent value="subsidies" className="mt-6">

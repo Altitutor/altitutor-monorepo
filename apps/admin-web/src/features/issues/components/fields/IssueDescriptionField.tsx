@@ -1,5 +1,6 @@
 'use client';
 
+import { useRef } from 'react';
 import {
   FormControl,
   FormField,
@@ -12,6 +13,8 @@ import {
 import { UseFormReturn } from 'react-hook-form';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
+import { useAdminRichTextImageUpload } from '@/features/rich-text-images';
 import type { IssueFormData } from '../../types';
 
 interface IssueDescriptionFieldProps {
@@ -23,6 +26,13 @@ interface IssueDescriptionFieldProps {
 
 export function IssueDescriptionField({ form, value: _value, onTagClick: _onTagClick, descriptionRef }: IssueDescriptionFieldProps) {
   const mentionSuggestions = useMentionSuggestions();
+  const slashMenuSuggestions = useSlashCommandSuggestions();
+  const localRef = useRef<RichTextEditorRef>(null);
+  const effectiveRef = descriptionRef ?? localRef;
+  const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
+    context: 'issues',
+    editorRef: effectiveRef,
+  });
 
   return (
     <FormField
@@ -31,14 +41,21 @@ export function IssueDescriptionField({ form, value: _value, onTagClick: _onTagC
       render={({ field }) => (
         <FormItem>
           <FormControl>
-            <RichTextEditor
-              ref={descriptionRef}
-              content={field.value || ''}
-              onChange={field.onChange}
-              placeholder="Add issue description..."
-              className="min-h-0"
-              mentionSuggestions={mentionSuggestions}
-            />
+            <div
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={handleDrop}
+            >
+              <RichTextEditor
+                ref={effectiveRef}
+                content={field.value || ''}
+                onChange={field.onChange}
+                placeholder="Add issue description..."
+                className="min-h-0"
+                mentionSuggestions={mentionSuggestions}
+                slashMenuSuggestions={slashMenuSuggestions}
+                onPasteImages={handlePasteImages}
+              />
+            </div>
           </FormControl>
           <FormMessage />
         </FormItem>

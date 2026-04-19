@@ -1,11 +1,11 @@
-'use client'
+"use client";
 
-import { SegmentedControl } from './segmented-control'
+import { SegmentedControl } from "./segmented-control";
 
 type GraphTypeTabsProps = {
-  value: 'line' | 'bar'
-  onValueChange: (value: 'line' | 'bar') => void
-}
+  value: "line" | "bar";
+  onValueChange: (value: "line" | "bar") => void;
+};
 
 export function GraphTypeTabs({ value, onValueChange }: GraphTypeTabsProps) {
   return (
@@ -13,9 +13,9 @@ export function GraphTypeTabs({ value, onValueChange }: GraphTypeTabsProps) {
       value={value}
       onValueChange={onValueChange}
       options={[
-        { value: 'line', label: 'Line' },
-        { value: 'bar', label: 'Bar' },
+        { value: "line", label: "Line" },
+        { value: "bar", label: "Bar" },
       ]}
     />
-  )
+  );
 }

@@ -1,90 +1,103 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import { ArrowLeft, ArrowRight } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
-import { useQuestionEngineData } from '@/features/question-engine/hooks/use-question-engine-data'
-import { useRefreshedContentCache } from '@/features/question-engine/hooks/use-refreshed-content-cache'
-import { ResultsQuestionViewer } from '@/features/question-engine/components/results-question-viewer'
-import { computeMarkingResult } from '@/features/question-engine/components/marking-body'
-import type { SetAttemptDetailResponse } from '@/app/api/ucat/progress/sets/[id]/route'
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, ArrowRight } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { useQuestionEngineData } from "@/features/question-engine/hooks/use-question-engine-data";
+import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
+import { ResultsQuestionViewer } from "@/features/question-engine/components/results-question-viewer";
+import { computeMarkingResult } from "@/features/question-engine/components/marking-body";
+import type { QuestionEngineExam } from "@/features/question-engine/model/types";
+import type { SetAttemptDetailResponse } from "@/app/api/ucat/progress/set-attempts/[id]/route";
+
+type QuestionAttemptForCard =
+  SetAttemptDetailResponse["questionAttempts"][number];
 
 type SetAnswersCardProps = {
-  questionSetId: string
-  questionAttempts: SetAttemptDetailResponse['questionAttempts']
-  initialQuestionIndex?: number
-  onQuestionIndexChange?: (index: number) => void
-}
+  questionSetId?: string;
+  questionAttempts: QuestionAttemptForCard[];
+  initialQuestionIndex?: number;
+  onQuestionIndexChange?: (index: number) => void;
+  /** When provided, use this exam instead of fetching by questionSetId. For practice review. */
+  exam?: QuestionEngineExam | null;
+};
 
 export function SetAnswersCard({
   questionSetId,
   questionAttempts,
   initialQuestionIndex = 0,
   onQuestionIndexChange,
+  exam: examProp,
 }: SetAnswersCardProps) {
-  const { data: exam, isLoading, error } = useQuestionEngineData({
-    mode: 'set',
-    setId: questionSetId,
-  })
+  const {
+    data: examFromQuery,
+    isLoading,
+    error,
+  } = useQuestionEngineData({
+    mode: "set",
+    setId: questionSetId ?? "",
+    enabled: !examProp && Boolean(questionSetId),
+  });
+
+  const exam = examProp ?? examFromQuery;
+  const isLoadingExam = !examProp && isLoading;
+  const examError = !examProp && error;
 
   const { selectedAnswers, syllogismSnapshots } = useMemo(() => {
-    const selected: Record<string, string> = {}
-    const syllogism: Record<string, Record<string, boolean>> = {}
+    const selected: Record<string, string> = {};
+    const syllogism: Record<string, Record<string, boolean>> = {};
     for (const a of questionAttempts) {
       if (a.questionAnswerOptionId) {
-        selected[a.questionId] = a.questionAnswerOptionId
+        selected[a.questionId] = a.questionAnswerOptionId;
       }
       if (a.answerSnapshot && Object.keys(a.answerSnapshot).length > 0) {
-        syllogism[a.questionId] = a.answerSnapshot
+        syllogism[a.questionId] = a.answerSnapshot;
       }
     }
-    return { selectedAnswers: selected, syllogismSnapshots: syllogism }
-  }, [questionAttempts])
+    return { selectedAnswers: selected, syllogismSnapshots: syllogism };
+  }, [questionAttempts]);
 
-  const [viewingIndex, setViewingIndex] = useState(initialQuestionIndex)
+  const [viewingIndex, setViewingIndex] = useState(initialQuestionIndex);
 
-  const questions = useMemo(
-    () => exam?.questions ?? [],
-    [exam?.questions]
-  )
+  const questions = useMemo(() => exam?.questions ?? [], [exam?.questions]);
 
   useEffect(() => {
     const clamped = Math.max(
       0,
-      Math.min(initialQuestionIndex, Math.max(0, questions.length - 1))
-    )
-    setViewingIndex(clamped)
-  }, [initialQuestionIndex, questions.length])
+      Math.min(initialQuestionIndex, Math.max(0, questions.length - 1)),
+    );
+    setViewingIndex(clamped);
+  }, [initialQuestionIndex, questions.length]);
 
-  const currentQuestion = questions[viewingIndex]
+  const currentQuestion = questions[viewingIndex];
   const markingResult = useMemo(
     () =>
       questions.length > 0
         ? computeMarkingResult(questions, selectedAnswers, syllogismSnapshots)
         : null,
-    [questions, selectedAnswers, syllogismSnapshots]
-  )
+    [questions, selectedAnswers, syllogismSnapshots],
+  );
 
   const points =
     markingResult && currentQuestion
       ? markingResult.rows[viewingIndex]?.points
-      : undefined
+      : undefined;
 
-  const getCachedContent = useRefreshedContentCache(questions, viewingIndex)
+  const getCachedContent = useRefreshedContentCache(questions, viewingIndex);
 
   const handlePrev = () => {
-    const next = Math.max(0, viewingIndex - 1)
-    setViewingIndex(next)
-    onQuestionIndexChange?.(next)
-  }
+    const next = Math.max(0, viewingIndex - 1);
+    setViewingIndex(next);
+    onQuestionIndexChange?.(next);
+  };
 
   const handleNext = () => {
-    const next = Math.min(questions.length - 1, viewingIndex + 1)
-    setViewingIndex(next)
-    onQuestionIndexChange?.(next)
-  }
+    const next = Math.min(questions.length - 1, viewingIndex + 1);
+    setViewingIndex(next);
+    onQuestionIndexChange?.(next);
+  };
 
-  if (isLoading) {
+  if (isLoadingExam) {
     return (
       <Card className="overflow-hidden rounded-xl border-border">
         <CardHeader className="pb-2">
@@ -96,10 +109,10 @@ export function SetAnswersCard({
           </div>
         </CardContent>
       </Card>
-    )
+    );
   }
 
-  if (error) {
+  if (examError) {
     return (
       <Card className="overflow-hidden rounded-xl border-border">
         <CardHeader className="pb-2">
@@ -107,11 +120,13 @@ export function SetAnswersCard({
         </CardHeader>
         <CardContent>
           <p className="text-sm text-destructive">
-            {error instanceof Error ? error.message : 'Failed to load questions'}
+            {error instanceof Error
+              ? error.message
+              : "Failed to load questions"}
           </p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   if (questions.length === 0) {
@@ -121,10 +136,12 @@ export function SetAnswersCard({
           <CardTitle className="text-base font-medium">Questions</CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground">No questions in this set.</p>
+          <p className="text-sm text-muted-foreground">
+            No questions in this set.
+          </p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
@@ -175,5 +192,5 @@ export function SetAnswersCard({
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

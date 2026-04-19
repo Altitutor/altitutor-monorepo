@@ -1,4 +1,4 @@
-import type { QuestionItem } from '@/features/question-engine/model/types'
+import type { QuestionItem } from "@/features/question-engine/model/types";
 
 /**
  * Returns the start and end indices (inclusive) of the stem containing the question at the given index.
@@ -8,26 +8,29 @@ import type { QuestionItem } from '@/features/question-engine/model/types'
 export function getStemBoundaries(
   questions: QuestionItem[],
   questionIndex: number,
-  mode: 'questions' | 'questionStem'
+  mode: "questions" | "questionStem",
 ): { startIndex: number; endIndex: number } {
-  if (mode === 'questions') {
-    return { startIndex: questionIndex, endIndex: questionIndex }
+  if (mode === "questions") {
+    return { startIndex: questionIndex, endIndex: questionIndex };
   }
 
-  const q = questions[questionIndex]
-  if (!q) return { startIndex: questionIndex, endIndex: questionIndex }
+  const q = questions[questionIndex];
+  if (!q) return { startIndex: questionIndex, endIndex: questionIndex };
 
-  let startIndex = questionIndex
+  let startIndex = questionIndex;
   while (startIndex > 0 && questions[startIndex - 1]?.stemId === q.stemId) {
-    startIndex -= 1
+    startIndex -= 1;
   }
 
-  let endIndex = questionIndex
-  while (endIndex < questions.length - 1 && questions[endIndex + 1]?.stemId === q.stemId) {
-    endIndex += 1
+  let endIndex = questionIndex;
+  while (
+    endIndex < questions.length - 1 &&
+    questions[endIndex + 1]?.stemId === q.stemId
+  ) {
+    endIndex += 1;
   }
 
-  return { startIndex, endIndex }
+  return { startIndex, endIndex };
 }
 
 /**
@@ -36,8 +39,8 @@ export function getStemBoundaries(
 export function isLastQuestionOfUnit(
   questions: QuestionItem[],
   questionIndex: number,
-  mode: 'questions' | 'questionStem'
+  mode: "questions" | "questionStem",
 ): boolean {
-  const { endIndex } = getStemBoundaries(questions, questionIndex, mode)
-  return questionIndex >= endIndex
+  const { endIndex } = getStemBoundaries(questions, questionIndex, mode);
+  return questionIndex >= endIndex;
 }

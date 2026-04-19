@@ -5,8 +5,8 @@ import {
   EntityList,
   type EntityListStatusColumn,
   type EntityListPillColumn,
-  RichTextEditor,
 } from '@altitutor/ui';
+import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
 import { useProjects } from '../api/queries';
 import { useUpdateProject, useCreateProject } from '../api/mutations';
 import { EditProjectDialog } from './EditProjectDialog';
@@ -276,12 +276,13 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
         descriptionConfig={{
           enabled: true,
           renderEditor: ({ value, onChange, placeholder, ref }) => (
-            <RichTextEditor
+            <AdminRichTextEditorWithImages
               ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
               content={value}
               onChange={onChange}
               placeholder={placeholder}
               className="min-h-[60px]"
+              context="projects"
             />
           ),
           placeholder: 'Add project description...'

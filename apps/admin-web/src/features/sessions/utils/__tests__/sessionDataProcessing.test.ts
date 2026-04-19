@@ -112,6 +112,7 @@ describe('processSessionStudents', () => {
     user_id: null,
     invite_token: null,
     welcome_modal_acknowledged_at: null,
+    timezone: 'Australia/Adelaide',
   };
 
   it('should process student with planned attendance', () => {

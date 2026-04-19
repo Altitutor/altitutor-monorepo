@@ -1,5 +1,5 @@
-import { MocksListPage } from '@/features/mocks'
+import { MocksListPage } from "@/features/mocks";
 
 export default function MocksRoute() {
-  return <MocksListPage />
+  return <MocksListPage />;
 }

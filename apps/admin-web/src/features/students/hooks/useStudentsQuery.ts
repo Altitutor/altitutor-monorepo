@@ -25,6 +25,8 @@ export function useStudentsMinimal(params: UseStudentsListParams) {
     curriculums = [],
     yearLevels = [],
     subjectIds = [],
+    subscriptionOnline,
+    inPersonClass,
     page = 1,
     pageSize = 50,
     orderBy = 'last_name',
@@ -34,8 +36,33 @@ export function useStudentsMinimal(params: UseStudentsListParams) {
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: studentsKeys.minimal({ search, statuses, curriculums, yearLevels, subjectIds, page, pageSize, orderBy, ascending }),
-    queryFn: () => studentsApi.listMinimal({ search, statuses, curriculums, yearLevels, subjectIds, limit: pageSize, offset, orderBy, ascending }),
+    queryKey: studentsKeys.minimal({
+      search,
+      statuses,
+      curriculums,
+      yearLevels,
+      subjectIds,
+      subscriptionOnline,
+      inPersonClass,
+      page,
+      pageSize,
+      orderBy,
+      ascending,
+    }),
+    queryFn: () =>
+      studentsApi.listMinimal({
+        search,
+        statuses,
+        curriculums,
+        yearLevels,
+        subjectIds,
+        subscriptionOnline,
+        inPersonClass,
+        limit: pageSize,
+        offset,
+        orderBy,
+        ascending,
+      }),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 3, // 3 minutes - students list changes infrequently
     gcTime: 1000 * 60 * 5,
@@ -81,6 +108,10 @@ export interface UseStudentsListParams {
   curriculums?: string[];
   yearLevels?: number[];
   subjectIds?: string[];
+  /** Filter: `has` = at least one student_subscriptions row, `none` = none */
+  subscriptionOnline?: string[];
+  /** Filter: `has` = current class enrollment, `none` = not enrolled in any class */
+  inPersonClass?: string[];
   page?: number; // 1-based
   pageSize?: number;
   orderBy?: keyof Tables<'students'>;

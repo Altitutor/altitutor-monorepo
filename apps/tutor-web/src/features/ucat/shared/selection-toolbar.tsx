@@ -9,13 +9,16 @@ export function UcatSelectionToolbar({
   onCancel,
   onDelete,
   deletePending,
+  hideDelete,
   children,
   className,
 }: {
   selectedCount: number
   onCancel: () => void
-  onDelete: () => void
+  onDelete?: () => void
   deletePending?: boolean
+  /** When true, hide the Delete button (e.g. when only bulk add category is needed) */
+  hideDelete?: boolean
   children?: React.ReactNode
   className?: string
 }) {
@@ -38,17 +41,19 @@ export function UcatSelectionToolbar({
         {children}
       </div>
       <div className="flex items-center gap-2 shrink-0">
-        <Button
-          type="button"
-          variant="destructive"
-          size="sm"
-          onClick={onDelete}
-          disabled={deletePending}
-          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:bg-destructive dark:text-destructive-foreground dark:hover:bg-destructive/90"
-        >
-          <Trash2 className="h-4 w-4" />
-          Delete
-        </Button>
+        {!hideDelete && onDelete && (
+          <Button
+            type="button"
+            variant="destructive"
+            size="sm"
+            onClick={onDelete}
+            disabled={deletePending}
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 dark:bg-destructive dark:text-destructive-foreground dark:hover:bg-destructive/90"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </Button>
+        )}
         <Button type="button" variant="ghost" size="icon" onClick={onCancel} aria-label="Cancel selection">
           <X className="h-4 w-4" />
         </Button>

@@ -6,7 +6,12 @@ import { getSupabaseClient } from './client';
  * Folder structure: /subject_id/topic_id/filename
  */
 
-export type StorageBucket = 'resources' | 'session-files' | 'staff-files' | 'student-files';
+export type StorageBucket =
+  | 'resources'
+  | 'session-files'
+  | 'staff-files'
+  | 'student-files'
+  | 'admin-rich-text-images';
 
 export interface UploadFileOptions {
   subjectId: string;

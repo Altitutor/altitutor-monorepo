@@ -1,4 +1,4 @@
-'use client'
+"use client";
 
 import {
   AlertDialog,
@@ -8,15 +8,15 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '@altitutor/ui'
+} from "@altitutor/ui";
 
 const COMING_SOON_MESSAGE =
-  'This feature is still in development. We are working hard to get it ready for you soon.'
+  "This feature is still in development. We are working hard to get it ready for you soon.";
 
 type ComingSoonModalProps = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-}
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+};
 
 export function ComingSoonModal({ open, onOpenChange }: ComingSoonModalProps) {
   return (
@@ -27,9 +27,11 @@ export function ComingSoonModal({ open, onOpenChange }: ComingSoonModalProps) {
           <AlertDialogDescription>{COMING_SOON_MESSAGE}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogAction onClick={() => onOpenChange(false)}>OK</AlertDialogAction>
+          <AlertDialogAction onClick={() => onOpenChange(false)}>
+            OK
+          </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-  )
+  );
 }

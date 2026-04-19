@@ -1,111 +1,123 @@
-export type QuestionEngineMode = 'set' | 'mock' | 'questionStem' | 'questions'
+export type QuestionEngineMode = "set" | "mock" | "questionStem" | "questions";
 
 export type AnswerOption = {
-  id: string
-  index: number
-  text: string
+  id: string;
+  index: number;
+  text: string;
   /** True if this option is the correct answer. Used for marking display. */
-  isAnswer?: boolean
+  isAnswer?: boolean;
   /** Option-level answer explanation (shown in results review). */
-  answerExplanation?: string
+  answerExplanation?: string;
   /** Number of students who selected this option. From DB aggregation. */
-  selectionCount?: number
+  selectionCount?: number;
   /** Total students who answered this question. From DB aggregation. */
-  totalAnswered?: number
+  totalAnswered?: number;
   /** Percentage (0–100) of students who selected this option. */
-  percentage?: number
-}
+  percentage?: number;
+};
 
 export type QuestionItem = {
-  id: string
-  index: number
-  questionSetId: string
-  stemId: string
-  sectionName: string
-  sectionDisplayColumns: 1 | 2
-  stemText: string
-  questionText: string
+  id: string;
+  index: number;
+  questionSetId: string;
+  stemId: string;
+  sectionName: string;
+  sectionDisplayColumns: 1 | 2;
+  stemText: string;
+  questionText: string;
   /** Rich JSON for stem (Tiptap). When present, use for rendering images/formatting. */
-  stemJson?: Record<string, unknown> | null
+  stemJson?: Record<string, unknown> | null;
   /** Rich JSON for question text (Tiptap). When present, use for rendering images/formatting. */
-  questionJson?: Record<string, unknown> | null
-  questionType: 'multiple_choice' | 'syllogism'
-  options: AnswerOption[]
+  questionJson?: Record<string, unknown> | null;
+  questionType: "multiple_choice" | "syllogism";
+  options: AnswerOption[];
   /** ID of the correct answer option. Used for marking. */
-  correctOptionId?: string
+  correctOptionId?: string;
   /** Question-level answer explanation (shown below options in results review). */
-  answerExplanation?: string
-}
+  answerExplanation?: string;
+};
 
 /** One screen of instructions (tiptap/prosemirror JSON). Shown before questions when applicable. */
 export type InstructionsScreen = {
-  instructionsJson: Record<string, unknown> | null
-}
+  instructionsJson: Record<string, unknown> | null;
+};
 
 /** Time limit for current segment. If set is untimed (questions time null), instructions are also untimed. */
 export type SetModeTiming = {
   /** Question set time limit. Null = untimed (no timer in instructions or questions). */
-  setTimeLimitSeconds: number | null
+  setTimeLimitSeconds: number | null;
   /** Section instructions time limit. Only shown when set is timed. */
-  instructionsTimeLimitSeconds: number | null
-}
+  instructionsTimeLimitSeconds: number | null;
+};
 
 /** One segment in mock (instructions screen or block of questions). Used for timer and time-expired flow. */
 export type MockTimingSegment =
-  | { type: 'instructions'; instructionsIndex: number; timeLimitSeconds: number | null }
   | {
-      type: 'questions'
-      setIndex: number
-      questionStartIndex: number
-      questionEndIndex: number
-      timeLimitSeconds: number | null
+      type: "instructions";
+      instructionsIndex: number;
+      timeLimitSeconds: number | null;
     }
+  | {
+      type: "questions";
+      setIndex: number;
+      questionStartIndex: number;
+      questionEndIndex: number;
+      timeLimitSeconds: number | null;
+    };
 
 export type QuestionEngineExam = {
-  sourceType: QuestionEngineMode
-  sourceId: string
-  title: string
-  questions: QuestionItem[]
+  sourceType: QuestionEngineMode;
+  sourceId: string;
+  title: string;
+  questions: QuestionItem[];
   /** Ordered list of instruction screens. Set/mock mode only. Empty = no instructions phase. */
-  instructionsScreens: InstructionsScreen[]
+  instructionsScreens: InstructionsScreen[];
   /** Set mode only. When null, exam is untimed. */
-  setModeTiming?: SetModeTiming | null
+  setModeTiming?: SetModeTiming | null;
   /** Mock mode only. Ordered segments for timer and expiry. */
-  mockTimingSegments?: MockTimingSegment[]
+  mockTimingSegments?: MockTimingSegment[];
   /** Mock mode only. Per-set summaries for mock score display. */
   mockSetSummaries?: Array<{
-    setIndex: number
-    name: string
-    questionStartIndex: number
-    questionEndIndex: number
-  }>
-}
+    setIndex: number;
+    name: string;
+    questionStartIndex: number;
+    questionEndIndex: number;
+  }>;
+  /** Questions/questionStem mode only. Seconds per question for timing. Null = untimed. */
+  timePerQuestionSeconds?: number | null;
+};
 
 export type QuestionStemWithQuestions = {
-  id: string
-  questionSetId: string
-  sectionName: string
-  sectionDisplayColumns: 1 | 2
-  stemText: string
+  id: string;
+  questionSetId: string;
+  sectionName: string;
+  sectionDisplayColumns: 1 | 2;
+  stemText: string;
   questions: {
-    id: string
-    index: number
-    questionText: string
-    questionType: 'multiple_choice' | 'syllogism'
-    options: AnswerOption[]
-  }[]
-}
+    id: string;
+    index: number;
+    questionText: string;
+    questionType: "multiple_choice" | "syllogism";
+    options: AnswerOption[];
+  }[];
+};
 
-export function mapQuestionStemsToItems(stems: QuestionStemWithQuestions[]): QuestionItem[] {
-  const items: QuestionItem[] = []
-  let runningIndex = 0
+export function mapQuestionStemsToItems(
+  stems: QuestionStemWithQuestions[],
+): QuestionItem[] {
+  const items: QuestionItem[] = [];
+  let runningIndex = 0;
 
   for (const stem of stems) {
-    const sortedQuestions = [...stem.questions].sort((a, b) => a.index - b.index)
+    const sortedQuestions = [...stem.questions].sort(
+      (a, b) => a.index - b.index,
+    );
 
     for (const question of sortedQuestions) {
-      const sortedOptions = [...question.options].sort((a, b) => a.index - b.index)
-      const correctOption = sortedOptions.find((o) => o.isAnswer)
+      const sortedOptions = [...question.options].sort(
+        (a, b) => a.index - b.index,
+      );
+      const correctOption = sortedOptions.find((o) => o.isAnswer);
 
       items.push({
         id: question.id,
@@ -119,32 +131,36 @@ export function mapQuestionStemsToItems(stems: QuestionStemWithQuestions[]): Que
         questionType: question.questionType,
         options: sortedOptions,
         correctOptionId: correctOption?.id,
-      })
+      });
     }
   }
 
-  return items
+  return items;
 }
 
 export type QuestionEngineQuestion = {
-  id: string
-  stemId: string
-  sectionName: string
-  sectionDisplayColumns: 1 | 2
-  stemText: string
-  questionText: string
-  questionType: 'multiple_choice' | 'syllogism'
-  options: AnswerOption[]
-}
+  id: string;
+  stemId: string;
+  sectionName: string;
+  sectionDisplayColumns: 1 | 2;
+  stemText: string;
+  questionText: string;
+  questionType: "multiple_choice" | "syllogism";
+  options: AnswerOption[];
+};
 
-export function mapQuestionsToItems(questions: QuestionEngineQuestion[]): QuestionItem[] {
+export function mapQuestionsToItems(
+  questions: QuestionEngineQuestion[],
+): QuestionItem[] {
   return questions.map((question, index) => {
-    const sortedOptions = [...question.options].sort((a, b) => a.index - b.index)
-    const correctOption = sortedOptions.find((o) => o.isAnswer)
+    const sortedOptions = [...question.options].sort(
+      (a, b) => a.index - b.index,
+    );
+    const correctOption = sortedOptions.find((o) => o.isAnswer);
     return {
       id: question.id,
       index,
-      questionSetId: 'questions-mode',
+      questionSetId: "questions-mode",
       stemId: question.stemId,
       sectionName: question.sectionName,
       sectionDisplayColumns: question.sectionDisplayColumns,
@@ -153,61 +169,66 @@ export function mapQuestionsToItems(questions: QuestionEngineQuestion[]): Questi
       questionType: question.questionType,
       options: sortedOptions,
       correctOptionId: correctOption?.id,
-    }
-  })
+    };
+  });
 }
 
 /** Filter for review mode: which subset of questions to step through. */
-export type ReviewFilter = 'all' | 'incomplete' | 'flagged'
+export type ReviewFilter = "all" | "incomplete" | "flagged";
 
 export type QuestionEngineState = {
-  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'mockScore' | 'practiceAnswer' | 'practiceComplete' */
+  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'mockScore' | 'practiceAnswer' | 'practiceComplete' | 'loadingMore' */
   phase:
-    | 'instructions'
-    | 'intro'
-    | 'question'
-    | 'review'
-    | 'marking'
-    | 'mockScore'
-    | 'practiceAnswer'
-    | 'practiceComplete'
+    | "instructions"
+    | "intro"
+    | "question"
+    | "review"
+    | "marking"
+    | "mockScore"
+    | "practiceAnswer"
+    | "practiceComplete"
+    | "loadingMore";
   /** Mock only: which set we're in (0-based). Used when in review to scope to current set. */
-  mockCurrentSetIndex?: number
+  mockCurrentSetIndex?: number;
   /** Which instructions screen (0-based). Only relevant when phase === 'instructions'. */
-  instructionsIndex: number
+  instructionsIndex: number;
   /** When true, Ready to Begin dialog is shown on top of current screen (e.g. instructions). No = dismiss only. */
-  showReadyDialog: boolean
+  showReadyDialog: boolean;
   /** When the current segment's timer started (ms). Null when untimed or timer not started. */
-  timerStartedAt: number | null
+  timerStartedAt: number | null;
   /** When true, show "Time Expired" dialog. On OK: set mode = end set; mock mode = advance to next segment. */
-  showTimeExpiredDialog: boolean
+  showTimeExpiredDialog: boolean;
   /** Mock only: when we showed time expired, the next segment's timer was started at this time (ms). */
-  nextSegmentTimerStartedAt: number | null
-  currentIndex: number
+  nextSegmentTimerStartedAt: number | null;
+  currentIndex: number;
   /** Question ids the user has visited (for Unseen vs Incomplete status in review). */
-  visitedQuestionIds: string[]
-  flaggedIds: string[]
-  selectedAnswers: Record<string, string>
+  visitedQuestionIds: string[];
+  flaggedIds: string[];
+  selectedAnswers: Record<string, string>;
   /** For syllogism questions: map of questionId -> optionId -> true (Yes) / false (No). */
-  syllogismSnapshots?: Record<string, Record<string, boolean>>
-  showNavigator: boolean
-  showCalculator: boolean
-  showEndExamDialog: boolean
+  syllogismSnapshots?: Record<string, Record<string, boolean>>;
+  showNavigator: boolean;
+  showCalculator: boolean;
+  showEndExamDialog: boolean;
   /** When phase === 'review': null = review screen (list); non-null = review mode (stepping through filtered list). */
-  reviewFilter: ReviewFilter | null
+  reviewFilter: ReviewFilter | null;
   /** Index into the filtered list when in review mode. Only relevant when reviewFilter !== null. */
-  reviewFilterIndex: number
+  reviewFilterIndex: number;
   /** Snapshot of indices when entering review filter mode. List stays fixed until returning to review screen. */
-  reviewFilterIndicesSnapshot: number[] | null
+  reviewFilterIndicesSnapshot: number[] | null;
   /** When true, show "There are no flagged questions" dialog. */
-  showNoFlaggedDialog: boolean
-  showReviewInstructionsDialog: boolean
-  showEndReviewDialog: boolean
+  showNoFlaggedDialog: boolean;
+  showReviewInstructionsDialog: boolean;
+  showEndReviewDialog: boolean;
   /** When phase === 'marking': index of question being viewed in fullscreen, or null for results table. */
-  viewingQuestionIndex: number | null
+  viewingQuestionIndex: number | null;
   /** When true, show Exit Results confirmation dialog. */
-  showExitResultsDialog: boolean
+  showExitResultsDialog: boolean;
   /** Practice mode only: unit being reviewed. viewingQuestionIndex is the current question in this range. */
-  practiceAnswerUnitStartIndex?: number
-  practiceAnswerUnitEndIndex?: number
-}
+  practiceAnswerUnitStartIndex?: number;
+  practiceAnswerUnitEndIndex?: number;
+  /** Unlimited mode: when phase === 'loadingMore', the index we're waiting for. */
+  loadingMoreTargetIndex?: number;
+  /** Unlimited mode: stem IDs to exclude when fetching next. */
+  loadingMoreExcludeStemIds?: string[];
+};

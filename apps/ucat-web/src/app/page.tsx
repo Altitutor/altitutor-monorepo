@@ -1,5 +1,5 @@
-import { redirect } from 'next/navigation'
+import { UcatMarketingLandingPage } from "@/features/landing";
 
-export default function HomePage() {
-  redirect('/dashboard')
+export default function LandingPage() {
+  return <UcatMarketingLandingPage />;
 }

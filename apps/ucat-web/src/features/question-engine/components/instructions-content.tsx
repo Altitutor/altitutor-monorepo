@@ -1,11 +1,18 @@
-'use client'
+"use client";
 
-import { RichTextEditor } from '@altitutor/ui'
-import { UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
-import type { InstructionsScreen } from '@/features/question-engine/model/types'
+import { RichTextEditor } from "@altitutor/ui";
+import { UCAT_FONTS } from "@altitutor/ui/src/components/ucat/ucat-theme";
+import type { InstructionsScreen } from "@/features/question-engine/model/types";
 
-export function InstructionsContent({ screen }: { screen: InstructionsScreen }) {
-  const content = screen.instructionsJson ?? { type: 'doc', content: [{ type: 'paragraph' }] }
+export function InstructionsContent({
+  screen,
+}: {
+  screen: InstructionsScreen;
+}) {
+  const content = screen.instructionsJson ?? {
+    type: "doc",
+    content: [{ type: "paragraph" }],
+  };
   return (
     <div
       className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
@@ -20,5 +27,5 @@ export function InstructionsContent({ screen }: { screen: InstructionsScreen }) 
         />
       </div>
     </div>
-  )
+  );
 }

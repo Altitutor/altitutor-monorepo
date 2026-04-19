@@ -1,42 +1,42 @@
-'use client'
+"use client";
 
-import { useMemo } from 'react'
-import { UcatPageHeader } from '@/features/layout'
-import { useProgress } from '../hooks/use-progress'
-import { useProgressMode } from '../hooks/use-progress-mode'
-import { ProgressModeSelector } from './progress-mode-selector'
-import { SectionProgressCards } from './section-progress-cards'
-import { MockAttemptsCard } from './mock-attempts-card'
+import { useMemo } from "react";
+import { UcatPageHeader } from "@/features/layout";
+import { useProgress } from "../hooks/use-progress";
+import { useProgressMode } from "../hooks/use-progress-mode";
+import { ProgressModeSelector } from "./progress-mode-selector";
+import { SectionProgressCards } from "./section-progress-cards";
+import { MockAttemptsCard } from "./mock-attempts-card";
 import {
   filterByTimeFrame,
   getSharedDateRange,
   computeSectionProgressFromMockAttempts,
-} from '../lib/progress-data-utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
+} from "../lib/progress-data-utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 
 export function MocksProgressPage() {
-  const { data, isLoading, error } = useProgress()
-  const progressMode = useProgressMode()
+  const { data, isLoading, error } = useProgress();
+  const progressMode = useProgressMode();
 
   const filteredMockAttempts = useMemo(() => {
-    if (!data?.mockAttempts) return []
+    if (!data?.mockAttempts) return [];
     return filterByTimeFrame(
       data.mockAttempts,
       progressMode.mode,
-      progressMode.timeFrameDays
-    )
-  }, [data, progressMode.mode, progressMode.timeFrameDays])
+      progressMode.timeFrameDays,
+    );
+  }, [data, progressMode.mode, progressMode.timeFrameDays]);
 
   const sectionProgress = useMemo(() => {
-    if (!data) return []
+    if (!data) return [];
     return computeSectionProgressFromMockAttempts(
       data.mockAttempts,
       data.setAttempts,
       data.sectionProgress,
       progressMode.mode,
-      progressMode.timeFrameDays
-    )
-  }, [data, progressMode.mode, progressMode.timeFrameDays])
+      progressMode.timeFrameDays,
+    );
+  }, [data, progressMode.mode, progressMode.timeFrameDays]);
 
   const sharedDateRange = useMemo(() => {
     return getSharedDateRange(
@@ -44,23 +44,25 @@ export function MocksProgressPage() {
       [],
       filteredMockAttempts,
       progressMode.mode,
-      progressMode.timeFrameDays
-    )
-  }, [filteredMockAttempts, progressMode.mode, progressMode.timeFrameDays])
+      progressMode.timeFrameDays,
+    );
+  }, [filteredMockAttempts, progressMode.mode, progressMode.timeFrameDays]);
 
   const averageMockScore = useMemo(() => {
     const withScore = filteredMockAttempts.filter(
-      (a) => a.scaledScore != null && a.scaledScore > 0
-    )
-    if (withScore.length === 0) return null
-    const sum = withScore.reduce((s, a) => s + (a.scaledScore ?? 0), 0)
-    return Math.round(sum / withScore.length)
-  }, [filteredMockAttempts])
+      (a) => a.scaledScore != null && a.scaledScore > 0,
+    );
+    if (withScore.length === 0) return null;
+    const sum = withScore.reduce((s, a) => s + (a.scaledScore ?? 0), 0);
+    return Math.round(sum / withScore.length);
+  }, [filteredMockAttempts]);
 
   const mocksCompleted = useMemo(() => {
-    const uniqueMockIds = new Set(filteredMockAttempts.map((a) => a.ucatMockId))
-    return uniqueMockIds.size
-  }, [filteredMockAttempts])
+    const uniqueMockIds = new Set(
+      filteredMockAttempts.map((a) => a.ucatMockId),
+    );
+    return uniqueMockIds.size;
+  }, [filteredMockAttempts]);
 
   if (isLoading) {
     return (
@@ -79,7 +81,7 @@ export function MocksProgressPage() {
           <div className="h-64 rounded-lg bg-muted" />
         </div>
       </div>
-    )
+    );
   }
 
   if (error) {
@@ -91,7 +93,7 @@ export function MocksProgressPage() {
         />
         <p className="text-sm text-destructive">{error.message}</p>
       </div>
-    )
+    );
   }
 
   if (!data) {
@@ -102,7 +104,7 @@ export function MocksProgressPage() {
           description="No progress data available."
         />
       </div>
-    )
+    );
   }
 
   return (
@@ -130,10 +132,10 @@ export function MocksProgressPage() {
           <CardContent>
             <div
               className={`text-4xl font-bold tabular-nums text-center ${
-                averageMockScore == null ? 'text-muted-foreground' : ''
+                averageMockScore == null ? "text-muted-foreground" : ""
               }`}
             >
-              {averageMockScore != null ? averageMockScore : '—'}
+              {averageMockScore != null ? averageMockScore : "—"}
             </div>
           </CardContent>
         </Card>
@@ -148,7 +150,7 @@ export function MocksProgressPage() {
               {mocksCompleted}
               {data.totalPublicMocks != null
                 ? ` / ${data.totalPublicMocks}`
-                : ''}
+                : ""}
             </div>
           </CardContent>
         </Card>
@@ -168,5 +170,5 @@ export function MocksProgressPage() {
         sharedDateRange={sharedDateRange}
       />
     </div>
-  )
+  );
 }

@@ -740,6 +740,7 @@ export async function GET(
     sectionProgress,
     setAttempts,
     mockAttempts,
+    practiceAttempts: [],
     questionAttempts,
     sectionCategoryProgress,
     totalPublicMocks: totalPublicMocks ?? 0,

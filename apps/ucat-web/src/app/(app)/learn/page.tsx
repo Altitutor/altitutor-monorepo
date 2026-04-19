@@ -1,5 +1,5 @@
-import { LearningPage } from '@/features/learning'
+import { LearningPage } from "@/features/learning";
 
 export default function LearnRoute() {
-  return <LearningPage />
+  return <LearningPage />;
 }

@@ -1,176 +1,175 @@
-'use client'
+"use client";
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
-import { Badge, Label, SearchableSelect } from '@altitutor/ui'
-import { UcatPageHeader } from '@/features/layout'
-import { useAttemptedMockIds, useMocks } from '@/features/mocks/hooks/use-mocks'
+import { useCallback, useMemo, useState } from "react";
+import Link from "next/link";
+import { Badge, ListToolbar, TablePagination } from "@altitutor/ui";
+import type { DataTableFilterDefinition } from "@altitutor/shared";
+import { UcatPageHeader } from "@/features/layout";
+import {
+  useAttemptedMockIds,
+  useMocks,
+} from "@/features/mocks/hooks/use-mocks";
 import {
   filterMocks,
-  type MocksFilters,
   type StudentMockRow,
-} from '@/features/mocks/api/mocks-api'
-import { NotebookText } from 'lucide-react'
+} from "@/features/mocks/api/mocks-api";
+import { recordToMocksFilters } from "@/features/mocks/lib/filter-adapters";
+import { NotebookText } from "lucide-react";
 
-const PAGE_SIZE = 10
+const DEFAULT_PAGE_SIZE = 10;
+
+const TIMED_OPTIONS: DataTableFilterDefinition["options"] = [
+  { value: "timed", label: "Timed" },
+  { value: "untimed", label: "Untimed" },
+];
+
+const SOURCE_OPTIONS: DataTableFilterDefinition["options"] = [
+  { value: "my", label: "My mocks" },
+  { value: "public", label: "Public mocks" },
+];
+
+const FILTER_DEFINITIONS: DataTableFilterDefinition[] = [
+  { key: "timed", label: "Timing", options: TIMED_OPTIONS },
+  { key: "source", label: "Source", options: SOURCE_OPTIONS },
+];
 
 export function MocksListPage() {
-  const { data: mocks, isLoading, error } = useMocks()
-  const { data: attemptedMockIds = new Set<string>() } = useAttemptedMockIds()
-  const [filters, setFilters] = useState<MocksFilters>({})
-  const [page, setPage] = useState(0)
+  const { data: mocks, isLoading, error } = useMocks();
+  const { data: attemptedMockIds = new Set<string>() } = useAttemptedMockIds();
+  const [search, setSearch] = useState("");
+  const [filtersRecord, setFiltersRecord] = useState<Record<string, unknown[]>>(
+    {},
+  );
+  const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+
+  const effectiveFilters = useMemo(
+    () => recordToMocksFilters(filtersRecord),
+    [filtersRecord],
+  );
 
   const filteredMocks = useMemo(() => {
-    if (!mocks) return []
-    return filterMocks(mocks, filters)
-  }, [mocks, filters])
+    if (!mocks) return [];
+    return filterMocks(mocks, {
+      ...effectiveFilters,
+      search: search.trim() || undefined,
+    });
+  }, [mocks, effectiveFilters, search]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredMocks.length / PAGE_SIZE))
-  const currentPage = Math.min(page, totalPages - 1)
+  const totalPages = Math.max(1, Math.ceil(filteredMocks.length / pageSize));
+  const currentPage = Math.min(page, totalPages - 1);
   const paginatedMocks = useMemo(() => {
-    const start = currentPage * PAGE_SIZE
-    return filteredMocks.slice(start, start + PAGE_SIZE)
-  }, [filteredMocks, currentPage])
+    const start = currentPage * pageSize;
+    return filteredMocks.slice(start, start + pageSize);
+  }, [filteredMocks, currentPage, pageSize]);
 
-  const handleFilterChange = (key: keyof MocksFilters, value: string) => {
-    setFilters((prev) => {
-      const next = { ...prev }
-      if (value === 'all' || !value) {
-        delete next[key]
-      } else {
-        ;(next as Record<string, string>)[key] = value
-      }
-      return next
-    })
-    setPage(0)
-  }
+  const handleFiltersChange = useCallback(
+    (filters: Record<string, unknown[]>) => {
+      setFiltersRecord(filters);
+      setPage(0);
+    },
+    [],
+  );
+
+  const handlePageSizeChange = useCallback((size: number) => {
+    setPageSize(size);
+    setPage(0);
+  }, []);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+    setPage(0);
+  }, []);
 
   if (isLoading) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Mocks" description="Full-length UCAT mock exams." />
+        <UcatPageHeader
+          title="Mocks"
+          description="Full-length UCAT mock exams."
+        />
         <p className="text-sm text-muted-foreground">Loading mocks...</p>
       </div>
-    )
+    );
   }
 
   if (error) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Mocks" description="Full-length UCAT mock exams." />
+        <UcatPageHeader
+          title="Mocks"
+          description="Full-length UCAT mock exams."
+        />
         <p className="text-sm text-red-600 dark:text-red-400">
-          {error instanceof Error ? error.message : 'Failed to load mocks'}
+          {error instanceof Error ? error.message : "Failed to load mocks"}
         </p>
       </div>
-    )
+    );
   }
 
   if (!mocks || mocks.length === 0) {
     return (
       <div className="space-y-6">
-        <UcatPageHeader title="Mocks" description="Full-length UCAT mock exams." />
+        <UcatPageHeader
+          title="Mocks"
+          description="Full-length UCAT mock exams."
+        />
         <p className="text-sm text-muted-foreground">No mocks available.</p>
       </div>
-    )
+    );
   }
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader title="Mocks" description="Choose a mock to start the exam (first set)." />
+      <UcatPageHeader
+        title="Mocks"
+        description="Choose a mock to start the exam (first set)."
+      />
       <div className="space-y-4">
-        <div className="flex flex-wrap items-end gap-4">
-          <div className="space-y-2">
-            <Label>Timing</Label>
-            <SearchableSelect<{ value: string; label: string }>
-              items={[
-                { value: 'all', label: 'All' },
-                { value: 'timed', label: 'Timed' },
-                { value: 'untimed', label: 'Untimed' },
-              ]}
-              value={
-                [
-                  { value: 'all', label: 'All' },
-                  { value: 'timed', label: 'Timed' },
-                  { value: 'untimed', label: 'Untimed' },
-                ].find((i) => i.value === (filters.timed ?? 'all')) ?? null
-              }
-              onValueChange={(item) => item && handleFilterChange('timed', item.value)}
-              getItemLabel={(i) => i.label}
-              getItemId={(i) => i.value}
-              placeholder="All"
-              triggerClassName="w-[140px]"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Source</Label>
-            <SearchableSelect<{ value: string; label: string }>
-              items={[
-                { value: 'all', label: 'All' },
-                { value: 'my', label: 'My mocks' },
-                { value: 'public', label: 'Public mocks' },
-              ]}
-              value={
-                [
-                  { value: 'all', label: 'All' },
-                  { value: 'my', label: 'My mocks' },
-                  { value: 'public', label: 'Public mocks' },
-                ].find((i) => i.value === (filters.source ?? 'all')) ?? null
-              }
-              onValueChange={(item) => item && handleFilterChange('source', item.value)}
-              getItemLabel={(i) => i.label}
-              getItemId={(i) => i.value}
-              placeholder="All"
-              triggerClassName="w-[140px]"
-            />
-          </div>
-        </div>
+        <ListToolbar
+          search={search}
+          onSearchChange={handleSearchChange}
+          searchPlaceholder="Search mocks..."
+          filterDefinitions={FILTER_DEFINITIONS}
+          filters={filtersRecord}
+          onFiltersChange={handleFiltersChange}
+        />
 
         <ul className="space-y-3">
           {paginatedMocks.map((mock) => (
-            <MockCard key={mock.id} mock={mock} attemptedMockIds={attemptedMockIds} />
+            <MockCard
+              key={mock.id}
+              mock={mock}
+              attemptedMockIds={attemptedMockIds}
+            />
           ))}
         </ul>
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-border pt-4">
-            <p className="text-sm text-muted-foreground">
-              Showing {currentPage * PAGE_SIZE + 1}–{Math.min((currentPage + 1) * PAGE_SIZE, filteredMocks.length)} of{' '}
-              {filteredMocks.length}
-            </p>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(0, p - 1))}
-                disabled={currentPage === 0}
-                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
-              >
-                Previous
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                disabled={currentPage >= totalPages - 1}
-                className="rounded-md border border-input bg-background px-3 py-1.5 text-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
-              >
-                Next
-              </button>
-            </div>
+        {filteredMocks.length > 0 && (
+          <div className="border-t border-border pt-4 ucat-pagination">
+            <TablePagination
+              page={currentPage + 1}
+              pageSize={pageSize}
+              total={filteredMocks.length}
+              onPageChange={(p) => setPage(p - 1)}
+              onPageSizeChange={handlePageSizeChange}
+            />
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }
 
 function MockCard({
   mock,
   attemptedMockIds,
 }: {
-  mock: StudentMockRow
-  attemptedMockIds: Set<string>
+  mock: StudentMockRow;
+  attemptedMockIds: Set<string>;
 }) {
-  const timeLabel = mock.has_timed_sets ? 'Timed' : 'Untimed'
-  const attempted = attemptedMockIds.has(mock.id)
+  const timeLabel = mock.has_timed_sets ? "Timed" : "Untimed";
+  const attempted = attemptedMockIds.has(mock.id);
 
   return (
     <li>
@@ -182,9 +181,11 @@ function MockCard({
           <NotebookText className="h-5 w-5" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="font-medium truncate">{mock.name ?? 'Mock exam'}</p>
+          <p className="font-medium truncate">{mock.name ?? "Mock exam"}</p>
           {mock.set_count != null ? (
-            <p className="text-xs text-muted-foreground">{mock.set_count} set{mock.set_count !== 1 ? 's' : ''}</p>
+            <p className="text-xs text-muted-foreground">
+              {mock.set_count} set{mock.set_count !== 1 ? "s" : ""}
+            </p>
           ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2 text-right text-sm text-muted-foreground">
@@ -193,5 +194,5 @@ function MockCard({
         </div>
       </Link>
     </li>
-  )
+  );
 }
