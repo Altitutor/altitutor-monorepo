@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban, Layers } from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
@@ -142,6 +142,15 @@ const navItems: NavItem[] = [
     href: '/topics',
     icon: Newspaper,
   },
+  {
+    type: 'heading',
+    title: 'UCAT',
+  },
+  {
+    title: 'Manual online access',
+    href: '/ucat/manual-online-access',
+    icon: Layers,
+  },
 ];
 
 const getTodayDashboardHref = () => `/dashboard/${format(new Date(), 'yyyy-MM-dd')}`;
@@ -156,6 +165,9 @@ const getNavItemHref = (item: Extract<NavItem, { type?: 'link' }>) => {
 const isNavItemActive = (pathname: string, item: Extract<NavItem, { type?: 'link' }>) => {
   if (item.title === 'Dashboard') {
     return pathname === '/dashboard' || pathname.startsWith('/dashboard/');
+  }
+  if (item.href.startsWith('/ucat/')) {
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
   }
   return pathname === item.href;
 };

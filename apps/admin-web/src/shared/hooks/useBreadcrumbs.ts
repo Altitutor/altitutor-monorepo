@@ -26,6 +26,8 @@ const pathLabelMap: Record<string, string> = {
   reports: 'Reports',
   subjects: 'Subjects',
   topics: 'Topics',
+  ucat: 'UCAT',
+  'manual-online-access': 'Manual online access',
   notes: 'Notes',
   settings: 'Settings',
   billing: 'Billing',

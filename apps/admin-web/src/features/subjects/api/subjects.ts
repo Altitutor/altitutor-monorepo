@@ -172,17 +172,25 @@ export const subjectsApi = {
    */
   getSubjectStudents: async (subjectId: string): Promise<Tables<'students'>[]> => {
     try {
-      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-        .from('students_subjects')
-        .select(`
-          student:students(*)
-        `)
-        .eq('subject_id', subjectId);
-      if (error) throw error;
-      const students = (data ?? [])
-        .map((row: { student: Tables<'students'> | null }) => row.student as Tables<'students'>)
-        .filter(Boolean);
-      return students;
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const [ssRes, manualRes] = await Promise.all([
+        supabase
+          .from('students_subjects')
+          .select('student:students(*)')
+          .eq('subject_id', subjectId),
+        supabase
+          .from('students_online_access_manual')
+          .select('student:students(*)')
+          .eq('subject_id', subjectId),
+      ]);
+      if (ssRes.error) throw ssRes.error;
+      if (manualRes.error) throw manualRes.error;
+      const byId = new Map<string, Tables<'students'>>();
+      for (const row of [...(ssRes.data ?? []), ...(manualRes.data ?? [])]) {
+        const st = (row as { student: Tables<'students'> | null }).student;
+        if (st?.id) byId.set(st.id, st);
+      }
+      return [...byId.values()];
     } catch (error) {
       console.error('Error getting subject students:', error);
       throw error;
