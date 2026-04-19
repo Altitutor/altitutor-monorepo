@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useQueryClient } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
@@ -28,6 +28,7 @@ import {
 import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useCreateUcatSet, useDeleteUcatSet, useRestoreUcatSet, useUcatSets, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
+import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
@@ -42,54 +43,6 @@ import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUca
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
-
-function buildFilterDefinitions(sections: Array<{ id: string | null; section_number: number | null; name: string | null }>): DataTableFilterDefinition[] {
-  return [
-    {
-      key: 'visibility',
-      label: 'Visibility',
-      options: [
-        { label: 'Public', value: 'public' },
-        { label: 'Private', value: 'private' },
-      ],
-    },
-    {
-      key: 'section',
-      label: 'Section',
-      options: [
-        { label: 'All sections', value: 'all' },
-        ...sections
-          .filter((s) => s.section_number != null)
-          .sort((a, b) => (a.section_number ?? 0) - (b.section_number ?? 0))
-          .map((s) => ({
-            label: `${s.name ?? `Section ${s.section_number}`}`,
-            value: String(s.section_number),
-          })),
-      ],
-    },
-    {
-      key: 'time_limit',
-      label: 'Time limit (s)',
-      type: 'number-range',
-      minKey: 'time_limit_min',
-      maxKey: 'time_limit_max',
-    },
-    {
-      key: 'stem_count',
-      label: 'Question stems',
-      type: 'number-range',
-      minKey: 'stem_count_min',
-      maxKey: 'stem_count_max',
-    },
-    {
-      key: 'question_count',
-      label: 'Questions',
-      type: 'number-range',
-      minKey: 'question_count_min',
-      maxKey: 'question_count_max',
-    },
-  ]
-}
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
@@ -141,13 +94,84 @@ export function UcatSetsPage() {
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const [mockFilterSearch, setMockFilterSearch] = useState('')
   const selectionMode = selectedSetIds.size > 0
   const updateSetMutation = useUpdateUcatSet()
+  const mocksQuery = useUcatMocks()
 
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (editId) setEditingSetId(editId)
   }, [searchParams])
+
+  const mockFilterOptions = useMemo(() => {
+    const list = (mocksQuery.data ?? []) as Array<{
+      id: string | null
+      name: string | null
+      deleted_at?: string | null
+    }>
+    const active = list.filter((m) => m.deleted_at == null && m.id)
+    const q = mockFilterSearch.trim().toLowerCase()
+    const filtered = q ? active.filter((m) => (m.name ?? '').toLowerCase().includes(q)) : active
+    return filtered
+      .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''))
+      .map((m) => ({ label: m.name ?? 'Untitled', value: m.id as string }))
+  }, [mocksQuery.data, mockFilterSearch])
+
+  const filterDefinitions = useMemo((): DataTableFilterDefinition[] => {
+    return [
+      {
+        key: 'visibility',
+        label: 'Visibility',
+        options: [
+          { label: 'Public', value: 'public' },
+          { label: 'Private', value: 'private' },
+        ],
+      },
+      {
+        key: 'section',
+        label: 'Section',
+        options: [
+          { label: 'All sections', value: 'all' },
+          ...sections
+            .filter((s) => s.section_number != null)
+            .sort((a, b) => (a.section_number ?? 0) - (b.section_number ?? 0))
+            .map((s) => ({
+              label: `${s.name ?? `Section ${s.section_number}`}`,
+              value: String(s.section_number),
+            })),
+        ],
+      },
+      {
+        key: 'ucat_mock_id',
+        label: 'Mock',
+        options: mockFilterOptions,
+        searchable: true,
+        searchPlaceholder: 'Search mocks...',
+      },
+      {
+        key: 'time_limit',
+        label: 'Time limit (s)',
+        type: 'number-range',
+        minKey: 'time_limit_min',
+        maxKey: 'time_limit_max',
+      },
+      {
+        key: 'stem_count',
+        label: 'Question stems',
+        type: 'number-range',
+        minKey: 'stem_count_min',
+        maxKey: 'stem_count_max',
+      },
+      {
+        key: 'question_count',
+        label: 'Questions',
+        type: 'number-range',
+        minKey: 'question_count_min',
+        maxKey: 'question_count_max',
+      },
+    ]
+  }, [sections, mockFilterOptions])
 
   const { rows, visibleColumns, tableState } = useUcatSetsTable({
     data: sets.data,
@@ -292,10 +316,14 @@ export function UcatSetsPage() {
         onVisibleColumnsChange={tableState.actions.onVisibleColumnsChange}
         onQuickFilterApply={tableState.actions.onQuickFilterApply}
         onReset={tableState.actions.onReset}
-        filterDefinitions={buildFilterDefinitions(sections)}
+        filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         searchPlaceholder="Search sets"
+        filterSearchValues={{ ucat_mock_id: mockFilterSearch }}
+        onFilterSearchChange={(filterKey, value) => {
+          if (filterKey === 'ucat_mock_id') setMockFilterSearch(value)
+        }}
         filterFooter={
           <div className="px-2 py-2 border-t">
             <Button

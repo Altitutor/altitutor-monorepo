@@ -2,7 +2,12 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useQueryClient, useQueries } from '@tanstack/react-query'
-import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
+import type {
+  DataTableColumnDefinition,
+  DataTableFilterDefinition,
+  DataTableSortOption,
+  Json,
+} from '@altitutor/shared'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -71,7 +76,13 @@ import { formatSecondsToDuration, parseTimeToSeconds } from '@/features/ucat/sha
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import { applyBooleanTextFilter, applySingleSelectFilter, applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
+import {
+  applyBooleanTextFilter,
+  applySingleSelectFilter,
+  applySort,
+  getFilterValues,
+  useUcatTableState,
+} from '@/features/ucat/shared/hooks/useUcatTableState'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
@@ -80,6 +91,11 @@ import { cn } from '@/shared/utils'
 function truncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text ?? ''
   return text.slice(0, maxLen) + '...'
+}
+
+function parseJsonUuidArray(v: unknown): string[] {
+  if (v == null || !Array.isArray(v)) return []
+  return v.filter((x): x is string => typeof x === 'string')
 }
 
 type QuestionRow = {
@@ -94,6 +110,8 @@ type QuestionRow = {
   type_summary: string
   stem_text: string
   set_names: string
+  /** Staff sets only (matches set_names / set_ids in API). */
+  set_ids: string[]
   deleted_at: string | null
   approval_status: 'approved' | 'pending' | 'rejected'
 }
@@ -177,6 +195,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
   const [bulkVisibilityPending, setBulkVisibilityPending] = useState(false)
   const [bulkSetsPending, setBulkSetsPending] = useState(false)
   const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const [setFilterSearch, setSetFilterSearch] = useState('')
   const selectionMode = selectedStemIds.size > 0
 
   const stemTypesQuery = useUcatQuestionStemTypes()
@@ -309,6 +328,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
       type_summary: summary || '-',
       stem_text: row.stem_text ? proseMirrorToPlainText(row.stem_text as import('@altitutor/shared').Json) : '',
       set_names: setsDisplay,
+      set_ids: parseJsonUuidArray((row as { set_ids?: unknown }).set_ids),
       deleted_at: (row as { deleted_at?: string | null }).deleted_at ?? null,
       approval_status:
         ((row as { approval_status?: 'approved' | 'pending' | 'rejected' | null }).approval_status ??
@@ -341,7 +361,12 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         (typeSelected === 'multiple_choice' && row.type_summary.includes('multiple_choice')) ||
         (typeSelected === 'syllogism' && row.type_summary.includes('syllogism'))
 
-      return searchHit && sectionHit && categoryHit && visibilityHit && typeHit && approvalHit
+      const selectedSetIds = getFilterValues(tableState.state, 'question_set_id').map(String)
+      const setHit =
+        selectedSetIds.length === 0 ||
+        selectedSetIds.some((sid) => row.set_ids.includes(sid))
+
+      return searchHit && sectionHit && categoryHit && visibilityHit && typeHit && approvalHit && setHit
     })
   }, [rows, tableState.state, showDeleted, mode])
 
@@ -642,22 +667,50 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
     }
   }
 
+  const setFilterOptions = useMemo(() => {
+    const q = setFilterSearch.trim().toLowerCase()
+    return setsList
+      .filter((s) => {
+        if (!s.id) return false
+        const name = proseMirrorToPlainText(s.name as Json | undefined).toLowerCase()
+        return !q || name.includes(q)
+      })
+      .sort((a, b) =>
+        proseMirrorToPlainText(a.name as Json | undefined).localeCompare(
+          proseMirrorToPlainText(b.name as Json | undefined)
+        )
+      )
+      .map((s) => ({
+        label: proseMirrorToPlainText(s.name as Json | undefined) || 'Untitled',
+        value: s.id as string,
+      }))
+  }, [setsList, setFilterSearch])
+
+  const sectionFilterDefs = useMemo((): DataTableFilterDefinition[] => {
+    const base: DataTableFilterDefinition[] = [
+      {
+        ...filterDefinitions[0],
+        options: (sections.data ?? []).map((s) => ({ label: s.name ?? 'Untitled', value: s.id ?? '' })),
+      },
+      {
+        ...filterDefinitions[1],
+        options: (categories.data ?? []).map((c) => ({ label: c.name ?? 'Untitled', value: c.id ?? '' })),
+      },
+      filterDefinitions[2],
+      filterDefinitions[3],
+      {
+        key: 'question_set_id',
+        label: 'Set',
+        options: setFilterOptions,
+        searchable: true,
+        searchPlaceholder: 'Search sets...',
+      },
+    ]
+    return mode === 'generated' ? [...base, filterDefinitions[4]] : base
+  }, [sections.data, categories.data, setFilterOptions, mode])
+
   if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
-
-  const sectionFilterDefs: DataTableFilterDefinition[] = [
-    {
-      ...filterDefinitions[0],
-      options: (sections.data ?? []).map((s) => ({ label: s.name ?? 'Untitled', value: s.id ?? '' })),
-    },
-    {
-      ...filterDefinitions[1],
-      options: (categories.data ?? []).map((c) => ({ label: c.name ?? 'Untitled', value: c.id ?? '' })),
-    },
-    filterDefinitions[2],
-    filterDefinitions[3],
-    ...(mode === 'generated' ? [filterDefinitions[4]] : []),
-  ]
 
   return (
     <div className="p-6">
@@ -703,6 +756,10 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
         searchPlaceholder={mode === 'generated' ? 'Search generated questions' : 'Search questions'}
+        filterSearchValues={{ question_set_id: setFilterSearch }}
+        onFilterSearchChange={(filterKey, value) => {
+          if (filterKey === 'question_set_id') setSetFilterSearch(value)
+        }}
         filterFooter={
           <div className="px-2 py-2 border-t">
             <Button

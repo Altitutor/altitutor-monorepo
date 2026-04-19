@@ -11824,6 +11824,7 @@ export type Database = {
           stem_count: number | null
           time_limit_at_exam_speed_seconds: number | null
           time_limit_seconds: number | null
+          ucat_mock_ids: Json | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -12159,6 +12160,7 @@ export type Database = {
           section_id: string | null
           section_name: string | null
           section_number: number | null
+          set_ids: Json | null
           set_names: Json | null
           stem_text: Json | null
           updated_at: string | null
@@ -12305,6 +12307,7 @@ export type Database = {
           section_id: string | null
           section_name: string | null
           section_number: number | null
+          set_ids: Json | null
           set_names: Json | null
           stem_text: Json | null
           updated_at: string | null
@@ -12451,6 +12454,7 @@ export type Database = {
           section_id: string | null
           section_name: string | null
           section_number: number | null
+          set_ids: Json | null
           set_names: Json | null
           stem_text: Json | null
           updated_at: string | null
