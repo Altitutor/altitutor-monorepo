@@ -67,6 +67,8 @@ interface DataTableToolbarProps {
   onClearShowDeleted?: () => void;
   /** Custom filter content for specific keys - renders inside DropdownMenuSub (e.g. SearchableSelectInline) */
   customFilterContent?: Record<string, React.ReactNode>;
+  /** When true, the search input is hidden (filters / view / sort remain) */
+  hideSearch?: boolean;
 }
 
 export function DataTableToolbar({
@@ -91,6 +93,7 @@ export function DataTableToolbar({
   showDeletedActive = false,
   onClearShowDeleted,
   customFilterContent = {},
+  hideSearch = false,
 }: DataTableToolbarProps) {
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
@@ -227,25 +230,27 @@ export function DataTableToolbar({
     <div className="flex flex-col gap-2 w-full">
       <div className="flex flex-wrap items-center gap-2">
         {/* Search */}
-        <div className="relative flex-1 min-w-[120px]">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            className="pl-9 h-9"
-          />
-          {searchValue && (
-            <button
-              onClick={() => setSearchValue('')}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
+        {!hideSearch && (
+          <div className="relative flex-1 min-w-[120px]">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder={searchPlaceholder}
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              className="pl-9 h-9"
+            />
+            {searchValue && (
+              <button
+                onClick={() => setSearchValue('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        )}
 
-        <div className="flex flex-wrap items-center gap-1">
+        <div className={cn('flex flex-wrap items-center gap-1', hideSearch && 'w-full')}>
           {/* View Options (Columns) */}
           {columnDefinitions.length > 0 && (
             <DropdownMenu>

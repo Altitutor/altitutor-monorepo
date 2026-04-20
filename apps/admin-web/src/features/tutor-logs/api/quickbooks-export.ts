@@ -16,6 +16,8 @@ import type { TutorLogExportData } from '../utils/quickbooks-export.processor';
 export async function fetchTutorLogsForExport(params: {
   startDate: string; // YYYY-MM-DD (Adelaide timezone)
   endDate: string; // YYYY-MM-DD (Adelaide timezone)
+  /** When set, narrows RPC results to logs for sessions where this staff is on the session (server-side). */
+  staffIdForRpc?: string;
 }): Promise<TutorLogExportData[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   
@@ -26,7 +28,7 @@ export async function fetchTutorLogsForExport(params: {
       p_search: undefined,
       p_range_start: params.startDate,
       p_range_end: params.endDate,
-      p_staff_id: undefined,
+      p_staff_id: params.staffIdForRpc,
       p_limit: 10000, // Large limit to get all records
       p_offset: 0,
       p_order_by: 'session_start_at',
@@ -39,7 +41,13 @@ export async function fetchTutorLogsForExport(params: {
     }
     
     type TutorLogRow = { id: string; session_id: string };
-    type SessionRow = { id: string; start_at?: string; end_at?: string; type?: string; class_id?: string };
+    type SessionRow = {
+      id: string;
+      start_at?: string;
+      end_at?: string;
+      type?: string;
+      class_id?: string | null;
+    };
     type StaffAttendanceRow = { staff_id: string; type?: string; attended?: boolean };
     type StudentAttendanceRow = { student_id: string; attended?: boolean };
     const rpcData = rpcResult as {
@@ -95,11 +103,14 @@ export async function fetchTutorLogsForExport(params: {
       // ADMIN_SHIFT sessions don't have classes/subjects, so handle that case
       let subjectName: string | null = null;
       let subjectLongName: string | null = null;
-      
+      let subjectId: string | null = null;
+      const classId = session.class_id ?? null;
+
       if (session.type !== 'ADMIN_SHIFT' && session.class_id && classesById[session.class_id]) {
         const classData = classesById[session.class_id];
         if (classData.subject_id && subjectsById[classData.subject_id]) {
           const subject = subjectsById[classData.subject_id];
+          subjectId = classData.subject_id;
           subjectName = subject.name || null;
           subjectLongName = subject.long_name || subject.name || null;
         }
@@ -119,6 +130,8 @@ export async function fetchTutorLogsForExport(params: {
           sessionType: (session.type ?? 'CLASS') as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'STAFF_INTERVIEW' | 'ADMIN_SHIFT',
           sessionStartAt: session.start_at || '',
           sessionEndAt: session.end_at || '',
+          classId,
+          subjectId,
           staffId: att.staff_id,
           staffFirstName: staff.first_name,
           staffLastName: staff.last_name,
