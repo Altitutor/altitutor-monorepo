@@ -3,7 +3,7 @@ import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
 // Shared helpers
-import { calculateAdelaideDateRange } from './shared/utils.ts';
+import { calculateAdelaideDateRange, getAdelaideDateString } from './shared/utils.ts';
 import {
   loadBillingSettings,
   loadBillingPricing,
@@ -167,7 +167,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const { startIso, endIso } = calculateAdelaideDateRange(targetDate);
-    const invoiceDate = targetDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+    // Adelaide calendar date for this batch (matches billing-single invoice_date semantics)
+    const invoiceDate = getAdelaideDateString(startIso);
 
     // Find billable sessions for target date (filter by billing_type IS NOT NULL)
     const { data: sessions, error: sessErr } = await supabase
@@ -292,9 +293,9 @@ Deno.serve(async (req: Request) => {
       const subject = session.subject_id ? subjectById[session.subject_id] : null;
       if (!subject) continue;
 
-      // Use the session's actual date for invoiceDate and targetDate
-      const sessionDate = new Date(session.start_at);
-      const sessionInvoiceDate = sessionDate.toISOString().split('T')[0]; // YYYY-MM-DD format
+      // Adelaide billing day (matches billing-single); aligns Stripe metadata + DB invoice_date + idempotency keys
+      const sessionInvoiceDate = getAdelaideDateString(session.start_at);
+      const sessionDate = new Date(session.start_at); // instant — used for subsidy / pricing effective dates
 
       // Prepare session data in the format expected by processStudentInvoicing
       const studentSessions = [
