@@ -11,6 +11,20 @@ import {
 import { splitLineWithTabOffsets } from '@/features/ucat/questions/lib/parseAnswersTable'
 import { beforeChild, inner } from '@/features/ucat/questions/lib/pmBulkImportLineRanges'
 
+/**
+ * Flatten PM JSON nodes for answer TSV export without inserting spaces between siblings.
+ * {@link nodeToText} joins inline children with spaces (join(' ')), which destroys pasted
+ * tab characters when TipTap represents one logical TSV row as multiple adjacent text nodes.
+ */
+export function answerDocInlinePlainText(node: PMNode | null | undefined): string {
+  if (!node?.type) return ''
+  if (node.type === 'image') return nodeToText(node)
+  if (typeof node.text === 'string') return node.text
+  if (node.type === 'hardBreak') return '\n'
+  if (!Array.isArray(node.content) || node.content.length === 0) return ''
+  return node.content.map((child) => answerDocInlinePlainText(child as PMNode)).join('')
+}
+
 /** How one logical TSV line maps into the ProseMirror doc (paragraph block vs HTML table row). */
 export type AnswerLineRange =
   | { mode: 'block'; from: number; to: number }
@@ -86,7 +100,9 @@ function walkJsonForAnswerLines(n: PMNode, lines: string[]): void {
       const parts: string[] = []
       for (const cell of row.content) {
         if (cell.type === 'tableCell' || cell.type === 'tableHeader') {
-          parts.push((nodeToText(cell) ?? '').replace(/\r\n/g, ' ').replace(/\n/g, ' ').replace(/\r/g, ' '))
+          parts.push(
+            answerDocInlinePlainText(cell).replace(/\r\n/g, ' ').replace(/\n/g, ' ').replace(/\r/g, ' ')
+          )
         }
       }
       if (parts.length > 0) {
@@ -96,7 +112,7 @@ function walkJsonForAnswerLines(n: PMNode, lines: string[]): void {
     return
   }
   if (t === 'paragraph' || t === 'heading' || t === 'codeBlock') {
-    const tx = (nodeToText(n) as string) ?? ''
+    const tx = answerDocInlinePlainText(n)
     lines.push(tx.replace(/\r\n/g, '\n').replace(/\r/g, '\n'))
     return
   }
@@ -156,14 +172,14 @@ function walkAnswerBlock(n: Node, pBefore: number, st: { lines: string[]; ranges
       if (rowJ.type === 'tableRow' && rowJ.content) {
         for (const cell of rowJ.content) {
           if (cell.type === 'tableCell' || cell.type === 'tableHeader') {
-            const tx = (nodeToText(cell) ?? '').replace(/\r\n/g, ' ').replace(/\n/g, ' ').replace(/\r/g, ' ')
+            const tx = answerDocInlinePlainText(cell).replace(/\r\n/g, ' ').replace(/\n/g, ' ').replace(/\r/g, ' ')
             parts.push(tx)
           }
         }
       } else {
         for (let c = 0; c < tr.childCount; c += 1) {
           const cell = tr.child(c)
-          const tx = (nodeToText(cell.toJSON() as PMNode) ?? '')
+          const tx = answerDocInlinePlainText(cell.toJSON() as PMNode)
             .replace(/\r\n/g, ' ')
             .replace(/\n/g, ' ')
             .replace(/\r/g, ' ')
@@ -176,7 +192,7 @@ function walkAnswerBlock(n: Node, pBefore: number, st: { lines: string[]; ranges
     return
   }
   if (t === 'paragraph' || t === 'heading' || t === 'codeBlock') {
-    const tx = nodeToText(n.toJSON() as PMNode).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
+    const tx = answerDocInlinePlainText(n.toJSON() as PMNode).replace(/\r\n/g, '\n').replace(/\r/g, '\n')
     st.lines.push(tx)
     st.ranges.push({ mode: 'block', ...inner(n, pBefore) })
     return

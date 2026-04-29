@@ -13,7 +13,7 @@ export type BulkImportWizardState = {
 
 export type BulkImportWizardApi = {
   state: BulkImportWizardState
-  setStems: (stems: UcatQuestionStemFormValues[]) => void
+  setStems: (stems: UcatQuestionStemFormValues[]) => BulkImportStemDraft[]
   selectStem: (index: number) => void
   goToNextStem: () => void
   goToPreviousStem: () => void
@@ -25,17 +25,17 @@ export function useBulkImportWizard(): BulkImportWizardApi {
   const [stems, setStemsInternal] = useState<BulkImportStemDraft[]>([])
   const [activeIndex, setActiveIndex] = useState(0)
 
-  const setStems = useCallback((values: UcatQuestionStemFormValues[]) => {
-    setStemsInternal(
-      values.map((v, index) => ({
-        id:
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `stem-${index + 1}`,
-        values: v,
-      }))
-    )
+  const setStems = useCallback((values: UcatQuestionStemFormValues[]): BulkImportStemDraft[] => {
+    const drafts: BulkImportStemDraft[] = values.map((v, index) => ({
+      id:
+        typeof crypto !== 'undefined' && 'randomUUID' in crypto
+          ? crypto.randomUUID()
+          : `stem-${index + 1}`,
+      values: v,
+    }))
+    setStemsInternal(drafts)
     setActiveIndex(0)
+    return drafts
   }, [])
 
   const selectStem = useCallback((index: number) => {
