@@ -7,6 +7,8 @@ import {
 import { RichContentBlock } from "./rich-content-block";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 
+const EXPLANATION_MUTED_STYLE = { color: "#5a6c7d" } as const;
+
 type QuestionContentProps = {
   question: QuestionItem;
   selectedOptionId?: string;
@@ -15,6 +17,8 @@ type QuestionContentProps = {
   onChangeSyllogismSnapshot?: (snapshot: Record<string, boolean>) => void;
   /** Pre-refreshed stem/question content for instant image display. */
   preloadedContent?: CachedContent | null;
+  /** When true (e.g. in-exam review), show explanations when the question/options include them. */
+  showAnswerExplanations?: boolean;
 };
 
 function SyllogismQuestionContent({
@@ -22,6 +26,7 @@ function SyllogismQuestionContent({
   syllogismSnapshot,
   onChangeSyllogismSnapshot,
   preloadedContent,
+  showAnswerExplanations,
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2;
 
@@ -109,8 +114,8 @@ function SyllogismQuestionContent({
           {question.options.map((option) => {
             const choice = answers[option.id] ?? null;
             return (
+              <div key={option.id} className="space-y-1">
               <div
-                key={option.id}
                 className="flex flex-row items-stretch gap-4"
               >
                 <div className="flex-1">
@@ -152,6 +157,15 @@ function SyllogismQuestionContent({
                   )}
                 </div>
               </div>
+              {showAnswerExplanations && option.answerExplanation ? (
+                <div
+                  className="pl-1 text-[10pt] leading-relaxed"
+                  style={EXPLANATION_MUTED_STYLE}
+                >
+                  {option.answerExplanation}
+                </div>
+              ) : null}
+              </div>
             );
           })}
         </div>
@@ -188,6 +202,14 @@ function SyllogismQuestionContent({
           </div>
         </div>
       </div>
+      {showAnswerExplanations && question.answerExplanation ? (
+        <div
+          className="mt-3 space-y-1 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+          style={EXPLANATION_MUTED_STYLE}
+        >
+          {question.answerExplanation}
+        </div>
+      ) : null}
     </section>
   );
 
@@ -240,6 +262,7 @@ export function QuestionContent({
   syllogismSnapshot,
   onChangeSyllogismSnapshot,
   preloadedContent,
+  showAnswerExplanations = false,
 }: QuestionContentProps) {
   const isTwoColumn = question.sectionDisplayColumns === 2;
 
@@ -252,6 +275,7 @@ export function QuestionContent({
         syllogismSnapshot={syllogismSnapshot}
         onChangeSyllogismSnapshot={onChangeSyllogismSnapshot}
         preloadedContent={preloadedContent}
+        showAnswerExplanations={showAnswerExplanations}
       />
     );
   }
@@ -286,22 +310,40 @@ export function QuestionContent({
               {question.options.map((option, index) => {
                 const letter = String.fromCharCode(65 + index);
                 return (
-                  <label key={option.id} className="flex items-start gap-2">
-                    <input
-                      type="radio"
-                      name={question.id}
-                      checked={selectedOptionId === option.id}
-                      onChange={() => onSelectOption(option.id)}
-                      className="mt-1 h-4 w-4"
-                    />
-                    <span className="flex">
-                      <span className="inline-block w-8">{letter}.</span>
-                      <span className="ml-4">{option.text}</span>
-                    </span>
-                  </label>
+                  <div key={option.id} className="space-y-0.5">
+                    <label className="flex items-start gap-2">
+                      <input
+                        type="radio"
+                        name={question.id}
+                        checked={selectedOptionId === option.id}
+                        onChange={() => onSelectOption(option.id)}
+                        className="mt-1 h-4 w-4"
+                      />
+                      <span className="flex">
+                        <span className="inline-block w-8">{letter}.</span>
+                        <span className="ml-4">{option.text}</span>
+                      </span>
+                    </label>
+                    {showAnswerExplanations && option.answerExplanation ? (
+                      <div
+                        className="ml-6 text-[11pt] leading-relaxed"
+                        style={EXPLANATION_MUTED_STYLE}
+                      >
+                        {option.answerExplanation}
+                      </div>
+                    ) : null}
+                  </div>
                 );
               })}
             </div>
+            {showAnswerExplanations && question.answerExplanation ? (
+              <div
+                className="mt-3 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+                style={EXPLANATION_MUTED_STYLE}
+              >
+                {question.answerExplanation}
+              </div>
+            ) : null}
           </div>
         </section>
       </div>
@@ -332,22 +374,40 @@ export function QuestionContent({
             {question.options.map((option, index) => {
               const letter = String.fromCharCode(65 + index);
               return (
-                <label key={option.id} className="flex items-start gap-2">
-                  <input
-                    type="radio"
-                    name={question.id}
-                    checked={selectedOptionId === option.id}
-                    onChange={() => onSelectOption(option.id)}
-                    className="mt-1 h-4 w-4"
-                  />
-                  <span className="flex">
-                    <span className="inline-block w-8">{letter}.</span>
-                    <span className="ml-4">{option.text}</span>
-                  </span>
-                </label>
+                <div key={option.id} className="space-y-0.5">
+                  <label className="flex items-start gap-2">
+                    <input
+                      type="radio"
+                      name={question.id}
+                      checked={selectedOptionId === option.id}
+                      onChange={() => onSelectOption(option.id)}
+                      className="mt-1 h-4 w-4"
+                    />
+                    <span className="flex">
+                      <span className="inline-block w-8">{letter}.</span>
+                      <span className="ml-4">{option.text}</span>
+                    </span>
+                  </label>
+                  {showAnswerExplanations && option.answerExplanation ? (
+                    <div
+                      className="ml-6 text-[11pt] leading-relaxed"
+                      style={EXPLANATION_MUTED_STYLE}
+                    >
+                      {option.answerExplanation}
+                    </div>
+                  ) : null}
+                </div>
               );
             })}
           </div>
+          {showAnswerExplanations && question.answerExplanation ? (
+            <div
+              className="mt-3 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+              style={EXPLANATION_MUTED_STYLE}
+            >
+              {question.answerExplanation}
+            </div>
+          ) : null}
         </section>
       </div>
     </div>

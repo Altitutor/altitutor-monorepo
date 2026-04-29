@@ -1,9 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
+import { ucatAiImportApi } from '@/features/ucat/questions/api/ai-import'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatApprovalStatus, UcatQuestionListMode } from '@/features/ucat/questions/api/questions'
+import type { Json } from '@altitutor/shared'
+import type {
+  AiImportDraftStemPayload,
+  AiImportSectionKey,
+} from '@/features/ucat/questions/lib/ai-import/schema'
 
 export function useUcatQuestions(options?: {
   mode?: UcatQuestionListMode
@@ -184,5 +190,29 @@ export function useSetUcatQuestionStemApprovalStatus() {
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
     },
+  })
+}
+
+export function useExtractAiImportQuestionDrafts() {
+  return useMutation({
+    mutationFn: (args: {
+      sectionId: string
+      document: Json | null
+      expectedQuestionCount?: number | null
+    }) => ucatAiImportApi.extract(args),
+  })
+}
+
+export function useGenerateMissingAiImportAnswers() {
+  return useMutation({
+    mutationFn: (args: { section: AiImportSectionKey; stems: AiImportDraftStemPayload[] }) =>
+      ucatAiImportApi.generateMissing(args),
+  })
+}
+
+export function useRunAiImportQc() {
+  return useMutation({
+    mutationFn: (args: { section: AiImportSectionKey; stems: AiImportDraftStemPayload[] }) =>
+      ucatAiImportApi.runQc(args),
   })
 }

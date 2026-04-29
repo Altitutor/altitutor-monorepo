@@ -15,6 +15,7 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { cn } from '@/shared/utils'
+import { UCAT_FILTER_NOT_IN_ANY_MOCK } from '@/features/ucat/shared/lib/table-filter-sentinel'
 
 type SetRow = {
   id: string
@@ -28,6 +29,8 @@ type SetRow = {
   firstSectionNumber: number | null
   sectionNumbers: number[]
   sectionDisplay: string
+  /** Mocks that include this set (for filtering). */
+  ucat_mock_ids: string[]
   created_by_first_name: string | null
   created_by_last_name: string | null
   deleted_at: string | null
@@ -50,6 +53,11 @@ type UseUcatSetsTableParams<T> = {
   initialVisibleColumns?: string[]
 }
 
+function parseJsonUuidArray(v: unknown): string[] {
+  if (v == null || !Array.isArray(v)) return []
+  return v.filter((x): x is string => typeof x === 'string')
+}
+
 type SetRowInput = {
   id?: string | null
   name?: unknown
@@ -62,6 +70,7 @@ type SetRowInput = {
   question_count?: number | null
   deleted_at?: string | null
   sections?: unknown
+  ucat_mock_ids?: Json | null
 }
 
 export function useUcatSetsTable<T extends SetRowInput>({
@@ -105,6 +114,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
           firstSectionNumber: parsed.firstSectionNumber,
           sectionNumbers: parsed.sectionNumbers,
           sectionDisplay: formatSetSectionsDisplay(r.sections ?? null),
+          ucat_mock_ids: parseJsonUuidArray((row as SetRowInput).ucat_mock_ids),
           created_by_first_name: row.created_by_first_name ?? null,
           created_by_last_name: row.created_by_last_name ?? null,
           deleted_at: r.deleted_at ?? null,
@@ -131,7 +141,14 @@ export function useUcatSetsTable<T extends SetRowInput>({
         'question_count_max',
         row.question_count
       )
-      return searchHit && visibilityHit && sectionHit && timeLimitHit && stemCountHit && questionCountHit
+      const selectedMockIds = getFilterValues(tableState.state, 'ucat_mock_id').map(String)
+      const wantsNotInAnyMock = selectedMockIds.includes(UCAT_FILTER_NOT_IN_ANY_MOCK)
+      const specificMockIds = selectedMockIds.filter((id) => id !== UCAT_FILTER_NOT_IN_ANY_MOCK)
+      const mockHit =
+        selectedMockIds.length === 0 ||
+        (wantsNotInAnyMock && row.ucat_mock_ids.length === 0) ||
+        specificMockIds.some((mid) => row.ucat_mock_ids.includes(mid))
+      return searchHit && visibilityHit && sectionHit && timeLimitHit && stemCountHit && questionCountHit && mockHit
     })
   }, [rows, showDeleted, tableState.state])
 

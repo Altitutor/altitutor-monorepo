@@ -40,7 +40,6 @@ export * from './components/textarea';
 export * from './components/tooltip';
 export * from './components/use-toast';
 export * from './components/toast';
-export * from './components/toaster';
 export * from './components/toast-provider';
 export * from './components/payment-method-card';
 export * from './components/policy-viewer';

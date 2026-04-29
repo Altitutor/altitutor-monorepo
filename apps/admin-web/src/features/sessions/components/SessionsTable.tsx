@@ -371,6 +371,7 @@ export function SessionsTable({
             sortOptions={sortOptions}
             columnDefinitions={columnDefinitions}
             quickFilters={quickFilters}
+            hideSearch={_hideSearch}
             filterSearchValues={{
               student: studentFilterSearch,
               staff: staffFilterSearch,

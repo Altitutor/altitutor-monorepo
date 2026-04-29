@@ -1,7 +1,6 @@
 import { Calculator, Sigma } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { UcatFloatingPanel } from "@altitutor/ui";
-import { useUcatCalculator } from "@/features/question-engine/hooks/use-ucat-calculator";
 import { useDraggablePanel } from "@/features/question-engine/hooks/use-draggable-panel";
 
 const ROWS_1_4: string[][] = [
@@ -38,12 +37,21 @@ function CalcButton({
   );
 }
 
-export function CalculatorPanel({ onClose }: { onClose: () => void }) {
-  const { display, onKey } = useUcatCalculator();
+export function CalculatorPanel({
+  display,
+  onKey,
+  onClose,
+}: {
+  display: string;
+  onKey: (label: string) => void;
+  onClose: () => void;
+}) {
   const { position, handleMouseDown, setPosition } = useDraggablePanel();
   const panelRef = useRef<HTMLDivElement | null>(null);
 
-  // Allow typing directly into the calculator when it is open
+  // Allow typing directly into the calculator when it is open. Use capture on
+  // window so we run before the question engine's document listener (otherwise
+  // e.g. "c" would select answer C); stopPropagation when we consume the key.
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.altKey || event.metaKey || event.ctrlKey) {
@@ -55,7 +63,18 @@ export function CalculatorPanel({ onClose }: { onClose: () => void }) {
       if (/^[0-9]$/.test(event.key)) {
         label = event.key;
       } else {
-        switch (event.key) {
+        const k =
+          event.key.length === 1 ? event.key.toLowerCase() : event.key;
+        switch (k) {
+          case "c":
+            label = "MRC";
+            break;
+          case "p":
+            label = "M+";
+            break;
+          case "m":
+            label = "M-";
+            break;
           case ".":
             label = ".";
             break;
@@ -67,11 +86,13 @@ export function CalculatorPanel({ onClose }: { onClose: () => void }) {
             break;
           case "*":
           case "x":
-          case "X":
             label = "×";
             break;
           case "/":
             label = "÷";
+            break;
+          case "%":
+            label = "%";
             break;
           case "Enter":
           case "=":
@@ -87,12 +108,13 @@ export function CalculatorPanel({ onClose }: { onClose: () => void }) {
       }
 
       event.preventDefault();
+      event.stopPropagation();
       onKey(label);
     };
 
-    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown, true);
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keydown", handleKeyDown, true);
     };
   }, [onKey]);
 

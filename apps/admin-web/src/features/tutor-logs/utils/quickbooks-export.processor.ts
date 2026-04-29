@@ -31,6 +31,8 @@ export type TutorLogExportData = {
   sessionType: SessionType;
   sessionStartAt: string;
   sessionEndAt: string;
+  classId: string | null;
+  subjectId: string | null;
   staffId: string;
   staffFirstName: string;
   staffLastName: string;
@@ -38,6 +40,16 @@ export type TutorLogExportData = {
   subjectName: string | null;
   subjectLongName: string | null;
   attendedStudentCount: number;
+};
+
+export type ProcessTutorLogsForExportOptions = {
+  /**
+   * Class-like sessions with zero attended students (Homework Help excluded).
+   * - exclude: omit from export and list them in excludedClasses (default / QuickBooks behaviour)
+   * - include_all: keep them in the export pipeline
+   * - only_empty: keep only those rows
+   */
+  emptyClassSessions?: 'exclude' | 'include_all' | 'only_empty';
 };
 
 /**
@@ -76,8 +88,11 @@ export type ProcessTutorLogsResult = {
  * Excludes class sessions with no students attended (Homework Help classes are always included)
  */
 export function processTutorLogsForExport(
-  tutorLogs: TutorLogExportData[]
+  tutorLogs: TutorLogExportData[],
+  options?: ProcessTutorLogsForExportOptions
 ): ProcessTutorLogsResult {
+  const emptyMode = options?.emptyClassSessions ?? 'exclude';
+
   const excludedClasses: Array<{
     sessionId: string;
     sessionType: SessionType;
@@ -85,10 +100,19 @@ export function processTutorLogsForExport(
     subjectName: string | null;
   }> = [];
 
-  // Filter out class sessions with no students attended (except Homework Help)
   const filteredLogs = tutorLogs.filter((log) => {
     const isHomeworkHelp = log.subjectName === 'Homework Help';
-    if (isClassType(log.sessionType) && log.attendedStudentCount === 0 && !isHomeworkHelp) {
+    const isEmptyClass =
+      isClassType(log.sessionType) && log.attendedStudentCount === 0 && !isHomeworkHelp;
+
+    if (emptyMode === 'include_all') {
+      return true;
+    }
+    if (emptyMode === 'only_empty') {
+      return isEmptyClass;
+    }
+    // exclude (default)
+    if (isEmptyClass) {
       excludedClasses.push({
         sessionId: log.sessionId,
         sessionType: log.sessionType,

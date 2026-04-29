@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback, useEffect, useMemo, useRef } from 'react'
 import type { Json } from '@altitutor/shared'
 import {
   RichTextEditor,
@@ -11,6 +11,11 @@ import { TextSelection } from '@tiptap/pm/state'
 import type { Editor } from '@tiptap/react'
 import type { SetImageOptions } from '@tiptap/extension-image'
 import { uploadUcatImage } from '@/features/ucat/shared/ucatImages'
+import {
+  createUcatParseHighlight,
+  UCAT_PARSE_DECO_META,
+  type UcatParseHighlightConfig,
+} from '@/features/ucat/shared/ucatParseHighlightPlugin'
 
 export type UcatRichTextValue = Json | null | undefined
 
@@ -33,6 +38,15 @@ export interface UcatRichTextEditorProps {
   pastePlainTextAsParagraphs?: boolean
   /** When set, controls how pasted table content is handled. See RichTextEditor pasteTableBehavior. */
   pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep'
+  /**
+   * Bulk import: in-editor parse highlights. Defaults to `mode: 'off'`. Read from a ref internally;
+   * dispatch a no-op tr with {@link UCAT_PARSE_DECO_META} when this changes without a doc change.
+   */
+  ucatParseHighlight?: UcatParseHighlightConfig
+  /** Merged with the optional UCAT parse-highlight extension (when enabled). */
+  additionalExtensions?: import('@tiptap/core').AnyExtension[]
+  /** Fires when the TipTap editor is ready; runs after internal UCAT parse-highlight meta refresh. */
+  onEditorReady?: (editor: Editor) => void
 }
 
 function toJsonContent(value: UcatRichTextValue): JSONContent | null {
@@ -63,8 +77,28 @@ export function UcatRichTextEditor({
   onImageFileIdsChange,
   pastePlainTextAsParagraphs,
   pasteTableBehavior,
+  ucatParseHighlight: ucatParseHighlightProp,
+  additionalExtensions,
+  onEditorReady: onEditorReadyProp,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
+  const ucatParseHighlight = ucatParseHighlightProp ?? { mode: 'off' as const }
+  const ucatParseCfgRef = useRef<UcatParseHighlightConfig>(ucatParseHighlight)
+  ucatParseCfgRef.current = ucatParseHighlight
+  const ucatParseExt = useMemo(
+    () => createUcatParseHighlight(() => ucatParseCfgRef.current),
+    []
+  )
+  const mergedExtraExtensions = useMemo(
+    () => [ucatParseExt, ...(additionalExtensions ?? [])],
+    [additionalExtensions, ucatParseExt]
+  )
+  useEffect(() => {
+    if (ucatParseHighlightProp == null) return
+    const ed = editorRef.current?.getEditor()
+    if (!ed) return
+    ed.view.dispatch(ed.state.tr.setMeta(UCAT_PARSE_DECO_META, 1))
+  }, [ucatParseHighlightProp, ucatParseHighlight])
 
   /** Shared logic: insert placeholders, upload, replace (or remove on error) at a given position. */
   const processImagesAtPosition = useCallback(
@@ -321,6 +355,14 @@ export function UcatRichTextEditor({
         minHeight={minHeight}
         pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
         pasteTableBehavior={pasteTableBehavior}
+        extensions={mergedExtraExtensions}
+        omitTypography={ucatParseHighlight.mode !== 'off'}
+        onEditorReady={(ed) => {
+          if (ucatParseHighlightProp != null) {
+            ed.view.dispatch(ed.state.tr.setMeta(UCAT_PARSE_DECO_META, 1))
+          }
+          onEditorReadyProp?.(ed)
+        }}
         {...pasteImagesProp}
       />
     </div>

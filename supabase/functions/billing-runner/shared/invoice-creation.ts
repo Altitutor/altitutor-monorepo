@@ -4,7 +4,7 @@ import {
   generateInvoiceIdempotencyKey,
   generateInvoiceItemIdempotencyKey,
 } from './utils.ts';
-import { formatStripeErrorMessage } from './stripe-errors.ts';
+import { formatStripeErrorMessage, getStripeErrorDetails } from './stripe-errors.ts';
 
 const LOG_PREFIX = '[billing-runner]';
 
@@ -155,11 +155,14 @@ export async function createDraftChargeAutomaticallyInvoice(
     timestamp,
   });
 
+  // auto_advance false: we explicitly finalize after line items. Matches send_invoice
+  // path and avoids racing Stripe's auto-finalize with a second finalize call
+  // (e.g. retries when the invoice is already open from a prior attempt).
   return await stripe.invoices.create(
     {
       customer: customerId,
       collection_method: 'charge_automatically',
-      auto_advance: true,
+      auto_advance: false,
       pending_invoice_items_behavior: 'exclude',
       default_payment_method: defaultPaymentMethodId,
       description: `Invoice for sessions on ${invoiceDate}`,
@@ -176,9 +179,25 @@ export async function createDraftChargeAutomaticallyInvoice(
 
 /**
  * Finalize a draft invoice after items have been attached.
+ * Idempotent: if the invoice is already finalized (e.g. retry after partial
+ * success — Stripe invoice open but invoice_items not yet in DB, or idempotent
+ * create replay with stale draft), returns the current invoice from Stripe.
  */
 export async function finalizeInvoice(stripe: Stripe, invoiceId: string): Promise<Stripe.Invoice> {
-  return await stripe.invoices.finalizeInvoice(invoiceId);
+  try {
+    return await stripe.invoices.finalizeInvoice(invoiceId);
+  } catch (err: unknown) {
+    const details = getStripeErrorDetails(err);
+    const msg = (details.message || '').toLowerCase();
+    if (
+      details.isStripeError &&
+      details.statusCode === 400 &&
+      (msg.includes('already finalized') || msg.includes('re-finalize') || msg.includes('non-draft'))
+    ) {
+      return await stripe.invoices.retrieve(invoiceId);
+    }
+    throw err;
+  }
 }
 
 /**
@@ -223,7 +242,7 @@ export async function saveInvoiceToDatabase(
   studentId: string,
   finalizedInvoice: Stripe.Invoice,
   invoiceDate: string
-): Promise<{ id: string; status: string } | null> {
+): Promise<{ id: string; status: string }> {
   // Check if DB record already exists (idempotency/race condition protection)
   const { data: existingInvoice } = await supabase
     .from('invoices')
@@ -272,17 +291,31 @@ export async function saveInvoiceToDatabase(
     .single();
 
   if (dbErr) {
-    // Check for duplicate key error (race condition)
+    // Duplicate key: usually another worker inserted the same stripe_invoice_id first.
+    // Never return null here — that triggered void in Stripe without surfacing the DB error.
     if (dbErr.code === '23505') {
-      // Another process created it, fetch and return
       const { data: raceInvoice } = await supabase
         .from('invoices')
         .select('id, status')
         .eq('stripe_invoice_id', finalizedInvoice.id)
-        .single();
-      return raceInvoice || null;
+        .maybeSingle();
+
+      if (raceInvoice) {
+        return raceInvoice;
+      }
+
+      throw new Error(
+        `Invoice insert duplicate key but no row found for stripe_invoice_id=${finalizedInvoice.id} ` +
+          `(student_id=${studentId}, invoice_date=${invoiceDate}). Postgres: ${dbErr.message}`
+      );
     }
     throw dbErr;
+  }
+
+  if (!insertedInvoice) {
+    throw new Error(
+      `Invoice insert returned no row for stripe_invoice_id=${finalizedInvoice.id} (student_id=${studentId})`
+    );
   }
 
   return insertedInvoice;

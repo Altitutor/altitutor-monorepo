@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -63,7 +64,6 @@ export function SetAttemptsCard({
   sharedDateRange,
   sectionNumber,
 }: SetAttemptsCardProps) {
-  const router = useRouter();
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
   const [graphType, setGraphType] = useState<"line" | "bar">("line");
@@ -106,6 +106,11 @@ export function SetAttemptsCard({
     const start = (page - 1) * pageSize;
     return standaloneAttempts.slice(start, start + pageSize);
   }, [standaloneAttempts, page, pageSize]);
+
+  const setAttemptHref = (attemptId: string) =>
+    sectionNumber != null
+      ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
+      : `/progress/set-attempts/${attemptId}`;
 
   return (
     <Card className="rounded-xl border-border">
@@ -156,13 +161,14 @@ export function SetAttemptsCard({
                   <TableHeaderWithTooltip tooltip="How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace.">
                     Exam speed
                   </TableHeaderWithTooltip>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {standaloneAttempts.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="text-center text-muted-foreground"
                     >
                       No submitted set attempts yet
@@ -187,17 +193,7 @@ export function SetAttemptsCard({
                         : "—";
 
                     return (
-                      <TableRow
-                        key={a.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() =>
-                          router.push(
-                            sectionNumber != null
-                              ? `/progress/sections/${sectionNumber}/set-attempts/${a.id}`
-                              : `/progress/set-attempts/${a.id}`,
-                          )
-                        }
-                      >
+                      <TableRow key={a.id}>
                         <TableCell>{dateStr}</TableCell>
                         <TableCell>{a.questionSetName ?? "—"}</TableCell>
                         <TableCell>
@@ -211,6 +207,13 @@ export function SetAttemptsCard({
                         </TableCell>
                         <TableCell>{setSpeed}</TableCell>
                         <TableCell>{examSpeed}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={setAttemptHref(a.id)}>
+                              View attempt
+                            </Link>
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })

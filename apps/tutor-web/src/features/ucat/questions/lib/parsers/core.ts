@@ -51,7 +51,8 @@ const DEFAULT_CONFIG: ParserConfig = {
   answerOptionIndicator: 'paren',
 }
 
-type PMNode = {
+/** ProseMirror JSON node shape (TipTap `getJSON()`) for parser helpers. */
+export type PMNode = {
   type?: string
   content?: PMNode[]
   text?: string
@@ -127,7 +128,7 @@ function normaliseTextBlock(lines: string[], config: ParserConfig): string {
   return result.join('\n').trim()
 }
 
-function nodeToText(node: PMNode | null | undefined): string {
+export function nodeToText(node: PMNode | null | undefined): string {
   if (!node) return ''
 
   if (node.type === 'image') {
@@ -152,7 +153,7 @@ const QUESTION_NUMBER_RE = /^\s*(\d+)\.\s*$/
  * where cell1 = "N.", cell2 = [question text paragraphs] + [nested options table].
  * Returns null if the row doesn't match this pattern.
  */
-function extractQuestionRowFromNestedTable(
+export function extractQuestionRowFromNestedTable(
   row: PMNode
 ): { qNum: string; qText: string; optionLines: string[] } | null {
   const rowContent = (row as PMNode)?.content
@@ -197,7 +198,7 @@ function extractQuestionRowFromNestedTable(
  * Returns true if the table is a "question table": each row has 2 cells,
  * cell1 = question number (1. 2. etc.), cell2 contains question text + nested options table.
  */
-function isQuestionTableWithNestedOptions(tableNode: PMNode): boolean {
+export function isQuestionTableWithNestedOptions(tableNode: PMNode): boolean {
   const rows = Array.isArray(tableNode.content) ? tableNode.content : []
   if (rows.length === 0) return false
   return rows.every((row) => extractQuestionRowFromNestedTable(row as PMNode) !== null)
@@ -207,7 +208,7 @@ function isQuestionTableWithNestedOptions(tableNode: PMNode): boolean {
  * Returns true if the table looks like an options table: 2-6 rows, each with
  * a label (A. B. C. or a) b) c) etc.) and option text (in same or adjacent cell).
  */
-function isOptionsTable(rows: string[][]): boolean {
+export function isOptionsTable(rows: string[][]): boolean {
   if (rows.length < 2 || rows.length > 6) return false
   for (const row of rows) {
     const hasLabelOrCombined = row.some(
@@ -224,7 +225,7 @@ function isOptionsTable(rows: string[][]): boolean {
  * Extract option lines from an options table. Supports label and text in
  * separate cells or combined (e.g. "A. $180"). Returns lines like "A) option text".
  */
-function extractOptionLinesFromTable(rows: string[][]): string[] {
+export function extractOptionLinesFromTable(rows: string[][]): string[] {
   const lines: string[] = []
   for (const row of rows) {
     let labelChar = ''
@@ -684,4 +685,212 @@ export function parseFromLines(
   finaliseStem()
 
   return stems
+}
+
+/** Per logical line, how the bulk-import line parser classifies it for live preview. */
+export type ParseLineHighlightRole = 'stem' | 'question' | 'option' | 'none'
+
+/**
+ * Classify each raw line the same way {@link parseFromLines} consumes it, for syntax highlighting
+ * in the bulk-import “parser view”. Must stay aligned with {@link parseFromLines}.
+ */
+export function classifyParseLineRoles(
+  rawLines: string[],
+  configOverrides?: Partial<ParserConfig>
+): ParseLineHighlightRole[] {
+  const roles: ParseLineHighlightRole[] = Array.from({ length: rawLines.length }, () => 'none')
+  const config: ParserConfig = { ...DEFAULT_CONFIG, ...configOverrides }
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'paren')
+
+  let stemLines: string[] = []
+  let questions: ParsedQuestion[] = []
+  let currentQuestion: ParsedQuestion | null = null
+  let questionTextLines: string[] = []
+  let questionTextSources: number[] = []
+  let currentOption: ParsedOption | null = null
+  let currentOptionLines: string[] = []
+  let haveSeenOptionForCurrentQuestion = false
+  let expectingOptionTextLine = false
+  let expectingQuestionTextLine = false
+
+  const flushCurrentOption = (): void => {
+    if (!currentOption || !currentQuestion) return
+    const text = normaliseTextBlock(currentOptionLines, config)
+    currentQuestion.options.push({ label: currentOption.label, text })
+    currentOption = null
+    currentOptionLines = []
+  }
+
+  const flushCurrentQuestion = (): void => {
+    if (!currentQuestion) return
+    flushCurrentOption()
+    expectingOptionTextLine = false
+    expectingQuestionTextLine = false
+    const text = normaliseTextBlock(questionTextLines, config)
+    questions.push({
+      number: currentQuestion.number,
+      text,
+      options: currentQuestion.options,
+    })
+    currentQuestion = null
+    questionTextLines = []
+    questionTextSources = []
+    haveSeenOptionForCurrentQuestion = false
+  }
+
+  const finaliseStem = (): void => {
+    let stemText = normaliseTextBlock(stemLines, config)
+    stemText = stemText.replace(/\n{2,}/g, '\n').trim()
+    if (stemText === '' && questions.length === 0) return
+    stemLines = []
+    questions = []
+  }
+
+  for (let idx = 0; idx < rawLines.length; idx += 1) {
+    const line = rawLines[idx] ?? ''
+    const trimmed = line.trim()
+
+    if (expectingOptionTextLine && currentOption && currentQuestion) {
+      roles[idx] = 'option'
+      currentOptionLines = [line]
+      flushCurrentOption()
+      haveSeenOptionForCurrentQuestion = true
+      expectingOptionTextLine = false
+      continue
+    }
+
+    const inlineQuestionMatch = qRe.inline.exec(line)
+    const numberOnlyMatch = qRe.numberOnly.exec(line)
+    const inlineOptionMatch = oRe.inline.exec(line)
+    const labelOnlyMatch = oRe.labelOnly.exec(line)
+    const questionNumberOnOwnLine = config.questionNumberOnOwnLine === true
+    const answerOptionOnOwnLine = config.answerOptionOnOwnLine === true
+    const isQuestionLine =
+      !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
+
+    if (expectingQuestionTextLine && currentQuestion) {
+      if (!isBlank(trimmed)) {
+        if (labelOnlyMatch || (inlineOptionMatch && !answerOptionOnOwnLine)) {
+          expectingQuestionTextLine = false
+        } else {
+          roles[idx] = 'question'
+          questionTextLines.push(line)
+          questionTextSources.push(idx)
+          expectingQuestionTextLine = false
+          continue
+        }
+      } else {
+        continue
+      }
+    }
+
+    if (isQuestionLine) {
+      flushCurrentQuestion()
+      expectingOptionTextLine = false
+      roles[idx] = 'question'
+
+      const qNumberRaw =
+        inlineQuestionMatch != null ? inlineQuestionMatch[1] ?? '' : numberOnlyMatch?.[1] ?? ''
+      const qNumber = Number.parseInt(qNumberRaw, 10)
+      const questionNumber = Number.isNaN(qNumber) ? null : qNumber
+
+      currentQuestion = { number: questionNumber, text: '', options: [] }
+      questionTextLines = []
+      questionTextSources = []
+      currentOption = null
+      currentOptionLines = []
+      haveSeenOptionForCurrentQuestion = false
+
+      if (questionNumberOnOwnLine) {
+        expectingQuestionTextLine = true
+      } else if (inlineQuestionMatch && inlineQuestionMatch[2]) {
+        questionTextLines.push(inlineQuestionMatch[2])
+        questionTextSources.push(idx)
+      }
+      continue
+    }
+
+    const isOptionLine =
+      (answerOptionOnOwnLine ? !!labelOnlyMatch : !!(inlineOptionMatch || labelOnlyMatch)) &&
+      currentQuestion
+
+    if (isOptionLine) {
+      roles[idx] = 'option'
+      flushCurrentOption()
+      const label = (inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? ''
+      const textFromLine =
+        !answerOptionOnOwnLine && inlineOptionMatch ? (inlineOptionMatch[2] ?? '').trim() : ''
+      currentOption = { label, text: '' }
+      currentOptionLines = []
+      if (textFromLine !== '') {
+        currentOptionLines.push(textFromLine)
+        haveSeenOptionForCurrentQuestion = true
+      } else {
+        expectingOptionTextLine = true
+      }
+      continue
+    }
+
+    if (
+      currentQuestion &&
+      haveSeenOptionForCurrentQuestion &&
+      !isBlank(trimmed) &&
+      !(inlineOptionMatch || labelOnlyMatch)
+    ) {
+      flushCurrentQuestion()
+      finaliseStem()
+      roles[idx] = 'stem'
+      stemLines.push(line)
+      continue
+    }
+
+    if (currentQuestion && !haveSeenOptionForCurrentQuestion) {
+      roles[idx] = 'question'
+      questionTextLines.push(line)
+      questionTextSources.push(idx)
+      if (config.acceptSyllogismOptions && questionTextLines.length >= 5) {
+        const nonBlankIndices: number[] = []
+        for (let i = questionTextLines.length - 1; i >= 0 && nonBlankIndices.length < 5; i -= 1) {
+          if (!isBlank(questionTextLines[i] ?? '')) nonBlankIndices.push(i)
+        }
+        if (nonBlankIndices.length === 5) {
+          const last5NonBlank = nonBlankIndices.reverse() as [number, number, number, number, number]
+          const firstIdx = last5NonBlank[0]
+          const allNonOption = last5NonBlank.every((i) => {
+            const l = questionTextLines[i] ?? ''
+            return !oRe.inline.test(l) && !oRe.labelOnly.test(l)
+          })
+          if (allNonOption && firstIdx > 0) {
+            const optionTexts = last5NonBlank.map((i) => questionTextLines[i] ?? '')
+            for (const qi of last5NonBlank) {
+              const src = questionTextSources[qi]
+              if (src !== undefined) roles[src] = 'option'
+            }
+            questionTextLines.splice(firstIdx, questionTextLines.length - firstIdx)
+            questionTextSources.splice(firstIdx, questionTextSources.length - firstIdx)
+            const labels = ['A', 'B', 'C', 'D', 'E']
+            optionTexts.forEach((text, i) => {
+              currentQuestion!.options.push({
+                label: labels[i] ?? String(i + 1),
+                text: normaliseTextBlock([text], config),
+              })
+            })
+            haveSeenOptionForCurrentQuestion = true
+          }
+        }
+      }
+      continue
+    }
+
+    if (!isBlank(trimmed)) {
+      roles[idx] = 'stem'
+      stemLines.push(line)
+    }
+  }
+
+  flushCurrentQuestion()
+  finaliseStem()
+
+  return roles
 }

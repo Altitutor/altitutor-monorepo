@@ -1,66 +1,95 @@
 "use client";
 
 import * as React from "react";
-import { Toaster, type ToastData } from "./toaster";
+import { Toaster, toast as sonnerToast } from "sonner";
+
+export interface ToastInput {
+  title?: string;
+  description?: React.ReactNode;
+  action?: { label: string; onClick: () => void };
+  variant?: "default" | "destructive";
+  duration?: number;
+}
 
 interface ToastContextValue {
-  toasts: ToastData[];
-  toast: (props: {
-    title?: string;
-    description?: React.ReactNode;
-    action?: { label: string; onClick: () => void };
-    variant?: "default" | "destructive";
-    duration?: number;
-  }) => void;
-  dismiss: (id: string) => void;
+  toast: (props: ToastInput) => void;
+  dismiss: (toastId?: string | number) => void;
 }
 
 const ToastContext = React.createContext<ToastContextValue | undefined>(
   undefined
 );
 
+function mapLegacyToastToSonner(input: ToastInput): void {
+  const { title, description, action, variant, duration } = input;
+  const actionOption = action
+    ? { label: action.label, onClick: () => action.onClick() }
+    : undefined;
+
+  const durationOption =
+    duration === undefined
+      ? {}
+      : { duration: duration === Infinity ? Infinity : duration };
+
+  const opts = {
+    ...durationOption,
+    ...(actionOption ? { action: actionOption } : {}),
+  };
+
+  const trimmedTitle = title?.trim();
+  const hasTitle = Boolean(trimmedTitle);
+
+  if (variant === "destructive") {
+    if (hasTitle) {
+      sonnerToast.error(trimmedTitle!, {
+        ...opts,
+        description: description ?? undefined,
+      });
+      return;
+    }
+    const body =
+      description !== undefined && description !== null && description !== ""
+        ? description
+        : "Something went wrong";
+    sonnerToast.error(body as string | React.ReactNode, opts);
+    return;
+  }
+
+  if (hasTitle) {
+    sonnerToast(trimmedTitle!, {
+      ...opts,
+      description: description ?? undefined,
+    });
+    return;
+  }
+
+  sonnerToast((description ?? "") as React.ReactNode, opts);
+}
+
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toasts, setToasts] = React.useState<ToastData[]>([]);
-
-  const toast = React.useCallback(
-    (props: {
-      title?: string;
-      description?: React.ReactNode;
-      action?: { label: string; onClick: () => void };
-      variant?: "default" | "destructive";
-      duration?: number;
-    }) => {
-      const id = Math.random().toString(36).substring(2, 9);
-      const newToast: ToastData = {
-        id,
-        title: props.title,
-        description: props.description,
-        action: props.action,
-        variant: props.variant || "default",
-      };
-
-      setToasts((prevToasts) => [...prevToasts, newToast]);
-
-      // Auto dismiss
-      if (props.duration !== Infinity) {
-        setTimeout(() => {
-          setToasts((prevToasts) =>
-            prevToasts.filter((toast) => toast.id !== id)
-          );
-        }, props.duration || 5000);
-      }
-    },
-    []
-  );
-
-  const dismiss = React.useCallback((id: string) => {
-    setToasts((prevToasts) => prevToasts.filter((toast) => toast.id !== id));
+  const toast = React.useCallback((props: ToastInput) => {
+    mapLegacyToastToSonner(props);
   }, []);
 
+  const dismiss = React.useCallback((toastId?: string | number) => {
+    sonnerToast.dismiss(toastId);
+  }, []);
+
+  const value = React.useMemo(
+    () => ({ toast, dismiss }),
+    [toast, dismiss]
+  );
+
   return (
-    <ToastContext.Provider value={{ toasts, toast, dismiss }}>
+    <ToastContext.Provider value={value}>
       {children}
-      <Toaster toasts={toasts} onDismiss={dismiss} />
+      <Toaster
+        position="top-right"
+        theme="system"
+        richColors
+        closeButton
+        className="toaster group"
+      />
     </ToastContext.Provider>
   );
 }
@@ -72,4 +101,3 @@ export function useToast() {
   }
   return context;
 }
-

@@ -24,6 +24,7 @@ import { useQuestionEngineData } from "@/features/question-engine/hooks/use-ques
 import { useQuestionEngineState } from "@/features/question-engine/hooks/use-question-engine-state";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
 import { CalculatorPanel } from "@/features/question-engine/components/calculator-panel";
+import { useUcatCalculator } from "@/features/question-engine/hooks/use-ucat-calculator";
 import {
   ConfirmFinishPracticeDialog,
   ConfirmNextStemDialog,
@@ -169,6 +170,8 @@ export function QuestionEnginePage({
   const router = useRouter();
   const { toast } = useToast();
   const { isLagging, runWithLag } = useUcatLag();
+  const { display: calculatorDisplay, onKey: calculatorOnKey } =
+    useUcatCalculator();
   const [, setTick] = useState(0);
   const [showConfirmSubmitDialog, setShowConfirmSubmitDialog] = useState(false);
   const [showConfirmNextStemDialog, setShowConfirmNextStemDialog] =
@@ -212,26 +215,20 @@ export function QuestionEnginePage({
       const sectionNumber = questions[0]?.sectionName
         ? SECTION_NAME_TO_NUMBER[questions[0].sectionName]
         : undefined;
-      const backHref =
-        sectionNumber != null
-          ? `/sets/sections/${sectionNumber}/${encodeURIComponent(exam.sourceId)}`
-          : `/sets/${encodeURIComponent(exam.sourceId)}`;
-      const viewReportHref =
+      const viewAttemptHref =
         attemptIds.setAttemptId != null
-          ? `/progress/set-attempts/${attemptIds.setAttemptId}`
+          ? sectionNumber != null
+            ? `/progress/sections/${sectionNumber}/set-attempts/${attemptIds.setAttemptId}`
+            : `/progress/set-attempts/${attemptIds.setAttemptId}`
           : undefined;
-      return { backHref, backLabel: "Back to sets" as const, viewReportHref };
+      return { viewAttemptHref };
     }
     if (exam.sourceType === "mock") {
-      const viewReportHref =
+      const viewAttemptHref =
         attemptIds.mockAttemptId != null
           ? `/progress/mock-attempts/${attemptIds.mockAttemptId}`
           : undefined;
-      return {
-        backHref: "/mocks",
-        backLabel: "Back to mocks" as const,
-        viewReportHref,
-      };
+      return { viewAttemptHref };
     }
     return null;
   }, [
@@ -333,7 +330,7 @@ export function QuestionEnginePage({
       const anchor = target?.closest?.("a");
       if (!anchor || !anchor.href) return;
 
-      // Skip warning for intentional navigation (e.g. Back to sets, View performance report)
+      // Skip warning for intentional navigation (e.g. View attempt)
       if (anchor.hasAttribute("data-skip-leave-warning")) {
         skipBeforeUnloadRef.current = true;
         return;
@@ -359,6 +356,23 @@ export function QuestionEnginePage({
       window.removeEventListener("click", handleClick, true);
     };
   }, []);
+
+  const completeExamAndMaybeRedirect = useCallback(async () => {
+    const { earnedDiscount, discountCents, redirectHref } =
+      await handleExamCompleted();
+    if (earnedDiscount && discountCents > 0) {
+      toast({
+        title: "Practice day discount earned!",
+        description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
+      });
+    }
+    if (redirectHref) {
+      skipBeforeUnloadRef.current = true;
+      router.push(redirectHref);
+      return true;
+    }
+    return false;
+  }, [handleExamCompleted, toast, router]);
 
   const hasPreviousQuestion =
     state.phase === "question" &&
@@ -423,8 +437,14 @@ export function QuestionEnginePage({
           });
         }
       } catch {
-        // Session complete may fail; still show completion UI
+        // Session complete may fail; still navigate to session when we have an id
       }
+    }
+
+    if (practiceSessionId) {
+      skipBeforeUnloadRef.current = true;
+      router.push(`/progress/practice-sessions/${practiceSessionId}`);
+      return;
     }
 
     setState((current) => ({
@@ -447,6 +467,7 @@ export function QuestionEnginePage({
     questionStems,
     setState,
     toast,
+    router,
   ]);
 
   // Disable copy, cut, paste, and enable UCAT keyboard shortcuts while the UCAT engine is open
@@ -979,13 +1000,9 @@ export function QuestionEnginePage({
         return;
       }
     }
-    const { earnedDiscount, discountCents } = await handleExamCompleted();
-    if (earnedDiscount && discountCents > 0) {
-      toast({
-        title: "Practice day discount earned!",
-        description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
-      });
-    }
+    const redirected = await completeExamAndMaybeRedirect();
+    if (redirected) return;
+
     setState((current) => ({
       ...current,
       phase: exam.sourceType === "mock" ? "mockScore" : "marking",
@@ -1024,13 +1041,8 @@ export function QuestionEnginePage({
 
     if (exam.sourceType === "set") {
       void runWithLag(async () => {
-        const { earnedDiscount, discountCents } = await handleExamCompleted();
-        if (earnedDiscount && discountCents > 0) {
-          toast({
-            title: "Practice day discount earned!",
-            description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
-          });
-        }
+        const redirected = await completeExamAndMaybeRedirect();
+        if (redirected) return;
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -1047,13 +1059,8 @@ export function QuestionEnginePage({
     const nextSeg = getNextMockSegment(exam, state);
     if (!nextSeg) {
       void runWithLag(async () => {
-        const { earnedDiscount, discountCents } = await handleExamCompleted();
-        if (earnedDiscount && discountCents > 0) {
-          toast({
-            title: "Practice day discount earned!",
-            description: `You earned $${(discountCents / 100).toFixed(0)} off your next bill.`,
-          });
-        }
+        const redirected = await completeExamAndMaybeRedirect();
+        if (redirected) return;
         setState((current) => ({
           ...current,
           showTimeExpiredDialog: false,
@@ -1768,7 +1775,7 @@ export function QuestionEnginePage({
                   data-skip-leave-warning
                   className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
                 >
-                  Review answers
+                  View attempt
                 </Link>
               ) : null}
             </div>
@@ -1848,9 +1855,7 @@ export function QuestionEnginePage({
                   })),
                 )
               }
-              backHref={setMockResultsActions?.backHref}
-              backLabel={setMockResultsActions?.backLabel}
-              viewReportHref={setMockResultsActions?.viewReportHref}
+              viewAttemptHref={setMockResultsActions?.viewAttemptHref}
             />
           ) : (
             <MarkingBody
@@ -1868,9 +1873,7 @@ export function QuestionEnginePage({
                   })),
                 )
               }
-              backHref={setMockResultsActions?.backHref}
-              backLabel={setMockResultsActions?.backLabel}
-              viewReportHref={setMockResultsActions?.viewReportHref}
+              viewAttemptHref={setMockResultsActions?.viewAttemptHref}
             />
           )
         ) : isReviewScreen ? (
@@ -1895,12 +1898,19 @@ export function QuestionEnginePage({
               recordAnswer(currentQuestion.id, optionId, flaggedCurrent);
             }}
             preloadedContent={getCachedContent(currentQuestion.id)}
+            showAnswerExplanations={Boolean(
+              isReviewMode &&
+                (exam?.sourceType === "questions" ||
+                  exam?.sourceType === "questionStem"),
+            )}
           />
         ) : null}
       </UcatExamShell>
 
       {state.showCalculator ? (
         <CalculatorPanel
+          display={calculatorDisplay}
+          onKey={calculatorOnKey}
           onClose={() =>
             void runWithLag(() =>
               setState((current) => ({ ...current, showCalculator: false })),

@@ -17,24 +17,15 @@ export type UcatSessionWithResources = (SessionRow & { session_id: string }) & {
   >
 }
 
-/** Start of today 00:00:00 local as ISO string for filter */
-function startOfTodayISO(): string {
-  const d = new Date()
-  d.setHours(0, 0, 0, 0)
-  return d.toISOString()
-}
-
 export const ucatClassesApi = {
-  /** Sessions for a class: today or future, ordered by start_at asc */
+  /** Sessions for a class (all dates). Default date filter in the UI is today onward. */
   async sessionsForClass(classId: string): Promise<UcatSessionWithResources[]> {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const startToday = startOfTodayISO()
 
     const { data: sessionsData, error: sessionsError } = await supabase
       .from('vtutor_sessions')
       .select('*')
       .eq('class_id', classId)
-      .gte('start_at', startToday)
       .order('start_at', { ascending: true })
 
     if (sessionsError) throw sessionsError

@@ -12,11 +12,19 @@ export {
   collectLogicalLinesFromDoc,
   collectBlocksFromDocForQuantitativeReasoning,
   parseFromLines,
+  classifyParseLineRoles,
+  nodeToText,
+  extractQuestionRowFromNestedTable,
+  isQuestionTableWithNestedOptions,
+  isOptionsTable,
+  extractOptionLinesFromTable,
+  type PMNode,
   type ParsedStem,
   type ParsedQuestion,
   type ParsedOption,
   type ParserConfig,
   type QuantitativeReasoningDocBlocks,
+  type ParseLineHighlightRole,
 } from './core'
 
 export {

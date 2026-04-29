@@ -12,6 +12,7 @@ import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 type StemDetailQuestionFromDb = {
   id: string;
   question_text: unknown;
+  answer_explanation?: unknown;
   index: number;
   question_type: "multiple_choice" | "syllogism";
   answer_options?: Array<{
@@ -61,12 +62,23 @@ function mapStemDetailToQuestionStemWithQuestions(
       })
       .sort((a, b) => a.index - b.index);
 
+    const rawQuestionExplanation = q.answer_explanation
+      ? (extractTextFromRichJson(
+          q.answer_explanation as JsonLike,
+        )?.trim() ?? "")
+      : "";
+    const cleanQuestionExplanation =
+      rawQuestionExplanation.toLowerCase() === "paragraph"
+        ? ""
+        : rawQuestionExplanation;
+
     return {
       id: q.id,
       index: q.index,
       questionText: extractTextFromRichJson(q.question_text as JsonLike),
       questionType: q.question_type,
       options,
+      answerExplanation: cleanQuestionExplanation || undefined,
     };
   });
 

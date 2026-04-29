@@ -1,8 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
+  Button,
   Card,
   CardContent,
   CardHeader,
@@ -59,7 +60,6 @@ export function MockAttemptsCard({
   timeFrameDays,
   sharedDateRange,
 }: MockAttemptsCardProps) {
-  const router = useRouter();
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
   const [graphType, setGraphType] = useState<"line" | "bar">("line");
@@ -159,13 +159,14 @@ export function MockAttemptsCard({
                   <TableHeaderWithTooltip tooltip="Average exam speed across all sets. >100% means you finished faster than exam pace.">
                     Exam speed
                   </TableHeaderWithTooltip>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredAttempts.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="text-center text-muted-foreground"
                     >
                       No submitted mock attempts yet
@@ -190,13 +191,7 @@ export function MockAttemptsCard({
                         : "—";
 
                     return (
-                      <TableRow
-                        key={a.id}
-                        className="cursor-pointer hover:bg-muted/50"
-                        onClick={() =>
-                          router.push(`/progress/mock-attempts/${a.id}`)
-                        }
-                      >
+                      <TableRow key={a.id}>
                         <TableCell>{dateStr}</TableCell>
                         <TableCell>{a.mockName ?? "—"}</TableCell>
                         <TableCell>
@@ -216,6 +211,13 @@ export function MockAttemptsCard({
                         </TableCell>
                         <TableCell>{setSpeed}</TableCell>
                         <TableCell>{examSpeed}</TableCell>
+                        <TableCell className="text-right">
+                          <Button variant="outline" size="sm" asChild>
+                            <Link href={`/progress/mock-attempts/${a.id}`}>
+                              View attempt
+                            </Link>
+                          </Button>
+                        </TableCell>
                       </TableRow>
                     );
                   })

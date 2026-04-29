@@ -8,6 +8,7 @@ import type {
   QuestionEngineState,
   QuestionItem,
 } from "@/features/question-engine/model/types";
+import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 
 type CreateMockAttemptResponse = {
   id: string;
@@ -676,12 +677,19 @@ export function useQuestionEnginePersistence({
   async function handleExamCompleted(): Promise<{
     earnedDiscount: boolean;
     discountCents: number;
+    /** Navigate here after submit instead of showing in-engine results. */
+    redirectHref: string | null;
   }> {
-    if (!isStudentEngine) return { earnedDiscount: false, discountCents: 0 };
-    if (!exam) return { earnedDiscount: false, discountCents: 0 };
+    const empty = {
+      earnedDiscount: false,
+      discountCents: 0,
+      redirectHref: null as string | null,
+    };
+    if (!isStudentEngine) return empty;
+    if (!exam) return empty;
 
     if (mode === "questionStem" || mode === "questions") {
-      return { earnedDiscount: false, discountCents: 0 };
+      return empty;
     }
 
     const t = questionTimingRef.current;
@@ -779,9 +787,29 @@ export function useQuestionEnginePersistence({
     }
 
     const earned = setResults.find((r) => r?.earnedDiscount);
+
+    let redirectHref: string | null = null;
+    if (mode === "set") {
+      const setAttemptId =
+        attemptStateRef.current.setAttemptIdsBySetId.get(exam.sourceId) ?? null;
+      if (setAttemptId) {
+        const sectionName = exam.questions[0]?.sectionName;
+        const sectionNumber = sectionName
+          ? SECTION_NAME_TO_NUMBER[sectionName]
+          : undefined;
+        redirectHref =
+          sectionNumber != null
+            ? `/progress/sections/${sectionNumber}/set-attempts/${setAttemptId}`
+            : `/progress/set-attempts/${setAttemptId}`;
+      }
+    } else if (mode === "mock" && attemptStateRef.current.mockAttemptId) {
+      redirectHref = `/progress/mock-attempts/${attemptStateRef.current.mockAttemptId}`;
+    }
+
     return {
       earnedDiscount: earned?.earnedDiscount ?? false,
       discountCents: earned?.discountCents ?? 0,
+      redirectHref,
     };
   }
 

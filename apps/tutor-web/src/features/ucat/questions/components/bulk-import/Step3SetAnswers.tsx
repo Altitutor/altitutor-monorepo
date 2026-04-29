@@ -160,8 +160,8 @@ function QuestionEditForm({
         )}
         <div className="space-y-2">
           {options.map((opt, idx) => (
-            <div key={idx} className="flex items-start gap-2">
-              <div className="flex min-w-0 flex-1 flex-col gap-1">
+            <div key={idx} className="flex items-start gap-2 overflow-visible">
+              <div className="flex min-w-0 flex-1 flex-col gap-1 overflow-visible">
                 <div className="flex items-center gap-2">
                   <span className="w-6 shrink-0 font-mono text-muted-foreground">
                     {OPTION_LABELS[idx] ?? idx + 1}.

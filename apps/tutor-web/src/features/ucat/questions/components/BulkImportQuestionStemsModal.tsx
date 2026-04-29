@@ -27,6 +27,7 @@ import {
   useUcatSections,
   useUcatTags,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import { Step1ChooseSection } from '@/features/ucat/questions/components/bulk-import/Step1ChooseSection'
 import {
   Step2PasteDocument,
@@ -63,6 +64,7 @@ import {
   letterToOptionIndex,
   parseDecisionMakingAnswers,
 } from '@/features/ucat/questions/lib/parseAnswersTable'
+import { answerDocToPlainTsv } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 
 export type BulkImportSubmitArgs = {
@@ -95,7 +97,7 @@ export function BulkImportQuestionStemsModal({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [sectionId, setSectionId] = useState<string | null>(null)
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
-  const [pastedAnswersText, setPastedAnswersText] = useState('')
+  const [pastedAnswersJson, setPastedAnswersJson] = useState<Json | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
   const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
   const [addToSetEnabled, setAddToSetEnabled] = useState(false)
@@ -107,6 +109,8 @@ export function BulkImportQuestionStemsModal({
     questionNumberOnOwnLine: false,
     answerOptionOnOwnLine: false,
   })
+  const [includeAnswerExplanationsOnImport, setIncludeAnswerExplanationsOnImport] =
+    useState(true)
   const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
 
   // Reset wizard and local state when modal closes.
@@ -118,7 +122,7 @@ export function BulkImportQuestionStemsModal({
       setSubmitError(null)
       setSectionId(null)
       setPastedContent(null)
-      setPastedAnswersText('')
+      setPastedAnswersJson(null)
       setParseError(null)
       setPasteTableBehavior('strip_outside')
       setAddToSetEnabled(false)
@@ -129,6 +133,7 @@ export function BulkImportQuestionStemsModal({
         questionNumberOnOwnLine: false,
         answerOptionOnOwnLine: false,
       })
+      setIncludeAnswerExplanationsOnImport(true)
       step2NewImageFileIdsRef.current = new Set()
       wizard.reset()
     }
@@ -147,10 +152,17 @@ export function BulkImportQuestionStemsModal({
     [sections, sectionId]
   )
 
-  const isVerbalReasoningSection = selectedSection?.name === 'Verbal Reasoning'
-  const isDecisionMakingSection = selectedSection?.name === 'Decision Making'
-  const isQuantitativeReasoningSection = selectedSection?.name === 'Quantitative Reasoning'
-  const isSituationalJudgementSection = selectedSection?.name === 'Situational Judgement'
+  /** Normalizes DB casing/spelling so parsers + in-editor highlights stay aligned. */
+  const resolvedBulkImportSection = useMemo(
+    () => bulkImportSectionFromUcatName(selectedSection?.name),
+    [selectedSection?.name]
+  )
+  const isVerbalReasoningSection = resolvedBulkImportSection === 'verbal_reasoning'
+  const isDecisionMakingSection = resolvedBulkImportSection === 'decision_making'
+  const isQuantitativeReasoningSection =
+    resolvedBulkImportSection === 'quantitative_reasoning'
+  const isSituationalJudgementSection =
+    resolvedBulkImportSection === 'situational_judgement'
   const isBulkParseSection =
     isVerbalReasoningSection ||
     isDecisionMakingSection ||
@@ -158,7 +170,7 @@ export function BulkImportQuestionStemsModal({
     isSituationalJudgementSection
 
   const canGoPrevious = useMemo(() => step > 0 && status !== 'submitting', [step, status])
-  const totalStepsResolved = 5
+  const totalStepsResolved = 4
   const canGoNext = useMemo(() => {
     if (status === 'submitting') return false
     if (step === 0) return !!sectionId
@@ -188,7 +200,7 @@ export function BulkImportQuestionStemsModal({
     onClose()
   }
 
-  /** Parse pasted content according to the selected section; used when moving from step 1 to 2. */
+  /** Parse pasted content according to the selected section; used when leaving the paste step. */
   function parseForCurrentSection(): boolean {
     if (!sectionId) return false
     if (isVerbalReasoningSection) {
@@ -329,19 +341,17 @@ export function BulkImportQuestionStemsModal({
       case 0:
         return 'Choose section'
       case 1:
-        return 'Paste document'
+        return 'Paste questions & answers'
       case 2:
-        return 'Paste answers'
-      case 3:
         return 'Review'
-      case 4:
+      case 3:
         return 'Create set'
       default:
         return 'Bulk import'
     }
   }
 
-  function applyParsedAnswersToStems(): void {
+  function applyParsedAnswersToStems(includeExplanations: boolean): void {
     const stems = wizard.state.stems
     const flat: { stemId: string; questionIndex: number }[] = []
     stems.forEach((stem) => {
@@ -360,7 +370,8 @@ export function BulkImportQuestionStemsModal({
           | 'syllogism'
           | 'multiple_choice'
       })
-      const dmParsed = parseDecisionMakingAnswers(pastedAnswersText, questionTypes)
+      const pastedAnswersPlain = answerDocToPlainTsv(pastedAnswersJson)
+      const dmParsed = parseDecisionMakingAnswers(pastedAnswersPlain, questionTypes)
       dmParsed.forEach((answer, i) => {
         if (i >= flat.length) return
         const { stemId, questionIndex } = flat[i]
@@ -379,9 +390,13 @@ export function BulkImportQuestionStemsModal({
             // For syllogisms, treat 'Y' as "Yes" (isAnswer = true), anything else as "No".
             isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
             answerExplanation:
-              answer.optionExplanations?.[j]?.trim() && answer.optionExplanations?.[j]
+              includeExplanations &&
+              answer.optionExplanations?.[j]?.trim() &&
+              answer.optionExplanations?.[j]
                 ? (plainTextToProseMirror(answer.optionExplanations[j]!) as Json)
-                : opt.answerExplanation ?? null,
+                : includeExplanations
+                  ? opt.answerExplanation ?? null
+                  : null,
           }))
           questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
         } else if (answer.letter) {
@@ -390,21 +405,23 @@ export function BulkImportQuestionStemsModal({
             ...opt,
             isAnswer: j === optionIndex,
           }))
-          const explanationText = answer.explanation?.trim() ?? ''
+          const explanationText = includeExplanations ? (answer.explanation?.trim() ?? '') : ''
           questions[questionIndex] = {
             ...q,
             options,
             // For non-syllogism DM, treat explanation like VR: question-level explanation.
             answerExplanation: explanationText
               ? (plainTextToProseMirror(explanationText) as Json)
-              : q.answerExplanation ?? null,
+              : includeExplanations
+                ? (q.answerExplanation ?? null)
+                : null,
           }
         }
         nextValues = { ...nextValues, questions }
         updatesByStem.set(stemId, nextValues)
       })
     } else {
-      const parsed = parseAnswersTable(pastedAnswersText)
+      const parsed = parseAnswersTable(answerDocToPlainTsv(pastedAnswersJson))
       if (parsed.length === 0) return
       parsed.forEach((row, i) => {
         if (i >= flat.length) return
@@ -421,12 +438,16 @@ export function BulkImportQuestionStemsModal({
           ...opt,
           isAnswer: j === optionIndex,
         }))
+        const explanationBody =
+          includeExplanations && row.explanation.trim() ? row.explanation.trim() : ''
         questions[questionIndex] = {
           ...q,
           options,
-          answerExplanation: row.explanation.trim()
-            ? (plainTextToProseMirror(row.explanation) as Json)
-            : null,
+          answerExplanation: explanationBody
+            ? (plainTextToProseMirror(explanationBody) as Json)
+            : includeExplanations
+              ? (q.answerExplanation ?? null)
+              : null,
         }
         nextValues = { ...nextValues, questions }
         updatesByStem.set(stemId, nextValues)
@@ -440,9 +461,7 @@ export function BulkImportQuestionStemsModal({
     if (!canGoNext) return
     if (step === 1) {
       if (!parseForCurrentSection()) return
-    }
-    if (step === 2) {
-      applyParsedAnswersToStems()
+      applyParsedAnswersToStems(includeAnswerExplanationsOnImport)
     }
     setStep((current) => (current < totalStepsResolved - 1 ? current + 1 : current))
   }
@@ -564,38 +583,48 @@ export function BulkImportQuestionStemsModal({
 
     if (step === 1) {
       return (
-        <>
-          <Step2PasteDocument
-            value={pastedContent}
-            onChange={(value) => {
-              setPastedContent(value)
-              setParseError(null)
-            }}
-            onImageFileIdsChange={handleStep2ImageFileIds}
-            parsingOptions={parsingOptions}
-            onParsingOptionsChange={setParsingOptions}
-            pasteTableBehavior={pasteTableBehavior}
-            onPasteTableBehaviorChange={setPasteTableBehavior}
-          />
+        <div className="flex h-full min-h-0 flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:gap-0">
+            <div className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden md:pr-4">
+              <Step2PasteDocument
+                layout="split"
+                value={pastedContent}
+                onChange={(value) => {
+                  setPastedContent(value)
+                  setParseError(null)
+                }}
+                onImageFileIdsChange={handleStep2ImageFileIds}
+                parsingOptions={parsingOptions}
+                onParsingOptionsChange={setParsingOptions}
+                pasteTableBehavior={pasteTableBehavior}
+                onPasteTableBehaviorChange={setPasteTableBehavior}
+                liveParseSection={resolvedBulkImportSection}
+              />
+            </div>
+            <div
+              className="hidden shrink-0 self-stretch md:block md:w-px md:bg-border"
+              aria-hidden
+            />
+            <div className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden border-t pt-4 md:border-t-0 md:border-l md:pt-0 md:pl-4">
+              <Step2PasteAnswers
+                layout="split"
+                value={pastedAnswersJson}
+                onChange={setPastedAnswersJson}
+                includeExplanationsOnImport={includeAnswerExplanationsOnImport}
+                onIncludeExplanationsOnImportChange={setIncludeAnswerExplanationsOnImport}
+              />
+            </div>
+          </div>
           {parseError && (
-            <div className="mt-3 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            <div className="shrink-0 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
               {parseError}
             </div>
           )}
-        </>
+        </div>
       )
     }
 
     if (step === 2) {
-      return (
-        <Step2PasteAnswers
-          value={pastedAnswersText}
-          onChange={setPastedAnswersText}
-        />
-      )
-    }
-
-    if (step === 3) {
       return (
         <Step3SetAnswers
           stems={wizard.state.stems}
@@ -605,7 +634,7 @@ export function BulkImportQuestionStemsModal({
       )
     }
 
-    if (step === 4) {
+    if (step === 3) {
       return (
         <Step4CreateSet
           addToSetEnabled={addToSetEnabled}
@@ -680,16 +709,27 @@ export function BulkImportQuestionStemsModal({
 
         {/* Content */}
         <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6">
-              {renderBody()}
+          {step === 1 && status !== 'success' && !isLoadingMeta && !hasErrorMeta ? (
+            <div className="flex h-full min-h-0 flex-col px-6 py-6">
+              <div className="min-h-0 flex-1 overflow-hidden">{renderBody()}</div>
               {status === 'error' && submitError && (
-                <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <div className="mt-4 shrink-0 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
                   {submitError}
                 </div>
               )}
             </div>
-          </div>
+          ) : (
+            <div className="h-full overflow-y-auto">
+              <div className="p-6">
+                {renderBody()}
+                {status === 'error' && submitError && (
+                  <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                    {submitError}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

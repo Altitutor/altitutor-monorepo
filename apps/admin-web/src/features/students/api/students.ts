@@ -13,6 +13,49 @@ function exclusiveHasNoneFilter(values: string[] | undefined): 'has' | 'none' | 
   return undefined;
 }
 
+/** Merge subjects from students_online_access_manual into per-student maps (deduped by subject id). */
+async function mergeManualOnlineSubjectsIntoMap(
+  supabase: SupabaseClient<Database>,
+  studentIds: string[],
+  studentSubjects: Record<string, Tables<'subjects'>[]>,
+): Promise<void> {
+  if (studentIds.length === 0) return;
+  const { data } = await supabase
+    .from('students_online_access_manual')
+    .select('student_id, subject_details:subjects(*)')
+    .in('student_id', studentIds);
+  const rows = data ?? [];
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || !('student_id' in row) || !('subject_details' in row)) continue;
+    const sid = row.student_id as string;
+    const subj = row.subject_details as Tables<'subjects'> | null;
+    if (!sid || !subj) continue;
+    const list = studentSubjects[sid];
+    if (!list.some((s) => s.id === subj.id)) list.push(subj);
+  }
+}
+
+async function appendManualOnlineSubjectsIfGranted(
+  supabase: SupabaseClient<Database>,
+  studentId: string,
+  subjects: Tables<'subjects'>[],
+): Promise<void> {
+  const { data } = await supabase
+    .from('students_online_access_manual')
+    .select('subject_details:subjects(*)')
+    .eq('student_id', studentId);
+  const rows = data ?? [];
+  const existingIds = new Set(subjects.map((s) => s.id));
+  for (const row of rows) {
+    if (!row || typeof row !== 'object' || !('subject_details' in row)) continue;
+    const subj = row.subject_details as Tables<'subjects'> | null;
+    if (subj && !existingIds.has(subj.id)) {
+      subjects.push(subj);
+      existingIds.add(subj.id);
+    }
+  }
+}
+
 export type StudentMinimalListRow = Tables<'students'> & {
   classes?: Array<{
     id: string;
@@ -90,25 +133,35 @@ export const studentsApi = {
       query = query.in('year_level', yearLevels);
     }
 
-    // If subject filter is provided, we need to join with students_subjects
-    // This is more complex and requires a different approach
+    // Subject filter: students_subjects (e.g. class auto-link) plus students_online_access_manual
     let studentIds: string[] | null = null;
     if (subjectIds && subjectIds.length > 0) {
+      const idSet = new Set<string>();
+
       const { data: studentsSubjectsData, error: ssError } = await supabase
         .from('students_subjects')
         .select('student_id')
         .in('subject_id', subjectIds);
-      
       if (ssError) throw ssError;
-      
-      // Get unique student IDs
-      studentIds = Array.from(new Set(studentsSubjectsData?.map(ss => ss.student_id) || []));
-      
-      // If no students found with these subjects, return empty result
+      studentsSubjectsData?.forEach((r) => {
+        if (r.student_id) idSet.add(r.student_id);
+      });
+
+      const { data: manualRows, error: manualErr } = await supabase
+        .from('students_online_access_manual')
+        .select('student_id')
+        .in('subject_id', subjectIds);
+      if (manualErr) throw manualErr;
+      manualRows?.forEach((r) => {
+        if (r.student_id) idSet.add(r.student_id);
+      });
+
+      studentIds = Array.from(idSet);
+
       if (studentIds.length === 0) {
         return { students: [], total: 0 };
       }
-      
+
       query = query.in('id', studentIds);
     }
 
@@ -425,6 +478,8 @@ export const studentsApi = {
         })
         .filter((s): s is Tables<'subjects'> => s !== null && typeof s === 'object');
 
+      await appendManualOnlineSubjectsIfGranted(supabase, student.id, subjects);
+
       // Transform classes
       const classes: ClassWithExpandedSubject[] = (classesResult.data ?? [])
         .map((row) => {
@@ -536,7 +591,9 @@ export const studentsApi = {
           return row.subject_details;
         })
         .filter((s): s is Tables<'subjects'> => s !== null && typeof s === 'object') || [];
-      
+
+      await appendManualOnlineSubjectsIfGranted(supabase, studentId, subjects);
+
       return { student, subjects };
       
     } catch (error) {
@@ -723,15 +780,35 @@ export const studentsApi = {
    */
   assignSubjectToStudent: async (studentId: string, subjectId: string): Promise<Tables<'students_subjects'>> => {
     try {
-      // Ensure the user is an admin first
-      
-      // Check if the assignment already exists
-      const { data: existing, error: existingError } = await (getSupabaseClient() as SupabaseClient<Database>).from('students_subjects').select('id').eq('student_id', studentId).eq('subject_id', subjectId);
-      if (existingError) throw existingError;
-      if ((existing ?? []).length) return existing[0] as Tables<'students_subjects'>;
-      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students_subjects').insert({ student_id: studentId, subject_id: subjectId }).select().single();
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data: existingManual, error: exErr } = await supabase
+        .from('students_online_access_manual')
+        .select('id')
+        .eq('student_id', studentId)
+        .eq('subject_id', subjectId)
+        .maybeSingle();
+      if (exErr) throw exErr;
+      if (existingManual) {
+        const { error: ssIns } = await supabase
+          .from('students_subjects')
+          .insert({ student_id: studentId, subject_id: subjectId });
+        if (ssIns && ssIns.code !== '23505') throw ssIns;
+        return existingManual as unknown as Tables<'students_subjects'>;
+      }
+
+      const { data, error } = await supabase
+        .from('students_online_access_manual')
+        .insert({ student_id: studentId, subject_id: subjectId })
+        .select()
+        .single();
       if (error) throw error;
-      return data as Tables<'students_subjects'>;
+
+      const { error: ssErr } = await supabase
+        .from('students_subjects')
+        .insert({ student_id: studentId, subject_id: subjectId });
+      if (ssErr && ssErr.code !== '23505') throw ssErr;
+
+      return data as unknown as Tables<'students_subjects'>;
     } catch (error) {
       console.error('Error assigning subject to student:', error);
       throw error;
@@ -743,15 +820,20 @@ export const studentsApi = {
    */
   removeSubjectFromStudent: async (studentId: string, subjectId: string): Promise<void> => {
     try {
-      // Ensure the user is an admin first
-      
-      // Get all student-subject records for this student and subject
-      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('students_subjects').select('id').eq('student_id', studentId).eq('subject_id', subjectId);
-      if (error) throw error;
-      if ((data ?? []).length) {
-        const { error: delError } = await (getSupabaseClient() as SupabaseClient<Database>).from('students_subjects').delete().eq('student_id', studentId).eq('subject_id', subjectId);
-        if (delError) throw delError;
-      }
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { error: mErr } = await supabase
+        .from('students_online_access_manual')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('subject_id', subjectId);
+      if (mErr) throw mErr;
+
+      const { error: ssErr } = await supabase
+        .from('students_subjects')
+        .delete()
+        .eq('student_id', studentId)
+        .eq('subject_id', subjectId);
+      if (ssErr) throw ssErr;
     } catch (error) {
       console.error('Error removing subject from student:', error);
       throw error;
@@ -884,6 +966,8 @@ export const studentsApi = {
             }
           }
         });
+
+        await mergeManualOnlineSubjectsIntoMap(supabase, studentIds, studentSubjects);
       }
       
       return {
@@ -936,6 +1020,8 @@ export const studentsApi = {
       const subj = row.subject_details as Tables<'subjects'> | null;
       if (sid && subj) studentSubjects[sid].push(subj);
     });
+
+    await mergeManualOnlineSubjectsIntoMap(supabase, studentIds, studentSubjects);
 
     // Classes mapping (current and future enrollments) with subject information for these students
     const { data: csData, error: csError } = await supabase
