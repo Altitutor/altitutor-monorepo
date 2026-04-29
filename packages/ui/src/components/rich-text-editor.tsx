@@ -157,6 +157,11 @@ export interface RichTextEditorProps {
    */
   extensions?: import('@tiptap/core').AnyExtension[];
   /**
+   * When true, omit Tailwind Typography `prose` on the editor root so inline ProseMirror
+   * decorations (e.g. background colors on spans) are not overridden by typography defaults.
+   */
+  omitTypography?: boolean;
+  /**
    * Optional configuration for slash commands (triggered by typing "/").
    * When provided, typing "/" opens a menu with formatting options and optionally templates.
    */
@@ -281,6 +286,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   pastePlainTextAsParagraphs = false,
   pasteTableBehavior,
   extensions: extraExtensions,
+  omitTypography = false,
   slashMenuSuggestions,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
@@ -503,14 +509,33 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       },
       attributes: {
         class: cn(
-          'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
-          'prose-headings:font-semibold prose-headings:tracking-tight',
-          'prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
-          'prose-h1:mt-7 prose-h1:mb-1.5 prose-h2:mt-6 prose-h2:mb-1 prose-h3:mt-5 prose-h3:mb-1',
-          'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
-          'prose-li:my-1',
-          'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
-          'prose-td:border prose-td:border-border prose-td:p-2',
+          omitTypography
+            ? [
+                'max-w-none focus:outline-none text-foreground text-sm dark:text-foreground',
+                '[&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h3]:text-lg',
+                '[&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:tracking-tight',
+                '[&_.ProseMirror_h1]:mt-7 [&_.ProseMirror_h1]:mb-1.5 [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-1 [&_.ProseMirror_h3]:mt-5 [&_.ProseMirror_h3]:mb-1',
+                '[&_.ProseMirror_p]:my-2 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2',
+                '[&_.ProseMirror_li]:my-1',
+                /* Preflight clears list markers; prose normally restores them — mirror prose-sm lists */
+                '[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-[1.625em]',
+                '[&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-[1.625em]',
+                '[&_.ProseMirror_li]:list-item [&_.ProseMirror_li]:marker:text-foreground',
+                '[&_.ProseMirror_ol]:[list-style-position:outside] [&_.ProseMirror_ul]:[list-style-position:outside]',
+                '[&_.ProseMirror_li_ol]:mt-2 [&_.ProseMirror_li_ul]:mt-2',
+                '[&_.ProseMirror_table]:my-4 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted',
+                '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2',
+              ]
+            : [
+                'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
+                'prose-headings:font-semibold prose-headings:tracking-tight',
+                'prose-h1:text-2xl prose-h2:text-xl prose-h3:text-lg',
+                'prose-h1:mt-7 prose-h1:mb-1.5 prose-h2:mt-6 prose-h2:mb-1 prose-h3:mt-5 prose-h3:mb-1',
+                'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
+                'prose-li:my-1',
+                'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
+                'prose-td:border prose-td:border-border prose-td:p-2',
+              ],
           '[&_.ProseMirror]:cursor-text',
           '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_p.is-empty.is-editor-empty:first-child::before]:text-muted-foreground',
@@ -899,7 +924,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
   return (
     <div 
-      className={cn("relative cursor-text flex flex-col w-full h-full", !editable && "cursor-default")}
+      className={cn(
+        'relative flex h-full min-h-0 w-full min-w-0 cursor-text flex-col overflow-visible',
+        !editable && 'cursor-default'
+      )}
       style={{ minHeight }}
       onClick={handleContainerClick}
       onPasteCapture={(e) => {
@@ -909,7 +937,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         };
       }}
     >
-      <EditorContent editor={editor} className="flex-1" />
+      <EditorContent editor={editor} className="min-h-0 flex-1 overflow-visible" />
     </div>
   );
 });

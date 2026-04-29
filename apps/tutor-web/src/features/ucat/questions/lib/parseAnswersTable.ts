@@ -104,6 +104,337 @@ export function parseAnswersTable(input: string): ParsedAnswerRow[] {
   return result
 }
 
+/** Data rows after the same optional header skip as {@link parseAnswersTable}. */
+export function getAnswersTableDataRows(input: string): string[][] {
+  if (!input || typeof input !== 'string') return []
+  const raw = input.trim()
+  if (!raw.length) return []
+
+  let rows: string[][]
+  if (raw.startsWith('<') && raw.includes('<table')) {
+    rows = extractRowsFromHtml(raw)
+  } else {
+    rows = extractRowsFromPlainText(raw)
+  }
+
+  if (rows.length === 0) return []
+  const startIndex = isHeaderRow(rows[0]) ? 1 : 0
+  return rows.slice(startIndex)
+}
+
+export type AnswerPasteQuestionCoverage = {
+  sortKey: number
+  label: string
+  hasAnswer: boolean
+  hasQuestionExplanation: boolean
+  hasOptionExplanations: boolean
+}
+
+export type AnswersPasteAnalysis = {
+  /** Rows parsed as A–E answer letters (same rows as {@link parseAnswersTable}). */
+  totalMcqAnswerRows: number
+  /** Decision Making syllogism lines: question # + Y/N + optional explanation. */
+  totalSyllogismTokenRows: number
+  /** Question-level explanation cells (single MCQ row per question with non-empty explanation). */
+  totalQuestionExplanations: number
+  /** Option-level explanation cells (syllogism per-option text, or rare multi-row MCQ). */
+  totalOptionExplanations: number
+  coverage: AnswerPasteQuestionCoverage[]
+}
+
+function leadingQuestionNumberCell(cells: string[]): number | null {
+  const trimmed = cells.map((c) => c.trim())
+  if (trimmed.length < 2) return null
+  const num = Number.parseInt(trimmed[0] ?? '', 10)
+  if (!Number.isNaN(num) && num >= 1 && num <= 999) return num
+  return null
+}
+
+function isYnToken(s: string): boolean {
+  return /^\s*(y|ye|yes|n|no)\s*$/i.test(s)
+}
+
+/**
+ * Structural stats + per-question coverage for the pasted answers sheet (TSV / HTML table).
+ * Groups rows by leading question number when present; otherwise assigns `#1`, `#2`, … in order.
+ */
+export function analyzeAnswersPaste(input: string): AnswersPasteAnalysis {
+  const dataRows = getAnswersTableDataRows(input)
+  let seq = 0
+
+  type Group = {
+    sortKey: number
+    label: string
+    mcqRows: ParsedAnswerRow[]
+    syllogismExplanations: string[]
+  }
+
+  const groups = new Map<string, Group>()
+
+  const getGroup = (cells: string[]): Group => {
+    const q = leadingQuestionNumberCell(cells)
+    if (q != null) {
+      const key = `q:${q}`
+      let g = groups.get(key)
+      if (!g) {
+        g = { sortKey: q, label: `Q${q}`, mcqRows: [], syllogismExplanations: [] }
+        groups.set(key, g)
+      }
+      return g
+    }
+    seq += 1
+    const key = `seq:${seq}`
+    const g: Group = {
+      sortKey: 10_000 + seq,
+      label: `#${seq}`,
+      mcqRows: [],
+      syllogismExplanations: [],
+    }
+    groups.set(key, g)
+    return g
+  }
+
+  let syllogismTokenRows = 0
+
+  for (const cells of dataRows) {
+    const mcq = parseRowToAnswer(cells)
+    if (mcq) {
+      getGroup(cells).mcqRows.push(mcq)
+      continue
+    }
+
+    const t = cells.map((c) => c.trim())
+    if (t.length >= 3) {
+      const num = Number.parseInt(t[0] ?? '', 10)
+      const tok = (t[1] ?? '').trim()
+      const expl = t.slice(2).join('\t').trim()
+      if (!Number.isNaN(num) && num >= 1 && num <= 999 && isYnToken(tok)) {
+        getGroup(cells).syllogismExplanations.push(expl)
+        syllogismTokenRows += 1
+      }
+    }
+  }
+
+  let totalQuestionExplanations = 0
+  let totalOptionExplanations = 0
+  const coverage: AnswerPasteQuestionCoverage[] = []
+
+  for (const g of groups.values()) {
+    const hasMcq = g.mcqRows.length > 0
+    const hasSyl = g.syllogismExplanations.length > 0
+    const hasAnswer = hasMcq || hasSyl
+
+    let hasQuestionExplanation = false
+    let hasOptionExplanations = false
+
+    if (hasMcq && !hasSyl) {
+      if (g.mcqRows.length === 1) {
+        const expl = g.mcqRows[0]!.explanation.trim()
+        if (expl.length > 0) {
+          hasQuestionExplanation = true
+          totalQuestionExplanations += 1
+        }
+      } else {
+        const expls = g.mcqRows.map((r) => r.explanation.trim()).filter((e) => e.length > 0)
+        if (expls.length > 0) {
+          hasOptionExplanations = true
+          totalOptionExplanations += expls.length
+        }
+      }
+    }
+
+    if (hasSyl) {
+      const nonEmpty = g.syllogismExplanations.filter((e) => e.trim().length > 0)
+      if (nonEmpty.length > 0) {
+        hasOptionExplanations = true
+        totalOptionExplanations += nonEmpty.length
+      }
+    }
+
+    coverage.push({
+      sortKey: g.sortKey,
+      label: g.label,
+      hasAnswer,
+      hasQuestionExplanation,
+      hasOptionExplanations,
+    })
+  }
+
+  coverage.sort((a, b) => a.sortKey - b.sortKey)
+
+  const totalMcqAnswerRows = dataRows.reduce(
+    (acc, cells) => acc + (parseRowToAnswer(cells) ? 1 : 0),
+    0
+  )
+
+  return {
+    totalMcqAnswerRows,
+    totalSyllogismTokenRows: syllogismTokenRows,
+    totalQuestionExplanations,
+    totalOptionExplanations,
+    coverage,
+  }
+}
+
+/** Character spans in one pasted line (with literal tabs) for live preview. */
+export type AnswerPasteSpanKind =
+  | 'questionNumber'
+  | 'letter'
+  | 'explanation'
+  | 'header'
+  | 'separator'
+  | 'other'
+
+export type AnswerPasteSpan = { start: number; end: number; kind: AnswerPasteSpanKind }
+
+/** Exported for mapping TSV character offsets to ProseMirror positions in pasted tables. */
+export function splitLineWithTabOffsets(line: string): { text: string; start: number; end: number }[] {
+  const parts = line.split('\t')
+  const out: { text: string; start: number; end: number }[] = []
+  let pos = 0
+  for (let i = 0; i < parts.length; i += 1) {
+    const text = parts[i] ?? ''
+    const start = pos
+    const end = pos + text.length
+    out.push({ text, start, end })
+    pos = end + (i < parts.length - 1 ? 1 : 0)
+  }
+  return out
+}
+
+/**
+ * Build highlight spans for one TSV line of pasted answers (same row semantics as {@link parseAnswersTable}).
+ */
+export function buildAnswerPasteSpansForLine(
+  line: string,
+  rowKind: 'header' | 'data' | 'empty'
+): AnswerPasteSpan[] {
+  if (rowKind === 'empty' || line.length === 0) return []
+  const cells = splitLineWithTabOffsets(line)
+  const spans: AnswerPasteSpan[] = []
+
+  if (rowKind === 'header') {
+    for (let i = 0; i < cells.length; i += 1) {
+      const c = cells[i]!
+      if (c.text.trim().length > 0) {
+        spans.push({ start: c.start, end: c.end, kind: 'header' })
+      }
+      if (i < cells.length - 1) {
+        const gapStart = c.end
+        spans.push({ start: gapStart, end: gapStart + 1, kind: 'separator' })
+      }
+    }
+    return spans
+  }
+
+  const cellTexts = cells.map((c) => c.text)
+  const parsed = parseRowToAnswer(cellTexts)
+
+  const pushRange = (start: number, end: number, kind: AnswerPasteSpanKind): void => {
+    if (end > start) spans.push({ start, end, kind })
+  }
+
+  if (parsed) {
+    const trimmed = cellTexts.map((c) => c.trim())
+    if (
+      trimmed.length >= 3 &&
+      trimmed[0] != null &&
+      !Number.isNaN(Number.parseInt(trimmed[0], 10)) &&
+      Number.parseInt(trimmed[0], 10) >= 1 &&
+      Number.parseInt(trimmed[0], 10) <= 999
+    ) {
+      pushRange(cells[0]!.start, cells[0]!.end, 'questionNumber')
+      if (cells.length > 1) {
+        const gap0 = cells[0]!.end
+        pushRange(gap0, gap0 + 1, 'separator')
+        pushRange(cells[1]!.start, cells[1]!.end, 'letter')
+      }
+      if (cells.length > 2) {
+        const gap1 = cells[1]!.end
+        pushRange(gap1, gap1 + 1, 'separator')
+        pushRange(cells[2]!.start, cells[cells.length - 1]!.end, 'explanation')
+      }
+      return spans
+    }
+    pushRange(cells[0]!.start, cells[0]!.end, 'letter')
+    if (cells.length > 1) {
+      const gap0 = cells[0]!.end
+      pushRange(gap0, gap0 + 1, 'separator')
+      pushRange(cells[1]!.start, cells[cells.length - 1]!.end, 'explanation')
+    }
+    return spans
+  }
+
+  const t = cellTexts.map((c) => c.trim())
+  if (t.length >= 2) {
+    const num = t[0] ? Number.parseInt(t[0], 10) : NaN
+    if (!Number.isNaN(num) && num >= 1 && num <= 999) {
+      const token = (t[1] ?? '').trim()
+      const letterOk = token.length > 0 && OPTION_LETTER.test(token.charAt(0).toUpperCase())
+      const ynOk = isYnToken(token)
+      if (letterOk || ynOk) {
+        pushRange(cells[0]!.start, cells[0]!.end, 'questionNumber')
+        const gap0 = cells[0]!.end
+        pushRange(gap0, gap0 + 1, 'separator')
+        pushRange(cells[1]!.start, cells[1]!.end, 'letter')
+        if (cells.length > 2) {
+          const gap1 = cells[1]!.end
+          pushRange(gap1, gap1 + 1, 'separator')
+          pushRange(cells[2]!.start, cells[cells.length - 1]!.end, 'explanation')
+        }
+        return spans
+      }
+    }
+  }
+
+  for (let i = 0; i < cells.length; i += 1) {
+    const c = cells[i]!
+    if (c.text.length > 0) {
+      spans.push({ start: c.start, end: c.end, kind: 'other' })
+    }
+    if (i < cells.length - 1) {
+      const gapStart = c.end
+      spans.push({ start: gapStart, end: gapStart + 1, kind: 'separator' })
+    }
+  }
+  return spans
+}
+
+/** Whether the first non-empty row of a cell matrix looks like a header row. */
+export function isAnswersHeaderRowCells(cells: string[]): boolean {
+  return isHeaderRow(cells)
+}
+
+/**
+ * Row kinds aligned to {@link getAnswerDocPlainLinesFromJson} lines (one entry per doc row).
+ * Prefer this over joining lines into a string and calling {@link getAnswerTsvLineRowKinds},
+ * which can disagree when a logical row embeds newline characters.
+ */
+export function getAnswerLineRowKindsFromLines(lines: readonly string[]): ('header' | 'data' | 'empty')[] {
+  let headerLine: number | null = null
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? ''
+    if (!line.trim()) continue
+    const cells = line.split('\t').map((c) => c.trim())
+    if (isHeaderRow(cells)) headerLine = i
+    break
+  }
+  return lines.map((line, i) => {
+    if (!line.trim()) return 'empty' as const
+    if (headerLine !== null && i === headerLine) return 'header' as const
+    return 'data' as const
+  })
+}
+
+/**
+ * For each TSV line (incl. empty), whether the parser treats it as header, data, or empty
+ * (same as {@link buildAnswerPasteSpansForLine} + {@link isAnswersHeaderRowCells}).
+ */
+export function getAnswerTsvLineRowKinds(value: string): ('header' | 'data' | 'empty')[] {
+  const lines = value.split(/\r\n|\n|\r/)
+  return getAnswerLineRowKindsFromLines(lines)
+}
+
 /** Convert letter A–E to option index 0–4. */
 export function letterToOptionIndex(letter: string): number {
   const upper = (letter ?? '').charAt(0).toUpperCase()

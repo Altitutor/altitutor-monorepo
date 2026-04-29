@@ -140,4 +140,114 @@
   outline: 2px solid hsl(var(--primary));
   outline-offset: 2px;
   border-radius: 0.375rem;
+}
+
+/*
+ * UCAT bulk import — ProseMirror parse-highlight decorations.
+ * Defined here (not only as Tailwind utilities) so highlights always paint: JIT may miss
+ * classes used only on PM-generated spans, and Typography/prose can override inline spans.
+ */
+.ucat-parse-hl-q-stem {
+  background-color: rgba(245, 158, 11, 0.18);
+  border-left: 2px solid rgba(217, 119, 6, 0.45);
+  border-radius: 0 0.125rem 0.125rem 0;
+  padding-left: 2px;
+  margin-left: -2px;
+  margin-right: -2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.dark .ucat-parse-hl-q-stem {
+  background-color: rgba(245, 158, 11, 0.22);
+}
+
+.ucat-parse-hl-q-question {
+  background-color: rgba(14, 165, 233, 0.14);
+  border-left: 2px solid rgba(3, 105, 161, 0.45);
+  border-radius: 0 0.125rem 0.125rem 0;
+  padding-left: 2px;
+  margin-left: -2px;
+  margin-right: -2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.dark .ucat-parse-hl-q-question {
+  background-color: rgba(14, 165, 233, 0.18);
+}
+
+.ucat-parse-hl-q-option {
+  background-color: rgba(16, 185, 129, 0.14);
+  border-left: 2px solid rgba(4, 120, 87, 0.45);
+  border-radius: 0 0.125rem 0.125rem 0;
+  padding-left: 2px;
+  margin-left: -2px;
+  margin-right: -2px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.dark .ucat-parse-hl-q-option {
+  background-color: rgba(16, 185, 129, 0.18);
+}
+
+.ucat-parse-hl-a-qnum {
+  background-color: rgba(139, 92, 246, 0.22);
+  color: rgb(76, 29, 149);
+  border-radius: 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.dark .ucat-parse-hl-a-qnum {
+  color: rgb(221, 214, 254);
+}
+
+.ucat-parse-hl-a-letter {
+  background-color: rgba(249, 115, 22, 0.22);
+  font-weight: 600;
+  color: rgb(124, 45, 18);
+  border-radius: 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.dark .ucat-parse-hl-a-letter {
+  color: rgb(255, 237, 213);
+}
+
+.ucat-parse-hl-a-expl {
+  background-color: rgba(20, 184, 166, 0.18);
+  color: rgb(17, 94, 89);
+  border-radius: 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.dark .ucat-parse-hl-a-expl {
+  color: rgb(204, 251, 241);
+}
+
+.ucat-parse-hl-a-expl-muted {
+  background-color: rgba(20, 184, 166, 0.12);
+  color: rgb(17, 94, 89);
+  border-radius: 0.125rem;
+  opacity: 0.45;
+  text-decoration: line-through;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.ucat-parse-hl-a-header {
+  background-color: hsl(var(--muted));
+  color: hsl(var(--muted-foreground));
+  font-weight: 500;
+  padding-left: 2px;
+  padding-right: 2px;
+  border-radius: 0.125rem;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.ucat-parse-hl-a-sep {
+  color: hsl(var(--muted-foreground) / 0.45);
+}
+
+.ucat-parse-hl-a-other {
+  color: hsl(var(--foreground) / 0.9);
 } 

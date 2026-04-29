@@ -1,17 +1,35 @@
 'use client'
 
-import { useCallback } from 'react'
-import { Textarea } from '@altitutor/ui'
-import { parseAnswersTable } from '@/features/ucat/questions/lib/parseAnswersTable'
+import { useCallback, useMemo } from 'react'
+import type { Json } from '@altitutor/shared'
+import {
+  Button,
+  Checkbox,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+  Label,
+} from '@altitutor/ui'
+import { Settings2 } from 'lucide-react'
+import { BulkImportParseInfoButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseInfoButton'
+import { computeAnswerPasteStats } from '@/features/ucat/questions/components/bulk-import/bulkImportPasteStats'
+import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import type { UcatParseHighlightConfig } from '@/features/ucat/shared/ucatParseHighlightPlugin'
+import { cn } from '@/shared/utils'
 
 type Step2PasteAnswersProps = {
-  value: string
-  onChange: (value: string) => void
+  value: Json | null
+  onChange: (value: Json) => void
+  /** When set, fills a parent flex column and scrolls only the editor region. */
+  layout?: 'default' | 'split'
+  includeExplanationsOnImport: boolean
+  onIncludeExplanationsOnImportChange: (value: boolean) => void
 }
 
 /**
- * When user pastes an HTML table (e.g. from Word/Google Docs), convert it to TSV
- * so the textarea shows tab/newline content and we can parse it consistently.
+ * When the user pastes an HTML table (e.g. from Word/Google Docs), convert it to TSV
+ * and set one paragraph per row so the rich doc matches a plain TSV import.
  */
 function htmlTableToTsv(html: string): string {
   if (typeof document === 'undefined') return ''
@@ -32,10 +50,30 @@ function htmlTableToTsv(html: string): string {
   }
 }
 
+function tsvPlainTextToAnswerDocJson(tsv: string): Json {
+  const lines = tsv.split(/\r\n|\n|\r/)
+  return {
+    type: 'doc',
+    content: lines.map((line) => ({
+      type: 'paragraph',
+      content: line ? [{ type: 'text', text: line }] : [],
+    })),
+  } as unknown as Json
+}
+
 export function Step2PasteAnswers({
   value,
   onChange,
+  layout = 'default',
+  includeExplanationsOnImport,
+  onIncludeExplanationsOnImportChange,
 }: Step2PasteAnswersProps) {
+  const isSplit = layout === 'split'
+  const answerParseHighlight: UcatParseHighlightConfig = useMemo(
+    () => ({ mode: 'answer', includeExplanations: includeExplanationsOnImport }),
+    [includeExplanationsOnImport]
+  )
+
   const handlePaste = useCallback(
     (e: React.ClipboardEvent) => {
       const html = e.clipboardData?.getData?.('text/html')
@@ -43,39 +81,91 @@ export function Step2PasteAnswers({
         const tsv = htmlTableToTsv(html)
         if (tsv) {
           e.preventDefault()
-          onChange(tsv)
+          onChange(tsvPlainTextToAnswerDocJson(tsv))
         }
       }
     },
     [onChange]
   )
 
+  const answerPasteStats = useMemo(() => computeAnswerPasteStats(value), [value])
+
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-base font-semibold">Paste answers table</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Paste your table of correct answers and explanations. One row per question, in order.
-          The first row can be headers (e.g. &quot;Answer&quot; and &quot;Explanation&quot;) and will be
-          skipped. Each row should have the correct option letter (A, B, C, D, or E) and the answer
-          explanation. You can copy from Google Docs, Word, or Excel.
-        </p>
+    <div className={cn(isSplit ? 'flex h-full min-h-0 flex-col gap-3' : 'space-y-4')}>
+      <div
+        className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
+      >
+        <div className="flex min-w-0 items-center gap-0.5">
+          <h2 className="text-base font-semibold">Paste answers</h2>
+          <BulkImportParseInfoButton
+            variant="answers"
+            stats={answerPasteStats}
+            includeExplanationsOnImport={includeExplanationsOnImport}
+          />
+        </div>
+        <div className="shrink-0 self-start sm:pt-0.5">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                aria-label="Settings for answers import"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Answer settings
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-72 max-h-[min(24rem,70vh)] overflow-y-auto" align="end">
+              <DropdownMenuLabel className="text-xs">Import</DropdownMenuLabel>
+              <div className="px-1 pb-1">
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="bulk-import-include-answer-explanations"
+                    checked={includeExplanationsOnImport}
+                    onCheckedChange={(checked) =>
+                      onIncludeExplanationsOnImportChange(checked === true)
+                    }
+                  />
+                  <Label
+                    htmlFor="bulk-import-include-answer-explanations"
+                    className="cursor-pointer text-xs font-normal leading-snug"
+                  >
+                    Include explanations when importing (correct letters are always applied)
+                  </Label>
+                </div>
+                {!includeExplanationsOnImport && (
+                  <p className="mt-2 text-[10px] text-muted-foreground">
+                    Explanations are dimmed in the editor and will not be written to questions on
+                    import.
+                  </p>
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
-      <Textarea
-        className="min-h-[280px] font-mono text-sm"
-        placeholder="Paste your table here… (e.g. B	Explanation for Q1…&#10;C	Explanation for Q2…)"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onPaste={handlePaste}
-      />
-
-      {value.trim().length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Parsed {parseAnswersTable(value).length} answer row(s). Click Next to apply them to the
-          questions.
-        </p>
-      )}
+      <div
+        className={cn(
+          'rounded-md border bg-muted/40 p-3',
+          isSplit ? 'min-h-0 flex-1 overflow-y-auto' : 'min-h-[320px]'
+        )}
+        onPasteCapture={handlePaste}
+      >
+        <UcatRichTextEditor
+          value={value}
+          onChange={onChange}
+          placeholder="Paste your table here… (e.g. B	Explanation for Q1…, one row per line)"
+          minHeight={isSplit ? '200px' : '280px'}
+          stemId={null}
+          enableImages={false}
+          pastePlainTextAsParagraphs
+          pasteTableBehavior="keep"
+          ucatParseHighlight={answerParseHighlight}
+        />
+      </div>
     </div>
   )
 }
