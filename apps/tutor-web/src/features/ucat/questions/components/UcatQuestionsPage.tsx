@@ -64,6 +64,7 @@ import {
   BulkImportQuestionStemsModal,
   type BulkImportSubmitArgs,
 } from '@/features/ucat/questions/components/BulkImportQuestionStemsModal'
+import { AiImportQuestionStemsModal } from '@/features/ucat/questions/components/ai-import/AiImportQuestionStemsModal'
 import { GenerateQuestionStemsModal } from '@/features/ucat/questions/components/generated/GenerateQuestionStemsModal'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -177,6 +178,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
   const [createOpen, setCreateOpen] = useState(false)
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
+  const [aiImportOpen, setAiImportOpen] = useState(false)
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
   const [deletingStemId, setDeletingStemId] = useState<string | null>(null)
   const [showDeleted, setShowDeleted] = useState(false)
@@ -738,7 +740,12 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         actions={
           <div className="flex items-center gap-2">
             {mode === 'generated' ? (
-              <Button onClick={() => setGenerateOpen(true)}>Generate questions</Button>
+              <>
+                <Button variant="outline" onClick={() => setAiImportOpen(true)}>
+                  AI Import
+                </Button>
+                <Button onClick={() => setGenerateOpen(true)}>Generate questions</Button>
+              </>
             ) : (
               <>
                 <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
@@ -1226,6 +1233,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         onEditSet={(setId) => setEditingSetId(setId)}
       />
       <GenerateQuestionStemsModal open={generateOpen} onClose={() => setGenerateOpen(false)} />
+      <AiImportQuestionStemsModal open={aiImportOpen} onClose={() => setAiImportOpen(false)} />
 
       <UcatSetEditorDialog
         open={!!editingSetId}

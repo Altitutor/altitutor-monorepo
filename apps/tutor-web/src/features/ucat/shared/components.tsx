@@ -10,7 +10,7 @@ export function UcatAccessDenied() {
     <div className="rounded-lg border border-border bg-card p-8 text-center">
       <h2 className="text-xl font-semibold">UCAT Access Required</h2>
       <p className="mt-2 text-sm text-muted-foreground">
-        Your tutor account is not currently assigned to a UCAT class.
+        Your profile does not include the UCAT subject. Ask an administrator if you need access.
       </p>
       <div className="mt-4">
         <Button asChild variant="outline">
