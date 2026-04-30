@@ -137,7 +137,8 @@ export async function createDraftSendInvoiceInvoice(
 
 /**
  * Create draft invoice with automatic collection.
- * Caller must add items (with invoice: draft.id) then call finalizeInvoice.
+ * Caller must add items (with invoice: draft.id) then call finalizeInvoice with
+ * autoAdvance enabled so Stripe can collect after finalization.
  */
 export async function createDraftChargeAutomaticallyInvoice(
   stripe: Stripe,
@@ -155,9 +156,8 @@ export async function createDraftChargeAutomaticallyInvoice(
     timestamp,
   });
 
-  // auto_advance false: we explicitly finalize after line items. Matches send_invoice
-  // path and avoids racing Stripe's auto-finalize with a second finalize call
-  // (e.g. retries when the invoice is already open from a prior attempt).
+  // Keep the draft paused until line items are attached. Automatic collection is
+  // enabled when the invoice is finalized in the auto-bill path.
   return await stripe.invoices.create(
     {
       customer: customerId,
@@ -183,9 +183,18 @@ export async function createDraftChargeAutomaticallyInvoice(
  * success — Stripe invoice open but invoice_items not yet in DB, or idempotent
  * create replay with stale draft), returns the current invoice from Stripe.
  */
-export async function finalizeInvoice(stripe: Stripe, invoiceId: string): Promise<Stripe.Invoice> {
+export async function finalizeInvoice(
+  stripe: Stripe,
+  invoiceId: string,
+  options: { autoAdvance?: boolean } = {}
+): Promise<Stripe.Invoice> {
   try {
-    return await stripe.invoices.finalizeInvoice(invoiceId);
+    const finalizeParams =
+      options.autoAdvance === undefined
+        ? undefined
+        : { auto_advance: options.autoAdvance };
+
+    return await stripe.invoices.finalizeInvoice(invoiceId, finalizeParams);
   } catch (err: unknown) {
     const details = getStripeErrorDetails(err);
     const msg = (details.message || '').toLowerCase();
