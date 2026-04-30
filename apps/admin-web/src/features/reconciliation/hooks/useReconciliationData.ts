@@ -1,5 +1,6 @@
 import {
   useUninvoicedSessions,
+  useVoidInvoiceSessions,
   useUnpaidInvoices,
   useUnloggedSessions,
   useUnassignedClasses,
@@ -15,6 +16,7 @@ import {
  */
 export function useReconciliationData() {
   const uninvoicedSessions = useUninvoicedSessions();
+  const voidInvoiceSessions = useVoidInvoiceSessions();
   const unpaidInvoices = useUnpaidInvoices();
   const unloggedSessions = useUnloggedSessions();
   const unassignedClasses = useUnassignedClasses();
@@ -26,6 +28,7 @@ export function useReconciliationData() {
 
   const isLoading =
     uninvoicedSessions.isLoading ||
+    voidInvoiceSessions.isLoading ||
     unpaidInvoices.isLoading ||
     unloggedSessions.isLoading ||
     unassignedClasses.isLoading ||
@@ -37,6 +40,7 @@ export function useReconciliationData() {
 
   const hasError =
     uninvoicedSessions.isError ||
+    voidInvoiceSessions.isError ||
     unpaidInvoices.isError ||
     unloggedSessions.isError ||
     unassignedClasses.isError ||
@@ -48,6 +52,7 @@ export function useReconciliationData() {
 
   return {
     uninvoicedSessions,
+    voidInvoiceSessions,
     unpaidInvoices,
     unloggedSessions,
     unassignedClasses,

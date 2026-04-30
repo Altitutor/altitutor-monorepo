@@ -5,6 +5,7 @@ export const reconciliationKeys = {
   all: ['reconciliation'] as const,
   lists: () => [...reconciliationKeys.all, 'list'] as const,
   uninvoicedSessions: () => [...reconciliationKeys.lists(), 'uninvoiced_sessions'] as const,
+  voidInvoiceSessions: () => [...reconciliationKeys.lists(), 'void_invoice_sessions'] as const,
   unpaidInvoices: () => [...reconciliationKeys.lists(), 'unpaid_invoices'] as const,
   unloggedSessions: () => [...reconciliationKeys.lists(), 'unlogged_sessions'] as const,
   unassignedClasses: () => [...reconciliationKeys.lists(), 'unassigned_classes'] as const,

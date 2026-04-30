@@ -12,6 +12,7 @@ import type {
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
   UnassignedTask,
+  VoidInvoiceSession,
 } from '../types';
 
 // Helper type for querying views
@@ -675,5 +676,15 @@ export const reconciliationApi = {
     });
     
     return result;
+  },
+
+  getVoidInvoiceSessions: async (): Promise<VoidInvoiceSession[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
+      .from('vadmin_reconciliation_void_invoice_sessions')
+      .select('*')
+      .order('session_start_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as VoidInvoiceSession[];
   },
 };

@@ -15,6 +15,18 @@ export function useUninvoicedSessions() {
 }
 
 /**
+ * Sessions billed only on void invoices (re-invoicing may be required)
+ */
+export function useVoidInvoiceSessions() {
+  return useQuery({
+    queryKey: reconciliationKeys.voidInvoiceSessions(),
+    queryFn: () => reconciliationApi.getVoidInvoiceSessions(),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+/**
  * Get unpaid invoices
  */
 export function useUnpaidInvoices() {
