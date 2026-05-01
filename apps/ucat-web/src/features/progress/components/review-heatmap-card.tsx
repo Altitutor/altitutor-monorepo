@@ -162,8 +162,7 @@ export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium">Review heatmap</CardTitle>
         <p className="text-muted-foreground text-sm font-normal">
-          Daily question and set attempts (last ~53 weeks, weeks start Monday).
-          Darker means more activity that day.
+          Daily question and set attempts.
         </p>
       </CardHeader>
       <CardContent className="min-w-0 space-y-3">

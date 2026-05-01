@@ -11,6 +11,7 @@ type CategoryOption = { id?: string | null; name?: string | null }
 type Step2ReviewAiImportProps = {
   stems: BulkImportStemDraft[]
   categories: CategoryOption[]
+  sections?: Array<{ id: string | null; display_columns?: number | null }>
   warnings: AiImportIssue[]
   onUpdateStem: (stemId: string, values: UcatQuestionStemFormValues) => void
 }
@@ -18,6 +19,7 @@ type Step2ReviewAiImportProps = {
 export function Step2ReviewAiImport({
   stems,
   categories,
+  sections = [],
   warnings,
   onUpdateStem,
 }: Step2ReviewAiImportProps) {
@@ -39,7 +41,7 @@ export function Step2ReviewAiImport({
         ) : null}
       </div>
 
-      <Step3SetAnswers stems={stems} categories={categories} onUpdateStem={onUpdateStem} />
+      <Step3SetAnswers stems={stems} categories={categories} sections={sections} onUpdateStem={onUpdateStem} />
     </div>
   )
 }

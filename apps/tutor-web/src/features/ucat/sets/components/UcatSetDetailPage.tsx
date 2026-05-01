@@ -376,7 +376,11 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         submitLabel="Save"
         onClose={() => setEditingStemId(null)}
         onSubmit={handleStemUpdate}
-        sections={(sectionsQuery.data ?? []).map((section) => ({ id: section.id, name: section.name }))}
+        sections={(sectionsQuery.data ?? []).map((section) => ({
+          id: section.id,
+          name: section.name,
+          display_columns: section.display_columns,
+        }))}
         categories={
           (categoriesQuery.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]
         }

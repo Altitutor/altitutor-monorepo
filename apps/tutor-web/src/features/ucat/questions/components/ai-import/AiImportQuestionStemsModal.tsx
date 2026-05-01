@@ -301,6 +301,7 @@ export function AiImportQuestionStemsModal({ open, onClose }: AiImportQuestionSt
             <Step2ReviewAiImport
               stems={drafts}
               categories={categories}
+              sections={sections.map((s) => ({ id: s.id, display_columns: s.display_columns }))}
               warnings={warnings}
               onUpdateStem={(stemId, values) =>
                 setDrafts((prev) =>

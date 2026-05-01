@@ -635,6 +635,7 @@ export function BulkImportQuestionStemsModal({
         <Step3SetAnswers
           stems={wizard.state.stems}
           categories={categories}
+          sections={sections.map((s) => ({ id: s.id, display_columns: s.display_columns }))}
           onUpdateStem={wizard.updateStemForm}
         />
       )

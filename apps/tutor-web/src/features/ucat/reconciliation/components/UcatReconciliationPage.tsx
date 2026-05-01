@@ -166,7 +166,11 @@ export function UcatReconciliationPage() {
         submitLabel="Save"
         onClose={() => setEditingStemId(null)}
         onSubmit={handleStemUpdate}
-        sections={(sectionsQuery.data ?? []).map((s) => ({ id: s.id, name: s.name }))}
+        sections={(sectionsQuery.data ?? []).map((s) => ({
+          id: s.id,
+          name: s.name,
+          display_columns: s.display_columns,
+        }))}
         categories={
           (categoriesQuery.data ?? []).map((c) => ({
             id: c.id,
