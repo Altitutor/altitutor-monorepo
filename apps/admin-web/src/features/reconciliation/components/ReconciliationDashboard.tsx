@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import { SkeletonTable } from '@altitutor/ui';
 import {
   UninvoicedSessionsTable,
+  VoidInvoiceSessionsTable,
   UnpaidInvoicesTable,
   UnloggedSessionsTable,
   UnassignedClassesTable,
@@ -103,6 +104,7 @@ export function ReconciliationDashboard() {
         <div className="space-y-6">
           <h2 className="text-xl font-semibold">Financial</h2>
           <SkeletonTable rows={3} columns={6} />
+          <SkeletonTable rows={3} columns={7} />
           <SkeletonTable rows={3} columns={5} />
           <SkeletonTable rows={3} columns={4} />
         </div>
@@ -169,6 +171,10 @@ export function ReconciliationDashboard() {
           <UninvoicedSessionsTable
             items={reconciliationData.uninvoicedSessions.data ?? []}
             isLoading={reconciliationData.uninvoicedSessions.isLoading}
+          />
+          <VoidInvoiceSessionsTable
+            items={reconciliationData.voidInvoiceSessions.data ?? []}
+            isLoading={reconciliationData.voidInvoiceSessions.isLoading}
           />
           <UnpaidInvoicesTable
             items={reconciliationData.unpaidInvoices.data ?? []}

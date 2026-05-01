@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react'
+import { cn } from '@/shared/utils'
 import type { Json } from '@altitutor/shared'
 import {
   RichTextEditor,
@@ -16,6 +17,10 @@ import {
   UCAT_PARSE_DECO_META,
   type UcatParseHighlightConfig,
 } from '@/features/ucat/shared/ucatParseHighlightPlugin'
+
+/** TipTap reads `text-foreground`; pin dark body text on white UCAT engine shells when app theme is dark. */
+const UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME =
+  '[&_.tiptap]:!text-neutral-950 [&_.tiptap]:dark:!text-neutral-950 [&_.tiptap_.ProseMirror]:!text-neutral-950 [&_.tiptap_.ProseMirror]:dark:!text-neutral-950 [&_.tiptap_.ProseMirror_li]:marker:!text-neutral-600 [&_.tiptap_.ProseMirror_li]:marker:dark:!text-neutral-600 [&_p.is-empty.is-editor-empty:first-child:before]:!text-neutral-400'
 
 export type UcatRichTextValue = Json | null | undefined
 
@@ -47,6 +52,11 @@ export interface UcatRichTextEditorProps {
   additionalExtensions?: import('@tiptap/core').AnyExtension[]
   /** Fires when the TipTap editor is ready; runs after internal UCAT parse-highlight meta refresh. */
   onEditorReady?: (editor: Editor) => void
+  /**
+   * When true, skips Typography `prose` (matches parse-highlight mode) and pins editor text to a dark
+   * neutral palette so content stays readable on white UCAT engine chrome while the app is in dark mode.
+   */
+  forceLightChrome?: boolean
 }
 
 function toJsonContent(value: UcatRichTextValue): JSONContent | null {
@@ -80,6 +90,7 @@ export function UcatRichTextEditor({
   ucatParseHighlight: ucatParseHighlightProp,
   additionalExtensions,
   onEditorReady: onEditorReadyProp,
+  forceLightChrome = false,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
   const ucatParseHighlight = ucatParseHighlightProp ?? { mode: 'off' as const }
@@ -335,9 +346,12 @@ export function UcatRichTextEditor({
   const pasteImagesProp =
     enableImages !== false ? { onPasteImages: handlePasteImages } : {}
 
+  const omitTypography =
+    forceLightChrome || ucatParseHighlight.mode !== 'off'
+
   return (
     <div
-      className={className}
+      className={cn(className, forceLightChrome && UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME)}
       style={{ minHeight }}
       onDragOver={(e) => {
         if (!editable) return
@@ -356,7 +370,7 @@ export function UcatRichTextEditor({
         pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
         pasteTableBehavior={pasteTableBehavior}
         extensions={mergedExtraExtensions}
-        omitTypography={ucatParseHighlight.mode !== 'off'}
+        omitTypography={omitTypography}
         onEditorReady={(ed) => {
           if (ucatParseHighlightProp != null) {
             ed.view.dispatch(ed.state.tr.setMeta(UCAT_PARSE_DECO_META, 1))

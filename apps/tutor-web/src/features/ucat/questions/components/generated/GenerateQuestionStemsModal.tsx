@@ -337,6 +337,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
             <Step3SetAnswers
               stems={drafts}
               categories={categories}
+              sections={sections.map((s) => ({ id: s.id, display_columns: s.display_columns }))}
               onUpdateStem={(stemId, values) =>
                 setDrafts((prev) =>
                   prev.map((draft) => (draft.id === stemId ? { ...draft, values } : draft))

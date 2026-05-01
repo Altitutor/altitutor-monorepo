@@ -201,8 +201,10 @@ export function BulkImportQuestionStemsModal({
   }
 
   /** Parse pasted content according to the selected section; used when leaving the paste step. */
-  function parseForCurrentSection(): boolean {
-    if (!sectionId) return false
+  function parseForCurrentSection():
+    | { ok: true; drafts: BulkImportStemDraft[] }
+    | { ok: false } {
+    if (!sectionId) return { ok: false }
     if (isVerbalReasoningSection) {
       try {
         const parsed = parseVerbalReasoningFromDoc(pastedContent, parsingOptions)
@@ -221,12 +223,12 @@ export function BulkImportQuestionStemsModal({
         if (forms.length === 0) {
           setParseError('No valid stems and questions were detected. Please check the formatting.')
           wizard.setStems([])
-          return false
+          return { ok: false }
         }
 
-        wizard.setStems(forms)
+        const drafts = wizard.setStems(forms)
         setParseError(null)
-        return true
+        return { ok: true, drafts }
       } catch (error) {
         setParseError(
           error instanceof Error
@@ -234,7 +236,7 @@ export function BulkImportQuestionStemsModal({
             : 'Failed to parse Verbal Reasoning passage.'
         )
         wizard.setStems([])
-        return false
+        return { ok: false }
       }
     }
     if (isDecisionMakingSection) {
@@ -255,12 +257,12 @@ export function BulkImportQuestionStemsModal({
         if (forms.length === 0) {
           setParseError('No valid stems and questions were detected. Please check the formatting.')
           wizard.setStems([])
-          return false
+          return { ok: false }
         }
 
-        wizard.setStems(forms)
+        const drafts = wizard.setStems(forms)
         setParseError(null)
-        return true
+        return { ok: true, drafts }
       } catch (error) {
         setParseError(
           error instanceof Error
@@ -268,7 +270,7 @@ export function BulkImportQuestionStemsModal({
             : 'Failed to parse Decision Making.'
         )
         wizard.setStems([])
-        return false
+        return { ok: false }
       }
     }
     if (isQuantitativeReasoningSection) {
@@ -282,12 +284,12 @@ export function BulkImportQuestionStemsModal({
         if (forms.length === 0) {
           setParseError('No valid stems and questions were detected. Please check the formatting.')
           wizard.setStems([])
-          return false
+          return { ok: false }
         }
 
-        wizard.setStems(forms)
+        const drafts = wizard.setStems(forms)
         setParseError(null)
-        return true
+        return { ok: true, drafts }
       } catch (error) {
         setParseError(
           error instanceof Error
@@ -295,7 +297,7 @@ export function BulkImportQuestionStemsModal({
             : 'Failed to parse Quantitative Reasoning.'
         )
         wizard.setStems([])
-        return false
+        return { ok: false }
       }
     }
     if (isSituationalJudgementSection) {
@@ -317,12 +319,12 @@ export function BulkImportQuestionStemsModal({
         if (forms.length === 0) {
           setParseError('No valid stems and questions were detected. Please check the formatting.')
           wizard.setStems([])
-          return false
+          return { ok: false }
         }
 
-        wizard.setStems(forms)
+        const drafts = wizard.setStems(forms)
         setParseError(null)
-        return true
+        return { ok: true, drafts }
       } catch (error) {
         setParseError(
           error instanceof Error
@@ -330,10 +332,10 @@ export function BulkImportQuestionStemsModal({
             : 'Failed to parse Situational Judgement.'
         )
         wizard.setStems([])
-        return false
+        return { ok: false }
       }
     }
-    return true
+    return { ok: false }
   }
 
   function getStepTitle(currentStep: number): string {
@@ -351,8 +353,11 @@ export function BulkImportQuestionStemsModal({
     }
   }
 
-  function applyParsedAnswersToStems(includeExplanations: boolean): void {
-    const stems = wizard.state.stems
+  function applyParsedAnswersToStems(
+    includeExplanations: boolean,
+    stemDraftsOverride?: BulkImportStemDraft[]
+  ): void {
+    const stems = stemDraftsOverride ?? wizard.state.stems
     const flat: { stemId: string; questionIndex: number }[] = []
     stems.forEach((stem) => {
       const questions = stem.values.questions ?? []
@@ -460,8 +465,9 @@ export function BulkImportQuestionStemsModal({
   function handleNextClick() {
     if (!canGoNext) return
     if (step === 1) {
-      if (!parseForCurrentSection()) return
-      applyParsedAnswersToStems(includeAnswerExplanationsOnImport)
+      const parseResult = parseForCurrentSection()
+      if (!parseResult.ok) return
+      applyParsedAnswersToStems(includeAnswerExplanationsOnImport, parseResult.drafts)
     }
     setStep((current) => (current < totalStepsResolved - 1 ? current + 1 : current))
   }
@@ -629,6 +635,7 @@ export function BulkImportQuestionStemsModal({
         <Step3SetAnswers
           stems={wizard.state.stems}
           categories={categories}
+          sections={sections.map((s) => ({ id: s.id, display_columns: s.display_columns }))}
           onUpdateStem={wizard.updateStemForm}
         />
       )

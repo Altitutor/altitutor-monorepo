@@ -4,6 +4,7 @@ import { renderHookWithQueryClient } from '@/shared/test-utils';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type {
   UninvoicedSession,
+  VoidInvoiceSession,
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
@@ -60,7 +61,11 @@ describe('useReconciliationData', () => {
     mockQueries.useUninvoicedSessions.mockReturnValue(
       createMockQueryResult<UninvoicedSession[]>([])
     );
-    
+
+    mockQueries.useVoidInvoiceSessions.mockReturnValue(
+      createMockQueryResult<VoidInvoiceSession[]>([])
+    );
+
     mockQueries.useUnpaidInvoices.mockReturnValue(
       createMockQueryResult<UnpaidInvoice[]>([])
     );
@@ -98,6 +103,7 @@ describe('useReconciliationData', () => {
     const { result } = renderHookWithQueryClient(() => useReconciliationData());
 
     expect(result.current).toHaveProperty('uninvoicedSessions');
+    expect(result.current).toHaveProperty('voidInvoiceSessions');
     expect(result.current).toHaveProperty('unpaidInvoices');
     expect(result.current).toHaveProperty('unloggedSessions');
     expect(result.current).toHaveProperty('unassignedClasses');

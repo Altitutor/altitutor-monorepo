@@ -24,6 +24,7 @@ import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import type { Tables } from '@altitutor/shared';
 import type {
   UninvoicedSession,
+  VoidInvoiceSession,
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
@@ -215,6 +216,84 @@ export function UninvoicedSessionsTable({
             </TableCell>
             <TableCell>
               <ReconciliationActions type="uninvoiced_sessions" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
+    />
+  );
+}
+
+export function VoidInvoiceSessionsTable({
+  items,
+  isLoading,
+}: {
+  items: VoidInvoiceSession[];
+  isLoading?: boolean;
+}) {
+  return (
+    <ReconciliationTable
+      title="Sessions on void invoices only"
+      items={items}
+      isLoading={isLoading}
+      columns={['Date', 'Student', 'Session', 'Void invoice', 'Voided', 'Planned', 'Actual']}
+      renderRow={(item, index) => {
+        const wasTrialPlanned = item.was_trial ?? false;
+        let plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
+
+        if (item.planned_absence) {
+          if (item.is_rescheduled) {
+            plannedStatus = 'rescheduled';
+          } else if (item.is_credited) {
+            plannedStatus = 'credited';
+          } else {
+            plannedStatus = 'absent';
+          }
+        } else if (item.is_extra) {
+          plannedStatus = wasTrialPlanned ? 'attending-extra-trial' : 'attending-extra';
+        } else {
+          plannedStatus = wasTrialPlanned ? 'attending-trial' : 'attending';
+        }
+
+        const wasTrialActual = item.actual_was_trial ?? false;
+        let actualStatus: 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged' = 'not-logged';
+        if (item.has_tutor_log) {
+          if (item.actual_attended === true) {
+            actualStatus = wasTrialActual ? 'attended-trial' : 'attended';
+          } else if (item.actual_attended === false) {
+            actualStatus = 'did-not-attend';
+          }
+        }
+
+        const uniqueKey = `${item.sessions_students_id}-${item.void_invoice_id}-${index}`;
+        const voidedAt = item.void_invoice_voided_at ?? item.void_invoice_date;
+        const invoiceLabel = item.void_stripe_invoice_number?.trim() || item.void_invoice_id.slice(0, 8);
+
+        return (
+          <TableRow key={uniqueKey}>
+            <TableCell>
+              {format(new Date(item.session_start_at), 'MMM d, yyyy')}
+            </TableCell>
+            <TableCell className="font-medium">
+              {item.student_first_name} {item.student_last_name}
+            </TableCell>
+            <TableCell>
+              {item.session_name || '—'}
+            </TableCell>
+            <TableCell className="text-muted-foreground text-sm">
+              {invoiceLabel}
+            </TableCell>
+            <TableCell>
+              {voidedAt ? format(new Date(voidedAt), 'MMM d, yyyy') : '—'}
+            </TableCell>
+            <TableCell>
+              <AttendanceCell status={plannedStatus} />
+            </TableCell>
+            <TableCell>
+              <AttendanceCell status={actualStatus} />
+            </TableCell>
+            <TableCell>
+              <ReconciliationActions type="void_invoice_sessions" item={item} />
             </TableCell>
           </TableRow>
         );

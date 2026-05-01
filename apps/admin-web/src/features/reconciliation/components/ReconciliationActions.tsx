@@ -23,6 +23,7 @@ import { extractMentions } from '@/shared/utils/extractMentions';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
 import type {
   UninvoicedSession,
+  VoidInvoiceSession,
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
@@ -110,6 +111,7 @@ interface ReconciliationActionsProps {
   type: ReconciliationItemType;
   item:
     | UninvoicedSession
+    | VoidInvoiceSession
     | UnpaidInvoice
     | UnloggedSession
     | UnassignedClass
@@ -172,6 +174,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     onSuccess: (data: { invoiceId?: string } | null | undefined) => {
       // Invalidate reconciliation queries to refresh the list
       queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.voidInvoiceSessions() });
       toast({
         title: 'Success',
         description: (
@@ -326,6 +329,14 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         );
       }
 
+      if (type === 'void_invoice_sessions') {
+        const current = item as VoidInvoiceSession;
+        return (
+          hasTag(issue, (tag) => tag.student_id === current.student_id) &&
+          hasTag(issue, (tag) => tag.session_id === current.session_id)
+        );
+      }
+
       if (type === 'unpaid_invoices') {
         const current = item as UnpaidInvoice;
         return (
@@ -412,6 +423,15 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       return dedupeTags([
         { student_id: current.student_id },
         { session_id: current.session_id },
+      ]);
+    }
+
+    if (type === 'void_invoice_sessions') {
+      const current = item as VoidInvoiceSession;
+      return dedupeTags([
+        { student_id: current.student_id },
+        { session_id: current.session_id },
+        { invoice_id: current.void_invoice_id },
       ]);
     }
 
@@ -600,7 +620,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   if (type === 'uninvoiced_sessions') {
     const session = item as UninvoicedSession;
     content = (
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         <Button
           variant="outline"
           size="sm"
@@ -625,6 +645,46 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         >
           <CreditCard className="h-4 w-4 mr-1" />
           {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Invoice Session'}
+        </Button>
+        {issueButton}
+      </div>
+    );
+  } else if (type === 'void_invoice_sessions') {
+    const session = item as VoidInvoiceSession;
+    content = (
+      <div className="flex gap-2 flex-wrap">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenStudent(session.student_id)}
+        >
+          <User className="h-4 w-4 mr-1" />
+          View Student
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenSession(session.session_id)}
+        >
+          <Calendar className="h-4 w-4 mr-1" />
+          View Session
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => handlers.onOpenInvoice(session.void_invoice_id)}
+        >
+          <Receipt className="h-4 w-4 mr-1" />
+          Void invoice
+        </Button>
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => handleSendInvoice(session.sessions_students_id)}
+          disabled={isLoading || invoiceSessionMutation.isPending}
+        >
+          <CreditCard className="h-4 w-4 mr-1" />
+          {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Re-invoice'}
         </Button>
         {issueButton}
       </div>

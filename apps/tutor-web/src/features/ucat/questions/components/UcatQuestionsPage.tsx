@@ -1187,7 +1187,11 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         submitLabel="Create"
         onClose={() => setCreateOpen(false)}
         onSubmit={handleCreate}
-        sections={(sections.data ?? []).map((section) => ({ id: section.id, name: section.name }))}
+        sections={(sections.data ?? []).map((section) => ({
+          id: section.id,
+          name: section.name,
+          display_columns: section.display_columns,
+        }))}
         categories={(categories.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]}
         tags={(tags.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
         loading={createMutation.isPending}
@@ -1199,7 +1203,11 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         submitLabel="Save"
         onClose={() => setEditingStemId(null)}
         onSubmit={handleUpdate}
-        sections={(sections.data ?? []).map((section) => ({ id: section.id, name: section.name }))}
+        sections={(sections.data ?? []).map((section) => ({
+          id: section.id,
+          name: section.name,
+          display_columns: section.display_columns,
+        }))}
         categories={(categories.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]}
         tags={(tags.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
         initial={detail.data}

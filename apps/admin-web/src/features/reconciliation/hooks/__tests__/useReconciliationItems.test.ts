@@ -2,6 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { useReconciliationItems } from '../useReconciliationItems';
 import type {
   UninvoicedSession,
+  VoidInvoiceSession,
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
@@ -14,6 +15,7 @@ import type {
 
 type ReconciliationQueries = {
   uninvoicedSessions: { data?: UninvoicedSession[] };
+  voidInvoiceSessions: { data?: VoidInvoiceSession[] };
   unpaidInvoices: { data?: UnpaidInvoice[] };
   unloggedSessions: { data?: UnloggedSession[] };
   unassignedClasses: { data?: UnassignedClass[] };
@@ -26,6 +28,7 @@ type ReconciliationQueries = {
 
 const createMockQueries = (overrides?: Partial<ReconciliationQueries>): ReconciliationQueries => ({
   uninvoicedSessions: { data: [] as UninvoicedSession[] },
+  voidInvoiceSessions: { data: [] as VoidInvoiceSession[] },
   unpaidInvoices: { data: [] as UnpaidInvoice[] },
   unloggedSessions: { data: [] as UnloggedSession[] },
   unassignedClasses: { data: [] as UnassignedClass[] },
@@ -41,13 +44,14 @@ describe('useReconciliationItems', () => {
   it('should aggregate financial items correctly', () => {
     const queries = createMockQueries({
       uninvoicedSessions: { data: [{ sessions_students_id: '1' } as UninvoicedSession] },
+      voidInvoiceSessions: { data: [{ sessions_students_id: '2' } as VoidInvoiceSession] },
       unpaidInvoices: { data: [{ id: '1' } as UnpaidInvoice] },
       studentsWithoutPaymentMethod: { data: [{ student_id: '1' } as StudentWithoutPaymentMethod] },
     });
 
     const { result } = renderHook(() => useReconciliationItems(queries));
 
-    expect(result.current.financialItems).toHaveLength(3);
+    expect(result.current.financialItems).toHaveLength(4);
     expect(result.current.hasAnyItems).toBe(true);
   });
 
@@ -102,6 +106,7 @@ describe('useReconciliationItems', () => {
   it('should handle undefined data arrays', () => {
     const queries: ReconciliationQueries = {
       uninvoicedSessions: { data: undefined },
+      voidInvoiceSessions: { data: undefined },
       unpaidInvoices: { data: undefined },
       unloggedSessions: { data: undefined },
       unassignedClasses: { data: undefined },

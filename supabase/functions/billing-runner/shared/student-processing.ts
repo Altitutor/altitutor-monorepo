@@ -507,7 +507,9 @@ export async function processStudentInvoicing(
 
         let finalizedInvoice: Stripe.Invoice;
         try {
-          finalizedInvoice = await finalizeInvoice(stripe, draftInvoice.id);
+          finalizedInvoice = await finalizeInvoice(stripe, draftInvoice.id, {
+            autoAdvance: true,
+          });
         } catch (finalizeErr: unknown) {
           console.error(
             `${LOG_PREFIX} Failed to finalize invoice for student ${studentId}, deleting draft:`,

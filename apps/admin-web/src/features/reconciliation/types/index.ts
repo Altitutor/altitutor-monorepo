@@ -31,6 +31,39 @@ export interface UninvoicedSession {
   updated_at: string;
 }
 
+/** Past billable session line whose charges sat only on void invoices (needs re-invoicing if applicable). */
+export interface VoidInvoiceSession {
+  sessions_students_id: string;
+  student_id: string;
+  session_id: string;
+  planned_absence: boolean;
+  is_rescheduled: boolean;
+  is_credited: boolean;
+  was_trial: boolean | null;
+  session_start_at: string;
+  session_end_at: string | null;
+  session_type: string;
+  billing_type: string | null;
+  subject_id: string | null;
+  subject_name: string | null;
+  subject_long_name: string | null;
+  session_name: string;
+  is_extra: boolean;
+  has_tutor_log: boolean;
+  actual_attended: boolean | null;
+  actual_was_trial: boolean | null;
+  student_first_name: string | null;
+  student_last_name: string | null;
+  student_email: string | null;
+  student_phone: string | null;
+  void_invoice_id: string;
+  void_invoice_date: string;
+  void_stripe_invoice_number: string | null;
+  void_invoice_voided_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 
 // Students Without Classes (one row per student-subject combination)
 export interface StudentWithoutClasses {
@@ -182,6 +215,7 @@ export interface UnassignedTask {
 
 export type ReconciliationItemType =
   | 'uninvoiced_sessions'
+  | 'void_invoice_sessions'
   | 'unpaid_invoices'
   | 'unlogged_sessions'
   | 'unassigned_classes'

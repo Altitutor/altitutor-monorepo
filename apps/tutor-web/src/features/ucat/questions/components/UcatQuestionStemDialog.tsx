@@ -33,7 +33,7 @@ import {
   TabsTrigger,
   useToast,
 } from '@altitutor/ui'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { ExternalLink, MonitorPlay, Pencil, Trash2 } from 'lucide-react'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
 import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
@@ -43,6 +43,12 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
+import {
+  stemFormValuesToEnginePreviewQuestion,
+  resolveSectionDisplayColumns,
+} from '@/features/ucat/question-engine-preview/mapStemFormToEnginePreview'
+import { UcatTutorStemPreviewExamChrome } from '@/features/ucat/question-engine-preview/UcatTutorStemPreviewExamChrome'
 
 /** Trim leading/trailing blank lines and whitespace from plain text. */
 function trimTextParagraphs(text: string): string {
@@ -81,6 +87,9 @@ function getFirstValidationMessage(errors: Record<string, unknown>): string {
 export type CategoryOption = { id: string | null; name: string | null; ucat_section_id?: string | null }
 export type TagOption = { id: string; name: string }
 
+/** Section row for the stem form + engine preview layout (two-column vs single column). */
+export type UcatSectionOption = { id: string | null; name: string | null; display_columns?: number | null }
+
 export const EMPTY_DOC: Json = plainTextToProseMirror('')
 
 export const DEFAULT_OPTIONS = [
@@ -108,7 +117,7 @@ export function UcatQuestionStemDialog({
   submitLabel: string
   onClose: () => void
   onSubmit: (values: UcatQuestionStemFormValues) => Promise<void>
-  sections: Array<{ id: string | null; name: string | null }>
+  sections: UcatSectionOption[]
   categories: CategoryOption[]
   tags: TagOption[]
   initial?: StemDetailRow | null
@@ -116,6 +125,8 @@ export function UcatQuestionStemDialog({
   onDelete?: () => void
 }) {
   const { toast } = useToast()
+  const [previewOpen, setPreviewOpen] = useState(false)
+  const [previewQuestionIndex, setPreviewQuestionIndex] = useState(0)
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {
@@ -189,9 +200,13 @@ export function UcatQuestionStemDialog({
     }
   }, [initial, defaultValues, form])
 
-  // Clear last-reset ref when dialog closes so reopening the same stem gets fresh data
+  // When dialog closes: reset stem ref, preview UI
   useEffect(() => {
-    if (!open) lastResetStemIdRef.current = null
+    if (!open) {
+      lastResetStemIdRef.current = null
+      setPreviewOpen(false)
+      setPreviewQuestionIndex(0)
+    }
   }, [open])
 
   // When opening for create (no initial), reset form so previous content is cleared
@@ -265,30 +280,80 @@ export function UcatQuestionStemDialog({
 
   const stemId = initial?.id
 
-  const headerActions =
-    stemId != null
-      ? (
-          <UcatRowActions
-            actions={[
-              {
-                label: 'Open in page',
-                icon: <ExternalLink className="h-4 w-4" />,
-                href: `/ucat/questions/${stemId}`,
-              },
-              ...(onDelete
-                ? [
-                    {
-                      label: 'Delete',
-                      icon: <Trash2 className="h-4 w-4" />,
-                      onClick: onDelete,
-                      destructive: true,
-                    },
-                  ]
-                : []),
-            ]}
-          />
+  const watchedSectionId = form.watch('sectionId')
+  const watchedQuestions = form.watch('questions')
+  const previewSectionTitle =
+    sections.find((s) => s.id === watchedSectionId)?.name?.trim() ||
+    initial?.section_name?.trim() ||
+    'UCAT'
+
+  const sectionDisplayColumns = resolveSectionDisplayColumns(
+    sections.find((s) => s.id === watchedSectionId)?.display_columns ?? undefined,
+    { display_columns: initial?.display_columns }
+  )
+
+  const questionCount = watchedQuestions?.length ?? 0
+  const safePreviewIndex =
+    questionCount > 0 ? Math.min(previewQuestionIndex, questionCount - 1) : 0
+
+  const previewQuestion =
+    questionCount > 0
+      ? stemFormValuesToEnginePreviewQuestion(
+          watchedValues as UcatQuestionStemFormValues,
+          safePreviewIndex,
+          sectionDisplayColumns
         )
       : null
+
+  useEffect(() => {
+    if (questionCount === 0) return
+    setPreviewQuestionIndex((idx) => Math.min(idx, questionCount - 1))
+  }, [questionCount])
+
+  const headerActions = (
+    <div className="flex items-center gap-2">
+      <Button
+        type="button"
+        variant={previewOpen ? 'secondary' : 'outline'}
+        size="sm"
+        className="gap-1.5"
+        onClick={() => setPreviewOpen((prev) => !prev)}
+      >
+        {previewOpen ? (
+          <>
+            <Pencil className="h-4 w-4" />
+            Edit
+          </>
+        ) : (
+          <>
+            <MonitorPlay className="h-4 w-4" />
+            Preview
+          </>
+        )}
+      </Button>
+      {stemId != null ? (
+        <UcatRowActions
+          actions={[
+            {
+              label: 'Open in page',
+              icon: <ExternalLink className="h-4 w-4" />,
+              href: `/ucat/questions/${stemId}`,
+            },
+            ...(onDelete
+              ? [
+                  {
+                    label: 'Delete',
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onClick: onDelete,
+                    destructive: true,
+                  },
+                ]
+              : []),
+          ]}
+        />
+      ) : null}
+    </div>
+  )
 
   function handleRequestClose() {
     if (!hasUnsavedChanges || window.confirm('Changes made will be lost. Close without saving?')) {
@@ -320,21 +385,36 @@ export function UcatQuestionStemDialog({
       headerActions={headerActions}
       hideCancel
     >
-      <UcatQuestionStemFormContent
-        form={form}
-        sections={sections}
-        categories={categories}
-        tags={tags}
-        stemId={stemId ?? null}
-        enableImages
-        onNewImageFileIds={(fileIds) =>
-          setNewImageFileIds((prev) => {
-            const next = new Set(prev)
-            fileIds.forEach((id) => next.add(id))
-            return next
-          })
-        }
-      />
+      {previewOpen && previewQuestion ? (
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3 sm:px-6">
+          <div className="h-full min-h-0 flex-1 overflow-hidden rounded-md border border-border shadow-sm">
+            <UcatTutorStemPreviewExamChrome
+              sectionTitle={previewSectionTitle}
+              questionCount={questionCount}
+              currentQuestionIndex={safePreviewIndex}
+              onQuestionIndexChange={setPreviewQuestionIndex}
+            >
+              <UcatQuestionEnginePreview question={previewQuestion} />
+            </UcatTutorStemPreviewExamChrome>
+          </div>
+        </div>
+      ) : (
+        <UcatQuestionStemFormContent
+          form={form}
+          sections={sections}
+          categories={categories}
+          tags={tags}
+          stemId={stemId ?? null}
+          enableImages
+          onNewImageFileIds={(fileIds) =>
+            setNewImageFileIds((prev) => {
+              const next = new Set(prev)
+              fileIds.forEach((id) => next.add(id))
+              return next
+            })
+          }
+        />
+      )}
     </UcatDialogShell>
   )
 }
@@ -640,7 +720,7 @@ export function QuestionOptionsEditor({
 
 export type UcatQuestionStemFormContentProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
-  sections: Array<{ id: string | null; name: string | null }>
+  sections: UcatSectionOption[]
   categories: CategoryOption[]
   tags: TagOption[]
   stemId?: string | null

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type {
   UninvoicedSession,
+  VoidInvoiceSession,
   UnpaidInvoice,
   UnloggedSession,
   UnassignedClass,
@@ -13,6 +14,7 @@ import type {
 
 interface ReconciliationQueries {
   uninvoicedSessions: { data?: UninvoicedSession[] };
+  voidInvoiceSessions: { data?: VoidInvoiceSession[] };
   unpaidInvoices: { data?: UnpaidInvoice[] };
   unloggedSessions: { data?: UnloggedSession[] };
   unassignedClasses: { data?: UnassignedClass[] };
@@ -30,6 +32,7 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
   return useMemo(() => {
     const financialItems = [
       ...(queries.uninvoicedSessions.data ?? []),
+      ...(queries.voidInvoiceSessions.data ?? []),
       ...(queries.unpaidInvoices.data ?? []),
       ...(queries.studentsWithoutPaymentMethod.data ?? []),
     ];
@@ -58,6 +61,7 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     };
   }, [
     queries.uninvoicedSessions.data,
+    queries.voidInvoiceSessions.data,
     queries.unpaidInvoices.data,
     queries.unloggedSessions.data,
     queries.unassignedClasses.data,
