@@ -7,6 +7,7 @@ import {
   syncSubscriptionInvoiceFromStripe,
   retrieveInvoiceWithLines,
 } from './shared/subscription-invoice-sync.ts';
+import { deleteInvoiceItemsForVoidedStripeInvoice } from './shared/void-invoice-line-cleanup.ts';
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
@@ -593,7 +594,9 @@ Deno.serve(async (req: Request) => {
         
         // Only update status if it's not a downgrade from 'paid'
         // Valid transitions: draft -> open -> paid, but not paid -> open
-        if (currentInvoice?.status === 'paid' && invoice.status !== 'paid') {
+        const skipStatusDowngrade = currentInvoice?.status === 'paid' && invoice.status !== 'paid';
+
+        if (skipStatusDowngrade) {
           // Don't overwrite 'paid' status with lower status
           console.log('[webhook] Skipping status update from paid to', invoice.status, 'for invoice:', invoice.id);
         } else {
@@ -601,10 +604,22 @@ Deno.serve(async (req: Request) => {
           updateData.status = invoice.status;
         }
         
-        await supabase
+        const { error: invUpdErr } = await supabase
           .from('invoices')
           .update(updateData)
           .eq('stripe_invoice_id', invoice.id);
+
+        if (invUpdErr) {
+          console.error('[webhook] invoice.updated: invoices update error', invUpdErr);
+        }
+
+        if (invoice.status === 'void' && !skipStatusDowngrade) {
+          const { error: cleanupErr } = await deleteInvoiceItemsForVoidedStripeInvoice(supabase, invoice.id);
+          if (cleanupErr) {
+            console.error('[webhook] invoice.updated: void invoice line cleanup failed', cleanupErr);
+            return json({ error: cleanupErr.message ?? 'void_invoice_cleanup_failed' }, 500);
+          }
+        }
         
         await supabase
           .from('stripe_webhook_events')
@@ -616,10 +631,20 @@ Deno.serve(async (req: Request) => {
       case 'invoice.voided': {
         const invoice = event.data.object as { id: string };
         
-        await supabase
+        const { error: updErr } = await supabase
           .from('invoices')
-          .update({ status: 'void' })
+          .update({ status: 'void', voided_at: new Date().toISOString() })
           .eq('stripe_invoice_id', invoice.id);
+
+        if (updErr) {
+          console.error('[webhook] invoice.voided: invoices update error', updErr);
+        }
+
+        const { error: cleanupErr } = await deleteInvoiceItemsForVoidedStripeInvoice(supabase, invoice.id);
+        if (cleanupErr) {
+          console.error('[webhook] invoice.voided: line cleanup failed', cleanupErr);
+          return json({ error: cleanupErr.message ?? 'void_invoice_cleanup_failed' }, 500);
+        }
         
         await supabase
           .from('stripe_webhook_events')

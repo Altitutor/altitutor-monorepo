@@ -225,6 +225,24 @@ export async function voidInvoice(stripe: Stripe, invoiceId: string): Promise<St
 }
 
 /**
+ * Roll back after invoice header was persisted but line items could not be saved.
+ * Deletes the DB invoice row (cascade removes any partial items), then voids Stripe.
+ */
+export async function rollbackIncompleteSessionInvoice(
+  stripe: Stripe,
+  supabase: SupabaseClient,
+  stripeInvoiceId: string,
+  dbInvoiceId: string
+): Promise<void> {
+  const { error: delErr } = await supabase.from('invoices').delete().eq('id', dbInvoiceId);
+  if (delErr) {
+    console.error(`${LOG_PREFIX} rollbackIncompleteSessionInvoice: delete invoices row failed`, delErr);
+    throw delErr;
+  }
+  await voidInvoice(stripe, stripeInvoiceId);
+}
+
+/**
  * Create Stripe customer for student
  */
 export async function createStripeCustomer(
@@ -366,18 +384,6 @@ export async function saveInvoiceItemsToDatabase(
     });
 
   if (itemsErr) {
-    // If we hit a unique violation (e.g. from the sessions_students_id partial
-    // unique index), treat it as "session already billed" and log a warning
-    // instead of failing the entire billing flow. Stripe idempotency will have
-    // ensured we are not creating a truly new charge in this case.
-    if (itemsErr.code === '23505') {
-      console.warn(
-        `${LOG_PREFIX} Unique constraint violation while saving invoice items (likely already billed session).`,
-        formatStripeErrorMessage(itemsErr, 'save invoice items unique violation', { invoiceId })
-      );
-      return;
-    }
-
     console.error(
       `${LOG_PREFIX} Failed to save invoice items:`,
       formatStripeErrorMessage(itemsErr, 'save invoice items to database', { invoiceId })

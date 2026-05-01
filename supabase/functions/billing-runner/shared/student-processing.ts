@@ -14,6 +14,7 @@ import {
   saveInvoiceItemsToDatabase,
   updateInvoicePaymentStatus,
   updateInvoicePaymentError,
+  rollbackIncompleteSessionInvoice,
 } from './invoice-creation.ts';
 import { sendInvoiceEmail } from './invoice-email.ts';
 import {
@@ -411,7 +412,30 @@ export async function processStudentInvoicing(
             `${LOG_PREFIX} Failed to save invoice items for invoice ${dbInvoice.id}:`,
             formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id })
           );
-          // Don't throw - invoice is saved, items can be reconciled later
+          try {
+            await rollbackIncompleteSessionInvoice(stripe, supabase, finalizedInvoice.id, dbInvoice.id);
+          } catch (rollbackErr: unknown) {
+            console.error(
+              `${LOG_PREFIX} Rollback after failed invoice items failed for student ${studentId}:`,
+              formatStripeErrorMessage(rollbackErr, 'rollback incomplete invoice', {
+                studentId,
+                invoiceId: dbInvoice.id,
+              })
+            );
+            return {
+              invoiceId: null,
+              error:
+                formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id }) +
+                ' Manual reconciliation required.',
+            };
+          }
+          return {
+            invoiceId: null,
+            error: formatStripeErrorMessage(itemsErr, 'save invoice items', {
+              studentId,
+              invoiceId: dbInvoice.id,
+            }),
+          };
         }
 
         // Send invoice email based on billing preferences
@@ -565,7 +589,30 @@ export async function processStudentInvoicing(
             `${LOG_PREFIX} Failed to save invoice items for invoice ${dbInvoice.id}:`,
             formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id })
           );
-          // Don't throw - invoice is saved, items can be reconciled later
+          try {
+            await rollbackIncompleteSessionInvoice(stripe, supabase, finalizedInvoice.id, dbInvoice.id);
+          } catch (rollbackErr: unknown) {
+            console.error(
+              `${LOG_PREFIX} Rollback after failed invoice items failed for student ${studentId}:`,
+              formatStripeErrorMessage(rollbackErr, 'rollback incomplete invoice', {
+                studentId,
+                invoiceId: dbInvoice.id,
+              })
+            );
+            return {
+              invoiceId: null,
+              error:
+                formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id }) +
+                ' Manual reconciliation required.',
+            };
+          }
+          return {
+            invoiceId: null,
+            error: formatStripeErrorMessage(itemsErr, 'save invoice items', {
+              studentId,
+              invoiceId: dbInvoice.id,
+            }),
+          };
         }
 
         // For automatic collection, rely on Stripe's billing + webhooks to handle payment status
