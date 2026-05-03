@@ -17,7 +17,7 @@ export default function NotesPage() {
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
 
   return (
-    <div className="flex flex-col h-[calc(100vh-var(--navbar-height)-4rem)] p-6">
+    <div className="flex flex-col h-[calc(100dvh-var(--navbar-height)-4rem)] p-6">
       {/* Header */}
       <div className="flex items-center justify-between flex-shrink-0 mb-4">
         <h1 className="text-3xl font-bold tracking-tight">Notes</h1>

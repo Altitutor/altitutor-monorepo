@@ -5,7 +5,7 @@ export function HeroSection() {
   return (
     <section 
       id="hero"
-      className="min-h-screen flex items-center justify-center py-20 relative overflow-hidden"
+      className="min-h-dvh flex items-center justify-center py-20 relative overflow-hidden"
     >
       {/* Optimized background image using next/image */}
       <Image

@@ -133,7 +133,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
       <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
         <DialogPortal>
           <DialogContent
-            className="z-[101] w-full max-w-[calc(100vw-2rem)] md:max-w-4xl h-[calc(100vh-2rem)] max-h-[800px] p-0 gap-0 border rounded-lg shadow-xl bg-popover [&>button]:hidden flex flex-col"
+            className="z-[101] w-full max-w-[calc(100vw-2rem)] md:max-w-4xl h-[calc(100dvh-2rem)] max-h-[800px] p-0 gap-0 border rounded-lg shadow-xl bg-popover [&>button]:hidden flex flex-col"
           >
             <CommandPalette isOpen={isOpen} onClose={onClose} onEntitySelected={handleEntitySelected} />
           </DialogContent>

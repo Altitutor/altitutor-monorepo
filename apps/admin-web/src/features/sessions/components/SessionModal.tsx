@@ -289,7 +289,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
             {/* Sticky Header */}
             <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">

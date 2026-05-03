@@ -51,7 +51,7 @@ export function NotepadPanel() {
   }
 
   return (
-    <div className="fixed bottom-4 right-[calc(1rem+64px+1rem)] z-50 w-[400px] max-w-[calc(100vw-1rem-64px-1rem-1rem)] h-[400px] max-h-[calc(100vh-2rem)] shadow-lg rounded-md border bg-background dark:bg-brand-dark-card overflow-hidden flex flex-col">
+    <div className="fixed bottom-4 right-[calc(1rem+64px+1rem)] z-50 w-[400px] max-w-[calc(100vw-1rem-64px-1rem-1rem)] h-[400px] max-h-[calc(100dvh-2rem)] shadow-lg rounded-md border bg-background dark:bg-brand-dark-card overflow-hidden flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b dark:border-brand-dark-border flex-shrink-0">
         <div className="flex items-center gap-2">

@@ -60,7 +60,7 @@ export function PlanEditor({ planId }: PlanEditorProps) {
   }
 
   return (
-    <div className="h-[calc(100vh-var(--navbar-height))] flex flex-col">
+    <div className="h-[calc(100dvh-var(--navbar-height))] flex flex-col">
       {/* Header */}
       <div className="border-b p-4 flex items-center justify-between">
         <div>

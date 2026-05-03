@@ -269,7 +269,7 @@ export function ViewAdminShiftModal({
   return (
     <>
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent hideCloseButton className="h-full max-h-[100vh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
+      <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
         <Tabs 
           defaultValue="details" 
           value={activeTab} 

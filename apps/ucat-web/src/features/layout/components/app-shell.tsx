@@ -87,7 +87,7 @@ export function AppShell({ children }: AppShellProps) {
       openOnMount={comingSoonPath}
       onConfirmRedirect={handleComingSoonConfirm}
     >
-      <div className="min-h-screen bg-background">
+      <div className="min-h-dvh bg-background">
         {isExamRoute ? (
           <UcatLagProvider>
             <UcatFloatingToolbar />
@@ -101,7 +101,7 @@ export function AppShell({ children }: AppShellProps) {
               <main
                 className={cn(
                   "flex-1 min-h-0 transition-[margin] duration-200",
-                  "h-screen min-h-0 overflow-hidden p-0",
+                  "h-dvh min-h-0 overflow-hidden p-0",
                   sidebarExpanded ? "md:ml-[240px]" : "ml-0",
                 )}
               >
@@ -125,7 +125,7 @@ export function AppShell({ children }: AppShellProps) {
               <main
                 className={cn(
                   "flex-1 min-h-0 min-w-0 transition-[margin] duration-200",
-                  "min-h-screen pt-16 p-6 overflow-x-hidden",
+                  "min-h-dvh pt-16 p-6 overflow-x-hidden",
                   sidebarExpanded ? "md:ml-[240px]" : "ml-0",
                 )}
               >

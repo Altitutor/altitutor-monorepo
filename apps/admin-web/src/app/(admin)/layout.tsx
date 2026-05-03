@@ -289,7 +289,7 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
   return (
     <div 
       className={cn(
-        "hidden md:flex flex-col border-r bg-background dark:bg-brand-dark-bg dark:border-brand-dark-border h-[calc(100vh-var(--navbar-height))] transition-all duration-300",
+        "hidden md:flex flex-col border-r bg-background dark:bg-brand-dark-bg dark:border-brand-dark-border h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
         collapsed ? "w-[70px]" : "w-[250px]",
         className
       )} 
@@ -412,7 +412,7 @@ function AdminLayoutContent({
         isOpen={isCommandPaletteOpen}
         onClose={closeCommandPalette}
       />
-      <div className="flex h-[calc(100vh-var(--navbar-height))] overflow-hidden">
+      <div className="flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden">
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
         <div className="flex-1 overflow-auto relative">
           {showBreadcrumbs && (

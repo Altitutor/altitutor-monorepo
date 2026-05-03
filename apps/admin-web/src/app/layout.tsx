@@ -50,7 +50,7 @@ export default function RootLayout({
                     <CommandPaletteProvider>
                       <MentionModalProvider>
                         <QuickActionsProvider>
-                          <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
+                          <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
                             <ConditionalNavbar />
                             <MainContentWrapper>
                               {children}

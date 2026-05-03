@@ -9,7 +9,7 @@ export function GetStartedSectionV2() {
   return (
     <section
       id="community"
-      className="relative w-full bg-[#F2F0E9] py-40 overflow-hidden min-h-screen flex flex-col justify-center"
+      className="relative w-full bg-[#F2F0E9] py-40 overflow-hidden min-h-dvh flex flex-col justify-center"
     >
       <div className="mx-auto max-w-7xl px-8 relative z-10">
         <div className="text-center mb-24">

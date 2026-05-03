@@ -83,7 +83,7 @@ export function StudentSubjectsTab({
   );
 
   return (
-    <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-6">
+    <div className="flex-1 h-[calc(100dvh-300px)] flex flex-col space-y-6">
       {/* Student Academic Info */}
       <div className="bg-muted/50 rounded-lg p-4">
         <div className="grid grid-cols-3 gap-4 text-sm">

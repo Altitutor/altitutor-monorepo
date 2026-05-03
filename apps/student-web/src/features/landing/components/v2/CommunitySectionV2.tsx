@@ -353,7 +353,7 @@ function CompetitionsCard() {
 // ----------------------------------------------------------------------
 export function CommunitySectionV2() {
   return (
-    <section id="community" className="relative w-full bg-[#F2F0E9] py-32 min-h-screen flex flex-col justify-center z-10 text-[#1A1A1A]">
+    <section id="community" className="relative w-full bg-[#F2F0E9] py-32 min-h-dvh flex flex-col justify-center z-10 text-[#1A1A1A]">
       <div className="mx-auto max-w-7xl px-8">
         <div className="mb-16 text-center">
           <h2

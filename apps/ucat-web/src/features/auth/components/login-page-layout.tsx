@@ -12,7 +12,7 @@ export function LoginPageLayout({ children }: { children: React.ReactNode }) {
       : "/images/logo-banner-light.svg";
 
   return (
-    <div className="relative flex min-h-screen flex-col bg-background">
+    <div className="relative flex min-h-dvh flex-col bg-background">
       {/* Floating header */}
       <header className="fixed left-0 right-0 top-0 z-10 flex items-center justify-between p-4">
         <Image

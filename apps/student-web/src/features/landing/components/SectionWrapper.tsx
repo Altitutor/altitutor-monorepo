@@ -22,7 +22,7 @@ export function SectionWrapper({
     <section
       id={id}
       className={cn(
-        'relative py-16 md:py-24 min-h-screen',
+        'relative py-16 md:py-24 min-h-dvh',
         background === 'gradient' && 'bg-gradient-to-br from-brand-lightBlue/10 to-brand-mediumBlue/10',
         className
       )}
@@ -51,7 +51,7 @@ export function SectionWrapper({
         'container mx-auto px-4',
         shapeDividerTop && 'pt-12',
         shapeDividerBottom && 'pb-12',
-        className?.includes('flex items-center') && 'flex flex-col justify-center min-h-[calc(100vh-var(--navbar-height))]'
+        className?.includes('flex items-center') && 'flex flex-col justify-center min-h-[calc(100dvh-var(--navbar-height))]'
       )}>
         {children}
       </div>

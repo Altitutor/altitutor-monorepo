@@ -10,7 +10,7 @@ export const EXPANDABLE_DIALOG_TRANSITION = 'transition-[width,height,max-width]
  * Avoids position jump when collapsing (right/bottom -> auto caused top-left flash).
  */
 export const EXPANDED_DIALOG_CONTENT_CLASS =
-  '!left-[50%] !top-[50%] !-translate-x-1/2 !-translate-y-1/2 !right-auto !bottom-auto !w-[calc(100vw-2rem)] !h-[calc(100vh-2rem)] !max-w-none'
+  '!left-[50%] !top-[50%] !-translate-x-1/2 !-translate-y-1/2 !right-auto !bottom-auto !w-[calc(100vw-2rem)] !h-[calc(100dvh-2rem)] !max-w-none'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '@/shared/utils'
 

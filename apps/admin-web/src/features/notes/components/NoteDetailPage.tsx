@@ -226,7 +226,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-var(--navbar-height)-5rem)] relative">
+    <div className="flex h-[calc(100dvh-var(--navbar-height)-5rem)] relative">
       <div className="flex-1 flex flex-col min-w-0 border-r overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="px-6 pt-6">

@@ -12,7 +12,7 @@ export function UcatLandingPricing() {
   return (
     <section
       id="pricing"
-      className="relative flex min-h-screen w-full flex-col justify-center overflow-hidden bg-marketing-cream py-40"
+      className="relative flex min-h-dvh w-full flex-col justify-center overflow-hidden bg-marketing-cream py-40"
     >
       <div className="mx-auto max-w-7xl px-8">
         <div className="mb-24 text-center">

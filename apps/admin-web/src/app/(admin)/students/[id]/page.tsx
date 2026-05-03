@@ -408,7 +408,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         </TabsContent>
 
         <TabsContent value="messages" className="space-y-6">
-          <div className="h-[calc(100vh-400px)]">
+          <div className="h-[calc(100dvh-400px)]">
             <MessagesTabContent 
               conversationId={conversationId}
               title={`${student.first_name} ${student.last_name}`}
