@@ -9,7 +9,7 @@ export const TOKENS = MARKETING_TOKENS;
 // SHARED COMPONENTS
 // ==========================================
 export const NoiseOverlay = () => (
-  <div className="pointer-events-none fixed inset-0 z-[9999] h-screen w-screen opacity-5 mix-blend-multiply">
+  <div className="pointer-events-none fixed inset-0 z-[9999] h-dvh w-screen opacity-5 mix-blend-multiply">
     <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
       <filter id="noiseFilter">
         <feTurbulence

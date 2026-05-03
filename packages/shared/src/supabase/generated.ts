@@ -589,6 +589,30 @@ export type Database = {
           },
         ]
       }
+      billing_runner_locks: {
+        Row: {
+          acquired_at: string
+          expires_at: string
+          lock_name: string
+          run_id: string
+          updated_at: string
+        }
+        Insert: {
+          acquired_at?: string
+          expires_at: string
+          lock_name: string
+          run_id: string
+          updated_at?: string
+        }
+        Update: {
+          acquired_at?: string
+          expires_at?: string
+          lock_name?: string
+          run_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       billing_runner_logs: {
         Row: {
           created_at: string
@@ -14266,6 +14290,10 @@ export type Database = {
         Args: { p_parent_id: string; p_subject_id: string }
         Returns: undefined
       }
+      release_billing_runner_lock: {
+        Args: { p_lock_name?: string; p_run_id?: string }
+        Returns: boolean
+      }
       reschedule_drafting_session: {
         Args: {
           p_bypass_date_restrictions?: boolean
@@ -14455,6 +14483,21 @@ export type Database = {
       student_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
+      }
+      try_acquire_billing_runner_lock: {
+        Args: {
+          p_lock_name?: string
+          p_run_id?: string
+          p_ttl_seconds?: number
+        }
+        Returns: {
+          acquired: boolean
+          acquired_expires_at: string
+          holder_expires_at: string
+          holder_run_id: string
+          lock_name: string
+          run_id: string
+        }[]
       }
       tutor_ucat_assign_mock_sessions: {
         Args: { p_mock_id: string; p_session_ids: Json }

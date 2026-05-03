@@ -40,7 +40,7 @@ export default function RootLayout({
               >
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
-                    <div className="flex flex-col min-h-screen bg-background dark:bg-brand-dark-bg">
+                    <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
                       <Navbar />
                       <MainContent>
                         {children}

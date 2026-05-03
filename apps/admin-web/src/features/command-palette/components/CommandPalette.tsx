@@ -261,7 +261,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     <>
       <div className="fixed inset-0 z-[101] flex items-center justify-center pointer-events-none">
         <div 
-          className="w-full max-w-4xl bg-popover border rounded-lg shadow-xl pointer-events-auto flex flex-col h-[calc(100vh-2rem)] max-h-[800px]"
+          className="w-full max-w-4xl bg-popover border rounded-lg shadow-xl pointer-events-auto flex flex-col h-[calc(100dvh-2rem)] max-h-[800px]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Search input - styled like searchable-select-inline */}

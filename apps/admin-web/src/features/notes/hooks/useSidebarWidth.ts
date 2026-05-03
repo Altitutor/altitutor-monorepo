@@ -12,7 +12,7 @@ export function useSidebarWidth(): number {
       // Find the left navigation sidebar - it's the first child of the main layout container
       // and has classes: hidden md:flex flex-col border-r
       const layoutContainer = document.querySelector(
-        'div.flex.h-\\[calc\\(100vh-var\\(--navbar-height\\)\\)\\].overflow-hidden'
+        'div.flex.h-\\[calc\\(100dvh-var\\(--navbar-height\\)\\)\\].overflow-hidden'
       );
       if (!layoutContainer) return;
 
@@ -43,7 +43,7 @@ export function useSidebarWidth(): number {
 
     // Observe the layout container and its first child (sidebar)
     const layoutContainer = document.querySelector(
-      'div.flex.h-\\[calc\\(100vh-var\\(--navbar-height\\)\\)\\].overflow-hidden'
+      'div.flex.h-\\[calc\\(100dvh-var\\(--navbar-height\\)\\)\\].overflow-hidden'
     );
     if (layoutContainer) {
       resizeObserver.observe(layoutContainer);

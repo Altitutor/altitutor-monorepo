@@ -293,7 +293,7 @@ function SchedulerCard() {
 // ----------------------------------------------------------------------
 export function FeaturesSectionV2() {
   return (
-    <section id="features" className="relative w-full bg-[#F2F0E9] py-32 min-h-screen flex flex-col justify-center border-t border-black/5">
+    <section id="features" className="relative w-full bg-[#F2F0E9] py-32 min-h-dvh flex flex-col justify-center border-t border-black/5">
       <div className="mx-auto max-w-7xl px-8">
         <div className="mb-16 text-center">
           <h2

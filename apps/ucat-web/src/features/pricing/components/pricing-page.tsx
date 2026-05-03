@@ -17,7 +17,7 @@ const features = [
 export function PricingPage() {
   const { user } = useAuth();
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <MarketingHeader />
       <main className="pt-20">
         <section className="mx-auto max-w-2xl px-4 py-16">

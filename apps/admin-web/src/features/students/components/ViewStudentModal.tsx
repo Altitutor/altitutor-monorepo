@@ -314,7 +314,7 @@ export function ViewStudentModal({
   return (
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent hideCloseButton className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100vh] flex flex-col p-0">
+        <SheetContent hideCloseButton className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100dvh] flex flex-col p-0">
           {!student ? (
             <div className="flex justify-center items-center h-full p-6">
               <div className="text-muted-foreground">

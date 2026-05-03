@@ -11,7 +11,7 @@ export function UcatLandingFeatures() {
   return (
     <section
       id="systems"
-      className="relative mt-10 flex min-h-screen w-full flex-col justify-center bg-marketing-cream py-32"
+      className="relative mt-10 flex min-h-dvh w-full flex-col justify-center bg-marketing-cream py-32"
     >
       <div className="mx-auto max-w-7xl px-8">
         <div className="mb-16 text-center">

@@ -1,5 +1,5 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
-import { createClient } from 'jsr:@supabase/supabase-js@2';
+import { createClient, type SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
 // Shared helpers
@@ -22,6 +22,18 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const BILLING_RUNNER_LOCK_NAME = 'billing-runner';
+const BILLING_RUNNER_LOCK_TTL_SECONDS = 600;
+
+interface BillingRunnerLockResult {
+  acquired: boolean;
+  lock_name: string;
+  run_id: string;
+  acquired_expires_at: string | null;
+  holder_run_id: string | null;
+  holder_expires_at: string | null;
+}
+
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
@@ -30,6 +42,47 @@ function json(resp: unknown, status = 200) {
       ...corsHeaders,
     },
   });
+}
+
+async function acquireBillingRunnerLock(
+  supabase: SupabaseClient,
+  runId: string
+): Promise<BillingRunnerLockResult> {
+  const { data, error } = await supabase.rpc('try_acquire_billing_runner_lock', {
+    p_lock_name: BILLING_RUNNER_LOCK_NAME,
+    p_run_id: runId,
+    p_ttl_seconds: BILLING_RUNNER_LOCK_TTL_SECONDS,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = Array.isArray(data)
+    ? (data as BillingRunnerLockResult[])
+    : data
+      ? [data as BillingRunnerLockResult]
+      : [];
+  const lock = rows[0];
+  if (!lock) {
+    throw new Error('Billing runner lock RPC returned no result');
+  }
+
+  return lock;
+}
+
+async function releaseBillingRunnerLock(
+  supabase: SupabaseClient,
+  runId: string
+): Promise<void> {
+  const { error } = await supabase.rpc('release_billing_runner_lock', {
+    p_lock_name: BILLING_RUNNER_LOCK_NAME,
+    p_run_id: runId,
+  });
+
+  if (error) {
+    console.error('[billing-runner] Failed to release runner lock:', error);
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -141,6 +194,10 @@ Deno.serve(async (req: Request) => {
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
   const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
   const resendApiKey = Deno.env.get('RESEND_API_KEY')?.trim();
+  const runId = crypto.randomUUID();
+  let lockAcquired = false;
+  let startIso = 'unknown';
+  let endIso = 'unknown';
 
   // Default batch size for processing sessions_students rows
   const effectiveBatchLimit = batchLimit && batchLimit > 0
@@ -148,6 +205,20 @@ Deno.serve(async (req: Request) => {
     : 20;
 
   try {
+    const lock = await acquireBillingRunnerLock(supabase, runId);
+    if (!lock.acquired) {
+      return json({
+        ok: true,
+        skipped: true,
+        reason: 'billing_runner_locked',
+        runId,
+        holderRunId: lock.holder_run_id,
+        holderExpiresAt: lock.holder_expires_at,
+        message: 'Billing runner is already active; skipping this invocation.',
+      });
+    }
+    lockAcquired = true;
+
     // Load billing settings
     const { feePercentDom, feePercentIntl, feeFixedCents, domesticCountry } =
       await loadBillingSettings(supabase);
@@ -166,7 +237,7 @@ Deno.serve(async (req: Request) => {
       targetDate = tomorrow;
     }
 
-    const { startIso, endIso } = calculateAdelaideDateRange(targetDate);
+    ({ startIso, endIso } = calculateAdelaideDateRange(targetDate));
     // Adelaide calendar date for this batch (matches billing-single invoice_date semantics)
     const invoiceDate = getAdelaideDateString(startIso);
 
@@ -283,7 +354,6 @@ Deno.serve(async (req: Request) => {
     const invoicesCreated: string[] = [];
     const errors: string[] = [];
     const failedSessionsStudentsIds: string[] = [];
-    const runId = crypto.randomUUID();
 
     // Process each session individually (same as billing-single) for the current batch
     for (const row of batchRows) {
@@ -355,31 +425,6 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // If there are more uninvoiced rows for this date, fire-and-forget the next batch
-    if (hasMore && supabaseUrl && billingCronSecret) {
-      const nextCursor = batchRows[batchRows.length - 1]?.id;
-      if (nextCursor) {
-        const nextBody = {
-          date: invoiceDate,
-          cursor: nextCursor,
-          limit: effectiveBatchLimit,
-        };
-
-        // Fire-and-forget: do not await to avoid extending wall-clock time
-        fetch(`${supabaseUrl}/functions/v1/billing-runner`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${billingCronSecret}`,
-            apikey: billingCronSecret,
-          },
-          body: JSON.stringify(nextBody),
-        }).catch(() => {
-          // Swallow errors; any remaining uninvoiced rows will still show up in reconciliation
-        });
-      }
-    }
-
     return json({
       ok: true,
       invoicesCreated: invoicesCreated.length,
@@ -409,5 +454,9 @@ Deno.serve(async (req: Request) => {
       },
       500
     );
+  } finally {
+    if (lockAcquired) {
+      await releaseBillingRunnerLock(supabase, runId);
+    }
   }
 });

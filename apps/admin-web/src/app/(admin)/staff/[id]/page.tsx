@@ -320,7 +320,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         </TabsContent>
 
         <TabsContent value="messages" className="space-y-6">
-          <div className="h-[calc(100vh-400px)]">
+          <div className="h-[calc(100dvh-400px)]">
             <MessagesTabContent 
               conversationId={conversationId}
               title={`${staffMember.first_name} ${staffMember.last_name}`}

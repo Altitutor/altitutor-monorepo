@@ -210,7 +210,7 @@ function ExamCard() {
 // ----------------------------------------------------------------------
 export function UCATSectionV2() {
   return (
-    <section id="ucat" className="relative w-full bg-[#1A1A1A] py-32 min-h-screen flex flex-col justify-center rounded-[3rem] -mt-10 z-20 shadow-2xl text-[#F2F0E9]">
+    <section id="ucat" className="relative w-full bg-[#1A1A1A] py-32 min-h-dvh flex flex-col justify-center rounded-[3rem] -mt-10 z-20 shadow-2xl text-[#F2F0E9]">
       <div className="mx-auto max-w-7xl px-8">
         <div className="mb-16 text-center">
           <h2

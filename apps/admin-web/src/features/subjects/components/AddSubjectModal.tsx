@@ -104,7 +104,7 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100vh] overflow-y-auto">
+      <SheetContent className="h-full max-h-[100dvh] overflow-y-auto">
         <SheetHeader className="mb-6">
           <SheetTitle className="text-xl">Add New Subject</SheetTitle>
         </SheetHeader>

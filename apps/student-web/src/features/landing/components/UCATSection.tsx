@@ -5,7 +5,7 @@ import { images } from '../constants/images';
 
 export function UCATSection() {
   return (
-    <SectionWrapper id="ucat" className="bg-brand-darkBlue min-h-screen">
+    <SectionWrapper id="ucat" className="bg-brand-darkBlue min-h-dvh">
       <div className="text-center mb-12">
         <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold mb-4 text-white">
           Ace the UCAT

@@ -78,7 +78,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#F2F0E9] selection:bg-[#92b9c6] selection:text-[#1A1A1A] font-sans antialiased text-[#1A1A1A] overflow-x-hidden">
+    <main className="min-h-dvh bg-[#F2F0E9] selection:bg-[#92b9c6] selection:text-[#1A1A1A] font-sans antialiased text-[#1A1A1A] overflow-x-hidden">
       <style dangerouslySetInnerHTML={{
         __html: `
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600&family=Cormorant+Garamond:ital,wght@1,600&family=IBM+Plex+Mono:wght@400;600&display=swap');

@@ -33,7 +33,7 @@ export function UcatLandingPhilosophy() {
   return (
     <section
       ref={containerRef}
-      className="relative z-20 -mt-10 flex min-h-screen w-full flex-col justify-center overflow-hidden rounded-[3rem] bg-marketing-charcoal py-40 text-marketing-cream shadow-2xl"
+      className="relative z-20 -mt-10 flex min-h-dvh w-full flex-col justify-center overflow-hidden rounded-[3rem] bg-marketing-charcoal py-40 text-marketing-cream shadow-2xl"
     >
       <div className="absolute inset-0 z-0 opacity-10">
         <Image

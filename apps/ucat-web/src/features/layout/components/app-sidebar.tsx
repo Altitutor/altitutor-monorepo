@@ -82,7 +82,7 @@ export function AppSidebar({
 
       <aside
         className={cn(
-          "fixed left-0 top-0 z-40 h-screen overflow-hidden transition-[transform,width] duration-200 ease-in-out",
+          "fixed left-0 top-0 z-40 h-dvh overflow-hidden transition-[transform,width] duration-200 ease-in-out",
           "rounded-r-2xl bg-sidebar text-sidebar-foreground shadow-lg",
           isVisible ? "w-[240px] translate-x-0" : "w-0 -translate-x-full",
         )}

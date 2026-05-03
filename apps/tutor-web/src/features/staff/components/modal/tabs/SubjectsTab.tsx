@@ -99,7 +99,7 @@ export function SubjectsTab({
   };
 
   return (
-    <div className="flex-1 h-[calc(100vh-300px)] flex flex-col space-y-4">
+    <div className="flex-1 h-[calc(100dvh-300px)] flex flex-col space-y-4">
       <div className="flex items-center gap-2">
         <h3 className="text-base font-medium">Subjects ({staffSubjects.length})</h3>
 

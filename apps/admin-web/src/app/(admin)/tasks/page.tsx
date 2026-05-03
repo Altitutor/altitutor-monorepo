@@ -26,7 +26,7 @@ export default function TasksPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-var(--navbar-height)-64px)] overflow-hidden">
+    <div className="flex flex-col h-[calc(100dvh-var(--navbar-height)-64px)] overflow-hidden">
       <div className="flex items-center justify-between flex-shrink-0 px-6 py-4">
         <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
         <div className="flex items-center gap-4">
