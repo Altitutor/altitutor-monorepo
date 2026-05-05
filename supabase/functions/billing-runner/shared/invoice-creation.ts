@@ -25,6 +25,20 @@ interface StripeInvoiceItemWithId extends InvoiceItemInput {
   stripe_invoice_item_id: string;
 }
 
+export async function hasAnyInvoiceItemForSessions(
+  supabase: SupabaseClient,
+  sessionsStudentsIds: string[]
+): Promise<boolean> {
+  if (sessionsStudentsIds.length === 0) return false;
+  const { data, error } = await supabase
+    .from('invoice_items')
+    .select('id')
+    .in('sessions_students_id', sessionsStudentsIds)
+    .limit(1);
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
 export async function createStripeInvoiceItems(
   stripe: Stripe,
   customerId: string,
@@ -33,7 +47,9 @@ export async function createStripeInvoiceItems(
   studentId: string,
   invoiceDate: string,
   timestamp: number,
-  invoiceId: string
+  invoiceId: string,
+  /** Match invoice draft nonce when rebilling after void/archive. */
+  lineItemIdempotencyNonce?: string
 ): Promise<{
   stripeInvoiceItems: StripeInvoiceItemWithId[];
   createdStripeItemIds: string[];
@@ -46,7 +62,8 @@ export async function createStripeInvoiceItems(
       item,
       studentId,
       invoiceDate,
-      timestamp
+      timestamp,
+      lineItemIdempotencyNonce
     );
 
     const stripeItem = await stripe.invoiceItems.create(
@@ -109,11 +126,13 @@ export async function createDraftSendInvoiceInvoice(
   isStripeTestKey: boolean,
   isStripeLiveKey: boolean,
   timestamp: number,
-  sessionsStudentsIds?: string[]
+  sessionsStudentsIds?: string[],
+  stripeInvoiceCreateNonce?: string
 ): Promise<Stripe.Invoice> {
   const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, {
     sessionsStudentsIds,
     timestamp,
+    stripeInvoiceCreateNonce,
   });
 
   return await stripe.invoices.create(
@@ -149,11 +168,13 @@ export async function createDraftChargeAutomaticallyInvoice(
   isStripeTestKey: boolean,
   isStripeLiveKey: boolean,
   timestamp: number,
-  sessionsStudentsIds?: string[]
+  sessionsStudentsIds?: string[],
+  stripeInvoiceCreateNonce?: string
 ): Promise<Stripe.Invoice> {
   const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, {
     sessionsStudentsIds,
     timestamp,
+    stripeInvoiceCreateNonce,
   });
 
   // Keep the draft paused until line items are attached. Automatic collection is
@@ -257,6 +278,7 @@ export async function saveInvoiceToDatabase(
     .from('invoices')
     .select('id, status')
     .eq('stripe_invoice_id', finalizedInvoice.id)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (existingInvoice) {
@@ -307,6 +329,7 @@ export async function saveInvoiceToDatabase(
         .from('invoices')
         .select('id, status')
         .eq('stripe_invoice_id', finalizedInvoice.id)
+        .is('deleted_at', null)
         .maybeSingle();
 
       if (raceInvoice) {

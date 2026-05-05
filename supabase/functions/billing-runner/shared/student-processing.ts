@@ -6,6 +6,7 @@ import {
   createStripeInvoiceItems,
   createDraftSendInvoiceInvoice,
   createDraftChargeAutomaticallyInvoice,
+  hasAnyInvoiceItemForSessions,
   finalizeInvoice,
   deleteDraftInvoice,
   voidInvoice,
@@ -318,6 +319,13 @@ export async function processStudentInvoicing(
       )
     );
 
+    const hasPriorInvoiceLines =
+      sessionsStudentsIds.length > 0 &&
+      (await hasAnyInvoiceItemForSessions(supabase, sessionsStudentsIds));
+    const stripeInvoiceCreateNonce = hasPriorInvoiceLines
+      ? `${timestamp}_${crypto.randomUUID()}`
+      : undefined;
+
     if (!shouldAutoBill) {
       // Create invoice with send_invoice collection method (no auto-charge)
       try {
@@ -330,7 +338,8 @@ export async function processStudentInvoicing(
           isStripeTestKey,
           isStripeLiveKey,
           timestamp,
-          sessionsStudentsIds
+          sessionsStudentsIds,
+          stripeInvoiceCreateNonce
         );
 
         let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
@@ -343,7 +352,8 @@ export async function processStudentInvoicing(
             studentId,
             invoiceDate,
             timestamp,
-            draftInvoice.id
+            draftInvoice.id,
+            stripeInvoiceCreateNonce
           );
           stripeInvoiceItems = result.stripeInvoiceItems as Array<InvoiceItemRow & { stripe_invoice_item_id: string }>;
         } catch (itemErr: unknown) {
@@ -486,7 +496,8 @@ export async function processStudentInvoicing(
           isStripeTestKey,
           isStripeLiveKey,
           timestamp,
-          sessionsStudentsIds
+          sessionsStudentsIds,
+          stripeInvoiceCreateNonce
         );
 
         let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
@@ -499,7 +510,8 @@ export async function processStudentInvoicing(
             studentId,
             invoiceDate,
             timestamp,
-            draftInvoice.id
+            draftInvoice.id,
+            stripeInvoiceCreateNonce
           );
           stripeInvoiceItems = result.stripeInvoiceItems as Array<InvoiceItemRow & { stripe_invoice_item_id: string }>;
         } catch (itemErr: unknown) {
