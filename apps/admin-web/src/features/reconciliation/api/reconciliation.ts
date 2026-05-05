@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import { tasksApi } from '@/features/tasks/api/tasks';
+import { fetchConversationsByContact } from '@/features/messages/api/queries';
 import type {
   UninvoicedSession,
   UnloggedSession,
@@ -13,6 +14,8 @@ import type {
   TrialStudentNotSignedUp,
   UnassignedTask,
   VoidInvoiceSession,
+  ProjectWithoutLead,
+  ReconciliationTabCounts,
 } from '../types';
 
 // Helper type for querying views
@@ -29,6 +32,17 @@ type ViewQueryBuilder = {
 
 type SupabaseWithViews = SupabaseClient<Database> & {
   from: (table: string) => ViewQueryBuilder;
+};
+
+type ViewCountBuilder = {
+  select: (
+    columns: string,
+    options: { count: 'exact'; head: true }
+  ) => Promise<{ count: number | null; error: Error | null }>;
+};
+
+type SupabaseWithViewCounts = SupabaseClient<Database> & {
+  from: (table: string) => ViewCountBuilder;
 };
 
 /**
@@ -166,6 +180,8 @@ export const reconciliationApi = {
         start_at,
         end_at,
         type,
+        long_name,
+        short_name,
         subject_id,
         class_id,
         created_at,
@@ -221,13 +237,19 @@ export const reconciliationApi = {
           .eq('session_id', session.id)
           .eq('planned_absence', false);
         
+        const subjectName = (session.subject as { name?: string } | null)?.name ?? null;
+        const longName = session.long_name?.trim() || null;
+        const shortName = session.short_name?.trim() || null;
+        const sessionName = longName || shortName || subjectName || 'Session';
+
         return {
           session_id: session.id,
           start_at: session.start_at ?? '',
           end_at: session.end_at,
           session_type: session.type,
+          session_name: sessionName,
           subject_id: session.subject_id,
-          subject_name: (session.subject as { name?: string } | null)?.name ?? null,
+          subject_name: subjectName,
           class_id: session.class_id,
           day_of_week: (session.class as { day_of_week?: number } | null)?.day_of_week ?? null,
           class_start_time: (session.class as { start_time?: string } | null)?.start_time ?? null,
@@ -254,6 +276,7 @@ export const reconciliationApi = {
       .from('classes')
       .select(`
         id,
+        long_name,
         subject_id,
         day_of_week,
         start_time,
@@ -263,7 +286,7 @@ export const reconciliationApi = {
         level,
         created_at,
         updated_at,
-        subject:subjects(name)
+        subject:subjects(name, long_name)
       `)
       .eq('status', 'ACTIVE')
       .order('day_of_week', { ascending: true })
@@ -292,11 +315,20 @@ export const reconciliationApi = {
             .select('*', { count: 'exact', head: true })
             .eq('class_id', cls.id)
             .is('unenrolled_at', null);
-          
+
+          const subject = cls.subject as { name?: string; long_name?: string | null } | null;
+          const classLong = typeof cls.long_name === 'string' ? cls.long_name.trim() : '';
+          const classDisplayName =
+            (classLong ||
+              subject?.long_name?.trim() ||
+              subject?.name?.trim() ||
+              'Class').trim();
+
           return {
             class_id: cls.id,
+            class_display_name: classDisplayName,
             subject_id: cls.subject_id,
-            subject_name: (cls.subject as { name?: string } | null)?.name ?? null,
+            subject_name: subject?.name ?? null,
             day_of_week: cls.day_of_week,
             start_time: cls.start_time,
             end_time: cls.end_time,
@@ -333,6 +365,32 @@ export const reconciliationApi = {
       issue: t.issue ?? null,
       project: t.project ?? null,
     }));
+  },
+
+  /**
+   * Active projects with no project lead (excludes completed).
+   */
+  getProjectsWithNoLead: async (): Promise<ProjectWithoutLead[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        id,
+        name,
+        status,
+        priority,
+        target_date,
+        created_at,
+        updated_at,
+        creator:staff!projects_created_by_fkey(id, first_name, last_name)
+      `)
+      .is('project_lead_id', null)
+      .neq('status', 'completed')
+      .order('priority', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data ?? []) as unknown as ProjectWithoutLead[];
   },
 
   /**
@@ -429,11 +487,24 @@ export const reconciliationApi = {
   },
 
   /**
-   * Get students without classes
+   * Students who should have a class per subject but do not.
+   *
+   * Subject scope matches the student profile subject list (direct `students_subjects` rows plus
+   * `students_online_access_manual` grants).
    */
   getStudentsWithoutClasses: async (): Promise<StudentWithoutClasses[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
+
+    type StudentSubjectRow = {
+      created_at?: string;
+      subject?: {
+        id: string;
+        name?: string;
+        curriculum?: string;
+        year_level?: string | number | null;
+      } | null;
+    };
+
     // Get ACTIVE students with their subjects
     const { data: studentsWithSubjects, error: studentsError } = await supabase
       .from('students')
@@ -457,8 +528,43 @@ export const reconciliationApi = {
       .eq('status', 'ACTIVE')
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
-    
+
     if (studentsError) throw studentsError;
+
+    const studentIds = (studentsWithSubjects ?? []).map((s) => s.id);
+
+    let manualSubjectRows: Array<{
+      student_id: string;
+      created_at: string | null;
+      subject: StudentSubjectRow['subject'];
+    }> = [];
+
+    if (studentIds.length > 0) {
+      const { data: manualData, error: manualError } = await supabase
+        .from('students_online_access_manual')
+        .select(`
+          student_id,
+          created_at,
+          subject:subjects(
+            id,
+            name,
+            curriculum,
+            year_level
+          )
+        `)
+        .in('student_id', studentIds);
+
+      if (manualError) throw manualError;
+      manualSubjectRows = (manualData ?? []) as typeof manualSubjectRows;
+    }
+
+    const manualByStudentId = new Map<string, StudentSubjectRow[]>();
+    for (const row of manualSubjectRows) {
+      if (!row.subject?.id) continue;
+      const list = manualByStudentId.get(row.student_id) ?? [];
+      list.push({ created_at: row.created_at ?? undefined, subject: row.subject });
+      manualByStudentId.set(row.student_id, list);
+    }
     
     // Get all active class enrollments
     const { data: classEnrollments, error: enrollmentsError } = await supabase
@@ -501,13 +607,24 @@ export const reconciliationApi = {
     
     // Build result: one row per student-subject combination where student has no active class for that subject
     const result: StudentWithoutClasses[] = [];
-    
-    type StudentSubjectRow = { created_at?: string; subject?: { id: string; name?: string; curriculum?: string; year_level?: string | number | null } | null };
+
     (studentsWithSubjects ?? []).forEach((student) => {
-      const subjects = (student.students_subjects as StudentSubjectRow[] | null) ?? [];
+      const ssRows = (student.students_subjects as StudentSubjectRow[] | null) ?? [];
+      const manualRowsForStudent = manualByStudentId.get(student.id) ?? [];
+
+      const mergedBySubjectId = new Map<string, StudentSubjectRow>();
+      for (const r of ssRows) {
+        const sid = r.subject?.id;
+        if (sid) mergedBySubjectId.set(sid, r);
+      }
+      for (const r of manualRowsForStudent) {
+        const sid = r.subject?.id;
+        if (sid && !mergedBySubjectId.has(sid)) mergedBySubjectId.set(sid, r);
+      }
+
       const studentActiveSubjectIds = studentSubjectClasses.get(student.id) ?? new Set();
-      
-      subjects.forEach((studentSubject: StudentSubjectRow) => {
+
+      for (const studentSubject of mergedBySubjectId.values()) {
         const subject = studentSubject.subject;
         if (subject && !studentActiveSubjectIds.has(subject.id)) {
           result.push({
@@ -523,7 +640,7 @@ export const reconciliationApi = {
             updated_at: student.updated_at ?? '',
           });
         }
-      });
+      }
     });
     
     // Sort by last_name, then first_name
@@ -713,3 +830,105 @@ export const reconciliationApi = {
     return (data ?? []) as VoidInvoiceSession[];
   },
 };
+
+async function countReconciliationViewRows(viewName: string): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await (supabase as unknown as SupabaseWithViewCounts)
+    .from(viewName)
+    .select('*', { count: 'exact', head: true });
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countUnpaidInvoicesExact(): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await supabase
+    .from('invoices')
+    .select('id', { count: 'exact', head: true })
+    .neq('status', 'paid')
+    .neq('status', 'void')
+    .gt('amount_due_cents', 0)
+    .is('deleted_at', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countFailedDeliveryMessagesExact(): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await supabase
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('direction', 'OUTBOUND')
+    .in('status', ['FAILED', 'UNDELIVERED'])
+    .not('status_updated_at', 'is', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countUnassignedTasksExact(): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await supabase
+    .from('tasks')
+    .select('id', { count: 'exact', head: true })
+    .is('assigned_to', null)
+    .in('status', ['backlog', 'todo', 'in_progress', 'in_review']);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countProjectsWithoutLeadExact(): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await supabase
+    .from('projects')
+    .select('id', { count: 'exact', head: true })
+    .is('project_lead_id', null)
+    .neq('status', 'completed');
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Parallel counts for reconciliation tab badges. Uses head counts where possible;
+ * heavier reconciliation lists run in parallel for scheduling/financial subsets.
+ */
+export async function getReconciliationTabCounts(): Promise<ReconciliationTabCounts> {
+  const [
+    uninvoicedCount,
+    voidCount,
+    unpaidCount,
+    noPaymentCount,
+    unloggedCount,
+    unassignedClassesCount,
+    studentsWithoutClassesCount,
+    trialCount,
+    failedCount,
+    conversationsByContact,
+    unassignedTasksCount,
+    projectsNoLeadCount,
+  ] = await Promise.all([
+    countReconciliationViewRows('vadmin_reconciliation_uninvoiced_sessions'),
+    countReconciliationViewRows('vadmin_reconciliation_void_invoice_sessions'),
+    countUnpaidInvoicesExact(),
+    reconciliationApi.getStudentsWithoutPaymentMethod().then((r) => r.length),
+    reconciliationApi.getUnloggedSessions().then((r) => r.length),
+    reconciliationApi.getUnassignedClasses().then((r) => r.length),
+    reconciliationApi.getStudentsWithoutClasses().then((r) => r.length),
+    reconciliationApi.getTrialStudentsNotSignedUp().then((r) => r.length),
+    countFailedDeliveryMessagesExact(),
+    fetchConversationsByContact(),
+    countUnassignedTasksExact(),
+    countProjectsWithoutLeadExact(),
+  ]);
+
+  const unreadContacts = conversationsByContact.filter((c) => c.unreadCount > 0).length;
+  const followUpContacts = conversationsByContact.filter((c) =>
+    c.conversations.some((conv) => conv.needs_follow_up)
+  ).length;
+
+  return {
+    financial: uninvoicedCount + voidCount + unpaidCount + noPaymentCount,
+    scheduling: unloggedCount + unassignedClassesCount + studentsWithoutClassesCount + trialCount,
+    communication: failedCount + unreadContacts + followUpContacts,
+    operations: unassignedTasksCount + projectsNoLeadCount,
+  };
+}

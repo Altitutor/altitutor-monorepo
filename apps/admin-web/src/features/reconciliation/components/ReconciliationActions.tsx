@@ -5,7 +5,9 @@ import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMe
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/features/messages/state/chatStore';
+import type { AggregatedConversation } from '@/features/messages/types';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
+import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useDeleteMessage } from '@/features/messages/api/mutations';
 import { FileText, MessageCircle, CreditCard, Plus, Trash2, User } from 'lucide-react';
 import { getErrorMessage } from '@/shared/utils';
@@ -33,6 +35,7 @@ import type {
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
   ReconciliationItemType,
+  ProjectWithoutLead,
 } from '../types';
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
@@ -79,6 +82,9 @@ interface ReconciliationHandlers {
   onOpenInvoice: (invoiceId: string) => void;
   onOpenSession: (sessionId: string) => void;
   onOpenClass: (classId: string) => void;
+  onOpenStaff: (staffId: string) => void;
+  onOpenParent: (parentId: string) => void;
+  onOpenProject: (projectId: string) => void;
   onAssignStaff: (classId: string) => void;
   onAddClass: (studentId: string, subjectId: string) => void;
 }
@@ -119,7 +125,9 @@ interface ReconciliationActionsProps {
     | FailedDeliveryMessage
     | StudentWithoutClasses
     | StudentWithoutPaymentMethod
-    | TrialStudentNotSignedUp;
+    | TrialStudentNotSignedUp
+    | ProjectWithoutLead
+    | AggregatedConversation;
 }
 
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
@@ -400,6 +408,14 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         );
       }
 
+      if (type === 'projects_without_lead') {
+        return false;
+      }
+
+      if (type === 'reconciliation_contact_messages') {
+        return false;
+      }
+
       return false;
     });
   }, [candidateIssues, item, type]);
@@ -500,6 +516,14 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       ]);
     }
 
+    if (type === 'projects_without_lead') {
+      return [];
+    }
+
+    if (type === 'reconciliation_contact_messages') {
+      return [];
+    }
+
     return [];
   };
 
@@ -593,7 +617,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     }
   };
 
-  const issueButton = (type === 'failed_delivery_messages') ? null : (
+  const issueButton = (type === 'failed_delivery_messages' || type === 'reconciliation_contact_messages') ? null : (
     matchedIssues.length === 0 ? (
       <Button
         variant="outline"
@@ -824,6 +848,37 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           Message
         </Button>
         {issueButton}
+      </div>
+    );
+  } else if (type === 'projects_without_lead') {
+    const project = item as ProjectWithoutLead;
+    content = (
+      <div className="flex flex-nowrap gap-2 items-center">
+        <Button variant="default" size="sm" onClick={() => handlers.onOpenProject(project.id)}>
+          <FileText className="h-4 w-4 mr-1" />
+          Edit project
+        </Button>
+        {issueButton}
+      </div>
+    );
+  } else if (type === 'reconciliation_contact_messages') {
+    const row = item as AggregatedConversation;
+    const contactName = row.contact ? formatContactName({ contacts: row.contact }) : 'Unknown';
+    const convId = row.conversations[0]?.id;
+
+    content = (
+      <div className="flex flex-nowrap gap-2 items-center">
+        <Button
+          variant="default"
+          size="sm"
+          onClick={() => {
+            if (convId) openWindow({ conversationId: convId, title: contactName });
+          }}
+          disabled={!convId}
+        >
+          <MessageCircle className="h-4 w-4 mr-1" />
+          Message
+        </Button>
       </div>
     );
   }

@@ -12,6 +12,30 @@ describe('useReconciliationModals', () => {
     expect(result.current.isClassModalOpen).toBe(false);
     expect(result.current.isAssignStaffModalOpen).toBe(false);
     expect(result.current.isEnrollModalOpen).toBe(false);
+    expect(result.current.isStaffModalOpen).toBe(false);
+    expect(result.current.selectedStaffId).toBe(null);
+    expect(result.current.isProjectModalOpen).toBe(false);
+    expect(result.current.selectedProjectId).toBe(null);
+    expect(result.current.isParentModalOpen).toBe(false);
+    expect(result.current.selectedParentId).toBe(null);
+  });
+
+  it('should open and close staff modal', () => {
+    const { result } = renderHook(() => useReconciliationModals());
+
+    act(() => {
+      result.current.handleOpenStaff('staff-1');
+    });
+
+    expect(result.current.isStaffModalOpen).toBe(true);
+    expect(result.current.selectedStaffId).toBe('staff-1');
+
+    act(() => {
+      result.current.handleCloseStaff();
+    });
+
+    expect(result.current.isStaffModalOpen).toBe(false);
+    expect(result.current.selectedStaffId).toBe(null);
   });
 
   it('should open student modal', () => {
@@ -101,5 +125,41 @@ describe('useReconciliationModals', () => {
     expect(result.current.isEnrollModalOpen).toBe(true);
     expect(result.current.enrollModalStudentId).toBe('student-1');
     expect(result.current.enrollModalSubjectId).toBe('subject-1');
+  });
+
+  it('should open and close project modal', () => {
+    const { result } = renderHook(() => useReconciliationModals());
+
+    act(() => {
+      result.current.handleOpenProject('project-1');
+    });
+
+    expect(result.current.isProjectModalOpen).toBe(true);
+    expect(result.current.selectedProjectId).toBe('project-1');
+
+    act(() => {
+      result.current.handleCloseProject();
+    });
+
+    expect(result.current.isProjectModalOpen).toBe(false);
+    expect(result.current.selectedProjectId).toBe(null);
+  });
+
+  it('should open and close parent modal', () => {
+    const { result } = renderHook(() => useReconciliationModals());
+
+    act(() => {
+      result.current.handleOpenParent('parent-1');
+    });
+
+    expect(result.current.isParentModalOpen).toBe(true);
+    expect(result.current.selectedParentId).toBe('parent-1');
+
+    act(() => {
+      result.current.handleCloseParent();
+    });
+
+    expect(result.current.isParentModalOpen).toBe(false);
+    expect(result.current.selectedParentId).toBe(null);
   });
 });

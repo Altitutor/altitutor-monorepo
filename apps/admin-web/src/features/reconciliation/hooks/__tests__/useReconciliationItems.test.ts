@@ -11,6 +11,7 @@ import type {
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
+  ProjectWithoutLead,
 } from '../../types';
 
 type ReconciliationQueries = {
@@ -24,6 +25,7 @@ type ReconciliationQueries = {
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
   trialStudentsNotSignedUp: { data?: TrialStudentNotSignedUp[] };
+  projectsWithoutLead?: { data?: ProjectWithoutLead[] };
 };
 
 const createMockQueries = (overrides?: Partial<ReconciliationQueries>): ReconciliationQueries => ({
@@ -37,6 +39,7 @@ const createMockQueries = (overrides?: Partial<ReconciliationQueries>): Reconcil
   studentsWithoutClasses: { data: [] as StudentWithoutClasses[] },
   studentsWithoutPaymentMethod: { data: [] as StudentWithoutPaymentMethod[] },
   trialStudentsNotSignedUp: { data: [] as TrialStudentNotSignedUp[] },
+  projectsWithoutLead: { data: [] },
   ...overrides,
 });
 
@@ -58,14 +61,25 @@ describe('useReconciliationItems', () => {
   it('should aggregate scheduling items correctly', () => {
     const queries = createMockQueries({
       unloggedSessions: { data: [{ session_id: '1' } as UnloggedSession] },
-      unassignedClasses: { data: [{ class_id: '1' } as UnassignedClass] },
-      unassignedTasks: { data: [{ id: '1' } as UnassignedTask] },
+      unassignedClasses: { data: [{ class_id: '1', class_display_name: 'Math' } as UnassignedClass] },
       studentsWithoutClasses: { data: [{ student_id: '1' } as StudentWithoutClasses] },
+      trialStudentsNotSignedUp: { data: [{ student_id: '1' } as TrialStudentNotSignedUp] },
     });
 
     const { result } = renderHook(() => useReconciliationItems(queries));
 
     expect(result.current.schedulingItems).toHaveLength(4);
+    expect(result.current.hasAnyItems).toBe(true);
+  });
+
+  it('should aggregate operations items correctly', () => {
+    const queries = createMockQueries({
+      unassignedTasks: { data: [{ id: '1' } as UnassignedTask] },
+    });
+
+    const { result } = renderHook(() => useReconciliationItems(queries));
+
+    expect(result.current.operationsItems).toHaveLength(1);
     expect(result.current.hasAnyItems).toBe(true);
   });
 
@@ -91,6 +105,17 @@ describe('useReconciliationItems', () => {
     expect(result.current.hasAnyItems).toBe(true);
   });
 
+  it('should aggregate operations items with projects without lead', () => {
+    const queries = createMockQueries({
+      projectsWithoutLead: { data: [{ id: 'p1' } as ProjectWithoutLead] },
+    });
+
+    const { result } = renderHook(() => useReconciliationItems(queries));
+
+    expect(result.current.operationsItems).toHaveLength(1);
+    expect(result.current.hasAnyItems).toBe(true);
+  });
+
   it('should return hasAnyItems false when all arrays are empty', () => {
     const queries = createMockQueries();
 
@@ -100,6 +125,7 @@ describe('useReconciliationItems', () => {
     expect(result.current.schedulingItems).toHaveLength(0);
     expect(result.current.communicationItems).toHaveLength(0);
     expect(result.current.trialItems).toHaveLength(0);
+    expect(result.current.operationsItems).toHaveLength(0);
     expect(result.current.hasAnyItems).toBe(false);
   });
 
@@ -115,6 +141,7 @@ describe('useReconciliationItems', () => {
       studentsWithoutClasses: { data: undefined },
       studentsWithoutPaymentMethod: { data: undefined },
       trialStudentsNotSignedUp: { data: undefined },
+      projectsWithoutLead: { data: undefined },
     };
 
     const { result } = renderHook(() => useReconciliationItems(queries));
@@ -123,6 +150,7 @@ describe('useReconciliationItems', () => {
     expect(result.current.schedulingItems).toHaveLength(0);
     expect(result.current.communicationItems).toHaveLength(0);
     expect(result.current.trialItems).toHaveLength(0);
+    expect(result.current.operationsItems).toHaveLength(0);
     expect(result.current.hasAnyItems).toBe(false);
   });
 });

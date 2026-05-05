@@ -1,4 +1,12 @@
-export { ReconciliationDashboard } from './components/ReconciliationDashboard';
+'use client';
+
+export { ReconciliationShell } from './components/ReconciliationShell';
+export {
+  ReconciliationFinancialTab,
+  ReconciliationSchedulingTab,
+  ReconciliationCommunicationTab,
+  ReconciliationOperationsTab,
+} from './components/ReconciliationTabViews';
 export { ReconciliationTable } from './components/ReconciliationTable';
 export { ReconciliationActions, ReconciliationHandlersProvider, useReconciliationHandlers } from './components/ReconciliationActions';
 export { AssignStaffModalWrapper } from './components/AssignStaffModalWrapper';

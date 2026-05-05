@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { ReconciliationDashboard } from '@/features/reconciliation';
-
-export default function ReconciliationPage() {
-  return <ReconciliationDashboard />;
+export default function ReconciliationIndexPage() {
+  redirect('/reconciliation/financial');
 }

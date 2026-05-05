@@ -342,106 +342,101 @@ type MessageWithCreatedAt = MessageRow & {
   created_at: string;
 };
 
+export async function fetchConversationsByContact(): Promise<AggregatedConversation[]> {
+  const supabase = getSupabaseClient();
+
+  const { data: conversations, error } = await supabase
+    .from('conversations')
+    .select(`
+      id, status, last_message_at, last_message_id,
+      assigned_staff_id, contact_id, owned_number_id,
+      is_group_chat, group_chat_id, group_chat_name,
+      needs_follow_up,
+      contacts!inner(
+        id, phone_e164, contact_type, student_id, parent_id, staff_id,
+        students(id, first_name, last_name),
+        parents(id, first_name, last_name),
+        staff(id, first_name, last_name)
+      ),
+      owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider),
+      conversation_reads(id, last_read_message_id, last_read_at)
+    `)
+    .in('status', ['OPEN', 'SNOOZED'])
+    .order('last_message_at', { ascending: false });
+
+  if (error) throw error;
+
+  const typedConversations = (conversations || []) as ConversationWithLastMessage[];
+  const messageIds = typedConversations
+    .map((conv) => conv.last_message_id)
+    .filter((id): id is string => Boolean(id));
+
+  let messageMap = new Map<string, MessageWithCreatedAt>();
+  if (messageIds.length > 0) {
+    const { data: messages } = await supabase
+      .from('messages')
+      .select('id, direction, created_at')
+      .in('id', messageIds);
+
+    if (messages) {
+      messageMap = new Map((messages as MessageWithCreatedAt[]).map((m) => [m.id, m]));
+    }
+  }
+
+  const byContact = new Map<string, AggregatedConversation>();
+
+  for (const conv of typedConversations) {
+    const contactId = conv.contact_id;
+
+    if (!contactId) continue;
+
+    if (!byContact.has(contactId)) {
+      byContact.set(contactId, {
+        contactId,
+        contact: conv.contacts,
+        conversations: [],
+        latestMessageAt: null,
+        latestMessage: null,
+        unreadCount: 0,
+      });
+    }
+
+    const aggregated = byContact.get(contactId)!;
+    const lastMessage = conv.last_message_id ? messageMap.get(conv.last_message_id) : null;
+
+    aggregated.conversations.push({
+      id: conv.id,
+      owned_number_id: conv.owned_number_id,
+      owned_number: conv.owned_numbers,
+      last_message_at: conv.last_message_at,
+      last_message_id: conv.last_message_id,
+      last_message: lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null,
+      status: conv.status,
+      needs_follow_up: conv.needs_follow_up ?? false,
+    });
+
+    if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {
+      aggregated.latestMessageAt = conv.last_message_at;
+      aggregated.latestMessage = lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null;
+    }
+
+    if (!conv.conversation_reads || conv.conversation_reads.length === 0) {
+      aggregated.unreadCount++;
+    }
+  }
+
+  return Array.from(byContact.values()).sort((a, b) => {
+    if (!a.latestMessageAt && !b.latestMessageAt) return 0;
+    if (!a.latestMessageAt) return 1;
+    if (!b.latestMessageAt) return -1;
+    return b.latestMessageAt.localeCompare(a.latestMessageAt);
+  });
+}
+
 export function useConversationsByContact() {
   return useQuery({
     queryKey: messagesKeys.conversationsByContact(),
-    queryFn: async (): Promise<AggregatedConversation[]> => {
-      const supabase = getSupabaseClient();
-      
-      // Fetch all conversations with nested data
-      const { data: conversations, error } = await supabase
-        .from('conversations')
-        .select(`
-          id, status, last_message_at, last_message_id,
-          assigned_staff_id, contact_id, owned_number_id,
-          is_group_chat, group_chat_id, group_chat_name,
-          needs_follow_up,
-          contacts!inner(
-            id, phone_e164, contact_type, student_id, parent_id, staff_id,
-            students(id, first_name, last_name),
-            parents(id, first_name, last_name),
-            staff(id, first_name, last_name)
-          ),
-          owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider),
-          conversation_reads(id, last_read_message_id, last_read_at)
-        `)
-        .in('status', ['OPEN', 'SNOOZED'])
-        .order('last_message_at', { ascending: false });
-      
-      if (error) throw error;
-      
-      // Batch fetch last messages
-      const typedConversations = (conversations || []) as ConversationWithLastMessage[];
-      const messageIds = typedConversations
-        .map((conv) => conv.last_message_id)
-        .filter((id): id is string => Boolean(id));
-      
-      let messageMap = new Map<string, MessageWithCreatedAt>();
-      if (messageIds.length > 0) {
-        const { data: messages } = await supabase
-          .from('messages')
-          .select('id, direction, created_at')
-          .in('id', messageIds);
-        
-        if (messages) {
-          messageMap = new Map((messages as MessageWithCreatedAt[]).map((m) => [m.id, m]));
-        }
-      }
-      
-      // Group conversations by contact_id
-      const byContact = new Map<string, AggregatedConversation>();
-      
-      for (const conv of typedConversations) {
-        const contactId = conv.contact_id;
-        
-        // Skip conversations without contact_id
-        if (!contactId) continue;
-        
-        if (!byContact.has(contactId)) {
-          byContact.set(contactId, {
-            contactId,
-            contact: conv.contacts,
-            conversations: [],
-            latestMessageAt: null,
-            latestMessage: null,
-            unreadCount: 0,
-          });
-        }
-        
-        const aggregated = byContact.get(contactId)!;
-        const lastMessage = conv.last_message_id ? messageMap.get(conv.last_message_id) : null;
-        
-        aggregated.conversations.push({
-          id: conv.id,
-          owned_number_id: conv.owned_number_id,
-          owned_number: conv.owned_numbers,
-          last_message_at: conv.last_message_at,
-          last_message_id: conv.last_message_id,
-          last_message: lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null,
-          status: conv.status,
-          needs_follow_up: conv.needs_follow_up ?? false,
-        });
-        
-        // Track latest message across all conversations
-        if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {
-          aggregated.latestMessageAt = conv.last_message_at;
-          aggregated.latestMessage = lastMessage ? { id: lastMessage.id, direction: lastMessage.direction } : null;
-        }
-        
-        // Count unread (no conversation_reads entry means unread)
-        if (!conv.conversation_reads || conv.conversation_reads.length === 0) {
-          aggregated.unreadCount++;
-        }
-      }
-      
-      // Convert to array and sort by latest message time
-      return Array.from(byContact.values()).sort((a, b) => {
-        if (!a.latestMessageAt && !b.latestMessageAt) return 0;
-        if (!a.latestMessageAt) return 1;
-        if (!b.latestMessageAt) return -1;
-        return b.latestMessageAt.localeCompare(a.latestMessageAt);
-      });
-    },
+    queryFn: fetchConversationsByContact,
     staleTime: 1000 * 30, // 30 seconds
     refetchOnWindowFocus: false, // Realtime handles updates
   });

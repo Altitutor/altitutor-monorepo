@@ -17,9 +17,13 @@ export function useReconciliationModals() {
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [isAssignStaffModalOpen, setIsAssignStaffModalOpen] = useState(false);
   const [assignStaffClassId, setAssignStaffClassId] = useState<string | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
+  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [enrollModalStudentId, setEnrollModalStudentId] = useState<string | null>(null);
   const [enrollModalSubjectId, setEnrollModalSubjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
   const handleOpenStudent = useCallback((studentId: string) => {
     setSelectedStudentId(studentId);
@@ -73,6 +77,16 @@ export function useReconciliationModals() {
     setSelectedClassId(null);
   }, []);
 
+  const handleOpenStaff = useCallback((staffId: string) => {
+    setSelectedStaffId(staffId);
+    setIsStaffModalOpen(true);
+  }, []);
+
+  const handleCloseStaff = useCallback(() => {
+    setIsStaffModalOpen(false);
+    setSelectedStaffId(null);
+  }, []);
+
   const handleAssignStaff = useCallback((classId: string) => {
     setAssignStaffClassId(classId);
     setIsAssignStaffModalOpen(true);
@@ -93,6 +107,22 @@ export function useReconciliationModals() {
     setIsEnrollModalOpen(false);
     setEnrollModalStudentId(null);
     setEnrollModalSubjectId(null);
+  }, []);
+
+  const handleOpenProject = useCallback((projectId: string) => {
+    setSelectedProjectId(projectId);
+  }, []);
+
+  const handleCloseProject = useCallback(() => {
+    setSelectedProjectId(null);
+  }, []);
+
+  const handleOpenParent = useCallback((parentId: string) => {
+    setSelectedParentId(parentId);
+  }, []);
+
+  const handleCloseParent = useCallback(() => {
+    setSelectedParentId(null);
   }, []);
 
   return {
@@ -122,6 +152,11 @@ export function useReconciliationModals() {
     isClassModalOpen,
     handleOpenClass,
     handleCloseClass,
+    // Staff modal
+    selectedStaffId,
+    isStaffModalOpen,
+    handleOpenStaff,
+    handleCloseStaff,
     // Assign staff modal
     isAssignStaffModalOpen,
     assignStaffClassId,
@@ -133,5 +168,15 @@ export function useReconciliationModals() {
     enrollModalSubjectId,
     handleAddClass,
     handleCloseEnroll,
+    // Project modal
+    selectedProjectId,
+    isProjectModalOpen: !!selectedProjectId,
+    handleOpenProject,
+    handleCloseProject,
+    // Parent modal
+    selectedParentId,
+    isParentModalOpen: !!selectedParentId,
+    handleOpenParent,
+    handleCloseParent,
   };
 }
