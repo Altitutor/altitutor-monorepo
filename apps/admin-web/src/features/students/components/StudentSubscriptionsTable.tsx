@@ -19,6 +19,7 @@ import {
   studentSubscriptionsKeys,
 } from '@/features/students/api/subscriptions';
 import { getErrorMessage } from '@/shared/utils';
+import { stripeSubscriptionDashboardUrl } from '@/shared/utils/stripe-dashboard-urls';
 
 function subjectLabel(subject: {
   long_name: string | null;
@@ -46,15 +47,6 @@ function subscriptionStatusVariant(
   if (s === 'past_due' || s === 'unpaid') return 'destructive';
   if (s === 'canceled' || s === 'cancelled' || s === 'incomplete_expired') return 'secondary';
   return 'outline';
-}
-
-function stripeSubscriptionUrl(stripeSubscriptionId: string): string {
-  const testPrefix =
-    typeof process.env.NEXT_PUBLIC_STRIPE_DASHBOARD_TEST_MODE !== 'undefined' &&
-    process.env.NEXT_PUBLIC_STRIPE_DASHBOARD_TEST_MODE === 'true'
-      ? '/test'
-      : '';
-  return `https://dashboard.stripe.com${testPrefix}/subscriptions/${stripeSubscriptionId}`;
 }
 
 interface StudentSubscriptionsTableProps {
@@ -184,7 +176,7 @@ export function StudentSubscriptionsTable({ studentId }: StudentSubscriptionsTab
                       </Button>
                       <Button type="button" variant="ghost" size="sm" asChild>
                         <a
-                          href={stripeSubscriptionUrl(row.stripe_subscription_id)}
+                          href={stripeSubscriptionDashboardUrl(row.stripe_subscription_id)}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-1"

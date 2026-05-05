@@ -1,6 +1,7 @@
 import { useRouter } from 'next/navigation';
 import { useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
+import { stripeInvoiceDashboardUrl } from '@/shared/utils/stripe-dashboard-urls';
 
 interface UseInvoiceActionsProps {
   invoiceId: string;
@@ -9,10 +10,10 @@ interface UseInvoiceActionsProps {
    * Callback when opening in page (for modals, this should close the modal)
    */
   onOpenInPage?: () => void;
-  /**
-   * Optional callback for view on Stripe action
-   */
-  onViewOnStripe?: () => void;
+  /** Hosted invoice / payment page */
+  onViewPaymentPage?: () => void;
+  /** Stripe Dashboard invoice detail */
+  onViewInStripe?: () => void;
   /**
    * Optional callback for download PDF action
    */
@@ -43,7 +44,8 @@ export function useInvoiceActions({
   invoiceId,
   invoice,
   onOpenInPage,
-  onViewOnStripe,
+  onViewPaymentPage,
+  onViewInStripe,
   onDownloadPdf,
   onSendInvoice,
   onChargeCard,
@@ -60,13 +62,25 @@ export function useInvoiceActions({
     }
   }, [invoiceId, router, onOpenInPage]);
 
-  const handleViewOnStripe = useCallback(() => {
-    if (onViewOnStripe) {
-      onViewOnStripe();
+  const handleViewPaymentPage = useCallback(() => {
+    if (onViewPaymentPage) {
+      onViewPaymentPage();
     } else if (invoice?.hosted_invoice_url) {
       window.open(invoice.hosted_invoice_url, '_blank', 'noopener,noreferrer');
     }
-  }, [invoice, onViewOnStripe]);
+  }, [invoice, onViewPaymentPage]);
+
+  const handleViewInStripe = useCallback(() => {
+    if (onViewInStripe) {
+      onViewInStripe();
+    } else if (invoice?.stripe_invoice_id) {
+      window.open(
+        stripeInvoiceDashboardUrl(invoice.stripe_invoice_id),
+        '_blank',
+        'noopener,noreferrer'
+      );
+    }
+  }, [invoice, onViewInStripe]);
 
   const handleDownloadPdf = useCallback(() => {
     if (onDownloadPdf) {
@@ -78,7 +92,8 @@ export function useInvoiceActions({
 
   return {
     onOpenInPage: handleOpenInPage,
-    onViewOnStripe: invoice?.hosted_invoice_url ? handleViewOnStripe : undefined,
+    onViewPaymentPage: invoice?.hosted_invoice_url ? handleViewPaymentPage : undefined,
+    onViewInStripe: invoice?.stripe_invoice_id ? handleViewInStripe : undefined,
     onDownloadPdf: invoice?.invoice_pdf ? handleDownloadPdf : undefined,
     onSendInvoice,
     onChargeCard,

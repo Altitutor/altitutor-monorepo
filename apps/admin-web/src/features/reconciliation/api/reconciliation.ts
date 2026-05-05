@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import { tasksApi } from '@/features/tasks/api/tasks';
+import { fetchConversationsByContact } from '@/features/messages/api/queries';
 import type {
   UninvoicedSession,
   UnloggedSession,
@@ -13,6 +14,8 @@ import type {
   TrialStudentNotSignedUp,
   UnassignedTask,
   VoidInvoiceSession,
+  ProjectWithoutLead,
+  ReconciliationTabCounts,
 } from '../types';
 
 // Helper type for querying views
@@ -21,15 +24,86 @@ type ViewQueryResult<T> = {
   error: Error | null;
 };
 
+type ViewSelectChain = {
+  order: (column: string, options: { ascending: boolean }) => ViewSelectChain;
+} & Promise<ViewQueryResult<unknown>>;
+
 type ViewQueryBuilder = {
-  select: (columns: string) => {
-    order: (column: string, options: { ascending: boolean }) => Promise<ViewQueryResult<unknown>>;
-  };
+  select: (columns: string) => ViewSelectChain;
 };
 
 type SupabaseWithViews = SupabaseClient<Database> & {
   from: (table: string) => ViewQueryBuilder;
 };
+
+type ViewCountBuilder = {
+  select: (
+    columns: string,
+    options: { count: 'exact'; head: true }
+  ) => Promise<{ count: number | null; error: Error | null }>;
+};
+
+type SupabaseWithViewCounts = SupabaseClient<Database> & {
+  from: (table: string) => ViewCountBuilder;
+};
+
+/** Rows from reconciliation views that carry session_id + optional view/session labels. */
+type ReconciliationSessionRow = {
+  session_id: string;
+  session_name?: string | null;
+  session_short_name?: string | null;
+};
+
+/**
+ * Prefer live `sessions.short_name`, then `sessions.long_name`, then any view `session_short_name`,
+ * then composite `session_name`.
+ */
+async function enrichReconciliationSessionRows<T extends ReconciliationSessionRow>(
+  supabase: SupabaseClient<Database>,
+  rows: T[]
+): Promise<T[]> {
+  const sessionIds = [
+    ...new Set(rows.map((r) => r.session_id).filter((id): id is string => typeof id === 'string' && id.length > 0)),
+  ];
+  if (sessionIds.length === 0) return rows;
+
+  const { data: sessionRows, error } = await supabase
+    .from('sessions')
+    .select('id, short_name, long_name')
+    .in('id', sessionIds);
+  if (error) throw error;
+
+  const byId = new Map((sessionRows ?? []).map((s) => [s.id, s]));
+
+  return rows.map((row) => {
+    const s = byId.get(row.session_id);
+    const fromView = row.session_short_name?.trim();
+    const fromSessionShort = s?.short_name?.trim();
+    const fromSessionLong = s?.long_name?.trim();
+    const merged =
+      fromSessionShort ||
+      fromSessionLong ||
+      fromView ||
+      row.session_name?.trim() ||
+      null;
+    return { ...row, session_short_name: merged || null } as T;
+  });
+}
+
+function parseAssignedTutorsFromView(raw: unknown): UnloggedSession['assigned_tutors'] {
+  if (raw == null) return null;
+  let parsed: unknown = raw;
+  if (typeof raw === 'string') {
+    try {
+      parsed = JSON.parse(raw) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (!Array.isArray(parsed)) return null;
+  if (parsed.length === 0) return [];
+  return parsed as NonNullable<UnloggedSession['assigned_tutors']>;
+}
 
 /**
  * Reconciliation API client for querying reconciliation views
@@ -45,7 +119,8 @@ export const reconciliationApi = {
       .select('*')
       .order('session_start_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as UninvoicedSession[];
+    const rows = (data ?? []) as UninvoicedSession[];
+    return enrichReconciliationSessionRows(supabase, rows);
   },
 
   /**
@@ -75,7 +150,9 @@ export const reconciliationApi = {
           session_id,
           deleted_at,
           sessions (
-            start_at
+            start_at,
+            short_name,
+            long_name
           )
         )
       `)
@@ -108,7 +185,7 @@ export const reconciliationApi = {
         | {
             session_id: string | null;
             deleted_at: string | null;
-            sessions: { start_at: string | null } | null;
+            sessions: { start_at: string | null; short_name: string | null; long_name: string | null } | null;
           }[]
         | null;
     };
@@ -120,6 +197,10 @@ export const reconciliationApi = {
       );
       const lineSessionId = firstLine?.session_id ?? null;
       const sessionStartAt = firstLine?.sessions?.start_at ?? null;
+      const sessionShortName =
+        firstLine?.sessions?.short_name?.trim() ||
+        firstLine?.sessions?.long_name?.trim() ||
+        null;
       type InvoiceMetadata = {
         last_payment_error?: {
           code: string;
@@ -148,169 +229,73 @@ export const reconciliationApi = {
         days_overdue: null, // Cannot calculate without due_date
         session_id: lineSessionId,
         session_start_at: sessionStartAt,
+        session_short_name: sessionShortName,
       } as UnpaidInvoice;
     });
   },
 
   /**
-   * Get unlogged sessions
+   * Get unlogged sessions (single query via vadmin_reconciliation_unlogged_sessions).
    */
   getUnloggedSessions: async (): Promise<UnloggedSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    // Query sessions without tutor_logs
-    const { data: sessions, error: sessionsError } = await supabase
-      .from('sessions')
-      .select(`
-        id,
-        start_at,
-        end_at,
-        type,
-        subject_id,
-        class_id,
-        created_at,
-        updated_at,
-        subject:subjects(name),
-        class:classes(day_of_week, start_time, end_time)
-      `)
-      .lt('start_at', new Date().toISOString())
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
+      .from('vadmin_reconciliation_unlogged_sessions')
+      .select('*')
       .order('start_at', { ascending: false });
-    
-    if (sessionsError) throw sessionsError;
-    
-    // Get tutor_logs to filter out sessions that have logs
-    const { data: tutorLogs, error: logsError } = await supabase
-      .from('tutor_logs')
-      .select('session_id');
-    
-    if (logsError) throw logsError;
-    
-    const loggedSessionIds = new Set(tutorLogs?.map(log => log.session_id) ?? []);
-    
-    // Filter out sessions with tutor logs and fetch additional data
-    const unloggedSessions = (sessions ?? []).filter(s => !loggedSessionIds.has(s.id));
-    
-    // Fetch assigned tutors and student counts for each session
-    const sessionsWithDetails = await Promise.all(
-      unloggedSessions.map(async (session) => {
-        // Get assigned tutors
-        const { data: staffData, error: staffError } = await supabase
-          .from('sessions_staff')
-          .select(`
-            staff_id,
-            type,
-            staff:staff!sessions_staff_staff_id_fkey(id, first_name, last_name, email)
-          `)
-          .eq('session_id', session.id);
-        
-        if (staffError) throw staffError;
-        
-        type StaffRow = { staff_id: string; type: string; staff: { id: string; first_name: string; last_name: string; email: string | null } | null };
-        const assignedTutors = staffData?.map((s: StaffRow) => ({
-          id: s.staff?.id ?? s.staff_id,
-          first_name: s.staff?.first_name ?? '',
-          last_name: s.staff?.last_name ?? '',
-          email: s.staff?.email ?? '',
-          type: s.type,
-        })) ?? null;
-        
-        // Get student count
-        const { count } = await supabase
-          .from('sessions_students')
-          .select('*', { count: 'exact', head: true })
-          .eq('session_id', session.id)
-          .eq('planned_absence', false);
-        
-        return {
-          session_id: session.id,
-          start_at: session.start_at ?? '',
-          end_at: session.end_at,
-          session_type: session.type,
-          subject_id: session.subject_id,
-          subject_name: (session.subject as { name?: string } | null)?.name ?? null,
-          class_id: session.class_id,
-          day_of_week: (session.class as { day_of_week?: number } | null)?.day_of_week ?? null,
-          class_start_time: (session.class as { start_time?: string } | null)?.start_time ?? null,
-          class_end_time: (session.class as { end_time?: string } | null)?.end_time ?? null,
-          assigned_tutors: assignedTutors,
-          student_count: count ?? 0,
-          created_at: session.created_at ?? '',
-          updated_at: session.updated_at ?? '',
-        } as UnloggedSession;
-      })
-    );
-    
-    return sessionsWithDetails;
+    if (error) throw error;
+    return (data ?? []).map((row) => {
+      const r = row as Record<string, unknown>;
+      const dow = r.day_of_week;
+      return {
+        session_id: String(r.session_id),
+        start_at: String(r.start_at ?? ''),
+        end_at: (r.end_at as string | null) ?? null,
+        session_type: String(r.session_type ?? ''),
+        session_name: String(r.session_name ?? 'Session'),
+        subject_id: (r.subject_id as string | null) ?? null,
+        subject_name: (r.subject_name as string | null) ?? null,
+        class_id: (r.class_id as string | null) ?? null,
+        day_of_week: typeof dow === 'number' ? dow : dow != null ? Number(dow) : null,
+        class_start_time: (r.class_start_time as string | null) ?? null,
+        class_end_time: (r.class_end_time as string | null) ?? null,
+        assigned_tutors: parseAssignedTutorsFromView(r.assigned_tutors),
+        student_count: Number(r.student_count ?? 0),
+        created_at: String(r.created_at ?? ''),
+        updated_at: String(r.updated_at ?? ''),
+      } as UnloggedSession;
+    });
   },
 
   /**
-   * Get unassigned classes
+   * Get unassigned classes (single query via vadmin_reconciliation_unassigned_classes).
    */
   getUnassignedClasses: async (): Promise<UnassignedClass[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    // Get all active classes
-    const { data: classes, error: classesError } = await supabase
-      .from('classes')
-      .select(`
-        id,
-        subject_id,
-        day_of_week,
-        start_time,
-        end_time,
-        status,
-        room,
-        level,
-        created_at,
-        updated_at,
-        subject:subjects(name)
-      `)
-      .eq('status', 'ACTIVE')
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
+      .from('vadmin_reconciliation_unassigned_classes')
+      .select('*')
       .order('day_of_week', { ascending: true })
       .order('start_time', { ascending: true });
-    
-    if (classesError) throw classesError;
-    
-    // Get all active class-staff assignments
-    const { data: assignments, error: assignmentsError } = await supabase
-      .from('classes_staff')
-      .select('class_id')
-      .is('unassigned_at', null);
-    
-    if (assignmentsError) throw assignmentsError;
-    
-    const assignedClassIds = new Set(assignments?.map(a => a.class_id) ?? []);
-    
-    // Filter to only unassigned classes and fetch student counts
-    const unassignedClasses = await Promise.all(
-      (classes ?? [])
-        .filter(c => !assignedClassIds.has(c.id))
-        .map(async (cls) => {
-          // Get student count
-          const { count } = await supabase
-            .from('classes_students')
-            .select('*', { count: 'exact', head: true })
-            .eq('class_id', cls.id)
-            .is('unenrolled_at', null);
-          
-          return {
-            class_id: cls.id,
-            subject_id: cls.subject_id,
-            subject_name: (cls.subject as { name?: string } | null)?.name ?? null,
-            day_of_week: cls.day_of_week,
-            start_time: cls.start_time,
-            end_time: cls.end_time,
-            class_status: cls.status,
-            room: cls.room,
-            level: cls.level,
-            student_count: count ?? 0,
-            created_at: cls.created_at ?? '',
-            updated_at: cls.updated_at ?? '',
-          } as UnassignedClass;
-        })
-    );
-    
-    return unassignedClasses;
+    if (error) throw error;
+    return (data ?? []).map((row) => {
+      const r = row as Record<string, unknown>;
+      return {
+        class_id: String(r.class_id),
+        class_display_name: String(r.class_display_name ?? 'Class'),
+        subject_id: (r.subject_id as string | null) ?? null,
+        subject_name: (r.subject_name as string | null) ?? null,
+        day_of_week: Number(r.day_of_week),
+        start_time: String(r.start_time ?? ''),
+        end_time: String(r.end_time ?? ''),
+        class_status: String(r.class_status ?? ''),
+        room: (r.room as string | null) ?? null,
+        level: (r.level as string | null) ?? null,
+        student_count: Number(r.student_count ?? 0),
+        created_at: String(r.created_at ?? ''),
+        updated_at: String(r.updated_at ?? ''),
+      } as UnassignedClass;
+    });
   },
 
 
@@ -333,6 +318,32 @@ export const reconciliationApi = {
       issue: t.issue ?? null,
       project: t.project ?? null,
     }));
+  },
+
+  /**
+   * Active projects with no project lead (excludes completed).
+   */
+  getProjectsWithNoLead: async (): Promise<ProjectWithoutLead[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('projects')
+      .select(`
+        id,
+        name,
+        status,
+        priority,
+        target_date,
+        created_at,
+        updated_at,
+        creator:staff!projects_created_by_fkey(id, first_name, last_name)
+      `)
+      .is('project_lead_id', null)
+      .neq('status', 'completed')
+      .order('priority', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    return (data ?? []) as unknown as ProjectWithoutLead[];
   },
 
   /**
@@ -429,11 +440,26 @@ export const reconciliationApi = {
   },
 
   /**
-   * Get students without classes
+   * Students who should have a class per subject but do not.
+   *
+   * Subject scope matches the student profile subject list (direct `students_subjects` rows plus
+   * `students_online_access_manual` grants).
    */
   getStudentsWithoutClasses: async (): Promise<StudentWithoutClasses[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
+
+    type StudentSubjectRow = {
+      created_at?: string;
+      subject?: {
+        id: string;
+        name?: string;
+        short_name?: string | null;
+        long_name?: string | null;
+        curriculum?: string;
+        year_level?: string | number | null;
+      } | null;
+    };
+
     // Get ACTIVE students with their subjects
     const { data: studentsWithSubjects, error: studentsError } = await supabase
       .from('students')
@@ -449,6 +475,8 @@ export const reconciliationApi = {
           subject:subjects(
             id,
             name,
+            short_name,
+            long_name,
             curriculum,
             year_level
           )
@@ -457,8 +485,45 @@ export const reconciliationApi = {
       .eq('status', 'ACTIVE')
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
-    
+
     if (studentsError) throw studentsError;
+
+    const studentIds = (studentsWithSubjects ?? []).map((s) => s.id);
+
+    let manualSubjectRows: Array<{
+      student_id: string;
+      created_at: string | null;
+      subject: StudentSubjectRow['subject'];
+    }> = [];
+
+    if (studentIds.length > 0) {
+      const { data: manualData, error: manualError } = await supabase
+        .from('students_online_access_manual')
+        .select(`
+          student_id,
+          created_at,
+          subject:subjects(
+            id,
+            name,
+            short_name,
+            long_name,
+            curriculum,
+            year_level
+          )
+        `)
+        .in('student_id', studentIds);
+
+      if (manualError) throw manualError;
+      manualSubjectRows = (manualData ?? []) as typeof manualSubjectRows;
+    }
+
+    const manualByStudentId = new Map<string, StudentSubjectRow[]>();
+    for (const row of manualSubjectRows) {
+      if (!row.subject?.id) continue;
+      const list = manualByStudentId.get(row.student_id) ?? [];
+      list.push({ created_at: row.created_at ?? undefined, subject: row.subject });
+      manualByStudentId.set(row.student_id, list);
+    }
     
     // Get all active class enrollments
     const { data: classEnrollments, error: enrollmentsError } = await supabase
@@ -501,13 +566,24 @@ export const reconciliationApi = {
     
     // Build result: one row per student-subject combination where student has no active class for that subject
     const result: StudentWithoutClasses[] = [];
-    
-    type StudentSubjectRow = { created_at?: string; subject?: { id: string; name?: string; curriculum?: string; year_level?: string | number | null } | null };
+
     (studentsWithSubjects ?? []).forEach((student) => {
-      const subjects = (student.students_subjects as StudentSubjectRow[] | null) ?? [];
+      const ssRows = (student.students_subjects as StudentSubjectRow[] | null) ?? [];
+      const manualRowsForStudent = manualByStudentId.get(student.id) ?? [];
+
+      const mergedBySubjectId = new Map<string, StudentSubjectRow>();
+      for (const r of ssRows) {
+        const sid = r.subject?.id;
+        if (sid) mergedBySubjectId.set(sid, r);
+      }
+      for (const r of manualRowsForStudent) {
+        const sid = r.subject?.id;
+        if (sid && !mergedBySubjectId.has(sid)) mergedBySubjectId.set(sid, r);
+      }
+
       const studentActiveSubjectIds = studentSubjectClasses.get(student.id) ?? new Set();
-      
-      subjects.forEach((studentSubject: StudentSubjectRow) => {
+
+      for (const studentSubject of mergedBySubjectId.values()) {
         const subject = studentSubject.subject;
         if (subject && !studentActiveSubjectIds.has(subject.id)) {
           result.push({
@@ -516,6 +592,8 @@ export const reconciliationApi = {
             last_name: student.last_name,
             subject_id: subject.id,
             subject_name: subject.name ?? '',
+            subject_short_name: subject.short_name ?? null,
+            subject_long_name: subject.long_name ?? null,
             subject_curriculum: subject.curriculum ?? null,
             subject_year_level: typeof subject.year_level === 'number' ? subject.year_level : null,
             subject_added_at: studentSubject.created_at ?? null,
@@ -523,7 +601,7 @@ export const reconciliationApi = {
             updated_at: student.updated_at ?? '',
           });
         }
-      });
+      }
     });
     
     // Sort by last_name, then first_name
@@ -537,78 +615,18 @@ export const reconciliationApi = {
   },
 
   /**
-   * Get students without payment method
-   * 
-   * Query Logic:
-   * 1. Fetches all students with status = 'ACTIVE'
-   * 2. Fetches all payment methods from student_payment_methods table
-   *    - Note: RLS policy requires ADMINSTAFF role to access this table
-   *    - If query runs without ADMINSTAFF permissions, no payment methods will be returned,
-   *      causing ALL students to appear as having no payment method
-   * 3. Filters students to only those NOT in the set of students with payment methods
-   * 
-   * Potential Issues:
-   * - Only includes students with status = 'ACTIVE' (excludes TRIAL, INACTIVE, etc.)
-   * - RLS on student_payment_methods may filter results if not running as ADMINSTAFF
-   * - Payment methods are hard-deleted (no soft delete), so deleted methods won't appear
+   * ACTIVE students with no `student_payment_methods` rows (via reconciliation view).
+   * RLS on underlying tables still applies; ADMINSTAFF is required for payment-method data.
    */
   getStudentsWithoutPaymentMethod: async (): Promise<StudentWithoutPaymentMethod[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    // Get all ACTIVE students
-    const { data: students, error: studentsError } = await supabase
-      .from('students')
-      .select(`
-        id,
-        first_name,
-        last_name,
-        email,
-        phone,
-        status,
-        created_at,
-        updated_at,
-        students_billing(stripe_customer_id, created_at)
-      `)
-      .eq('status', 'ACTIVE')
+    const { data, error } = await (supabase as unknown as SupabaseWithViews)
+      .from('vadmin_reconciliation_students_without_payment_method')
+      .select('*')
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
-    
-    if (studentsError) throw studentsError;
-    
-    // Get all payment methods
-    // IMPORTANT: This query requires ADMINSTAFF role due to RLS policies
-    // If this query returns empty/null, check that the user has ADMINSTAFF role
-    const { data: paymentMethods, error: pmError } = await supabase
-      .from('student_payment_methods')
-      .select('student_id');
-    
-    if (pmError) {
-      console.error('[getStudentsWithoutPaymentMethod] Error fetching payment methods:', pmError);
-      throw pmError;
-    }
-    
-    // Build set of student IDs who have payment methods
-    const studentsWithPaymentMethods = new Set(paymentMethods?.map(pm => pm.student_id) ?? []);
-    
-    // Filter to students without payment methods
-    return (students ?? [])
-      .filter(s => !studentsWithPaymentMethods.has(s.id))
-      .map((student) => {
-        type StudentsBillingRow = { stripe_customer_id?: string; created_at?: string }[];
-        const billing = (student.students_billing as StudentsBillingRow | null)?.[0];
-        return {
-          student_id: student.id,
-          first_name: student.first_name,
-          last_name: student.last_name,
-          email: student.email,
-          phone: student.phone,
-          student_status: student.status,
-          stripe_customer_id: billing?.stripe_customer_id ?? null,
-          billing_created_at: billing?.created_at ?? null,
-          created_at: student.created_at ?? '',
-          updated_at: student.updated_at ?? '',
-        } as StudentWithoutPaymentMethod;
-      });
+    if (error) throw error;
+    return (data ?? []) as StudentWithoutPaymentMethod[];
   },
 
   /**
@@ -710,6 +728,110 @@ export const reconciliationApi = {
       .select('*')
       .order('session_start_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []) as VoidInvoiceSession[];
+
+    const rows = (data ?? []) as VoidInvoiceSession[];
+    return enrichReconciliationSessionRows(supabase, rows);
   },
 };
+
+async function countReconciliationViewRows(viewName: string): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await (supabase as unknown as SupabaseWithViewCounts)
+    .from(viewName)
+    .select('*', { count: 'exact', head: true });
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countUnpaidInvoicesExact(): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await supabase
+    .from('invoices')
+    .select('id', { count: 'exact', head: true })
+    .neq('status', 'paid')
+    .neq('status', 'void')
+    .gt('amount_due_cents', 0)
+    .is('deleted_at', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countFailedDeliveryMessagesExact(): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await supabase
+    .from('messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('direction', 'OUTBOUND')
+    .in('status', ['FAILED', 'UNDELIVERED'])
+    .not('status_updated_at', 'is', null);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countUnassignedTasksExact(): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await supabase
+    .from('tasks')
+    .select('id', { count: 'exact', head: true })
+    .is('assigned_to', null)
+    .in('status', ['backlog', 'todo', 'in_progress', 'in_review']);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+async function countProjectsWithoutLeadExact(): Promise<number> {
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+  const { count, error } = await supabase
+    .from('projects')
+    .select('id', { count: 'exact', head: true })
+    .is('project_lead_id', null)
+    .neq('status', 'completed');
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Parallel counts for reconciliation tab badges. Uses exact `COUNT` / head requests where possible
+ * so badges do not re-fetch full reconciliation lists (scheduling counts use restored DB views).
+ */
+export async function getReconciliationTabCounts(): Promise<ReconciliationTabCounts> {
+  const [
+    uninvoicedCount,
+    voidCount,
+    unpaidCount,
+    noPaymentCount,
+    unloggedCount,
+    unassignedClassesCount,
+    studentsWithoutClassesCount,
+    trialCount,
+    failedCount,
+    conversationsByContact,
+    unassignedTasksCount,
+    projectsNoLeadCount,
+  ] = await Promise.all([
+    countReconciliationViewRows('vadmin_reconciliation_uninvoiced_sessions'),
+    countReconciliationViewRows('vadmin_reconciliation_void_invoice_sessions'),
+    countUnpaidInvoicesExact(),
+    countReconciliationViewRows('vadmin_reconciliation_students_without_payment_method'),
+    countReconciliationViewRows('vadmin_reconciliation_unlogged_sessions'),
+    countReconciliationViewRows('vadmin_reconciliation_unassigned_classes'),
+    reconciliationApi.getStudentsWithoutClasses().then((r) => r.length),
+    reconciliationApi.getTrialStudentsNotSignedUp().then((r) => r.length),
+    countFailedDeliveryMessagesExact(),
+    fetchConversationsByContact(),
+    countUnassignedTasksExact(),
+    countProjectsWithoutLeadExact(),
+  ]);
+
+  const unreadContacts = conversationsByContact.filter((c) => c.unreadCount > 0).length;
+  const followUpContacts = conversationsByContact.filter((c) =>
+    c.conversations.some((conv) => conv.needs_follow_up)
+  ).length;
+
+  return {
+    financial: uninvoicedCount + voidCount + unpaidCount + noPaymentCount,
+    scheduling: unloggedCount + unassignedClassesCount + studentsWithoutClassesCount + trialCount,
+    communication: failedCount + unreadContacts + followUpContacts,
+    operations: unassignedTasksCount + projectsNoLeadCount,
+  };
+}

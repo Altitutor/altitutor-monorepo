@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
   TablePagination,
+  DataTableToolbar,
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
@@ -19,9 +20,9 @@ import { ReconciliationActions } from './ReconciliationActions';
 import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useSubjects } from '@/features/subjects';
-import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor, cn } from '@/shared/utils';
+import { getSubjectColorStyle, cn } from '@/shared/utils';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
-import type { Tables } from '@altitutor/shared';
+import type { DataTableState, Tables } from '@altitutor/shared';
 import type {
   UninvoicedSession,
   VoidInvoiceSession,
@@ -33,14 +34,64 @@ import type {
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
+  ProjectWithoutLead,
 } from '../types';
 import { AssignTaskDropdown } from './AssignTaskDropdown';
 import { getStatusLabel } from '@/features/tasks/utils/taskUtils';
 import type { TaskStatus } from '@/features/tasks/types';
+import type { ProjectStatus, ProjectPriority } from '@/features/projects/types';
+import { getProjectStatusLabel, getProjectPriorityLabel } from '@/features/projects/utils/projectUtils';
 import { useConversationsByContact } from '@/features/messages/api/queries';
+import type { AggregatedConversation } from '@/features/messages/types';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { useReconciliationHandlers } from './ReconciliationActions';
+
+/** Handlers used to open student / staff / parent modals from a message contact row. */
+type ContactProfileHandlers = {
+  onOpenStudent: (id: string) => void;
+  onOpenStaff: (id: string) => void;
+  onOpenParent: (id: string) => void;
+};
+
+function contactRowOpensProfile(contact: AggregatedConversation['contact'] | null): boolean {
+  if (!contact) return false;
+  if (contact.contact_type === 'STUDENT' && contact.student_id) return true;
+  if (contact.contact_type === 'STAFF' && contact.staff_id) return true;
+  if (contact.contact_type === 'PARENT' && contact.parent_id) return true;
+  return false;
+}
+
+function openContactProfile(
+  contact: AggregatedConversation['contact'] | null,
+  handlers: ContactProfileHandlers
+) {
+  if (!contact) return;
+  if (contact.contact_type === 'STUDENT' && contact.student_id) {
+    handlers.onOpenStudent(contact.student_id);
+    return;
+  }
+  if (contact.contact_type === 'STAFF' && contact.staff_id) {
+    handlers.onOpenStaff(contact.staff_id);
+    return;
+  }
+  if (contact.contact_type === 'PARENT' && contact.parent_id) {
+    handlers.onOpenParent(contact.parent_id);
+  }
+}
+
+function emptyToolbarState(search: string): DataTableState {
+  return {
+    search,
+    filters: {},
+    sortBy: null,
+    sortDirection: 'desc',
+    groupBy: null,
+    page: 1,
+    pageSize: 20,
+    visibleColumns: [],
+  };
+}
 
 /** Action buttons stay on one row; the table scrolls horizontally when the row is wider than the viewport. */
 const ACTIONS_CELL = 'whitespace-nowrap align-middle';
@@ -79,6 +130,9 @@ interface ReconciliationTableProps<T> {
   isLoading?: boolean;
   renderRow: (item: T, index: number) => React.ReactNode;
   columns: string[];
+  /** Client-side search over rows (default: JSON.stringify of each item). */
+  getSearchableText?: (item: T) => string;
+  searchPlaceholder?: string;
 }
 
 export function ReconciliationTable<T>({
@@ -87,17 +141,35 @@ export function ReconciliationTable<T>({
   isLoading = false,
   renderRow,
   columns,
+  getSearchableText,
+  searchPlaceholder = 'Search…',
 }: ReconciliationTableProps<T>) {
   const [isExpanded, setIsExpanded] = useState(items.length > 0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [toolbarSearch, setToolbarSearch] = useState('');
 
-  const totalItems = items.length;
+  const toolbarState = useMemo(() => emptyToolbarState(toolbarSearch), [toolbarSearch]);
+
+  const filteredItems = useMemo(() => {
+    const q = toolbarSearch.trim().toLowerCase();
+    if (!q) return items;
+    return items.filter((item) => {
+      const text = getSearchableText ? getSearchableText(item) : JSON.stringify(item as object);
+      return text.toLowerCase().includes(q);
+    });
+  }, [items, toolbarSearch, getSearchableText]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [toolbarSearch]);
+
+  const totalItems = filteredItems.length;
   const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
   const pagedItems = useMemo(() => {
     const start = (page - 1) * pageSize;
-    return items.slice(start, start + pageSize);
-  }, [items, page, pageSize]);
+    return filteredItems.slice(start, start + pageSize);
+  }, [filteredItems, page, pageSize]);
 
   useEffect(() => {
     if (page > totalPages) {
@@ -132,7 +204,19 @@ export function ReconciliationTable<T>({
       </div>
 
       {isExpanded && (
-        <div className="rounded-md border overflow-x-auto">
+        <>
+          <DataTableToolbar
+            state={toolbarState}
+            onSearchChange={setToolbarSearch}
+            onFiltersChange={() => {}}
+            onSortChange={() => {}}
+            onGroupByChange={() => {}}
+            onVisibleColumnsChange={() => {}}
+            onQuickFilterApply={() => {}}
+            onReset={() => setToolbarSearch('')}
+            searchPlaceholder={searchPlaceholder}
+          />
+          <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -164,6 +248,7 @@ export function ReconciliationTable<T>({
             </TableBody>
           </Table>
         </div>
+        </>
       )}
 
       {isExpanded && !isLoading && totalItems > 0 && (
@@ -247,7 +332,7 @@ export function UninvoicedSessionsTable({
               <ReconciliationTableLinkButton
                 onClick={() => handlers.onOpenSession(item.session_id)}
               >
-                {item.session_name || '—'}
+                {item.session_short_name?.trim() || '—'}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
@@ -309,7 +394,12 @@ export function VoidInvoiceSessionsTable({
         }
 
         const uniqueKey = `${item.sessions_students_id}-${item.void_invoice_id}-${index}`;
-        const invoiceLabel = item.void_stripe_invoice_number?.trim() || item.void_invoice_id.slice(0, 8);
+        const invoiceNumberLabel =
+          item.void_stripe_invoice_number?.trim() ||
+          (item.void_stripe_invoice_id
+            ? item.void_stripe_invoice_id.slice(0, 12)
+            : item.void_invoice_id.slice(0, 8));
+        const sessionLabel = item.session_short_name?.trim() || '—';
 
         return (
           <TableRow key={uniqueKey}>
@@ -328,15 +418,12 @@ export function VoidInvoiceSessionsTable({
               <ReconciliationTableLinkButton
                 onClick={() => handlers.onOpenSession(item.session_id)}
               >
-                {item.session_name || '—'}
+                {sessionLabel}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <ReconciliationTableLinkButton
-                className="text-muted-foreground text-sm"
-                onClick={() => handlers.onOpenInvoice(item.void_invoice_id)}
-              >
-                {invoiceLabel}
+              <ReconciliationTableLinkButton onClick={() => handlers.onOpenInvoice(item.void_invoice_id)}>
+                {invoiceNumberLabel}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
@@ -370,9 +457,7 @@ export function UnpaidInvoicesTable({
       isLoading={isLoading}
       columns={['Date', 'Student', 'Session', 'Invoice number']}
       renderRow={(item, _index) => {
-        const sessionLabel = item.session_start_at
-          ? format(new Date(item.session_start_at), 'MMM d, yyyy')
-          : '—';
+        const sessionLabel = item.session_short_name?.trim() || '—';
         const invoiceNumberLabel =
           item.stripe_invoice_number?.trim() ||
           (item.stripe_invoice_id ? item.stripe_invoice_id.slice(0, 12) : item.id.slice(0, 8));
@@ -420,61 +505,44 @@ export function UnloggedSessionsTable({
   items: UnloggedSession[];
   isLoading?: boolean;
 }) {
-  const { data: subjects = [] } = useSubjects();
   const handlers = useReconciliationHandlers();
-  const subjectMap = useMemo(() => {
-    const map = new Map<string, Tables<'subjects'>>();
-    subjects.forEach(s => map.set(s.id, s));
-    return map;
-  }, [subjects]);
-
   return (
     <ReconciliationTable
       title="Unlogged Sessions"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Subject', 'Staff']}
+      columns={['Date', 'Session', 'Staff']}
       renderRow={(item, _index) => {
-        const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
-        const { style, textColorClass } = getSubjectColorStyle(subject);
-        const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
-        const staffDisplay = (item.assigned_tutors ?? [])
-          .map((staff) => {
-            const fullName = `${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim();
-            if (fullName) return fullName;
-            if (staff.email) return staff.email;
-            return staff.id;
-          })
-          .join(', ');
-        
+        const tutors = item.assigned_tutors ?? [];
+
         return (
           <TableRow key={item.session_id}>
             <TableCell>
-              <ReconciliationTableLinkButton
-                onClick={() => handlers.onOpenSession(item.session_id)}
-              >
-                {format(new Date(item.start_at), 'MMM d, yyyy')}
+              {format(new Date(item.start_at), 'MMM d, yyyy')}
+            </TableCell>
+            <TableCell>
+              <ReconciliationTableLinkButton onClick={() => handlers.onOpenSession(item.session_id)}>
+                {item.session_name}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <div className="flex items-center gap-2 flex-wrap">
-                {subject ? (
-                  <Badge
-                    className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
-                    style={style.backgroundColor ? style : undefined}
-                  >
-                    {subject?.long_name ?? ''}
-                  </Badge>
-                ) : (
-                  <span>{item.subject_name || '—'}</span>
-                )}
-                <Badge className={getSessionTypeBadgeColor(item.session_type)}>
-                  {formatSessionType(item.session_type)}
-                </Badge>
-              </div>
-            </TableCell>
-            <TableCell>
-              {staffDisplay || '—'}
+              {tutors.length === 0 ? (
+                '—'
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {tutors.map((staff) => {
+                    const label =
+                      `${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim() ||
+                      staff.email ||
+                      staff.id;
+                    return (
+                      <ReconciliationTableLinkButton key={staff.id} onClick={() => handlers.onOpenStaff(staff.id)}>
+                        {label}
+                      </ReconciliationTableLinkButton>
+                    );
+                  })}
+                </div>
+              )}
             </TableCell>
             <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="unlogged_sessions" item={item} />
@@ -546,6 +614,64 @@ export function UnassignedTasksTable({
   );
 }
 
+export function ProjectsWithoutLeadTable({
+  items,
+  isLoading,
+}: {
+  items: ProjectWithoutLead[];
+  isLoading?: boolean;
+}) {
+  const handlers = useReconciliationHandlers();
+
+  return (
+    <ReconciliationTable
+      title="Projects with no lead"
+      items={items}
+      isLoading={isLoading}
+      columns={['Project', 'Status', 'Priority', 'Target', 'Created by']}
+      renderRow={(item, _index) => {
+        const creator = item.creator;
+        const creatorName = creator
+          ? `${creator.first_name ?? ''} ${creator.last_name ?? ''}`.trim() || '—'
+          : '—';
+        const targetLabel = item.target_date
+          ? format(new Date(item.target_date), 'MMM d, yyyy')
+          : '—';
+
+        return (
+          <TableRow key={item.id}>
+            <TableCell className="max-w-xs truncate" title={item.name}>
+              <ReconciliationTableLinkButton
+                className="font-medium"
+                onClick={() => handlers.onOpenProject(item.id)}
+              >
+                {item.name}
+              </ReconciliationTableLinkButton>
+            </TableCell>
+            <TableCell>
+              <Badge variant="secondary">
+                {getProjectStatusLabel((item.status ?? 'backlog') as ProjectStatus)}
+              </Badge>
+            </TableCell>
+            <TableCell>
+              {item.priority !== null && item.priority !== undefined
+                ? getProjectPriorityLabel(item.priority as ProjectPriority)
+                : '—'}
+            </TableCell>
+            <TableCell>{targetLabel}</TableCell>
+            <TableCell className="max-w-[10rem] truncate" title={creatorName}>
+              {creatorName}
+            </TableCell>
+            <TableCell className={ACTIONS_CELL}>
+              <ReconciliationActions type="projects_without_lead" item={item} />
+            </TableCell>
+          </TableRow>
+        );
+      }}
+    />
+  );
+}
+
 export function UnassignedClassesTable({
   items,
   isLoading,
@@ -553,59 +679,30 @@ export function UnassignedClassesTable({
   items: UnassignedClass[];
   isLoading?: boolean;
 }) {
-  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const { data: subjects = [] } = useSubjects();
   const handlers = useReconciliationHandlers();
-  const subjectMap = useMemo(() => {
-    const map = new Map<string, Tables<'subjects'>>();
-    subjects.forEach(s => map.set(s.id, s));
-    return map;
-  }, [subjects]);
 
   return (
     <ReconciliationTable
       title="Classes without staff"
       items={items}
       isLoading={isLoading}
-      columns={['Subject', 'Day', 'Time', 'Students']}
-      renderRow={(item, _index) => {
-        const subject = item.subject_id ? subjectMap.get(item.subject_id) : null;
-        const { style, textColorClass } = getSubjectColorStyle(subject);
-        const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
-        
-        return (
-          <TableRow key={item.class_id}>
-            <TableCell>
-              <button
-                type="button"
-                onClick={() => handlers.onOpenClass(item.class_id)}
-                className="cursor-pointer border-0 bg-transparent p-0 text-left hover:opacity-90"
-              >
-                {subject ? (
-                  <Badge
-                    className={cn('text-xs whitespace-nowrap', defaultClass || textColorClass)}
-                    style={style.backgroundColor ? style : undefined}
-                  >
-                    {subject?.long_name ?? ''}
-                  </Badge>
-                ) : (
-                  <span className="text-primary underline-offset-4 hover:underline">
-                    {item.subject_name || '—'}
-                  </span>
-                )}
-              </button>
-            </TableCell>
-            <TableCell>{dayNames[item.day_of_week]}</TableCell>
-            <TableCell>
-              {item.start_time} - {item.end_time}
-            </TableCell>
-            <TableCell>{item.student_count}</TableCell>
-            <TableCell className={ACTIONS_CELL}>
-              <ReconciliationActions type="unassigned_classes" item={item} />
-            </TableCell>
-          </TableRow>
-        );
-      }}
+      columns={['Class', 'Students']}
+      renderRow={(item, _index) => (
+        <TableRow key={item.class_id}>
+          <TableCell>
+            <ReconciliationTableLinkButton
+              className="font-medium"
+              onClick={() => handlers.onOpenClass(item.class_id)}
+            >
+              {item.class_display_name}
+            </ReconciliationTableLinkButton>
+          </TableCell>
+          <TableCell>{item.student_count}</TableCell>
+          <TableCell className={ACTIONS_CELL}>
+            <ReconciliationActions type="unassigned_classes" item={item} />
+          </TableCell>
+        </TableRow>
+      )}
     />
   );
 }
@@ -663,8 +760,8 @@ export function FailedDeliveryMessagesTable({
 }
 
 export function UnreadMessagesTable() {
-  const { data: conversations } = useConversationsByContact();
-  const openWindow = useChatStore((s) => s.openWindow);
+  const { data: conversations, isPending } = useConversationsByContact();
+  const handlers = useReconciliationHandlers();
 
   const unreadItems = (conversations ?? []).filter((c) => c.unreadCount > 0);
 
@@ -672,19 +769,13 @@ export function UnreadMessagesTable() {
     <ReconciliationTable
       title="Unread messages"
       items={unreadItems}
-      isLoading={false}
+      isLoading={isPending}
       columns={['Last message', 'Contact']}
       renderRow={(item, index) => {
         const lastAt = item.latestMessageAt ? new Date(item.latestMessageAt) : null;
         const lastTime = lastAt ? format(lastAt, 'MMM d, yyyy HH:mm') : '—';
         const contactName = item.contact ? formatContactName({ contacts: item.contact }) : 'Unknown';
-
-        const handleOpen = () => {
-          const convId = item.conversations[0]?.id;
-          if (convId) {
-            openWindow({ conversationId: convId, title: contactName });
-          }
-        };
+        const canOpenProfile = contactRowOpensProfile(item.contact);
 
         return (
           <TableRow key={item.contactId ?? index}>
@@ -692,13 +783,15 @@ export function UnreadMessagesTable() {
             <TableCell>
               <ReconciliationTableLinkButton
                 className="font-medium"
-                onClick={handleOpen}
-                disabled={!item.conversations[0]?.id}
+                onClick={() => openContactProfile(item.contact, handlers)}
+                disabled={!canOpenProfile}
               >
                 {contactName}
               </ReconciliationTableLinkButton>
             </TableCell>
-            <TableCell className={ACTIONS_CELL} />
+            <TableCell className={ACTIONS_CELL}>
+              <ReconciliationActions type="reconciliation_contact_messages" item={item} />
+            </TableCell>
           </TableRow>
         );
       }}
@@ -707,8 +800,8 @@ export function UnreadMessagesTable() {
 }
 
 export function MessagesToFollowUpTable() {
-  const { data: conversations } = useConversationsByContact();
-  const openWindow = useChatStore((s) => s.openWindow);
+  const { data: conversations, isPending } = useConversationsByContact();
+  const handlers = useReconciliationHandlers();
 
   const toFollowUpItems = (conversations ?? []).filter((c) =>
     c.conversations.some((conv) => conv.needs_follow_up)
@@ -718,19 +811,13 @@ export function MessagesToFollowUpTable() {
     <ReconciliationTable
       title="Messages to follow up"
       items={toFollowUpItems}
-      isLoading={false}
+      isLoading={isPending}
       columns={['Last message', 'Contact']}
       renderRow={(item, index) => {
         const lastAt = item.latestMessageAt ? new Date(item.latestMessageAt) : null;
         const lastTime = lastAt ? format(lastAt, 'MMM d, yyyy HH:mm') : '—';
         const contactName = item.contact ? formatContactName({ contacts: item.contact }) : 'Unknown';
-
-        const handleOpen = () => {
-          const convId = item.conversations[0]?.id;
-          if (convId) {
-            openWindow({ conversationId: convId, title: contactName });
-          }
-        };
+        const canOpenProfile = contactRowOpensProfile(item.contact);
 
         return (
           <TableRow key={item.contactId ?? index}>
@@ -738,13 +825,15 @@ export function MessagesToFollowUpTable() {
             <TableCell>
               <ReconciliationTableLinkButton
                 className="font-medium"
-                onClick={handleOpen}
-                disabled={!item.conversations[0]?.id}
+                onClick={() => openContactProfile(item.contact, handlers)}
+                disabled={!canOpenProfile}
               >
                 {contactName}
               </ReconciliationTableLinkButton>
             </TableCell>
-            <TableCell className={ACTIONS_CELL} />
+            <TableCell className={ACTIONS_CELL}>
+              <ReconciliationActions type="reconciliation_contact_messages" item={item} />
+            </TableCell>
           </TableRow>
         );
       }}
@@ -765,7 +854,7 @@ export function StudentsWithoutPaymentMethodTable({
       title="Students with no payment method"
       items={items}
       isLoading={isLoading}
-      columns={['Student', 'Email', 'Status']}
+      columns={['Student']}
       renderRow={(item, _index) => (
         <TableRow key={item.student_id}>
           <TableCell>
@@ -775,12 +864,6 @@ export function StudentsWithoutPaymentMethodTable({
             >
               {item.first_name} {item.last_name}
             </ReconciliationTableLinkButton>
-          </TableCell>
-          <TableCell>
-            {item.email || '—'}
-          </TableCell>
-          <TableCell>
-            <Badge variant="secondary">{item.student_status}</Badge>
           </TableCell>
           <TableCell className={ACTIONS_CELL}>
             <ReconciliationActions type="students_without_payment_method" item={item} />
@@ -816,6 +899,8 @@ export function StudentsWithoutClassesTable({
         const subject = subjectMap.get(item.subject_id) || {
           id: item.subject_id,
           name: item.subject_name,
+          short_name: item.subject_short_name,
+          long_name: item.subject_long_name,
           curriculum: item.subject_curriculum,
           year_level: item.subject_year_level,
         } as Tables<'subjects'>;
@@ -842,7 +927,7 @@ export function StudentsWithoutClassesTable({
                 className={cn('text-xs whitespace-nowrap', defaultClass || textColorClass)}
                 style={style.backgroundColor ? style : undefined}
               >
-                {subject?.long_name ?? ''}
+                {subject?.short_name?.trim() || subject?.name?.trim() || subject?.long_name?.trim() || ''}
               </Badge>
             </TableCell>
             <TableCell className={ACTIONS_CELL}>

@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { reconciliationApi } from './reconciliation';
+import { reconciliationApi, getReconciliationTabCounts } from './reconciliation';
 import { reconciliationKeys } from './queryKeys';
 
 /**
@@ -119,5 +119,29 @@ export function useUnassignedTasks() {
     queryFn: () => reconciliationApi.getUnassignedTasks(),
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+/**
+ * Active projects with no project lead (reconciliation / operations).
+ */
+export function useProjectsWithNoLead() {
+  return useQuery({
+    queryKey: reconciliationKeys.projectsWithNoLead(),
+    queryFn: () => reconciliationApi.getProjectsWithNoLead(),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Row counts per reconciliation tab (for navigation badges).
+ */
+export function useReconciliationTabCounts() {
+  return useQuery({
+    queryKey: reconciliationKeys.tabCounts(),
+    queryFn: () => getReconciliationTabCounts(),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
   });
 }

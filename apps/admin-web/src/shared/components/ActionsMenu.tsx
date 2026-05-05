@@ -62,7 +62,10 @@ interface SessionActionsMenuProps extends BaseActionsMenuProps {
 
 interface InvoiceActionsMenuProps extends BaseActionsMenuProps {
   type: 'invoice';
-  onViewOnStripe?: () => void;
+  /** Hosted invoice URL (customer payment page) */
+  onViewPaymentPage?: () => void;
+  /** Stripe Dashboard for this invoice */
+  onViewInStripe?: () => void;
   onDownloadPdf?: () => void;
   onSendInvoice?: () => void;
   onChargeCard?: () => void;
@@ -409,13 +412,21 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Open in page
           </DropdownMenuItem>
           {copyMenuItem}
-          {props.onViewOnStripe && (
+          {(props.onViewPaymentPage || props.onViewInStripe) && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onViewOnStripe}>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                View on Stripe
-              </DropdownMenuItem>
+              {props.onViewPaymentPage && (
+                <DropdownMenuItem onClick={props.onViewPaymentPage}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View payment page
+                </DropdownMenuItem>
+              )}
+              {props.onViewInStripe && (
+                <DropdownMenuItem onClick={props.onViewInStripe}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View in Stripe
+                </DropdownMenuItem>
+              )}
             </>
           )}
           {props.onDownloadPdf && (

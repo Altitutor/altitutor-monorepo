@@ -219,9 +219,6 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
       router.push(`/invoices/${invoiceId}`);
       onClose();
     },
-    onViewOnStripe: invoice?.hosted_invoice_url ? () => {
-      window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
-    } : undefined,
     onDownloadPdf: invoice?.invoice_pdf ? () => {
       window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
     } : undefined,
