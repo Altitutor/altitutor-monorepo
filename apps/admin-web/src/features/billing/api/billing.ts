@@ -13,6 +13,7 @@ export const billingApi = {
       .from('invoices')
       .select('*')
       .eq('student_id', studentId)
+      .is('deleted_at', null)
       .order('invoice_date', { ascending: false })
       .order('created_at', { ascending: false });
     if (error) throw error;
@@ -25,6 +26,7 @@ export const billingApi = {
       .from('invoice_items')
       .select('*')
       .eq('student_id', studentId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? []) as InvoiceItemRow[];
@@ -36,6 +38,7 @@ export const billingApi = {
       .from('invoice_items')
       .select('*')
       .eq('invoice_id', invoiceId)
+      .is('deleted_at', null)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (data ?? []) as InvoiceItemRow[];
@@ -46,7 +49,8 @@ export const billingApi = {
     const { data: items, error: itemsError } = await (getSupabaseClient() as SupabaseClient<Database>)
       .from('invoice_items')
       .select('invoice_id')
-      .eq('session_id', sessionId);
+      .eq('session_id', sessionId)
+      .is('deleted_at', null);
     
     if (itemsError) throw itemsError;
     
@@ -57,6 +61,7 @@ export const billingApi = {
       .from('invoices')
       .select('*')
       .in('id', invoiceIds)
+      .is('deleted_at', null)
       .order('invoice_date', { ascending: false });
     
     if (error) throw error;

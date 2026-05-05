@@ -203,6 +203,36 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     },
   });
 
+  const archiveVoidInvoiceMutation = useMutation({
+    mutationFn: async (invoice_id: string) => {
+      const response = await fetch('/api/billing/soft-delete-void-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_id }),
+      });
+      if (!response.ok) {
+        const err = (await response.json()) as { error?: string; message?: string };
+        throw new Error(err.error || err.message || 'Failed to archive void invoice');
+      }
+      return response.json() as Promise<{ ok: boolean }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.voidInvoiceSessions() });
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
+      toast({
+        title: 'Archived',
+        description: 'Void invoice rows were soft-deleted. You can re-invoice this session if needed.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to archive void invoice',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSendInvoice = (sessions_students_id: string) => {
     invoiceSessionMutation.mutate(sessions_students_id);
   };
@@ -685,6 +715,24 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         >
           <CreditCard className="h-4 w-4 mr-1" />
           {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Re-invoice'}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (
+              !window.confirm(
+                'Soft-delete this void invoice and its line items in the database? This releases the billing slot for re-invoicing. Stripe is not changed.'
+              )
+            ) {
+              return;
+            }
+            archiveVoidInvoiceMutation.mutate(session.void_invoice_id);
+          }}
+          disabled={archiveVoidInvoiceMutation.isPending || invoiceSessionMutation.isPending}
+        >
+          <Trash2 className="h-4 w-4 mr-1" />
+          {archiveVoidInvoiceMutation.isPending ? 'Archiving…' : 'Archive void invoice (DB)'}
         </Button>
         {issueButton}
       </div>

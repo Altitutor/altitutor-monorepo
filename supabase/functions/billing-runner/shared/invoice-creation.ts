@@ -366,24 +366,81 @@ export async function saveInvoiceItemsToDatabase(
     });
 
   if (itemsErr) {
-    // If we hit a unique violation (e.g. from the sessions_students_id partial
-    // unique index), treat it as "session already billed" and log a warning
-    // instead of failing the entire billing flow. Stripe idempotency will have
-    // ensured we are not creating a truly new charge in this case.
-    if (itemsErr.code === '23505') {
-      console.warn(
-        `${LOG_PREFIX} Unique constraint violation while saving invoice items (likely already billed session).`,
-        formatStripeErrorMessage(itemsErr, 'save invoice items unique violation', { invoiceId })
-      );
-      return;
-    }
-
     console.error(
       `${LOG_PREFIX} Failed to save invoice items:`,
       formatStripeErrorMessage(itemsErr, 'save invoice items to database', { invoiceId })
     );
     throw itemsErr;
   }
+}
+
+/**
+ * Soft-delete invoice rows so partial unique indexes release slots (re-billing / reconciliation).
+ */
+export async function softDeleteInvoiceAndItems(
+  supabase: SupabaseClient,
+  invoiceDbId: string
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error: itemsErr } = await supabase
+    .from('invoice_items')
+    .update({ deleted_at: now })
+    .eq('invoice_id', invoiceDbId)
+    .is('deleted_at', null);
+  if (itemsErr) throw itemsErr;
+
+  const { error: invErr } = await supabase
+    .from('invoices')
+    .update({ deleted_at: now })
+    .eq('id', invoiceDbId)
+    .is('deleted_at', null);
+  if (invErr) throw invErr;
+}
+
+/**
+ * After Stripe finalize + DB invoice insert, if persisting invoice_items fails:
+ * align Stripe (void/open cleanup) and soft-delete the DB invoice row.
+ */
+export async function rollbackFailedSessionInvoicePersist(
+  stripe: Stripe,
+  supabase: SupabaseClient,
+  stripeInvoiceId: string,
+  dbInvoiceId: string,
+  context: { studentId: string }
+): Promise<void> {
+  try {
+    const inv = await stripe.invoices.retrieve(stripeInvoiceId);
+    if (inv.status === 'draft') {
+      await deleteDraftInvoice(stripe, stripeInvoiceId);
+    } else if (inv.status === 'open' || inv.status === 'uncollectible') {
+      try {
+        await voidInvoice(stripe, stripeInvoiceId);
+      } catch (voidErr: unknown) {
+        console.error(
+          `${LOG_PREFIX} rollbackFailedSessionInvoicePersist: voidInvoice failed`,
+          formatStripeErrorMessage(voidErr, 'void invoice rollback', {
+            studentId: context.studentId,
+            invoiceId: stripeInvoiceId,
+          })
+        );
+      }
+    } else if (inv.status === 'paid') {
+      console.error(
+        `${LOG_PREFIX} CRITICAL: Invoice ${stripeInvoiceId} is paid; cannot void after failed item persist. ` +
+          `Manual reconciliation required. student=${context.studentId} dbInvoice=${dbInvoiceId}`
+      );
+    }
+  } catch (retrieveErr: unknown) {
+    console.error(
+      `${LOG_PREFIX} rollbackFailedSessionInvoicePersist: retrieve failed`,
+      formatStripeErrorMessage(retrieveErr, 'retrieve invoice for rollback', {
+        studentId: context.studentId,
+        invoiceId: stripeInvoiceId,
+      })
+    );
+  }
+
+  await softDeleteInvoiceAndItems(supabase, dbInvoiceId);
 }
 
 /**

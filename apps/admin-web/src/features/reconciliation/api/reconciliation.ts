@@ -74,6 +74,7 @@ export const reconciliationApi = {
       .neq('status', 'paid')
       .neq('status', 'void')
       .gt('amount_due_cents', 0)
+      .is('deleted_at', null)
       .order('invoice_date', { ascending: true });
     
     if (error) throw error;

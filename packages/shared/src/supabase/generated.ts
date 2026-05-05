@@ -2053,6 +2053,7 @@ export type Database = {
         Row: {
           amount_cents: number
           created_at: string
+          deleted_at: string | null
           description: string
           id: string
           invoice_id: string
@@ -2066,6 +2067,7 @@ export type Database = {
         Insert: {
           amount_cents: number
           created_at?: string
+          deleted_at?: string | null
           description: string
           id?: string
           invoice_id: string
@@ -2079,6 +2081,7 @@ export type Database = {
         Update: {
           amount_cents?: number
           created_at?: string
+          deleted_at?: string | null
           description?: string
           id?: string
           invoice_id?: string
@@ -2243,6 +2246,7 @@ export type Database = {
           created_at: string
           credited_at: string | null
           currency: string
+          deleted_at: string | null
           dispute_amount_cents: number | null
           dispute_created_at: string | null
           dispute_currency: string | null
@@ -2287,6 +2291,7 @@ export type Database = {
           created_at?: string
           credited_at?: string | null
           currency?: string
+          deleted_at?: string | null
           dispute_amount_cents?: number | null
           dispute_created_at?: string | null
           dispute_currency?: string | null
@@ -2331,6 +2336,7 @@ export type Database = {
           created_at?: string
           credited_at?: string | null
           currency?: string
+          deleted_at?: string | null
           dispute_amount_cents?: number | null
           dispute_created_at?: string | null
           dispute_currency?: string | null
