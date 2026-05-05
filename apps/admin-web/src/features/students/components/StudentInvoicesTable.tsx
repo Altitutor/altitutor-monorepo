@@ -28,6 +28,7 @@ import { useCreditNotesByInvoice } from '@/features/billing/hooks/useCreditNotes
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared';
 import type { InvoiceRow } from '@/features/billing/api/billing';
 import { cn, getErrorMessage } from '@/shared/utils';
+import { stripeInvoiceDashboardUrl } from '@/shared/utils/stripe-dashboard-urls';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { TablePagination } from '@/shared/components/TablePagination';
 import { useRouter } from 'next/navigation';
@@ -368,8 +369,15 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                           onOpenInPage={() => {
                             router.push(`/invoices/${invoice.id}`);
                           }}
-                          onViewOnStripe={invoice.hosted_invoice_url ? () => {
+                          onViewPaymentPage={invoice.hosted_invoice_url ? () => {
                             window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
+                          } : undefined}
+                          onViewInStripe={invoice.stripe_invoice_id ? () => {
+                            window.open(
+                              stripeInvoiceDashboardUrl(invoice.stripe_invoice_id!),
+                              '_blank',
+                              'noopener,noreferrer'
+                            );
                           } : undefined}
                           onDownloadPdf={invoice.invoice_pdf ? () => {
                             window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');

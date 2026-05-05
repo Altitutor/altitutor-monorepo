@@ -144,9 +144,6 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
   const invoiceActions = useInvoiceActions({
     invoiceId: id,
     invoice,
-    onViewOnStripe: invoice?.hosted_invoice_url ? () => {
-      window.open(invoice.hosted_invoice_url!, '_blank', 'noopener,noreferrer');
-    } : undefined,
     onDownloadPdf: invoice?.invoice_pdf ? () => {
       window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
     } : undefined,
