@@ -63,12 +63,20 @@ export const reconciliationApi = {
         amount_due_cents,
         currency,
         stripe_invoice_id,
+        stripe_invoice_number,
         collection_method,
         metadata,
         student:students!invoices_student_id_fkey (
           first_name,
           last_name,
           email
+        ),
+        invoice_items (
+          session_id,
+          deleted_at,
+          sessions (
+            start_at
+          )
         )
       `)
       .neq('status', 'paid')
@@ -88,6 +96,7 @@ export const reconciliationApi = {
       amount_due_cents: number;
       currency: string;
       stripe_invoice_id: string | null;
+      stripe_invoice_number: string | null;
       collection_method: string | null;
       metadata: unknown;
       student: {
@@ -95,10 +104,22 @@ export const reconciliationApi = {
         last_name: string | null;
         email: string | null;
       } | null;
+      invoice_items?:
+        | {
+            session_id: string | null;
+            deleted_at: string | null;
+            sessions: { start_at: string | null } | null;
+          }[]
+        | null;
     };
     
     return (data ?? []).map((invoice: InvoiceQueryResult) => {
       const student = invoice.student;
+      const firstLine = (invoice.invoice_items ?? []).find(
+        (row) => row.session_id && row.deleted_at == null
+      );
+      const lineSessionId = firstLine?.session_id ?? null;
+      const sessionStartAt = firstLine?.sessions?.start_at ?? null;
       type InvoiceMetadata = {
         last_payment_error?: {
           code: string;
@@ -118,12 +139,15 @@ export const reconciliationApi = {
         amount_due_cents: invoice.amount_due_cents,
         currency: invoice.currency,
         stripe_invoice_id: invoice.stripe_invoice_id,
+        stripe_invoice_number: invoice.stripe_invoice_number,
         collection_method: invoice.collection_method,
         last_payment_error: lastPaymentError,
         student_first_name: student?.first_name || null,
         student_last_name: student?.last_name || null,
         student_email: student?.email || null,
         days_overdue: null, // Cannot calculate without due_date
+        session_id: lineSessionId,
+        session_start_at: sessionStartAt,
       } as UnpaidInvoice;
     });
   },

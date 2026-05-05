@@ -11,6 +11,13 @@ export const invoicesKeys = {
   detail: (id: string) => [...invoicesKeys.details(), id] as const,
 };
 
+/** Trims, strips leading `#`, returns undefined when empty (matches prior client filter behavior). */
+export function normalizeInvoiceNumberSearch(raw: string | undefined): string | undefined {
+  if (raw == null) return undefined;
+  const s = raw.trim().replace(/^#/, '').trim();
+  return s.length > 0 ? s : undefined;
+}
+
 // Paginated server-filtered invoices list
 export interface UseInvoicesListParams {
   statuses?: InvoiceRow['status'][];
@@ -21,6 +28,8 @@ export interface UseInvoicesListParams {
   pageSize?: number;
   orderBy?: 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents';
   ascending?: boolean;
+  /** Case-insensitive substring match on `stripe_invoice_number` (server-side). */
+  invoiceNumberSearch?: string;
 }
 
 export function useInvoicesList(params: UseInvoicesListParams) {
@@ -33,8 +42,10 @@ export function useInvoicesList(params: UseInvoicesListParams) {
     pageSize = 50,
     orderBy = 'invoice_date',
     ascending = false,
+    invoiceNumberSearch,
   } = params || {};
 
+  const normalizedInvoiceSearch = normalizeInvoiceNumberSearch(invoiceNumberSearch);
   const offset = (page - 1) * pageSize;
 
   return useQuery({
@@ -44,6 +55,7 @@ export function useInvoicesList(params: UseInvoicesListParams) {
       [...studentIds].sort().join(','),
       from || null,
       to || null,
+      normalizedInvoiceSearch ?? null,
       page,
       pageSize,
       orderBy,
@@ -59,6 +71,7 @@ export function useInvoicesList(params: UseInvoicesListParams) {
         offset,
         orderBy,
         ascending,
+        invoiceNumberSearch: normalizedInvoiceSearch,
       }),
     staleTime: 1000 * 60 * 3, // 3 minutes
     gcTime: 1000 * 60 * 10, // 10 minutes

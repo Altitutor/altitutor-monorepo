@@ -91,6 +91,7 @@ export const billingApi = {
     offset?: number;
     orderBy?: 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents';
     ascending?: boolean;
+    invoiceNumberSearch?: string;
   }): Promise<{ invoices: (InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[]; total: number }> {
     const { 
       statuses = [], 
@@ -101,6 +102,7 @@ export const billingApi = {
       offset = 0,
       orderBy = 'invoice_date',
       ascending = false,
+      invoiceNumberSearch,
     } = params || {};
     
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -115,6 +117,7 @@ export const billingApi = {
       p_offset: offset,
       p_order_by: orderBy,
       p_ascending: ascending,
+      p_invoice_number_search: invoiceNumberSearch || undefined,
     });
     
     if (rpcError) throw rpcError;
@@ -167,6 +170,7 @@ export const billingApi = {
     offset?: number;
     orderBy?: 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents';
     ascending?: boolean;
+    invoiceNumberSearch?: string;
   }): Promise<(InvoiceRow & { student?: { id: string; first_name: string; last_name: string } | null })[]> {
     const result = await this.listInvoices(params);
     // Backward compatibility: return just the invoices array

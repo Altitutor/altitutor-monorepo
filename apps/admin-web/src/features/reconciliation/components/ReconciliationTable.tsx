@@ -12,7 +12,7 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { ChevronDown, ChevronRight, MessageCircle } from 'lucide-react';
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { useQueryClient } from '@tanstack/react-query';
 import { ReconciliationActions } from './ReconciliationActions';
@@ -40,6 +40,38 @@ import type { TaskStatus } from '@/features/tasks/types';
 import { useConversationsByContact } from '@/features/messages/api/queries';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useChatStore } from '@/features/messages/state/chatStore';
+import { useReconciliationHandlers } from './ReconciliationActions';
+
+/** Action buttons stay on one row; the table scrolls horizontally when the row is wider than the viewport. */
+const ACTIONS_CELL = 'whitespace-nowrap align-middle';
+
+function ReconciliationTableLinkButton({
+  children,
+  onClick,
+  className,
+  disabled,
+}: {
+  children: React.ReactNode;
+  onClick: () => void;
+  className?: string;
+  disabled?: boolean;
+}) {
+  if (disabled) {
+    return <span className={cn('text-muted-foreground', className)}>{children}</span>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'cursor-pointer border-0 bg-transparent p-0 text-left text-primary underline-offset-4 hover:underline',
+        className,
+      )}
+    >
+      {children}
+    </button>
+  );
+}
 
 interface ReconciliationTableProps<T> {
   title: string;
@@ -100,14 +132,14 @@ export function ReconciliationTable<T>({
       </div>
 
       {isExpanded && (
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 {columns.map((col) => (
                   <TableHead key={col}>{col}</TableHead>
                 ))}
-                <TableHead className="w-[200px]">Actions</TableHead>
+                <TableHead className="whitespace-nowrap">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -158,12 +190,13 @@ export function UninvoicedSessionsTable({
   items: UninvoicedSession[];
   isLoading?: boolean;
 }) {
+  const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
       title="Uninvoiced Sessions"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Student', 'Session', 'Planned Attendance', 'Actual Attendance']}
+      columns={['Date', 'Student', 'Session', 'Planned', 'Actual']}
       renderRow={(item, index) => {
         const wasTrialPlanned = item.was_trial ?? false;
         // Calculate planned attendance status
@@ -202,11 +235,20 @@ export function UninvoicedSessionsTable({
             <TableCell>
               {format(new Date(item.session_start_at), 'MMM d, yyyy')}
             </TableCell>
-            <TableCell className="font-medium">
-              {item.student_first_name} {item.student_last_name}
+            <TableCell>
+              <ReconciliationTableLinkButton
+                className="font-medium"
+                onClick={() => handlers.onOpenStudent(item.student_id)}
+              >
+                {item.student_first_name} {item.student_last_name}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              {item.session_name || '—'}
+              <ReconciliationTableLinkButton
+                onClick={() => handlers.onOpenSession(item.session_id)}
+              >
+                {item.session_name || '—'}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
               <AttendanceCell status={plannedStatus} />
@@ -214,7 +256,7 @@ export function UninvoicedSessionsTable({
             <TableCell>
               <AttendanceCell status={actualStatus} />
             </TableCell>
-            <TableCell>
+            <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="uninvoiced_sessions" item={item} />
             </TableCell>
           </TableRow>
@@ -231,12 +273,13 @@ export function VoidInvoiceSessionsTable({
   items: VoidInvoiceSession[];
   isLoading?: boolean;
 }) {
+  const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
       title="Sessions on void invoices only"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Student', 'Session', 'Void invoice', 'Voided', 'Planned', 'Actual']}
+      columns={['Date', 'Student', 'Session', 'Invoice number', 'Planned', 'Actual']}
       renderRow={(item, index) => {
         const wasTrialPlanned = item.was_trial ?? false;
         let plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
@@ -266,7 +309,6 @@ export function VoidInvoiceSessionsTable({
         }
 
         const uniqueKey = `${item.sessions_students_id}-${item.void_invoice_id}-${index}`;
-        const voidedAt = item.void_invoice_voided_at ?? item.void_invoice_date;
         const invoiceLabel = item.void_stripe_invoice_number?.trim() || item.void_invoice_id.slice(0, 8);
 
         return (
@@ -274,17 +316,28 @@ export function VoidInvoiceSessionsTable({
             <TableCell>
               {format(new Date(item.session_start_at), 'MMM d, yyyy')}
             </TableCell>
-            <TableCell className="font-medium">
-              {item.student_first_name} {item.student_last_name}
+            <TableCell>
+              <ReconciliationTableLinkButton
+                className="font-medium"
+                onClick={() => handlers.onOpenStudent(item.student_id)}
+              >
+                {item.student_first_name} {item.student_last_name}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              {item.session_name || '—'}
-            </TableCell>
-            <TableCell className="text-muted-foreground text-sm">
-              {invoiceLabel}
+              <ReconciliationTableLinkButton
+                onClick={() => handlers.onOpenSession(item.session_id)}
+              >
+                {item.session_name || '—'}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              {voidedAt ? format(new Date(voidedAt), 'MMM d, yyyy') : '—'}
+              <ReconciliationTableLinkButton
+                className="text-muted-foreground text-sm"
+                onClick={() => handlers.onOpenInvoice(item.void_invoice_id)}
+              >
+                {invoiceLabel}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
               <AttendanceCell status={plannedStatus} />
@@ -292,7 +345,7 @@ export function VoidInvoiceSessionsTable({
             <TableCell>
               <AttendanceCell status={actualStatus} />
             </TableCell>
-            <TableCell>
+            <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="void_invoice_sessions" item={item} />
             </TableCell>
           </TableRow>
@@ -309,39 +362,48 @@ export function UnpaidInvoicesTable({
   items: UnpaidInvoice[];
   isLoading?: boolean;
 }) {
+  const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
       title="Unpaid Invoices"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Student', 'Amount Due', 'Status', 'Collection Method']}
+      columns={['Date', 'Student', 'Session', 'Invoice number']}
       renderRow={(item, _index) => {
-        const collectionMethodLabel = item.collection_method === 'charge_automatically' 
-          ? 'Charge Automatically' 
-          : item.collection_method === 'send_invoice'
-          ? 'Send Invoice'
+        const sessionLabel = item.session_start_at
+          ? format(new Date(item.session_start_at), 'MMM d, yyyy')
           : '—';
+        const invoiceNumberLabel =
+          item.stripe_invoice_number?.trim() ||
+          (item.stripe_invoice_id ? item.stripe_invoice_id.slice(0, 12) : item.id.slice(0, 8));
 
         return (
           <TableRow key={item.id}>
             <TableCell>
               {format(new Date(item.invoice_date), 'MMM d, yyyy')}
             </TableCell>
-            <TableCell className="font-medium">
-              {item.student_first_name} {item.student_last_name}
+            <TableCell>
+              <ReconciliationTableLinkButton
+                className="font-medium"
+                onClick={() => handlers.onOpenStudent(item.student_id)}
+              >
+                {item.student_first_name} {item.student_last_name}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              ${(item.amount_due_cents / 100).toFixed(2)} {item.currency}
+              <ReconciliationTableLinkButton
+                onClick={() => item.session_id && handlers.onOpenSession(item.session_id)}
+                disabled={!item.session_id}
+              >
+                {sessionLabel}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <Badge variant={item.status === 'open' ? 'destructive' : 'secondary'}>
-                {item.status}
-              </Badge>
+              <ReconciliationTableLinkButton onClick={() => handlers.onOpenInvoice(item.id)}>
+                {invoiceNumberLabel}
+              </ReconciliationTableLinkButton>
             </TableCell>
-            <TableCell>
-              <Badge variant="outline">{collectionMethodLabel}</Badge>
-            </TableCell>
-            <TableCell>
+            <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="unpaid_invoices" item={item} />
             </TableCell>
           </TableRow>
@@ -359,6 +421,7 @@ export function UnloggedSessionsTable({
   isLoading?: boolean;
 }) {
   const { data: subjects = [] } = useSubjects();
+  const handlers = useReconciliationHandlers();
   const subjectMap = useMemo(() => {
     const map = new Map<string, Tables<'subjects'>>();
     subjects.forEach(s => map.set(s.id, s));
@@ -387,7 +450,11 @@ export function UnloggedSessionsTable({
         return (
           <TableRow key={item.session_id}>
             <TableCell>
-              {format(new Date(item.start_at), 'MMM d, yyyy')}
+              <ReconciliationTableLinkButton
+                onClick={() => handlers.onOpenSession(item.session_id)}
+              >
+                {format(new Date(item.start_at), 'MMM d, yyyy')}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
               <div className="flex items-center gap-2 flex-wrap">
@@ -409,7 +476,7 @@ export function UnloggedSessionsTable({
             <TableCell>
               {staffDisplay || '—'}
             </TableCell>
-            <TableCell>
+            <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="unlogged_sessions" item={item} />
             </TableCell>
           </TableRow>
@@ -438,8 +505,13 @@ export function UnassignedTasksTable({
         columns={['Title', 'Status', 'Issue/Project', 'Due date']}
         renderRow={(item, _index) => (
           <TableRow key={item.id}>
-            <TableCell className="font-medium max-w-xs truncate" title={item.title}>
-              {item.title}
+            <TableCell className="max-w-xs truncate" title={item.title}>
+              <ReconciliationTableLinkButton
+                className="font-medium"
+                onClick={() => setSelectedTaskId(item.id)}
+              >
+                {item.title}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
               <Badge variant="secondary">
@@ -452,15 +524,8 @@ export function UnassignedTasksTable({
             <TableCell>
               {item.due_date ? format(new Date(item.due_date), 'MMM d, yyyy') : '—'}
             </TableCell>
-            <TableCell>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setSelectedTaskId(item.id)}
-                >
-                  View task
-                </Button>
+            <TableCell className={ACTIONS_CELL}>
+              <div className="flex flex-nowrap items-center gap-2">
                 <AssignTaskDropdown taskId={item.id} />
               </div>
             </TableCell>
@@ -490,6 +555,7 @@ export function UnassignedClassesTable({
 }) {
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const { data: subjects = [] } = useSubjects();
+  const handlers = useReconciliationHandlers();
   const subjectMap = useMemo(() => {
     const map = new Map<string, Tables<'subjects'>>();
     subjects.forEach(s => map.set(s.id, s));
@@ -510,23 +576,31 @@ export function UnassignedClassesTable({
         return (
           <TableRow key={item.class_id}>
             <TableCell>
-              {subject ? (
-                <Badge
-                  className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
-                  style={style.backgroundColor ? style : undefined}
-                >
-                  {subject?.long_name ?? ''}
-                </Badge>
-              ) : (
-                item.subject_name || '—'
-              )}
+              <button
+                type="button"
+                onClick={() => handlers.onOpenClass(item.class_id)}
+                className="cursor-pointer border-0 bg-transparent p-0 text-left hover:opacity-90"
+              >
+                {subject ? (
+                  <Badge
+                    className={cn('text-xs whitespace-nowrap', defaultClass || textColorClass)}
+                    style={style.backgroundColor ? style : undefined}
+                  >
+                    {subject?.long_name ?? ''}
+                  </Badge>
+                ) : (
+                  <span className="text-primary underline-offset-4 hover:underline">
+                    {item.subject_name || '—'}
+                  </span>
+                )}
+              </button>
             </TableCell>
             <TableCell>{dayNames[item.day_of_week]}</TableCell>
             <TableCell>
               {item.start_time} - {item.end_time}
             </TableCell>
             <TableCell>{item.student_count}</TableCell>
-            <TableCell>
+            <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="unassigned_classes" item={item} />
             </TableCell>
           </TableRow>
@@ -543,6 +617,8 @@ export function FailedDeliveryMessagesTable({
   items: FailedDeliveryMessage[];
   isLoading?: boolean;
 }) {
+  const openWindow = useChatStore((s) => s.openWindow);
+
   return (
     <ReconciliationTable
       title="Messages which failed delivery"
@@ -553,14 +629,22 @@ export function FailedDeliveryMessagesTable({
         const hoursAgo = item.hours_since_failure
           ? Math.floor(item.hours_since_failure)
           : null;
+        const contactTitle = item.contact_name || item.contact_phone;
 
         return (
           <TableRow key={item.message_id}>
             <TableCell>
               {hoursAgo !== null ? `${hoursAgo}h ago` : '—'}
             </TableCell>
-            <TableCell className="font-medium">
-              {item.contact_name || item.contact_phone}
+            <TableCell>
+              <ReconciliationTableLinkButton
+                className="font-medium"
+                onClick={() =>
+                  openWindow({ conversationId: item.conversation_id, title: contactTitle })
+                }
+              >
+                {contactTitle}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
               <Badge variant="destructive">{item.status}</Badge>
@@ -568,7 +652,7 @@ export function FailedDeliveryMessagesTable({
             <TableCell className="max-w-md truncate">
               {item.error_message || item.error_code || '—'}
             </TableCell>
-            <TableCell>
+            <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="failed_delivery_messages" item={item} />
             </TableCell>
           </TableRow>
@@ -605,19 +689,16 @@ export function UnreadMessagesTable() {
         return (
           <TableRow key={item.contactId ?? index}>
             <TableCell>{lastTime}</TableCell>
-            <TableCell className="font-medium">{contactName}</TableCell>
-            <TableCell className="whitespace-nowrap">
-              <Button
-                size="sm"
-                variant="default"
+            <TableCell>
+              <ReconciliationTableLinkButton
+                className="font-medium"
                 onClick={handleOpen}
-                title="Open conversation"
-                className="h-8 px-2 gap-1"
+                disabled={!item.conversations[0]?.id}
               >
-                <MessageCircle className="h-4 w-4" />
-                <span className="text-xs font-medium">Open conversation</span>
-              </Button>
+                {contactName}
+              </ReconciliationTableLinkButton>
             </TableCell>
+            <TableCell className={ACTIONS_CELL} />
           </TableRow>
         );
       }}
@@ -654,19 +735,16 @@ export function MessagesToFollowUpTable() {
         return (
           <TableRow key={item.contactId ?? index}>
             <TableCell>{lastTime}</TableCell>
-            <TableCell className="font-medium">{contactName}</TableCell>
-            <TableCell className="whitespace-nowrap">
-              <Button
-                size="sm"
-                variant="default"
+            <TableCell>
+              <ReconciliationTableLinkButton
+                className="font-medium"
                 onClick={handleOpen}
-                title="Open conversation"
-                className="h-8 px-2 gap-1"
+                disabled={!item.conversations[0]?.id}
               >
-                <MessageCircle className="h-4 w-4" />
-                <span className="text-xs font-medium">Open conversation</span>
-              </Button>
+                {contactName}
+              </ReconciliationTableLinkButton>
             </TableCell>
+            <TableCell className={ACTIONS_CELL} />
           </TableRow>
         );
       }}
@@ -681,6 +759,7 @@ export function StudentsWithoutPaymentMethodTable({
   items: StudentWithoutPaymentMethod[];
   isLoading?: boolean;
 }) {
+  const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
       title="Students with no payment method"
@@ -689,8 +768,13 @@ export function StudentsWithoutPaymentMethodTable({
       columns={['Student', 'Email', 'Status']}
       renderRow={(item, _index) => (
         <TableRow key={item.student_id}>
-          <TableCell className="font-medium">
-            {item.first_name} {item.last_name}
+          <TableCell>
+            <ReconciliationTableLinkButton
+              className="font-medium"
+              onClick={() => handlers.onOpenStudent(item.student_id)}
+            >
+              {item.first_name} {item.last_name}
+            </ReconciliationTableLinkButton>
           </TableCell>
           <TableCell>
             {item.email || '—'}
@@ -698,7 +782,7 @@ export function StudentsWithoutPaymentMethodTable({
           <TableCell>
             <Badge variant="secondary">{item.student_status}</Badge>
           </TableCell>
-          <TableCell>
+          <TableCell className={ACTIONS_CELL}>
             <ReconciliationActions type="students_without_payment_method" item={item} />
           </TableCell>
         </TableRow>
@@ -715,6 +799,7 @@ export function StudentsWithoutClassesTable({
   isLoading?: boolean;
 }) {
   const { data: subjects = [] } = useSubjects();
+  const handlers = useReconciliationHandlers();
   const subjectMap = useMemo(() => {
     const map = new Map<string, Tables<'subjects'>>();
     subjects.forEach(s => map.set(s.id, s));
@@ -744,18 +829,23 @@ export function StudentsWithoutClassesTable({
                 ? format(new Date(item.subject_added_at), 'MMM d, yyyy')
                 : '—'}
             </TableCell>
-            <TableCell className="font-medium">
-              {item.first_name} {item.last_name}
+            <TableCell>
+              <ReconciliationTableLinkButton
+                className="font-medium"
+                onClick={() => handlers.onOpenStudent(item.student_id)}
+              >
+                {item.first_name} {item.last_name}
+              </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
               <Badge
-                className={cn("text-xs whitespace-nowrap", defaultClass || textColorClass)}
+                className={cn('text-xs whitespace-nowrap', defaultClass || textColorClass)}
                 style={style.backgroundColor ? style : undefined}
               >
                 {subject?.long_name ?? ''}
               </Badge>
             </TableCell>
-            <TableCell>
+            <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="students_without_classes" item={item} />
             </TableCell>
           </TableRow>
@@ -772,6 +862,7 @@ export function TrialStudentsNotSignedUpTable({
   items: TrialStudentNotSignedUp[];
   isLoading?: boolean;
 }) {
+  const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
       title="Trial Students Who Haven't Signed Up"
@@ -781,14 +872,27 @@ export function TrialStudentsNotSignedUpTable({
       renderRow={(item, _index) => (
         <TableRow key={item.student_id}>
           <TableCell>
-            {item.first_trial_session_date 
-              ? format(new Date(item.first_trial_session_date), 'MMM d, yyyy')
-              : '—'}
-          </TableCell>
-          <TableCell className="font-medium">
-            {item.first_name} {item.last_name}
+            {item.first_trial_session_date && item.first_trial_session_id ? (
+              <ReconciliationTableLinkButton
+                onClick={() => handlers.onOpenSession(item.first_trial_session_id!)}
+              >
+                {format(new Date(item.first_trial_session_date), 'MMM d, yyyy')}
+              </ReconciliationTableLinkButton>
+            ) : item.first_trial_session_date ? (
+              format(new Date(item.first_trial_session_date), 'MMM d, yyyy')
+            ) : (
+              '—'
+            )}
           </TableCell>
           <TableCell>
+            <ReconciliationTableLinkButton
+              className="font-medium"
+              onClick={() => handlers.onOpenStudent(item.student_id)}
+            >
+              {item.first_name} {item.last_name}
+            </ReconciliationTableLinkButton>
+          </TableCell>
+          <TableCell className={ACTIONS_CELL}>
             <ReconciliationActions type="trial_students_not_signed_up" item={item} />
           </TableCell>
         </TableRow>

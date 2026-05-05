@@ -14359,6 +14359,7 @@ export type Database = {
           p_ascending?: boolean
           p_date_from?: string
           p_date_to?: string
+          p_invoice_number_search?: string
           p_limit?: number
           p_offset?: number
           p_order_by?: string
