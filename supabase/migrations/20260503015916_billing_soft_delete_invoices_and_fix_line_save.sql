@@ -20,6 +20,65 @@ DROP INDEX IF EXISTS public.invoice_items_sessions_students_unique;
 DROP INDEX IF EXISTS public.idx_invoice_items_unique_session_charge;
 DROP INDEX IF EXISTS public.uq_invoices_session_runner_student_invoice_date;
 
+-- Remote DBs may already have >1 session_runner row per (student_id, invoice_date) (historical dupes);
+-- local db reset has none. Must soft-delete extras before partial unique index can be created.
+WITH ranked_invoices AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (
+      PARTITION BY student_id, invoice_date
+      ORDER BY
+        CASE status
+          WHEN 'paid' THEN 1
+          WHEN 'open' THEN 2
+          WHEN 'draft' THEN 3
+          WHEN 'void' THEN 4
+          ELSE 5
+        END,
+        COALESCE(paid_at, '-infinity'::timestamptz) DESC,
+        updated_at DESC NULLS LAST,
+        id DESC
+    ) AS rn
+  FROM public.invoices
+  WHERE billing_source = 'session_runner'
+    AND deleted_at IS NULL
+),
+invoice_losers AS (
+  SELECT id FROM ranked_invoices WHERE rn > 1
+)
+UPDATE public.invoice_items ii
+SET deleted_at = now()
+WHERE ii.deleted_at IS NULL
+  AND ii.invoice_id IN (SELECT id FROM invoice_losers);
+
+WITH ranked_invoices AS (
+  SELECT
+    id,
+    ROW_NUMBER() OVER (
+      PARTITION BY student_id, invoice_date
+      ORDER BY
+        CASE status
+          WHEN 'paid' THEN 1
+          WHEN 'open' THEN 2
+          WHEN 'draft' THEN 3
+          WHEN 'void' THEN 4
+          ELSE 5
+        END,
+        COALESCE(paid_at, '-infinity'::timestamptz) DESC,
+        updated_at DESC NULLS LAST,
+        id DESC
+    ) AS rn
+  FROM public.invoices
+  WHERE billing_source = 'session_runner'
+    AND deleted_at IS NULL
+),
+invoice_losers AS (
+  SELECT id FROM ranked_invoices WHERE rn > 1
+)
+UPDATE public.invoices inv
+SET deleted_at = now()
+WHERE inv.id IN (SELECT id FROM invoice_losers);
+
 CREATE UNIQUE INDEX invoice_items_sessions_students_unique
   ON public.invoice_items (sessions_students_id)
   WHERE sessions_students_id IS NOT NULL
