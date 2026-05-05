@@ -10,6 +10,7 @@ import type {
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
+  ProjectWithoutLead,
 } from '../types';
 
 interface ReconciliationQueries {
@@ -23,6 +24,7 @@ interface ReconciliationQueries {
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
   trialStudentsNotSignedUp: { data?: TrialStudentNotSignedUp[] };
+  projectsWithoutLead?: { data?: ProjectWithoutLead[] };
 }
 
 /**
@@ -40,8 +42,13 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     const schedulingItems = [
       ...(queries.unloggedSessions.data ?? []),
       ...(queries.unassignedClasses.data ?? []),
-      ...(queries.unassignedTasks.data ?? []),
       ...(queries.studentsWithoutClasses.data ?? []),
+      ...(queries.trialStudentsNotSignedUp.data ?? []),
+    ];
+
+    const operationsItems = [
+      ...(queries.unassignedTasks.data ?? []),
+      ...(queries.projectsWithoutLead?.data ?? []),
     ];
 
     const communicationItems = [
@@ -57,7 +64,12 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
       schedulingItems,
       communicationItems,
       trialItems,
-      hasAnyItems: financialItems.length > 0 || schedulingItems.length > 0 || communicationItems.length > 0 || trialItems.length > 0,
+      operationsItems,
+      hasAnyItems:
+        financialItems.length > 0 ||
+        schedulingItems.length > 0 ||
+        communicationItems.length > 0 ||
+        operationsItems.length > 0,
     };
   }, [
     queries.uninvoicedSessions.data,
@@ -70,5 +82,6 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     queries.studentsWithoutClasses.data,
     queries.studentsWithoutPaymentMethod.data,
     queries.trialStudentsNotSignedUp.data,
+    queries.projectsWithoutLead?.data,
   ]);
 }

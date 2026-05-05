@@ -55,8 +55,8 @@ type ReconciliationSessionRow = {
 };
 
 /**
- * Prefer `sessions.short_name`, then `sessions.long_name`, then any view `session_short_name`,
- * then composite `session_name` — live session row wins over view denormalization.
+ * Prefer live `sessions.short_name`, then `sessions.long_name`, then any view `session_short_name`,
+ * then composite `session_name`.
  */
 async function enrichReconciliationSessionRows<T extends ReconciliationSessionRow>(
   supabase: SupabaseClient<Database>,

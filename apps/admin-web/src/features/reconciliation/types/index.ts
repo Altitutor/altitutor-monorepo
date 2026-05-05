@@ -19,6 +19,8 @@ export interface UninvoicedSession {
   subject_name: string | null;
   subject_long_name: string | null;
   session_name: string;
+  /** Resolved short-first label (see `enrichReconciliationSessionRows` in reconciliation API). */
+  session_short_name: string | null;
   is_extra: boolean;
   has_tutor_log: boolean;
   actual_attended: boolean | null;
@@ -48,6 +50,8 @@ export interface VoidInvoiceSession {
   subject_name: string | null;
   subject_long_name: string | null;
   session_name: string;
+  /** Resolved short-first label (see `enrichReconciliationSessionRows` in reconciliation API). */
+  session_short_name: string | null;
   is_extra: boolean;
   has_tutor_log: boolean;
   actual_attended: boolean | null;
@@ -58,6 +62,7 @@ export interface VoidInvoiceSession {
   student_phone: string | null;
   void_invoice_id: string;
   void_invoice_date: string;
+  void_stripe_invoice_id: string | null;
   void_stripe_invoice_number: string | null;
   void_invoice_voided_at: string | null;
   created_at: string;
@@ -65,13 +70,16 @@ export interface VoidInvoiceSession {
 }
 
 
-// Students Without Classes (one row per student-subject combination)
+// Students Without Classes (one row per subject the student is assigned to — students_subjects
+// and students_online_access_manual — with no active class for that subject)
 export interface StudentWithoutClasses {
   student_id: string;
   first_name: string;
   last_name: string;
   subject_id: string;
   subject_name: string;
+  subject_short_name: string | null;
+  subject_long_name: string | null;
   subject_curriculum: string | null;
   subject_year_level: number | null;
   subject_added_at: string | null;
@@ -85,6 +93,8 @@ export interface UnloggedSession {
   start_at: string;
   end_at: string | null;
   session_type: string;
+  /** Display label for the session row (short-first, then long, then subject). */
+  session_name: string;
   subject_id: string | null;
   subject_name: string | null;
   class_id: string | null;
@@ -106,6 +116,8 @@ export interface UnloggedSession {
 // Classes without staff
 export interface UnassignedClass {
   class_id: string;
+  /** Primary label for the class row (class/subject short names preferred). */
+  class_display_name: string;
   subject_id: string | null;
   subject_name: string | null;
   day_of_week: number;
@@ -197,8 +209,10 @@ export interface UnpaidInvoice {
   days_overdue: number | null;
   /** First non-deleted line item session, for admin navigation (invoices may have multiple). */
   session_id: string | null;
-  /** `start_at` of the linked session line (same line as `session_id`), for display. */
+  /** `start_at` of the linked session line (same line as `session_id`). */
   session_start_at: string | null;
+  /** Short-first session label for the invoice line (`sessions.short_name`, then `long_name`). */
+  session_short_name: string | null;
   stripe_invoice_number: string | null;
 }
 
@@ -218,6 +232,26 @@ export interface UnassignedTask {
   project?: { id: string; name: string | null } | null;
 }
 
+/** Active projects with no assigned project lead (excludes completed). */
+export interface ProjectWithoutLead {
+  id: string;
+  name: string;
+  status: string;
+  priority: number | null;
+  target_date: string | null;
+  created_at: string;
+  updated_at: string;
+  creator?: { id: string; first_name: string | null; last_name: string | null } | null;
+}
+
+/** Row counts per reconciliation tab (for nav badges). */
+export interface ReconciliationTabCounts {
+  financial: number;
+  scheduling: number;
+  communication: number;
+  operations: number;
+}
+
 export type ReconciliationItemType =
   | 'uninvoiced_sessions'
   | 'void_invoice_sessions'
@@ -228,7 +262,9 @@ export type ReconciliationItemType =
   | 'failed_delivery_messages'
   | 'students_without_classes'
   | 'students_without_payment_method'
-  | 'trial_students_not_signed_up';
+  | 'trial_students_not_signed_up'
+  | 'projects_without_lead'
+  | 'reconciliation_contact_messages';
 
 export interface ReconciliationCategoryData {
   category: ReconciliationCategory;
