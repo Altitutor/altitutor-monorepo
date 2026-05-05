@@ -348,6 +348,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .select('status')
           .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null)
           .maybeSingle();
         
         // Only update finalized_at timestamp, don't overwrite status if already paid
@@ -366,7 +367,8 @@ Deno.serve(async (req: Request) => {
         await supabase
           .from('invoices')
           .update(updateData)
-          .eq('stripe_invoice_id', invoice.id);
+          .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null);
         
         await supabase
           .from('stripe_webhook_events')
@@ -480,7 +482,8 @@ Deno.serve(async (req: Request) => {
             invoice_pdf: invoice.invoice_pdf || null,
             paid_at: new Date().toISOString(),
           })
-          .eq('stripe_invoice_id', invoice.id);
+          .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null);
         
         if (payErr) console.error('[webhook] invoices update error', payErr);
         
@@ -510,6 +513,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .select('metadata')
           .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null)
           .maybeSingle();
 
         const prevMeta =
@@ -535,7 +539,8 @@ Deno.serve(async (req: Request) => {
               last_failure_at: new Date().toISOString(),
             },
           })
-          .eq('stripe_invoice_id', invoice.id);
+          .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null);
         
         if (updErr) console.error('[webhook] invoices fail update error', updErr);
         
@@ -556,6 +561,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .select('status')
           .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null)
           .maybeSingle();
         
         // Fetch full invoice from Stripe API to get reliable subtotal/total values
@@ -604,7 +610,8 @@ Deno.serve(async (req: Request) => {
         await supabase
           .from('invoices')
           .update(updateData)
-          .eq('stripe_invoice_id', invoice.id);
+          .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null);
         
         await supabase
           .from('stripe_webhook_events')
@@ -619,7 +626,8 @@ Deno.serve(async (req: Request) => {
         await supabase
           .from('invoices')
           .update({ status: 'void' })
-          .eq('stripe_invoice_id', invoice.id);
+          .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null);
         
         await supabase
           .from('stripe_webhook_events')
@@ -634,7 +642,8 @@ Deno.serve(async (req: Request) => {
         await supabase
           .from('invoices')
           .update({ status: 'uncollectible' })
-          .eq('stripe_invoice_id', invoice.id);
+          .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null);
         
         await supabase
           .from('stripe_webhook_events')
@@ -818,6 +827,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .select('id')
           .eq('stripe_charge_id', chargeId)
+          .is('deleted_at', null)
           .maybeSingle();
         
         if (findErr) {
@@ -836,7 +846,8 @@ Deno.serve(async (req: Request) => {
               dispute_created_at: new Date(dispute.created * 1000).toISOString(),
               dispute_updated_at: new Date().toISOString(),
             })
-            .eq('id', invoice.id);
+            .eq('id', invoice.id)
+            .is('deleted_at', null);
           
           if (updateErr) {
             console.error('[webhook] Error updating invoice with dispute:', updateErr);
@@ -864,6 +875,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .select('id')
           .eq('stripe_charge_id', chargeId)
+          .is('deleted_at', null)
           .maybeSingle();
         
         if (findErr) {
@@ -878,7 +890,8 @@ Deno.serve(async (req: Request) => {
               dispute_amount_cents: dispute.amount,
               dispute_updated_at: new Date().toISOString(),
             })
-            .eq('id', invoice.id);
+            .eq('id', invoice.id)
+            .is('deleted_at', null);
           
           if (updateErr) {
             console.error('[webhook] Error updating dispute:', updateErr);
@@ -906,6 +919,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .select('id, status')
           .eq('stripe_charge_id', chargeId)
+          .is('deleted_at', null)
           .maybeSingle();
         
         if (findErr) {
@@ -933,7 +947,8 @@ Deno.serve(async (req: Request) => {
           const { error: updateErr } = await supabase
             .from('invoices')
             .update(updateData)
-            .eq('id', invoice.id);
+            .eq('id', invoice.id)
+            .is('deleted_at', null);
           
           if (updateErr) {
             console.error('[webhook] Error updating dispute closure:', updateErr);
@@ -980,6 +995,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .select('id')
           .eq('stripe_invoice_id', invoiceId)
+          .is('deleted_at', null)
           .maybeSingle();
 
         if (findErr) {
@@ -1017,7 +1033,8 @@ Deno.serve(async (req: Request) => {
             await supabase
               .from('invoices')
               .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
-              .eq('id', invoice.id);
+              .eq('id', invoice.id)
+              .is('deleted_at', null);
           }
         } else {
           console.warn('[webhook] No invoice found for credit note:', invoiceId);
@@ -1079,7 +1096,8 @@ Deno.serve(async (req: Request) => {
           await supabase
             .from('invoices')
             .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
-            .eq('id', existing.invoice_id);
+            .eq('id', existing.invoice_id)
+            .is('deleted_at', null);
         }
         
         await supabase
@@ -1118,7 +1136,8 @@ Deno.serve(async (req: Request) => {
           await supabase
             .from('invoices')
             .update({ has_credit_notes: (nonVoid?.length ?? 0) > 0 })
-            .eq('id', existing.invoice_id);
+            .eq('id', existing.invoice_id)
+            .is('deleted_at', null);
         }
         
         await supabase
@@ -1138,6 +1157,7 @@ Deno.serve(async (req: Request) => {
           .from('invoices')
           .select('id')
           .eq('stripe_charge_id', chargeId)
+          .is('deleted_at', null)
           .maybeSingle();
         
         if (findErr) {
@@ -1149,7 +1169,8 @@ Deno.serve(async (req: Request) => {
               is_refunded: true,
               refunded_at: new Date().toISOString(),
             })
-            .eq('id', invoice.id);
+            .eq('id', invoice.id)
+            .is('deleted_at', null);
           
           if (updateErr) {
             console.error('[webhook] Error updating invoice refund status:', updateErr);

@@ -62,6 +62,7 @@ export async function POST(
       .from('invoices')
       .select('stripe_invoice_id, status')
       .eq('id', invoiceId)
+      .is('deleted_at', null)
       .single<{ stripe_invoice_id: string | null; status: string | null }>();
 
     if (invoiceError || !invoice) {

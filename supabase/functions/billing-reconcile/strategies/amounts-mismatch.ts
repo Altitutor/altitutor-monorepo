@@ -31,6 +31,7 @@ export async function reconcileAmountsMismatch(
   const { data: invoices, error: invoicesError } = await supabase
     .from('invoices')
     .select('id, stripe_invoice_id, student_id, invoice_date, subtotal_cents, total_cents, amount_due_cents, amount_paid_cents, amount_paid_from_balance_cents')
+    .is('deleted_at', null)
     .gte('invoice_date', startDateStr)
     .order('invoice_date', { ascending: false });
   
@@ -134,7 +135,8 @@ export async function reconcileAmountsMismatch(
         const { error: updateErr } = await supabase
           .from('invoices')
           .update(updateData)
-          .eq('id', invoice.id);
+          .eq('id', invoice.id)
+          .is('deleted_at', null);
         
         if (updateErr) {
           console.error(`[amounts-mismatch] Failed to update amounts for invoice ${invoice.stripe_invoice_id}:`, updateErr);

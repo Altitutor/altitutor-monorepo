@@ -32,6 +32,7 @@ export async function reconcileStatusDrift(
   const { data: invoices, error: invoicesError } = await supabase
     .from('invoices')
     .select('id, stripe_invoice_id, student_id, invoice_date, status')
+    .is('deleted_at', null)
     .gte('invoice_date', startDateStr)
     .order('invoice_date', { ascending: false });
   
@@ -117,7 +118,8 @@ export async function reconcileStatusDrift(
                   : new Date().toISOString())
               : undefined,
           })
-          .eq('id', invoice.id);
+          .eq('id', invoice.id)
+          .is('deleted_at', null);
         
         if (updateErr) {
           console.error(`[status-drift] Failed to update status for invoice ${invoice.stripe_invoice_id}:`, updateErr);

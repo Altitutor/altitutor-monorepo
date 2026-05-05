@@ -35,6 +35,7 @@ export async function reconcileChargeIdBackfill(
     .from('invoices')
     .select('id, stripe_invoice_id, stripe_charge_id, stripe_payment_intent_id')
     .eq('status', 'paid')
+    .is('deleted_at', null)
     .is('stripe_charge_id', null)
     .not('stripe_invoice_id', 'is', null)
     .gte('invoice_date', startDateStr)
@@ -103,7 +104,8 @@ export async function reconcileChargeIdBackfill(
             ...(chargeId != null && { stripe_charge_id: chargeId }),
             ...(paymentIntentId != null && { stripe_payment_intent_id: paymentIntentId }),
           })
-          .eq('id', invoice.id);
+          .eq('id', invoice.id)
+          .is('deleted_at', null);
 
         if (updateErr) {
           errors.push(`Invoice ${invoice.stripe_invoice_id}: ${getErrorMessage(updateErr)}`);

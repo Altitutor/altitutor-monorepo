@@ -34,6 +34,7 @@ export async function GET(
       .from('invoices')
       .select('stripe_invoice_id')
       .eq('id', invoiceId)
+      .is('deleted_at', null)
       .single<{ stripe_invoice_id: string | null }>();
 
     if (invoiceError || !invoice || !invoice.stripe_invoice_id) {

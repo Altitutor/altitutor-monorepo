@@ -106,6 +106,7 @@ export async function syncSubscriptionInvoiceFromStripe(
     .from('invoices')
     .select('id, billing_source')
     .eq('stripe_invoice_id', invoice.id)
+    .is('deleted_at', null)
     .maybeSingle();
 
   if (exErr) {
@@ -203,7 +204,7 @@ export async function syncSubscriptionInvoiceFromStripe(
   let inserted: boolean;
 
   if (existing) {
-    const { error: updErr } = await supabase.from('invoices').update(row).eq('id', existing.id);
+    const { error: updErr } = await supabase.from('invoices').update(row).eq('id', existing.id).is('deleted_at', null);
     if (updErr) {
       return { ok: false, reason: 'db_error', message: updErr.message };
     }
@@ -222,6 +223,7 @@ export async function syncSubscriptionInvoiceFromStripe(
           .from('invoices')
           .select('id, billing_source')
           .eq('stripe_invoice_id', invoice.id)
+          .is('deleted_at', null)
           .maybeSingle();
 
         if (race?.billing_source === 'session_runner') {
@@ -231,7 +233,7 @@ export async function syncSubscriptionInvoiceFromStripe(
           return { ok: false, reason: 'db_error', message: insErr.message };
         }
 
-        const { error: raceUpdErr } = await supabase.from('invoices').update(row).eq('id', race.id);
+        const { error: raceUpdErr } = await supabase.from('invoices').update(row).eq('id', race.id).is('deleted_at', null);
         if (raceUpdErr) {
           return { ok: false, reason: 'db_error', message: raceUpdErr.message };
         }
@@ -279,7 +281,8 @@ export async function syncSubscriptionInvoiceFromStripe(
   const { data: dbItems, error: listErr } = await supabase
     .from('invoice_items')
     .select('id, stripe_invoice_item_id')
-    .eq('invoice_id', dbInvoiceId);
+    .eq('invoice_id', dbInvoiceId)
+    .is('deleted_at', null);
 
   if (!listErr && dbItems) {
     for (const it of dbItems) {

@@ -794,8 +794,11 @@ export const sessionsApi = {
       const { data: invoiceItemsData, error: invoiceItemsError } = sessionsStudentsIds.length > 0
         ? await supabase
             .from('invoice_items')
-            .select('sessions_students_id, invoice:invoices(status, paid_at, refunded_at, refunded_via_cn_at, credited_at)')
+            .select(
+              'sessions_students_id, invoice:invoices(status, paid_at, refunded_at, refunded_via_cn_at, credited_at, deleted_at)'
+            )
             .in('sessions_students_id', sessionsStudentsIds)
+            .is('deleted_at', null)
         : { data: [], error: null };
 
       if (invoiceItemsError) throw invoiceItemsError;
@@ -812,10 +815,10 @@ export const sessionsApi = {
       (
         invoiceItemsData as Array<{
           sessions_students_id?: string | null;
-          invoice?: { status?: string; paid_at?: string | null; refunded_at?: string | null; refunded_via_cn_at?: string | null; credited_at?: string | null } | null;
+          invoice?: { status?: string; paid_at?: string | null; refunded_at?: string | null; refunded_via_cn_at?: string | null; credited_at?: string | null; deleted_at?: string | null } | null;
         }> | null
       )?.forEach((row) => {
-        if (row.sessions_students_id && row.invoice) {
+        if (row.sessions_students_id && row.invoice && !(row.invoice as { deleted_at?: string | null }).deleted_at) {
           const inv = row.invoice;
           invoiceStatusPayloadMap[row.sessions_students_id] = {
             status: inv.status ?? 'draft',
