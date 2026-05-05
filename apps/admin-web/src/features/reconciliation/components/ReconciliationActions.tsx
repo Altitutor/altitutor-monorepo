@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { useDeleteMessage } from '@/features/messages/api/mutations';
-import { FileText, User, Calendar, MessageCircle, CreditCard, Receipt, Plus, Trash2 } from 'lucide-react';
+import { FileText, MessageCircle, CreditCard, Plus, Trash2, User } from 'lucide-react';
 import { getErrorMessage } from '@/shared/utils';
 import { reconciliationKeys } from '../api/queryKeys';
 import { useToast } from '@altitutor/ui';
@@ -99,7 +99,7 @@ export function ReconciliationHandlersProvider({
   );
 }
 
-function useReconciliationHandlers() {
+export function useReconciliationHandlers() {
   const context = useContext(ReconciliationHandlersContext);
   if (!context) {
     throw new Error('useReconciliationHandlers must be used within ReconciliationHandlersProvider');
@@ -130,14 +130,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const deleteMessageMutation = useDeleteMessage();
-
-  const handleOpenConversation = async (conversationId: string) => {
-    try {
-      openWindow({ conversationId, title: 'Conversation' });
-    } catch (error) {
-      console.error('Failed to open conversation:', error);
-    }
-  };
 
   const handleMessageStudent = async (studentId: string) => {
     setIsLoading(true);
@@ -203,12 +195,38 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     },
   });
 
+  const archiveVoidInvoiceMutation = useMutation({
+    mutationFn: async (invoice_id: string) => {
+      const response = await fetch('/api/billing/soft-delete-void-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoice_id }),
+      });
+      if (!response.ok) {
+        const err = (await response.json()) as { error?: string; message?: string };
+        throw new Error(err.error || err.message || 'Failed to delete void invoice');
+      }
+      return response.json() as Promise<{ ok: boolean }>;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.voidInvoiceSessions() });
+      queryClient.invalidateQueries({ queryKey: reconciliationKeys.uninvoicedSessions() });
+      toast({
+        title: 'Deleted',
+        description: 'Void invoice rows were soft-deleted in the database.',
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Error',
+        description: error.message || 'Failed to delete void invoice',
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleSendInvoice = (sessions_students_id: string) => {
     invoiceSessionMutation.mutate(sessions_students_id);
-  };
-
-  const handleContactStudent = async (studentId: string) => {
-    await handleMessageStudent(studentId);
   };
 
   const handleSendInvoiceEmail = async (invoiceId: string) => {
@@ -620,23 +638,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   if (type === 'uninvoiced_sessions') {
     const session = item as UninvoicedSession;
     content = (
-      <div className="flex gap-2 flex-wrap">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenStudent(session.student_id)}
-        >
-          <User className="h-4 w-4 mr-1" />
-          View Student
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenSession(session.session_id)}
-        >
-          <Calendar className="h-4 w-4 mr-1" />
-          View Session
-        </Button>
+      <div className="flex flex-nowrap gap-2 items-center">
         <Button
           variant="default"
           size="sm"
@@ -652,39 +654,24 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   } else if (type === 'void_invoice_sessions') {
     const session = item as VoidInvoiceSession;
     content = (
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex flex-nowrap gap-2 items-center">
         <Button
-          variant="outline"
+          variant="destructive"
           size="sm"
-          onClick={() => handlers.onOpenStudent(session.student_id)}
+          onClick={() => {
+            if (
+              !window.confirm(
+                'Delete this void invoice and its line items in the database? This cannot be undone from here. Stripe is not changed.'
+              )
+            ) {
+              return;
+            }
+            archiveVoidInvoiceMutation.mutate(session.void_invoice_id);
+          }}
+          disabled={archiveVoidInvoiceMutation.isPending}
         >
-          <User className="h-4 w-4 mr-1" />
-          View Student
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenSession(session.session_id)}
-        >
-          <Calendar className="h-4 w-4 mr-1" />
-          View Session
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenInvoice(session.void_invoice_id)}
-        >
-          <Receipt className="h-4 w-4 mr-1" />
-          Void invoice
-        </Button>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => handleSendInvoice(session.sessions_students_id)}
-          disabled={isLoading || invoiceSessionMutation.isPending}
-        >
-          <CreditCard className="h-4 w-4 mr-1" />
-          {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Re-invoice'}
+          <Trash2 className="h-4 w-4 mr-1" />
+          {archiveVoidInvoiceMutation.isPending ? 'Deleting…' : 'Delete void invoice'}
         </Button>
         {issueButton}
       </div>
@@ -692,24 +679,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   } else if (type === 'unpaid_invoices') {
     const invoice = item as UnpaidInvoice;
     content = (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenInvoice(invoice.id)}
-        >
-          <Receipt className="h-4 w-4 mr-1" />
-          View Invoice
-        </Button>
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => handleContactStudent(invoice.student_id)}
-          disabled={isLoading}
-        >
-          <MessageCircle className="h-4 w-4 mr-1" />
-          Contact
-        </Button>
+      <div className="flex flex-nowrap gap-2 items-center">
         {invoice.collection_method === 'send_invoice' ? (
           <Button
             variant="default"
@@ -741,15 +711,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       : undefined;
 
     content = (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenSession(session.session_id)}
-        >
-          <Calendar className="h-4 w-4 mr-1" />
-          View Session
-        </Button>
+      <div className="flex flex-nowrap gap-2 items-center">
         <Button
           variant="default"
           size="sm"
@@ -765,15 +727,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   } else if (type === 'unassigned_classes') {
     const classItem = item as UnassignedClass;
     content = (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenClass(classItem.class_id)}
-        >
-          <Calendar className="h-4 w-4 mr-1" />
-          View Class
-        </Button>
+      <div className="flex flex-nowrap gap-2 items-center">
         <Button
           variant="default"
           size="sm"
@@ -810,16 +764,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     };
 
     content = (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handleOpenConversation(message.conversation_id)}
-          disabled={isLoading}
-        >
-          <MessageCircle className="h-4 w-4 mr-1" />
-          Open Conversation
-        </Button>
+      <div className="flex flex-nowrap gap-2 items-center">
         <Button
           variant="destructive"
           size="sm"
@@ -838,15 +783,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     };
 
     content = (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenStudent(student.student_id)}
-        >
-          <User className="h-4 w-4 mr-1" />
-          View Student
-        </Button>
+      <div className="flex flex-nowrap gap-2 items-center">
         <Button
           variant="default"
           size="sm"
@@ -861,15 +798,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   } else if (type === 'students_without_classes') {
     const student = item as StudentWithoutClasses;
     content = (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenStudent(student.student_id)}
-        >
-          <User className="h-4 w-4 mr-1" />
-          View Student
-        </Button>
+      <div className="flex flex-nowrap gap-2 items-center">
         <Button
           variant="default"
           size="sm"
@@ -884,15 +813,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   } else if (type === 'trial_students_not_signed_up') {
     const student = item as TrialStudentNotSignedUp;
     content = (
-      <div className="flex gap-2">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => handlers.onOpenStudent(student.student_id)}
-        >
-          <User className="h-4 w-4 mr-1" />
-          View Student
-        </Button>
+      <div className="flex flex-nowrap gap-2 items-center">
         <Button
           variant="default"
           size="sm"

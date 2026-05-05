@@ -1298,7 +1298,8 @@ async function fetchInvoicesForReport(
     `
     )
     .gte('invoice_date', startIso)
-    .lte('invoice_date', endIso);
+    .lte('invoice_date', endIso)
+    .is('deleted_at', null);
 
   if (error) throw error;
 

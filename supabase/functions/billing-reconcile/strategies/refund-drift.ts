@@ -129,6 +129,7 @@ export async function reconcileRefundDrift(
         .select('id, stripe_invoice_id, stripe_charge_id, is_refunded, refunded_at')
         .in('stripe_charge_id', batch)
         .eq('status', 'paid')
+        .is('deleted_at', null)
         .or('is_refunded.is.null,is_refunded.eq.false');
       
       if (invoicesError) {
@@ -185,7 +186,8 @@ export async function reconcileRefundDrift(
               is_refunded: true,
               refunded_at: refundedAt,
             })
-            .eq('id', invoice.id);
+            .eq('id', invoice.id)
+            .is('deleted_at', null);
           
           if (updateErr) {
             console.error(`[refund-drift] Failed to update refund status for invoice ${invoice.stripe_invoice_id}:`, updateErr);

@@ -195,6 +195,11 @@ export interface UnpaidInvoice {
   student_last_name: string | null;
   student_email: string | null;
   days_overdue: number | null;
+  /** First non-deleted line item session, for admin navigation (invoices may have multiple). */
+  session_id: string | null;
+  /** `start_at` of the linked session line (same line as `session_id`), for display. */
+  session_start_at: string | null;
+  stripe_invoice_number: string | null;
 }
 
 // Reconciliation Category Types

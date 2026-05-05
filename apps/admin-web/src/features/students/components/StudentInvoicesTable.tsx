@@ -99,18 +99,10 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
     pageSize: state.pageSize,
     orderBy: (state.sortBy as 'invoice_date' | 'created_at' | 'status' | 'amount_due_cents') || 'invoice_date',
     ascending: state.sortDirection === 'asc',
+    invoiceNumberSearch: state.search,
   });
 
-  const invoices = useMemo(() => {
-    const rows = data?.invoices || [];
-    if (!state.search.trim()) return rows;
-
-    const q = state.search.toLowerCase();
-    return rows.filter((invoice) => {
-      const invoiceNumber = (invoice.stripe_invoice_number || '').toLowerCase();
-      return invoiceNumber.includes(q);
-    });
-  }, [data?.invoices, state.search]);
+  const invoices = data?.invoices || [];
 
   const total = data?.total || 0;
   const invoiceIds = useMemo(() => invoices.map((inv) => inv.id), [invoices]);

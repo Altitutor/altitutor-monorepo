@@ -44,14 +44,19 @@ export async function reconcileMissingInvoices(
       const studentId = invoice.metadata.student_id;
       const invoiceDate = invoice.metadata.invoice_date;
       
-      // Check if DB record exists
+      // Check if an active (non-archived) DB record exists
       const { data: existingInvoice } = await supabase
         .from('invoices')
-        .select('id')
+        .select('id, deleted_at')
         .eq('stripe_invoice_id', invoice.id)
         .maybeSingle();
-      
-      if (existingInvoice) {
+
+      if (existingInvoice?.deleted_at) {
+        skipped.push(`Invoice ${invoice.id}: DB row is archived (soft-deleted); skipping insert`);
+        continue;
+      }
+
+      if (existingInvoice && !existingInvoice.deleted_at) {
         // Already reconciled
         continue;
       }

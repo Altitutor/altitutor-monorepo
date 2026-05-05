@@ -1,6 +1,6 @@
 export { ReconciliationDashboard } from './components/ReconciliationDashboard';
 export { ReconciliationTable } from './components/ReconciliationTable';
-export { ReconciliationActions, ReconciliationHandlersProvider } from './components/ReconciliationActions';
+export { ReconciliationActions, ReconciliationHandlersProvider, useReconciliationHandlers } from './components/ReconciliationActions';
 export { AssignStaffModalWrapper } from './components/AssignStaffModalWrapper';
 export { EnrollStudentModalWrapper } from './components/EnrollStudentModalWrapper';
 export * from './types';

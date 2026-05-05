@@ -33,6 +33,7 @@ export async function reconcileIncompleteInvoices(
     .from('invoices')
     .select('id, stripe_invoice_id, student_id, invoice_date, amount_due_cents, total_cents, subtotal_cents')
     .eq('billing_source', 'session_runner')
+    .is('deleted_at', null)
     .gte('invoice_date', startDateStr)
     .order('invoice_date', { ascending: false });
   
@@ -73,6 +74,7 @@ export async function reconcileIncompleteInvoices(
         .from('invoice_items')
         .select('id')
         .eq('invoice_id', invoice.id)
+        .is('deleted_at', null)
         .limit(1);
       
       if (itemsError) {
@@ -115,7 +117,8 @@ export async function reconcileIncompleteInvoices(
             amount_due_cents: amountDueCents,
             amount_paid_from_balance_cents: amountPaidFromBalanceCents,
           })
-          .eq('id', invoice.id);
+          .eq('id', invoice.id)
+          .is('deleted_at', null);
         
         if (updateErr) {
           console.error(`[incomplete-invoices] Failed to update totals for invoice ${invoice.stripe_invoice_id}:`, updateErr);

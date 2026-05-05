@@ -92,6 +92,7 @@ export function ChangeClassStep3Summary({
         .from('invoice_items')
         .select('invoice:invoices(*)')
         .eq('sessions_students_id', sessionStudent.id)
+        .is('deleted_at', null)
         .maybeSingle();
       
       if (itemError || !invoiceItem || !invoiceItem.invoice) return null;

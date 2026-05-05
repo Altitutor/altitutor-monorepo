@@ -6,12 +6,14 @@ import {
   createStripeInvoiceItems,
   createDraftSendInvoiceInvoice,
   createDraftChargeAutomaticallyInvoice,
+  hasAnyInvoiceItemForSessions,
   finalizeInvoice,
   deleteDraftInvoice,
   voidInvoice,
   createStripeCustomer,
   saveInvoiceToDatabase,
   saveInvoiceItemsToDatabase,
+  rollbackFailedSessionInvoicePersist,
   updateInvoicePaymentStatus,
   updateInvoicePaymentError,
 } from './invoice-creation.ts';
@@ -317,6 +319,13 @@ export async function processStudentInvoicing(
       )
     );
 
+    const hasPriorInvoiceLines =
+      sessionsStudentsIds.length > 0 &&
+      (await hasAnyInvoiceItemForSessions(supabase, sessionsStudentsIds));
+    const stripeInvoiceCreateNonce = hasPriorInvoiceLines
+      ? `${timestamp}_${crypto.randomUUID()}`
+      : undefined;
+
     if (!shouldAutoBill) {
       // Create invoice with send_invoice collection method (no auto-charge)
       try {
@@ -329,7 +338,8 @@ export async function processStudentInvoicing(
           isStripeTestKey,
           isStripeLiveKey,
           timestamp,
-          sessionsStudentsIds
+          sessionsStudentsIds,
+          stripeInvoiceCreateNonce
         );
 
         let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
@@ -342,7 +352,8 @@ export async function processStudentInvoicing(
             studentId,
             invoiceDate,
             timestamp,
-            draftInvoice.id
+            draftInvoice.id,
+            stripeInvoiceCreateNonce
           );
           stripeInvoiceItems = result.stripeInvoiceItems as Array<InvoiceItemRow & { stripe_invoice_item_id: string }>;
         } catch (itemErr: unknown) {
@@ -401,9 +412,7 @@ export async function processStudentInvoicing(
           throw new Error('Failed to save invoice to database');
         }
 
-        // Save invoice items IMMEDIATELY after invoice record creation (before webhook can fire)
-        // This prevents race condition where invoice.paid webhook fires before items are saved
-        // Upsert handles duplicates and race conditions
+        // Save invoice items before email / success — on failure, void Stripe + soft-delete DB invoice
         try {
           await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
         } catch (itemsErr: unknown) {
@@ -411,7 +420,21 @@ export async function processStudentInvoicing(
             `${LOG_PREFIX} Failed to save invoice items for invoice ${dbInvoice.id}:`,
             formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id })
           );
-          // Don't throw - invoice is saved, items can be reconciled later
+          try {
+            await rollbackFailedSessionInvoicePersist(
+              stripe,
+              supabase,
+              finalizedInvoice.id,
+              dbInvoice.id,
+              { studentId }
+            );
+          } catch (rollbackErr: unknown) {
+            console.error(
+              `${LOG_PREFIX} Rollback after item persist failure failed for student ${studentId}:`,
+              formatStripeErrorMessage(rollbackErr, 'rollback failed invoice persist', { studentId })
+            );
+          }
+          throw itemsErr;
         }
 
         // Send invoice email based on billing preferences
@@ -473,7 +496,8 @@ export async function processStudentInvoicing(
           isStripeTestKey,
           isStripeLiveKey,
           timestamp,
-          sessionsStudentsIds
+          sessionsStudentsIds,
+          stripeInvoiceCreateNonce
         );
 
         let stripeInvoiceItems: Array<InvoiceItemRow & { stripe_invoice_item_id: string }> = [];
@@ -486,7 +510,8 @@ export async function processStudentInvoicing(
             studentId,
             invoiceDate,
             timestamp,
-            draftInvoice.id
+            draftInvoice.id,
+            stripeInvoiceCreateNonce
           );
           stripeInvoiceItems = result.stripeInvoiceItems as Array<InvoiceItemRow & { stripe_invoice_item_id: string }>;
         } catch (itemErr: unknown) {
@@ -555,9 +580,6 @@ export async function processStudentInvoicing(
           throw new Error('Failed to save invoice to database');
         }
 
-        // Save invoice items IMMEDIATELY after invoice record creation (before webhook can fire)
-        // This prevents race condition where invoice.paid webhook fires before items are saved
-        // Upsert handles duplicates and race conditions
         try {
           await saveInvoiceItemsToDatabase(supabase, dbInvoice.id, stripeInvoiceItems);
         } catch (itemsErr: unknown) {
@@ -565,7 +587,21 @@ export async function processStudentInvoicing(
             `${LOG_PREFIX} Failed to save invoice items for invoice ${dbInvoice.id}:`,
             formatStripeErrorMessage(itemsErr, 'save invoice items', { studentId, invoiceId: dbInvoice.id })
           );
-          // Don't throw - invoice is saved, items can be reconciled later
+          try {
+            await rollbackFailedSessionInvoicePersist(
+              stripe,
+              supabase,
+              finalizedInvoice.id,
+              dbInvoice.id,
+              { studentId }
+            );
+          } catch (rollbackErr: unknown) {
+            console.error(
+              `${LOG_PREFIX} Rollback after item persist failure failed for student ${studentId}:`,
+              formatStripeErrorMessage(rollbackErr, 'rollback failed invoice persist', { studentId })
+            );
+          }
+          throw itemsErr;
         }
 
         // For automatic collection, rely on Stripe's billing + webhooks to handle payment status

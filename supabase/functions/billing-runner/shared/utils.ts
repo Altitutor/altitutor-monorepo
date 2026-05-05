@@ -123,6 +123,10 @@ export function calculateAdelaideDateRange(targetDate: Date): {
  * the key stable per (student, date, sessions_students set) so that retries
  * and double-calls reuse the same Stripe invoice instead of creating new ones.
  *
+ * After void + DB archive, invoice_items rows may still exist (soft-deleted).
+ * Stripe would otherwise replay the same idempotency key and return the void
+ * invoice — pass stripeInvoiceCreateNonce so a new draft invoice is created.
+ *
  * When no sessionsStudentsIds are provided (e.g. legacy or non-session
  * invoices), an optional timestamp can be supplied as a tiebreaker to avoid
  * collisions.
@@ -133,6 +137,8 @@ export function generateInvoiceIdempotencyKey(
   options?: {
     sessionsStudentsIds?: string[];
     timestamp?: number;
+    /** Appended when rebilling after void/archive so Stripe does not replay the void invoice. */
+    stripeInvoiceCreateNonce?: string;
   }
 ): string {
   const base = `invoice_${studentId}_${invoiceDate}`;
@@ -140,7 +146,11 @@ export function generateInvoiceIdempotencyKey(
   const ids = options?.sessionsStudentsIds;
   if (ids && ids.length > 0) {
     const sorted = [...ids].sort();
-    return `${base}_${sorted.join('-')}`;
+    let key = `${base}_${sorted.join('-')}`;
+    if (options?.stripeInvoiceCreateNonce) {
+      key = `${key}_n_${options.stripeInvoiceCreateNonce}`;
+    }
+    return key;
   }
 
   if (options?.timestamp != null) {
@@ -178,14 +188,20 @@ export function generateInvoiceItemIdempotencyKey(
   item: InvoiceItemLike,
   studentId: string,
   invoiceDate: string,
-  timestamp?: number
+  timestamp?: number,
+  /** Same nonce as invoice create when rebilling after void/archive (Stripe replays line keys globally). */
+  lineItemIdempotencyNonce?: string
 ): string {
   if (item.sessions_students_id) {
     const flags = [
       item.is_fee ? 'fee' : 'main',
       item.is_subsidy ? 'subsidy' : 'charge',
     ].join('-');
-    return `invoice_item_${item.sessions_students_id}_${flags}_${item.amount_cents}_${invoiceDate}`;
+    let key = `invoice_item_${item.sessions_students_id}_${flags}_${item.amount_cents}_${invoiceDate}`;
+    if (lineItemIdempotencyNonce) {
+      key = `${key}_n_${lineItemIdempotencyNonce}`;
+    }
+    return key;
   }
 
   const effectiveTimestamp = timestamp ?? Date.now();

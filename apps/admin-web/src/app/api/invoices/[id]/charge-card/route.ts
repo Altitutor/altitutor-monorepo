@@ -30,10 +30,11 @@ export async function POST(
     }
 
     // Get invoice from database
-    const { data: invoice, error: invoiceError } = await supabase
+      const { data: invoice, error: invoiceError } = await supabase
       .from('invoices')
       .select('stripe_invoice_id, collection_method')
       .eq('id', invoiceId)
+      .is('deleted_at', null)
       .single<{ stripe_invoice_id: string | null; collection_method: string | null }>();
 
     if (invoiceError || !invoice) {
