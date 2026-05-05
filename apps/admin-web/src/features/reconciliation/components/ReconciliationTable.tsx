@@ -332,7 +332,7 @@ export function UninvoicedSessionsTable({
               <ReconciliationTableLinkButton
                 onClick={() => handlers.onOpenSession(item.session_id)}
               >
-                {item.session_name || '—'}
+                {item.session_short_name?.trim() || '—'}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
@@ -394,7 +394,12 @@ export function VoidInvoiceSessionsTable({
         }
 
         const uniqueKey = `${item.sessions_students_id}-${item.void_invoice_id}-${index}`;
-        const invoiceNumberDisplay = item.void_stripe_invoice_number?.trim() || '—';
+        const invoiceNumberLabel =
+          item.void_stripe_invoice_number?.trim() ||
+          (item.void_stripe_invoice_id
+            ? item.void_stripe_invoice_id.slice(0, 12)
+            : item.void_invoice_id.slice(0, 8));
+        const sessionLabel = item.session_short_name?.trim() || '—';
 
         return (
           <TableRow key={uniqueKey}>
@@ -413,15 +418,12 @@ export function VoidInvoiceSessionsTable({
               <ReconciliationTableLinkButton
                 onClick={() => handlers.onOpenSession(item.session_id)}
               >
-                {item.session_name || '—'}
+                {sessionLabel}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <ReconciliationTableLinkButton
-                className="text-muted-foreground text-sm"
-                onClick={() => handlers.onOpenInvoice(item.void_invoice_id)}
-              >
-                {invoiceNumberDisplay}
+              <ReconciliationTableLinkButton onClick={() => handlers.onOpenInvoice(item.void_invoice_id)}>
+                {invoiceNumberLabel}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
@@ -455,9 +457,7 @@ export function UnpaidInvoicesTable({
       isLoading={isLoading}
       columns={['Date', 'Student', 'Session', 'Invoice number']}
       renderRow={(item, _index) => {
-        const sessionLabel = item.session_start_at
-          ? format(new Date(item.session_start_at), 'MMM d, yyyy')
-          : '—';
+        const sessionLabel = item.session_short_name?.trim() || '—';
         const invoiceNumberLabel =
           item.stripe_invoice_number?.trim() ||
           (item.stripe_invoice_id ? item.stripe_invoice_id.slice(0, 12) : item.id.slice(0, 8));
@@ -899,6 +899,8 @@ export function StudentsWithoutClassesTable({
         const subject = subjectMap.get(item.subject_id) || {
           id: item.subject_id,
           name: item.subject_name,
+          short_name: item.subject_short_name,
+          long_name: item.subject_long_name,
           curriculum: item.subject_curriculum,
           year_level: item.subject_year_level,
         } as Tables<'subjects'>;
@@ -925,7 +927,7 @@ export function StudentsWithoutClassesTable({
                 className={cn('text-xs whitespace-nowrap', defaultClass || textColorClass)}
                 style={style.backgroundColor ? style : undefined}
               >
-                {subject?.long_name ?? ''}
+                {subject?.short_name?.trim() || subject?.name?.trim() || subject?.long_name?.trim() || ''}
               </Badge>
             </TableCell>
             <TableCell className={ACTIONS_CELL}>

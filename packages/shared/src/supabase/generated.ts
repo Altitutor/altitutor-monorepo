@@ -8362,6 +8362,7 @@ export type Database = {
           session_end_at: string | null
           session_id: string | null
           session_name: string | null
+          session_short_name: string | null
           session_start_at: string | null
           session_type: Database["public"]["Enums"]["session_type"] | null
           sessions_students_id: string | null
@@ -8377,6 +8378,7 @@ export type Database = {
           void_invoice_date: string | null
           void_invoice_id: string | null
           void_invoice_voided_at: string | null
+          void_stripe_invoice_id: string | null
           void_stripe_invoice_number: string | null
           was_trial: boolean | null
         }
