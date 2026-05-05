@@ -2,7 +2,8 @@
 -- Purpose:
 --   - Release sessions_students unique slot after reconciliation archives void invoices (deleted_at)
 --   - Exclude soft-deleted rows from uninvoiced / RPC / portal views
---   - Allow new session-runner invoice same student+date after soft-delete (partial unique on invoices)
+-- Session-runner billing: one invoice per sessions_students run (multiple invoices per student per
+-- invoice_date are valid). Dedupe is enforced per sessions_students_id on invoice_items only.
 
 ALTER TABLE public.invoices
   ADD COLUMN IF NOT EXISTS deleted_at timestamptz;
@@ -20,65 +21,6 @@ DROP INDEX IF EXISTS public.invoice_items_sessions_students_unique;
 DROP INDEX IF EXISTS public.idx_invoice_items_unique_session_charge;
 DROP INDEX IF EXISTS public.uq_invoices_session_runner_student_invoice_date;
 
--- Remote DBs may already have >1 session_runner row per (student_id, invoice_date) (historical dupes);
--- local db reset has none. Must soft-delete extras before partial unique index can be created.
-WITH ranked_invoices AS (
-  SELECT
-    id,
-    ROW_NUMBER() OVER (
-      PARTITION BY student_id, invoice_date
-      ORDER BY
-        CASE status
-          WHEN 'paid' THEN 1
-          WHEN 'open' THEN 2
-          WHEN 'draft' THEN 3
-          WHEN 'void' THEN 4
-          ELSE 5
-        END,
-        COALESCE(paid_at, '-infinity'::timestamptz) DESC,
-        updated_at DESC NULLS LAST,
-        id DESC
-    ) AS rn
-  FROM public.invoices
-  WHERE billing_source = 'session_runner'
-    AND deleted_at IS NULL
-),
-invoice_losers AS (
-  SELECT id FROM ranked_invoices WHERE rn > 1
-)
-UPDATE public.invoice_items ii
-SET deleted_at = now()
-WHERE ii.deleted_at IS NULL
-  AND ii.invoice_id IN (SELECT id FROM invoice_losers);
-
-WITH ranked_invoices AS (
-  SELECT
-    id,
-    ROW_NUMBER() OVER (
-      PARTITION BY student_id, invoice_date
-      ORDER BY
-        CASE status
-          WHEN 'paid' THEN 1
-          WHEN 'open' THEN 2
-          WHEN 'draft' THEN 3
-          WHEN 'void' THEN 4
-          ELSE 5
-        END,
-        COALESCE(paid_at, '-infinity'::timestamptz) DESC,
-        updated_at DESC NULLS LAST,
-        id DESC
-    ) AS rn
-  FROM public.invoices
-  WHERE billing_source = 'session_runner'
-    AND deleted_at IS NULL
-),
-invoice_losers AS (
-  SELECT id FROM ranked_invoices WHERE rn > 1
-)
-UPDATE public.invoices inv
-SET deleted_at = now()
-WHERE inv.id IN (SELECT id FROM invoice_losers);
-
 CREATE UNIQUE INDEX invoice_items_sessions_students_unique
   ON public.invoice_items (sessions_students_id)
   WHERE sessions_students_id IS NOT NULL
@@ -91,17 +33,12 @@ CREATE UNIQUE INDEX idx_invoice_items_unique_session_charge
   WHERE is_fee = false
     AND deleted_at IS NULL;
 
-CREATE UNIQUE INDEX uq_invoices_session_runner_student_invoice_date
-  ON public.invoices (student_id, invoice_date)
-  WHERE billing_source = 'session_runner'
-    AND deleted_at IS NULL;
+-- Session charges: one active line per sessions_students_id (invoice headers can repeat per student/date).
 
 COMMENT ON INDEX public.invoice_items_sessions_students_unique IS
   'At most one active (non-deleted) session charge line per sessions_students_id.';
 COMMENT ON INDEX public.idx_invoice_items_unique_session_charge IS
   'Duplicate session charge on same invoice prevented for active (non-deleted) rows.';
-COMMENT ON INDEX public.uq_invoices_session_runner_student_invoice_date IS
-  'At most one active session-runner invoice per student per invoice_date.';
 
 -- Billing RPC: ignore soft-deleted invoice / lines
 CREATE OR REPLACE FUNCTION public.get_invoiced_sessions_students_ids(p_sessions_students_ids uuid[])
