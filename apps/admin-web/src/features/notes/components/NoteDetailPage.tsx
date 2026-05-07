@@ -138,11 +138,11 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
 
   const handleDelete = useCallback(async () => {
     if (!note) return;
-    if (!confirm('Are you sure you want to delete this note?')) return;
+    if (!confirm('Are you sure you want to delete this document?')) return;
 
     try {
       await deleteNote.mutateAsync(noteId);
-      router.push('/notes');
+      router.push('/documents');
     } catch {
       // no-op
     }
@@ -207,7 +207,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   }
 
   if (!note) {
-    return <div className="p-6">Note not found</div>;
+    return <div className="p-6">Document not found</div>;
   }
 
   return (
@@ -264,7 +264,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Delete note
+                      Delete document
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -283,7 +283,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           onInput={handleTitleInput}
                           onKeyDown={handleTitleKeyDown}
                           data-placeholder="Untitled"
-                          className="text-4xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground whitespace-nowrap overflow-hidden"
+                          className="text-4xl font-semibold tracking-tight leading-tight outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[44px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground max-md:whitespace-normal max-md:break-words md:whitespace-nowrap md:overflow-hidden"
                           suppressContentEditableWarning
                         />
                       </FormControl>

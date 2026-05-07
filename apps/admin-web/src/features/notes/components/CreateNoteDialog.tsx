@@ -66,7 +66,7 @@ export function CreateNoteDialog({
       if (onNoteCreated) {
         onNoteCreated(createdNote.id);
       } else {
-        router.push(`/notes/${createdNote.id}`);
+        router.push(`/documents/${createdNote.id}`);
       }
     } catch (error) {
       // Error handled by mutation
@@ -90,8 +90,8 @@ export function CreateNoteDialog({
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Create Note</DialogTitle>
-          <DialogDescription>Create a new note to start writing.</DialogDescription>
+          <DialogTitle>New document</DialogTitle>
+          <DialogDescription>Add a document title. You can write content after it opens.</DialogDescription>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -102,7 +102,7 @@ export function CreateNoteDialog({
                 <FormItem>
                   <FormLabel>Title</FormLabel>
                   <FormControl>
-                    <Input placeholder="Note title" {...field} />
+                    <Input placeholder="Document title" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

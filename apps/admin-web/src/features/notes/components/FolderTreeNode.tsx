@@ -6,6 +6,7 @@ import type { FolderTreeItem } from '../types';
 import { DraggableNote } from './DraggableNote';
 import { DraggableFolder } from './DraggableFolder';
 import { DroppableFolder } from './DroppableFolder';
+import { FolderInlineCreateDocument } from './FolderInlineCreateDocument';
 
 interface FolderTreeNodeProps {
   folder: FolderTreeItem;
@@ -22,20 +23,17 @@ export function FolderTreeNode({ folder, level = 0, onNoteClick, onProjectClick,
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
 
-  const hasChildren = folder.children.length > 0 || folder.notes.length > 0;
   const indent = level * 20;
 
   const handleFolderClick = () => {
-    if (hasChildren) {
-      setIsExpanded(!isExpanded);
-    }
+    setIsExpanded(!isExpanded);
   };
 
   const handleNoteClick = (noteId: string) => {
     if (onNoteClick) {
       onNoteClick(noteId);
     } else {
-      router.push(`/notes/${noteId}`);
+      router.push(`/documents/${noteId}`);
     }
   };
 
@@ -82,6 +80,12 @@ export function FolderTreeNode({ folder, level = 0, onNoteClick, onProjectClick,
                 projects={projects}
               />
             ))}
+
+            <FolderInlineCreateDocument
+              folderId={folder.id}
+              indent={indent + 36}
+              onCreated={(id) => handleNoteClick(id)}
+            />
           </div>
         )}
       </div>

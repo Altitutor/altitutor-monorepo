@@ -184,7 +184,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push(`/notes/${noteId}`)}>
+                  <DropdownMenuItem onClick={() => router.push(`/documents/${noteId}`)}>
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open in page
                   </DropdownMenuItem>
@@ -236,7 +236,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                                 value={field.value || ''}
                                 onChange={field.onChange}
                                 placeholder="Untitled"
-                                className="w-full text-3xl font-semibold bg-transparent outline-none border-none"
+                                className="w-full text-4xl font-semibold tracking-tight leading-tight bg-transparent outline-none border-none"
                               />
                             </FormControl>
                           </FormItem>

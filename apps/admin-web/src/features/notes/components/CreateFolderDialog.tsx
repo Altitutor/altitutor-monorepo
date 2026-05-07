@@ -99,7 +99,7 @@ export function CreateFolderDialog({
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <DialogTitle>Create Folder</DialogTitle>
-              <DialogDescription>Create a new folder to organize your notes.</DialogDescription>
+              <DialogDescription>Create a new folder to organize your documents.</DialogDescription>
             </div>
             <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>

@@ -71,8 +71,8 @@ const navItems: NavItem[] = [
     icon: MessageCircle,
   },
   {
-    title: 'Notes',
-    href: '/notes',
+    title: 'Documents',
+    href: '/documents',
     icon: FileText,
   },
   {

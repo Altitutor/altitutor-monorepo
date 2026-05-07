@@ -13,6 +13,7 @@ import {
 import { useFolderTree, useNotes } from '../api/queries';
 import { useProjects } from '@/features/projects/api/queries';
 import { FolderTreeNode } from './FolderTreeNode';
+import { FolderInlineCreateDocument } from './FolderInlineCreateDocument';
 import { NotesSearchResults } from './NotesSearchResults';
 import { Skeleton } from '@altitutor/ui';
 import { useNoteDragAndDrop } from '../hooks/useNoteDragAndDrop';
@@ -66,7 +67,7 @@ export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: Fo
     if (onNoteClick) {
       onNoteClick(noteId);
     } else {
-      router.push(`/notes/${noteId}`);
+      router.push(`/documents/${noteId}`);
     }
   };
 
@@ -166,8 +167,8 @@ export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: Fo
   if (!hasFolders && !hasNotesWithoutFolder) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <p className="text-lg font-medium mb-2">No folders or notes yet</p>
-        <p className="text-sm">Create a folder or note to get started</p>
+        <p className="text-lg font-medium mb-2">No folders or documents yet</p>
+        <p className="text-sm">Create a folder or document to get started</p>
       </div>
     );
   }
@@ -202,6 +203,11 @@ export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: Fo
                   />
                 );
               })}
+              <FolderInlineCreateDocument
+                folderId={null}
+                indent={8}
+                onCreated={(id) => handleNoteClick(id)}
+              />
             </DroppableNoFolder>
           </div>
         )}

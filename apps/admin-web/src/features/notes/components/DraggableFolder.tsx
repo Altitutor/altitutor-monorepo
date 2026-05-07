@@ -63,7 +63,6 @@ export function DraggableFolder({
     },
   });
 
-  const hasChildren = folder.children.length > 0 || folder.notes.length > 0;
   const isEmpty = folder.children.length === 0 && folder.notes.length === 0;
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -99,14 +98,10 @@ export function DraggableFolder({
         {...attributes}
         {...listeners}
       >
-        {hasChildren ? (
-          isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          )
+        {isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         ) : (
-          <div className="w-4" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         )}
         <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <span className="flex-1 truncate">{folder.name}</span>
