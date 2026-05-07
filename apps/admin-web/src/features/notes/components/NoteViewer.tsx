@@ -8,6 +8,7 @@ import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
+import { CollapsibleHeading } from '@altitutor/ui';
 import type { JSONContent } from '@tiptap/core';
 import { cn } from '@/shared/utils';
 import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
@@ -20,9 +21,11 @@ interface NoteViewerProps {
 /** Extensions for generateHTML - must include Mention and Image to render mention and image nodes */
 const VIEW_EXTENSIONS = [
   StarterKit.configure({
+    heading: false,
     bulletList: { keepMarks: true, keepAttributes: false },
     orderedList: { keepMarks: true, keepAttributes: false },
   }),
+  CollapsibleHeading.configure({ levels: [1, 2, 3, 4, 5, 6] }),
   Mention.configure({
     HTMLAttributes: {
       class: 'bg-primary/10 text-primary px-1 rounded-sm font-medium',

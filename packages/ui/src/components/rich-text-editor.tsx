@@ -13,6 +13,7 @@ import Image from '@tiptap/extension-image';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
+import { CollapsibleHeading } from '../extensions/collapsible-heading';
 import { SlashCommandExtension } from '../extensions/slash-command';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
@@ -319,6 +320,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        heading: false,
         bulletList: {
           keepMarks: true,
           keepAttributes: false,
@@ -327,6 +329,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           keepMarks: true,
           keepAttributes: false,
         },
+      }),
+      CollapsibleHeading.configure({
+        levels: [1, 2, 3, 4, 5, 6],
       }),
       Markdown.configure({
         markedOptions: {
@@ -566,6 +571,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 '[&_.details-content]:border-t [&_.details-content]:border-border [&_.details-content]:px-3 [&_.details-content]:pb-3 [&_.details-content]:pt-2',
               ],
           '[&_.ProseMirror]:cursor-text',
+          '[&_.ProseMirror]:pl-6',
           '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_p.is-empty.is-editor-empty:first-child::before]:text-muted-foreground',
           '[&_p.is-empty.is-editor-empty:first-child::before]:float-left',
