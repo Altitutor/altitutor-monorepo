@@ -43,13 +43,11 @@ function CollapsibleHeadingView(props: NodeViewProps) {
         'tiptap-heading-block min-w-0',
         wrapSpacing,
         editor.isEditable &&
-          'grid w-[calc(100%+1.5rem)] max-w-none -ml-6 grid-cols-[minmax(1.5rem,1.5rem)_minmax(0,1fr)] items-start gap-0'
+          'grid max-w-none items-start gap-0 -ml-[2.75rem] w-[calc(100%+2.75rem)] grid-cols-[minmax(0,2.75rem)_minmax(0,1fr)]'
       )}
     >
       {editor.isEditable ? (
-        <div
-          className="tiptap-heading-gutter flex min-h-0 w-full min-w-0 shrink-0 justify-center pt-[0.2em]"
-        >
+        <div className="tiptap-heading-gutter flex min-h-0 w-full min-w-0 shrink-0 justify-center px-2 pt-[0.2em]">
           <button
             type="button"
             contentEditable={false}

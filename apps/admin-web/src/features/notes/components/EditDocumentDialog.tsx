@@ -222,9 +222,9 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
         {!editorReady ? (
           <div className="p-6">Loading document...</div>
         ) : (
-          <div className="flex-1 overflow-hidden min-h-0">
+          <div className="flex min-h-0 flex-1 flex-col">
             <Form {...form}>
-              <form className="h-full flex min-w-0">
+              <form className="flex h-full min-w-0">
                 <NoteAutoSaveBridge
                   form={form}
                   noteId={noteId}
@@ -234,9 +234,18 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   onSave={handleAutoSave}
                 />
 
-                <div className="flex-1 flex flex-col min-w-0 border-r overflow-hidden">
-                  <ScrollArea className="flex-1 min-w-0 max-w-full">
-                    <div className="p-6 space-y-4 max-w-3xl mx-auto">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r">
+                  {/*
+                    Native vertical scroll instead of ScrollArea: Radix ScrollArea uses
+                    overflow-x: hidden on the viewport, which clips the heading fold gutter
+                    (negative margin on .tiptap-heading-block).
+                  */}
+                  <div className="max-h-full min-h-0 min-w-0 flex-1 overflow-y-auto">
+                    {/*
+                      Left padding ≥ gutter outdent (2.75rem) so the fold control stays inside
+                      the scroll paint bounds even when overflow-x computes to auto.
+                    */}
+                    <div className="mx-auto max-w-3xl space-y-4 pb-6 pl-[2.75rem] pr-6 pt-6">
                       <div className="md:hidden">
                         <NotePropertyPills form={form} folders={folders || []} />
                       </div>
@@ -277,7 +286,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                         )}
                       />
                     </div>
-                  </ScrollArea>
+                  </div>
 
                   <div className="flex-shrink-0 px-4 pb-4 pt-2">
                     <NoteEditorBottomToolbar editor={editorInstance} />
