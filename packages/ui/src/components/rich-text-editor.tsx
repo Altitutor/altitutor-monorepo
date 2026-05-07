@@ -19,6 +19,7 @@ import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { cn } from '../lib/cn';
+import { TableInsertHandles } from './table-insert-handles';
 
 const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
 const UPLOAD_PLACEHOLDER_SUFFIX = '__';
@@ -96,6 +97,12 @@ export interface RichTextEditorRef {
   getEditor: () => Editor | null;
 }
 
+export interface MentionClickDetail {
+  id: string;
+  type: string;
+  label: string;
+}
+
 export interface RichTextEditorProps {
   /**
    * Content can be a JSON object (preferred), a JSON string, or a Markdown string.
@@ -135,6 +142,11 @@ export interface RichTextEditorProps {
    * If provided, typing @ will trigger the mention suggestions.
    */
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
+  /**
+   * When returning true, the default `mentionClick` window event is not dispatched.
+   * Use for context-specific navigation (e.g. document links in dialogs vs full page).
+   */
+  onMentionClick?: (detail: MentionClickDetail) => boolean;
   /**
    * Optional callback when image file(s) are pasted from the clipboard.
    * When set, paste events that contain image files (or HTML with embedded data/blob images) call this.
@@ -289,6 +301,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   minHeight = '200px',
   editable = true,
   mentionSuggestions,
+  onMentionClick,
   onPasteImages,
   pastePlainTextAsParagraphs = false,
   pasteTableBehavior,
@@ -312,6 +325,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   onChangeRef.current = onChange;
   const onMarkdownChangeRef = useRef(onMarkdownChange);
   onMarkdownChangeRef.current = onMarkdownChange;
+  const onMentionClickRef = useRef(onMentionClick);
+  onMentionClickRef.current = onMentionClick;
 
   // Capture-phase clipboard read: when pasting table (or other content), clipboardData can be
   // empty in the bubble-phase paste handler. Reading in capture phase gives us the data first.
@@ -512,11 +527,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           const label = mentionNode.innerText;
           
           if (id && type) {
-            // Custom event for mention click
-            const customEvent = new CustomEvent('mentionClick', { 
-              detail: { id, type, label } 
-            });
-            window.dispatchEvent(customEvent);
+            const detail = { id, type, label };
+            const handled = onMentionClickRef.current?.(detail) ?? false;
+            if (!handled) {
+              window.dispatchEvent(
+                new CustomEvent<MentionClickDetail>('mentionClick', { detail })
+              );
+            }
             return true;
           }
         }
@@ -1031,8 +1048,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }}
     >
       <EditorContent editor={editor} className="min-h-0 flex-1 overflow-visible" />
+      <TableInsertHandles editor={editor} editable={editable} />
     </div>
   );
 });
 
 RichTextEditor.displayName = 'RichTextEditor';
+
+export { TableInsertHandles } from './table-insert-handles';
