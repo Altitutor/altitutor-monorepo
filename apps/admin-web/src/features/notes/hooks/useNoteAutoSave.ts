@@ -35,8 +35,8 @@ export function useNoteAutoSave({
   const folderId = form.watch('folder_id');
   const projectId = form.watch('project_id');
 
-  const debouncedTitleTrigger = useDebounce(title, 1000);
-  const debouncedContentTrigger = useDebounce(content, 1000);
+  const debouncedTitleTrigger = useDebounce(title, 300);
+  const debouncedContentTrigger = useDebounce(content, 300);
 
   // Auto-save for title — runs when debounced title changes (not every keystroke).
   useEffect(() => {

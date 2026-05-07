@@ -11,6 +11,7 @@ import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
+import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
 import { SlashCommandExtension } from '../extensions/slash-command';
 import type { JSONContent } from '@tiptap/core';
@@ -348,6 +349,15 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         showOnlyWhenEditable: true,
         includeChildren: true,
       }),
+      Details.configure({
+        persist: true,
+        openClassName: 'is-open',
+        HTMLAttributes: {
+          class: 'my-3 rounded-lg border border-border bg-card/50 p-0 overflow-hidden not-prose',
+        },
+      }),
+      DetailsSummary,
+      DetailsContent,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
@@ -538,6 +548,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 '[&_.ProseMirror_li_ol]:mt-2 [&_.ProseMirror_li_ul]:mt-2',
                 '[&_.ProseMirror_table]:my-4 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted',
                 '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2',
+                '[&_details]:my-4 [&_details]:rounded-lg [&_details]:border [&_details]:border-border [&_details]:bg-card/40',
+                '[&_summary]:cursor-pointer [&_summary]:list-none [&_summary]:px-3 [&_summary]:py-2 [&_summary]:font-semibold [&_summary]:outline-none',
+                '[&_.details-content]:border-t [&_.details-content]:border-border [&_.details-content]:px-3 [&_.details-content]:pb-3 [&_.details-content]:pt-2',
               ]
             : [
                 'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
@@ -548,6 +561,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 'prose-li:my-1',
                 'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
                 'prose-td:border prose-td:border-border prose-td:p-2',
+                '[&_details]:my-4 [&_details]:rounded-lg [&_details]:border [&_details]:border-border [&_details]:bg-card/40',
+                '[&_summary]:cursor-pointer [&_summary]:list-none [&_summary]:px-3 [&_summary]:py-2 [&_summary]:font-semibold [&_summary]:outline-none',
+                '[&_.details-content]:border-t [&_.details-content]:border-border [&_.details-content]:px-3 [&_.details-content]:pb-3 [&_.details-content]:pt-2',
               ],
           '[&_.ProseMirror]:cursor-text',
           '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',

@@ -88,6 +88,15 @@ export function useSlashCommandSuggestions() {
         },
       },
       {
+        title: 'Collapsible section',
+        subtext: 'Toggle hidden body content (TipTap details — like Notion toggle)',
+        group: 'Blocks',
+        keywords: ['toggle', 'fold', 'collapse', 'details', 'heading'],
+        onSelect: ({ editor, range }) => {
+          editor.chain().focus().deleteRange(range).setDetails().run();
+        },
+      },
+      {
         title: 'Quote',
         subtext: 'Insert a blockquote',
         group: 'Blocks',

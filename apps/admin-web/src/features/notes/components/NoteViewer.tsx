@@ -7,6 +7,7 @@ import Image from '@tiptap/extension-image';
 import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
+import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import type { JSONContent } from '@tiptap/core';
 import { cn } from '@/shared/utils';
 import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
@@ -50,6 +51,14 @@ const VIEW_EXTENSIONS = [
     backgroundColor: { types: ['textStyle'] },
   }),
   Typography,
+  Details.configure({
+    persist: true,
+    HTMLAttributes: {
+      class: 'my-3 rounded-lg border border-border bg-card/40',
+    },
+  }),
+  DetailsSummary,
+  DetailsContent,
 ];
 
 /**

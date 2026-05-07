@@ -17,7 +17,7 @@ export interface NotesEditorWithMentionsProps {
   minHeight?: string;
   types?: readonly (keyof typeof entityTypes)[];
   className?: string;
-  /** Default 350ms — fewer RHF updates while typing long notes in activity tabs. */
+  /** Default 200ms — fewer RHF updates while typing long notes in activity tabs. */
   onChangeDebounceMs?: number;
 }
 
@@ -29,7 +29,7 @@ export interface NotesEditorWithMentionsProps {
 export const NotesEditorWithMentions = forwardRef<
   NotesEditorWithMentionsRef,
   NotesEditorWithMentionsProps
->(({ content, onChange, placeholder = 'Add a note...', disabled, minHeight = '80px', types, className, onChangeDebounceMs = 350 }, ref) => {
+>(({ content, onChange, placeholder = 'Add a note...', disabled, minHeight = '80px', types, className, onChangeDebounceMs = 200 }, ref) => {
   const mentionSuggestions = useMentionSuggestions({ types });
   const slashMenuSuggestions = useSlashCommandSuggestions();
   const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
