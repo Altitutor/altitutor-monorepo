@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   ScrollArea,
   type JSONContent,
+  type MentionClickDetail,
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Trash2, X, Loader2, Check, CloudOff } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
@@ -34,6 +35,8 @@ import type { Editor } from '@tiptap/react';
 import { useNote, useFolders } from '../api/queries';
 import { useDeleteNote, useUpdateNote } from '../hooks/useNoteMutations';
 import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
+import { useHydrateLinkedNoteTitles } from '../hooks/useHydrateLinkedNoteTitles';
+import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
@@ -47,6 +50,7 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -70,10 +74,18 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [linkedDocumentId, setLinkedDocumentId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (!isOpen) {
+      setExpanded(false);
+      setLinkedDocumentId(null);
+    }
   }, [isOpen]);
+
+  useEffect(() => {
+    setLinkedDocumentId(null);
+  }, [noteId]);
 
   /** Until reset runs, RHF can still hold the previous note — never paint that into the editor. */
   useLayoutEffect(() => {
@@ -97,6 +109,30 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
       project_id: null,
     },
   });
+
+  const mentionSuggestions = useMentionSuggestions({
+    types: DOCUMENT_NOTE_MENTION_TYPES,
+    excludeIds: noteId ? [noteId] : [],
+  });
+
+  useHydrateLinkedNoteTitles({
+    form,
+    noteId,
+    isInitialized,
+    isUpdatingFromServerRef,
+  });
+
+  const handleDocumentMentionClick = useCallback(
+    (detail: MentionClickDetail) => {
+      if (!noteId) return false;
+      if (detail.type === 'note' && detail.id !== noteId) {
+        setLinkedDocumentId(detail.id);
+        return true;
+      }
+      return false;
+    },
+    [noteId]
+  );
 
   useLayoutEffect(() => {
     if (
@@ -155,7 +191,8 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
     !isLoading && !!note && note.id === noteId && isInitialized && lastResetNoteIdRef.current === noteId;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={cn(
           'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
@@ -280,6 +317,8 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                                 onChange={field.onChange}
                                 placeholder="Start writing..."
                                 onEditorReady={handleEditorReady}
+                                mentionSuggestions={mentionSuggestions}
+                                onMentionClick={handleDocumentMentionClick}
                               />
                             </FormControl>
                           </FormItem>
@@ -336,5 +375,14 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
     </Dialog>
+
+      {linkedDocumentId ? (
+        <EditDocumentDialog
+          isOpen
+          noteId={linkedDocumentId}
+          onClose={() => setLinkedDocumentId(null)}
+        />
+      ) : null}
+    </>
   );
 }

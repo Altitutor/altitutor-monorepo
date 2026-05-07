@@ -10,12 +10,15 @@ import Typography from '@tiptap/extension-typography';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { CollapsibleHeading } from '@altitutor/ui';
 import type { JSONContent } from '@tiptap/core';
+import type { MentionClickDetail } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
 
 interface NoteViewerProps {
   content: JSONContent | string | null | undefined;
   className?: string;
+  /** When provided and returns true, blocks the global `mentionClick` window event. */
+  onMentionClick?: (detail: MentionClickDetail) => boolean;
 }
 
 /** Extensions for generateHTML - must include Mention and Image to render mention and image nodes */
@@ -68,7 +71,7 @@ const VIEW_EXTENSIONS = [
  * Component to render ProseMirror JSON content in view mode.
  * Handles TipTap JSON, plain text, and legacy @[type:id:text] format.
  */
-export function NoteViewer({ content, className }: NoteViewerProps) {
+export function NoteViewer({ content, className, onMentionClick }: NoteViewerProps) {
   if (!content) {
     return (
       <div className={cn('text-muted-foreground italic', className)}>
@@ -102,6 +105,22 @@ export function NoteViewer({ content, className }: NoteViewerProps) {
   try {
     const html = generateHTML(jsonContent, VIEW_EXTENSIONS);
 
+    const handleMentionPointerDown = (e: React.MouseEvent<HTMLDivElement>) => {
+      if (e.button !== 0) return;
+      const mentionEl = (e.target as HTMLElement).closest('[data-mention]');
+      if (!mentionEl) return;
+      const id = mentionEl.getAttribute('data-id');
+      const type = mentionEl.getAttribute('data-type');
+      const label = mentionEl.textContent?.trim() ?? '';
+      if (!id || !type) return;
+      e.preventDefault();
+      const detail: MentionClickDetail = { id, type, label };
+      const handled = onMentionClick?.(detail) ?? false;
+      if (!handled) {
+        window.dispatchEvent(new CustomEvent<MentionClickDetail>('mentionClick', { detail }));
+      }
+    };
+
     return (
       <div
         className={cn(
@@ -116,6 +135,7 @@ export function NoteViewer({ content, className }: NoteViewerProps) {
           className
         )}
         dangerouslySetInnerHTML={{ __html: html }}
+        onPointerDownCapture={handleMentionPointerDown}
       />
     );
   } catch {

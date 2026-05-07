@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ViewStudentModal } from '@/features/students/components';
 import { ViewStaffModal } from '@/features/staff/components/modal';
 import { ViewClassModal } from '@/features/classes/components';
@@ -19,12 +20,17 @@ import { EditProjectDialog } from '@/features/projects/components/EditProjectDia
  * in any RichTextEditor across the application.
  */
 export function MentionModalProvider({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const [selectedEntity, setSelectedEntity] = useState<{ type: string; id: string } | null>(null);
 
   useEffect(() => {
     const handleMentionClick = (event: Event) => {
       const { id, type } = (event as CustomEvent<{ id: string; type: string }>).detail ?? {};
       if (id && type) {
+        if (type === 'note') {
+          router.push(`/documents/${id}`);
+          return;
+        }
         setSelectedEntity({ id, type });
       }
     };
@@ -42,7 +48,7 @@ export function MentionModalProvider({ children }: { children: React.ReactNode }
       window.removeEventListener('mentionClick', handleMentionClick);
       window.removeEventListener('open-session-modal', handleOpenSessionModal as EventListener);
     };
-  }, []);
+  }, [router]);
 
   const closeModals = () => setSelectedEntity(null);
 

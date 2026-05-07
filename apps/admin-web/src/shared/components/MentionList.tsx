@@ -52,6 +52,8 @@ export interface MentionListProps {
   command: (item: CommandPaletteEntityResult) => void;
   query: string;
   types?: readonly string[];
+  /** Omit entities (by id) from the picker, e.g. the document being edited. */
+  excludeEntityIds?: readonly string[];
 }
 
 export interface MentionListRef {
@@ -70,7 +72,15 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
     types: effectiveTypes,
   });
 
-  const items = results;
+  const excludeSet = useMemo(
+    () => new Set(props.excludeEntityIds ?? []),
+    [props.excludeEntityIds]
+  );
+
+  const items = useMemo(
+    () => results.filter((item) => !excludeSet.has(item.id)),
+    [results, excludeSet]
+  );
 
   const { groupedItems, flatItems, typesWithResults } = useMemo(() => {
     const groups: Record<string, { type: string; label: string; items: CommandPaletteEntityResult[]; maxScore: number }> = {};

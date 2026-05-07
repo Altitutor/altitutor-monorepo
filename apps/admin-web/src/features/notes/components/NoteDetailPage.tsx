@@ -22,6 +22,7 @@ import {
   TabsTrigger,
   TabsContent,
   type JSONContent,
+  type MentionClickDetail,
 } from '@altitutor/ui';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
@@ -36,12 +37,14 @@ import { useFolders } from '../api/queries';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
 import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
-import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import { useHydrateLinkedNoteTitles } from '../hooks/useHydrateLinkedNoteTitles';
+import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import type { NoteFormData } from '../types';
 import type { Resolver } from 'react-hook-form';
 import { Check, CloudOff, MoreVertical, Trash2 } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
+import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -53,8 +56,6 @@ const formSchema = z.object({
 interface NoteDetailPageProps {
   noteId: string;
 }
-
-const NOTE_MENTION_TYPES = ['issues', 'projects', 'tasks', 'students', 'staff', 'parents', 'classes', 'subjects'] as const;
 
 export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const router = useRouter();
@@ -68,9 +69,6 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const noteEditorRef = useRef<NoteEditorRef>(null);
   const editorInstanceRef = useRef<Editor | null>(null);
-  const mentionSuggestions = useMentionSuggestions({
-    types: NOTE_MENTION_TYPES,
-  });
 
   const currentNoteIdRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
@@ -88,6 +86,29 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       project_id: null,
     },
   });
+
+  const mentionSuggestions = useMentionSuggestions({
+    types: DOCUMENT_NOTE_MENTION_TYPES,
+    excludeIds: [noteId],
+  });
+
+  useHydrateLinkedNoteTitles({
+    form,
+    noteId,
+    isInitialized,
+    isUpdatingFromServerRef,
+  });
+
+  const handleDocumentMentionClick = useCallback(
+    (detail: MentionClickDetail) => {
+      if (detail.type === 'note' && detail.id !== noteId) {
+        router.push(`/documents/${detail.id}`);
+        return true;
+      }
+      return false;
+    },
+    [noteId, router]
+  );
 
   useEffect(() => {
     if (currentNoteIdRef.current !== noteId) {
@@ -322,6 +343,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           placeholder="Start writing..."
                           onEditorReady={handleEditorReady}
                           mentionSuggestions={mentionSuggestions}
+                          onMentionClick={handleDocumentMentionClick}
                         />
                       </FormControl>
                     </FormItem>

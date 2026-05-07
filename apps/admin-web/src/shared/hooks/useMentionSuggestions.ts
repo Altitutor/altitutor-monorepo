@@ -10,6 +10,8 @@ type MentionSearchType = keyof typeof entityTypes;
 
 interface UseMentionSuggestionsOptions {
   types?: readonly MentionSearchType[];
+  /** Entity ids to hide from results (e.g. link picker must not include the open document). */
+  excludeIds?: readonly string[];
 }
 
 /**
@@ -37,6 +39,8 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
     [options?.types]
   );
 
+  const excludeIds = options?.excludeIds;
+
   return useMemo(() => ({
     items: async (_props: { query: string }): Promise<CommandPaletteEntityResult[]> => {
       // Resolve immediately so TipTap shows the dropdown right away.
@@ -51,7 +55,7 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
       return {
         onStart: (props: SuggestionProps) => {
           component = new ReactRenderer(MentionList, {
-            props: { ...props, types },
+            props: { ...props, types, excludeEntityIds: excludeIds },
             editor: props.editor,
           });
 
@@ -118,5 +122,5 @@ export function useMentionSuggestions(options?: UseMentionSuggestionsOptions) {
         },
       };
     },
-  }), [types]);
+  }), [types, excludeIds]);
 }

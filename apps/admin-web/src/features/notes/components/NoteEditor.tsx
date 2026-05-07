@@ -1,4 +1,4 @@
-import { RichTextEditor, type RichTextEditorRef as NoteEditorRef, type JSONContent } from '@altitutor/ui';
+import { RichTextEditor, type RichTextEditorRef as NoteEditorRef, type JSONContent, type MentionClickDetail } from '@altitutor/ui';
 import { forwardRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { SuggestionOptions } from '@tiptap/suggestion';
@@ -16,6 +16,7 @@ interface NoteEditorProps {
   autoFocus?: boolean;
   onEditorReady?: (editor: Editor) => void;
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
+  onMentionClick?: (detail: MentionClickDetail) => boolean;
   /** Default 200ms — with autosave debounce, changes persist ~0.5–0.8s after you stop typing. */
   onChangeDebounceMs?: number;
 }
