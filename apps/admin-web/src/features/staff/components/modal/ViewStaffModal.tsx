@@ -47,6 +47,7 @@ import {
 } from '../../hooks';
 import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 import { IssuePill } from '@/features/issues';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 
 interface ViewStaffModalProps {
   isOpen: boolean;
@@ -66,6 +67,7 @@ export function ViewStaffModal({
   const queryClient = useQueryClient();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
+  const { openCheckInModal } = useQuickActions();
   
   // React Query hooks - fetch data only when modal is open and staffId exists
   const { data: staffData, isLoading } = useStaffDetails(staffId || '', isOpen && !!staffId);
@@ -119,6 +121,18 @@ export function ViewStaffModal({
     },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
+    onBookCheckIn: staffMember
+      ? () =>
+          openCheckInModal({
+            staff: [
+              {
+                id: staffMember.id,
+                first_name: staffMember.first_name,
+                last_name: staffMember.last_name,
+              },
+            ],
+          })
+      : undefined,
     onDelete: modals.openDeleteDialog,
   });
 

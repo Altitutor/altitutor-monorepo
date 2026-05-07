@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, Plus, Copy, Receipt } from 'lucide-react';
+import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, Plus, Copy, Receipt, ClipboardCheck } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { JSONContent } from '@tiptap/core';
 import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
@@ -35,6 +35,8 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   passwordResetLabel: string;
   onLogAbsence: () => void;
   onBookDraftingSession: () => void;
+  /** Opens global book check-in with this student pre-selected */
+  onBookCheckIn?: () => void;
   onDiscontinue?: () => void;
   onDelete: () => void;
 }
@@ -45,6 +47,7 @@ interface StaffActionsMenuProps extends BaseActionsMenuProps {
   onPasswordResetOrRegistration: () => void;
   passwordResetLabel: string;
   onLogAbsence: () => void;
+  onBookCheckIn?: () => void;
   onDelete: () => void;
 }
 
@@ -92,6 +95,7 @@ interface AdminShiftActionsMenuProps extends BaseActionsMenuProps {
 interface ParentActionsMenuProps extends BaseActionsMenuProps {
   type: 'parent';
   onDelete?: () => void;
+  onBookCheckIn?: () => void;
 }
 
 interface TopicActionsMenuProps extends BaseActionsMenuProps {
@@ -234,6 +238,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <FileText className="h-4 w-4 mr-2" />
               Book drafting session
             </DropdownMenuItem>
+            {props.onBookCheckIn && (
+              <DropdownMenuItem onClick={props.onBookCheckIn}>
+                <ClipboardCheck className="h-4 w-4 mr-2" />
+                Book check in
+              </DropdownMenuItem>
+            )}
             {canAddIssue && (
               <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -290,6 +300,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
             <Calendar className="h-4 w-4 mr-2" />
             Log absence
           </DropdownMenuItem>
+          {props.onBookCheckIn && (
+            <DropdownMenuItem onClick={props.onBookCheckIn}>
+              <ClipboardCheck className="h-4 w-4 mr-2" />
+              Book check in
+            </DropdownMenuItem>
+          )}
           {canAddIssue && (
             <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -677,6 +693,15 @@ export function ActionsMenu(props: ActionsMenuProps) {
             Open in page
           </DropdownMenuItem>
           {copyMenuItem}
+          {props.onBookCheckIn && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={props.onBookCheckIn}>
+                <ClipboardCheck className="h-4 w-4 mr-2" />
+                Book check in
+              </DropdownMenuItem>
+            </>
+          )}
           {canAddIssue && (
             <>
               <DropdownMenuSeparator />

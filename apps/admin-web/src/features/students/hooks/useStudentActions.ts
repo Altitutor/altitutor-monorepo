@@ -29,6 +29,8 @@ interface UseStudentActionsProps {
    * Callback for book drafting session
    */
   onBookDraftingSession: () => void;
+  /** Opens global book check-in with this student pre-selected */
+  onBookCheckIn?: () => void;
   /**
    * Optional callback for discontinue action
    */
@@ -52,6 +54,7 @@ export function useStudentActions({
   passwordResetLabel,
   onLogAbsence,
   onBookDraftingSession,
+  onBookCheckIn,
   onDiscontinue,
   onDelete,
 }: UseStudentActionsProps) {
@@ -72,6 +75,7 @@ export function useStudentActions({
     passwordResetLabel,
     onLogAbsence,
     onBookDraftingSession,
+    onBookCheckIn,
     onDiscontinue: student && (student.status === 'TRIAL' || student.status === 'ACTIVE')
       ? onDiscontinue
       : undefined,

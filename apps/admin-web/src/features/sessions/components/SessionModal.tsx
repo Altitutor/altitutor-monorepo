@@ -245,6 +245,9 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
           <SheetHeader className="px-6 py-4">
             <SheetTitle>{sessionData.isLoading ? 'Loading...' : ''}</SheetTitle>
+            <SheetDescription className="sr-only">
+              {sessionData.isLoading ? 'Loading session details.' : 'Session details unavailable.'}
+            </SheetDescription>
           </SheetHeader>
           {sessionData.isLoading && (
             <div className="py-6 text-center text-muted-foreground px-6">Loading session details...</div>
@@ -256,6 +259,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   const { session, sessionsStudents, sessionsStaff, tutorLog, sessionsParents = [] } = sessionData.data;
   const meetingMode = session.type !== 'CLASS';
+  const allowAbsenceLogging = Boolean(session.class_id || session.admin_shift_id);
   const parentsData = (sessionsParents as Array<{ id: string; parent: Tables<'parents'> | null }>)
     .filter((row): row is { id: string; parent: Tables<'parents'> } => row.parent != null)
     .map((row) => ({ parent: row.parent, sessionsParentsId: row.id }));
@@ -314,8 +318,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     </Button>
                     <div className="flex-1">
                       <SheetTitle>Session Details</SheetTitle>
-                      <SheetDescription className="text-lg font-medium">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <SheetDescription asChild>
+                        <div className="text-lg font-medium text-muted-foreground flex items-center gap-2 flex-wrap">
                           {sessionTitle}
                           <IssuePill
                             entityType="session"
@@ -372,14 +376,16 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onMessageStaff={handleMessageStaff}
                     onOpenTopic={handleOpenTopic}
                     onOpenFile={handleOpenFile}
-                    onLogAbsenceStudent={modals.openLogStudentAbsenceDialog}
-                    onLogAbsenceStaff={modals.openLogStaffAbsenceDialog}
+                    onLogAbsenceStudent={allowAbsenceLogging ? modals.openLogStudentAbsenceDialog : undefined}
+                    onLogAbsenceStaff={allowAbsenceLogging ? modals.openLogStaffAbsenceDialog : undefined}
                     isEditing={isEditing}
                     onEdit={() => setIsEditing(true)}
                     onCancelEdit={() => setIsEditing(false)}
                     onSubmit={handleSessionFormSubmit}
                     isUpdating={updateSessionMutation.isPending}
-                    onUndoLogAbsenceStudent={(payload) => {
+                    onUndoLogAbsenceStudent={
+                      allowAbsenceLogging
+                        ? (payload) => {
                       type SessionsStudentRowWithId = { sessions_students_id?: string; id?: string; rescheduled_session?: { session?: unknown } };
                       const sourceRow = (sessionsStudents as SessionsStudentRowWithId[]).find((row) =>
                         (row.sessions_students_id || row.id) === payload.sessionsStudentsId
@@ -396,8 +402,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                           ? getShortSessionName(rescheduledSession)
                           : undefined,
                       });
-                    }}
-                    onUndoLogAbsenceStaff={(payload) => {
+                    }
+                        : undefined
+                    }
+                    onUndoLogAbsenceStaff={
+                      allowAbsenceLogging
+                        ? (payload) => {
                       setUndoTarget({
                         entityType: 'staff',
                         staffId: payload.staffId,
@@ -406,7 +416,9 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                         action: payload.action,
                         swappedStaffName: payload.swappedStaffName,
                       });
-                    }}
+                    }
+                        : undefined
+                    }
                     onAddStudentToSession={meetingMode ? undefined : modals.openAddStudentToSessionModal}
                     onAddStaffToSession={meetingMode ? undefined : modals.openAddStaffToSessionModal}
                     meetingMode={meetingMode}

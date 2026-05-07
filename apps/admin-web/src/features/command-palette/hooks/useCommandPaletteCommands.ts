@@ -18,6 +18,7 @@ interface CommandActions {
   openCreateIssue: () => void;
   openCreateProject: () => void;
   openAnnouncementsModal: () => void;
+  openBookCheckIn: () => void;
 }
 
 interface UseCommandPaletteCommandsOptions {
@@ -68,6 +69,9 @@ export function useCommandPaletteCommands({
           break;
         case 'make-announcement':
           action = commandActions.openAnnouncementsModal;
+          break;
+        case 'book-check-in':
+          action = commandActions.openBookCheckIn;
           break;
       }
       return { ...cmd, action };

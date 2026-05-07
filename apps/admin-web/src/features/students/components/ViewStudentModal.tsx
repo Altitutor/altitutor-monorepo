@@ -10,6 +10,7 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useStudentDetails } from '../hooks/useStudentsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import {
@@ -78,6 +79,7 @@ export function ViewStudentModal({
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
+  const { openCheckInModal } = useQuickActions();
   
   // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
@@ -306,6 +308,18 @@ export function ViewStudentModal({
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
+    onBookCheckIn: student
+      ? () =>
+          openCheckInModal({
+            students: [
+              {
+                id: student.id,
+                first_name: student.first_name,
+                last_name: student.last_name,
+              },
+            ],
+          })
+      : undefined,
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });

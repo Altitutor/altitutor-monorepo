@@ -46,6 +46,16 @@ const SESSION_TYPE_ITEMS: { id: string; label: string }[] = SESSION_TYPES.map((t
   label: formatSessionType(t),
 }));
 
+function getParentLogAttendanceStatus(
+  tutorLog: SessionDetailsTutorLog | null,
+  parentId: string
+): 'attended' | 'did-not-attend' | 'not-logged' {
+  if (!tutorLog?.parentAttendance?.length) return 'not-logged';
+  const row = tutorLog.parentAttendance.find((p) => p.parent_id === parentId);
+  if (!row) return 'not-logged';
+  return row.attended ? 'attended' : 'did-not-attend';
+}
+
 const sessionEditSchema = z
   .object({
     type: z.enum([...SESSION_TYPES] as [string, ...string[]]),
@@ -198,6 +208,8 @@ export function SessionDetailsTab({
   isUpdating = false,
 }: SessionDetailsTabProps) {
   const { toast } = useToast();
+
+  const allowAbsenceLogging = Boolean(session?.class_id || session?.admin_shift_id);
   const hasTutorLog = !!tutorLog;
   const subject = session?.subject ?? session?.class?.subject;
   const classData = session?.class;
@@ -511,9 +523,15 @@ export function SessionDetailsTab({
               <TableHeader>
                 <TableRow>
                   <TableHead>Student</TableHead>
-                  <TableHead>Planned Attendance</TableHead>
-                  <TableHead>Actual Attendance</TableHead>
-                  <TableHead>Invoice</TableHead>
+                  {allowAbsenceLogging ? (
+                    <>
+                      <TableHead>Planned Attendance</TableHead>
+                      <TableHead>Actual Attendance</TableHead>
+                      <TableHead>Invoice</TableHead>
+                    </>
+                  ) : (
+                    <TableHead>Attendance</TableHead>
+                  )}
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -529,31 +547,39 @@ export function SessionDetailsTab({
                         {data.student.first_name} {data.student.last_name}
                       </button>
                     </TableCell>
-                    <TableCell>
-                      <AttendanceCell
-                        status={data.plannedStatus}
-                        linkTo={
-                          data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
-                            ? {
-                                type: 'session',
-                                id: data.rescheduledSessionId,
-                                onClick: () => data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
-                              }
-                            : undefined
-                        }
-                        linkText={data.rescheduledDate}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <AttendanceCell status={data.actualStatus} />
-                    </TableCell>
-                    <TableCell>
-                      {(() => {
-                        const badge = getInvoiceStatusBadge(data.invoiceStatus);
-                        if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
-                        return badge;
-                      })()}
-                    </TableCell>
+                    {allowAbsenceLogging ? (
+                      <>
+                        <TableCell>
+                          <AttendanceCell
+                            status={data.plannedStatus}
+                            linkTo={
+                              data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
+                                ? {
+                                    type: 'session',
+                                    id: data.rescheduledSessionId,
+                                    onClick: () => data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
+                                  }
+                                : undefined
+                            }
+                            linkText={data.rescheduledDate}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <AttendanceCell status={data.actualStatus} />
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const badge = getInvoiceStatusBadge(data.invoiceStatus);
+                            if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
+                            return badge;
+                          })()}
+                        </TableCell>
+                      </>
+                    ) : (
+                      <TableCell>
+                        <AttendanceCell status={data.actualStatus} />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -577,7 +603,10 @@ export function SessionDetailsTab({
                             Message
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {((data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent) ? (
+                          {allowAbsenceLogging &&
+                          (data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') &&
+                          data.sessionsStudentsId &&
+                          onUndoLogAbsenceStudent ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -594,7 +623,12 @@ export function SessionDetailsTab({
                               <RotateCcw className="h-4 w-4 mr-2" />
                               Undo Log Absence
                             </DropdownMenuItem>
-                          ) : (!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent) ? (
+                          ) : null}
+                          {allowAbsenceLogging &&
+                          !data.plannedAbsence &&
+                          !data.hasInvoiceItems &&
+                          sessionId &&
+                          onLogAbsenceStudent ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -673,9 +707,15 @@ export function SessionDetailsTab({
               <TableHeader>
                 <TableRow>
                   <TableHead>Staff</TableHead>
-                  <TableHead>Planned Attendance</TableHead>
-                  <TableHead>Actual Attendance</TableHead>
-                  <TableHead>Tutor Log</TableHead>
+                  {allowAbsenceLogging ? (
+                    <>
+                      <TableHead>Planned Attendance</TableHead>
+                      <TableHead>Actual Attendance</TableHead>
+                    </>
+                  ) : (
+                    <TableHead>Attendance</TableHead>
+                  )}
+                  {allowAbsenceLogging && <TableHead>Tutor Log</TableHead>}
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -691,34 +731,44 @@ export function SessionDetailsTab({
                         {data.staff.first_name} {data.staff.last_name}
                       </button>
                     </TableCell>
-                    <TableCell>
-                      <AttendanceCell
-                        status={data.plannedStatus}
-                        linkTo={
-                          data.plannedStatus === 'swapped' && data.swappedStaffId
-                            ? {
-                                type: 'staff',
-                                id: data.swappedStaffId,
-                                onClick: () => onOpenStaff(data.swappedStaffId),
-                              }
-                            : undefined
-                        }
-                        linkText={data.swappedStaffName}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
-                    </TableCell>
-                    <TableCell>
-                      {tutorLog && tutorLog.created_by_staff && tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
-                        <TutorLogAvatar
-                          firstName={tutorLog.created_by_staff.first_name}
-                          lastName={tutorLog.created_by_staff.last_name}
-                        />
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
+                    {allowAbsenceLogging ? (
+                      <>
+                        <TableCell>
+                          <AttendanceCell
+                            status={data.plannedStatus}
+                            linkTo={
+                              data.plannedStatus === 'swapped' && data.swappedStaffId
+                                ? {
+                                    type: 'staff',
+                                    id: data.swappedStaffId,
+                                    onClick: () => onOpenStaff(data.swappedStaffId),
+                                  }
+                                : undefined
+                            }
+                            linkText={data.swappedStaffName}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
+                        </TableCell>
+                      </>
+                    ) : (
+                      <TableCell>
+                        <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
+                      </TableCell>
+                    )}
+                    {allowAbsenceLogging && (
+                      <TableCell>
+                        {tutorLog && tutorLog.created_by_staff && tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
+                          <TutorLogAvatar
+                            firstName={tutorLog.created_by_staff.first_name}
+                            lastName={tutorLog.created_by_staff.last_name}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -742,7 +792,10 @@ export function SessionDetailsTab({
                             Message
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {((data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff) ? (
+                          {allowAbsenceLogging &&
+                          (data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') &&
+                          data.sessionsStaffId &&
+                          onUndoLogAbsenceStaff ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -759,7 +812,8 @@ export function SessionDetailsTab({
                               <RotateCcw className="h-4 w-4 mr-2" />
                               Undo Log Absence
                             </DropdownMenuItem>
-                          ) : (!data.plannedAbsence && sessionId && onLogAbsenceStaff) ? (
+                          ) : null}
+                          {allowAbsenceLogging && !data.plannedAbsence && sessionId && onLogAbsenceStaff ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -827,6 +881,7 @@ export function SessionDetailsTab({
                   <TableHeader>
                     <TableRow>
                       <TableHead>Parent</TableHead>
+                      <TableHead>Attendance</TableHead>
                       <TableHead className="w-[50px]" />
                     </TableRow>
                   </TableHeader>
@@ -837,6 +892,9 @@ export function SessionDetailsTab({
                           <span className="font-medium">
                             {row.parent.first_name} {row.parent.last_name}
                           </span>
+                        </TableCell>
+                        <TableCell>
+                          <AttendanceCell status={getParentLogAttendanceStatus(tutorLog, row.parent.id)} />
                         </TableCell>
                         <TableCell>
                           <DropdownMenu>
@@ -883,22 +941,27 @@ export function SessionDetailsTab({
         </>
       )}
 
-      {hasTutorLog && session.type !== 'CLASS' && tutorLog.parentAttendance && tutorLog.parentAttendance.length > 0 && (
+      {hasTutorLog && session.type !== 'CLASS' && !allowAbsenceLogging && tutorLog?.created_by_staff && (
         <>
           <Separator />
           <div>
-            <h3 className="text-lg font-semibold mb-3">Parent attendance (logged)</h3>
-            <ul className="text-sm space-y-1">
-              {tutorLog.parentAttendance.map((row) => {
-                const p = row.parent;
-                const name = p ? `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() : 'Parent';
-                return (
-                  <li key={row.parent_id}>
-                    {name}: {row.attended ? 'Attended' : 'Did not attend'}
-                  </li>
-                );
-              })}
-            </ul>
+            <h3 className="text-lg font-semibold mb-3">Tutor log</h3>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-muted-foreground">Logged by</span>
+              {tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
+                <>
+                  <TutorLogAvatar
+                    firstName={tutorLog.created_by_staff.first_name}
+                    lastName={tutorLog.created_by_staff.last_name}
+                  />
+                  <span className="font-medium">
+                    {tutorLog.created_by_staff.first_name} {tutorLog.created_by_staff.last_name}
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Unknown</span>
+              )}
+            </div>
           </div>
         </>
       )}

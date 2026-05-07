@@ -9,6 +9,10 @@ import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@altitutor/ui';
+import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
+import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
 import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogSessionModal } from '@/features/tutor-logs';
@@ -381,6 +385,8 @@ function AdminLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const {
     bookingSessionType,
     isBookingModalOpen,
@@ -391,11 +397,21 @@ function AdminLayoutContent({
     closeCreateIssueDialog,
     isCreateProjectDialogOpen,
     closeCreateProjectDialog,
+    isTutorLogModalOpen,
+    isLogAbsenceDialogOpen,
+    isLogStaffAbsenceDialogOpen,
+    isAnnouncementsModalOpen,
+    closeTutorLogModal,
+    closeLogAbsenceDialog,
+    closeLogStaffAbsenceDialog,
+    closeAnnouncementsModal,
+    isCheckInModalOpen,
+    checkInPrefill,
+    closeCheckInModal,
   } = useQuickActions();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
-  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isAnnouncementsModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeAnnouncementsModal } = useQuickActions();
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   const pathname = usePathname();
@@ -471,6 +487,27 @@ function AdminLayoutContent({
               <CreateProjectDialog
                 isOpen={isCreateProjectDialogOpen}
                 onClose={closeCreateProjectDialog}
+              />
+              <CheckInBookSessionModal
+                isOpen={isCheckInModalOpen}
+                onClose={closeCheckInModal}
+                initialPrefill={checkInPrefill}
+                onCreated={(sessionId) => {
+                  void queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+                  closeCheckInModal();
+                  toast({
+                    title: 'Check-in scheduled',
+                    description: 'Session was created.',
+                    action: {
+                      label: 'View session',
+                      onClick: () =>
+                        window.dispatchEvent(
+                          new CustomEvent('open-session-modal', { detail: { id: sessionId } })
+                        ),
+                    },
+                    duration: 12_000,
+                  });
+                }}
               />
             </>
           )}
