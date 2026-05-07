@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -75,6 +75,11 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
     if (!isOpen) setExpanded(false);
   }, [isOpen]);
 
+  /** Until reset runs, RHF can still hold the previous note — never paint that into the editor. */
+  useLayoutEffect(() => {
+    setIsInitialized(false);
+  }, [noteId]);
+
   const handleEditorReady = useCallback((editor: Editor) => {
     setEditorInstance(editor);
   }, []);
@@ -93,23 +98,30 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
     },
   });
 
-  useEffect(() => {
-    if (note && isOpen && !isLoading && note.id !== lastResetNoteIdRef.current) {
-      setEditorInstance(null);
-      isUpdatingFromServerRef.current = true;
-      form.reset({
-        title: note.title,
-        content: (note.content as JSONContent) || '',
-        folder_id: note.folder_id,
-        project_id: (note as { project_id?: string | null }).project_id ?? null,
-      });
-      lastResetNoteIdRef.current = note.id;
-      setIsInitialized(true);
-      setTimeout(() => {
-        isUpdatingFromServerRef.current = false;
-      }, 0);
+  useLayoutEffect(() => {
+    if (
+      !note ||
+      !isOpen ||
+      isLoading ||
+      note.id !== noteId ||
+      note.id === lastResetNoteIdRef.current
+    ) {
+      return;
     }
-  }, [note, isOpen, isLoading, form]);
+    setEditorInstance(null);
+    isUpdatingFromServerRef.current = true;
+    form.reset({
+      title: note.title,
+      content: (note.content as JSONContent) || '',
+      folder_id: note.folder_id,
+      project_id: (note as { project_id?: string | null }).project_id ?? null,
+    });
+    lastResetNoteIdRef.current = note.id;
+    setIsInitialized(true);
+    queueMicrotask(() => {
+      isUpdatingFromServerRef.current = false;
+    });
+  }, [note, isOpen, isLoading, noteId, form]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -139,6 +151,9 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
 
   if (!noteId || !isOpen) return null;
 
+  const editorReady =
+    !isLoading && !!note && note.id === noteId && isInitialized && lastResetNoteIdRef.current === noteId;
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
@@ -154,7 +169,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
               <Button variant="outline" size="icon" onClick={onClose} className="shrink-0">
                 <X className="h-4 w-4" />
               </Button>
-              <DialogTitle>{isLoading ? 'Loading...' : 'Edit Document'}</DialogTitle>
+              <DialogTitle>{!editorReady ? 'Loading...' : 'Edit Document'}</DialogTitle>
             </div>
 
             <div className="flex items-center gap-2">
@@ -204,7 +219,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
           </div>
         </DialogHeader>
 
-        {isLoading ? (
+        {!editorReady ? (
           <div className="p-6">Loading document...</div>
         ) : (
           <div className="flex-1 overflow-hidden min-h-0">
@@ -250,6 +265,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                           <FormItem>
                             <FormControl>
                               <NoteEditor
+                                key={noteId}
                                 ref={noteEditorRef}
                                 content={field.value}
                                 onChange={field.onChange}

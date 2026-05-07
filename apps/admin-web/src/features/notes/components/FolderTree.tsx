@@ -30,9 +30,8 @@ interface FolderTreeProps {
 }
 
 /**
- * Main folder tree component showing root folders with notes and subfolders
- * Also displays notes without folders at the top.
- * When searchQuery is provided, shows search results instead.
+ * Folder tree: notes without a folder (droppable), root "+ Create new", then root folders.
+ * Search mode shows flat results instead.
  */
 export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: FolderTreeProps) {
   const router = useRouter();
@@ -181,55 +180,42 @@ export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: Fo
       onDragEnd={handleDragEnd}
     >
       <div className="space-y-1">
-        {/* Notes without folders */}
         {hasNotesWithoutFolder && (
-          <div className="mb-4">
-            <div className="px-2 py-1 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">
-              No Folder
-            </div>
-            <DroppableNoFolder>
-              {notesWithoutFolder.map((note) => {
-                const project = note.project_id
-                  ? projects.find((p) => p.id === note.project_id)
-                  : null;
-                return (
-                  <DraggableNote
-                    key={note.id}
-                    note={note}
-                    project={project ? { id: project.id, name: project.name } : undefined}
-                    onClick={() => handleNoteClick(note.id)}
-                    onProjectClick={onProjectClick}
-                    indent={8}
-                  />
-                );
-              })}
-              <FolderInlineCreateDocument
-                folderId={null}
-                indent={8}
-                onCreated={(id) => handleNoteClick(id)}
-              />
-            </DroppableNoFolder>
-          </div>
+          <DroppableNoFolder>
+            {notesWithoutFolder.map((note) => {
+              const project = note.project_id
+                ? projects.find((p) => p.id === note.project_id)
+                : null;
+              return (
+                <DraggableNote
+                  key={note.id}
+                  note={note}
+                  project={project ? { id: project.id, name: project.name } : undefined}
+                  onClick={() => handleNoteClick(note.id)}
+                  onProjectClick={onProjectClick}
+                  indent={8}
+                />
+              );
+            })}
+            <FolderInlineCreateDocument
+              folderId={null}
+              indent={8}
+              onCreated={(id) => handleNoteClick(id)}
+            />
+          </DroppableNoFolder>
         )}
 
-        {/* Folders */}
-        {hasFolders && (
-          <>
-            {hasNotesWithoutFolder && (
-              <div className="border-t my-2" />
-            )}
-            {folderTree.map((folder) => (
-              <FolderTreeNode
-                key={folder.id}
-                folder={folder}
-                level={0}
-                onNoteClick={onNoteClick}
-                onProjectClick={onProjectClick}
-                projects={projects}
-              />
-            ))}
-          </>
-        )}
+        {hasFolders &&
+          folderTree.map((folder) => (
+            <FolderTreeNode
+              key={folder.id}
+              folder={folder}
+              level={0}
+              onNoteClick={onNoteClick}
+              onProjectClick={onProjectClick}
+              projects={projects}
+            />
+          ))}
       </div>
       <DragOverlay>
         {activeNote ? (

@@ -7,6 +7,8 @@ import { cn } from '@/shared/utils';
 import { useProjects } from '@/features/projects/api/queries';
 import type { NoteFormData } from '../types';
 
+const NOTE_PROP_SELECT_POPOVER_WIDTH = '260px';
+
 type Project = { id: string; name: string | null };
 
 interface ProjectSearchSelectProps {
@@ -31,7 +33,7 @@ export function ProjectSearchSelect({ form, variant = 'default' }: ProjectSearch
               className={cn(
                 'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:bg-muted h-10 px-4 py-2',
                 'justify-start',
-                variant === 'default' && 'w-full',
+                variant === 'default' && 'w-full max-w-[260px]',
                 variant === 'pill' && 'h-8 px-3 text-xs border rounded-full w-auto min-w-[120px]'
               )}
             >
@@ -64,7 +66,7 @@ export function ProjectSearchSelect({ form, variant = 'default' }: ProjectSearch
               emptyMessage="No projects found"
               trigger={trigger}
               allowClear
-              contentWidth="400px"
+              contentWidth={NOTE_PROP_SELECT_POPOVER_WIDTH}
               renderItem={(project, isSelected) => (
                 <>
                   <Check

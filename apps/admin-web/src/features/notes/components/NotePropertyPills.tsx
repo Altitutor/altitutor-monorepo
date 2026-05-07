@@ -2,13 +2,13 @@
 
 import { UseFormReturn } from 'react-hook-form';
 
-import type { NoteFormData } from '../types';
+import type { Folder, NoteFormData } from '../types';
 import { FolderSearchSelect } from './FolderSearchSelect';
 import { ProjectSearchSelect } from './ProjectSearchSelect';
 
 interface NotePropertyPillsProps {
   form: UseFormReturn<NoteFormData>;
-  folders?: Array<{ id: string; name: string }>;
+  folders?: Folder[];
 }
 
 export function NotePropertyPills({ form, folders }: NotePropertyPillsProps) {

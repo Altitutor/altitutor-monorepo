@@ -3,13 +3,13 @@
 import { UseFormReturn } from 'react-hook-form';
 import { Form } from '@altitutor/ui';
 
-import type { NoteFormData } from '../types';
+import type { Folder, NoteFormData } from '../types';
 import { FolderSearchSelect } from './FolderSearchSelect';
 import { ProjectSearchSelect } from './ProjectSearchSelect';
 
 interface NotePropertiesPanelProps {
   form: UseFormReturn<NoteFormData>;
-  folders?: Array<{ id: string; name: string }>;
+  folders?: Folder[];
 }
 
 export function NotePropertiesPanel({ form, folders }: NotePropertiesPanelProps) {

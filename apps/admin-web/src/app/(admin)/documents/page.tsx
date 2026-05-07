@@ -1,35 +1,51 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Button, Input } from '@altitutor/ui';
-import { Plus, FolderPlus, Search } from 'lucide-react';
+import { Loader2, Plus, Search } from 'lucide-react';
 import { FolderTree } from '@/features/notes/components/FolderTree';
-import { CreateNoteDialog } from '@/features/notes/components/CreateNoteDialog';
-import { CreateFolderDialog } from '@/features/notes/components/CreateFolderDialog';
 import { EditDocumentDialog } from '@/features/notes/components/EditDocumentDialog';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
+import { useCreateNote } from '@/features/notes/hooks/useNoteMutations';
 
 export default function DocumentsPage() {
-  const [isCreateNoteOpen, setIsCreateNoteOpen] = useState(false);
-  const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [editNoteId, setEditNoteId] = useState<string | null>(null);
   const [editProjectId, setEditProjectId] = useState<string | null>(null);
+
+  const createNote = useCreateNote();
+
+  const handleNewDocument = useCallback(async () => {
+    if (createNote.isPending) return;
+    try {
+      const note = await createNote.mutateAsync({
+        title: 'Untitled',
+        content: '',
+        folder_id: null,
+      });
+      setEditNoteId(note.id);
+    } catch {
+      // mutation surfaces errors
+    }
+  }, [createNote]);
 
   return (
     <div className="flex flex-col h-[calc(100dvh-var(--navbar-height)-4rem)] p-6">
       <div className="flex items-center justify-between flex-shrink-0 mb-4">
         <h1 className="text-3xl font-bold tracking-tight">Documents</h1>
-        <div className="flex items-center gap-2">
-          <Button onClick={() => setIsCreateFolderOpen(true)} variant="outline">
-            <FolderPlus className="h-4 w-4 mr-2" />
-            Add folder
-          </Button>
-          <Button onClick={() => setIsCreateNoteOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New document
-          </Button>
-        </div>
+        <Button onClick={() => void handleNewDocument()} disabled={createNote.isPending}>
+          {createNote.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Creating…
+            </>
+          ) : (
+            <>
+              <Plus className="h-4 w-4 mr-2" />
+              New document
+            </>
+          )}
+        </Button>
       </div>
 
       <div className="relative flex-shrink-0 mb-4">
@@ -51,14 +67,6 @@ export default function DocumentsPage() {
         />
       </div>
 
-      <CreateNoteDialog
-        isOpen={isCreateNoteOpen}
-        onClose={() => setIsCreateNoteOpen(false)}
-        onNoteCreated={(noteId) => {
-          setEditNoteId(noteId);
-          setIsCreateNoteOpen(false);
-        }}
-      />
       <EditDocumentDialog
         isOpen={!!editNoteId}
         onClose={() => setEditNoteId(null)}
@@ -68,10 +76,6 @@ export default function DocumentsPage() {
         isOpen={!!editProjectId}
         onClose={() => setEditProjectId(null)}
         projectId={editProjectId}
-      />
-      <CreateFolderDialog
-        isOpen={isCreateFolderOpen}
-        onClose={() => setIsCreateFolderOpen(false)}
       />
     </div>
   );
