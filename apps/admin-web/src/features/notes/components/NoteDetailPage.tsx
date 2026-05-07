@@ -37,7 +37,6 @@ import { useFolders } from '../api/queries';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
 import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
-import { useHydrateLinkedNoteTitles } from '../hooks/useHydrateLinkedNoteTitles';
 import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import type { NoteFormData } from '../types';
 import type { Resolver } from 'react-hook-form';
@@ -90,13 +89,6 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const mentionSuggestions = useMentionSuggestions({
     types: DOCUMENT_NOTE_MENTION_TYPES,
     excludeIds: [noteId],
-  });
-
-  useHydrateLinkedNoteTitles({
-    form,
-    noteId,
-    isInitialized,
-    isUpdatingFromServerRef,
   });
 
   const handleDocumentMentionClick = useCallback(

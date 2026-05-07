@@ -80,25 +80,6 @@ export const notesApi = {
   },
 
   /**
-   * Resolve current titles for linked-note hydration (batch).
-   */
-  getTitlesForIds: async (noteIds: string[]): Promise<Record<string, string>> => {
-    if (noteIds.length === 0) return {};
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await supabase
-      .from('notes_documents')
-      .select('id, title')
-      .in('id', [...new Set(noteIds)]);
-
-    if (error) throw error;
-    const map: Record<string, string> = {};
-    for (const row of data ?? []) {
-      map[row.id as string] = (row.title as string)?.trim() || 'Untitled';
-    }
-    return map;
-  },
-
-  /**
    * Create a new note
    */
   create: async (note: NoteInsert): Promise<Note> => {

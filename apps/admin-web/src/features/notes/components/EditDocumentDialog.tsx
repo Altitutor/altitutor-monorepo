@@ -35,7 +35,6 @@ import type { Editor } from '@tiptap/react';
 import { useNote, useFolders } from '../api/queries';
 import { useDeleteNote, useUpdateNote } from '../hooks/useNoteMutations';
 import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
-import { useHydrateLinkedNoteTitles } from '../hooks/useHydrateLinkedNoteTitles';
 import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
@@ -113,13 +112,6 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const mentionSuggestions = useMentionSuggestions({
     types: DOCUMENT_NOTE_MENTION_TYPES,
     excludeIds: noteId ? [noteId] : [],
-  });
-
-  useHydrateLinkedNoteTitles({
-    form,
-    noteId,
-    isInitialized,
-    isUpdatingFromServerRef,
   });
 
   const handleDocumentMentionClick = useCallback(
