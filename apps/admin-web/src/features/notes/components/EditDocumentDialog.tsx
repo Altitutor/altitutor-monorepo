@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useForm, type UseFormReturn } from 'react-hook-form';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
@@ -33,7 +33,7 @@ import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/
 import type { Editor } from '@tiptap/react';
 import { useNote, useFolders } from '../api/queries';
 import { useDeleteNote, useUpdateNote } from '../hooks/useNoteMutations';
-import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
+import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
@@ -47,27 +47,6 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
-
-interface AutoSaveManagerProps {
-  form: UseFormReturn<NoteFormData>;
-  noteId: string;
-  note: { id: string } | undefined;
-  isInitialized: boolean;
-  isUpdatingFromServer: () => boolean;
-  onSave: (updates: Partial<NoteFormData>) => void;
-}
-
-function AutoSaveManager({ form, noteId, note, isInitialized, isUpdatingFromServer, onSave }: AutoSaveManagerProps) {
-  useNoteAutoSave({
-    form,
-    noteId,
-    note,
-    isInitialized,
-    isUpdatingFromServer,
-    onSave,
-  });
-  return null;
-}
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -231,7 +210,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
           <div className="flex-1 overflow-hidden min-h-0">
             <Form {...form}>
               <form className="h-full flex min-w-0">
-                <AutoSaveManager
+                <NoteAutoSaveBridge
                   form={form}
                   noteId={noteId}
                   note={note ?? undefined}

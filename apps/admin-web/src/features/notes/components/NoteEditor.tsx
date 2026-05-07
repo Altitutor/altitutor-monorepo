@@ -16,6 +16,8 @@ interface NoteEditorProps {
   autoFocus?: boolean;
   onEditorReady?: (editor: Editor) => void;
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
+  /** Default 350ms — reduces react-hook-form updates while typing large documents. */
+  onChangeDebounceMs?: number;
 }
 
 /**
@@ -24,6 +26,7 @@ interface NoteEditorProps {
  * Supports image paste and drag-and-drop for notes_documents.
  */
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref) => {
+  const { onChangeDebounceMs = 350, ...rest } = props;
   const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
     context: 'notes_documents',
     editorRef: ref as React.RefObject<NoteEditorRef | null>,
@@ -36,9 +39,10 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref
       onDrop={handleDrop}
     >
       <RichTextEditor
-        {...props}
+        {...rest}
         ref={ref}
         minHeight="full"
+        onChangeDebounceMs={onChangeDebounceMs}
         extensions={[JumpHighlightExtension]}
         slashMenuSuggestions={slashMenuSuggestions}
         onPasteImages={handlePasteImages}

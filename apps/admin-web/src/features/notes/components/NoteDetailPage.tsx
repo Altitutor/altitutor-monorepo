@@ -26,7 +26,7 @@ import {
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
 import { NotePropertyPills } from './NotePropertyPills';
-import { NoteTableOfContents } from './NoteTableOfContents';
+import { NoteTableOfContentsWithLiveTitle } from './NoteTableOfContents';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import type { Editor } from '@tiptap/react';
 import type { NoteUpdate } from '../types';
@@ -35,7 +35,7 @@ import { useUpdateNote, useDeleteNote } from '../hooks/useNoteMutations';
 import { useFolders } from '../api/queries';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
-import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
+import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 import type { NoteFormData } from '../types';
 import type { Resolver } from 'react-hook-form';
@@ -136,21 +136,6 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     }
   }, [note, initialFocusDone]);
 
-  useNoteAutoSave({
-    form,
-    noteId,
-    note: note || undefined,
-    isInitialized,
-    isUpdatingFromServer: () => isUpdatingFromServerRef.current,
-    onSave: (updates) => {
-      updateNote.mutate({
-        id: noteId,
-        updates: updates as NoteUpdate,
-        silent: true,
-      });
-    },
-  });
-
   const handleDelete = useCallback(async () => {
     if (!note) return;
     if (!confirm('Are you sure you want to delete this note?')) return;
@@ -227,6 +212,20 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
 
   return (
     <div className="flex h-[calc(100dvh-var(--navbar-height)-5rem)] relative">
+      <NoteAutoSaveBridge
+        form={form}
+        noteId={noteId}
+        note={note || undefined}
+        isInitialized={isInitialized}
+        isUpdatingFromServer={() => isUpdatingFromServerRef.current}
+        onSave={(updates) => {
+          updateNote.mutate({
+            id: noteId,
+            updates: updates as NoteUpdate,
+            silent: true,
+          });
+        }}
+      />
       <div className="flex-1 flex flex-col min-w-0 border-r overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="px-6 pt-6">
@@ -302,9 +301,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
               </div>
 
               <div className="md:hidden mb-6">
-                <NoteTableOfContents
+                <NoteTableOfContentsWithLiveTitle
+                  control={form.control}
                   editor={editorInstanceRef.current}
-                  title={form.watch('title')}
                   collapsible
                 />
               </div>
@@ -370,9 +369,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
             <TabsContent value="outline" className="h-full min-h-0 m-0 overflow-hidden data-[state=active]:flex flex-col">
               <ScrollArea className="flex-1 min-h-0">
                 <div className="p-6">
-                  <NoteTableOfContents
+                  <NoteTableOfContentsWithLiveTitle
+                    control={form.control}
                     editor={editorInstanceRef.current}
-                    title={form.watch('title')}
                   />
                 </div>
               </ScrollArea>

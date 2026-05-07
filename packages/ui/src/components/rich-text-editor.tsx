@@ -104,6 +104,11 @@ export interface RichTextEditorProps {
    */
   onChange?: (json: JSONContent) => void;
   /**
+   * When > 0, calls `onChange` only after the editor has been idle for this many milliseconds.
+   * Fewer React / react-hook-form updates while typing (recommended for large TipTap documents).
+   */
+  onChangeDebounceMs?: number;
+  /**
    * Optional callback for markdown output if needed.
    */
   onMarkdownChange?: (markdown: string) => void;
@@ -288,11 +293,18 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   extensions: extraExtensions,
   omitTypography = false,
   slashMenuSuggestions,
+  onChangeDebounceMs,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
   const lastEmittedMarkdownRef = useRef<string>('');
-  
+  const debounceMsRef = useRef(0);
+  debounceMsRef.current = onChangeDebounceMs ?? 0;
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDebouncedJsonRef = useRef<JSONContent | null>(null);
+  /** Skips prop-sync effect when RHF passes the same object reference (debounced `onChange`). */
+  const lastContentPropRef = useRef(content);
+
   // Refs for callbacks to avoid closure staleness without re-creating editor
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
@@ -443,6 +455,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     })(),
     editable,
     immediatelyRender: false,
+    shouldRerenderOnTransaction: false,
     editorProps: {
       handleKeyDown: (view, event) => {
         const { state } = view;
@@ -800,13 +813,36 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
       const json = editor.getJSON();
       const jsonString = JSON.stringify(json);
+      const debounceMs = debounceMsRef.current;
 
-      if (jsonString !== lastEmittedJsonRef.current) {
+      if (debounceMs > 0 && onChangeRef.current) {
+        pendingDebouncedJsonRef.current = json;
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+          debounceTimerRef.current = null;
+          if (!editor || editor.isDestroyed) return;
+          const pending = pendingDebouncedJsonRef.current;
+          if (!pending) return;
+          const s = JSON.stringify(pending);
+          if (s === lastEmittedJsonRef.current) return;
+          lastEmittedJsonRef.current = s;
+          onChangeRef.current?.(pending);
+          if (onMarkdownChangeRef.current) {
+            const markdown = editor.getMarkdown();
+            if (markdown !== lastEmittedMarkdownRef.current) {
+              lastEmittedMarkdownRef.current = markdown;
+              onMarkdownChangeRef.current(markdown);
+            }
+          }
+        }, debounceMs);
+      } else if (jsonString !== lastEmittedJsonRef.current) {
         lastEmittedJsonRef.current = jsonString;
         onChangeRef.current?.(json);
       }
 
-      if (onMarkdownChangeRef.current) {
+      if (debounceMs === 0 && onMarkdownChangeRef.current) {
         const markdown = editor.getMarkdown();
         if (markdown !== lastEmittedMarkdownRef.current) {
           lastEmittedMarkdownRef.current = markdown;
@@ -821,6 +857,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     if (!editor || editor.isDestroyed) return;
 
     const incomingContent = content;
+
+    if (typeof incomingContent !== 'string' && incomingContent === lastContentPropRef.current) {
+      return;
+    }
+
     let isEcho = false;
 
     if (typeof incomingContent === 'string') {
@@ -833,7 +874,16 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       isEcho = JSON.stringify(incomingContent) === lastEmittedJsonRef.current;
     }
 
-    if (isEcho) return;
+    if (isEcho) {
+      lastContentPropRef.current = incomingContent;
+      return;
+    }
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    pendingDebouncedJsonRef.current = null;
 
     const parsedContent = (() => {
       if (!incomingContent) return { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -848,7 +898,28 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     })();
 
     editor.commands.setContent(parsedContent as JSONContent | string, { contentType: isMarkdown ? 'markdown' : undefined });
+
+    lastContentPropRef.current = incomingContent;
   }, [content, editor, isMarkdown]);
+
+  // Flush debounced onChange so navigations / saves don't drop the last edits.
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      const pending = pendingDebouncedJsonRef.current;
+      if (pending && onChangeRef.current) {
+        const s = JSON.stringify(pending);
+        if (s !== lastEmittedJsonRef.current) {
+          lastEmittedJsonRef.current = s;
+          onChangeRef.current(pending);
+        }
+      }
+      pendingDebouncedJsonRef.current = null;
+    };
+  }, []);
 
   // Sync editability
   useEffect(() => {

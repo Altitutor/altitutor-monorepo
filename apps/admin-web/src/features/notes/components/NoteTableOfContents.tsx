@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import type { Control } from 'react-hook-form';
+import { useWatch } from 'react-hook-form';
 import type { Editor } from '@tiptap/react';
 import { Search } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, Input } from '@altitutor/ui';
 import { highlightSearchTerms } from '../utils/highlight';
 import { JUMP_HIGHLIGHT_META } from '../extensions/JumpHighlightExtension';
+import type { NoteFormData } from '../types';
 
 interface TocItem {
   id: string;
@@ -347,4 +350,17 @@ export function NoteTableOfContents({ editor, title = '', className, collapsible
       {content}
     </div>
   );
+}
+
+type NoteTableOfContentsWithLiveTitleProps = Omit<NoteTableOfContentsProps, 'title'> & {
+  control: Control<NoteFormData>;
+};
+
+/** Subscribes to the note title via useWatch so the parent page does not re-render on every title keystroke. */
+export function NoteTableOfContentsWithLiveTitle({
+  control,
+  ...props
+}: NoteTableOfContentsWithLiveTitleProps) {
+  const title = useWatch({ control, name: 'title' }) ?? '';
+  return <NoteTableOfContents {...props} title={title} />;
 }
