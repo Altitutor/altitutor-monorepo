@@ -96,6 +96,10 @@ export function EditTutorLogDialog({
           studentId: sa.student_id,
           attended: sa.attended === true,
         })),
+        parentAttendance: (tutorLog.parentAttendance ?? []).map((pa) => ({
+          parentId: pa.parent_id,
+          attended: pa.attended === true,
+        })),
         topics: tutorLog.topics.map((t) => ({
           topicId: t.topic_id,
           studentIds: t.students.map((s) => s.student_id),
@@ -130,6 +134,7 @@ export function EditTutorLogDialog({
           sessionId: formData.sessionId,
           staffAttendance: formData.staffAttendance || [],
           studentAttendance: formData.studentAttendance || [],
+          parentAttendance: formData.parentAttendance || [],
           topics: formData.topics || [],
           topicFiles: formData.topicFiles || [],
           notes: formData.notes || [],
@@ -289,8 +294,15 @@ export function EditTutorLogDialog({
                 {sessionId && isFormDataReady && (
                   <Step3StudentAttendance
                     sessionId={sessionId}
+                    sessionType={tutorLog.session?.type}
+                    sessionParents={(tutorLog.session?.sessions_parents ?? []).map((row) => ({
+                      ...row.parent,
+                      sessions_parents_id: row.id,
+                    }))}
                     studentAttendance={formData.studentAttendance || []}
+                    parentAttendance={formData.parentAttendance ?? []}
                     onUpdate={(studentAttendance) => updateFormData({ studentAttendance })}
+                    onParentAttendanceUpdate={(parentAttendance) => updateFormData({ parentAttendance })}
                   />
                 )}
               </div>

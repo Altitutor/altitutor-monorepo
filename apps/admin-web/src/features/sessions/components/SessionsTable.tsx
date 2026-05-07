@@ -35,7 +35,7 @@ const SESSION_TYPES = [
   'SUBSIDY_INTERVIEW',
   'TRIAL_SESSION',
   'STAFF_INTERVIEW',
-  'TRIAL_SHIFT',
+          'CHECK_IN',
 ] as const;
 
 type SessionsTableProps = {

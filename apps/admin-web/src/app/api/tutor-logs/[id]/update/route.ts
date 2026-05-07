@@ -123,6 +123,12 @@ export async function PUT(
       .delete()
       .eq('tutor_log_id', tutorLogId);
 
+    // Delete parent attendance
+    await supabase
+      .from('tutor_logs_parent_attendance')
+      .delete()
+      .eq('tutor_log_id', tutorLogId);
+
     // Delete staff attendance
     await supabase
       .from('tutor_logs_staff_attendance')
@@ -153,6 +159,11 @@ export async function PUT(
     const studentAttendance = (data.studentAttendance || []).map((sa) => ({
       studentId: sa.studentId,
       attended: sa.attended,
+    }));
+
+    const parentAttendance = (data.parentAttendance || []).map((pa) => ({
+      parentId: pa.parentId,
+      attended: pa.attended,
     }));
 
     const topics = (data.topics || []).map((t) => ({
@@ -203,6 +214,27 @@ export async function PUT(
       if (studentError) {
         return NextResponse.json(
           { error: studentError.message || 'Failed to update student attendance' },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Insert parent attendance
+    if (parentAttendance.length > 0) {
+      const { error: parentError } = await supabase
+        .from('tutor_logs_parent_attendance')
+        .insert(
+          parentAttendance.map((pa) => ({
+            tutor_log_id: tutorLogId,
+            parent_id: pa.parentId,
+            attended: pa.attended,
+            created_by: createdBy,
+          }))
+        );
+
+      if (parentError) {
+        return NextResponse.json(
+          { error: parentError.message || 'Failed to update parent attendance' },
           { status: 500 }
         );
       }

@@ -77,6 +77,10 @@ export const tutorLogsApi = {
             class:classes(
               *,
               subject:subjects(*)
+            ),
+            sessions_parents(
+              *,
+              parent:parents(*)
             )
           )
         `)
@@ -98,6 +102,12 @@ export const tutorLogsApi = {
       const { data: studentAttendance } = await supabase
         .from('tutor_logs_student_attendance')
         .select('*, student:students(*)')
+        .eq('tutor_log_id', id);
+
+      // Get parent attendance (meetings)
+      const { data: parentAttendance } = await supabase
+        .from('tutor_logs_parent_attendance')
+        .select('*, parent:parents(*)')
         .eq('tutor_log_id', id);
 
       // Get topics with students
@@ -137,6 +147,7 @@ export const tutorLogsApi = {
         ...tutorLog,
         staffAttendance: staffAttendance || [],
         studentAttendance: studentAttendance || [],
+        parentAttendance: parentAttendance || [],
         topics: topics || [],
         topicFiles: topicFiles || [],
         notes: notes || [],

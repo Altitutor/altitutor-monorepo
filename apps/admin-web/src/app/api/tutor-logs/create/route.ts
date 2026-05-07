@@ -53,6 +53,11 @@ export async function POST(request: Request) {
       attended: sa.attended,
     }));
 
+    const parentAttendance = (data.parentAttendance || []).map((pa) => ({
+      parentId: pa.parentId,
+      attended: pa.attended,
+    }));
+
     const topics = (data.topics || []).map((t) => ({
       topicId: t.topicId,
       studentIds: t.studentIds || [],
@@ -81,6 +86,7 @@ export async function POST(request: Request) {
       p_created_by: createdBy,
       p_staff_attendance: staffAttendance.length > 0 ? staffAttendance : [],
       p_student_attendance: studentAttendance.length > 0 ? studentAttendance : [],
+      p_parent_attendance: parentAttendance.length > 0 ? parentAttendance : [],
       p_topics: topics.length > 0 ? topics : [],
       p_topic_files: topicFiles.length > 0 ? topicFiles : [],
       p_notes: notes.length > 0 ? notes : [],

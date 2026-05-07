@@ -61,6 +61,7 @@ export function LogSessionModal({
     sessionSubject,
     sessionStaff,
     sessionStudents,
+    sessionParents,
 
     // Actions
     setSelectedStaffId,
@@ -180,8 +181,12 @@ export function LogSessionModal({
           <Step3StudentAttendance
             title={getStepTitle()}
             sessionId={formData.sessionId!}
+            sessionType={selectedSession?.type}
+            sessionParents={sessionParents}
             studentAttendance={formData.studentAttendance || []}
+            parentAttendance={formData.parentAttendance ?? []}
             onUpdate={(studentAttendance) => updateFormData({ studentAttendance })}
+            onParentAttendanceUpdate={(parentAttendance) => updateFormData({ parentAttendance })}
           />
         );
       case 3:

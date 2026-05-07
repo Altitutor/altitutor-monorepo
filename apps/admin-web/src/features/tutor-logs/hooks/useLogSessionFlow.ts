@@ -38,6 +38,7 @@ export interface UseLogSessionFlowReturn {
   sessionSubject: Tables<'subjects'> | null;
   sessionStaff: Tables<'staff'>[];
   sessionStudents: Tables<'students'>[];
+  sessionParents: Array<Tables<'parents'> & { sessions_parents_id?: string }>;
 
   // Actions
   setSelectedStaffId: (staffId: string) => void;
@@ -96,6 +97,23 @@ export function useLogSessionFlow({
   const sessionSubject = sessionData?.subject || null;
   const sessionStaff = sessionData?.staff || [];
   const sessionStudents = sessionData?.students || [];
+  const sessionParents = sessionData?.parents || [];
+
+  const sessionParentIdsKey = useMemo(
+    () => sessionParents.map((p) => p.id).sort().join(','),
+    [sessionParents]
+  );
+
+  useEffect(() => {
+    if (!selectedSession || selectedSession.type === 'CLASS') {
+      setFormData((fd) =>
+        fd.parentAttendance && fd.parentAttendance.length > 0 ? { ...fd, parentAttendance: [] } : fd
+      );
+      return;
+    }
+    const next = sessionParents.map((p) => ({ parentId: p.id, attended: false }));
+    setFormData((fd) => ({ ...fd, parentAttendance: next }));
+  }, [selectedSession?.id, selectedSession?.type, sessionParentIdsKey]);
 
   // Initialize form data when modal opens with initial values
   useEffect(() => {
@@ -157,7 +175,10 @@ export function useLogSessionFlow({
     if (!formData.sessionId) return;
 
     const submitPayload = {
-      data: formData as TutorLogFormData,
+      data: {
+        ...(formData as TutorLogFormData),
+        parentAttendance: formData.parentAttendance ?? [],
+      },
       createdBy: selectedStaffId,
     };
 
@@ -226,6 +247,7 @@ export function useLogSessionFlow({
     sessionSubject,
     sessionStaff,
     sessionStudents,
+    sessionParents,
 
     // Actions
     setSelectedStaffId,

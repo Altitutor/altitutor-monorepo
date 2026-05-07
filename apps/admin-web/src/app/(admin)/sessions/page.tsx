@@ -11,11 +11,15 @@ import { Tabs, TabsList, TabsTrigger, Button, DropdownMenu, DropdownMenuContent,
 import { useSearchParams, useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components';
 import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
+import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
 import { ChevronDown } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
 
 export default function SessionsPage() {
   const search = useSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
   const viewParam = search.get('view') || 'calendar';
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
@@ -24,6 +28,7 @@ export default function SessionsPage() {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
+  const [checkInModalOpen, setCheckInModalOpen] = useState(false);
 
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
@@ -120,6 +125,13 @@ export default function SessionsPage() {
               >
                 Staff interview
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  setCheckInModalOpen(true);
+                }}
+              >
+                Check in
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -198,6 +210,16 @@ export default function SessionsPage() {
           />
         )
       )}
+
+      <CheckInBookSessionModal
+        isOpen={checkInModalOpen}
+        onClose={() => setCheckInModalOpen(false)}
+        onCreated={(sessionId) => {
+          void queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+          setCheckInModalOpen(false);
+          setActiveSessionId(sessionId);
+        }}
+      />
     </div>
   );
 }

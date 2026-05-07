@@ -64,4 +64,9 @@ export interface SessionDetailsTutorLog {
     last_name: string;
   } | null;
   topics?: SessionDetailsTutorLogTopic[];
+  parentAttendance?: Array<{
+    parent_id: string;
+    attended: boolean;
+    parent?: { id: string; first_name: string | null; last_name: string | null } | null;
+  }>;
 }

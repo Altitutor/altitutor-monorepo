@@ -34,6 +34,7 @@ export interface SessionForLogging {
   subject: Tables<'subjects'> | null;
   staff: Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
   students: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }>;
+  parents: Array<Tables<'parents'> & { sessions_parents_id?: string }>;
 }
 
 /**
@@ -51,6 +52,7 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
           subject: null,
           staff: [],
           students: [],
+          parents: [],
         };
       }
 
@@ -78,6 +80,7 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
               subject: null,
               staff: [],
               students: [],
+              parents: [],
             };
           }
           throw sessionError;
@@ -147,7 +150,10 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
           const typedStudentsData = studentsData as SessionsStudentsRow[];
           students = typedStudentsData.map((row) => {
             const studentId = row.student?.id;
-            const isExtra = classId ? !enrolledStudentIds.has(studentId) : false;
+            const isExtra =
+              classId && studentId
+                ? !enrolledStudentIds.has(studentId)
+                : session.type !== 'CLASS' && !classId;
             
             return {
               ...row.student,
@@ -158,12 +164,28 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
           });
         }
 
+        const { data: parentsData, error: parentsError } = await supabase
+          .from('sessions_parents')
+          .select('id, parent:parents(*)')
+          .eq('session_id', sessionId);
+
+        const parents =
+          !parentsError && parentsData
+            ? (parentsData as Array<{ id: string; parent: Tables<'parents'> | null }>)
+                .filter((r): r is { id: string; parent: Tables<'parents'> } => r.parent != null)
+                .map((r) => ({
+                  ...r.parent!,
+                  sessions_parents_id: r.id,
+                }))
+            : [];
+
         return {
           session: session as Tables<'sessions'>,
           classData: classData as Tables<'classes'> | null,
           subject: subject as Tables<'subjects'> | null,
           staff,
           students,
+          parents,
         };
       } catch (error) {
         console.error('Error fetching session for logging:', error);

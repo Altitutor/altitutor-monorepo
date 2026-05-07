@@ -260,3 +260,52 @@ export function getCurrentAdelaideTime(): string {
     timeZone: ADELAIDE_TIMEZONE,
   });
 }
+
+/**
+ * Interpret YYYY-MM-DD and HH:mm as wall clock in Australia/Adelaide and return UTC ISO.
+ */
+export function adelaideWallDateTimeToUtcIso(dateStr: string, timeStr: string): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const [hour, minute] = timeStr.split(':').map(Number);
+  const formatter = new Intl.DateTimeFormat('en', {
+    timeZone: ADELAIDE_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  });
+  const matchesWall = (utc: Date): boolean => {
+    const parts = formatter.formatToParts(utc);
+    const g = (t: Intl.DateTimeFormatPartTypes) =>
+      parseInt(parts.find((p) => p.type === t)?.value ?? '0', 10);
+    return (
+      g('year') === year &&
+      g('month') === month &&
+      g('day') === day &&
+      g('hour') === hour &&
+      g('minute') === minute
+    );
+  };
+  const baseUtcMs = Date.UTC(year, month - 1, day, hour - 10, minute - 30, 0, 0);
+  for (let dMs = -4 * 60 * 60 * 1000; dMs <= 4 * 60 * 60 * 1000; dMs += 60 * 1000) {
+    const candidate = new Date(baseUtcMs + dMs);
+    if (matchesWall(candidate)) {
+      return candidate.toISOString();
+    }
+  }
+  return new Date(`${dateStr}T${timeStr}:00`).toISOString();
+}
+
+/** Adelaide wall start + duration in minutes → UTC start/end ISO strings. */
+export function adelaideWallDateTimePlusMinutesUtcIso(
+  dateStr: string,
+  timeStr: string,
+  durationMinutes: number
+): { startAt: string; endAt: string } {
+  const startAt = adelaideWallDateTimeToUtcIso(dateStr, timeStr);
+  const endAt = new Date(new Date(startAt).getTime() + durationMinutes * 60 * 1000).toISOString();
+  return { startAt, endAt };
+}

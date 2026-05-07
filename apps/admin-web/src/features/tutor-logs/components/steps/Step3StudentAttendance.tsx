@@ -1,24 +1,33 @@
 'use client';
 
-import { Checkbox } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
+import { Button, Checkbox, Input, Separator } from '@altitutor/ui';
 import { X, Search, Plus } from 'lucide-react';
+import type { Tables } from '@altitutor/shared';
 import { StudentCard } from '@/shared/components/StudentCard';
 import { useStudentAttendance, type StudentAttendanceItem } from '../../hooks/useStudentAttendance';
+
+export type ParentAttendanceItem = { parentId: string; attended: boolean };
 
 type Step3StudentAttendanceProps = {
   title?: string;
   sessionId: string;
+  sessionType?: string | null;
+  sessionParents?: Array<Tables<'parents'> & { sessions_parents_id?: string }>;
   studentAttendance: StudentAttendanceItem[];
+  parentAttendance?: ParentAttendanceItem[];
   onUpdate: (studentAttendance: StudentAttendanceItem[]) => void;
+  onParentAttendanceUpdate?: (parentAttendance: ParentAttendanceItem[]) => void;
 };
 
 export function Step3StudentAttendance({
   title,
   sessionId,
+  sessionType,
+  sessionParents = [],
   studentAttendance,
+  parentAttendance = [],
   onUpdate,
+  onParentAttendanceUpdate,
 }: Step3StudentAttendanceProps) {
   const {
     // Data
@@ -48,6 +57,18 @@ export function Step3StudentAttendance({
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
   }
+
+  const showParents =
+    sessionType && sessionType !== 'CLASS' && sessionParents.length > 0 && !!onParentAttendanceUpdate;
+
+  const getParentAttendance = (parentId: string) =>
+    parentAttendance.find((p) => p.parentId === parentId)?.attended ?? false;
+
+  const setParentAttendance = (parentId: string, attended: boolean) => {
+    if (!onParentAttendanceUpdate) return;
+    const others = parentAttendance.filter((p) => p.parentId !== parentId);
+    onParentAttendanceUpdate([...others, { parentId, attended }]);
+  };
 
   return (
     <div className="space-y-4">
@@ -180,6 +201,30 @@ export function Step3StudentAttendance({
             Cancel
           </Button>
         </div>
+      )}
+
+      {showParents && (
+        <>
+          <Separator />
+          <div className="space-y-3">
+            <div className="font-medium">Parents (optional)</div>
+            <p className="text-sm text-muted-foreground">
+              Record whether each linked parent attended this meeting.
+            </p>
+            {sessionParents.map((p) => (
+              <div key={p.id} className="flex items-center gap-3">
+                <Checkbox
+                  id={`parent-${p.id}`}
+                  checked={getParentAttendance(p.id)}
+                  onCheckedChange={(checked) => setParentAttendance(p.id, checked === true)}
+                />
+                <label htmlFor={`parent-${p.id}`} className="flex-1 text-sm font-medium cursor-pointer">
+                  {p.first_name} {p.last_name}
+                </label>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
