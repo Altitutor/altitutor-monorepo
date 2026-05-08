@@ -13,6 +13,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
 import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogSessionModal } from '@/features/tutor-logs';
@@ -147,12 +148,8 @@ const navItems: NavItem[] = [
     icon: Newspaper,
   },
   {
-    type: 'heading',
-    title: 'UCAT',
-  },
-  {
-    title: 'Manual online access',
-    href: '/ucat/manual-online-access',
+    title: 'Online access',
+    href: '/manual-online-access',
     icon: Layers,
   },
 ];
@@ -494,6 +491,7 @@ function AdminLayoutContent({
                 initialPrefill={checkInPrefill}
                 onCreated={(sessionId) => {
                   void queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+                  void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
                   closeCheckInModal();
                   toast({
                     title: 'Check-in scheduled',
