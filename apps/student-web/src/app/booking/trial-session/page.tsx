@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { BookingFlow } from '@/features/bookings/components/BookingFlow';
 import { TimeSlotPicker } from '@/features/bookings/components/TimeSlotPicker';
 import { TrialContactForm } from '@/features/bookings/components/TrialContactForm';
+import { SubsidyPreferenceStep, type SubsidyPreference } from '@/features/bookings/components/SubsidyPreferenceStep';
 import { StudentExistsError } from '@/features/bookings/components/StudentExistsError';
 import { useToast } from '@altitutor/ui';
 import type { TrialContactFormValues } from '@/features/bookings/components/TrialContactForm';
@@ -42,10 +43,11 @@ export default function BookTrialPage() {
   const [, setIsFormValid] = useState(false);
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
+  const [subsidyPreference, setSubsidyPreference] = useState<SubsidyPreference>('NO');
 
   // Fetch subjects for confirmation step if they're missing
   useEffect(() => {
-    if (currentStep === 3 && contactData?.subject_ids && contactData.subject_ids.length > 0 && selectedSubjects.length === 0) {
+    if (currentStep === 4 && contactData?.subject_ids && contactData.subject_ids.length > 0 && selectedSubjects.length === 0) {
       setIsLoadingSubjects(true);
       // Fetch all subjects and filter by IDs
       fetch('/api/subjects/search?limit=200')
@@ -110,7 +112,7 @@ export default function BookTrialPage() {
 
   const handleContactSubmit = (data: TrialContactFormValues) => {
     setContactData(data);
-    setCurrentStep(3); // Move to confirmation (step 0 = instructions, step 1 = time, step 2 = contact, step 3 = confirm)
+    setCurrentStep(3); // Move to subsidy step (step 0 = instructions, step 1 = time, step 2 = contact, step 3 = subsidy, step 4 = confirm)
   };
 
   const handleConfirmBooking = async () => {
@@ -125,6 +127,7 @@ export default function BookTrialPage() {
 
     setIsSubmitting(true);
     try {
+      const selectedSessionType = subsidyPreference === 'YES' ? 'SUBSIDY_INTERVIEW' : 'TRIAL_SESSION';
       const response = await fetch('/api/bookings/trial/public', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -132,6 +135,7 @@ export default function BookTrialPage() {
           ...contactData,
           start_at: selectedSlot.startAt,
           end_at: selectedSlot.endAt,
+          session_type: selectedSessionType,
         }),
       });
 
@@ -177,6 +181,7 @@ export default function BookTrialPage() {
       // Store booking data in sessionStorage for the success page
       const bookingData = {
         session_id,
+        session_type: selectedSessionType,
         start_at: selectedSlot.startAt,
         end_at: selectedSlot.endAt,
         student_first_name: contactData.student_first_name,
@@ -264,6 +269,13 @@ export default function BookTrialPage() {
           onValidityChange={setIsFormValid}
           onSelectedSubjectsChange={setSelectedSubjects}
         />
+      ),
+    },
+    {
+      id: 'subsidy',
+      title: 'Subsidy Option',
+      component: (
+        <SubsidyPreferenceStep value={subsidyPreference} onValueChange={setSubsidyPreference} />
       ),
     },
     {
@@ -389,7 +401,7 @@ export default function BookTrialPage() {
       }
       setCurrentStep(2);
     } else if (currentStep === 2) {
-      // From contact form to confirmation
+      // From contact form to subsidy preference
       // Trigger form submission programmatically - this will show field-level errors
       if (contactFormRef) {
         // Trigger validation on all fields to show errors
@@ -457,6 +469,9 @@ export default function BookTrialPage() {
           variant: 'destructive',
         });
       }
+    } else if (currentStep === 3) {
+      // From subsidy preference to confirmation
+      setCurrentStep(4);
     }
   };
 
@@ -475,7 +490,7 @@ export default function BookTrialPage() {
         onStepChange={handleStepChange}
         onNext={handleNext}
         onBack={handleBack}
-        onConfirm={currentStep === 3 ? handleConfirmBooking : undefined}
+        onConfirm={currentStep === 4 ? handleConfirmBooking : undefined}
         isSubmitting={isSubmitting}
         canProceed={currentStep === 1 ? !!selectedSlot : true}
         selectedSlot={selectedSlot}

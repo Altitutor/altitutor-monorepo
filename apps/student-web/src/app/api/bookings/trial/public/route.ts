@@ -25,7 +25,7 @@ function checkRateLimit(ip: string, email: string): { allowed: boolean; error?: 
   const emailLimit = rateLimitMap.get(emailKey);
   if (emailLimit && emailLimit.resetAt > now) {
     if (emailLimit.count >= 1) {
-      return { allowed: false, error: 'You have already booked a trial session today. Please try again tomorrow.' };
+      return { allowed: false, error: 'You have already booked a session today. Please try again tomorrow.' };
     }
     rateLimitMap.set(emailKey, { count: emailLimit.count + 1, resetAt: emailLimit.resetAt });
   } else {
@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
       );
     }
     
+    const sessionType = body.session_type === 'SUBSIDY_INTERVIEW' ? 'SUBSIDY_INTERVIEW' : 'TRIAL_SESSION';
+
     // Validation
     if (!body.student_first_name || !body.student_last_name || 
         !body.student_email || !body.curriculum || 
@@ -118,6 +120,7 @@ export async function POST(request: NextRequest) {
       p_curriculum: body.curriculum,
       p_start_at: body.start_at,
       p_end_at: body.end_at,
+      p_session_type: sessionType,
       p_year_level: yearLevel ?? undefined,
       p_subject_ids: subjectIds ?? undefined,
       p_parent_first_name: body.skip_parent_details ? null : (body.parent_first_name || null),
