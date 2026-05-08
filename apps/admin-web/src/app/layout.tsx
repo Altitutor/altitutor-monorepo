@@ -48,16 +48,16 @@ export default function RootLayout({
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
                     <CommandPaletteProvider>
-                      <MentionModalProvider>
-                        <QuickActionsProvider>
+                      <QuickActionsProvider>
+                        <MentionModalProvider>
                           <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">
                             <ConditionalNavbar />
                             <MainContentWrapper>
                               {children}
                             </MainContentWrapper>
                           </div>
-                        </QuickActionsProvider>
-                      </MentionModalProvider>
+                        </MentionModalProvider>
+                      </QuickActionsProvider>
                     </CommandPaletteProvider>
                   </MobileMenuProvider>
                 </ToastProviderWrapper>

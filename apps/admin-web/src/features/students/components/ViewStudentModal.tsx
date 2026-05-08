@@ -330,11 +330,21 @@ export function ViewStudentModal({
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent hideCloseButton className="w-full md:w-[600px] lg:w-[800px] md:max-w-none h-full max-h-[100dvh] flex flex-col p-0">
           {!student ? (
-            <div className="flex justify-center items-center h-full p-6">
-              <div className="text-muted-foreground">
-                {loadingStudent ? 'Loading...' : ''}
+            <>
+              <SheetTitle className="sr-only">
+                {loadingStudent ? 'Loading student' : 'Student'}
+              </SheetTitle>
+              <SheetDescription className="sr-only">
+                {loadingStudent
+                  ? 'Loading student details.'
+                  : 'Student could not be loaded.'}
+              </SheetDescription>
+              <div className="flex justify-center items-center h-full p-6">
+                <div className="text-muted-foreground">
+                  {loadingStudent ? 'Loading...' : ''}
+                </div>
               </div>
-            </div>
+            </>
           ) : (
             <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
               {/* Sticky Header */}
@@ -354,8 +364,8 @@ export function ViewStudentModal({
                         <SheetTitle>
                           {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
                         </SheetTitle>
-                        <SheetDescription className="text-lg font-medium">
-                          <span className="inline-flex items-center gap-2 flex-wrap">
+                        <SheetDescription asChild className="text-lg font-medium text-foreground">
+                          <div className="inline-flex items-center gap-2 flex-wrap">
                             {student.first_name} {student.last_name}
                             <Badge
                               variant={
@@ -373,7 +383,7 @@ export function ViewStudentModal({
                               entityId={studentId}
                               enabled={isOpen && !!studentId}
                             />
-                          </span>
+                          </div>
                         </SheetDescription>
                       </div>
                     </div>
