@@ -13,6 +13,7 @@ import { MentionModalProvider } from '@/shared/components/MentionModalProvider';
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 import { MainContentWrapper } from '@/shared/components/layouts/MainContentWrapper'
 import { QuickActionsProvider } from '@/shared/contexts/QuickActionsContext'
+import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -45,6 +46,7 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
+                <HapticFeedbackProvider />
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
                     <CommandPaletteProvider>
