@@ -29,6 +29,7 @@ export type ReportsEntitiesTableVariant =
   | 'openIssues'
   | 'resolvedIssues'
   | 'openProjects'
+  | 'finishedProjects'
   | 'activeStudents'
   | 'studentRegistrations'
   | 'discontinuations'
@@ -40,7 +41,8 @@ export type ReportsEntitiesTableVariant =
   | 'predictedRevenue'
   | 'actualRevenue'
   | 'billingErrors'
-  | 'subsidies';
+  | 'subsidies'
+  | 'subsidiesCreated';
 
 interface ColumnConfig {
   key: string;
@@ -71,6 +73,11 @@ const TABLE_CONFIG: Record<ReportsEntitiesTableVariant, ColumnConfig[]> = {
     { key: 'project', header: 'Project' },
     { key: 'createdBy', header: 'Created by' },
     { key: 'projectLead', header: 'Project lead' },
+  ],
+  finishedProjects: [
+    { key: 'project', header: 'Project' },
+    { key: 'projectLead', header: 'Project lead' },
+    { key: 'completedAt', header: 'Completed at' },
   ],
   activeStudents: [{ key: 'student', header: 'Student' }],
   studentRegistrations: [
@@ -129,6 +136,12 @@ const TABLE_CONFIG: Record<ReportsEntitiesTableVariant, ColumnConfig[]> = {
     { key: 'class', header: 'Class' },
     { key: 'price', header: 'Price' },
   ],
+  subsidiesCreated: [
+    { key: 'student', header: 'Student' },
+    { key: 'subject', header: 'Subject' },
+    { key: 'price', header: 'Price' },
+    { key: 'createdAt', header: 'Created at' },
+  ],
 };
 
 interface ReportsEntitiesTableProps {
@@ -146,6 +159,7 @@ function getPrimaryLabelKey(variant: ReportsEntitiesTableVariant): string {
     case 'resolvedIssues':
       return 'issue';
     case 'openProjects':
+    case 'finishedProjects':
       return 'project';
     case 'activeStudents':
     case 'studentRegistrations':
@@ -165,6 +179,7 @@ function getPrimaryLabelKey(variant: ReportsEntitiesTableVariant): string {
     case 'billingErrors':
       return 'type';
     case 'subsidies':
+    case 'subsidiesCreated':
       return 'student';
     default:
       return 'value';

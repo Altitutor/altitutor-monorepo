@@ -31,6 +31,7 @@ export const REPORTS_CHART_CONFIG = {
     },
     projects: {
       openProjects: 'Open projects',
+      finishedProjects: 'Finished projects',
     },
   },
   scheduling: {
@@ -54,6 +55,7 @@ export const REPORTS_CHART_CONFIG = {
     actualRevenue: 'Actual revenue',
     billingErrors: 'Billing errors',
     subsidiesEnrolled: 'Subsidies (enrolled in class)',
+    subsidiesCreated: 'Subsidies',
   },
 } as const;
 
@@ -64,7 +66,7 @@ export type ReportsVisibleCharts = {
   operations: {
     tasks: { openTasks: boolean; completedTasks: boolean };
     issues: { openIssues: boolean; resolvedIssues: boolean };
-    projects: { openProjects: boolean };
+    projects: { openProjects: boolean; finishedProjects: boolean };
   };
   scheduling: {
     students: {
@@ -85,26 +87,27 @@ export type ReportsVisibleCharts = {
     actualRevenue: boolean;
     billingErrors: boolean;
     subsidiesEnrolled: boolean;
+    subsidiesCreated: boolean;
   };
 };
 
 function buildDefaultVisibleCharts(): ReportsVisibleCharts {
   return {
     operations: {
-      tasks: { openTasks: true, completedTasks: true },
-      issues: { openIssues: true, resolvedIssues: true },
-      projects: { openProjects: true },
+      tasks: { openTasks: false, completedTasks: true },
+      issues: { openIssues: false, resolvedIssues: true },
+      projects: { openProjects: false, finishedProjects: true },
     },
     scheduling: {
       students: {
-        activeStudents: true,
+        activeStudents: false,
         registrations: true,
         discontinuations: true,
         absences: true,
       },
       staff: { absences: true },
       classes: {
-        activeClasses: true,
+        activeClasses: false,
         enrolments: true,
         unenrolments: true,
       },
@@ -113,7 +116,8 @@ function buildDefaultVisibleCharts(): ReportsVisibleCharts {
       predictedRevenue: true,
       actualRevenue: true,
       billingErrors: true,
-      subsidiesEnrolled: true,
+      subsidiesEnrolled: false,
+      subsidiesCreated: true,
     },
   };
 }
