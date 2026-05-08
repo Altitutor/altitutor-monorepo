@@ -1,11 +1,19 @@
 'use client';
 
-import { DropdownMenuItem, DropdownMenuSeparator } from '@altitutor/ui';
-import { Save } from 'lucide-react';
+import {
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  SearchableSelectInline,
+} from '@altitutor/ui';
+import { FileText, Save } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { JSONContent } from '@tiptap/core';
-import { RichTextTemplateInsertSubmenu } from './RichTextTemplateInsertSubmenu';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, Json } from '@altitutor/shared';
+import { useRichTextTemplates } from '../api/templates';
+import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
 
 /**
  * Extracts content nodes to insert from TipTap doc format.
@@ -53,12 +61,15 @@ export function RichTextTemplateMenuItems({
   onSaveAsTemplateClick,
   onClose,
 }: RichTextTemplateMenuItemsProps) {
+  const { data: templates = [], isLoading: isTemplatesLoading } = useRichTextTemplates();
+
   const handleSaveAsTemplate = (e: Event) => {
     e.preventDefault(); // Prevent dropdown from closing before parent can open the dialog
     onSaveAsTemplateClick?.();
   };
 
-  const handleInsertTemplate = (template: Tables<'rich_text_templates'>) => {
+  const handleInsertTemplate = (template: Tables<'rich_text_templates'> | null) => {
+    if (!template) return;
     const editor = getEditor();
     const content = template.content as JSONContent | null;
     insertTemplateAtEnd(editor, content);
@@ -72,7 +83,36 @@ export function RichTextTemplateMenuItems({
         <Save className="h-4 w-4 mr-2" />
         Save as template
       </DropdownMenuItem>
-      <RichTextTemplateInsertSubmenu onSelect={handleInsertTemplate} />
+      <DropdownMenuSub>
+        <DropdownMenuSubTrigger>
+          <FileText className="h-4 w-4 mr-2" />
+          Insert template
+        </DropdownMenuSubTrigger>
+        <DropdownMenuSubContent className="w-80 p-0">
+          <SearchableSelectInline<Tables<'rich_text_templates'>>
+          items={templates}
+          value={null}
+          onValueChange={handleInsertTemplate}
+          getItemId={(template) => template.id}
+          getItemLabel={(template) => template.name}
+          getItemValue={(template) =>
+            `${template.name} ${extractTextFromNoteContent(template.content as Json)}`
+          }
+          searchPlaceholder="Search templates..."
+          emptyMessage={isTemplatesLoading ? 'Loading templates...' : 'No templates found'}
+          loading={isTemplatesLoading}
+          className="max-h-[240px]"
+          renderItem={(template) => (
+            <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
+              <span className="truncate font-medium">{template.name}</span>
+              <span className="truncate text-xs text-muted-foreground">
+                {extractTextFromNoteContent(template.content as Json) || '(empty)'}
+              </span>
+            </div>
+          )}
+          />
+        </DropdownMenuSubContent>
+      </DropdownMenuSub>
     </>
   );
 }

@@ -34,6 +34,7 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 
 interface ParentsTableProps {
   onRefresh?: number;
@@ -43,6 +44,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('parents');
+  const { openCheckInModal } = useQuickActions();
   
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'last_name', direction: 'asc' as const }), []);
@@ -288,6 +290,17 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                         onOpenInPage={() => {
                           router.push(`/parents/${parent.id}`);
                         }}
+                        onBookCheckIn={() =>
+                          openCheckInModal({
+                            parents: [
+                              {
+                                id: parent.id,
+                                first_name: parent.first_name,
+                                last_name: parent.last_name,
+                              },
+                            ],
+                          })
+                        }
                         onDelete={() => {
                           setParentToDelete(parent);
                           setDeleteConfirmText('');

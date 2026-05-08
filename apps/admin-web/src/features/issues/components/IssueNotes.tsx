@@ -14,6 +14,7 @@ import { MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useCreateNote, useUpdateNote, useDeleteNote } from '@/shared/hooks/useNotes';
 import { NotesEditorWithMentions } from '@/shared/components/NotesEditorWithMentions';
+import { NoteComposerWithTemplate } from '@/shared/components/NoteComposerWithTemplate';
 import { NoteContentDisplay } from '@/shared/components/NoteContentDisplay';
 import {
   isTiptapContentEmpty,
@@ -209,32 +210,14 @@ export function IssueNotes({ issueId, notes, onNoteAdded }: IssueNotesProps) {
       )}
 
       {/* New Note Input */}
-      <div className="rounded-lg border bg-card p-4 space-y-2">
-        <NotesEditorWithMentions
+      <div className="rounded-lg border bg-card p-4">
+        <NoteComposerWithTemplate
           content={newNoteContent}
           onChange={setNewNoteContent}
-          placeholder="Add a note..."
-          disabled={createNoteMutation.isPending || !currentStaff}
-          minHeight="80px"
+          onSubmit={handleSubmit}
+          isSubmitting={createNoteMutation.isPending}
+          canPost={Boolean(currentStaff)}
         />
-        <div className="flex justify-end gap-2">
-          {createNoteMutation.isPending && (
-            <span className="text-xs text-muted-foreground self-center">Posting...</span>
-          )}
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={
-              isTiptapContentEmpty(newNoteContent) ||
-              createNoteMutation.isPending ||
-              !currentStaff
-            }
-            size="sm"
-            variant="default"
-          >
-            Post
-          </Button>
-        </div>
       </div>
     </div>
   );

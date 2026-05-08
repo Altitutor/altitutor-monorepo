@@ -7,6 +7,7 @@ import { Button } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { LogAbsenceDialog } from '@/features/sessions/components/absences/LogAbsenceDialog';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import {
@@ -58,6 +59,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
+  const { openCheckInModal } = useQuickActions();
   
   // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(id, !!id);
@@ -261,6 +263,18 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookDraftingSession: modals.openBookDraftingSession,
+    onBookCheckIn: student
+      ? () =>
+          openCheckInModal({
+            students: [
+              {
+                id: student.id,
+                first_name: student.first_name,
+                last_name: student.last_name,
+              },
+            ],
+          })
+      : undefined,
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });

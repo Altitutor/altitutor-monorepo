@@ -37,7 +37,13 @@ function getContentToInsert(
  * Hook to provide slash command suggestions for the RichTextEditor.
  * Includes formatting commands (headings, lists, etc.) and searchable templates.
  */
-export function useSlashCommandSuggestions() {
+interface UseSlashCommandSuggestionsOptions {
+  includeCollapsibleSection?: boolean;
+}
+
+export function useSlashCommandSuggestions({
+  includeCollapsibleSection = true,
+}: UseSlashCommandSuggestionsOptions = {}) {
   const { data: templates = [] } = useRichTextTemplates();
 
   return useMemo(() => {
@@ -145,6 +151,18 @@ export function useSlashCommandSuggestions() {
       })
     );
 
+    if (includeCollapsibleSection) {
+      baseItems.splice(5, 0, {
+        title: 'Collapsible section',
+        subtext: 'Toggle hidden body content (TipTap details — like Notion toggle)',
+        group: 'Blocks',
+        keywords: ['toggle', 'fold', 'collapse', 'details', 'heading'],
+        onSelect: ({ editor, range }) => {
+          editor.chain().focus().deleteRange(range).setDetails().run();
+        },
+      });
+    }
+
     const allItems = [...baseItems, ...templateItems];
 
     return {
@@ -238,5 +256,5 @@ export function useSlashCommandSuggestions() {
         };
       },
     };
-  }, [templates]);
+  }, [templates, includeCollapsibleSection]);
 }

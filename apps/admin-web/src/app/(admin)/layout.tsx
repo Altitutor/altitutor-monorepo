@@ -9,6 +9,11 @@ import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
 import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@altitutor/ui';
+import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
+import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
 import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogSessionModal } from '@/features/tutor-logs';
@@ -66,14 +71,18 @@ const navItems: NavItem[] = [
     icon: AlertTriangle,
   },
   {
+    title: 'Documents',
+    href: '/documents',
+    icon: FileText,
+  },
+  {
+    type: 'heading',
+    title: 'COMMUNICATION',
+  },
+  {
     title: 'Messages',
     href: '/messages',
     icon: MessageCircle,
-  },
-  {
-    title: 'Notes',
-    href: '/notes',
-    icon: FileText,
   },
   {
     type: 'heading',
@@ -143,12 +152,8 @@ const navItems: NavItem[] = [
     icon: Newspaper,
   },
   {
-    type: 'heading',
-    title: 'UCAT',
-  },
-  {
-    title: 'Manual online access',
-    href: '/ucat/manual-online-access',
+    title: 'Online access',
+    href: '/manual-online-access',
     icon: Layers,
   },
 ];
@@ -381,6 +386,8 @@ function AdminLayoutContent({
 }: {
   children: React.ReactNode;
 }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const {
     bookingSessionType,
     isBookingModalOpen,
@@ -391,11 +398,22 @@ function AdminLayoutContent({
     closeCreateIssueDialog,
     isCreateProjectDialogOpen,
     closeCreateProjectDialog,
+    isTutorLogModalOpen,
+    isLogAbsenceDialogOpen,
+    isLogStaffAbsenceDialogOpen,
+    isAnnouncementsModalOpen,
+    closeTutorLogModal,
+    closeLogAbsenceDialog,
+    closeLogStaffAbsenceDialog,
+    closeAnnouncementsModal,
+    isCheckInModalOpen,
+    checkInSessionType,
+    checkInPrefill,
+    closeCheckInModal,
   } = useQuickActions();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
-  const { isTutorLogModalOpen, isLogAbsenceDialogOpen, isLogStaffAbsenceDialogOpen, isAnnouncementsModalOpen, closeTutorLogModal, closeLogAbsenceDialog, closeLogStaffAbsenceDialog, closeAnnouncementsModal } = useQuickActions();
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   const pathname = usePathname();
@@ -471,6 +489,32 @@ function AdminLayoutContent({
               <CreateProjectDialog
                 isOpen={isCreateProjectDialogOpen}
                 onClose={closeCreateProjectDialog}
+              />
+              <CheckInBookSessionModal
+                isOpen={isCheckInModalOpen}
+                onClose={closeCheckInModal}
+                sessionType={checkInSessionType}
+                initialPrefill={checkInPrefill}
+                onCreated={(sessionId) => {
+                  void queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
+                  void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
+                  closeCheckInModal();
+                  toast({
+                    title:
+                      checkInSessionType === 'ADMIN_MEETING'
+                        ? 'Admin meeting scheduled'
+                        : 'Check-in scheduled',
+                    description: 'Session was created.',
+                    action: {
+                      label: 'View session',
+                      onClick: () =>
+                        window.dispatchEvent(
+                          new CustomEvent('open-session-modal', { detail: { id: sessionId } })
+                        ),
+                    },
+                    duration: 12_000,
+                  });
+                }}
               />
             </>
           )}

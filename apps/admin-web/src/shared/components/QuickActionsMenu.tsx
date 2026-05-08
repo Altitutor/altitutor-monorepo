@@ -18,7 +18,7 @@ type QuickActionsMenuProps = {
 };
 
 export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps) {
-  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog, openCreateProjectDialog } = useQuickActions();
+  const { openTutorLogModal, openLogAbsenceDialog, openLogStaffAbsenceDialog, openAnnouncementsModal, openBookingModal, openCreateTaskDialog, openCreateIssueDialog, openCreateProjectDialog, openCheckInModal } = useQuickActions();
   
   const bookingActions = getBookingActions();
   const nonBookingActions = getNonBookingActions();
@@ -75,6 +75,10 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
                 openCreateIssueDialog();
               } else if (action.actionType === 'create-project') {
                 openCreateProjectDialog();
+              } else if (action.actionType === 'book-check-in') {
+                openCheckInModal();
+              } else if (action.actionType === 'book-admin-meeting') {
+                openCheckInModal(null, 'ADMIN_MEETING');
               }
             };
 
@@ -142,6 +146,10 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
                 openCreateIssueDialog();
               } else if (action.actionType === 'create-project') {
                 openCreateProjectDialog();
+              } else if (action.actionType === 'book-check-in') {
+                openCheckInModal();
+              } else if (action.actionType === 'book-admin-meeting') {
+                openCheckInModal(null, 'ADMIN_MEETING');
               }
             };
 

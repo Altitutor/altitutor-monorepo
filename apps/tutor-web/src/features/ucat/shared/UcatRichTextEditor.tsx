@@ -93,7 +93,10 @@ export function UcatRichTextEditor({
   forceLightChrome = false,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
-  const ucatParseHighlight = ucatParseHighlightProp ?? { mode: 'off' as const }
+  const ucatParseHighlight = useMemo<UcatParseHighlightConfig>(
+    () => ucatParseHighlightProp ?? { mode: 'off' as const },
+    [ucatParseHighlightProp]
+  )
   const ucatParseCfgRef = useRef<UcatParseHighlightConfig>(ucatParseHighlight)
   ucatParseCfgRef.current = ucatParseHighlight
   const ucatParseExt = useMemo(
@@ -109,7 +112,7 @@ export function UcatRichTextEditor({
     const ed = editorRef.current?.getEditor()
     if (!ed) return
     ed.view.dispatch(ed.state.tr.setMeta(UCAT_PARSE_DECO_META, 1))
-  }, [ucatParseHighlightProp, ucatParseHighlight])
+  }, [ucatParseHighlightProp])
 
   /** Shared logic: insert placeholders, upload, replace (or remove on error) at a given position. */
   const processImagesAtPosition = useCallback(

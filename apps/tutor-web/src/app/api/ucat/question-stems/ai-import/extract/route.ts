@@ -55,13 +55,6 @@ const RESPONSE_SCHEMA_DESCRIPTION = `{
   }]
 }`
 
-function splitStatementsFromQuestionText(questionText: string): string[] {
-  return questionText
-    .split(/\n+|\s{2,}/u)
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0)
-}
-
 function isYesNoOnlyOptions(options: Array<{ answerText: string }>): boolean {
   const values = options.map((option) => option.answerText.trim().toLowerCase())
   return values.length === 2 && values.includes('yes') && values.includes('no')

@@ -38,6 +38,7 @@ import { useStudentsMinimal } from '../hooks/useStudentsQuery';
 import { useSubjects } from '@/features/subjects';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
@@ -60,6 +61,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const { data: allSubjects = [] } = useSubjects();
   const { data: quickFilters = [] } = useQuickFilters('students');
   const { toast } = useToast();
+  const { openCheckInModal } = useQuickActions();
   
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
   const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
@@ -580,6 +582,17 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                           setActionStudentId(student.id);
                           setIsBookDraftingSessionModalOpen(true);
                         }}
+                        onBookCheckIn={() =>
+                          openCheckInModal({
+                            students: [
+                              {
+                                id: student.id,
+                                first_name: student.first_name,
+                                last_name: student.last_name,
+                              },
+                            ],
+                          })
+                        }
                         onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE'
                           ? () => {
                               setStudentToDiscontinue(student);

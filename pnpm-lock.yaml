@@ -139,6 +139,9 @@ importers:
       '@tiptap/core':
         specifier: ^3.20.0
         version: 3.20.4(@tiptap/pm@3.20.4)
+      '@tiptap/extension-details':
+        specifier: ^3.20.0
+        version: 3.22.5(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))(@tiptap/extension-text-style@3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4)))(@tiptap/pm@3.20.4)
       '@tiptap/extension-image':
         specifier: ^3.20.0
         version: 3.20.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
@@ -244,6 +247,9 @@ importers:
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
+      web-haptics:
+        specifier: ^0.0.6
+        version: 0.0.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       zod:
         specifier: ^3.24.2
         version: 3.25.76
@@ -521,6 +527,9 @@ importers:
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
+      web-haptics:
+        specifier: ^0.0.6
+        version: 0.0.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       zod:
         specifier: ^3.24.2
         version: 3.25.76
@@ -816,6 +825,9 @@ importers:
       uuid:
         specifier: ^11.1.0
         version: 11.1.0
+      web-haptics:
+        specifier: ^0.0.6
+        version: 0.0.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       zod:
         specifier: ^3.24.2
         version: 3.25.76
@@ -1089,6 +1101,12 @@ importers:
       '@tiptap/core':
         specifier: ^3.20.0
         version: 3.20.4(@tiptap/pm@3.20.4)
+      '@tiptap/extension-details':
+        specifier: ^3.20.0
+        version: 3.22.5(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))(@tiptap/extension-text-style@3.20.4(@tiptap/core@3.20.4(@tiptap/pm@3.20.4)))(@tiptap/pm@3.20.4)
+      '@tiptap/extension-heading':
+        specifier: ^3.20.0
+        version: 3.20.4(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
       '@tiptap/extension-image':
         specifier: ^3.20.0
         version: 3.20.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
@@ -3801,6 +3819,13 @@ packages:
     peerDependencies:
       '@tiptap/core': ^3.20.0
 
+  '@tiptap/extension-details@3.22.5':
+    resolution: {integrity: sha512-+vg7wSO9DL8veAzC4jlHu4lQ4qL2iRxj/ONTfP+jnffN0TzrjAdkMLCUEX059gYyks22AXgoI5vEzWs0K7yeuw==}
+    peerDependencies:
+      '@tiptap/core': ^3.20.0
+      '@tiptap/extension-text-style': 3.22.5
+      '@tiptap/pm': ^3.20.0
+
   '@tiptap/extension-document@3.19.0':
     resolution: {integrity: sha512-AOf0kHKSFO0ymjVgYSYDncRXTITdTcrj1tqxVazrmO60KNl1Rc2dAggDvIVTEBy5NvceF0scc7q3sE/5ZtVV7A==}
     peerDependencies:
@@ -3852,11 +3877,6 @@ packages:
 
   '@tiptap/extension-hard-break@3.20.4':
     resolution: {integrity: sha512-gJbq58d8zB1gzyqVEopowej5CpW4/Fpg6oGJvlZxaCukqd0gJRWGC89K+jE62YA1Td4sfcKrekKvN7jm2y/ZUg==}
-    peerDependencies:
-      '@tiptap/core': ^3.20.0
-
-  '@tiptap/extension-heading@3.19.0':
-    resolution: {integrity: sha512-uLpLlfyp086WYNOc0ekm1gIZNlEDfmzOhKzB0Hbyi6jDagTS+p9mxUNYeYOn9jPUxpFov43+Wm/4E24oY6B+TQ==}
     peerDependencies:
       '@tiptap/core': ^3.20.0
 
@@ -8821,6 +8841,23 @@ packages:
     resolution: {integrity: sha512-Zn5uXdcFNIA1+1Ei5McRd+iRzfhENPCe7LeABkJtNulSxjma+l7ltNx55BWZkRlwRnpOgHqxnjyaDgJnNXnqzg==}
     engines: {node: '>=10.13.0'}
 
+  web-haptics@0.0.6:
+    resolution: {integrity: sha512-eCzcf1LDi20+Fr0x9V3OkX92k0gxEQXaHajmhXHitsnk6SxPeshv8TBtBRqxyst8HI1uf2FyFVE7QS3jo1gkrw==}
+    peerDependencies:
+      react: '>=18'
+      react-dom: '>=18'
+      svelte: '>=4'
+      vue: '>=3'
+    peerDependenciesMeta:
+      react:
+        optional: true
+      react-dom:
+        optional: true
+      svelte:
+        optional: true
+      vue:
+        optional: true
+
   web-streams-polyfill@3.3.3:
     resolution: {integrity: sha512-d2JWLCivmZYTSIoge9MsgFCZrt571BikcWGYkjC1khllbTeDlGqZ2D8vD8E/lJa8WGWbb7Plm8/XJYV7IJHZZw==}
     engines: {node: '>= 8'}
@@ -11989,6 +12026,18 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.20.4(@tiptap/pm@3.20.4)
 
+  '@tiptap/extension-details@3.22.5(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))(@tiptap/extension-text-style@3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4)))(@tiptap/pm@3.20.4)':
+    dependencies:
+      '@tiptap/core': 3.20.4(@tiptap/pm@3.20.4)
+      '@tiptap/extension-text-style': 3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
+      '@tiptap/pm': 3.20.4
+
+  '@tiptap/extension-details@3.22.5(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))(@tiptap/extension-text-style@3.20.4(@tiptap/core@3.20.4(@tiptap/pm@3.20.4)))(@tiptap/pm@3.20.4)':
+    dependencies:
+      '@tiptap/core': 3.20.4(@tiptap/pm@3.20.4)
+      '@tiptap/extension-text-style': 3.20.4(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
+      '@tiptap/pm': 3.20.4
+
   '@tiptap/extension-document@3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))':
     dependencies:
       '@tiptap/core': 3.20.4(@tiptap/pm@3.20.4)
@@ -12032,10 +12081,6 @@ snapshots:
       '@tiptap/core': 3.20.4(@tiptap/pm@3.20.4)
 
   '@tiptap/extension-hard-break@3.20.4(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))':
-    dependencies:
-      '@tiptap/core': 3.20.4(@tiptap/pm@3.20.4)
-
-  '@tiptap/extension-heading@3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))':
     dependencies:
       '@tiptap/core': 3.20.4(@tiptap/pm@3.20.4)
 
@@ -12278,7 +12323,7 @@ snapshots:
       '@tiptap/extension-dropcursor': 3.19.0(@tiptap/extensions@3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))(@tiptap/pm@3.20.4))
       '@tiptap/extension-gapcursor': 3.19.0(@tiptap/extensions@3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))(@tiptap/pm@3.20.4))
       '@tiptap/extension-hard-break': 3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
-      '@tiptap/extension-heading': 3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
+      '@tiptap/extension-heading': 3.20.4(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
       '@tiptap/extension-horizontal-rule': 3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))(@tiptap/pm@3.20.4)
       '@tiptap/extension-italic': 3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))
       '@tiptap/extension-link': 3.19.0(@tiptap/core@3.20.4(@tiptap/pm@3.20.4))(@tiptap/pm@3.20.4)
@@ -18353,6 +18398,11 @@ snapshots:
     dependencies:
       glob-to-regexp: 0.4.1
       graceful-fs: 4.2.11
+
+  web-haptics@0.0.6(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    optionalDependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
 
   web-streams-polyfill@3.3.3: {}
 

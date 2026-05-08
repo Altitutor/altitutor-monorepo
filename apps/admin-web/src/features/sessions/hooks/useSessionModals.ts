@@ -19,7 +19,7 @@ interface UseSessionModalsReturn {
   isAddStudentToSessionModalOpen: boolean;
   isAddStaffToSessionModalOpen: boolean;
   isRemoveFromSessionDialogOpen: boolean;
-  removeFromSessionTarget: { entityType: 'student' | 'staff'; entityId: string; entityName: string } | null;
+  removeFromSessionTarget: { entityType: 'student' | 'staff' | 'parent'; entityId: string; entityName: string } | null;
 
   // Actions
   openStudentModal: (studentId: string) => void;
@@ -42,7 +42,7 @@ interface UseSessionModalsReturn {
   closeAddStudentToSessionModal: () => void;
   openAddStaffToSessionModal: () => void;
   closeAddStaffToSessionModal: () => void;
-  openRemoveFromSessionDialog: (target: { entityType: 'student' | 'staff'; entityId: string; entityName: string }) => void;
+  openRemoveFromSessionDialog: (target: { entityType: 'student' | 'staff' | 'parent'; entityId: string; entityName: string }) => void;
   closeRemoveFromSessionDialog: () => void;
   reset: () => void;
 }
@@ -68,7 +68,7 @@ export function useSessionModals(): UseSessionModalsReturn {
   const [isAddStudentToSessionModalOpen, setIsAddStudentToSessionModalOpen] = useState(false);
   const [isAddStaffToSessionModalOpen, setIsAddStaffToSessionModalOpen] = useState(false);
   const [isRemoveFromSessionDialogOpen, setIsRemoveFromSessionDialogOpen] = useState(false);
-  const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<{ entityType: 'student' | 'staff'; entityId: string; entityName: string } | null>(null);
+  const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<{ entityType: 'student' | 'staff' | 'parent'; entityId: string; entityName: string } | null>(null);
 
   const openStudentModal = useCallback((studentId: string) => {
     setSelectedStudentId(studentId);
@@ -162,7 +162,7 @@ export function useSessionModals(): UseSessionModalsReturn {
     setIsAddStaffToSessionModalOpen(false);
   }, []);
 
-  const openRemoveFromSessionDialog = useCallback((target: { entityType: 'student' | 'staff'; entityId: string; entityName: string }) => {
+  const openRemoveFromSessionDialog = useCallback((target: { entityType: 'student' | 'staff' | 'parent'; entityId: string; entityName: string }) => {
     setRemoveFromSessionTarget(target);
     setIsRemoveFromSessionDialogOpen(true);
   }, []);

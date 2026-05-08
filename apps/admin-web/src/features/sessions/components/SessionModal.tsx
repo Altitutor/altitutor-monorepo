@@ -33,6 +33,8 @@ import {
   useRemoveStaffFromSession,
   useUndoAbsences,
   useUndoStaffAbsences,
+  useAddParentToSession,
+  useRemoveParentFromSession,
   useUpdateSession,
 } from '../hooks';
 import {
@@ -43,7 +45,7 @@ import {
 } from '../utils';
 import { IssuePill } from '@/features/issues';
 import { formatTime } from '@/shared/utils/datetime';
-import type { TablesUpdate } from '@altitutor/shared';
+import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { Loader2 } from 'lucide-react';
 
 type SessionModalProps = {
@@ -79,6 +81,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const addStaffMutation = useAssignStaffToSession();
   const removeStudentMutation = useRemoveStudentFromSession();
   const removeStaffMutation = useRemoveStaffFromSession();
+  const addParentMutation = useAddParentToSession();
+  const removeParentMutation = useRemoveParentFromSession();
   const undoAbsenceMutation = useUndoAbsences();
   const undoStaffAbsenceMutation = useUndoStaffAbsences();
   const updateSessionMutation = useUpdateSession();
@@ -241,6 +245,9 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
           <SheetHeader className="px-6 py-4">
             <SheetTitle>{sessionData.isLoading ? 'Loading...' : ''}</SheetTitle>
+            <SheetDescription className="sr-only">
+              {sessionData.isLoading ? 'Loading session details.' : 'Session details unavailable.'}
+            </SheetDescription>
           </SheetHeader>
           {sessionData.isLoading && (
             <div className="py-6 text-center text-muted-foreground px-6">Loading session details...</div>
@@ -250,7 +257,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     );
   }
 
-  const { session, sessionsStudents, sessionsStaff, tutorLog } = sessionData.data;
+  const { session, sessionsStudents, sessionsStaff, tutorLog, sessionsParents = [] } = sessionData.data;
+  const meetingMode = session.type !== 'CLASS';
+  const allowAbsenceLogging = Boolean(session.class_id || session.admin_shift_id);
+  const parentsData = (sessionsParents as Array<{ id: string; parent: Tables<'parents'> | null }>)
+    .filter((row): row is { id: string; parent: Tables<'parents'> } => row.parent != null)
+    .map((row) => ({ parent: row.parent, sessionsParentsId: row.id }));
   const sessionTitle = getSessionTitle(session);
   const sessionShortName = getShortSessionName(session);
   const sessionDay = session.start_at
@@ -306,8 +318,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     </Button>
                     <div className="flex-1">
                       <SheetTitle>Session Details</SheetTitle>
-                      <SheetDescription className="text-lg font-medium">
-                        <div className="flex items-center gap-2 flex-wrap">
+                      <SheetDescription asChild>
+                        <div className="text-lg font-medium text-muted-foreground flex items-center gap-2 flex-wrap">
                           {sessionTitle}
                           <IssuePill
                             entityType="session"
@@ -364,14 +376,16 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onMessageStaff={handleMessageStaff}
                     onOpenTopic={handleOpenTopic}
                     onOpenFile={handleOpenFile}
-                    onLogAbsenceStudent={modals.openLogStudentAbsenceDialog}
-                    onLogAbsenceStaff={modals.openLogStaffAbsenceDialog}
+                    onLogAbsenceStudent={allowAbsenceLogging ? modals.openLogStudentAbsenceDialog : undefined}
+                    onLogAbsenceStaff={allowAbsenceLogging ? modals.openLogStaffAbsenceDialog : undefined}
                     isEditing={isEditing}
                     onEdit={() => setIsEditing(true)}
                     onCancelEdit={() => setIsEditing(false)}
                     onSubmit={handleSessionFormSubmit}
                     isUpdating={updateSessionMutation.isPending}
-                    onUndoLogAbsenceStudent={(payload) => {
+                    onUndoLogAbsenceStudent={
+                      allowAbsenceLogging
+                        ? (payload) => {
                       type SessionsStudentRowWithId = { sessions_students_id?: string; id?: string; rescheduled_session?: { session?: unknown } };
                       const sourceRow = (sessionsStudents as SessionsStudentRowWithId[]).find((row) =>
                         (row.sessions_students_id || row.id) === payload.sessionsStudentsId
@@ -388,8 +402,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                           ? getShortSessionName(rescheduledSession)
                           : undefined,
                       });
-                    }}
-                    onUndoLogAbsenceStaff={(payload) => {
+                    }
+                        : undefined
+                    }
+                    onUndoLogAbsenceStaff={
+                      allowAbsenceLogging
+                        ? (payload) => {
                       setUndoTarget({
                         entityType: 'staff',
                         staffId: payload.staffId,
@@ -398,9 +416,34 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                         action: payload.action,
                         swappedStaffName: payload.swappedStaffName,
                       });
+                    }
+                        : undefined
+                    }
+                    onAddStudentToSession={meetingMode ? undefined : modals.openAddStudentToSessionModal}
+                    onAddStaffToSession={meetingMode ? undefined : modals.openAddStaffToSessionModal}
+                    meetingMode={meetingMode}
+                    parentsData={parentsData}
+                    onMeetingAddStudent={async (student) => {
+                      if (!sessionId) return;
+                      await addStudentMutation.mutateAsync({ sessionId, studentId: student.id });
+                      await sessionData.refresh();
+                      toast({ title: 'Student added', description: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() });
                     }}
-                    onAddStudentToSession={modals.openAddStudentToSessionModal}
-                    onAddStaffToSession={modals.openAddStaffToSessionModal}
+                    onMeetingAddStaff={async (staffMember) => {
+                      if (!sessionId) return;
+                      await addStaffMutation.mutateAsync({ sessionId, staffId: staffMember.id, type: 'MAIN_TUTOR' });
+                      await sessionData.refresh();
+                      toast({ title: 'Staff added', description: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() });
+                    }}
+                    onMeetingAddParent={async (parent) => {
+                      if (!sessionId) return;
+                      await addParentMutation.mutateAsync({ sessionId, parentId: parent.id });
+                      await sessionData.refresh();
+                      toast({ title: 'Parent added', description: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() });
+                    }}
+                    onRemoveParentFromSession={(parentId, parentName) =>
+                      modals.openRemoveFromSessionDialog({ entityType: 'parent', entityId: parentId, entityName: parentName })
+                    }
                     onRemoveStudentFromSession={(studentId, studentName) =>
                       modals.openRemoveFromSessionDialog({ entityType: 'student', entityId: studentId, entityName: studentName })
                     }
@@ -532,6 +575,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           adminMode={true}
           initialSessionId={sessionId || undefined}
           initialStaffId={helpers.getFirstStaffForLogging()}
+          initialSessionKind={session.type !== 'CLASS' ? 'meeting' : 'class'}
         />
       )}
 
@@ -564,53 +608,57 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         />
       )}
 
-      <AddStudentToSessionModal
-        isOpen={modals.isAddStudentToSessionModalOpen}
-        onClose={modals.closeAddStudentToSessionModal}
-        sessionTitle={sessionTitle}
-        sessionTime={sessionTime}
-        sessionDay={sessionDay}
-        existingStudentIds={existingStudentIds}
-        isPending={addStudentMutation.isPending}
-        onConfirm={async (student) => {
-          if (!sessionId) return;
-          try {
-            await addStudentMutation.mutateAsync({ sessionId, studentId: student.id });
-            await sessionData.refresh();
-            toast({
-              title: 'Student added',
-              description: `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student added to session.',
-            });
-          } catch (error) {
-            handleMutationError(error);
-            throw error;
-          }
-        }}
-      />
+      {!meetingMode && (
+        <>
+          <AddStudentToSessionModal
+            isOpen={modals.isAddStudentToSessionModalOpen}
+            onClose={modals.closeAddStudentToSessionModal}
+            sessionTitle={sessionTitle}
+            sessionTime={sessionTime}
+            sessionDay={sessionDay}
+            existingStudentIds={existingStudentIds}
+            isPending={addStudentMutation.isPending}
+            onConfirm={async (student) => {
+              if (!sessionId) return;
+              try {
+                await addStudentMutation.mutateAsync({ sessionId, studentId: student.id });
+                await sessionData.refresh();
+                toast({
+                  title: 'Student added',
+                  description: `${student.first_name || ''} ${student.last_name || ''}`.trim() || 'Student added to session.',
+                });
+              } catch (error) {
+                handleMutationError(error);
+                throw error;
+              }
+            }}
+          />
 
-      <AddStaffToSessionModal
-        isOpen={modals.isAddStaffToSessionModalOpen}
-        onClose={modals.closeAddStaffToSessionModal}
-        sessionTitle={sessionTitle}
-        sessionTime={sessionTime}
-        sessionDay={sessionDay}
-        existingStaffIds={existingStaffIds}
-        isPending={addStaffMutation.isPending}
-        onConfirm={async (staff) => {
-          if (!sessionId) return;
-          try {
-            await addStaffMutation.mutateAsync({ sessionId, staffId: staff.id, type: 'MAIN_TUTOR' });
-            await sessionData.refresh();
-            toast({
-              title: 'Staff added',
-              description: `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Staff added to session.',
-            });
-          } catch (error) {
-            handleMutationError(error);
-            throw error;
-          }
-        }}
-      />
+          <AddStaffToSessionModal
+            isOpen={modals.isAddStaffToSessionModalOpen}
+            onClose={modals.closeAddStaffToSessionModal}
+            sessionTitle={sessionTitle}
+            sessionTime={sessionTime}
+            sessionDay={sessionDay}
+            existingStaffIds={existingStaffIds}
+            isPending={addStaffMutation.isPending}
+            onConfirm={async (staff) => {
+              if (!sessionId) return;
+              try {
+                await addStaffMutation.mutateAsync({ sessionId, staffId: staff.id, type: 'MAIN_TUTOR' });
+                await sessionData.refresh();
+                toast({
+                  title: 'Staff added',
+                  description: `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Staff added to session.',
+                });
+              } catch (error) {
+                handleMutationError(error);
+                throw error;
+              }
+            }}
+          />
+        </>
+      )}
 
       {modals.removeFromSessionTarget && (
         <RemoveFromSessionConfirmDialog
@@ -618,7 +666,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           entityType={modals.removeFromSessionTarget.entityType}
           entityName={modals.removeFromSessionTarget.entityName}
           sessionTitle={sessionTitle}
-          isPending={removeStudentMutation.isPending || removeStaffMutation.isPending}
+          isPending={removeStudentMutation.isPending || removeStaffMutation.isPending || removeParentMutation.isPending}
           onCancel={modals.closeRemoveFromSessionDialog}
           onConfirm={async () => {
             if (!sessionId || !modals.removeFromSessionTarget) return;
@@ -626,13 +674,15 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
             try {
               if (target.entityType === 'student') {
                 await removeStudentMutation.mutateAsync({ sessionId, studentId: target.entityId });
-              } else {
+              } else if (target.entityType === 'staff') {
                 await removeStaffMutation.mutateAsync({ sessionId, staffId: target.entityId });
+              } else {
+                await removeParentMutation.mutateAsync({ sessionId, parentId: target.entityId });
               }
               await sessionData.refresh();
               modals.closeRemoveFromSessionDialog();
               toast({
-                title: `${target.entityType === 'student' ? 'Student' : 'Staff'} removed`,
+                title: `${target.entityType === 'student' ? 'Student' : target.entityType === 'staff' ? 'Staff' : 'Parent'} removed`,
                 description: `${target.entityName} removed from session.`,
               });
             } catch (error) {

@@ -22,11 +22,12 @@ import {
   TabsTrigger,
   TabsContent,
   type JSONContent,
+  type MentionClickDetail,
 } from '@altitutor/ui';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
 import { NotePropertyPills } from './NotePropertyPills';
-import { NoteTableOfContents } from './NoteTableOfContents';
+import { NoteTableOfContentsWithLiveTitle } from './NoteTableOfContents';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import type { Editor } from '@tiptap/react';
 import type { NoteUpdate } from '../types';
@@ -35,13 +36,14 @@ import { useUpdateNote, useDeleteNote } from '../hooks/useNoteMutations';
 import { useFolders } from '../api/queries';
 import { useContentEditableField } from '@/features/tasks/hooks/useContentEditableField';
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
-import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
-import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
+import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
+import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import type { NoteFormData } from '../types';
 import type { Resolver } from 'react-hook-form';
 import { Check, CloudOff, MoreVertical, Trash2 } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
+import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -53,8 +55,6 @@ const formSchema = z.object({
 interface NoteDetailPageProps {
   noteId: string;
 }
-
-const NOTE_MENTION_TYPES = ['issues', 'projects', 'tasks', 'students', 'staff', 'parents', 'classes', 'subjects'] as const;
 
 export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const router = useRouter();
@@ -68,9 +68,6 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const titleFieldRef = useRef<HTMLDivElement>(null);
   const noteEditorRef = useRef<NoteEditorRef>(null);
   const editorInstanceRef = useRef<Editor | null>(null);
-  const mentionSuggestions = useMentionSuggestions({
-    types: NOTE_MENTION_TYPES,
-  });
 
   const currentNoteIdRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
@@ -88,6 +85,22 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
       project_id: null,
     },
   });
+
+  const mentionSuggestions = useMentionSuggestions({
+    types: DOCUMENT_NOTE_MENTION_TYPES,
+    excludeIds: [noteId],
+  });
+
+  const handleDocumentMentionClick = useCallback(
+    (detail: MentionClickDetail) => {
+      if (detail.type === 'note' && detail.id !== noteId) {
+        router.push(`/documents/${detail.id}`);
+        return true;
+      }
+      return false;
+    },
+    [noteId, router]
+  );
 
   useEffect(() => {
     if (currentNoteIdRef.current !== noteId) {
@@ -136,28 +149,13 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     }
   }, [note, initialFocusDone]);
 
-  useNoteAutoSave({
-    form,
-    noteId,
-    note: note || undefined,
-    isInitialized,
-    isUpdatingFromServer: () => isUpdatingFromServerRef.current,
-    onSave: (updates) => {
-      updateNote.mutate({
-        id: noteId,
-        updates: updates as NoteUpdate,
-        silent: true,
-      });
-    },
-  });
-
   const handleDelete = useCallback(async () => {
     if (!note) return;
-    if (!confirm('Are you sure you want to delete this note?')) return;
+    if (!confirm('Are you sure you want to delete this document?')) return;
 
     try {
       await deleteNote.mutateAsync(noteId);
-      router.push('/notes');
+      router.push('/documents');
     } catch {
       // no-op
     }
@@ -222,11 +220,25 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   }
 
   if (!note) {
-    return <div className="p-6">Note not found</div>;
+    return <div className="p-6">Document not found</div>;
   }
 
   return (
     <div className="flex h-[calc(100dvh-var(--navbar-height)-5rem)] relative">
+      <NoteAutoSaveBridge
+        form={form}
+        noteId={noteId}
+        note={note || undefined}
+        isInitialized={isInitialized}
+        isUpdatingFromServer={() => isUpdatingFromServerRef.current}
+        onSave={(updates) => {
+          updateNote.mutate({
+            id: noteId,
+            updates: updates as NoteUpdate,
+            silent: true,
+          });
+        }}
+      />
       <div className="flex-1 flex flex-col min-w-0 border-r overflow-hidden">
         <div className="flex-1 overflow-y-auto">
           <div className="px-6 pt-6">
@@ -265,7 +277,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                     <DropdownMenuSeparator />
                     <DropdownMenuItem onClick={handleDelete} className="!text-destructive focus:!text-destructive">
                       <Trash2 className="h-4 w-4 mr-2" />
-                      Delete note
+                      Delete document
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
@@ -284,7 +296,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           onInput={handleTitleInput}
                           onKeyDown={handleTitleKeyDown}
                           data-placeholder="Untitled"
-                          className="text-4xl font-semibold outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[40px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground whitespace-nowrap overflow-hidden"
+                          className="text-4xl font-semibold tracking-tight leading-tight outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[44px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground max-md:whitespace-normal max-md:break-words md:whitespace-nowrap md:overflow-hidden"
                           suppressContentEditableWarning
                         />
                       </FormControl>
@@ -302,9 +314,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
               </div>
 
               <div className="md:hidden mb-6">
-                <NoteTableOfContents
+                <NoteTableOfContentsWithLiveTitle
+                  control={form.control}
                   editor={editorInstanceRef.current}
-                  title={form.watch('title')}
                   collapsible
                 />
               </div>
@@ -321,8 +333,10 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           content={field.value}
                           onChange={field.onChange}
                           placeholder="Start writing..."
+                          enableCollapsibleHeadings
                           onEditorReady={handleEditorReady}
                           mentionSuggestions={mentionSuggestions}
+                          onMentionClick={handleDocumentMentionClick}
                         />
                       </FormControl>
                     </FormItem>
@@ -370,9 +384,9 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
             <TabsContent value="outline" className="h-full min-h-0 m-0 overflow-hidden data-[state=active]:flex flex-col">
               <ScrollArea className="flex-1 min-h-0">
                 <div className="p-6">
-                  <NoteTableOfContents
+                  <NoteTableOfContentsWithLiveTitle
+                    control={form.control}
                     editor={editorInstanceRef.current}
-                    title={form.watch('title')}
                   />
                 </div>
               </ScrollArea>

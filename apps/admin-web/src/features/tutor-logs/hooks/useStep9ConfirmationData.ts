@@ -28,6 +28,11 @@ export interface Step9ConfirmationData {
   allTopics: Tables<'topics'>[];
   topicFilesMap: Map<string, TopicFileWithFile>;
   subjectsMap: Map<string, Tables<'subjects'>>;
+  /** sessions_students.planned_absence keyed by student_id */
+  studentPlannedMap: Map<string, boolean>;
+  /** sessions_staff.planned_absence keyed by staff_id */
+  staffPlannedMap: Map<string, boolean>;
+  parentsMap: Map<string, Tables<'parents'>>;
 }
 
 async function fetchStep9ConfirmationData(
@@ -40,6 +45,9 @@ async function fetchStep9ConfirmationData(
   const topicsMap = new Map<string, Tables<'topics'> & { subjects?: Tables<'subjects'> }>();
   const topicFilesMap = new Map<string, TopicFileWithFile>();
   const subjectsMap = new Map<string, Tables<'subjects'>>();
+  const studentPlannedMap = new Map<string, boolean>();
+  const staffPlannedMap = new Map<string, boolean>();
+  const parentsMap = new Map<string, Tables<'parents'>>();
 
   const { data: sessionData } = await supabase
     .from('sessions')
@@ -49,12 +57,34 @@ async function fetchStep9ConfirmationData(
 
   let allTopics: Tables<'topics'>[] = [];
 
-  const studentIds = (formData.studentAttendance || []).map((sa) => sa.studentId);
-  if (studentIds.length > 0) {
+  const { data: ssPlanned } = await supabase
+    .from('sessions_students')
+    .select('student_id, planned_absence')
+    .eq('session_id', sessionId);
+  (ssPlanned || []).forEach((row) => {
+    studentPlannedMap.set(row.student_id, !!row.planned_absence);
+  });
+
+  const { data: sfPlanned } = await supabase
+    .from('sessions_staff')
+    .select('staff_id, planned_absence')
+    .eq('session_id', sessionId);
+  (sfPlanned || []).forEach((row) => {
+    staffPlannedMap.set(row.staff_id, !!row.planned_absence);
+  });
+
+  const parentIds = [...new Set((formData.parentAttendance || []).map((p) => p.parentId))];
+  if (parentIds.length > 0) {
+    const { data: parents } = await supabase.from('parents').select('*').in('id', parentIds);
+    (parents || []).forEach((p) => parentsMap.set(p.id, p as Tables<'parents'>));
+  }
+
+  const studentIdsList = (formData.studentAttendance || []).map((sa) => sa.studentId);
+  if (studentIdsList.length > 0) {
     const { data: students } = await supabase
       .from('students')
       .select('*')
-      .in('id', studentIds);
+      .in('id', studentIdsList);
     (students || []).forEach((s) => studentsMap.set(s.id, s as Tables<'students'>));
   }
 
@@ -116,6 +146,9 @@ async function fetchStep9ConfirmationData(
     allTopics,
     topicFilesMap,
     subjectsMap,
+    studentPlannedMap,
+    staffPlannedMap,
+    parentsMap,
   };
 }
 
@@ -126,7 +159,8 @@ export const step9ConfirmationDataKeys = {
     studentIds: string,
     staffIds: string,
     topicIds: string,
-    topicFileIds: string
+    topicFileIds: string,
+    parentIds: string
   ) =>
     [
       ...step9ConfirmationDataKeys.all,
@@ -135,6 +169,7 @@ export const step9ConfirmationDataKeys = {
       staffIds,
       topicIds,
       topicFileIds,
+      parentIds,
     ] as const,
 };
 
@@ -160,6 +195,10 @@ export function useStep9ConfirmationData(
     .map((tf) => tf.topicsFilesId)
     .sort()
     .join(',');
+  const parentIdsKey = (formData.parentAttendance || [])
+    .map((p) => p.parentId)
+    .sort()
+    .join(',');
 
   return useQuery({
     queryKey: step9ConfirmationDataKeys.detail(
@@ -167,7 +206,8 @@ export function useStep9ConfirmationData(
       studentIds,
       staffIds,
       topicIds,
-      topicFileIds
+      topicFileIds,
+      parentIdsKey
     ),
     queryFn: () => fetchStep9ConfirmationData(sessionId!, formData),
     enabled: enabled && !!sessionId,

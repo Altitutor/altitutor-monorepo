@@ -26,6 +26,7 @@ import { LogStaffAbsenceDialog } from '@/features/sessions/components/absences/L
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from '@/features/sessions/components/TutorLogAvatar';
 import { LogSessionModal } from '@/features/tutor-logs/components/LogSessionModal';
+import type { LogSessionWizardFlow } from '@/features/tutor-logs/utils/logSessionHelpers';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -62,6 +63,9 @@ export function StaffModalSessionsTable({
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
   const [logSessionId, setLogSessionId] = useState<string | null>(null);
+  const [logSessionInitialKind, setLogSessionInitialKind] = useState<
+    LogSessionWizardFlow | undefined
+  >(undefined);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
 
   const { state, setSort, setPage, setPageSize } = useDataTable({
@@ -293,6 +297,9 @@ export function StaffModalSessionsTable({
                           {!tutorLogs[session.id] && (
                             <DropdownMenuItem onClick={() => {
                               setLogSessionId(session.id);
+                              setLogSessionInitialKind(
+                                session.type !== 'CLASS' ? 'meeting' : 'class'
+                              );
                               setIsLogSessionModalOpen(true);
                             }}>
                               <FileText className="h-4 w-4 mr-2" />
@@ -366,12 +373,14 @@ export function StaffModalSessionsTable({
           onClose={async () => {
             setIsLogSessionModalOpen(false);
             setLogSessionId(null);
+            setLogSessionInitialKind(undefined);
             await refetch();
           }}
           currentStaffId={currentStaff.id}
           adminMode={true}
           initialSessionId={logSessionId}
           initialStaffId={staffId}
+          initialSessionKind={logSessionInitialKind}
         />
       )}
     </div>

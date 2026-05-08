@@ -40,6 +40,7 @@ interface AddStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStudentAdded: () => void;
+  initialPhone?: string | null;
 }
 
 // Schema for form validation
@@ -95,7 +96,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentModalProps) {
+export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone }: AddStudentModalProps) {
   const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -115,6 +116,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     register, 
     handleSubmit, 
     reset,
+    setValue,
     formState: { errors } 
   } = useForm<FormData>({
     resolver: zodResolver(formSchema) as Resolver<FormData>,
@@ -144,6 +146,11 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded }: AddStudentM
     control,
     name: 'parents',
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setValue('studentPhone', initialPhone || '');
+  }, [initialPhone, isOpen, setValue]);
 
   const onSubmit: SubmitHandler<FormData> = async (formData: FormData) => {
     setIsSubmitting(true);

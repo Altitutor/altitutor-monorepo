@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { NoteDetailPage } from '@/features/notes/components/NoteDetailPage';
-
-export default function NoteDetailRoute({ params }: { params: { id: string } }) {
-  return <NoteDetailPage noteId={params.id} />;
+export default function LegacyNoteDetailRedirect({ params }: { params: { id: string } }) {
+  redirect(`/documents/${params.id}`);
 }

@@ -110,6 +110,10 @@ type TutorLogStaffAttendanceRow = Tables<'tutor_logs_staff_attendance'> & {
   staff: Tables<'staff'> | null;
 };
 
+type TutorLogParentAttendanceRow = Tables<'tutor_logs_parent_attendance'> & {
+  parent: Tables<'parents'> | null;
+};
+
 type NoteWithStaff = Omit<Tables<'notes'>, 'created_by'> & {
   created_by: string;
   staff: Tables<'staff'> | null;
@@ -623,6 +627,30 @@ export const sessionsApi = {
     }
   },
 
+  addParentToSession: async (sessionId: string, parentId: string): Promise<Tables<'sessions_parents'>> => {
+    const payload: TablesInsert<'sessions_parents'> = {
+      id: crypto.randomUUID(),
+      session_id: sessionId,
+      parent_id: parentId,
+    };
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('sessions_parents')
+      .insert(payload)
+      .select()
+      .single();
+    if (error) throw error;
+    return data as Tables<'sessions_parents'>;
+  },
+
+  removeParentFromSession: async (sessionId: string, parentId: string): Promise<void> => {
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('sessions_parents')
+      .delete()
+      .eq('session_id', sessionId)
+      .eq('parent_id', parentId);
+    if (error) throw error;
+  },
+
 
   /**
    * Get sessions for a specific student using RPC
@@ -869,9 +897,10 @@ export const sessionsApi = {
           });
         }
       } else {
-        // No class_id means no extra students
+        const treatAllStudentsAsExtra =
+          session.type !== 'CLASS' && !session.class_id;
         typedSessionsStudentsData?.forEach((ss) => {
-          isExtraMap[ss.id] = false;
+          isExtraMap[ss.id] = treatAllStudentsAsExtra;
         });
       }
 
@@ -1009,6 +1038,13 @@ export const sessionsApi = {
           .eq('tutor_log_id', tutorLogData.id);
         
         if (stfError) throw stfError;
+
+        const { data: parentAttendanceData, error: parentAttError } = await supabase
+          .from('tutor_logs_parent_attendance')
+          .select('*, parent:parents(*)')
+          .eq('tutor_log_id', tutorLogData.id);
+
+        if (parentAttError) throw parentAttError;
         
         // Get tutor log topics with related data
         const { data: topicsData, error: topicsError } = await supabase
@@ -1055,6 +1091,7 @@ export const sessionsApi = {
           ...tutorLogData,
           studentAttendance: (studentAttendanceData || []) as TutorLogStudentAttendanceRow[],
           staffAttendance: (staffAttendanceData || []) as TutorLogStaffAttendanceRow[],
+          parentAttendance: (parentAttendanceData || []) as TutorLogParentAttendanceRow[],
           topics: typedTopicsData.map((topic) => ({
             ...topic,
             students: typedTopicStudentsData
@@ -1074,7 +1111,7 @@ export const sessionsApi = {
         };
       }
       
-      // 5. Get notes for session (only session notes, not tutor log notes)
+      // 5. Get notes for session (includes notes added from tutor log flow; stored as target_type = sessions)
       const { data: sessionNotesData, error: sessionNotesError } = await supabase
         .from('notes')
         .select('*, staff:created_by(*)')
@@ -1083,11 +1120,21 @@ export const sessionsApi = {
         .order('created_at', { ascending: true });
       
       if (sessionNotesError) throw sessionNotesError;
-      
+
+      const { data: sessionsParentsData, error: sessionsParentsError } = await supabase
+        .from('sessions_parents')
+        .select('*, parent:parents(*)')
+        .eq('session_id', sessionId);
+
+      if (sessionsParentsError) throw sessionsParentsError;
+
       return {
         session: sessionData,
         sessionsStudents: allSessionsStudents || [],
         sessionsStaff: enrichedSessionsStaffData || [],
+        sessionsParents: (sessionsParentsData || []) as Array<
+          Tables<'sessions_parents'> & { parent: Tables<'parents'> | null }
+        >,
         tutorLog,
         notes: (sessionNotesData || []) as NoteWithStaff[],
       };

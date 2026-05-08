@@ -9,6 +9,7 @@ import { Navbar } from '@/shared/components'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
+import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -41,6 +42,7 @@ export default function RootLayout({
                 enableSystem
                 disableTransitionOnChange
               >
+                <HapticFeedbackProvider />
                 <ToastProviderWrapper>
                   <MobileMenuProvider>
                     <div className="flex flex-col min-h-dvh bg-background dark:bg-brand-dark-bg">

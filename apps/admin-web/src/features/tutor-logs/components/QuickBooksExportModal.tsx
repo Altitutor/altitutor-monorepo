@@ -45,6 +45,7 @@ const SESSION_TYPES: Database['public']['Enums']['session_type'][] = [
   'TRIAL_SESSION',
   'STAFF_INTERVIEW',
   'ADMIN_SHIFT',
+  'ADMIN_MEETING',
 ];
 
 function formatClassOptionLabel(c: MinimalClass): string {

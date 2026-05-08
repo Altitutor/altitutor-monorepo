@@ -31,12 +31,14 @@ const NAV = [
   { segment: 'scheduling', href: '/reconciliation/scheduling', label: 'Scheduling' },
   { segment: 'communication', href: '/reconciliation/communication', label: 'Communication' },
   { segment: 'operations', href: '/reconciliation/operations', label: 'Operations' },
+  { segment: 'family', href: '/reconciliation/family', label: 'Family' },
 ] as const;
 
 function tabCountForSegment(
   segment: (typeof NAV)[number]['segment'],
   counts: { financial: number; scheduling: number; communication: number; operations: number } | undefined
 ): number | undefined {
+  if (segment === 'family') return undefined;
   if (!counts) return undefined;
   if (segment === 'financial') return counts.financial;
   if (segment === 'scheduling') return counts.scheduling;
@@ -56,6 +58,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
   const handleCloseLogSession = () => {
     modals.handleCloseLogSession();
     queryClient.invalidateQueries({ queryKey: reconciliationKeys.unloggedSessions() });
+    void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
   };
 
   const handleCloseStudent = () => {
@@ -108,7 +111,8 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
       ? counts.financial + counts.scheduling + counts.communication + counts.operations
       : undefined;
 
-  const formatBadge = (segment: (typeof NAV)[number]['segment']) => {
+  const formatBadge = (segment: (typeof NAV)[number]['segment']): string | null => {
+    if (segment === 'family') return null;
     if (tabCounts.isPending) return '…';
     if (tabCounts.isError) return '—';
     const n = tabCountForSegment(segment, counts);
@@ -146,11 +150,12 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
         )}
 
         <nav
-          className="grid w-full max-w-3xl grid-cols-2 sm:grid-cols-4 gap-1 rounded-lg bg-muted p-1 text-muted-foreground"
+          className="grid w-full max-w-5xl grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1 rounded-lg bg-muted p-1 text-muted-foreground"
           aria-label="Reconciliation sections"
         >
           {NAV.map(({ segment, href, label }) => {
             const active = pathname === href || pathname?.startsWith(`${href}/`);
+            const badge = formatBadge(segment);
             return (
               <Link
                 key={segment}
@@ -163,14 +168,16 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
                 )}
               >
                 <span>{label}</span>
-                <span
-                  className={cn(
-                    'tabular-nums rounded-md bg-muted-foreground/15 px-1.5 py-0.5 text-xs font-semibold text-muted-foreground',
-                    active && 'bg-primary/10 text-primary'
-                  )}
-                >
-                  {formatBadge(segment)}
-                </span>
+                {badge !== null ? (
+                  <span
+                    className={cn(
+                      'tabular-nums rounded-md bg-muted-foreground/15 px-1.5 py-0.5 text-xs font-semibold text-muted-foreground',
+                      active && 'bg-primary/10 text-primary'
+                    )}
+                  >
+                    {badge}
+                  </span>
+                ) : null}
               </Link>
             );
           })}
@@ -178,7 +185,10 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
 
         {children}
 
-        {tabCounts.isSuccess && totalItems === 0 && (
+        {tabCounts.isSuccess &&
+          totalItems === 0 &&
+          pathname !== '/reconciliation/family' &&
+          !pathname?.startsWith('/reconciliation/family/') && (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-lg">No reconciliation items found</p>
             <p className="text-sm mt-2">All data is consistent!</p>

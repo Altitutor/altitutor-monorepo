@@ -405,4 +405,72 @@ describe('SessionDetailsTab', () => {
     expect(screen.queryByText('Undo Log Absence')).not.toBeInTheDocument();
     expect(screen.getByText('Log Absence')).toBeInTheDocument();
   });
+
+  it('for sessions without class or admin shift, hides log absence and uses a single attendance column', async () => {
+    const user = userEvent.setup();
+    renderComponent({
+      session: {
+        id: 'session-1',
+        type: 'CHECK_IN',
+        start_at: '2026-01-01T00:00:00.000Z',
+        end_at: '2026-01-01T01:00:00.000Z',
+        class_id: null,
+        admin_shift_id: null,
+      } as SessionDetailsSession,
+      staffData: [],
+      studentsData: [
+        {
+          student: { id: 'student-attending', first_name: 'Attending', last_name: 'Student' } as Tables<'students'>,
+          sessionsStudentsId: 'ss-attending',
+          rescheduledSessionsStudentsId: null,
+          plannedStatus: 'attending',
+          actualStatus: 'not-logged',
+          rescheduledDate: '',
+          invoiceStatus: null,
+          plannedAbsence: false,
+          hasInvoiceItems: false,
+        },
+      ],
+    });
+
+    expect(screen.queryByText('Planned Attendance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Actual Attendance')).not.toBeInTheDocument();
+    expect(screen.queryByText('Invoice')).not.toBeInTheDocument();
+    expect(screen.getByText('Attendance')).toBeInTheDocument();
+
+    const row = screen.getByText('Attending Student').closest('tr');
+    expect(row).not.toBeNull();
+    const rowButtons = within(row as HTMLElement).getAllByRole('button');
+    await user.click(rowButtons[rowButtons.length - 1]);
+    expect(screen.queryByText('Log Absence')).not.toBeInTheDocument();
+  });
+
+  it('shows parent attendance from tutor log', () => {
+    renderComponent({
+      session: {
+        id: 'session-1',
+        type: 'TRIAL_SESSION',
+        start_at: '2026-01-01T00:00:00.000Z',
+        end_at: '2026-01-01T01:00:00.000Z',
+        class_id: null,
+        admin_shift_id: null,
+      } as SessionDetailsSession,
+      studentsData: [],
+      staffData: [],
+      tutorLog: {
+        id: 'tl1',
+        topics: [],
+        parentAttendance: [{ parent_id: 'p1', attended: true }],
+      },
+      parentsData: [
+        {
+          parent: { id: 'p1', first_name: 'Pat', last_name: 'Parent' } as Tables<'parents'>,
+          sessionsParentsId: 'sp-1',
+        },
+      ],
+    });
+
+    expect(screen.getByText('Pat Parent')).toBeInTheDocument();
+    expect(screen.getByText('Attended')).toBeInTheDocument();
+  });
 });

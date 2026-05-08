@@ -35,6 +35,7 @@ import {
   useParentConversation,
 } from '@/features/parents/hooks';
 import { IssuePill } from '@/features/issues';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 
 interface ViewParentModalProps {
   isOpen: boolean;
@@ -91,6 +92,7 @@ export function ViewParentModal({
 
   const deleteParentMutation = useDeleteParent();
   const { toast } = useToast();
+  const { openCheckInModal } = useQuickActions();
 
   // Reset modals when modal closes
   useEffect(() => {
@@ -201,6 +203,17 @@ export function ViewParentModal({
                           router.push(`/parents/${parentId}`);
                           onClose();
                         }}
+                        onBookCheckIn={() =>
+                          openCheckInModal({
+                            parents: [
+                              {
+                                id: parent.id,
+                                first_name: parent.first_name,
+                                last_name: parent.last_name,
+                              },
+                            ],
+                          })
+                        }
                         onDelete={() => {
                           setDeleteConfirmText('');
                           setIsDeleteDialogOpen(true);

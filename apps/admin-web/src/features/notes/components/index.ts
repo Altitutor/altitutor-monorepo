@@ -3,8 +3,6 @@ export * from './NoteEditorBottomToolbar';
 export * from './NoteViewer';
 export * from './FolderTree';
 export * from './FolderTreeNode';
-export * from './CreateNoteDialog';
-export * from './CreateFolderDialog';
 export * from './NoteDetailPage';
 export * from './NotePropertiesPanel';
 export * from './NotePropertyPills';

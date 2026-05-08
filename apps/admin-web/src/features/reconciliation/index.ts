@@ -6,6 +6,7 @@ export {
   ReconciliationSchedulingTab,
   ReconciliationCommunicationTab,
   ReconciliationOperationsTab,
+  ReconciliationFamilyTab,
 } from './components/ReconciliationTabViews';
 export { ReconciliationTable } from './components/ReconciliationTable';
 export { ReconciliationActions, ReconciliationHandlersProvider, useReconciliationHandlers } from './components/ReconciliationActions';

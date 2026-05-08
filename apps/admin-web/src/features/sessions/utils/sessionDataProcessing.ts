@@ -43,7 +43,7 @@ export type ProcessedStaffData = {
   plannedAbsence: boolean;
 };
 
-type SessionStudentItem = {
+export type SessionStudentItem = {
   student_id: string;
   student: Tables<'students'> | null;
   sessions_students_id?: string | null;
@@ -65,7 +65,7 @@ type SessionStudentItem = {
   } | null;
 };
 
-type SessionStaffItem = {
+export type SessionStaffItem = {
   id?: string;
   staff_id: string;
   staff?: Tables<'staff'> | null;

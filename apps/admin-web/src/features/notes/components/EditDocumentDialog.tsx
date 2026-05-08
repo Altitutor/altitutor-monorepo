@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useForm, type UseFormReturn } from 'react-hook-form';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useRouter } from 'next/navigation';
@@ -26,6 +26,7 @@ import {
   DropdownMenuSeparator,
   ScrollArea,
   type JSONContent,
+  type MentionClickDetail,
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Trash2, X, Loader2, Check, CloudOff } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
@@ -33,7 +34,8 @@ import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/
 import type { Editor } from '@tiptap/react';
 import { useNote, useFolders } from '../api/queries';
 import { useDeleteNote, useUpdateNote } from '../hooks/useNoteMutations';
-import { useNoteAutoSave } from '../hooks/useNoteAutoSave';
+import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
+import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
 import { NoteEditor, type NoteEditorRef } from './NoteEditor';
 import { NoteEditorBottomToolbar } from './NoteEditorBottomToolbar';
 import { NotePropertiesPanel } from './NotePropertiesPanel';
@@ -47,27 +49,7 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
-
-interface AutoSaveManagerProps {
-  form: UseFormReturn<NoteFormData>;
-  noteId: string;
-  note: { id: string } | undefined;
-  isInitialized: boolean;
-  isUpdatingFromServer: () => boolean;
-  onSave: (updates: Partial<NoteFormData>) => void;
-}
-
-function AutoSaveManager({ form, noteId, note, isInitialized, isUpdatingFromServer, onSave }: AutoSaveManagerProps) {
-  useNoteAutoSave({
-    form,
-    noteId,
-    note,
-    isInitialized,
-    isUpdatingFromServer,
-    onSave,
-  });
-  return null;
-}
+import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 
 const formSchema = z.object({
   title: z.string().min(1, 'Title is required'),
@@ -91,10 +73,23 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
   const [editorInstance, setEditorInstance] = useState<Editor | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [linkedDocumentId, setLinkedDocumentId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (!isOpen) {
+      setExpanded(false);
+      setLinkedDocumentId(null);
+    }
   }, [isOpen]);
+
+  useEffect(() => {
+    setLinkedDocumentId(null);
+  }, [noteId]);
+
+  /** Until reset runs, RHF can still hold the previous note — never paint that into the editor. */
+  useLayoutEffect(() => {
+    setIsInitialized(false);
+  }, [noteId]);
 
   const handleEditorReady = useCallback((editor: Editor) => {
     setEditorInstance(editor);
@@ -114,23 +109,47 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
     },
   });
 
-  useEffect(() => {
-    if (note && isOpen && !isLoading && note.id !== lastResetNoteIdRef.current) {
-      setEditorInstance(null);
-      isUpdatingFromServerRef.current = true;
-      form.reset({
-        title: note.title,
-        content: (note.content as JSONContent) || '',
-        folder_id: note.folder_id,
-        project_id: (note as { project_id?: string | null }).project_id ?? null,
-      });
-      lastResetNoteIdRef.current = note.id;
-      setIsInitialized(true);
-      setTimeout(() => {
-        isUpdatingFromServerRef.current = false;
-      }, 0);
+  const mentionSuggestions = useMentionSuggestions({
+    types: DOCUMENT_NOTE_MENTION_TYPES,
+    excludeIds: noteId ? [noteId] : [],
+  });
+
+  const handleDocumentMentionClick = useCallback(
+    (detail: MentionClickDetail) => {
+      if (!noteId) return false;
+      if (detail.type === 'note' && detail.id !== noteId) {
+        setLinkedDocumentId(detail.id);
+        return true;
+      }
+      return false;
+    },
+    [noteId]
+  );
+
+  useLayoutEffect(() => {
+    if (
+      !note ||
+      !isOpen ||
+      isLoading ||
+      note.id !== noteId ||
+      note.id === lastResetNoteIdRef.current
+    ) {
+      return;
     }
-  }, [note, isOpen, isLoading, form]);
+    setEditorInstance(null);
+    isUpdatingFromServerRef.current = true;
+    form.reset({
+      title: note.title,
+      content: (note.content as JSONContent) || '',
+      folder_id: note.folder_id,
+      project_id: (note as { project_id?: string | null }).project_id ?? null,
+    });
+    lastResetNoteIdRef.current = note.id;
+    setIsInitialized(true);
+    queueMicrotask(() => {
+      isUpdatingFromServerRef.current = false;
+    });
+  }, [note, isOpen, isLoading, noteId, form]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -160,8 +179,12 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
 
   if (!noteId || !isOpen) return null;
 
+  const editorReady =
+    !isLoading && !!note && note.id === noteId && isInitialized && lastResetNoteIdRef.current === noteId;
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
+    <>
+      <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent
         className={cn(
           'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
@@ -175,7 +198,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
               <Button variant="outline" size="icon" onClick={onClose} className="shrink-0">
                 <X className="h-4 w-4" />
               </Button>
-              <DialogTitle>{isLoading ? 'Loading...' : 'Edit Document'}</DialogTitle>
+              <DialogTitle>{!editorReady ? 'Loading...' : 'Edit Document'}</DialogTitle>
             </div>
 
             <div className="flex items-center gap-2">
@@ -205,7 +228,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => router.push(`/notes/${noteId}`)}>
+                  <DropdownMenuItem onClick={() => router.push(`/documents/${noteId}`)}>
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open in page
                   </DropdownMenuItem>
@@ -225,13 +248,13 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
           </div>
         </DialogHeader>
 
-        {isLoading ? (
+        {!editorReady ? (
           <div className="p-6">Loading document...</div>
         ) : (
-          <div className="flex-1 overflow-hidden min-h-0">
+          <div className="flex min-h-0 flex-1 flex-col">
             <Form {...form}>
-              <form className="h-full flex min-w-0">
-                <AutoSaveManager
+              <form className="flex h-full min-w-0">
+                <NoteAutoSaveBridge
                   form={form}
                   noteId={noteId}
                   note={note ?? undefined}
@@ -240,9 +263,18 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                   onSave={handleAutoSave}
                 />
 
-                <div className="flex-1 flex flex-col min-w-0 border-r overflow-hidden">
-                  <ScrollArea className="flex-1 min-w-0 max-w-full">
-                    <div className="p-6 space-y-4 max-w-3xl mx-auto">
+                <div className="flex min-h-0 min-w-0 flex-1 flex-col border-r">
+                  {/*
+                    Native vertical scroll instead of ScrollArea: Radix ScrollArea uses
+                    overflow-x: hidden on the viewport, which clips the heading fold gutter
+                    (negative margin on .tiptap-heading-block).
+                  */}
+                  <div className="max-h-full min-h-0 min-w-0 flex-1 overflow-y-auto">
+                    {/*
+                      Left padding ≥ gutter outdent (2.75rem) so the fold control stays inside
+                      the scroll paint bounds even when overflow-x computes to auto.
+                    */}
+                    <div className="mx-auto max-w-3xl space-y-4 pb-6 pl-[2.75rem] pr-6 pt-6">
                       <div className="md:hidden">
                         <NotePropertyPills form={form} folders={folders || []} />
                       </div>
@@ -257,7 +289,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                                 value={field.value || ''}
                                 onChange={field.onChange}
                                 placeholder="Untitled"
-                                className="w-full text-3xl font-semibold bg-transparent outline-none border-none"
+                                className="w-full text-4xl font-semibold tracking-tight leading-tight bg-transparent outline-none border-none"
                               />
                             </FormControl>
                           </FormItem>
@@ -271,18 +303,22 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                           <FormItem>
                             <FormControl>
                               <NoteEditor
+                                key={noteId}
                                 ref={noteEditorRef}
                                 content={field.value}
                                 onChange={field.onChange}
                                 placeholder="Start writing..."
+                                enableCollapsibleHeadings
                                 onEditorReady={handleEditorReady}
+                                mentionSuggestions={mentionSuggestions}
+                                onMentionClick={handleDocumentMentionClick}
                               />
                             </FormControl>
                           </FormItem>
                         )}
                       />
                     </div>
-                  </ScrollArea>
+                  </div>
 
                   <div className="flex-shrink-0 px-4 pb-4 pt-2">
                     <NoteEditorBottomToolbar editor={editorInstance} />
@@ -332,5 +368,14 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
     </Dialog>
+
+      {linkedDocumentId ? (
+        <EditDocumentDialog
+          isOpen
+          noteId={linkedDocumentId}
+          onClose={() => setLinkedDocumentId(null)}
+        />
+      ) : null}
+    </>
   );
 }

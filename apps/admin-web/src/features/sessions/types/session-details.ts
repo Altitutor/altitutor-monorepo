@@ -22,6 +22,8 @@ export type SessionDetailsClass = Pick<
 export interface SessionDetailsSession extends SessionTimeInput {
   id: string;
   class_id?: string | null;
+  /** When set, session is part of a recurring admin shift (same absence rules as class-linked sessions). */
+  admin_shift_id?: string | null;
   subject_id?: string | null;
   start_at?: string | null;
   end_at?: string | null;
@@ -64,4 +66,9 @@ export interface SessionDetailsTutorLog {
     last_name: string;
   } | null;
   topics?: SessionDetailsTutorLogTopic[];
+  parentAttendance?: Array<{
+    parent_id: string;
+    attended: boolean;
+    parent?: { id: string; first_name: string | null; last_name: string | null } | null;
+  }>;
 }

@@ -27,6 +27,7 @@ import { StudentSearchPopover } from '@/features/students/components/StudentSear
 import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { useParentDetails, parentsKeys, useDeleteParent } from '@/features/parents/hooks/useParentsQuery';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import {
   useParentEditFlow,
   useParentMutations,
@@ -38,6 +39,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
   const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { openCheckInModal } = useQuickActions();
   
   // Data fetching
   const { data: parentData, isLoading } = useParentDetails(id, !!id);
@@ -164,6 +166,17 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
           onOpenInPage={() => {
             router.push(`/parents/${id}`);
           }}
+          onBookCheckIn={() =>
+            openCheckInModal({
+              parents: [
+                {
+                  id: parent.id,
+                  first_name: parent.first_name,
+                  last_name: parent.last_name,
+                },
+              ],
+            })
+          }
           onDelete={() => {
             setDeleteConfirmText('');
             setIsDeleteDialogOpen(true);

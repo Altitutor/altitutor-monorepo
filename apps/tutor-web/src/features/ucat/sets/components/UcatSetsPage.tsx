@@ -72,7 +72,7 @@ export function UcatSetsPage() {
   const access = useUcatAccess()
   const sets = useUcatSets()
   const sectionsQuery = useUcatSections()
-  const sections = sectionsQuery.data ?? []
+  const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const createSet = useCreateUcatSet()
   const deleteSet = useDeleteUcatSet()
   const restoreSet = useRestoreUcatSet()

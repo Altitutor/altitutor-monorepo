@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { BrainCircuit, Target, Clock, Activity } from "lucide-react";
 import { TOKENS } from "./shared";
@@ -14,9 +14,9 @@ function CurriculumCard() {
   useEffect(() => {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ repeat: -1 });
-      const nodes = gsap.utils.toArray(".timeline-node");
-      
-      nodes.forEach((node: any, i) => {
+      const nodes = gsap.utils.toArray<HTMLElement>(".timeline-node");
+
+      nodes.forEach((node) => {
         tl.to(node, { scale: 1.2, backgroundColor: "#92b9c6", duration: 0.3 })
           .to(node, { scale: 1, backgroundColor: "#0a2941", duration: 0.3, delay: 0.8 });
       });

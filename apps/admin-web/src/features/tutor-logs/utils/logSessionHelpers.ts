@@ -1,10 +1,42 @@
 import type { Tables } from '@altitutor/shared';
 import type { TutorLogFormData } from '../types';
 
+/** Class-linked / recurring sessions use the full topics/files wizard. */
+export function isMeetingSession(
+  session: Pick<Tables<'sessions'>, 'type'> | null | undefined
+): boolean {
+  return !!session && session.type !== 'CLASS';
+}
+
+export type LogSessionWizardFlow = 'class' | 'meeting';
+
+export function resolveLogSessionWizardFlow(
+  selectedSession: Pick<Tables<'sessions'>, 'type'> | null | undefined,
+  initialSessionKind?: LogSessionWizardFlow
+): LogSessionWizardFlow {
+  if (selectedSession) {
+    return isMeetingSession(selectedSession) ? 'meeting' : 'class';
+  }
+  if (initialSessionKind === 'meeting') {
+    return 'meeting';
+  }
+  return 'class';
+}
+
 /**
  * Get step titles for tutor log flow
  */
-export function getLogSessionStepTitles(adminMode: boolean): string[] {
+export function getLogSessionStepTitles(
+  adminMode: boolean,
+  flow: LogSessionWizardFlow
+): string[] {
+  if (flow === 'meeting') {
+    if (adminMode) {
+      return ['Staff & session', 'Attendance', 'Notes', 'Confirmation'];
+    }
+    return ['Select session', 'Attendance', 'Notes', 'Confirmation'];
+  }
+
   const baseTitles = [
     'Select Session',
     'Staff Attendance',
@@ -18,7 +50,7 @@ export function getLogSessionStepTitles(adminMode: boolean): string[] {
   ];
 
   if (adminMode) {
-    return ['Select Staff Member', ...baseTitles];
+    return ['Staff & session', ...baseTitles.slice(1)];
   }
 
   return baseTitles;
@@ -29,17 +61,24 @@ export function getLogSessionStepTitles(adminMode: boolean): string[] {
  */
 export function getLogSessionStepTitle(
   stepIndex: number,
-  adminMode: boolean
+  adminMode: boolean,
+  flow: LogSessionWizardFlow
 ): string {
-  const titles = getLogSessionStepTitles(adminMode);
-  return titles[stepIndex] || 'Log Session';
+  const titles = getLogSessionStepTitles(adminMode, flow);
+  return titles[stepIndex] || 'Log session';
 }
 
 /**
  * Get total number of steps
  */
-export function getLogSessionTotalSteps(adminMode: boolean): number {
-  return adminMode ? 10 : 9;
+export function getLogSessionTotalSteps(
+  _adminMode: boolean,
+  flow: LogSessionWizardFlow
+): number {
+  if (flow === 'meeting') {
+    return 4;
+  }
+  return 9;
 }
 
 /**
@@ -48,10 +87,14 @@ export function getLogSessionTotalSteps(adminMode: boolean): number {
 export function calculateInitialStep(
   adminMode: boolean,
   initialSessionId?: string,
-  initialStaffId?: string
+  _initialStaffId?: string,
+  flow: LogSessionWizardFlow = 'class'
 ): number {
-  if (adminMode && initialSessionId && initialStaffId) {
-    return 2; // Skip staff selector and session picker
+  if (adminMode && initialSessionId) {
+    return 1;
+  }
+  if (!adminMode && initialSessionId && flow === 'meeting') {
+    return 1;
   }
   return 0;
 }
@@ -62,39 +105,78 @@ export function calculateInitialStep(
 export function canProceedToNextLogStep(
   stepIndex: number,
   adminMode: boolean,
+  flow: LogSessionWizardFlow,
   formData: Partial<TutorLogFormData>,
   selectedStaffId: string,
   _selectedSession: Tables<'sessions'> | null
 ): boolean {
-  // Step 0: Staff selector (admin mode only)
-  if (adminMode && stepIndex === 0) {
-    return !!selectedStaffId;
+  if (flow === 'meeting') {
+    if (adminMode) {
+      if (stepIndex === 0) {
+        return !!selectedStaffId && !!formData.sessionId;
+      }
+      if (stepIndex === 1) {
+        return (formData.staffAttendance || []).length > 0;
+      }
+      return true;
+    }
+    if (stepIndex === 0) {
+      return !!formData.sessionId;
+    }
+    if (stepIndex === 1) {
+      return (formData.staffAttendance || []).length > 0;
+    }
+    return true;
   }
 
-  // Adjust step index for non-admin mode
+  if (flow === 'class' && adminMode) {
+    if (stepIndex === 0) {
+      return !!selectedStaffId && !!formData.sessionId;
+    }
+    const afterCombined = stepIndex - 1;
+    switch (afterCombined) {
+      case 0:
+        return (formData.staffAttendance || []).length > 0;
+      case 1:
+        return true;
+      case 2:
+        return true;
+      case 3:
+        return true;
+      case 4:
+        return true;
+      case 5:
+        return true;
+      case 6:
+        return true;
+      case 7:
+        return true;
+      default:
+        return false;
+    }
+  }
+
   const adjustedStepIndex = adminMode ? stepIndex - 1 : stepIndex;
 
   switch (adjustedStepIndex) {
-    case 0: // Select Session
+    case 0:
       return !!formData.sessionId;
-    case 1: // Staff Attendance
+    case 1:
       return (formData.staffAttendance || []).length > 0;
-    case 2: // Student Attendance
-      // Admin-web: always allow proceeding even if there are no students
-      // (tutor-web has its own validation logic that requires students)
+    case 2:
       return true;
-    case 3: // Topics
-      return true; // Allow proceeding with no topics selected
-    case 4: // Topic Students
-      return true; // Can proceed even with no student assignments
-    case 5: // Files
-      return true; // Allow proceeding with no files selected
-    case 6: // File Students
-      return true; // Allow proceeding with no file assignments
-    case 7: // Notes
-      return true; // Notes step
-    case 8: // Confirmation
-      return true; // Confirmation step - always allow submission
+    case 3:
+      return true;
+    case 4:
+      return true;
+    case 5:
+      return true;
+    case 6:
+      return true;
+    case 7:
+      return true;
+    case 8:
+      return true;
     default:
       return false;
   }

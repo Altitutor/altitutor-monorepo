@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { reconciliationApi, getReconciliationTabCounts } from './reconciliation';
+import { fetchFamilyCheckInsData } from './familyCheckIns';
 import { reconciliationKeys } from './queryKeys';
 
 /**
@@ -129,6 +130,18 @@ export function useProjectsWithNoLead() {
   return useQuery({
     queryKey: reconciliationKeys.projectsWithNoLead(),
     queryFn: () => reconciliationApi.getProjectsWithNoLead(),
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+/**
+ * Staff / student / parent last check-in summaries for the Family reconciliation tab.
+ */
+export function useFamilyCheckInsData() {
+  return useQuery({
+    queryKey: reconciliationKeys.familyCheckIns(),
+    queryFn: () => fetchFamilyCheckInsData(),
     staleTime: 1000 * 60 * 2,
     gcTime: 1000 * 60 * 5,
   });

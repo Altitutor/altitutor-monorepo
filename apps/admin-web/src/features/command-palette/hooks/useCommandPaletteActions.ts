@@ -96,6 +96,20 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     }
   }, [onClose, quickActions]);
 
+  const openBookCheckIn = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openCheckInModal();
+    }
+  }, [onClose, quickActions]);
+
+  const openBookAdminMeeting = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openCheckInModal(null, 'ADMIN_MEETING');
+    }
+  }, [onClose, quickActions]);
+
   if (!quickActions) {
     return null;
   }
@@ -112,5 +126,7 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     openCreateIssue,
     openCreateProject,
     openAnnouncementsModal,
+    openBookCheckIn,
+    openBookAdminMeeting,
   };
 }

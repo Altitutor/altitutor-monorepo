@@ -1,4 +1,4 @@
-import { RichTextEditor, type RichTextEditorRef as NoteEditorRef, type JSONContent } from '@altitutor/ui';
+import { RichTextEditor, type RichTextEditorRef as NoteEditorRef, type JSONContent, type MentionClickDetail } from '@altitutor/ui';
 import { forwardRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import type { SuggestionOptions } from '@tiptap/suggestion';
@@ -16,6 +16,10 @@ interface NoteEditorProps {
   autoFocus?: boolean;
   onEditorReady?: (editor: Editor) => void;
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
+  onMentionClick?: (detail: MentionClickDetail) => boolean;
+  enableCollapsibleHeadings?: boolean;
+  /** Default 200ms — with autosave debounce, changes persist ~0.5–0.8s after you stop typing. */
+  onChangeDebounceMs?: number;
 }
 
 /**
@@ -24,6 +28,11 @@ interface NoteEditorProps {
  * Supports image paste and drag-and-drop for notes_documents.
  */
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref) => {
+  const {
+    onChangeDebounceMs = 200,
+    enableCollapsibleHeadings = false,
+    ...rest
+  } = props;
   const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
     context: 'notes_documents',
     editorRef: ref as React.RefObject<NoteEditorRef | null>,
@@ -36,9 +45,11 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref
       onDrop={handleDrop}
     >
       <RichTextEditor
-        {...props}
+        {...rest}
         ref={ref}
         minHeight="full"
+        onChangeDebounceMs={onChangeDebounceMs}
+        enableCollapsibleHeadings={enableCollapsibleHeadings}
         extensions={[JumpHighlightExtension]}
         slashMenuSuggestions={slashMenuSuggestions}
         onPasteImages={handlePasteImages}

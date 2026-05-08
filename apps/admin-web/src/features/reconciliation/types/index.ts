@@ -252,6 +252,16 @@ export interface ReconciliationTabCounts {
   operations: number;
 }
 
+/** One row for staff / student / parent check-in reconciliation tables. */
+export interface FamilyCheckInRow {
+  entityId: string;
+  firstName: string;
+  lastName: string;
+  lastCheckInSessionId: string | null;
+  lastCheckInAt: string | null;
+  lastCheckInLongName: string | null;
+}
+
 export type ReconciliationItemType =
   | 'uninvoiced_sessions'
   | 'void_invoice_sessions'

@@ -18,6 +18,7 @@ describe('display utilities', () => {
       expect(formatSessionType('SUBSIDY_INTERVIEW')).toBe('Subsidy Interview');
       expect(formatSessionType('EXAM_COURSE')).toBe('Exam Course');
       expect(formatSessionType('STAFF_INTERVIEW')).toBe('Staff Interview');
+      expect(formatSessionType('ADMIN_MEETING')).toBe('Admin Meeting');
     });
 
     it('should return "Meeting" for null/undefined', () => {
@@ -42,6 +43,7 @@ describe('display utilities', () => {
       expect(getSessionTypeBadgeColor('DRAFTING')).toBe('bg-purple-100 text-purple-800');
       expect(getSessionTypeBadgeColor('TRIAL_SESSION')).toBe('bg-green-100 text-green-800');
       expect(getSessionTypeBadgeColor('SUBSIDY_INTERVIEW')).toBe('bg-yellow-100 text-yellow-800');
+      expect(getSessionTypeBadgeColor('ADMIN_MEETING')).toBe('bg-cyan-100 text-cyan-800');
     });
 
     it('should return default gray for null/undefined', () => {

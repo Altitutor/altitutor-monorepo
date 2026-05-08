@@ -14,7 +14,7 @@ import { Loader2 } from 'lucide-react';
 
 type RemoveFromSessionConfirmDialogProps = {
   isOpen: boolean;
-  entityType: 'student' | 'staff';
+  entityType: 'student' | 'staff' | 'parent';
   entityName: string;
   sessionTitle: string;
   isPending?: boolean;
@@ -31,7 +31,12 @@ export function RemoveFromSessionConfirmDialog({
   onCancel,
   onConfirm,
 }: RemoveFromSessionConfirmDialogProps) {
-  const title = `Remove ${entityType === 'student' ? 'Student' : 'Staff'} from session?`;
+  const title =
+    entityType === 'student'
+      ? 'Remove Student from session?'
+      : entityType === 'staff'
+        ? 'Remove Staff from session?'
+        : 'Remove Parent from session?';
 
   return (
     <AlertDialog open={isOpen} onOpenChange={(open) => !open && onCancel()}>

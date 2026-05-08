@@ -29,6 +29,7 @@ const pathLabelMap: Record<string, string> = {
   ucat: 'UCAT',
   'manual-online-access': 'Manual online access',
   notes: 'Notes',
+  documents: 'Documents',
   settings: 'Settings',
   billing: 'Billing',
   payments: 'Payments',
@@ -113,7 +114,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           }
         } else if (prevSegment === 'topics' || (index > 1 && segments[index - 2] === 'subjects' && segments[index - 1] === 'topics')) {
           ids.push({ type: 'topic', id: segment, index });
-        } else if (prevSegment === 'notes') {
+        } else if (prevSegment === 'documents') {
           ids.push({ type: 'note', id: segment, index });
         } else if (prevSegment === 'invoices') {
           // Invoices keep ID as-is

@@ -18,6 +18,7 @@ export interface AdminRichTextEditorWithImagesProps {
   className?: string;
   context: AdminRichTextImageContext;
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
+  onChangeDebounceMs?: number;
 }
 
 /**
@@ -36,6 +37,7 @@ export const AdminRichTextEditorWithImages = forwardRef<
       className,
       context,
       mentionSuggestions,
+      onChangeDebounceMs,
     },
     ref
   ) => {
@@ -54,6 +56,7 @@ export const AdminRichTextEditorWithImages = forwardRef<
           ref={ref}
           content={content}
           onChange={onChange}
+          onChangeDebounceMs={onChangeDebounceMs}
           placeholder={placeholder}
           className={className}
           mentionSuggestions={mentionSuggestions}

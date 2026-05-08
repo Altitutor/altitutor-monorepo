@@ -23,6 +23,7 @@ interface UseStaffActionsProps {
    * Callback for log absence
    */
   onLogAbsence: () => void;
+  onBookCheckIn?: () => void;
   /**
    * Callback for delete action
    */
@@ -40,6 +41,7 @@ export function useStaffActions({
   onPasswordResetOrRegistration,
   passwordResetLabel,
   onLogAbsence,
+  onBookCheckIn,
   onDelete,
 }: UseStaffActionsProps) {
   const router = useRouter();
@@ -58,6 +60,7 @@ export function useStaffActions({
     onPasswordResetOrRegistration,
     passwordResetLabel,
     onLogAbsence,
+    onBookCheckIn,
     onDelete,
   };
 }

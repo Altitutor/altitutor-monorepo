@@ -7,15 +7,26 @@ import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
-import { Tabs, TabsList, TabsTrigger, Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
+import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { BookSessionModal } from '@/features/bookings/components';
 import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
 import { ChevronDown } from 'lucide-react';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 
 export default function SessionsPage() {
   const search = useSearchParams();
   const router = useRouter();
+  const { openCheckInModal } = useQuickActions();
   const viewParam = search.get('view') || 'calendar';
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
@@ -24,7 +35,6 @@ export default function SessionsPage() {
   const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
-
   const setView = (v: 'table' | 'calendar') => {
     const params = new URLSearchParams(search.toString());
     params.set('view', v);
@@ -120,6 +130,20 @@ export default function SessionsPage() {
               >
                 Staff interview
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  openCheckInModal();
+                }}
+              >
+                Check in
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  openCheckInModal(null, 'ADMIN_MEETING');
+                }}
+              >
+                Admin meeting
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -198,6 +222,7 @@ export default function SessionsPage() {
           />
         )
       )}
+
     </div>
   );
 }

@@ -2,6 +2,15 @@
 
 import React, { createContext, useContext, useState, useCallback } from 'react';
 
+/** Minimal person fields for pre-filling the check-in booking modal */
+export type CheckInModalPrefill = {
+  staff?: Array<{ id: string; first_name?: string | null; last_name?: string | null }>;
+  students?: Array<{ id: string; first_name?: string | null; last_name?: string | null }>;
+  parents?: Array<{ id: string; first_name?: string | null; last_name?: string | null }>;
+};
+
+export type CheckInSessionType = 'CHECK_IN' | 'ADMIN_MEETING';
+
 interface QuickActionsContextType {
   isTutorLogModalOpen: boolean;
   isLogAbsenceDialogOpen: boolean;
@@ -12,6 +21,9 @@ interface QuickActionsContextType {
   isCreateProjectDialogOpen: boolean;
   bookingSessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null;
   isBookingModalOpen: boolean;
+  isCheckInModalOpen: boolean;
+  checkInSessionType: CheckInSessionType;
+  checkInPrefill: CheckInModalPrefill | null;
   openTutorLogModal: () => void;
   closeTutorLogModal: () => void;
   openLogAbsenceDialog: () => void;
@@ -28,6 +40,9 @@ interface QuickActionsContextType {
   closeCreateProjectDialog: () => void;
   openBookingModal: (sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW') => void;
   closeBookingModal: () => void;
+  /** Open global check-in/admin-meeting modal; optional prefill for staff/students/parents */
+  openCheckInModal: (prefill?: CheckInModalPrefill | null, sessionType?: CheckInSessionType) => void;
+  closeCheckInModal: () => void;
 }
 
 export const QuickActionsContext = createContext<QuickActionsContextType | undefined>(undefined);
@@ -42,6 +57,9 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
+  const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+  const [checkInSessionType, setCheckInSessionType] = useState<CheckInSessionType>('CHECK_IN');
+  const [checkInPrefill, setCheckInPrefill] = useState<CheckInModalPrefill | null>(null);
 
   const openTutorLogModal = useCallback(() => {
     setIsTutorLogModalOpen(true);
@@ -109,6 +127,21 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setBookingSessionType(null);
   }, []);
 
+  const openCheckInModal = useCallback(
+    (prefill?: CheckInModalPrefill | null, sessionType: CheckInSessionType = 'CHECK_IN') => {
+    setCheckInPrefill(prefill ?? null);
+    setCheckInSessionType(sessionType);
+    setIsCheckInModalOpen(true);
+    },
+    []
+  );
+
+  const closeCheckInModal = useCallback(() => {
+    setIsCheckInModalOpen(false);
+    setCheckInSessionType('CHECK_IN');
+    setCheckInPrefill(null);
+  }, []);
+
   return (
     <QuickActionsContext.Provider
       value={{
@@ -121,6 +154,9 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         isCreateProjectDialogOpen,
         bookingSessionType,
         isBookingModalOpen,
+        isCheckInModalOpen,
+        checkInSessionType,
+        checkInPrefill,
         openTutorLogModal,
         closeTutorLogModal,
         openLogAbsenceDialog,
@@ -137,6 +173,8 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         closeCreateProjectDialog,
         openBookingModal,
         closeBookingModal,
+        openCheckInModal,
+        closeCheckInModal,
       }}
     >
       {children}

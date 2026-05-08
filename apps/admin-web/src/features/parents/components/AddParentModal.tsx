@@ -37,6 +37,7 @@ interface AddParentModalProps {
   isOpen: boolean;
   onClose: () => void;
   onParentAdded: (parent?: Tables<'parents'>) => void;
+  initialPhone?: string | null;
 }
 
 // Schema for form validation
@@ -57,7 +58,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModalProps) {
+export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone }: AddParentModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createParentMutation = useCreateParent();
@@ -78,6 +79,7 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
     register, 
     handleSubmit, 
     reset,
+    setValue,
     formState: { errors } 
   } = useForm<FormData>({
     resolver: zodResolver(formSchema),
@@ -152,6 +154,11 @@ export function AddParentModal({ isOpen, onClose, onParentAdded }: AddParentModa
   const handleRemoveStudent = (studentId: string) => {
     setSelectedStudents(prev => prev.filter(s => s.id !== studentId));
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setValue('phone', initialPhone || '');
+  }, [initialPhone, isOpen, setValue]);
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleCloseModal()}>

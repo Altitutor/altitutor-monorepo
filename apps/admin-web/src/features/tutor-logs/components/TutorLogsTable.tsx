@@ -254,14 +254,14 @@ export function TutorLogsTable({
                     {state.visibleColumns.includes('class') && (
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <Badge className={session?.class_id ? getSessionTypeBadgeColor(session.type) : session?.type === 'ADMIN_SHIFT' ? getSessionTypeBadgeColor('ADMIN_SHIFT') : getSessionTypeBadgeColor(null)}>
-                            {session?.class_id ? formatSessionType(session?.type) : session?.type === 'ADMIN_SHIFT' ? 'Admin Shift' : 'Meeting'}
+                          <Badge className={session?.class_id ? getSessionTypeBadgeColor(session.type) : session?.type === 'ADMIN_SHIFT' || session?.type === 'ADMIN_MEETING' ? getSessionTypeBadgeColor('ADMIN_SHIFT') : getSessionTypeBadgeColor(null)}>
+                            {session?.class_id ? formatSessionType(session?.type) : session?.type === 'ADMIN_SHIFT' || session?.type === 'ADMIN_MEETING' ? 'Admin Shift' : 'Meeting'}
                           </Badge>
                           {session?.class_id ? (
                             <span className="text-sm font-medium">
                               {formatClassDisplayName(session.class_id, classesById, subjectsById)}
                             </span>
-                          ) : session?.type !== 'ADMIN_SHIFT' && formatSessionType(session?.type) !== 'Meeting' ? (
+                          ) : session?.type !== 'ADMIN_SHIFT' && session?.type !== 'ADMIN_MEETING' && formatSessionType(session?.type) !== 'Meeting' ? (
                             <span className="text-sm font-medium">
                               {formatSessionType(session?.type)}
                             </span>

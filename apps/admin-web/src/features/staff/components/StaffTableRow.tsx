@@ -7,6 +7,7 @@ import { StaffRoleBadge, StaffStatusBadge } from '@altitutor/ui';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useRouter } from 'next/navigation';
 import { useCurrentStaff } from '../hooks/useStaffQuery';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components';
 import {
   AlertDialog,
@@ -41,6 +42,7 @@ export const StaffTableRow = memo(function StaffTableRow({
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
+  const { openCheckInModal } = useQuickActions();
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -180,6 +182,17 @@ export const StaffTableRow = memo(function StaffTableRow({
           onLogAbsence={() => {
             setIsLogAbsenceDialogOpen(true);
           }}
+          onBookCheckIn={() =>
+            openCheckInModal({
+              staff: [
+                {
+                  id: staff.id,
+                  first_name: staff.first_name,
+                  last_name: staff.last_name,
+                },
+              ],
+            })
+          }
           onDelete={() => {
             setIsDeleteDialogOpen(true);
           }}

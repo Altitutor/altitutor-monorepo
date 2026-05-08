@@ -100,13 +100,13 @@ export async function fetchTutorLogsForExport(params: {
       const attendedStudentCount = studentAtt.filter((s) => s.attended).length;
       
       // Get subject information
-      // ADMIN_SHIFT sessions don't have classes/subjects, so handle that case
+      // ADMIN_SHIFT / ADMIN_MEETING sessions don't have classes/subjects, so handle that case
       let subjectName: string | null = null;
       let subjectLongName: string | null = null;
       let subjectId: string | null = null;
       const classId = session.class_id ?? null;
 
-      if (session.type !== 'ADMIN_SHIFT' && session.class_id && classesById[session.class_id]) {
+      if (session.type !== 'ADMIN_SHIFT' && session.type !== 'ADMIN_MEETING' && session.class_id && classesById[session.class_id]) {
         const classData = classesById[session.class_id];
         if (classData.subject_id && subjectsById[classData.subject_id]) {
           const subject = subjectsById[classData.subject_id];
@@ -127,7 +127,7 @@ export async function fetchTutorLogsForExport(params: {
         exportData.push({
           tutorLogId: tutorLog.id,
           sessionId: session.id,
-          sessionType: (session.type ?? 'CLASS') as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'STAFF_INTERVIEW' | 'ADMIN_SHIFT',
+          sessionType: (session.type ?? 'CLASS') as 'CLASS' | 'EXAM_COURSE' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'STAFF_INTERVIEW' | 'ADMIN_SHIFT' | 'ADMIN_MEETING',
           sessionStartAt: session.start_at || '',
           sessionEndAt: session.end_at || '',
           classId,

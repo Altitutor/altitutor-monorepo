@@ -9,6 +9,7 @@ import { Loader2, ArrowLeft } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useStaffActions } from '@/features/staff/hooks/useStaffActions';
 import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components/absences/LogStaffAbsenceDialog';
 import {
   AlertDialog,
@@ -48,6 +49,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
+  const { openCheckInModal } = useQuickActions();
   
   // Data fetching
   const { data: staffData, isLoading } = useStaffDetails(id, !!id);
@@ -94,6 +96,18 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
     },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
+    onBookCheckIn: staffMember
+      ? () =>
+          openCheckInModal({
+            staff: [
+              {
+                id: staffMember.id,
+                first_name: staffMember.first_name,
+                last_name: staffMember.last_name,
+              },
+            ],
+          })
+      : undefined,
     onDelete: modals.openDeleteDialog,
   });
 

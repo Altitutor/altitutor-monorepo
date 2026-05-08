@@ -24,6 +24,7 @@ export function MessagesDropdown() {
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<'list' | 'thread'>('list');
   const [activeContactId, setActiveContactId] = useState<string | null>(null);
+  const [selectedOwnedNumberId, setSelectedOwnedNumberId] = useState<string | null>(null);
 
   // When another part of the app (e.g. reconciliation Message button) calls openWindow(conversationId),
   // open this dropdown and show that conversation
@@ -232,6 +233,8 @@ export function MessagesDropdown() {
                 <ConversationList 
                   activeContactId={activeContactId} 
                   onSelect={handleConversationClick}
+                  selectedOwnedNumberId={selectedOwnedNumberId}
+                  onOwnedNumberFilterChange={setSelectedOwnedNumberId}
                 />
               </div>
             )}
@@ -255,6 +258,7 @@ export function MessagesDropdown() {
                       <div className="flex-1 min-h-0 overflow-hidden">
                         <MessageThread 
                           contactId={activeContactId} 
+                          ownedNumberId={selectedOwnedNumberId}
                           isSearching={isSearching}
                           searchTerm={searchTerm}
                           onSearchTermChange={setSearchTerm}

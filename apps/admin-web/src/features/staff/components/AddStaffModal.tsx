@@ -39,6 +39,7 @@ interface AddStaffModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStaffAdded: () => void;
+  initialPhone?: string | null;
 }
 
 // Schema for form validation
@@ -83,7 +84,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalProps) {
+export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: AddStaffModalProps) {
   const { toast } = useToast();
   const router = useRouter();
   const createStaffMutation = useCreateStaff();
@@ -102,6 +103,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
     register, 
     handleSubmit, 
     reset,
+    setValue,
     formState: { errors } 
   } = useForm<FormData>({
     resolver: zodResolver(formSchema) as Resolver<FormData>,
@@ -247,6 +249,11 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded }: AddStaffModalPr
   const handleRemoveSubject = (subjectId: string) => {
     setSelectedSubjects(prev => prev.filter(s => s.id !== subjectId));
   };
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setValue('phoneNumber', initialPhone || '');
+  }, [initialPhone, isOpen, setValue]);
 
   return (
     <Dialog open={isOpen} onOpenChange={handleCloseModal}>

@@ -9,6 +9,8 @@ import {
   getLogSessionTotalSteps,
   calculateInitialStep,
   canProceedToNextLogStep,
+  resolveLogSessionWizardFlow,
+  type LogSessionWizardFlow,
 } from '../utils/logSessionHelpers';
 
 export type SubmissionState = 'idle' | 'submitting' | 'success' | 'error';
@@ -20,26 +22,27 @@ export interface UseLogSessionFlowProps {
   adminMode?: boolean;
   initialSessionId?: string;
   initialStaffId?: string;
+  /** When opening from a known meeting (non-class) session, use the short wizard from step 0. */
+  initialSessionKind?: LogSessionWizardFlow;
 }
 
 export interface UseLogSessionFlowReturn {
-  // State
   currentStep: number;
   selectedStaffId: string;
   formData: Partial<TutorLogFormData>;
   submissionState: SubmissionState;
   submissionError: string | null;
   totalSteps: number;
+  wizardFlow: LogSessionWizardFlow;
 
-  // Data
   selectedStaff: Tables<'staff'> | null;
   selectedSession: Tables<'sessions'> | null;
   sessionClassData: Tables<'classes'> | null;
   sessionSubject: Tables<'subjects'> | null;
   sessionStaff: Tables<'staff'>[];
   sessionStudents: Tables<'students'>[];
+  sessionParents: Array<Tables<'parents'> & { sessions_parents_id?: string }>;
 
-  // Actions
   setSelectedStaffId: (staffId: string) => void;
   updateFormData: (updates: Partial<TutorLogFormData>) => void;
   handleNext: () => void;
@@ -48,6 +51,8 @@ export interface UseLogSessionFlowReturn {
   handleClose: () => void;
   handleTryAgain: () => void;
   handleAddStaffToSession: (staffId: string) => Promise<void>;
+  handleAddStudentToSession: (studentId: string) => Promise<void>;
+  handleAddParentToSession: (parentId: string) => Promise<void>;
   canGoNext: boolean;
 }
 
@@ -58,16 +63,18 @@ export function useLogSessionFlow({
   adminMode = false,
   initialSessionId,
   initialStaffId,
+  initialSessionKind,
 }: UseLogSessionFlowProps): UseLogSessionFlowReturn {
   const createMutation = useCreateTutorLog();
 
-  // Calculate initial step
+  const openingWizardFlow: LogSessionWizardFlow =
+    initialSessionKind === 'meeting' ? 'meeting' : 'class';
+
   const initialStep = useMemo(
-    () => calculateInitialStep(adminMode, initialSessionId, initialStaffId),
-    [adminMode, initialSessionId, initialStaffId]
+    () => calculateInitialStep(adminMode, initialSessionId, initialStaffId, openingWizardFlow),
+    [adminMode, initialSessionId, initialStaffId, openingWizardFlow]
   );
 
-  // State management
   const [currentStep, setCurrentStep] = useState(initialStep);
   const [selectedStaffId, setSelectedStaffId] = useState<string>(
     initialStaffId || currentStaffId
@@ -78,46 +85,61 @@ export function useLogSessionFlow({
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [submissionError, setSubmissionError] = useState<string | null>(null);
 
-  // Calculate total steps
-  const totalSteps = useMemo(
-    () => getLogSessionTotalSteps(adminMode),
-    [adminMode]
-  );
-
-  // Fetch selected staff data
   const { data: selectedStaff } = useStaffById(selectedStaffId);
 
-  // Fetch selected session data
   const { data: sessionData } = useSessionForLogging(formData.sessionId);
 
-  // Extract session data
   const selectedSession = sessionData?.session || null;
   const sessionClassData = sessionData?.classData || null;
   const sessionSubject = sessionData?.subject || null;
   const sessionStaff = sessionData?.staff || [];
   const sessionStudents = sessionData?.students || [];
+  const sessionParents = useMemo(() => sessionData?.parents ?? [], [sessionData?.parents]);
 
-  // Initialize form data when modal opens with initial values
+  const wizardFlow = useMemo(
+    () => resolveLogSessionWizardFlow(selectedSession, initialSessionKind),
+    [selectedSession, initialSessionKind]
+  );
+
+  const totalSteps = useMemo(
+    () => getLogSessionTotalSteps(!!adminMode, wizardFlow),
+    [adminMode, wizardFlow]
+  );
+
+  const sessionParentIdsKey = useMemo(
+    () => sessionParents.map((p) => p.id).sort().join(','),
+    [sessionParents]
+  );
+
+  useEffect(() => {
+    if (!selectedSession || selectedSession.type === 'CLASS') {
+      setFormData((fd) =>
+        fd.parentAttendance && fd.parentAttendance.length > 0 ? { ...fd, parentAttendance: [] } : fd
+      );
+      return;
+    }
+    const next = sessionParents.map((p) => ({ parentId: p.id, attended: false }));
+    setFormData((fd) => ({ ...fd, parentAttendance: next }));
+  }, [selectedSession, sessionParents, sessionParentIdsKey]);
+
   useEffect(() => {
     if (isOpen) {
-      // Set initial values
       if (initialSessionId) {
         setFormData((prev) => ({ ...prev, sessionId: initialSessionId }));
       }
       if (initialStaffId) {
         setSelectedStaffId(initialStaffId);
       }
-      // Set the step based on what's pre-selected
       const targetStep = calculateInitialStep(
         adminMode,
         initialSessionId,
-        initialStaffId
+        initialStaffId,
+        openingWizardFlow
       );
       setCurrentStep(targetStep);
     }
-  }, [isOpen, initialSessionId, initialStaffId, adminMode]);
+  }, [isOpen, initialSessionId, initialStaffId, adminMode, openingWizardFlow]);
 
-  // Reset state when modal closes
   useEffect(() => {
     if (!isOpen) {
       setCurrentStep(initialStep);
@@ -126,40 +148,35 @@ export function useLogSessionFlow({
       setSubmissionState('idle');
       setSubmissionError(null);
     }
-  }, [
-    isOpen,
-    currentStaffId,
-    initialSessionId,
-    initialStaffId,
-    initialStep,
-  ]);
+  }, [isOpen, currentStaffId, initialSessionId, initialStaffId, initialStep]);
 
-  // Update form data helper
   const updateFormData = useCallback((updates: Partial<TutorLogFormData>) => {
     setFormData((prev) => ({ ...prev, ...updates }));
   }, []);
 
-  // Navigation handlers
   const handleNext = useCallback(() => {
-    if (currentStep < totalSteps - 1) {
-      setCurrentStep(currentStep + 1);
-    }
+    if (currentStep >= totalSteps - 1) return;
+    setCurrentStep(currentStep + 1);
   }, [currentStep, totalSteps]);
 
   const handlePrevious = useCallback(() => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-    }
+    if (currentStep <= 0) return;
+    setCurrentStep(currentStep - 1);
   }, [currentStep]);
 
-  // Submit handler
   const handleSubmit = useCallback(async () => {
     if (!formData.sessionId) return;
 
-    const submitPayload = {
-      data: formData as TutorLogFormData,
-      createdBy: selectedStaffId,
+    const base = {
+      ...(formData as TutorLogFormData),
+      parentAttendance: formData.parentAttendance ?? [],
     };
+    const data: TutorLogFormData =
+      wizardFlow === 'meeting'
+        ? { ...base, topics: [], topicFiles: [] }
+        : base;
+
+    const submitPayload = { data, createdBy: selectedStaffId };
 
     setSubmissionState('submitting');
     setSubmissionError(null);
@@ -175,22 +192,19 @@ export function useLogSessionFlow({
           : 'Failed to submit log. Please try again.'
       );
     }
-  }, [formData, selectedStaffId, createMutation]);
+  }, [formData, selectedStaffId, createMutation, wizardFlow]);
 
-  // Close handler
   const handleClose = useCallback(() => {
     if (submissionState === 'success') {
       onClose();
     }
   }, [submissionState, onClose]);
 
-  // Try again handler
   const handleTryAgain = useCallback(() => {
     setSubmissionState('idle');
     setSubmissionError(null);
   }, []);
 
-  // Add staff to session handler
   const handleAddStaffToSession = useCallback(
     async (staffId: string) => {
       if (!formData.sessionId) return;
@@ -199,35 +213,50 @@ export function useLogSessionFlow({
     [formData.sessionId]
   );
 
-  // Check if can proceed to next step
+  const handleAddStudentToSession = useCallback(
+    async (studentId: string) => {
+      if (!formData.sessionId) return;
+      await sessionsApi.addStudentToSession(formData.sessionId, studentId);
+    },
+    [formData.sessionId]
+  );
+
+  const handleAddParentToSession = useCallback(
+    async (parentId: string) => {
+      if (!formData.sessionId) return;
+      await sessionsApi.addParentToSession(formData.sessionId, parentId);
+    },
+    [formData.sessionId]
+  );
+
   const canGoNext = useMemo(() => {
     return canProceedToNextLogStep(
       currentStep,
-      adminMode,
+      !!adminMode,
+      wizardFlow,
       formData,
       selectedStaffId,
       selectedSession
     );
-  }, [currentStep, adminMode, formData, selectedStaffId, selectedSession]);
+  }, [currentStep, adminMode, wizardFlow, formData, selectedStaffId, selectedSession]);
 
   return {
-    // State
     currentStep,
     selectedStaffId,
     formData,
     submissionState,
     submissionError,
     totalSteps,
+    wizardFlow,
 
-    // Data
     selectedStaff: selectedStaff || null,
     selectedSession,
     sessionClassData,
     sessionSubject,
     sessionStaff,
     sessionStudents,
+    sessionParents,
 
-    // Actions
     setSelectedStaffId,
     updateFormData,
     handleNext,
@@ -236,6 +265,8 @@ export function useLogSessionFlow({
     handleClose,
     handleTryAgain,
     handleAddStaffToSession,
+    handleAddStudentToSession,
+    handleAddParentToSession,
     canGoNext,
   };
 }

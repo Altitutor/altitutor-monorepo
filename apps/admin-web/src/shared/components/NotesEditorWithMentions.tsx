@@ -17,6 +17,8 @@ export interface NotesEditorWithMentionsProps {
   minHeight?: string;
   types?: readonly (keyof typeof entityTypes)[];
   className?: string;
+  /** Default 200ms — fewer RHF updates while typing long notes in activity tabs. */
+  onChangeDebounceMs?: number;
 }
 
 /**
@@ -27,9 +29,11 @@ export interface NotesEditorWithMentionsProps {
 export const NotesEditorWithMentions = forwardRef<
   NotesEditorWithMentionsRef,
   NotesEditorWithMentionsProps
->(({ content, onChange, placeholder = 'Add a note...', disabled, minHeight = '80px', types, className }, ref) => {
+>(({ content, onChange, placeholder = 'Add a note...', disabled, minHeight = '80px', types, className, onChangeDebounceMs = 200 }, ref) => {
   const mentionSuggestions = useMentionSuggestions({ types });
-  const slashMenuSuggestions = useSlashCommandSuggestions();
+  const slashMenuSuggestions = useSlashCommandSuggestions({
+    includeCollapsibleSection: false,
+  });
   const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
     context: 'notes',
     editorRef: ref as React.RefObject<RichTextEditorRef | null>,
@@ -46,6 +50,7 @@ export const NotesEditorWithMentions = forwardRef<
         ref={ref}
         content={content}
         onChange={onChange}
+        onChangeDebounceMs={onChangeDebounceMs}
         placeholder={placeholder}
         editable={!disabled}
         minHeight={minHeight}

@@ -40,6 +40,7 @@ export const SESSION_TYPE_PRIORITY: Partial<Record<SessionType, number>> = {
   DRAFTING: 2, // Medium priority (treated as class)
   EXAM_COURSE: 2, // Medium priority (treated as class)
   ADMIN_SHIFT: 1, // Lowest priority
+  ADMIN_MEETING: 1, // Lowest priority (same as admin shift)
 };
 
 /**
@@ -54,7 +55,7 @@ export function getSessionPriority(sessionType: SessionType): number {
  * Returns the pay category external ID or null if no match
  * 
  * Priority order (descending):
- * 1. Admin - if session.type = ADMIN_SHIFT
+ * 1. Admin - if session.type = ADMIN_SHIFT or ADMIN_MEETING
  * 2. Homework help - if session.subject.name = 'Homework Help'
  * 3. Training - if staff_attendance.type = TRIAL_TUTOR
  * 4. Secondary tutor - if staff_attendance.type = SECONDARY_TUTOR
@@ -69,7 +70,7 @@ export function determinePayCategory(params: {
   const { sessionType, subjectName, staffAttendanceType } = params;
 
   // 1. Admin - highest priority
-  if (sessionType === 'ADMIN_SHIFT') {
+  if (sessionType === 'ADMIN_SHIFT' || sessionType === 'ADMIN_MEETING') {
     return PAY_CATEGORIES.ADMIN;
   }
 

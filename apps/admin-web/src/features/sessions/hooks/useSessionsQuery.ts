@@ -248,3 +248,27 @@ export function useRemoveStaffFromSession() {
     },
   });
 }
+
+export function useAddParentToSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, parentId }: { sessionId: string; parentId: string }) =>
+      sessionsApi.addParentToSession(sessionId, parentId),
+    onSuccess: (_, { sessionId }) => {
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+    },
+  });
+}
+
+export function useRemoveParentFromSession() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ sessionId, parentId }: { sessionId: string; parentId: string }) =>
+      sessionsApi.removeParentFromSession(sessionId, parentId),
+    onSuccess: (_, { sessionId }) => {
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
+      queryClient.invalidateQueries({ queryKey: sessionsKeys.withDetails() });
+    },
+  });
+}

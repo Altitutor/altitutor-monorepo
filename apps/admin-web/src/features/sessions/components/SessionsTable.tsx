@@ -35,7 +35,8 @@ const SESSION_TYPES = [
   'SUBSIDY_INTERVIEW',
   'TRIAL_SESSION',
   'STAFF_INTERVIEW',
-  'TRIAL_SHIFT',
+  'CHECK_IN',
+  'ADMIN_MEETING',
 ] as const;
 
 type SessionsTableProps = {
@@ -498,7 +499,8 @@ export function SessionsTable({
           onClose={modals.closeLogSessionModal}
           currentStaffId={currentStaff.id}
           adminMode={true}
-          initialSessionId={modals.actionSessionId}
+          initialSessionId={modals.actionSessionId ?? undefined}
+          initialSessionKind={modals.logSessionInitialKind}
         />
       )}
 

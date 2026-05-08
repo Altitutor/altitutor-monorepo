@@ -248,6 +248,9 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           adminMode={true}
           initialSessionId={id}
           initialStaffId={helpers.getFirstStaffForLogging()}
+          initialSessionKind={
+            sessionData.data?.session?.type !== 'CLASS' ? 'meeting' : 'class'
+          }
         />
       )}
 

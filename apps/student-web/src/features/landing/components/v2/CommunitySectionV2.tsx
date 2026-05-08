@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { gsap } from "gsap";
 import { Users, HelpCircle, Bell, Award, Calendar, Trophy } from "lucide-react";
+import Image from "next/image";
 import { TOKENS } from "./shared";
 
 // ----------------------------------------------------------------------
@@ -108,7 +109,13 @@ function HomeworkHelpCard() {
           I'm stuck on Q4 for the Calculus assignment...
         </div>
         <div className="msg-2 opacity-0 translate-y-2 self-start bg-white p-2 rounded-lg rounded-tl-none shadow-sm border border-black/5 max-w-[80%]">
-           <img src="/images/landing/study-notes-screenshot.png" className="w-full h-8 object-cover rounded mb-1 opacity-50 grayscale" alt="attachment" />
+          <Image
+            src="/images/landing/study-notes-screenshot.png"
+            alt="attachment"
+            width={640}
+            height={64}
+            className="w-full h-8 object-cover rounded mb-1 opacity-50 grayscale"
+          />
            Here is my working out.
         </div>
         
@@ -192,9 +199,9 @@ function LoyaltyCard() {
   useEffect(() => {
     const ctx = gsap.context(() => {
       const tl = gsap.timeline({ repeat: -1 });
-      const stamps = gsap.utils.toArray(".stamp-mark");
-      
-      stamps.forEach((stamp: any, i) => {
+      const stamps = gsap.utils.toArray<HTMLElement>(".stamp-mark");
+
+      stamps.forEach((stamp) => {
         tl.to(stamp, { opacity: 1, scale: 1, rotation: gsap.utils.random(-15, 15), duration: 0.3, ease: "back.out(2)" })
           .to({}, { duration: 0.5 }); // delay between stamps
       });

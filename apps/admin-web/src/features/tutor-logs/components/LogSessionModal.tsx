@@ -1,14 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useLogSessionFlow } from '../hooks/useLogSessionFlow';
-import { getLogSessionStepTitle } from '../utils/logSessionHelpers';
-import { getAttendedStudentIds } from '../utils/logSessionHelpers';
-import { StaffCard } from '@/shared/components/StaffCard';
-import { SessionsCard } from '@/features/sessions/components/SessionsCard';
+import {
+  getLogSessionStepTitle,
+  getAttendedStudentIds,
+  type LogSessionWizardFlow,
+} from '../utils/logSessionHelpers';
+import { getShortSessionName } from '@/features/sessions/utils/session-helpers';
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
@@ -16,8 +24,6 @@ import {
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
 
-// Import step components
-import { Step0StaffSelector } from './steps/Step0StaffSelector';
 import { Step1SessionPicker } from './steps/Step1SessionPicker';
 import { Step2StaffAttendance } from './steps/Step2StaffAttendance';
 import { Step3StudentAttendance } from './steps/Step3StudentAttendance';
@@ -27,6 +33,8 @@ import { Step6Files } from './steps/Step6Files';
 import { Step7FileStudents } from './steps/Step7FileStudents';
 import { Step8Notes } from './steps/Step8Notes';
 import { Step9Confirmation } from './steps/Step9Confirmation';
+import { MeetingAdminStaffSessionStep } from './steps/MeetingAdminStaffSessionStep';
+import { MeetingCombinedAttendanceStep } from './steps/MeetingCombinedAttendanceStep';
 
 type LogSessionModalProps = {
   isOpen: boolean;
@@ -35,6 +43,7 @@ type LogSessionModalProps = {
   adminMode?: boolean;
   initialSessionId?: string;
   initialStaffId?: string;
+  initialSessionKind?: LogSessionWizardFlow;
 };
 
 export function LogSessionModal({
@@ -44,25 +53,19 @@ export function LogSessionModal({
   adminMode = false,
   initialSessionId,
   initialStaffId,
+  initialSessionKind,
 }: LogSessionModalProps) {
   const {
-    // State
     currentStep,
     selectedStaffId,
     formData,
     submissionState,
     submissionError,
     totalSteps,
-
-    // Data
+    wizardFlow,
     selectedStaff,
     selectedSession,
-    sessionClassData,
-    sessionSubject,
-    sessionStaff,
-    sessionStudents,
-
-    // Actions
+    sessionParents,
     setSelectedStaffId,
     updateFormData,
     handleNext,
@@ -71,6 +74,8 @@ export function LogSessionModal({
     handleClose,
     handleTryAgain,
     handleAddStaffToSession,
+    handleAddStudentToSession,
+    handleAddParentToSession,
     canGoNext,
   } = useLogSessionFlow({
     isOpen,
@@ -79,6 +84,7 @@ export function LogSessionModal({
     adminMode,
     initialSessionId,
     initialStaffId,
+    initialSessionKind,
   });
 
   const [expanded, setExpanded] = useState(false);
@@ -87,12 +93,46 @@ export function LogSessionModal({
     if (!isOpen) setExpanded(false);
   }, [isOpen]);
 
-  const getStepTitle = () => {
-    return getLogSessionStepTitle(currentStep, adminMode);
-  };
+  const getStepTitle = () => getLogSessionStepTitle(currentStep, !!adminMode, wizardFlow);
+
+  const staffSummaryName = selectedStaff
+    ? `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff'
+    : 'choose staff member';
+
+  const sessionSummaryName = selectedSession
+    ? selectedSession.long_name?.trim() || getShortSessionName(selectedSession)
+    : 'choose session';
+
+  const renderSummary = () => (
+    <div className="p-4 bg-muted rounded-lg mb-4">
+      <p className="text-sm font-medium">
+        Log a session for{' '}
+        <span
+          className={cn(
+            'inline-flex items-center px-2 py-1 rounded-md font-semibold border',
+            selectedStaff
+              ? 'bg-primary/10 text-primary border-primary/20'
+              : 'bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20'
+          )}
+        >
+          {staffSummaryName}
+        </span>
+        :{' '}
+        <span
+          className={cn(
+            'inline-flex items-center px-2 py-1 rounded-md font-semibold border',
+            selectedSession
+              ? 'bg-primary/10 text-primary border-primary/20'
+              : 'bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20'
+          )}
+        >
+          {sessionSummaryName}
+        </span>
+      </p>
+    </div>
+  );
 
   const renderStep = () => {
-    // Success state
     if (submissionState === 'success') {
       return (
         <div className="py-12 text-center space-y-4">
@@ -109,7 +149,7 @@ export function LogSessionModal({
               <path d="M5 13l4 4L19 7"></path>
             </svg>
           </div>
-          <div className="text-lg font-semibold">Tutor Log Submitted Successfully!</div>
+          <div className="text-lg font-semibold">Tutor log submitted successfully</div>
           <div className="text-sm text-muted-foreground">
             The session has been logged and saved.
           </div>
@@ -117,7 +157,6 @@ export function LogSessionModal({
       );
     }
 
-    // Error state
     if (submissionState === 'error') {
       return (
         <div className="py-12 text-center space-y-4">
@@ -134,7 +173,7 @@ export function LogSessionModal({
               <path d="M6 18L18 6M6 6l12 12"></path>
             </svg>
           </div>
-          <div className="text-lg font-semibold">Failed to Submit Tutor Log</div>
+          <div className="text-lg font-semibold">Failed to submit tutor log</div>
           <div className="text-sm text-muted-foreground">
             {submissionError || 'An error occurred while submitting the log.'}
           </div>
@@ -142,19 +181,120 @@ export function LogSessionModal({
       );
     }
 
-    if (adminMode && currentStep === 0) {
+    if (wizardFlow === 'meeting' && adminMode) {
+      switch (currentStep) {
+        case 0:
+          return (
+            <MeetingAdminStaffSessionStep
+              selectedStaffId={selectedStaffId}
+              onStaffChange={setSelectedStaffId}
+              selectedSessionId={formData.sessionId}
+              onSessionChange={(sessionId) => updateFormData({ sessionId })}
+            />
+          );
+        case 1:
+          return formData.sessionId ? (
+            <MeetingCombinedAttendanceStep
+              sessionId={formData.sessionId}
+              currentStaffId={selectedStaffId}
+              sessionType={selectedSession?.type}
+              sessionParents={sessionParents}
+              staffAttendance={formData.staffAttendance || []}
+              studentAttendance={formData.studentAttendance || []}
+              parentAttendance={formData.parentAttendance ?? []}
+              onStaffAttendanceUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
+              onStudentAttendanceUpdate={(studentAttendance) => updateFormData({ studentAttendance })}
+              onParentAttendanceUpdate={(parentAttendance) => updateFormData({ parentAttendance })}
+              onAddStaffToSession={handleAddStaffToSession}
+              onAddStudentToSession={handleAddStudentToSession}
+              onAddParentToSession={handleAddParentToSession}
+            />
+          ) : null;
+        case 2:
+          return (
+            <Step8Notes
+              title={getStepTitle()}
+              notes={formData.notes || []}
+              onUpdate={(notes) => updateFormData({ notes })}
+            />
+          );
+        case 3:
+          return (
+            <Step9Confirmation
+              title={getStepTitle()}
+              formData={formData}
+            />
+          );
+        default:
+          return null;
+      }
+    }
+
+    if (wizardFlow === 'meeting' && !adminMode) {
+      switch (currentStep) {
+        case 0:
+          return (
+            <Step1SessionPicker
+              title={getStepTitle()}
+              staffId={selectedStaffId}
+              selectedSessionId={formData.sessionId}
+              onSelectSession={(sessionId) => updateFormData({ sessionId })}
+              variant="compactList"
+            />
+          );
+        case 1:
+          return formData.sessionId ? (
+            <MeetingCombinedAttendanceStep
+              sessionId={formData.sessionId}
+              currentStaffId={selectedStaffId}
+              sessionType={selectedSession?.type}
+              sessionParents={sessionParents}
+              staffAttendance={formData.staffAttendance || []}
+              studentAttendance={formData.studentAttendance || []}
+              parentAttendance={formData.parentAttendance ?? []}
+              onStaffAttendanceUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
+              onStudentAttendanceUpdate={(studentAttendance) => updateFormData({ studentAttendance })}
+              onParentAttendanceUpdate={(parentAttendance) => updateFormData({ parentAttendance })}
+              onAddStaffToSession={handleAddStaffToSession}
+              onAddStudentToSession={handleAddStudentToSession}
+              onAddParentToSession={handleAddParentToSession}
+            />
+          ) : null;
+        case 2:
+          return (
+            <Step8Notes
+              title={getStepTitle()}
+              notes={formData.notes || []}
+              onUpdate={(notes) => updateFormData({ notes })}
+            />
+          );
+        case 3:
+          return (
+            <Step9Confirmation
+              title={getStepTitle()}
+              formData={formData}
+            />
+          );
+        default:
+          return null;
+      }
+    }
+
+    if (wizardFlow === 'class' && adminMode && currentStep === 0) {
       return (
-        <Step0StaffSelector
-          title={getStepTitle()}
-          selectedStaffId={selectedStaffId || undefined}
-          onSelectStaff={setSelectedStaffId}
+        <MeetingAdminStaffSessionStep
+          selectedStaffId={selectedStaffId}
+          onStaffChange={setSelectedStaffId}
+          selectedSessionId={formData.sessionId}
+          onSessionChange={(sessionId) => updateFormData({ sessionId })}
         />
       );
     }
 
-    const stepIndex = adminMode ? currentStep - 1 : currentStep;
+    const legacyStepIndex =
+      adminMode && wizardFlow === 'class' ? currentStep : adminMode ? currentStep - 1 : currentStep;
 
-    switch (stepIndex) {
+    switch (legacyStepIndex) {
       case 0:
         return (
           <Step1SessionPicker
@@ -173,6 +313,7 @@ export function LogSessionModal({
             staffAttendance={formData.staffAttendance || []}
             onUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
             onAddStaffToSession={handleAddStaffToSession}
+            addStaffVariant="search"
           />
         );
       case 2:
@@ -180,8 +321,15 @@ export function LogSessionModal({
           <Step3StudentAttendance
             title={getStepTitle()}
             sessionId={formData.sessionId!}
+            sessionType={selectedSession?.type}
+            sessionParents={sessionParents}
             studentAttendance={formData.studentAttendance || []}
+            parentAttendance={formData.parentAttendance ?? []}
             onUpdate={(studentAttendance) => updateFormData({ studentAttendance })}
+            onParentAttendanceUpdate={(parentAttendance) => updateFormData({ parentAttendance })}
+            addStudentVariant="search"
+            onAddStudentToSession={handleAddStudentToSession}
+            onAddParentToSession={handleAddParentToSession}
           />
         );
       case 3:
@@ -241,7 +389,10 @@ export function LogSessionModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && (submissionState === 'success' ? handleClose() : onClose())}>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => !open && (submissionState === 'success' ? handleClose() : onClose())}
+    >
       <DialogContent
         className={cn(
           'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
@@ -249,11 +400,10 @@ export function LogSessionModal({
           expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
       >
-        {/* Header */}
         <div className="flex-shrink-0 border-b bg-background">
           <DialogHeader className="px-6 pt-6 pb-4">
             <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
                 <Button
                   variant="outline"
                   size="icon"
@@ -263,55 +413,30 @@ export function LogSessionModal({
                   <X className="h-4 w-4" />
                 </Button>
                 <div className="flex-1 min-w-0">
-                  <DialogTitle>Tutor log</DialogTitle>
+                  <DialogTitle>Log session</DialogTitle>
                   <DialogDescription>
                     Step {currentStep + 1} of {totalSteps}: {getStepTitle()}
                   </DialogDescription>
                 </div>
                 <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-                {(selectedStaff || selectedSession) && (
-                  <div className="flex items-center gap-3 flex-wrap flex-shrink-0">
-                    {selectedStaff && (
-                      <div className="flex-shrink-0 h-[60px]">
-                        <StaffCard
-                          staff={selectedStaff}
-                          showSubjects={false}
-                          showActions={false}
-                        />
-                      </div>
-                    )}
-                    {selectedSession && (
-                      <div className="flex-shrink-0 w-fit max-w-md h-[60px]">
-                        <SessionsCard
-                          session={selectedSession}
-                          classData={sessionClassData || undefined}
-                          subject={sessionSubject || undefined}
-                          staff={sessionStaff}
-                          students={sessionStudents}
-                          compact={true}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             </div>
           </DialogHeader>
 
-          {/* Progress Indicator */}
           {submissionState !== 'success' && submissionState !== 'error' && (
             <div className="px-6 pb-4">
               <div className="flex items-center gap-2">
                 {Array.from({ length: totalSteps }).map((_, index) => (
                   <div
                     key={index}
-                    className={`flex-1 h-2 rounded-full transition-colors ${
+                    className={cn(
+                      'flex-1 h-2 rounded-full transition-colors',
                       index < currentStep
                         ? 'bg-primary'
                         : index === currentStep
-                        ? 'bg-primary/50'
-                        : 'bg-muted'
-                    }`}
+                          ? 'bg-primary/50'
+                          : 'bg-muted'
+                    )}
                   />
                 ))}
               </div>
@@ -319,42 +444,31 @@ export function LogSessionModal({
           )}
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full overflow-y-auto">
             <div className="p-6">
+              {submissionState !== 'success' && submissionState !== 'error' && renderSummary()}
               {renderStep()}
             </div>
           </div>
         </div>
 
-        <div className="flex justify-between px-6 py-4 border-t bg-background">
+        <div className="flex-shrink-0 flex justify-between px-6 py-4 border-t bg-background">
           {submissionState === 'success' ? (
             <>
-              <div></div>
-              <Button onClick={handleClose}>
-                Close
-              </Button>
+              <div />
+              <Button onClick={handleClose}>Close</Button>
             </>
           ) : submissionState === 'error' ? (
             <>
-              <Button
-                variant="outline"
-                onClick={handleTryAgain}
-              >
+              <Button variant="outline" onClick={handleTryAgain}>
                 Try Again
               </Button>
-              <Button onClick={onClose}>
-                Close
-              </Button>
+              <Button onClick={onClose}>Close</Button>
             </>
           ) : (
             <>
-              <Button
-                variant="outline"
-                onClick={handlePrevious}
-                disabled={currentStep === 0}
-              >
+              <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
                 <ChevronLeft className="h-4 w-4 mr-2" />
                 Previous
               </Button>
@@ -369,7 +483,7 @@ export function LogSessionModal({
                   onClick={handleSubmit}
                   disabled={submissionState === 'submitting' || !canGoNext}
                 >
-                  {submissionState === 'submitting' ? 'Submitting...' : 'Submit Log'}
+                  {submissionState === 'submitting' ? 'Submitting...' : 'Submit log'}
                 </Button>
               )}
             </>
@@ -379,5 +493,3 @@ export function LogSessionModal({
     </Dialog>
   );
 }
-
-

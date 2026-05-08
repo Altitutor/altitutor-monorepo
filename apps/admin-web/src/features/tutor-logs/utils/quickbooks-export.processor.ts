@@ -101,6 +101,11 @@ export function processTutorLogsForExport(
   }> = [];
 
   const filteredLogs = tutorLogs.filter((log) => {
+    // CHECK_IN logs are intentionally excluded from QuickBooks export.
+    if ((log.sessionType as string) === 'CHECK_IN') {
+      return false;
+    }
+
     const isHomeworkHelp = log.subjectName === 'Homework Help';
     const isEmptyClass =
       isClassType(log.sessionType) && log.attendedStudentCount === 0 && !isHomeworkHelp;
@@ -319,7 +324,7 @@ function isClassType(sessionType: SessionType): boolean {
 /**
  * Generate comments string for QuickBooks entry
  * Format: {subject.longname} {date dd/mm/yyyy} {start_time hh:mm p} - {end_time hh:mm p}
- * For ADMIN_SHIFT sessions, use "Admin Shift" instead of subject name
+ * For ADMIN_SHIFT / ADMIN_MEETING sessions, use "Admin Shift" instead of subject name
  * For meeting types (TRIAL_SESSION, SUBSIDY_INTERVIEW, STAFF_INTERVIEW), use formatted session type instead of subject
  */
 function generateComments(log: TutorLogExportData): string {
@@ -328,7 +333,7 @@ function generateComments(log: TutorLogExportData): string {
   if (isMeetingType(log.sessionType)) {
     // For meeting types, use formatted session type instead of subject
     subjectDisplay = formatSessionType(log.sessionType);
-  } else if (log.sessionType === 'ADMIN_SHIFT') {
+  } else if (log.sessionType === 'ADMIN_SHIFT' || log.sessionType === 'ADMIN_MEETING') {
     subjectDisplay = 'Admin Shift';
   } else {
     subjectDisplay = log.subjectLongName || log.subjectName || 'Unknown Subject';

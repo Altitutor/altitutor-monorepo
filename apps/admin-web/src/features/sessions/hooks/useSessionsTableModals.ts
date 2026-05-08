@@ -1,11 +1,13 @@
 import { useState, useCallback } from 'react';
+import type { LogSessionWizardFlow } from '@/features/tutor-logs/utils/logSessionHelpers';
 
 export interface UseSessionsTableModalsReturn {
   // Log session
   actionSessionId: string | null;
+  logSessionInitialKind: LogSessionWizardFlow | undefined;
   setActionSessionId: (id: string | null) => void;
   isLogSessionModalOpen: boolean;
-  openLogSessionModal: (sessionId: string) => void;
+  openLogSessionModal: (sessionId: string, sessionType?: string | null) => void;
   closeLogSessionModal: () => void;
 
   // Log student absence (student attendance view)
@@ -29,6 +31,9 @@ export interface UseSessionsTableModalsReturn {
 
 export function useSessionsTableModals(refetch: () => void | Promise<unknown>): UseSessionsTableModalsReturn {
   const [actionSessionId, setActionSessionId] = useState<string | null>(null);
+  const [logSessionInitialKind, setLogSessionInitialKind] = useState<
+    LogSessionWizardFlow | undefined
+  >(undefined);
   const [studentAbsenceSessionId, setStudentAbsenceSessionId] = useState<string | null>(null);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
@@ -37,14 +42,16 @@ export function useSessionsTableModals(refetch: () => void | Promise<unknown>): 
   const [selectedTutorLogId, setSelectedTutorLogId] = useState<string | null>(null);
   const [isEditTutorLogModalOpen, setIsEditTutorLogModalOpen] = useState(false);
 
-  const openLogSessionModal = useCallback((sessionId: string) => {
+  const openLogSessionModal = useCallback((sessionId: string, sessionType?: string | null) => {
     setActionSessionId(sessionId);
+    setLogSessionInitialKind(sessionType && sessionType !== 'CLASS' ? 'meeting' : 'class');
     setIsLogSessionModalOpen(true);
   }, []);
 
   const closeLogSessionModal = useCallback(() => {
     setIsLogSessionModalOpen(false);
     setActionSessionId(null);
+    setLogSessionInitialKind(undefined);
     refetch();
   }, [refetch]);
 
@@ -83,6 +90,7 @@ export function useSessionsTableModals(refetch: () => void | Promise<unknown>): 
 
   return {
     actionSessionId,
+    logSessionInitialKind,
     setActionSessionId,
     isLogSessionModalOpen,
     openLogSessionModal,

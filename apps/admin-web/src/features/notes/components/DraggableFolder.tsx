@@ -63,7 +63,6 @@ export function DraggableFolder({
     },
   });
 
-  const hasChildren = folder.children.length > 0 || folder.notes.length > 0;
   const isEmpty = folder.children.length === 0 && folder.notes.length === 0;
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -99,14 +98,10 @@ export function DraggableFolder({
         {...attributes}
         {...listeners}
       >
-        {hasChildren ? (
-          isExpanded ? (
-            <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          ) : (
-            <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          )
+        {isExpanded ? (
+          <ChevronDown className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         ) : (
-          <div className="w-4" />
+          <ChevronRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         )}
         <Folder className="h-4 w-4 text-muted-foreground flex-shrink-0" />
         <span className="flex-1 truncate">{folder.name}</span>
@@ -115,25 +110,23 @@ export function DraggableFolder({
             {folder.notes.length + folder.children.length}
           </span>
         )}
-        <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 w-6 p-0"
-                onClick={(e) => {
-                  e.stopPropagation();
-                }}
-                onPointerDown={(e) => {
-                  // Prevent drag when clicking actions button
-                  e.stopPropagation();
-                }}
-              >
-                <MoreVertical className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-7 w-7 shrink-0"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+              }}
+            >
+              <MoreVertical className="h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
               <DropdownMenuItem
                 onClick={(e) => {
                   e.stopPropagation();
@@ -160,7 +153,6 @@ export function DraggableFolder({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </div>
       </div>
 
       <RenameFolderDialog

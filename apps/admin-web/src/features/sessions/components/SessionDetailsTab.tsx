@@ -37,6 +37,7 @@ import type { SessionDetailsSession, SessionDetailsTutorLog } from '../types';
 import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
 import { ClassSelectPopover } from '@/features/classes/components/ClassSelectPopover';
 import type { MinimalClass } from '@/features/classes/api/classes';
+import { MeetingEntitySearchAdd } from './MeetingEntitySearchAdd';
 
 const SESSION_TYPES = Supabase.Constants.public.Enums.session_type;
 
@@ -44,6 +45,16 @@ const SESSION_TYPE_ITEMS: { id: string; label: string }[] = SESSION_TYPES.map((t
   id: t,
   label: formatSessionType(t),
 }));
+
+function getParentLogAttendanceStatus(
+  tutorLog: SessionDetailsTutorLog | null,
+  parentId: string
+): 'attended' | 'did-not-attend' | 'not-logged' {
+  if (!tutorLog?.parentAttendance?.length) return 'not-logged';
+  const row = tutorLog.parentAttendance.find((p) => p.parent_id === parentId);
+  if (!row) return 'not-logged';
+  return row.attended ? 'attended' : 'did-not-attend';
+}
 
 const sessionEditSchema = z
   .object({
@@ -140,6 +151,16 @@ type SessionDetailsTabProps = {
   onAddStaffToSession?: () => void;
   onRemoveStudentFromSession?: (studentId: string, studentName: string) => void;
   onRemoveStaffFromSession?: (staffId: string, staffName: string) => void;
+  /** Non-class sessions: inline add instead of modal */
+  meetingMode?: boolean;
+  parentsData?: Array<{
+    parent: Tables<'parents'>;
+    sessionsParentsId: string;
+  }>;
+  onMeetingAddStudent?: (student: Tables<'students'>) => Promise<void>;
+  onMeetingAddStaff?: (staff: Tables<'staff'>) => Promise<void>;
+  onMeetingAddParent?: (parent: Tables<'parents'>) => Promise<void>;
+  onRemoveParentFromSession?: (parentId: string, parentName: string) => void;
   /** Edit mode: when true, show edit form instead of view */
   isEditing?: boolean;
   onEdit?: () => void;
@@ -174,6 +195,12 @@ export function SessionDetailsTab({
   onAddStaffToSession,
   onRemoveStudentFromSession,
   onRemoveStaffFromSession,
+  meetingMode = false,
+  parentsData = [],
+  onMeetingAddStudent,
+  onMeetingAddStaff,
+  onMeetingAddParent,
+  onRemoveParentFromSession,
   isEditing = false,
   onEdit,
   onCancelEdit: _onCancelEdit,
@@ -181,6 +208,8 @@ export function SessionDetailsTab({
   isUpdating = false,
 }: SessionDetailsTabProps) {
   const { toast } = useToast();
+
+  const allowAbsenceLogging = Boolean(session?.class_id || session?.admin_shift_id);
   const hasTutorLog = !!tutorLog;
   const subject = session?.subject ?? session?.class?.subject;
   const classData = session?.class;
@@ -466,11 +495,23 @@ export function SessionDetailsTab({
       <div>
         <div className="flex items-center justify-between gap-3 mb-4">
           <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
-          {onAddStudentToSession && (
-            <Button size="sm" variant="outline" onClick={onAddStudentToSession}>
-              Add student
-            </Button>
-          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            {meetingMode && onMeetingAddStudent ? (
+              <MeetingEntitySearchAdd
+                kind="student"
+                placeholder="Search students…"
+                existingIds={studentsData.map((d) => d.student.id)}
+                onPick={onMeetingAddStudent}
+                disabled={isUpdating}
+              />
+            ) : (
+              onAddStudentToSession && (
+                <Button size="sm" variant="outline" onClick={onAddStudentToSession}>
+                  Add student
+                </Button>
+              )
+            )}
+          </div>
         </div>
         {studentsData.length === 0 ? (
           <div className="text-center py-4 text-sm text-muted-foreground">
@@ -482,9 +523,15 @@ export function SessionDetailsTab({
               <TableHeader>
                 <TableRow>
                   <TableHead>Student</TableHead>
-                  <TableHead>Planned Attendance</TableHead>
-                  <TableHead>Actual Attendance</TableHead>
-                  <TableHead>Invoice</TableHead>
+                  {allowAbsenceLogging ? (
+                    <>
+                      <TableHead>Planned Attendance</TableHead>
+                      <TableHead>Actual Attendance</TableHead>
+                      <TableHead>Invoice</TableHead>
+                    </>
+                  ) : (
+                    <TableHead>Attendance</TableHead>
+                  )}
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -500,31 +547,39 @@ export function SessionDetailsTab({
                         {data.student.first_name} {data.student.last_name}
                       </button>
                     </TableCell>
-                    <TableCell>
-                      <AttendanceCell
-                        status={data.plannedStatus}
-                        linkTo={
-                          data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
-                            ? {
-                                type: 'session',
-                                id: data.rescheduledSessionId,
-                                onClick: () => data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
-                              }
-                            : undefined
-                        }
-                        linkText={data.rescheduledDate}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <AttendanceCell status={data.actualStatus} />
-                    </TableCell>
-                    <TableCell>
-                      {(() => {
-                        const badge = getInvoiceStatusBadge(data.invoiceStatus);
-                        if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
-                        return badge;
-                      })()}
-                    </TableCell>
+                    {allowAbsenceLogging ? (
+                      <>
+                        <TableCell>
+                          <AttendanceCell
+                            status={data.plannedStatus}
+                            linkTo={
+                              data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
+                                ? {
+                                    type: 'session',
+                                    id: data.rescheduledSessionId,
+                                    onClick: () => data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
+                                  }
+                                : undefined
+                            }
+                            linkText={data.rescheduledDate}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <AttendanceCell status={data.actualStatus} />
+                        </TableCell>
+                        <TableCell>
+                          {(() => {
+                            const badge = getInvoiceStatusBadge(data.invoiceStatus);
+                            if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
+                            return badge;
+                          })()}
+                        </TableCell>
+                      </>
+                    ) : (
+                      <TableCell>
+                        <AttendanceCell status={data.actualStatus} />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -548,7 +603,10 @@ export function SessionDetailsTab({
                             Message
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {((data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') && data.sessionsStudentsId && onUndoLogAbsenceStudent) ? (
+                          {allowAbsenceLogging &&
+                          (data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') &&
+                          data.sessionsStudentsId &&
+                          onUndoLogAbsenceStudent ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -565,7 +623,12 @@ export function SessionDetailsTab({
                               <RotateCcw className="h-4 w-4 mr-2" />
                               Undo Log Absence
                             </DropdownMenuItem>
-                          ) : (!data.plannedAbsence && !data.hasInvoiceItems && sessionId && onLogAbsenceStudent) ? (
+                          ) : null}
+                          {allowAbsenceLogging &&
+                          !data.plannedAbsence &&
+                          !data.hasInvoiceItems &&
+                          sessionId &&
+                          onLogAbsenceStudent ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -616,11 +679,23 @@ export function SessionDetailsTab({
       <div>
         <div className="flex items-center justify-between gap-3 mb-4">
           <h3 className="text-lg font-semibold">Staff ({staffData.length})</h3>
-          {onAddStaffToSession && (
-            <Button size="sm" variant="outline" onClick={onAddStaffToSession}>
-              Add staff
-            </Button>
-          )}
+          <div className="flex flex-wrap justify-end gap-2">
+            {meetingMode && onMeetingAddStaff ? (
+              <MeetingEntitySearchAdd
+                kind="staff"
+                placeholder="Search staff…"
+                existingIds={staffData.map((d) => d.staff.id)}
+                onPick={onMeetingAddStaff}
+                disabled={isUpdating}
+              />
+            ) : (
+              onAddStaffToSession && (
+                <Button size="sm" variant="outline" onClick={onAddStaffToSession}>
+                  Add staff
+                </Button>
+              )
+            )}
+          </div>
         </div>
         {staffData.length === 0 ? (
           <div className="text-center py-4 text-sm text-muted-foreground">
@@ -632,9 +707,15 @@ export function SessionDetailsTab({
               <TableHeader>
                 <TableRow>
                   <TableHead>Staff</TableHead>
-                  <TableHead>Planned Attendance</TableHead>
-                  <TableHead>Actual Attendance</TableHead>
-                  <TableHead>Tutor Log</TableHead>
+                  {allowAbsenceLogging ? (
+                    <>
+                      <TableHead>Planned Attendance</TableHead>
+                      <TableHead>Actual Attendance</TableHead>
+                    </>
+                  ) : (
+                    <TableHead>Attendance</TableHead>
+                  )}
+                  {allowAbsenceLogging && <TableHead>Tutor Log</TableHead>}
                   <TableHead className="w-[50px]"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -650,34 +731,44 @@ export function SessionDetailsTab({
                         {data.staff.first_name} {data.staff.last_name}
                       </button>
                     </TableCell>
-                    <TableCell>
-                      <AttendanceCell
-                        status={data.plannedStatus}
-                        linkTo={
-                          data.plannedStatus === 'swapped' && data.swappedStaffId
-                            ? {
-                                type: 'staff',
-                                id: data.swappedStaffId,
-                                onClick: () => onOpenStaff(data.swappedStaffId),
-                              }
-                            : undefined
-                        }
-                        linkText={data.swappedStaffName}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
-                    </TableCell>
-                    <TableCell>
-                      {tutorLog && tutorLog.created_by_staff && tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
-                        <TutorLogAvatar
-                          firstName={tutorLog.created_by_staff.first_name}
-                          lastName={tutorLog.created_by_staff.last_name}
-                        />
-                      ) : (
-                        <span className="text-muted-foreground text-sm">-</span>
-                      )}
-                    </TableCell>
+                    {allowAbsenceLogging ? (
+                      <>
+                        <TableCell>
+                          <AttendanceCell
+                            status={data.plannedStatus}
+                            linkTo={
+                              data.plannedStatus === 'swapped' && data.swappedStaffId
+                                ? {
+                                    type: 'staff',
+                                    id: data.swappedStaffId,
+                                    onClick: () => onOpenStaff(data.swappedStaffId),
+                                  }
+                                : undefined
+                            }
+                            linkText={data.swappedStaffName}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
+                        </TableCell>
+                      </>
+                    ) : (
+                      <TableCell>
+                        <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
+                      </TableCell>
+                    )}
+                    {allowAbsenceLogging && (
+                      <TableCell>
+                        {tutorLog && tutorLog.created_by_staff && tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
+                          <TutorLogAvatar
+                            firstName={tutorLog.created_by_staff.first_name}
+                            lastName={tutorLog.created_by_staff.last_name}
+                          />
+                        ) : (
+                          <span className="text-muted-foreground text-sm">-</span>
+                        )}
+                      </TableCell>
+                    )}
                     <TableCell>
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
@@ -701,7 +792,10 @@ export function SessionDetailsTab({
                             Message
                           </DropdownMenuItem>
                           <DropdownMenuSeparator />
-                          {((data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') && data.sessionsStaffId && onUndoLogAbsenceStaff) ? (
+                          {allowAbsenceLogging &&
+                          (data.plannedStatus === 'absent' || data.plannedStatus === 'swapped') &&
+                          data.sessionsStaffId &&
+                          onUndoLogAbsenceStaff ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -718,7 +812,8 @@ export function SessionDetailsTab({
                               <RotateCcw className="h-4 w-4 mr-2" />
                               Undo Log Absence
                             </DropdownMenuItem>
-                          ) : (!data.plannedAbsence && sessionId && onLogAbsenceStaff) ? (
+                          ) : null}
+                          {allowAbsenceLogging && !data.plannedAbsence && sessionId && onLogAbsenceStaff ? (
                             <DropdownMenuItem
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -761,6 +856,115 @@ export function SessionDetailsTab({
           </div>
         )}
       </div>
+
+      {session.type !== 'CLASS' && (
+        <>
+          <Separator />
+          <div>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <h3 className="text-lg font-semibold">Parents ({parentsData.length})</h3>
+              {meetingMode && onMeetingAddParent && (
+                <MeetingEntitySearchAdd
+                  kind="parent"
+                  placeholder="Search parents…"
+                  existingIds={parentsData.map((d) => d.parent.id)}
+                  onPick={onMeetingAddParent}
+                  disabled={isUpdating}
+                />
+              )}
+            </div>
+            {parentsData.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">No parents linked</div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Parent</TableHead>
+                      <TableHead>Attendance</TableHead>
+                      <TableHead className="w-[50px]" />
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parentsData.map((row) => (
+                      <TableRow key={row.parent.id}>
+                        <TableCell>
+                          <span className="font-medium">
+                            {row.parent.first_name} {row.parent.last_name}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <AttendanceCell status={getParentLogAttendanceStatus(tutorLog, row.parent.id)} />
+                        </TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                                <MoreVertical className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className={
+                                  !(!hasTutorLog && onRemoveParentFromSession)
+                                    ? 'opacity-60 text-muted-foreground'
+                                    : '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+                                }
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (!hasTutorLog && onRemoveParentFromSession) {
+                                    const name = `${row.parent.first_name || ''} ${row.parent.last_name || ''}`.trim();
+                                    onRemoveParentFromSession(row.parent.id, name || 'Parent');
+                                  } else {
+                                    toast({
+                                      description: hasTutorLog
+                                        ? 'Session has a tutor log; cannot remove parent.'
+                                        : 'Remove parent is not available.',
+                                      variant: 'destructive',
+                                    });
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Remove from session
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {hasTutorLog && session.type !== 'CLASS' && !allowAbsenceLogging && tutorLog?.created_by_staff && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-lg font-semibold mb-3">Tutor log</h3>
+            <div className="flex items-center gap-3 text-sm">
+              <span className="text-muted-foreground">Logged by</span>
+              {tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
+                <>
+                  <TutorLogAvatar
+                    firstName={tutorLog.created_by_staff.first_name}
+                    lastName={tutorLog.created_by_staff.last_name}
+                  />
+                  <span className="font-medium">
+                    {tutorLog.created_by_staff.first_name} {tutorLog.created_by_staff.last_name}
+                  </span>
+                </>
+              ) : (
+                <span className="text-muted-foreground">Unknown</span>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Topics Section */}
       {hasTutorLog && tutorLog.topics && tutorLog.topics.length > 0 && (

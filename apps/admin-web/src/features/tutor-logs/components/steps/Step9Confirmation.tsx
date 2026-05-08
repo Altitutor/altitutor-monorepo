@@ -1,13 +1,20 @@
 'use client';
 
-import { Separator } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
+import {
+  Badge,
+  Separator,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@altitutor/ui';
 import type { TutorLogFormData } from '../../types';
 import { formatSessionDate } from '@/features/sessions/utils/session-helpers';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { format } from 'date-fns';
 import { StudentCard } from '@/shared/components/StudentCard';
-import { StaffCard } from '@/shared/components/StaffCard';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { FileCard } from '@/shared/components/files/FileCard';
 import { TopicCard } from '../TopicCard';
@@ -18,11 +25,8 @@ type Step9ConfirmationProps = {
   formData: Partial<TutorLogFormData>;
 };
 
-export function Step9Confirmation({
-  title,
-  formData,
-}: Step9ConfirmationProps) {
-  const { data } = useStep9ConfirmationData(
+export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
+  const { data, isLoading } = useStep9ConfirmationData(
     formData.sessionId,
     formData,
     !!formData.sessionId
@@ -35,39 +39,14 @@ export function Step9Confirmation({
   const allTopics = data?.allTopics ?? [];
   const topicFilesMap = data?.topicFilesMap ?? new Map();
   const subjectsMap = data?.subjectsMap ?? new Map();
+  const studentPlannedMap = data?.studentPlannedMap ?? new Map();
+  const staffPlannedMap = data?.staffPlannedMap ?? new Map();
+  const parentsMap = data?.parentsMap ?? new Map();
 
-  const studentsData = (formData.studentAttendance || [])
-    .filter((sa) => sa.attended)
-    .map((sa) => {
-      const student = studentsMap.get(sa.studentId);
-      if (!student) return null;
-      return {
-        student,
-        plannedStatus: 'attending' as const,
-        actualStatus: 'attended' as const,
-      };
-    })
-    .filter((data): data is NonNullable<typeof data> => data !== null);
+  const isMeeting = session?.type != null && session.type !== 'CLASS';
 
-  const staffData = (formData.staffAttendance || [])
-    .filter((sa) => sa.attended)
-    .map((sa) => {
-      const staff = staffMap.get(sa.staffId);
-      if (!staff) return null;
-      return {
-        staff,
-        plannedStatus: 'attending' as const,
-        actualStatus: 'attended' as const,
-        staffType: sa.type,
-        submittedTutorLog: false,
-      };
-    })
-    .filter((data): data is NonNullable<typeof data> => data !== null);
-
-  // Get subject from class if available, otherwise from direct subject relation
   const subject = session?.class?.subject || session?.subject;
 
-  // Format time from session timestamps
   const formatSessionTime = () => {
     if (!session?.start_at || !session?.end_at) return '—';
     try {
@@ -79,33 +58,69 @@ export function Step9Confirmation({
     }
   };
 
+  const studentRows = (formData.studentAttendance || []).map((sa) => {
+    const student = studentsMap.get(sa.studentId);
+    if (!student) return null;
+    const plannedAbsent = studentPlannedMap.get(sa.studentId) ?? false;
+    const plannedStatus = plannedAbsent ? ('absent' as const) : ('attending' as const);
+    const actualStatus = sa.attended ? ('attended' as const) : ('did-not-attend' as const);
+    return { student, plannedStatus, actualStatus };
+  }).filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const staffRows = (formData.staffAttendance || []).map((sa) => {
+    const staff = staffMap.get(sa.staffId);
+    if (!staff) return null;
+    const plannedAbsent = staffPlannedMap.get(sa.staffId) ?? false;
+    const plannedStatus = plannedAbsent ? ('absent' as const) : ('attending' as const);
+    const actualStatus = sa.attended
+      ? ('attended' as const)
+      : ('did-not-attend' as const);
+    return { staff, plannedStatus, actualStatus, staffType: sa.type };
+  }).filter((row): row is NonNullable<typeof row> => row !== null);
+
+  const parentRows = (formData.parentAttendance || []).map((pa) => {
+    const parent = parentsMap.get(pa.parentId);
+    if (!parent) return null;
+    const actualStatus = pa.attended ? ('attended' as const) : ('did-not-attend' as const);
+    return { parent, actualStatus };
+  }).filter((row): row is NonNullable<typeof row> => row !== null);
+
+  if (isLoading && !data) {
+    return (
+      <div className="py-12 text-center text-sm text-muted-foreground">
+        Loading confirmation…
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {title && <h2 className="text-xl font-semibold">{title}</h2>}
-      {/* Session Information */}
       <div>
-        <h3 className="text-lg font-semibold mb-4">Session Information</h3>
+        <h3 className="text-lg font-semibold mb-4">Session information</h3>
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <div className="text-sm font-medium text-muted-foreground">Day:</div>
           <div className="text-sm">{session?.start_at ? formatSessionDate(session.start_at) : '—'}</div>
-          
+
           <div className="text-sm font-medium text-muted-foreground">Time:</div>
           <div className="text-sm">{formatSessionTime()}</div>
-          
+
           <div className="text-sm font-medium text-muted-foreground">Subject:</div>
           <div className="text-sm">
-            {subject ? (() => {
-              const { style, textColorClass } = getSubjectColorStyle(subject);
-              const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-              return (
-                <Badge 
-                  className={defaultClass || textColorClass}
-                  style={style.backgroundColor ? style : undefined}
-                >
-                  {subject?.long_name ?? ''}
-                </Badge>
-              );
-            })() : (
+            {subject ? (
+              (() => {
+                const { style, textColorClass } = getSubjectColorStyle(subject);
+                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                return (
+                  <Badge
+                    className={defaultClass || textColorClass}
+                    style={style.backgroundColor ? style : undefined}
+                  >
+                    {subject?.long_name ?? ''}
+                  </Badge>
+                );
+              })()
+            ) : (
               '—'
             )}
           </div>
@@ -114,105 +129,160 @@ export function Step9Confirmation({
 
       <Separator />
 
-      {/* Students Section */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
-          {studentsData.length > 0 && (
-            <div className="flex items-center gap-4">
-              <span className="text-xs text-muted-foreground">Planned</span>
-              <span className="text-xs text-muted-foreground">Actual</span>
-            </div>
-          )}
-        </div>
-        {studentsData.length === 0 ? (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            No students planned
-          </div>
+        <h3 className="text-lg font-semibold mb-4">Students ({studentRows.length})</h3>
+        {studentRows.length === 0 ? (
+          <div className="text-center py-4 text-sm text-muted-foreground">No students on this log</div>
         ) : (
-          <div className="space-y-3">
-            {studentsData.map((data) => (
-              <div key={data.student.id} className="flex items-center gap-3">
-                <div className="flex-1">
-                  <StudentCard
-                    student={data.student}
-                    showSubjects={false}
-                    showActions={false}
-                  />
-                </div>
-                <div className="flex items-center gap-4 flex-shrink-0">
-                  <AttendanceCell status={data.plannedStatus} />
-                  <AttendanceCell status={data.actualStatus} />
-                </div>
-              </div>
-            ))}
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Student</TableHead>
+                  {!isMeeting && <TableHead>Planned attendance</TableHead>}
+                  <TableHead>Actual attendance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {studentRows.map(({ student, plannedStatus, actualStatus }) => (
+                  <TableRow key={student.id}>
+                    <TableCell className="font-medium">
+                      {student.first_name} {student.last_name}
+                    </TableCell>
+                    {!isMeeting && (
+                      <TableCell>
+                        <AttendanceCell status={plannedStatus} />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <AttendanceCell status={actualStatus} />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
 
       <Separator />
 
-      {/* Staff Section */}
       <div>
-          <h3 className="text-lg font-semibold mb-4">Staff ({staffData.length})</h3>
-        {staffData.length === 0 ? (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            No staff planned
-          </div>
+        <h3 className="text-lg font-semibold mb-4">Staff ({staffRows.length})</h3>
+        {staffRows.length === 0 ? (
+          <div className="text-center py-4 text-sm text-muted-foreground">No staff on this log</div>
         ) : (
-          <div className="space-y-3">
-            {staffData.map((data) => (
-              <div key={data.staff.id} className="flex items-center gap-3">
-                <div className="flex-1">
-                  <StaffCard
-                    staff={data.staff}
-                    showSubjects={false}
-                    showActions={false}
-                  />
-                </div>
-                <div className="flex items-center gap-4 flex-shrink-0">
-                  <AttendanceCell status={data.plannedStatus} />
-                  <AttendanceCell status={data.actualStatus} staffType={data.staffType} />
-                </div>
-              </div>
-            ))}
+          <div className="border rounded-lg overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Staff</TableHead>
+                  {!isMeeting && <TableHead>Planned attendance</TableHead>}
+                  <TableHead>Actual attendance</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {staffRows.map(({ staff, plannedStatus, actualStatus, staffType }) => (
+                  <TableRow key={staff.id}>
+                    <TableCell className="font-medium">
+                      {staff.first_name} {staff.last_name}
+                    </TableCell>
+                    {!isMeeting && (
+                      <TableCell>
+                        <AttendanceCell status={plannedStatus} />
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <AttendanceCell
+                        status={actualStatus}
+                        staffType={
+                          staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined
+                        }
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
           </div>
         )}
       </div>
 
-      {/* Topics Section */}
+      {isMeeting && (formData.parentAttendance || []).length > 0 && (
+        <>
+          <Separator />
+          <div>
+            <h3 className="text-lg font-semibold mb-4">
+              Parents ({(formData.parentAttendance || []).length})
+            </h3>
+            {isLoading && parentRows.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">Loading parent names…</div>
+            ) : parentRows.length === 0 ? (
+              <div className="text-center py-4 text-sm text-muted-foreground">Parent details unavailable</div>
+            ) : (
+              <div className="border rounded-lg overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Parent</TableHead>
+                      <TableHead>Attendance</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {parentRows.map(({ parent, actualStatus }) => (
+                      <TableRow key={parent.id}>
+                        <TableCell className="font-medium">
+                          {parent.first_name} {parent.last_name}
+                        </TableCell>
+                        <TableCell>
+                          <AttendanceCell status={actualStatus} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
       {(formData.topics || []).length > 0 && (
         <>
           <Separator />
           <div>
-            <h3 className="text-lg font-semibold mb-4">Topics Covered</h3>
+            <h3 className="text-lg font-semibold mb-4">Topics covered</h3>
             <div className="space-y-4">
               {(formData.topics || []).map((topic) => {
                 const topicData = topicsMap.get(topic.topicId);
                 if (!topicData) return null;
                 const students = topic.studentIds || [];
-                const parentTopic = topicData.parent_id ? allTopics.find((t) => t.id === topicData.parent_id) : undefined;
-                const subject = topicData.subject_id ? subjectsMap.get(topicData.subject_id) : undefined;
-                
+                const parentTopic = topicData.parent_id
+                  ? allTopics.find((t) => t.id === topicData.parent_id)
+                  : undefined;
+                const topicSubject = topicData.subject_id
+                  ? subjectsMap.get(topicData.subject_id)
+                  : undefined;
+
                 return (
                   <div key={topic.topicId} className="border rounded-lg p-4 space-y-3">
                     <TopicCard
                       topic={topicData}
-                      subject={subject}
+                      subject={topicSubject}
                       parentTopic={parentTopic}
                     />
-                    
+
                     {students.length > 0 && (
                       <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Students:</div>
                         <div className="flex flex-wrap gap-1">
                           {students.slice(0, 5).map((studentId: string) => {
-                            const student = studentsMap.get(studentId);
-                            if (!student) return null;
+                            const st = studentsMap.get(studentId);
+                            if (!st) return null;
                             return (
                               <div key={studentId} className="cursor-pointer">
                                 <StudentCard
-                                  student={student}
+                                  student={st}
                                   showSubjects={false}
                                   showActions={false}
                                 />
@@ -235,21 +305,20 @@ export function Step9Confirmation({
         </>
       )}
 
-      {/* Files Section */}
       {(formData.topicFiles || []).length > 0 && (
         <>
           <Separator />
           <div>
-            <h3 className="text-lg font-semibold mb-4">Files Used</h3>
+            <h3 className="text-lg font-semibold mb-4">Files used</h3>
             <div className="space-y-4">
               {(formData.topics || []).map((topic) => {
                 const topicData = topicsMap.get(topic.topicId);
                 if (!topicData) return null;
                 const topicCode = topicData.code || '';
                 const files = (formData.topicFiles || []).filter((tf) => tf.topicId === topic.topicId);
-                
+
                 if (files.length === 0) return null;
-                
+
                 return (
                   <div key={topic.topicId} className="space-y-3">
                     <div className="font-semibold text-base">
@@ -260,7 +329,7 @@ export function Step9Confirmation({
                         const fileData = topicFilesMap.get(file.topicsFilesId);
                         if (!fileData) return null;
                         const fileCode = fileData.code || '';
-                        
+
                         return fileData.file?.filename ? (
                           <FileCard
                             key={file.topicsFilesId}
@@ -272,7 +341,10 @@ export function Step9Confirmation({
                             topicFileId={fileData.id}
                           />
                         ) : (
-                          <div key={file.topicsFilesId} className="text-sm text-muted-foreground p-2 border rounded">
+                          <div
+                            key={file.topicsFilesId}
+                            className="text-sm text-muted-foreground p-2 border rounded"
+                          >
                             File name unavailable
                           </div>
                         );
@@ -286,7 +358,6 @@ export function Step9Confirmation({
         </>
       )}
 
-      {/* Notes */}
       {(formData.notes || []).length > 0 && (
         <>
           <Separator />
@@ -305,5 +376,3 @@ export function Step9Confirmation({
     </div>
   );
 }
-
-

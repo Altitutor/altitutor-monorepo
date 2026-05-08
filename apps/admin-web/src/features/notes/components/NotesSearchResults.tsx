@@ -46,14 +46,14 @@ export function NotesSearchResults({ notes, searchQuery, onNoteClick, onProjectC
     if (onNoteClick) {
       onNoteClick(noteId);
     } else {
-      router.push(`/notes/${noteId}`);
+      router.push(`/documents/${noteId}`);
     }
   };
 
   if (notes.length === 0) {
     return (
       <div className="text-center py-12 text-muted-foreground">
-        <p className="text-lg font-medium mb-2">No notes found</p>
+        <p className="text-lg font-medium mb-2">No documents found</p>
         <p className="text-sm">Try a different search term</p>
       </div>
     );

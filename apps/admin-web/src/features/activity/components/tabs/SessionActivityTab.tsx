@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { Button } from '@altitutor/ui';
 import { ActivityFeed } from '../ActivityFeed';
-import { NotesEditorWithMentions } from '@/shared/components/NotesEditorWithMentions';
-import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
+import { ActivityNoteComposer } from '../ActivityNoteComposer';
 import { useSessionActivity } from '../../hooks';
 import { useCreateNote, notesKeys } from '@/shared/hooks/useNotes';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -30,7 +28,7 @@ export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivity
   const [newNoteContent, setNewNoteContent] = useState<JSONContent>(EMPTY_DOC);
 
   const handleSubmit = useCallback(async () => {
-    if (isTiptapContentEmpty(newNoteContent) || !currentStaff?.id) return;
+    if (!currentStaff?.id) return;
 
     try {
       await createNoteMutation.mutateAsync({
@@ -49,32 +47,13 @@ export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivity
 
   return (
     <div className="h-full space-y-6">
-      <div className="rounded-lg border bg-card p-4 space-y-2">
-        <NotesEditorWithMentions
-          content={newNoteContent}
-          onChange={setNewNoteContent}
-          placeholder="Add a note..."
-          disabled={createNoteMutation.isPending || !currentStaff}
-          minHeight="80px"
-        />
-        <div className="flex justify-end gap-2">
-          {createNoteMutation.isPending && (
-            <span className="text-xs text-muted-foreground self-center">Posting...</span>
-          )}
-          <Button
-            onClick={handleSubmit}
-            disabled={
-              isTiptapContentEmpty(newNoteContent) ||
-              createNoteMutation.isPending ||
-              !currentStaff
-            }
-            size="sm"
-            variant="default"
-          >
-            Post
-          </Button>
-        </div>
-      </div>
+      <ActivityNoteComposer
+        content={newNoteContent}
+        onChange={setNewNoteContent}
+        onSubmit={handleSubmit}
+        isSubmitting={createNoteMutation.isPending}
+        canPost={Boolean(currentStaff)}
+      />
 
       <ActivityFeed data={data} isLoading={isLoading} error={error} />
     </div>

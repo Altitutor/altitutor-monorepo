@@ -126,7 +126,7 @@ export function BookingFlow({
       )}
 
       {/* Current Step Content */}
-      {currentStep === 0 || currentStep === 1 || currentStep === 2 || currentStep === 3 ? (
+      {currentStep === 0 || currentStep === 1 || currentStep === 2 || currentStep === 3 || currentStep === 4 ? (
         // No card wrapper for mobile-friendly steps
         <div className="space-y-6">
           {currentStepData.component}

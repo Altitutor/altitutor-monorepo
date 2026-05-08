@@ -103,7 +103,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
     invoiceNumberSearch: state.search,
   });
 
-  const invoices = data?.invoices || [];
+  const invoices = useMemo(() => data?.invoices ?? [], [data?.invoices]);
 
   const total = data?.total || 0;
   const invoiceIds = useMemo(() => invoices.map((inv) => inv.id), [invoices]);

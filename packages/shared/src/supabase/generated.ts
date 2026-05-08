@@ -4968,6 +4968,101 @@ export type Database = {
           },
         ]
       }
+      sessions_parents: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          parent_id: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parent_id: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          parent_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_parents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_parents_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+        ]
+      }
       sessions_staff: {
         Row: {
           created_at: string
@@ -7425,6 +7520,79 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
+          },
+        ]
+      }
+      tutor_logs_parent_attendance: {
+        Row: {
+          attended: boolean
+          created_at: string
+          created_by: string
+          id: string
+          parent_id: string
+          tutor_log_id: string
+          updated_at: string
+        }
+        Insert: {
+          attended?: boolean
+          created_at?: string
+          created_by: string
+          id?: string
+          parent_id: string
+          tutor_log_id: string
+          updated_at?: string
+        }
+        Update: {
+          attended?: boolean
+          created_at?: string
+          created_by?: string
+          id?: string
+          parent_id?: string
+          tutor_log_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "parents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "tutor_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_tutor_log"
+            referencedColumns: ["tutor_log_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_parent_attendance_tutor_log_id_fkey"
+            columns: ["tutor_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_tutor_log"
+            referencedColumns: ["tutor_log_id"]
           },
         ]
       }
@@ -14646,6 +14814,7 @@ export type Database = {
           p_parent_first_name?: string
           p_parent_last_name?: string
           p_parent_phone?: string
+          p_session_type?: string
           p_start_at: string
           p_student_email: string
           p_student_first_name: string
@@ -14660,6 +14829,7 @@ export type Database = {
         Args: {
           p_created_by: string
           p_notes?: Json
+          p_parent_attendance?: Json
           p_session_id: string
           p_staff_attendance?: Json
           p_student_attendance?: Json
@@ -15317,6 +15487,8 @@ export type Database = {
         | "TRIAL_SESSION"
         | "STAFF_INTERVIEW"
         | "ADMIN_SHIFT"
+        | "CHECK_IN"
+        | "ADMIN_MEETING"
       subject_curriculum: "SACE" | "IB" | "PRESACE" | "PRIMARY" | "MEDICINE"
       subject_discipline:
         | "MATHEMATICS"
@@ -15475,6 +15647,8 @@ export const Constants = {
         "TRIAL_SESSION",
         "STAFF_INTERVIEW",
         "ADMIN_SHIFT",
+        "CHECK_IN",
+        "ADMIN_MEETING",
       ],
       subject_curriculum: ["SACE", "IB", "PRESACE", "PRIMARY", "MEDICINE"],
       subject_discipline: [

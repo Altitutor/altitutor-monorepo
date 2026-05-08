@@ -48,6 +48,7 @@ export * from './components/date-range-picker';
 export * from './components/date-range-filter';
 export * from './components/kanban-board';
 export * from './components/rich-text-editor';
+export { CollapsibleHeading } from './extensions/collapsible-heading';
 export * from './components/ucat-page-placeholder';
 export * from './components/ucat/ucat-exam-action-button';
 export * from './components/ucat/ucat-exam-dialog';

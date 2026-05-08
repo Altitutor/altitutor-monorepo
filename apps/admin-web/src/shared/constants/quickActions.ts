@@ -17,6 +17,7 @@ import {
   AlertTriangle,
   Mail,
   FolderKanban,
+  ClipboardCheck,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -31,7 +32,16 @@ export interface QuickActionConfig {
   // For booking actions, specify the session type
   bookingSessionType?: BookingSessionType;
   // For other actions, specify the action type
-  actionType?: 'tutor-log' | 'log-student-absence' | 'log-staff-absence' | 'create-task' | 'announcement' | 'create-issue' | 'create-project';
+  actionType?:
+    | 'tutor-log'
+    | 'log-student-absence'
+    | 'log-staff-absence'
+    | 'create-task'
+    | 'announcement'
+    | 'create-issue'
+    | 'create-project'
+    | 'book-check-in'
+    | 'book-admin-meeting';
 }
 
 /**
@@ -71,6 +81,22 @@ export const QUICK_ACTIONS: QuickActionConfig[] = [
     icon: Calendar,
     keywords: ['staff', 'interview', 'book', 'hire'],
     bookingSessionType: 'STAFF_INTERVIEW',
+  },
+  {
+    id: 'book-check-in',
+    title: 'Book check in',
+    description: 'Schedule a check in session',
+    icon: ClipboardCheck,
+    keywords: ['check in', 'checkin', 'meeting', 'schedule'],
+    actionType: 'book-check-in',
+  },
+  {
+    id: 'book-admin-meeting',
+    title: 'Book admin meeting',
+    description: 'Schedule an admin meeting',
+    icon: ClipboardCheck,
+    keywords: ['admin', 'meeting', 'schedule', 'book'],
+    actionType: 'book-admin-meeting',
   },
   // Other actions
   {
@@ -168,7 +194,7 @@ export interface SessionQuickActionConfig {
 export const SESSION_QUICK_ACTIONS: SessionQuickActionConfig[] = [
   {
     id: 'send-booking-confirmation',
-    title: 'Send Booking Confirmation Link',
+    title: 'Send Booking Confirmation',
     description: 'Send the booking confirmation link for this session to a student’s parent(s)',
     icon: Mail,
     sessionActionType: 'send-booking-confirmation',

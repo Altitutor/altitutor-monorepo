@@ -11,6 +11,10 @@ export type TutorLogFormData = {
     studentId: string;
     attended: boolean;
   }[];
+  parentAttendance?: {
+    parentId: string;
+    attended: boolean;
+  }[];
   topics: {
     topicId: string;
     studentIds: string[];
@@ -25,15 +29,25 @@ export type TutorLogFormData = {
 
 export type TutorLogWithDetails = Tables<'tutor_logs'> & {
   session: Tables<'sessions'> & {
-    class: Tables<'classes'> & {
-      subject: Tables<'subjects'>;
-    };
+    class:
+      | (Tables<'classes'> & {
+          subject: Tables<'subjects'>;
+        })
+      | null;
+    sessions_parents?: Array<
+      Tables<'sessions_parents'> & {
+        parent: Tables<'parents'>;
+      }
+    >;
   };
   staffAttendance: Array<Tables<'tutor_logs_staff_attendance'> & {
     staff: Tables<'staff'>;
   }>;
   studentAttendance: Array<Tables<'tutor_logs_student_attendance'> & {
     student: Tables<'students'>;
+  }>;
+  parentAttendance?: Array<Tables<'tutor_logs_parent_attendance'> & {
+    parent: Tables<'parents'>;
   }>;
   topics: Array<Tables<'tutor_logs_topics'> & {
     topic: Tables<'topics'>;
@@ -47,7 +61,6 @@ export type TutorLogWithDetails = Tables<'tutor_logs'> & {
       student: Tables<'students'>;
     }>;
   }>;
-  notes: Tables<'notes'>[];
 };
 
 

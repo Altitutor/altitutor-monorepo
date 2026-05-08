@@ -23,6 +23,8 @@ import {
   useReconciliationCommunicationData,
   useReconciliationOperationsData,
 } from '../hooks';
+import { useFamilyCheckInsData } from '../api/queries';
+import { FamilyCheckInsTable } from './FamilyCheckInsTable';
 
 function FinancialTabSkeleton() {
   return (
@@ -61,6 +63,16 @@ function OperationsTabSkeleton() {
     <div className="space-y-6 mt-6" aria-busy="true">
       <SkeletonTable rows={3} columns={4} />
       <SkeletonTable rows={3} columns={5} />
+    </div>
+  );
+}
+
+function FamilyTabSkeleton() {
+  return (
+    <div className="space-y-8 mt-6" aria-busy="true">
+      <SkeletonTable rows={4} columns={4} />
+      <SkeletonTable rows={4} columns={4} />
+      <SkeletonTable rows={4} columns={4} />
     </div>
   );
 }
@@ -203,6 +215,35 @@ export function ReconciliationOperationsTab() {
         items={data.projectsWithNoLead.data ?? []}
         isLoading={data.projectsWithNoLead.isLoading}
       />
+    </div>
+  );
+}
+
+export function ReconciliationFamilyTab() {
+  const query = useFamilyCheckInsData();
+
+  if (query.isLoading) {
+    return <FamilyTabSkeleton />;
+  }
+
+  if (query.isError) {
+    return (
+      <div className="mt-6 rounded-md border border-destructive bg-destructive/10 p-4">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="h-5 w-5" />
+          <p>Error loading family check-in data. Please try again.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const payload = query.data;
+
+  return (
+    <div className="space-y-10 mt-6">
+      <FamilyCheckInsTable title="Staff check-ins" entity="staff" items={payload?.staff ?? []} />
+      <FamilyCheckInsTable title="Student check-ins" entity="student" items={payload?.students ?? []} />
+      <FamilyCheckInsTable title="Parent check-ins" entity="parent" items={payload?.parents ?? []} />
     </div>
   );
 }

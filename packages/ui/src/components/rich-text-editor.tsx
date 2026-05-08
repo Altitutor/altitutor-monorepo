@@ -11,12 +11,15 @@ import Link from '@tiptap/extension-link';
 import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
+import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
+import { CollapsibleHeading } from '../extensions/collapsible-heading';
 import { SlashCommandExtension } from '../extensions/slash-command';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { cn } from '../lib/cn';
+import { TableInsertHandles } from './table-insert-handles';
 
 const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
 const UPLOAD_PLACEHOLDER_SUFFIX = '__';
@@ -94,6 +97,12 @@ export interface RichTextEditorRef {
   getEditor: () => Editor | null;
 }
 
+export interface MentionClickDetail {
+  id: string;
+  type: string;
+  label: string;
+}
+
 export interface RichTextEditorProps {
   /**
    * Content can be a JSON object (preferred), a JSON string, or a Markdown string.
@@ -103,6 +112,11 @@ export interface RichTextEditorProps {
    * Callback when content changes. Returns the JSON structure.
    */
   onChange?: (json: JSONContent) => void;
+  /**
+   * When > 0, calls `onChange` only after the editor has been idle for this many milliseconds.
+   * Fewer React / react-hook-form updates while typing (recommended for large TipTap documents).
+   */
+  onChangeDebounceMs?: number;
   /**
    * Optional callback for markdown output if needed.
    */
@@ -128,6 +142,11 @@ export interface RichTextEditorProps {
    * If provided, typing @ will trigger the mention suggestions.
    */
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
+  /**
+   * When returning true, the default `mentionClick` window event is not dispatched.
+   * Use for context-specific navigation (e.g. document links in dialogs vs full page).
+   */
+  onMentionClick?: (detail: MentionClickDetail) => boolean;
   /**
    * Optional callback when image file(s) are pasted from the clipboard.
    * When set, paste events that contain image files (or HTML with embedded data/blob images) call this.
@@ -169,6 +188,11 @@ export interface RichTextEditorProps {
     import('@tiptap/suggestion').SuggestionOptions,
     'editor' | 'char'
   >;
+  /**
+   * Enables collapsible heading node views with gutter chevrons.
+   * Keep this off for normal rich text fields; enable only for document editors.
+   */
+  enableCollapsibleHeadings?: boolean;
 }
 
 const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
@@ -282,22 +306,33 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   minHeight = '200px',
   editable = true,
   mentionSuggestions,
+  onMentionClick,
   onPasteImages,
   pastePlainTextAsParagraphs = false,
   pasteTableBehavior,
   extensions: extraExtensions,
   omitTypography = false,
   slashMenuSuggestions,
+  onChangeDebounceMs,
+  enableCollapsibleHeadings = false,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
   const lastEmittedMarkdownRef = useRef<string>('');
-  
+  const debounceMsRef = useRef(0);
+  debounceMsRef.current = onChangeDebounceMs ?? 0;
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingDebouncedJsonRef = useRef<JSONContent | null>(null);
+  /** Skips prop-sync effect when RHF passes the same object reference (debounced `onChange`). */
+  const lastContentPropRef = useRef(content);
+
   // Refs for callbacks to avoid closure staleness without re-creating editor
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
   const onMarkdownChangeRef = useRef(onMarkdownChange);
   onMarkdownChangeRef.current = onMarkdownChange;
+  const onMentionClickRef = useRef(onMentionClick);
+  onMentionClickRef.current = onMentionClick;
 
   // Capture-phase clipboard read: when pasting table (or other content), clipboardData can be
   // empty in the bubble-phase paste handler. Reading in capture phase gives us the data first.
@@ -306,6 +341,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
+        heading: enableCollapsibleHeadings ? false : { levels: [1, 2, 3, 4, 5, 6] },
         bulletList: {
           keepMarks: true,
           keepAttributes: false,
@@ -315,6 +351,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           keepAttributes: false,
         },
       }),
+      ...(enableCollapsibleHeadings
+        ? [
+            CollapsibleHeading.configure({
+              levels: [1, 2, 3, 4, 5, 6],
+            }),
+          ]
+        : []),
       Markdown.configure({
         markedOptions: {
           gfm: true,
@@ -336,6 +379,15 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         showOnlyWhenEditable: true,
         includeChildren: true,
       }),
+      Details.configure({
+        persist: true,
+        openClassName: 'is-open',
+        HTMLAttributes: {
+          class: 'my-3 rounded-lg border border-border bg-card/50 p-0 overflow-hidden not-prose',
+        },
+      }),
+      DetailsSummary,
+      DetailsContent,
       Link.configure({
         openOnClick: false,
         HTMLAttributes: {
@@ -443,6 +495,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     })(),
     editable,
     immediatelyRender: false,
+    shouldRerenderOnTransaction: false,
     editorProps: {
       handleKeyDown: (view, event) => {
         const { state } = view;
@@ -484,11 +537,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           const label = mentionNode.innerText;
           
           if (id && type) {
-            // Custom event for mention click
-            const customEvent = new CustomEvent('mentionClick', { 
-              detail: { id, type, label } 
-            });
-            window.dispatchEvent(customEvent);
+            const detail = { id, type, label };
+            const handled = onMentionClickRef.current?.(detail) ?? false;
+            if (!handled) {
+              window.dispatchEvent(
+                new CustomEvent<MentionClickDetail>('mentionClick', { detail })
+              );
+            }
             return true;
           }
         }
@@ -525,6 +580,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 '[&_.ProseMirror_li_ol]:mt-2 [&_.ProseMirror_li_ul]:mt-2',
                 '[&_.ProseMirror_table]:my-4 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted',
                 '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2',
+                '[&_details]:my-4 [&_details]:rounded-lg [&_details]:border [&_details]:border-border [&_details]:bg-card/40',
+                '[&_summary]:cursor-pointer [&_summary]:list-none [&_summary]:px-3 [&_summary]:py-2 [&_summary]:font-semibold [&_summary]:outline-none',
+                '[&_.details-content]:border-t [&_.details-content]:border-border [&_.details-content]:px-3 [&_.details-content]:pb-3 [&_.details-content]:pt-2',
               ]
             : [
                 'prose prose-sm dark:prose-invert max-w-none focus:outline-none',
@@ -535,8 +593,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 'prose-li:my-1',
                 'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
                 'prose-td:border prose-td:border-border prose-td:p-2',
+                '[&_details]:my-4 [&_details]:rounded-lg [&_details]:border [&_details]:border-border [&_details]:bg-card/40',
+                '[&_summary]:cursor-pointer [&_summary]:list-none [&_summary]:px-3 [&_summary]:py-2 [&_summary]:font-semibold [&_summary]:outline-none',
+                '[&_.details-content]:border-t [&_.details-content]:border-border [&_.details-content]:px-3 [&_.details-content]:pb-3 [&_.details-content]:pt-2',
               ],
           '[&_.ProseMirror]:cursor-text',
+          '[&_.ProseMirror]:pl-6',
           '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_p.is-empty.is-editor-empty:first-child::before]:text-muted-foreground',
           '[&_p.is-empty.is-editor-empty:first-child::before]:float-left',
@@ -800,13 +862,36 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
       const json = editor.getJSON();
       const jsonString = JSON.stringify(json);
+      const debounceMs = debounceMsRef.current;
 
-      if (jsonString !== lastEmittedJsonRef.current) {
+      if (debounceMs > 0 && onChangeRef.current) {
+        pendingDebouncedJsonRef.current = json;
+        if (debounceTimerRef.current) {
+          clearTimeout(debounceTimerRef.current);
+        }
+        debounceTimerRef.current = setTimeout(() => {
+          debounceTimerRef.current = null;
+          if (!editor || editor.isDestroyed) return;
+          const pending = pendingDebouncedJsonRef.current;
+          if (!pending) return;
+          const s = JSON.stringify(pending);
+          if (s === lastEmittedJsonRef.current) return;
+          lastEmittedJsonRef.current = s;
+          onChangeRef.current?.(pending);
+          if (onMarkdownChangeRef.current) {
+            const markdown = editor.getMarkdown();
+            if (markdown !== lastEmittedMarkdownRef.current) {
+              lastEmittedMarkdownRef.current = markdown;
+              onMarkdownChangeRef.current(markdown);
+            }
+          }
+        }, debounceMs);
+      } else if (jsonString !== lastEmittedJsonRef.current) {
         lastEmittedJsonRef.current = jsonString;
         onChangeRef.current?.(json);
       }
 
-      if (onMarkdownChangeRef.current) {
+      if (debounceMs === 0 && onMarkdownChangeRef.current) {
         const markdown = editor.getMarkdown();
         if (markdown !== lastEmittedMarkdownRef.current) {
           lastEmittedMarkdownRef.current = markdown;
@@ -821,6 +906,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     if (!editor || editor.isDestroyed) return;
 
     const incomingContent = content;
+
+    if (typeof incomingContent !== 'string' && incomingContent === lastContentPropRef.current) {
+      return;
+    }
+
     let isEcho = false;
 
     if (typeof incomingContent === 'string') {
@@ -833,7 +923,16 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       isEcho = JSON.stringify(incomingContent) === lastEmittedJsonRef.current;
     }
 
-    if (isEcho) return;
+    if (isEcho) {
+      lastContentPropRef.current = incomingContent;
+      return;
+    }
+
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    pendingDebouncedJsonRef.current = null;
 
     const parsedContent = (() => {
       if (!incomingContent) return { type: 'doc', content: [{ type: 'paragraph' }] };
@@ -848,7 +947,28 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
     })();
 
     editor.commands.setContent(parsedContent as JSONContent | string, { contentType: isMarkdown ? 'markdown' : undefined });
+
+    lastContentPropRef.current = incomingContent;
   }, [content, editor, isMarkdown]);
+
+  // Flush debounced onChange so navigations / saves don't drop the last edits.
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+      const pending = pendingDebouncedJsonRef.current;
+      if (pending && onChangeRef.current) {
+        const s = JSON.stringify(pending);
+        if (s !== lastEmittedJsonRef.current) {
+          lastEmittedJsonRef.current = s;
+          onChangeRef.current(pending);
+        }
+      }
+      pendingDebouncedJsonRef.current = null;
+    };
+  }, []);
 
   // Sync editability
   useEffect(() => {
@@ -938,8 +1058,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }}
     >
       <EditorContent editor={editor} className="min-h-0 flex-1 overflow-visible" />
+      <TableInsertHandles editor={editor} editable={editable} />
     </div>
   );
 });
 
 RichTextEditor.displayName = 'RichTextEditor';
+
+export { TableInsertHandles } from './table-insert-handles';
