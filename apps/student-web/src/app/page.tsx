@@ -1,6 +1,5 @@
 "use client";
 
-import React, { useEffect } from "react";
 import {
   NavbarV2,
   HeroSectionV2,
@@ -13,15 +12,6 @@ import {
   ScrollIndicatorV2,
   NoiseOverlay
 } from "@/features/landing/components/v2";
-import {
-  HeroSection,
-  FeaturesSection,
-  ResourcesSection,
-  UCATSection,
-  CommunitySection,
-  ScrollIndicator,
-} from '@/features/landing';
-import { GetStartedSectionWithAuth } from './GetStartedSectionWithAuth';
 
 export default function HomePage() {
   const structuredData = {
@@ -69,13 +59,6 @@ export default function HomePage() {
       },
     ],
   };
-
-  useEffect(() => {
-    // Hide the default layout Navbar just for the landing page
-    const defaultNav = document.querySelector('nav:not(.fixed)'); // attempt to find default nav
-    // Looking at common tailwind layouts, default navs are often top-0 left-0 w-full etc.
-    // We will inject a style tag to hide the 1st standard nav if there is conflict.
-  }, []);
 
   return (
     <main className="min-h-dvh bg-[#F2F0E9] selection:bg-[#92b9c6] selection:text-[#1A1A1A] font-sans antialiased text-[#1A1A1A] overflow-x-hidden">

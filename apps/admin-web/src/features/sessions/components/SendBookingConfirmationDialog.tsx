@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DropdownMenu,

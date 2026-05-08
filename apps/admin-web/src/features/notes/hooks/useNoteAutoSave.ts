@@ -93,7 +93,7 @@ export function useNoteAutoSave({
 
   // Baseline lastSavedValues when a note is opened — not on every edit (avoids wasted work and wrong refs).
   useEffect(() => {
-    if (!note || !isInitialized) return;
+    if (!note?.id || !isInitialized) return;
     const values = form.getValues();
     lastSavedValuesRef.current = {
       title: values.title,

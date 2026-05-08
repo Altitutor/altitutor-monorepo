@@ -5,6 +5,7 @@ import { gsap } from "gsap";
 import { ArrowRight } from "lucide-react";
 import { TOKENS, MagneticButton } from "./shared";
 import Link from "next/link";
+import Image from "next/image";
 
 export function HeroSectionV2() {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -31,9 +32,12 @@ export function HeroSectionV2() {
       {/* Background Image & Gradient */}
       <div className="absolute inset-0 z-0 opacity-70">
         {/* Using original V1 hero background image */}
-        <img
+        <Image
           src="/images/landing/background-alt-scaled.jpg"
           alt="Altitutor Students"
+          fill
+          priority
+          sizes="100vw"
           className="h-full w-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0a2941] via-[#0a2941]/60 to-[#0a2941]/10" />

@@ -94,7 +94,7 @@ export function useLogSessionFlow({
   const sessionSubject = sessionData?.subject || null;
   const sessionStaff = sessionData?.staff || [];
   const sessionStudents = sessionData?.students || [];
-  const sessionParents = sessionData?.parents || [];
+  const sessionParents = useMemo(() => sessionData?.parents ?? [], [sessionData?.parents]);
 
   const wizardFlow = useMemo(
     () => resolveLogSessionWizardFlow(selectedSession, initialSessionKind),
@@ -120,7 +120,7 @@ export function useLogSessionFlow({
     }
     const next = sessionParents.map((p) => ({ parentId: p.id, attended: false }));
     setFormData((fd) => ({ ...fd, parentAttendance: next }));
-  }, [selectedSession?.id, selectedSession?.type, sessionParentIdsKey]);
+  }, [selectedSession, sessionParents, sessionParentIdsKey]);
 
   useEffect(() => {
     if (isOpen) {

@@ -108,7 +108,7 @@ function getFoldSpan(
   const headingIndex = $h.index($h.depth);
   const headingLevel = headingNode.attrs.level as number;
 
-  let hideFrom = headingPos + after.nodeSize;
+  const hideFrom = headingPos + after.nodeSize;
   let hideTo = hideFrom;
 
   for (let i = headingIndex + 1; i < parent.childCount; i += 1) {

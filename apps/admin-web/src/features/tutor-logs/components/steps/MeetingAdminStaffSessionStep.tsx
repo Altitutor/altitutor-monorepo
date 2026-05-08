@@ -49,7 +49,7 @@ export function MeetingAdminStaffSessionStep({
     selectedStaffId || undefined
   );
 
-  const sessions = unlogged?.sessions ?? [];
+  const sessions = useMemo(() => unlogged?.sessions ?? [], [unlogged?.sessions]);
 
   const selectedStaff = useMemo(
     () => staffRows.find((s) => s.id === selectedStaffId) ?? null,

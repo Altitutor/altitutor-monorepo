@@ -107,7 +107,6 @@ function QuestionFeedCard() {
   ]);
   const [currentMsgIndex, setCurrentMsgIndex] = useState(0);
   const [typedText, setTypedText] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let charIndex = 0;
@@ -203,7 +202,7 @@ function SchedulerCard() {
       const targets = [cells[4], cells[12], cells[18], cells[26]];
       const tl = gsap.timeline({ repeat: -1 });
 
-      targets.forEach((cell, i) => {
+      targets.forEach((cell) => {
          const rect = cell.getBoundingClientRect();
          const containerRect = containerRef.current!.getBoundingClientRect();
          

@@ -34,10 +34,13 @@ export function PhilosophySectionV2() {
       className="relative z-20 -mt-10 flex min-h-dvh w-full flex-col justify-center overflow-hidden rounded-b-[3rem] rounded-t-none bg-[#1A1A1A] py-40 text-[#F2F0E9] shadow-2xl"
     >
       <div className="absolute inset-0 z-0 opacity-10">
-        <img
-          src="https://images.unsplash.com/photo-1618044733300-9472054094ee?ixlib=rb-4.0.3&auto=format&fit=crop&w=2800&q=80"
-          alt="Organic Texture"
-          className="h-full w-full object-cover grayscale"
+        <div
+          aria-hidden
+          className="h-full w-full bg-cover bg-center grayscale"
+          style={{
+            backgroundImage:
+              "url('https://images.unsplash.com/photo-1618044733300-9472054094ee?ixlib=rb-4.0.3&auto=format&fit=crop&w=2800&q=80')",
+          }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#1A1A1A] to-transparent" />
       </div>

@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import { TOKENS, MagneticButton } from "./shared";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 
 export function NavbarV2() {
   const [scrolled, setScrolled] = useState(false);
