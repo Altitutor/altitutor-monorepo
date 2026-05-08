@@ -15,5 +15,6 @@ export const reconciliationKeys = {
   studentsWithoutPaymentMethod: () => [...reconciliationKeys.lists(), 'students_without_payment_method'] as const,
   trialStudentsNotSignedUp: () => [...reconciliationKeys.lists(), 'trial_students_not_signed_up'] as const,
   projectsWithNoLead: () => [...reconciliationKeys.lists(), 'projects_with_no_lead'] as const,
+  familyCheckIns: () => [...reconciliationKeys.lists(), 'family_check_ins'] as const,
   tabCounts: () => [...reconciliationKeys.all, 'tab-counts'] as const,
 };
