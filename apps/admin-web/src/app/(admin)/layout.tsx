@@ -71,14 +71,18 @@ const navItems: NavItem[] = [
     icon: AlertTriangle,
   },
   {
-    title: 'Messages',
-    href: '/messages',
-    icon: MessageCircle,
-  },
-  {
     title: 'Documents',
     href: '/documents',
     icon: FileText,
+  },
+  {
+    type: 'heading',
+    title: 'COMMUNICATION',
+  },
+  {
+    title: 'Messages',
+    href: '/messages',
+    icon: MessageCircle,
   },
   {
     type: 'heading',
@@ -403,6 +407,7 @@ function AdminLayoutContent({
     closeLogStaffAbsenceDialog,
     closeAnnouncementsModal,
     isCheckInModalOpen,
+    checkInSessionType,
     checkInPrefill,
     closeCheckInModal,
   } = useQuickActions();
@@ -488,13 +493,17 @@ function AdminLayoutContent({
               <CheckInBookSessionModal
                 isOpen={isCheckInModalOpen}
                 onClose={closeCheckInModal}
+                sessionType={checkInSessionType}
                 initialPrefill={checkInPrefill}
                 onCreated={(sessionId) => {
                   void queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
                   void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
                   closeCheckInModal();
                   toast({
-                    title: 'Check-in scheduled',
+                    title:
+                      checkInSessionType === 'ADMIN_MEETING'
+                        ? 'Admin meeting scheduled'
+                        : 'Check-in scheduled',
                     description: 'Session was created.',
                     action: {
                       label: 'View session',

@@ -77,6 +77,8 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
                 openCreateProjectDialog();
               } else if (action.actionType === 'book-check-in') {
                 openCheckInModal();
+              } else if (action.actionType === 'book-admin-meeting') {
+                openCheckInModal(null, 'ADMIN_MEETING');
               }
             };
 
@@ -146,6 +148,8 @@ export function QuickActionsMenu({ variant = 'floating' }: QuickActionsMenuProps
                 openCreateProjectDialog();
               } else if (action.actionType === 'book-check-in') {
                 openCheckInModal();
+              } else if (action.actionType === 'book-admin-meeting') {
+                openCheckInModal(null, 'ADMIN_MEETING');
               }
             };
 

@@ -103,6 +103,13 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     }
   }, [onClose, quickActions]);
 
+  const openBookAdminMeeting = useCallback(() => {
+    if (quickActions) {
+      onClose();
+      quickActions.openCheckInModal(null, 'ADMIN_MEETING');
+    }
+  }, [onClose, quickActions]);
+
   if (!quickActions) {
     return null;
   }
@@ -120,5 +127,6 @@ export function useCommandPaletteCommandActions(onClose: () => void) {
     openCreateProject,
     openAnnouncementsModal,
     openBookCheckIn,
+    openBookAdminMeeting,
   };
 }

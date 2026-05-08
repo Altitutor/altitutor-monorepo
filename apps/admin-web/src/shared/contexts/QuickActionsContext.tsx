@@ -9,6 +9,8 @@ export type CheckInModalPrefill = {
   parents?: Array<{ id: string; first_name?: string | null; last_name?: string | null }>;
 };
 
+export type CheckInSessionType = 'CHECK_IN' | 'ADMIN_MEETING';
+
 interface QuickActionsContextType {
   isTutorLogModalOpen: boolean;
   isLogAbsenceDialogOpen: boolean;
@@ -20,6 +22,7 @@ interface QuickActionsContextType {
   bookingSessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null;
   isBookingModalOpen: boolean;
   isCheckInModalOpen: boolean;
+  checkInSessionType: CheckInSessionType;
   checkInPrefill: CheckInModalPrefill | null;
   openTutorLogModal: () => void;
   closeTutorLogModal: () => void;
@@ -37,8 +40,8 @@ interface QuickActionsContextType {
   closeCreateProjectDialog: () => void;
   openBookingModal: (sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW') => void;
   closeBookingModal: () => void;
-  /** Open global check-in modal; optional prefill for staff/students/parents */
-  openCheckInModal: (prefill?: CheckInModalPrefill | null) => void;
+  /** Open global check-in/admin-meeting modal; optional prefill for staff/students/parents */
+  openCheckInModal: (prefill?: CheckInModalPrefill | null, sessionType?: CheckInSessionType) => void;
   closeCheckInModal: () => void;
 }
 
@@ -55,6 +58,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+  const [checkInSessionType, setCheckInSessionType] = useState<CheckInSessionType>('CHECK_IN');
   const [checkInPrefill, setCheckInPrefill] = useState<CheckInModalPrefill | null>(null);
 
   const openTutorLogModal = useCallback(() => {
@@ -123,13 +127,18 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
     setBookingSessionType(null);
   }, []);
 
-  const openCheckInModal = useCallback((prefill?: CheckInModalPrefill | null) => {
+  const openCheckInModal = useCallback(
+    (prefill?: CheckInModalPrefill | null, sessionType: CheckInSessionType = 'CHECK_IN') => {
     setCheckInPrefill(prefill ?? null);
+    setCheckInSessionType(sessionType);
     setIsCheckInModalOpen(true);
-  }, []);
+    },
+    []
+  );
 
   const closeCheckInModal = useCallback(() => {
     setIsCheckInModalOpen(false);
+    setCheckInSessionType('CHECK_IN');
     setCheckInPrefill(null);
   }, []);
 
@@ -146,6 +155,7 @@ export function QuickActionsProvider({ children }: { children: React.ReactNode }
         bookingSessionType,
         isBookingModalOpen,
         isCheckInModalOpen,
+        checkInSessionType,
         checkInPrefill,
         openTutorLogModal,
         closeTutorLogModal,

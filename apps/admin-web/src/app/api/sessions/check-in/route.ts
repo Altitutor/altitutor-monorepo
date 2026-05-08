@@ -35,18 +35,23 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
+      session_type: sessionTypeRaw,
       start_at: startAt,
       end_at: endAt,
       staff_ids: staffIds,
       student_ids: studentIds,
       parent_ids: parentIds,
     } = body as {
+      session_type?: Database['public']['Enums']['session_type'];
       start_at?: string;
       end_at?: string;
       staff_ids?: string[];
       student_ids?: string[];
       parent_ids?: string[];
     };
+
+    const sessionType =
+      sessionTypeRaw === 'ADMIN_MEETING' ? 'ADMIN_MEETING' : 'CHECK_IN';
 
     if (!startAt || !endAt) {
       return NextResponse.json({ error: 'start_at and end_at are required' }, { status: 400 });
@@ -62,7 +67,7 @@ export async function POST(request: NextRequest) {
 
     const sessionInsert: Database['public']['Tables']['sessions']['Insert'] = {
       id: randomUUID(),
-      type: 'CHECK_IN',
+      type: sessionType,
       subject_id: null,
       class_id: null,
       start_at: startAt,
@@ -77,7 +82,7 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (sessionError || !session) {
-      console.error('Failed to create check-in session:', sessionError);
+      console.error('Failed to create meeting session:', sessionError);
       return NextResponse.json(
         { error: sessionError?.message ?? 'Failed to create session' },
         { status: 500 }
@@ -139,7 +144,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ session_id: sessionId });
   } catch (error) {
-    console.error('Check-in session creation error:', error);
+    console.error('Meeting session creation error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },
       { status: 500 }

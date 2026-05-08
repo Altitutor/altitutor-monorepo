@@ -185,6 +185,7 @@ export function formatSessionType(type: string | null | undefined): string {
     'TRIAL_SESSION': 'Trial Session',
     'STAFF_INTERVIEW': 'Staff Interview',
     'ADMIN_SHIFT': 'Admin Shift',
+    'ADMIN_MEETING': 'Admin Meeting',
     'CHECK_IN': 'Check-in',
     'TRIAL_SHIFT': 'Trial Shift', // Legacy type, may not be in enum but handle gracefully
   };
@@ -216,6 +217,8 @@ export function getSessionTypeBadgeColor(type: string | null | undefined): strin
       return 'bg-pink-100 text-pink-800';
     case 'ADMIN_SHIFT':
       return 'bg-slate-100 text-slate-800';
+    case 'ADMIN_MEETING':
+      return 'bg-cyan-100 text-cyan-800';
     case 'CHECK_IN':
       return 'bg-teal-100 text-teal-800';
     default:

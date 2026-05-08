@@ -137,6 +137,13 @@ export default function SessionsPage() {
               >
                 Check in
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => {
+                  openCheckInModal(null, 'ADMIN_MEETING');
+                }}
+              >
+                Admin meeting
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
