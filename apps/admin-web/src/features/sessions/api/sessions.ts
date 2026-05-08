@@ -1111,7 +1111,7 @@ export const sessionsApi = {
         };
       }
       
-      // 5. Get notes for session (only session notes, not tutor log notes)
+      // 5. Get notes for session (includes notes added from tutor log flow; stored as target_type = sessions)
       const { data: sessionNotesData, error: sessionNotesError } = await supabase
         .from('notes')
         .select('*, staff:created_by(*)')

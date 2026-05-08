@@ -136,13 +136,6 @@ export const tutorLogsApi = {
         `)
         .eq('tutor_log_id', id);
 
-      // Get notes
-      const { data: notes } = await supabase
-        .from('notes')
-        .select('*')
-        .eq('target_type', 'tutor_logs')
-        .eq('target_id', id);
-
       return {
         ...tutorLog,
         staffAttendance: staffAttendance || [],
@@ -150,7 +143,6 @@ export const tutorLogsApi = {
         parentAttendance: parentAttendance || [],
         topics: topics || [],
         topicFiles: topicFiles || [],
-        notes: notes || [],
       } as TutorLogWithDetails;
     } catch (error) {
       throw error;

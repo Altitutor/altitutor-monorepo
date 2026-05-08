@@ -61,7 +61,6 @@ export type TutorLogWithDetails = Tables<'tutor_logs'> & {
       student: Tables<'students'>;
     }>;
   }>;
-  notes: Tables<'notes'>[];
 };
 
 
