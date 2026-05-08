@@ -14,12 +14,17 @@ type SessionWithClassAndSubject = Tables<'sessions'> & {
 
 type SessionsStaffRow = {
   planned_absence: boolean;
+  type: string;
   staff: Tables<'staff'>;
 };
 
 type SessionsStudentsRow = {
   id: string;
   planned_absence: boolean;
+  was_trial: boolean;
+  is_rescheduled: boolean;
+  is_credited: boolean;
+  rescheduled_sessions_students_id: string | null;
   student: Tables<'students'>;
 };
 
@@ -32,8 +37,29 @@ export interface SessionForLogging {
   session: Tables<'sessions'> | null;
   classData: Tables<'classes'> | null;
   subject: Tables<'subjects'> | null;
-  staff: Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
-  students: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }>;
+  staff: Array<
+    Tables<'staff'> & {
+      planned_absence?: boolean;
+      is_swapped_in?: boolean;
+      session_staff_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
+      sessions_staff_id?: string | null;
+      session_was_trial?: boolean;
+      is_swapped?: boolean;
+      swapped_sessions_staff_id?: string | null;
+      swapped_staff?: { id: string; first_name: string; last_name: string } | null;
+    }
+  >;
+  students: Array<
+    Tables<'students'> & {
+      planned_absence?: boolean;
+      is_extra?: boolean;
+      sessions_students_id?: string | null;
+      session_was_trial?: boolean;
+      session_is_rescheduled?: boolean;
+      session_is_credited?: boolean;
+      rescheduled_sessions_students_id?: string | null;
+    }
+  >;
   parents: Array<Tables<'parents'> & { sessions_parents_id?: string }>;
 }
 
@@ -94,17 +120,70 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
         const { data: staffData, error: staffError } = await supabase
           .from('sessions_staff')
           .select(`
+            id,
             planned_absence,
+            type,
+            was_trial,
+            is_swapped,
+            swapped_sessions_staff_id,
             staff:staff!sessions_staff_staff_id_fkey(*)
           `)
           .eq('session_id', sessionId);
 
-        const staff = !staffError && staffData
-          ? (staffData as SessionsStaffRow[]).map((row) => ({
-              ...row.staff,
-              planned_absence: row.planned_absence,
-            }))
-          : [];
+        type StaffRow = SessionsStaffRow & {
+          id: string;
+          was_trial?: boolean;
+          is_swapped?: boolean;
+          swapped_sessions_staff_id?: string | null;
+        };
+
+        let staff: SessionForLogging['staff'] = [];
+        if (!staffError && staffData && staffData.length > 0) {
+          const typedStaffData = staffData as StaffRow[];
+          const swappedIds = typedStaffData
+            .map((r) => r.swapped_sessions_staff_id)
+            .filter((id): id is string => Boolean(id));
+          const swappedStaffMap: Record<string, Tables<'staff'>> = {};
+          if (swappedIds.length > 0) {
+            const { data: swappedRows } = await supabase
+              .from('sessions_staff')
+              .select(
+                `
+                id,
+                staff:staff!sessions_staff_staff_id_fkey(id, first_name, last_name)
+              `
+              )
+              .in('id', swappedIds);
+            (swappedRows as Array<{ id: string; staff: Tables<'staff'> | null }> | null)?.forEach((row) => {
+              if (row.staff) swappedStaffMap[row.id] = row.staff;
+            });
+          }
+          staff = typedStaffData.map((row) => ({
+            ...row.staff,
+            planned_absence: row.planned_absence,
+            session_staff_type: row.type as
+              | 'MAIN_TUTOR'
+              | 'SECONDARY_TUTOR'
+              | 'TRIAL_TUTOR'
+              | undefined,
+            sessions_staff_id: row.id,
+            session_was_trial: row.was_trial ?? false,
+            is_swapped: row.is_swapped ?? false,
+            swapped_sessions_staff_id: row.swapped_sessions_staff_id,
+            swapped_staff: row.swapped_sessions_staff_id
+              ? (() => {
+                  const s = swappedStaffMap[row.swapped_sessions_staff_id!];
+                  return s
+                    ? {
+                        id: s.id,
+                        first_name: s.first_name ?? '',
+                        last_name: s.last_name ?? '',
+                      }
+                    : null;
+                })()
+              : null,
+          }));
+        }
 
         // Get session students with planned_absence and sessions_students_id
         // Note: is_extra is calculated based on class enrollment, not stored in sessions_students table
@@ -113,53 +192,62 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
           .select(`
             id,
             planned_absence,
+            was_trial,
+            is_rescheduled,
+            is_credited,
+            rescheduled_sessions_students_id,
             student:students(*)
           `)
           .eq('session_id', sessionId);
 
-        // Calculate is_extra for each student: student is extra if session has class_id but student is not enrolled
-        let students: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }> = [];
-        
+        let students: SessionForLogging['students'] = [];
+
         if (!studentsError && studentsData && studentsData.length > 0) {
           const classId = session.class_id;
-          
-          // If session has a class_id, check which students are enrolled
+
           const enrolledStudentIds = new Set<string>();
           if (classId) {
             const typedStudentsData = studentsData as SessionsStudentsRow[];
             const studentIds = typedStudentsData.map((row) => row.student?.id).filter((id): id is string => Boolean(id));
             if (studentIds.length > 0) {
-              const { data: enrollmentsData } = await supabase
+              const { data: enrollmentsData, error: enrollError } = await supabase
                 .from('classes_students')
                 .select('student_id, unenrolled_at')
                 .eq('class_id', classId)
                 .in('student_id', studentIds);
-              
-              if (enrollmentsData) {
+
+              if (enrollError) {
+                console.error('Error loading class enrollments for tutor log:', enrollError);
+                studentIds.forEach((id) => enrolledStudentIds.add(id));
+              } else if (enrollmentsData) {
                 const sessionStartAt = session.start_at ? new Date(session.start_at) : null;
                 (enrollmentsData as ClassesStudentsRow[]).forEach((enrollment) => {
-                  // Student is enrolled if not unenrolled, or unenrolled after session start
-                  if (!enrollment.unenrolled_at || (sessionStartAt && new Date(enrollment.unenrolled_at) > sessionStartAt)) {
+                  if (
+                    !enrollment.unenrolled_at ||
+                    (sessionStartAt && new Date(enrollment.unenrolled_at) > sessionStartAt)
+                  ) {
                     enrolledStudentIds.add(enrollment.student_id);
                   }
                 });
               }
             }
           }
-          
+
           const typedStudentsData = studentsData as SessionsStudentsRow[];
           students = typedStudentsData.map((row) => {
             const studentId = row.student?.id;
             const isExtra =
-              classId && studentId
-                ? !enrolledStudentIds.has(studentId)
-                : session.type !== 'CLASS' && !classId;
-            
+              classId && studentId ? !enrolledStudentIds.has(studentId) : false;
+
             return {
               ...row.student,
               planned_absence: row.planned_absence,
               is_extra: isExtra,
               sessions_students_id: row.id,
+              session_was_trial: row.was_trial ?? false,
+              session_is_rescheduled: row.is_rescheduled ?? false,
+              session_is_credited: row.is_credited ?? false,
+              rescheduled_sessions_students_id: row.rescheduled_sessions_students_id,
             };
           });
         }

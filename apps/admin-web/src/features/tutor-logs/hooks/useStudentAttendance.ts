@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { studentsApi } from '@/features/students/api/students';
-import { useSessionForLogging } from './useSessionForLogging';
+import { useSessionForLogging, type SessionForLogging } from './useSessionForLogging';
 import type { Tables } from '@altitutor/shared';
 
 export type StudentAttendanceItem = {
@@ -16,7 +16,7 @@ export interface UseStudentAttendanceProps {
 }
 
 export interface UseStudentAttendanceReturn {
-  // Data
+  sessionData: SessionForLogging | undefined;
   sessionStudents: Array<{
     student_id: string;
     student: Tables<'students'>;
@@ -26,15 +26,12 @@ export interface UseStudentAttendanceReturn {
   allStudents: Tables<'students'>[];
   filteredStudents: Tables<'students'>[];
   isLoading: boolean;
-  
-  // UI state
-  additionalStudents: string[];
+
   showSearch: boolean;
   searchTerm: string;
   setShowSearch: (show: boolean) => void;
   setSearchTerm: (term: string) => void;
-  
-  // Actions
+
   handleAttendanceChange: (studentId: string, attended: boolean) => void;
   handleAddStudent: (studentId: string) => void;
   handleRemoveStudent: (studentId: string) => void;
@@ -44,7 +41,6 @@ export interface UseStudentAttendanceReturn {
 
 /**
  * Hook for managing student attendance in tutor log step 3
- * Handles session students, additional students, search, and attendance state
  */
 export function useStudentAttendance({
   sessionId,
@@ -52,41 +48,39 @@ export function useStudentAttendance({
   onUpdate,
 }: UseStudentAttendanceProps): UseStudentAttendanceReturn {
   const { data: sessionData, isLoading: isLoadingSession } = useSessionForLogging(sessionId);
-  const [additionalStudents, setAdditionalStudents] = useState<string[]>([]);
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const hasInitialized = useRef(false);
 
-  // Fetch all students for search (with pagination for large datasets)
   const { data: allStudentsData, isLoading: isLoadingStudents } = useQuery({
     queryKey: ['students', 'all', 'forSearch'],
     queryFn: async () => {
       const result = await studentsApi.list({
         statuses: ['ACTIVE', 'TRIAL'],
-        limit: 10000, // Large limit to get all students
+        limit: 10000,
         offset: 0,
         orderBy: 'first_name',
         ascending: true,
       });
       return result.students;
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    staleTime: 1000 * 60 * 5,
   });
 
   const allStudents = useMemo(() => allStudentsData || [], [allStudentsData]);
   const isLoading = isLoadingSession || isLoadingStudents;
 
-  // Transform session students data
   const sessionStudents = useMemo(() => {
-    return sessionData?.students.map((student) => ({
-      student_id: student.id,
-      student: student,
-      planned_absence: student.planned_absence ?? false,
-      is_extra: student.is_extra ?? false,
-    })) || [];
+    return (
+      sessionData?.students.map((student) => ({
+        student_id: student.id,
+        student: student as Tables<'students'>,
+        planned_absence: student.planned_absence ?? false,
+        is_extra: student.is_extra ?? false,
+      })) || []
+    );
   }, [sessionData?.students]);
 
-  // Initialize form data if empty (separate effect to avoid setState during render)
   useEffect(() => {
     if (!hasInitialized.current && studentAttendance.length === 0 && sessionStudents.length > 0 && !isLoading) {
       hasInitialized.current = true;
@@ -97,25 +91,7 @@ export function useStudentAttendance({
       onUpdate(initialAttendance);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStudents.length, isLoading]); // Only depend on sessionStudents.length and isLoading
-
-  // Initialize additionalStudents from existing studentAttendance when editing.
-  // If sessionStudents is empty, ALL students from studentAttendance are "additional".
-  // If sessionStudents has data, only students NOT in session are "additional".
-  const hasInitializedAdditional = useRef(false);
-  useEffect(() => {
-    if (!isLoading && studentAttendance.length > 0 && !hasInitializedAdditional.current) {
-      const sessionStudentIds = new Set(sessionStudents.map((ss) => ss.student_id));
-      const additionalStudentIds = studentAttendance
-        .map((sa) => sa.studentId)
-        .filter((id) => !sessionStudentIds.has(id));
-
-      if (additionalStudentIds.length > 0) {
-        hasInitializedAdditional.current = true;
-        setAdditionalStudents(additionalStudentIds);
-      }
-    }
-  }, [isLoading, sessionStudents, studentAttendance]);
+  }, [sessionStudents.length, isLoading]);
 
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
     const updated = studentAttendance.map((sa) =>
@@ -130,16 +106,12 @@ export function useStudentAttendance({
   };
 
   const handleAddStudent = (studentId: string) => {
-    if (!additionalStudents.includes(studentId)) {
-      setAdditionalStudents([...additionalStudents, studentId]);
-      handleAttendanceChange(studentId, true);
-    }
+    handleAttendanceChange(studentId, true);
     setSearchTerm('');
     setShowSearch(false);
   };
 
   const handleRemoveStudent = (studentId: string) => {
-    setAdditionalStudents(additionalStudents.filter((id) => id !== studentId));
     onUpdate(studentAttendance.filter((sa) => sa.studentId !== studentId));
   };
 
@@ -147,39 +119,34 @@ export function useStudentAttendance({
     return studentAttendance.find((sa) => sa.studentId === studentId);
   };
 
-  const isStudentAlreadyAdded = useCallback((studentId: string) => {
-    return (
-      sessionStudents.some((ss) => ss.student_id === studentId) ||
-      additionalStudents.includes(studentId)
-    );
-  }, [sessionStudents, additionalStudents]);
+  const isStudentAlreadyAdded = useCallback(
+    (studentId: string) => {
+      return sessionData?.students.some((s) => s.id === studentId) || studentAttendance.some((a) => a.studentId === studentId);
+    },
+    [sessionData?.students, studentAttendance]
+  );
 
   const filteredStudents = useMemo(() => {
     return allStudents.filter(
       (student) =>
         !isStudentAlreadyAdded(student.id) &&
         (searchTerm === '' ||
-          `${student.first_name} ${student.last_name}`
-            .toLowerCase()
-            .includes(searchTerm.toLowerCase()))
+          `${student.first_name} ${student.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()))
     );
   }, [allStudents, searchTerm, isStudentAlreadyAdded]);
 
   return {
-    // Data
+    sessionData,
     sessionStudents,
     allStudents,
     filteredStudents,
     isLoading,
-    
-    // UI state
-    additionalStudents,
+
     showSearch,
     searchTerm,
     setShowSearch,
     setSearchTerm,
-    
-    // Actions
+
     handleAttendanceChange,
     handleAddStudent,
     handleRemoveStudent,
