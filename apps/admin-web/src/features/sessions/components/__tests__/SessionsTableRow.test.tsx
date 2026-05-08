@@ -49,6 +49,7 @@ function createBaseProps(overrides: Partial<SessionsTableRowProps> = {}): Sessio
 
   const modals: UseSessionsTableModalsReturn = {
     actionSessionId: null,
+    logSessionInitialKind: undefined,
     setActionSessionId: () => {},
     isLogSessionModalOpen: false,
     openLogSessionModal: () => {},

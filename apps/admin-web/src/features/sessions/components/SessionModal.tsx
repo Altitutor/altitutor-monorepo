@@ -575,6 +575,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           adminMode={true}
           initialSessionId={sessionId || undefined}
           initialStaffId={helpers.getFirstStaffForLogging()}
+          initialSessionKind={session.type !== 'CLASS' ? 'meeting' : 'class'}
         />
       )}
 

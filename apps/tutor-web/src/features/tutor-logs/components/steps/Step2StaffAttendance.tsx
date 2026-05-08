@@ -152,9 +152,6 @@ export function Step2StaffAttendance({
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        Select which staff members attended this session.
-      </p>
       
       {sessionStaff.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">

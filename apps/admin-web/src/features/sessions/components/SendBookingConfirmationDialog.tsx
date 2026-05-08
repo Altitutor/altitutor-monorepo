@@ -396,11 +396,7 @@ export function SendBookingConfirmationDialog({
                 <X className="h-4 w-4" />
               </Button>
               <div className="flex-1">
-                <DialogTitle>Send Booking Confirmation Link</DialogTitle>
-                <DialogDescription>
-                  Send the booking confirmation link for this session to{' '}
-                  {student?.first_name} {student?.last_name}&apos;s parent(s)
-                </DialogDescription>
+                <DialogTitle>Send Booking Confirmation</DialogTitle>
               </div>
               <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
             </div>
