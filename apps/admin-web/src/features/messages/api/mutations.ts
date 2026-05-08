@@ -118,12 +118,12 @@ export function useSendMessage() {
     },
     onSuccess: (result, vars) => {
       // Invalidate messages for this contact (aggregated view)
-      qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(vars.contactId) });
+      qc.invalidateQueries({ queryKey: messagesKeys.messagesForContactBase(vars.contactId) });
       // Also invalidate the specific conversation's messages (for backward compatibility)
       qc.invalidateQueries({ queryKey: messagesKeys.messages(result.conversationId) });
       // Invalidate conversations list (both old and new aggregated)
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
-      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContact() });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
     },
   });
 }
@@ -167,7 +167,7 @@ export function useMarkRead() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
-      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContact() });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
     },
   });
 }
@@ -184,7 +184,7 @@ export function useMarkUnread() {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
-      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContact() });
+      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
     },
   });
 }

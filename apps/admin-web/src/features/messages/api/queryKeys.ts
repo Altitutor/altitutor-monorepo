@@ -5,14 +5,19 @@
 export const messagesKeys = {
   all: ['messages'] as const,
   conversations: () => [...messagesKeys.all, 'conversations'] as const,
-  conversationsByContact: () => [...messagesKeys.all, 'conversations-by-contact'] as const,
+  conversationsByContactBase: () => [...messagesKeys.all, 'conversations-by-contact'] as const,
+  conversationsByContact: (ownedNumberId?: string | null) =>
+    [...messagesKeys.conversationsByContactBase(), ownedNumberId ?? 'all'] as const,
   conversation: (id: string) => [...messagesKeys.all, 'conversation', id] as const,
   conversationInfo: (id: string) => [...messagesKeys.all, 'conversation-info', id] as const,
   conversationContact: (id: string) => ['contact', id] as const,
   conversationSubjects: (id: string, type: 'student' | 'staff') => ['contact-subjects', id, type] as const,
   conversationClasses: (id: string) => [...messagesKeys.all, 'conversation-classes', id] as const,
   messages: (conversationId: string) => [...messagesKeys.all, 'messages', conversationId] as const,
-  messagesForContact: (contactId: string) => [...messagesKeys.all, 'messages-for-contact', contactId] as const,
+  messagesForContactBase: (contactId: string) =>
+    [...messagesKeys.all, 'messages-for-contact', contactId] as const,
+  messagesForContact: (contactId: string, ownedNumberId?: string | null) =>
+    [...messagesKeys.messagesForContactBase(contactId), ownedNumberId ?? 'all'] as const,
   templates: () => [...messagesKeys.all, 'templates'] as const,
   studentClasses: (studentId: string) => [...messagesKeys.all, 'student-classes', studentId] as const,
   staffClasses: (staffId: string) => [...messagesKeys.all, 'staff-classes', staffId] as const,

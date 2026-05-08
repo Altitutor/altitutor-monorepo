@@ -342,10 +342,12 @@ type MessageWithCreatedAt = MessageRow & {
   created_at: string;
 };
 
-export async function fetchConversationsByContact(): Promise<AggregatedConversation[]> {
+export async function fetchConversationsByContact(
+  ownedNumberId?: string | null
+): Promise<AggregatedConversation[]> {
   const supabase = getSupabaseClient();
 
-  const { data: conversations, error } = await supabase
+  let query = supabase
     .from('conversations')
     .select(`
       id, status, last_message_at, last_message_id,
@@ -363,6 +365,12 @@ export async function fetchConversationsByContact(): Promise<AggregatedConversat
     `)
     .in('status', ['OPEN', 'SNOOZED'])
     .order('last_message_at', { ascending: false });
+
+  if (ownedNumberId) {
+    query = query.eq('owned_number_id', ownedNumberId);
+  }
+
+  const { data: conversations, error } = await query;
 
   if (error) throw error;
 
@@ -433,10 +441,10 @@ export async function fetchConversationsByContact(): Promise<AggregatedConversat
   });
 }
 
-export function useConversationsByContact() {
+export function useConversationsByContact(ownedNumberId?: string | null) {
   return useQuery({
-    queryKey: messagesKeys.conversationsByContact(),
-    queryFn: fetchConversationsByContact,
+    queryKey: messagesKeys.conversationsByContact(ownedNumberId),
+    queryFn: () => fetchConversationsByContact(ownedNumberId),
     staleTime: 1000 * 30, // 30 seconds
     refetchOnWindowFocus: false, // Realtime handles updates
   });
@@ -457,9 +465,9 @@ type SenderInfo = {
   sender: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'alphanumeric_sender_id' | 'sender_type' | 'label' | 'provider'> | null;
 };
 
-export function useMessagesForContact(contactId: string | null) {
+export function useMessagesForContact(contactId: string | null, ownedNumberId?: string | null) {
   return useInfiniteQuery({
-    queryKey: messagesKeys.messagesForContact(contactId || ''),
+    queryKey: messagesKeys.messagesForContact(contactId || '', ownedNumberId),
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) => {
       if (!contactId) return { items: [], nextCursor: undefined };
@@ -467,11 +475,17 @@ export function useMessagesForContact(contactId: string | null) {
       const supabase = getSupabaseClient();
       
       // Get all conversation IDs for this contact
-      const { data: conversations, error: convError } = await supabase
+      let conversationsQuery = supabase
         .from('conversations')
         .select('id, owned_number_id, owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider)')
         .eq('contact_id', contactId)
         .in('status', ['OPEN', 'SNOOZED']);
+
+      if (ownedNumberId) {
+        conversationsQuery = conversationsQuery.eq('owned_number_id', ownedNumberId);
+      }
+
+      const { data: conversations, error: convError } = await conversationsQuery;
       
       if (convError) throw convError;
       

@@ -7,17 +7,29 @@ import { Composer } from '@/features/messages/components/Composer';
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { useQuery } from '@tanstack/react-query';
-import { useConversationsByContact } from '@/features/messages/api/queries';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useAvailableSenders, useConversationsByContact } from '@/features/messages/api/queries';
 import { useMarkRead, useMarkUnread } from '@/features/messages/api/mutations';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
+import { AddStudentModal } from '@/features/students/components/AddStudentModal';
+import { AddParentModal } from '@/features/parents/components/AddParentModal';
+import { AddStaffModal } from '@/features/staff/components/AddStaffModal';
+import { useStudents, useUpdateStudent } from '@/features/students/hooks/useStudentsQuery';
+import { useUpdateParent } from '@/features/parents/hooks/useParentsQuery';
+import { useStaff, useUpdateStaff } from '@/features/staff/hooks/useStaffQuery';
+import { useToast } from '@altitutor/ui';
+import { messagesKeys } from '@/features/messages/api/queryKeys';
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
   const conversationParam = searchParams.get('conversation'); // For backward compatibility
   const contactParam = searchParams.get('contact');
   const [activeContactId, setActiveContactId] = useState<string | null>(contactParam);
@@ -34,7 +46,32 @@ export default function MessagesPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
-  const { data: conversationsByContact } = useConversationsByContact();
+  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
+  const [isAddParentOpen, setIsAddParentOpen] = useState(false);
+  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [prefillPhoneForModal, setPrefillPhoneForModal] = useState<string | null>(null);
+  const [isLinkingPhone, setIsLinkingPhone] = useState(false);
+  const [selectedOwnedNumberId, setSelectedOwnedNumberId] = useState<string | null>(null);
+  const { data: conversationsByContact } = useConversationsByContact(selectedOwnedNumberId);
+  const { data: availableSenders = [] } = useAvailableSenders();
+  const { data: students = [] } = useStudents();
+  const { data: staff = [] } = useStaff();
+  const { data: parentsWithoutPhone = [] } = useQuery({
+    queryKey: ['parents', 'without-phone'],
+    queryFn: async () => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data, error } = await supabase
+        .from('parents')
+        .select('id, first_name, last_name, phone')
+        .order('last_name', { ascending: true });
+      if (error) throw error;
+      return (data ?? []).filter((parent) => !parent.phone?.trim());
+    },
+  });
+
+  const updateStudent = useUpdateStudent();
+  const updateParent = useUpdateParent();
+  const updateStaff = useUpdateStaff();
   const markRead = useMarkRead();
   const markUnread = useMarkUnread();
   
@@ -182,7 +219,7 @@ export default function MessagesPage() {
   const handleBack = () => {
     setMobileView('list');
   };
-  
+
   const handleTitleClick = () => {
     if (!activeContact) return;
     
@@ -205,6 +242,136 @@ export default function MessagesPage() {
         break;
     }
   };
+
+  const hasLinkedEntity =
+    Boolean(activeContact?.students?.id) ||
+    Boolean(activeContact?.parents?.id) ||
+    Boolean(activeContact?.staff?.id);
+  const showUnknownNumberActions = Boolean(activeContact?.phone_e164 && !hasLinkedEntity);
+
+  const studentOptionsWithoutPhone = students
+    .filter((student) => !student.phone?.trim())
+    .map((student) => ({
+      id: student.id,
+      label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Unnamed student',
+    }));
+
+  const parentOptionsWithoutPhone = parentsWithoutPhone.map((parent) => ({
+    id: parent.id,
+    label: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Unnamed parent',
+  }));
+
+  const staffOptionsWithoutPhone = staff
+    .filter((staffMember) => !staffMember.phone_number?.trim())
+    .map((staffMember) => ({
+      id: staffMember.id,
+      label: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() || 'Unnamed staff member',
+    }));
+
+  const handleOpenCreateStudent = () => {
+    setPrefillPhoneForModal(activeContact?.phone_e164 ?? null);
+    setIsAddStudentOpen(true);
+  };
+
+  const handleOpenCreateParent = () => {
+    setPrefillPhoneForModal(activeContact?.phone_e164 ?? null);
+    setIsAddParentOpen(true);
+  };
+
+  const handleOpenCreateStaff = () => {
+    setPrefillPhoneForModal(activeContact?.phone_e164 ?? null);
+    setIsAddStaffOpen(true);
+  };
+
+  const fromNumberOptions = availableSenders.map((sender) => ({
+    id: sender.id,
+    label:
+      sender.sender_type === 'ALPHANUMERIC'
+        ? (sender.alphanumeric_sender_id || sender.label || 'Unknown sender')
+        : (sender.phone_e164 || sender.label || 'Unknown sender'),
+  }));
+
+  const selectedFromNumberOption = fromNumberOptions.find(
+    (option) => option.id === selectedOwnedNumberId
+  ) ?? null;
+
+  const linkConversationContact = async (
+    entityType: 'student' | 'parent' | 'staff',
+    entityId: string
+  ) => {
+    if (!activeContactId || !activeContact?.phone_e164) return;
+
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const updatePayload: {
+      contact_type: 'STUDENT' | 'PARENT' | 'STAFF';
+      student_id: string | null;
+      parent_id: string | null;
+      staff_id: string | null;
+    } = {
+      contact_type: entityType === 'student' ? 'STUDENT' : entityType === 'parent' ? 'PARENT' : 'STAFF',
+      student_id: entityType === 'student' ? entityId : null,
+      parent_id: entityType === 'parent' ? entityId : null,
+      staff_id: entityType === 'staff' ? entityId : null,
+    };
+
+    const { error } = await supabase
+      .from('contacts')
+      .update(updatePayload)
+      .eq('id', activeContactId);
+
+    if (error) throw error;
+  };
+
+  const handleAssignNumberToExisting = async (
+    entityType: 'student' | 'parent' | 'staff',
+    entityId: string
+  ) => {
+    if (!activeContact?.phone_e164 || !activeContactId) return;
+    const phoneNumber = activeContact.phone_e164;
+
+    setIsLinkingPhone(true);
+    try {
+      if (entityType === 'student') {
+        await updateStudent.mutateAsync({
+          id: entityId,
+          data: { phone: phoneNumber },
+        });
+      } else if (entityType === 'parent') {
+        await updateParent.mutateAsync({
+          id: entityId,
+          data: { phone: phoneNumber },
+        });
+      } else {
+        await updateStaff.mutateAsync({
+          id: entityId,
+          data: { phone_number: phoneNumber },
+        });
+      }
+
+      await linkConversationContact(entityType, entityId);
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['contact', activeContactId] }),
+        queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() }),
+        queryClient.invalidateQueries({ queryKey: ['students', 'list'] }),
+        queryClient.invalidateQueries({ queryKey: ['parents', 'list'] }),
+        queryClient.invalidateQueries({ queryKey: ['staff', 'list'] }),
+      ]);
+
+      toast({
+        title: 'Phone number linked',
+        description: `Saved ${phoneNumber} to the selected ${entityType}.`,
+      });
+    } catch (error) {
+      toast({
+        title: 'Failed to link phone number',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLinkingPhone(false);
+    }
+  };
   
   return (
     <div className="p-0 h-full overflow-hidden">
@@ -222,6 +389,8 @@ export default function MessagesPage() {
           <ConversationList 
             activeContactId={activeContactId} 
             onSelect={handleContactSelect}
+            selectedOwnedNumberId={selectedOwnedNumberId}
+            onOwnedNumberFilterChange={setSelectedOwnedNumberId}
           />
         </div>
         
@@ -242,12 +411,27 @@ export default function MessagesPage() {
             isUnread={mobileView === 'thread' ? isActiveUnread : undefined}
             onToggleRead={mobileView === 'thread' ? handleToggleReadHeader : undefined}
             contact={activeContact}
+            showUnknownNumberActions={showUnknownNumberActions}
+            isLinkingPhone={isLinkingPhone}
+            studentOptionsWithoutPhone={studentOptionsWithoutPhone}
+            parentOptionsWithoutPhone={parentOptionsWithoutPhone}
+            staffOptionsWithoutPhone={staffOptionsWithoutPhone}
+            onCreateStudent={handleOpenCreateStudent}
+            onCreateParent={handleOpenCreateParent}
+            onCreateStaff={handleOpenCreateStaff}
+            onAssignStudent={(studentId) => handleAssignNumberToExisting('student', studentId)}
+            onAssignParent={(parentId) => handleAssignNumberToExisting('parent', parentId)}
+            onAssignStaff={(staffId) => handleAssignNumberToExisting('staff', staffId)}
+            fromNumberOptions={fromNumberOptions}
+            selectedFromNumber={selectedFromNumberOption}
+            onFromNumberChange={(option) => setSelectedOwnedNumberId(option?.id ?? null)}
           />
           <div className="flex-1 flex flex-col min-h-0">
             {activeContactId ? (
               <>
                 <MessageThread 
                   contactId={activeContactId} 
+                  ownedNumberId={selectedOwnedNumberId}
                   isSearching={isSearching}
                   searchTerm={searchTerm}
                   onSearchTermChange={setSearchTerm}
@@ -298,6 +482,36 @@ export default function MessagesPage() {
           onParentUpdated={() => {}}
         />
       )}
+
+      <AddStudentModal
+        isOpen={isAddStudentOpen}
+        onClose={() => setIsAddStudentOpen(false)}
+        onStudentAdded={() => {
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+          queryClient.invalidateQueries({ queryKey: ['contact', activeContactId] });
+        }}
+        initialPhone={prefillPhoneForModal}
+      />
+
+      <AddParentModal
+        isOpen={isAddParentOpen}
+        onClose={() => setIsAddParentOpen(false)}
+        onParentAdded={() => {
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+          queryClient.invalidateQueries({ queryKey: ['contact', activeContactId] });
+        }}
+        initialPhone={prefillPhoneForModal}
+      />
+
+      <AddStaffModal
+        isOpen={isAddStaffOpen}
+        onClose={() => setIsAddStaffOpen(false)}
+        onStaffAdded={() => {
+          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+          queryClient.invalidateQueries({ queryKey: ['contact', activeContactId] });
+        }}
+        initialPhone={prefillPhoneForModal}
+      />
     </div>
   );
 }

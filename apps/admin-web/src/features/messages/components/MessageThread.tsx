@@ -46,6 +46,7 @@ function issueTagToDraft(tag: IssueWithTags['tags'][number]): IssueTagDraft | nu
 
 interface Props {
   contactId: string;
+  ownedNumberId?: string | null;
   isSearching?: boolean;
   searchTerm?: string;
   onSearchTermChange?: (term: string) => void;
@@ -376,8 +377,16 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   );
 }
 
-export function MessageThread({ contactId, isSearching = false, searchTerm = '', onSearchTermChange, onExitSearch, hideAddIssueHover = false }: Props) {
-  const { data, fetchNextPage, hasNextPage } = useMessagesForContact(contactId);
+export function MessageThread({
+  contactId,
+  ownedNumberId,
+  isSearching = false,
+  searchTerm = '',
+  onSearchTermChange,
+  onExitSearch,
+  hideAddIssueHover = false
+}: Props) {
+  const { data, fetchNextPage, hasNextPage } = useMessagesForContact(contactId, ownedNumberId);
   const qc = useQueryClient();
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
@@ -427,7 +436,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
             filter: `conversation_id=in.(${conversationIds.join(',')})`
           }, () => {
             // Invalidate to refetch all messages for this contact
-            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId) });
+            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
           })
           .on('postgres_changes', { 
             event: 'UPDATE', 
@@ -435,7 +444,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
             table: 'messages',
             filter: `conversation_id=in.(${conversationIds.join(',')})`
           }, () => {
-            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId) });
+            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
           })
           .on('postgres_changes', { 
             event: '*', 
@@ -443,7 +452,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
             table: 'conversations',
             filter: `contact_id=eq.${contactId}`
           }, () => {
-            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId) });
+            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
           })
           .subscribe();
         
@@ -451,7 +460,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
           supabase.removeChannel(channel);
         };
       });
-  }, [contactId, qc]);
+  }, [contactId, ownedNumberId, qc]);
 
   // Filter and process messages for search
   const processedMessages = useMemo(() => {
@@ -677,7 +686,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
           const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
           shouldStickToBottomRef.current = distanceFromBottom < 48;
         }}
-        className="flex-1 overflow-y-auto overscroll-contain p-3 space-y-2 min-h-0 flex flex-col"
+        className="flex-1 overflow-y-auto overflow-x-hidden overscroll-contain p-3 space-y-2 min-h-0 flex flex-col"
       >
         {hasNextPage && (
           <button className="text-xs text-blue-600 hover:underline mb-2 py-2" onClick={() => fetchNextPage()}>
@@ -781,7 +790,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                       {/* Sender badge for outbound messages */}
                       {direction === 'OUTBOUND' && m.sender && (
                         <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
-                          <Badge variant="outline" className="text-[9px] px-1.5 py-0">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 max-w-full break-all">
                             From: {m.sender.sender_type === 'ALPHANUMERIC' 
                               ? (m.sender.alphanumeric_sender_id || m.sender.label || 'Unknown')
                               : (m.sender.phone_e164 || m.sender.label || 'Unknown')}
@@ -817,7 +826,7 @@ export function MessageThread({ contactId, isSearching = false, searchTerm = '',
                                   ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white' 
                                   : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
                               : 'bg-muted'
-                          }`}>
+                          } break-words [overflow-wrap:anywhere] max-w-full`}>
                             {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
                           </div>
                         );
