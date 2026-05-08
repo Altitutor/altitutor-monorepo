@@ -24,8 +24,19 @@ import { getShortSessionName } from '../utils/session-helpers';
 import type { SessionTableStudent, SessionTableStaff } from '../types/sessions-table';
 import type { UseSessionsTableModalsReturn } from '../hooks/useSessionsTableModals';
 import { useInvoiceSessionMutation } from '../hooks/useInvoiceSessionMutation';
+import { STUDENT_PLANNED_STATUSES } from '../constants/attendanceStatuses';
+import type { StudentPlannedStatus } from '../constants/attendanceStatuses';
 
 type TutorLogMap = Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
+
+function studentHasLoggedAbsence(planned: StudentPlannedStatus | undefined): boolean {
+  if (!planned) return false;
+  return (
+    planned === STUDENT_PLANNED_STATUSES.ABSENT ||
+    planned === STUDENT_PLANNED_STATUSES.RESCHEDULED ||
+    planned === STUDENT_PLANNED_STATUSES.CREDITED
+  );
+}
 
 export interface SessionsTableRowProps {
   session: Tables<'sessions'>;
@@ -482,6 +493,7 @@ function SessionsTableRowStudentActions({
     : null;
   const canLogAbsence = !!selectedStudent && !selectedStudent.invoice_status_payload;
   const canOpenAbsenceDialog = !!currentStaff && !!studentId;
+  const loggedStudentAbsence = studentHasLoggedAbsence(attendance?.plannedStatus);
   const canUndoStudent =
     onUndoLogAbsenceStudent &&
     selectedStudent?.sessions_students_id &&
@@ -508,7 +520,14 @@ function SessionsTableRowStudentActions({
       : !canLogAbsence
         ? 'No absence to log for this student.'
         : '';
-  const undoReason = canUndoStudent && selectedStudent && attendance ? '' : 'No logged absence to undo for this student.';
+  const undoReason =
+    canUndoStudent && selectedStudent && attendance
+      ? ''
+      : !selectedStudent?.sessions_students_id
+        ? 'Student enrollment data is missing for this session.'
+        : attendance?.plannedStatus === STUDENT_PLANNED_STATUSES.ABSENT
+          ? 'Only credited or rescheduled absences can be undone.'
+          : 'This absence cannot be undone.';
   const removeStudentReason = canRemoveStudent
     ? ''
     : hasTutorLog
@@ -517,9 +536,7 @@ function SessionsTableRowStudentActions({
         ? 'Student has an invoice item for this session.'
         : attendance?.plannedStatus !== 'attending-extra' && attendance?.plannedStatus !== 'attending-extra-trial'
           ? 'Only extra or trial students can be removed from a session.'
-          : !onRemoveStudentFromSession
-            ? 'Remove from session is not available here.'
-            : 'Cannot remove this student from the session.';
+          : 'Cannot remove this student from the session.';
 
   return (
     <DropdownMenu>
@@ -541,62 +558,70 @@ function SessionsTableRowStudentActions({
           <Copy className="h-4 w-4 mr-2" />
           Copy ID
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className={cn((!canLogAbsence || !canOpenAbsenceDialog) && 'opacity-60 text-muted-foreground')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (canLogAbsence && canOpenAbsenceDialog) {
-              modals.openLogAbsenceDialog(session.id);
-            } else {
-              toast({ description: logAbsenceReason || 'Cannot log absence.', variant: 'destructive' });
-            }
-          }}
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Log student absence
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className={cn(!(canUndoStudent && selectedStudent && attendance) && 'opacity-60 text-muted-foreground')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (canUndoStudent && selectedStudent && attendance) {
-              const studentName = `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
-              onUndoLogAbsenceStudent?.({
-                studentId: selectedStudent.id,
-                studentName,
-                sessionsStudentsId: selectedStudent.sessions_students_id!,
-                action: attendance.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
-                rescheduledSessionTitle,
-                sessionShortName,
-              });
-            } else {
-              toast({ description: undoReason, variant: 'destructive' });
-            }
-          }}
-        >
-          <RotateCcw className="h-4 w-4 mr-2" />
-          Undo log absence
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className={cn(
-            !canRemoveStudent && 'opacity-60 text-muted-foreground',
-            canRemoveStudent &&
-              '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (canRemoveStudent && selectedStudent) {
-              const studentName = `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
-              onRemoveStudentFromSession?.(session.id, selectedStudent.id, studentName, sessionShortName);
-            } else {
-              toast({ description: removeStudentReason, variant: 'destructive' });
-            }
-          }}
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Remove from session
-        </DropdownMenuItem>
+        {!loggedStudentAbsence && (
+          <DropdownMenuItem
+            className={cn((!canLogAbsence || !canOpenAbsenceDialog) && 'opacity-60 text-muted-foreground')}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canLogAbsence && canOpenAbsenceDialog) {
+                modals.openLogAbsenceDialog(session.id);
+              } else {
+                toast({ description: logAbsenceReason || 'Cannot log absence.', variant: 'destructive' });
+              }
+            }}
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Log student absence
+          </DropdownMenuItem>
+        )}
+        {onUndoLogAbsenceStudent && loggedStudentAbsence && (
+          <DropdownMenuItem
+            className={cn(!(canUndoStudent && selectedStudent && attendance) && 'opacity-60 text-muted-foreground')}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canUndoStudent && selectedStudent && attendance) {
+                const studentName = `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
+                onUndoLogAbsenceStudent({
+                  studentId: selectedStudent.id,
+                  studentName,
+                  sessionsStudentsId: selectedStudent.sessions_students_id!,
+                  action: attendance.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
+                  rescheduledSessionTitle,
+                  sessionShortName,
+                });
+              } else {
+                toast({ description: undoReason, variant: 'destructive' });
+              }
+            }}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Undo log absence
+          </DropdownMenuItem>
+        )}
+        {onRemoveStudentFromSession && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className={cn(
+                !canRemoveStudent && 'opacity-60 text-muted-foreground',
+                canRemoveStudent &&
+                  '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canRemoveStudent && selectedStudent) {
+                  const studentName = `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
+                  onRemoveStudentFromSession(session.id, selectedStudent.id, studentName, sessionShortName);
+                } else {
+                  toast({ description: removeStudentReason, variant: 'destructive' });
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remove from session
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -651,15 +676,11 @@ function SessionsTableRowDefaultActions({
     (staffAttendance?.plannedStatus === 'absent' || staffAttendance?.plannedStatus === 'swapped');
   const canRemoveStaff = !hasTutorLog && !!onRemoveStaffFromSession && !!selectedStaff;
   const undoStaffReason = canUndoStaff && selectedStaff && staffAttendance ? '' : 'No logged absence to undo for this staff.';
-  const editTutorLogReason = hasTutorLog ? '' : 'Session has no tutor log to edit.';
-  const logSessionReason = !hasTutorLog ? '' : 'Session already has a tutor log.';
   const removeStaffReason = canRemoveStaff
     ? ''
     : hasTutorLog
       ? 'Session has a tutor log; cannot remove staff.'
-      : !onRemoveStaffFromSession
-        ? 'Remove from session is not available here.'
-        : 'Cannot remove this staff from the session.';
+      : 'Cannot remove this staff from the session.';
 
   return (
     <DropdownMenu>
@@ -669,29 +690,33 @@ function SessionsTableRowDefaultActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem
-          className={cn(!(canUndoStaff && selectedStaff && staffAttendance) && 'opacity-60 text-muted-foreground')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (canUndoStaff && selectedStaff && staffAttendance) {
-              const staffName = `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
-              onUndoLogAbsenceStaff?.({
-                staffId: selectedStaff.id,
-                staffName,
-                sessionsStaffId: selectedStaff.sessions_staff_id!,
-                action: staffAttendance.plannedStatus === 'swapped' ? 'swap' : 'log',
-                swappedStaffName: staffAttendance.swappedStaffName || undefined,
-                sessionShortName,
-              });
-            } else {
-              toast({ description: undoStaffReason, variant: 'destructive' });
-            }
-          }}
-        >
-          <RotateCcw className="h-4 w-4 mr-2" />
-          Undo log absence
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
+        {onUndoLogAbsenceStaff && (
+          <>
+            <DropdownMenuItem
+              className={cn(!(canUndoStaff && selectedStaff && staffAttendance) && 'opacity-60 text-muted-foreground')}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canUndoStaff && selectedStaff && staffAttendance) {
+                  const staffName = `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
+                  onUndoLogAbsenceStaff({
+                    staffId: selectedStaff.id,
+                    staffName,
+                    sessionsStaffId: selectedStaff.sessions_staff_id!,
+                    action: staffAttendance.plannedStatus === 'swapped' ? 'swap' : 'log',
+                    swappedStaffName: staffAttendance.swappedStaffName || undefined,
+                    sessionShortName,
+                  });
+                } else {
+                  toast({ description: undoStaffReason, variant: 'destructive' });
+                }
+              }}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Undo log absence
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
         <DropdownMenuItem onClick={() => router.push(`/sessions/${session.id}`)}>
           <ExternalLink className="h-4 w-4 mr-2" />
           Open in page
@@ -704,54 +729,51 @@ function SessionsTableRowDefaultActions({
           <Copy className="h-4 w-4 mr-2" />
           Copy ID
         </DropdownMenuItem>
-        <DropdownMenuItem
-          className={cn(hasTutorLog && 'opacity-60 text-muted-foreground')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (!hasTutorLog) {
-              modals.openLogSessionModal(session.id);
-            } else {
-              toast({ description: logSessionReason, variant: 'destructive' });
-            }
-          }}
-        >
-          <Calendar className="h-4 w-4 mr-2" />
-          Log session
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          className={cn(!hasTutorLog && 'opacity-60 text-muted-foreground')}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (hasTutorLog && tutorLogs[session.id]) {
+        {hasTutorLog && tutorLogs[session.id] ? (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
               modals.openEditTutorLogModal(tutorLogs[session.id].id);
-            } else {
-              toast({ description: editTutorLogReason, variant: 'destructive' });
-            }
-          }}
-        >
-          <ExternalLink className="h-4 w-4 mr-2" />
-          Edit tutor log
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem
-          className={cn(
-            !canRemoveStaff && 'opacity-60 text-muted-foreground',
-            canRemoveStaff &&
-              '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
-          )}
-          onClick={(e) => {
-            e.stopPropagation();
-            if (canRemoveStaff && selectedStaff) {
-              const staffName = `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
-              onRemoveStaffFromSession?.(session.id, selectedStaff.id, staffName, sessionShortName);
-            } else {
-              toast({ description: removeStaffReason, variant: 'destructive' });
-            }
-          }}
-        >
-          <Trash2 className="h-4 w-4 mr-2" />
-          Remove from session
-        </DropdownMenuItem>
+            }}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Edit tutor log
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            onClick={(e) => {
+              e.stopPropagation();
+              modals.openLogSessionModal(session.id, session.type);
+            }}
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Log session
+          </DropdownMenuItem>
+        )}
+        {onRemoveStaffFromSession && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className={cn(
+                !canRemoveStaff && 'opacity-60 text-muted-foreground',
+                canRemoveStaff &&
+                  '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canRemoveStaff && selectedStaff) {
+                  const staffName = `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
+                  onRemoveStaffFromSession(session.id, selectedStaff.id, staffName, sessionShortName);
+                } else {
+                  toast({ description: removeStaffReason, variant: 'destructive' });
+                }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remove from session
+            </DropdownMenuItem>
+          </>
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
