@@ -101,6 +101,11 @@ export function processTutorLogsForExport(
   }> = [];
 
   const filteredLogs = tutorLogs.filter((log) => {
+    // CHECK_IN logs are intentionally excluded from QuickBooks export.
+    if ((log.sessionType as string) === 'CHECK_IN') {
+      return false;
+    }
+
     const isHomeworkHelp = log.subjectName === 'Homework Help';
     const isEmptyClass =
       isClassType(log.sessionType) && log.attendedStudentCount === 0 && !isHomeworkHelp;
