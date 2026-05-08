@@ -31,7 +31,9 @@ export const NotesEditorWithMentions = forwardRef<
   NotesEditorWithMentionsProps
 >(({ content, onChange, placeholder = 'Add a note...', disabled, minHeight = '80px', types, className, onChangeDebounceMs = 200 }, ref) => {
   const mentionSuggestions = useMentionSuggestions({ types });
-  const slashMenuSuggestions = useSlashCommandSuggestions();
+  const slashMenuSuggestions = useSlashCommandSuggestions({
+    includeCollapsibleSection: false,
+  });
   const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
     context: 'notes',
     editorRef: ref as React.RefObject<RichTextEditorRef | null>,

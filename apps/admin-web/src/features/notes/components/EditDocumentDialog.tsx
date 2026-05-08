@@ -308,6 +308,7 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                                 content={field.value}
                                 onChange={field.onChange}
                                 placeholder="Start writing..."
+                                enableCollapsibleHeadings
                                 onEditorReady={handleEditorReady}
                                 mentionSuggestions={mentionSuggestions}
                                 onMentionClick={handleDocumentMentionClick}

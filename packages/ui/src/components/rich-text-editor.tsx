@@ -188,6 +188,11 @@ export interface RichTextEditorProps {
     import('@tiptap/suggestion').SuggestionOptions,
     'editor' | 'char'
   >;
+  /**
+   * Enables collapsible heading node views with gutter chevrons.
+   * Keep this off for normal rich text fields; enable only for document editors.
+   */
+  enableCollapsibleHeadings?: boolean;
 }
 
 const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
@@ -309,6 +314,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   omitTypography = false,
   slashMenuSuggestions,
   onChangeDebounceMs,
+  enableCollapsibleHeadings = false,
 }, ref) => {
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
@@ -335,7 +341,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
-        heading: false,
+        heading: enableCollapsibleHeadings ? false : { levels: [1, 2, 3, 4, 5, 6] },
         bulletList: {
           keepMarks: true,
           keepAttributes: false,
@@ -345,9 +351,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           keepAttributes: false,
         },
       }),
-      CollapsibleHeading.configure({
-        levels: [1, 2, 3, 4, 5, 6],
-      }),
+      ...(enableCollapsibleHeadings
+        ? [
+            CollapsibleHeading.configure({
+              levels: [1, 2, 3, 4, 5, 6],
+            }),
+          ]
+        : []),
       Markdown.configure({
         markedOptions: {
           gfm: true,

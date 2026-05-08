@@ -17,6 +17,7 @@ interface NoteEditorProps {
   onEditorReady?: (editor: Editor) => void;
   mentionSuggestions?: Omit<SuggestionOptions, 'editor'>;
   onMentionClick?: (detail: MentionClickDetail) => boolean;
+  enableCollapsibleHeadings?: boolean;
   /** Default 200ms — with autosave debounce, changes persist ~0.5–0.8s after you stop typing. */
   onChangeDebounceMs?: number;
 }
@@ -27,7 +28,11 @@ interface NoteEditorProps {
  * Supports image paste and drag-and-drop for notes_documents.
  */
 export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref) => {
-  const { onChangeDebounceMs = 200, ...rest } = props;
+  const {
+    onChangeDebounceMs = 200,
+    enableCollapsibleHeadings = false,
+    ...rest
+  } = props;
   const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
     context: 'notes_documents',
     editorRef: ref as React.RefObject<NoteEditorRef | null>,
@@ -44,6 +49,7 @@ export const NoteEditor = forwardRef<NoteEditorRef, NoteEditorProps>((props, ref
         ref={ref}
         minHeight="full"
         onChangeDebounceMs={onChangeDebounceMs}
+        enableCollapsibleHeadings={enableCollapsibleHeadings}
         extensions={[JumpHighlightExtension]}
         slashMenuSuggestions={slashMenuSuggestions}
         onPasteImages={handlePasteImages}
