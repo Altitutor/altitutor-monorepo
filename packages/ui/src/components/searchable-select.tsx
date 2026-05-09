@@ -123,18 +123,25 @@ export function SearchableSelect<T>({
 
   const open = controlledOpen ?? internalOpen;
 
+  /** Avoid infinite loops when parents pass inline `onSearchChange` handlers. */
+  const onSearchChangeRef = React.useRef(onSearchChange);
+  React.useLayoutEffect(() => {
+    onSearchChangeRef.current = onSearchChange;
+  });
+
   // When inside a Dialog, portal into the dialog to fix scroll (Radix RemoveScroll issue)
   React.useEffect(() => {
     if (popoverContainer) {
-      setPortalContainer(popoverContainer);
+      setPortalContainer((prev) => (prev === popoverContainer ? prev : popoverContainer));
       return;
     }
     if (!open || !triggerRef.current) {
-      setPortalContainer(null);
+      setPortalContainer((prev) => (prev === null ? prev : null));
       return;
     }
     const dialog = triggerRef.current.closest('[role="dialog"]');
-    setPortalContainer(dialog instanceof HTMLElement ? dialog : null);
+    const next = dialog instanceof HTMLElement ? dialog : null;
+    setPortalContainer((prev) => (prev === next ? prev : next));
   }, [open, popoverContainer]);
   const setOpen = React.useCallback(
     (next: boolean) => {
@@ -189,32 +196,29 @@ export function SearchableSelect<T>({
     }
   }, [isServerSideSearch, firstSelectableValue, loading]);
 
-  const handleSearchChange = React.useCallback(
-    (query: string) => {
-      setSearch(query);
-      onSearchChange?.(query);
-    },
-    [onSearchChange]
-  );
+  const handleSearchChange = React.useCallback((query: string) => {
+    setSearch(query);
+    onSearchChangeRef.current?.(query);
+  }, []);
 
   const handleSelect = React.useCallback(
     (item: T | null) => {
       onValueChange(item);
       setOpen(false);
       setSearch("");
-      onSearchChange?.("");
+      onSearchChangeRef.current?.("");
     },
-    [onValueChange, onSearchChange, setOpen]
+    [onValueChange, setOpen]
   );
 
   React.useEffect(() => {
     if (!open) {
       setSearch("");
-      onSearchChange?.("");
+      onSearchChangeRef.current?.("");
     } else if (isServerSideSearch) {
-      onSearchChange?.("");
+      onSearchChangeRef.current?.("");
     }
-  }, [open, isServerSideSearch, onSearchChange]);
+  }, [open, isServerSideSearch]);
 
   const displayValue = value ? getItemLabel(value) : placeholder;
 

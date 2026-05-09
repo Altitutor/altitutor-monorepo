@@ -1,6 +1,16 @@
 'use client';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Badge, SessionInfoGrid } from '@altitutor/ui';
+import Link from 'next/link';
+import {
+  Button,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  Badge,
+  SessionInfoGrid,
+} from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getSessionTitle, formatSessionDate, type FlattenedSessionDetail } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
@@ -8,8 +18,15 @@ import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { useCurrentStudentId } from '@/shared/hooks';
 import { useSessionWithDetails } from '../hooks/useSessionWithDetails';
+import { useSessionTutorLogResources } from '../hooks/useSessionTutorLogResources';
+import { TopicFilesList } from '@/features/resources/components/topic-files-list';
 import { cn } from '@/shared/utils';
-import { studentModalHairline, studentModalInsetCard, studentModalShell } from '@/shared/lib/student-visual';
+import {
+  studentBtnOutline,
+  studentModalHairline,
+  studentModalInsetCard,
+  studentModalShell,
+} from '@/shared/lib/student-visual';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -117,6 +134,12 @@ function StaffCard({ staff }: {
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
   const { data: currentStudentId } = useCurrentStudentId();
   const { data, isLoading } = useSessionWithDetails(sessionId, isOpen && !!sessionId);
+  const sessionRowForLog = data ? (data as unknown as FlattenedSessionDetail) : null;
+  const { data: tutorLogResources } = useSessionTutorLogResources(
+    sessionId,
+    sessionRowForLog,
+    isOpen && !!sessionId,
+  );
 
   // Always render the Sheet to allow exit animation
   if (isLoading || !data) {
@@ -125,10 +148,10 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         <SheetContent
           className={cn(
             studentModalShell,
-            'h-full max-h-[100dvh] w-full flex-col rounded-none rounded-l-2xl p-0 md:w-[600px] md:max-w-none [&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+            'flex h-full max-h-[100dvh] w-full flex-col overflow-hidden rounded-none rounded-l-2xl p-0 md:w-[600px] md:max-w-none [&>button]:rounded-xl [&>button]:hover:bg-muted/80',
           )}
         >
-          <div className="flex-1 overflow-y-auto p-6">
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
             <SheetHeader className="mb-6">
               <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
             </SheetHeader>
@@ -180,10 +203,10 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
       <SheetContent
         className={cn(
           studentModalShell,
-          'h-full max-h-[100dvh] w-full flex-col rounded-none rounded-l-2xl p-0 md:w-[600px] md:max-w-none [&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+          'flex h-full max-h-[100dvh] w-full flex-col overflow-hidden rounded-none rounded-l-2xl p-0 md:w-[600px] md:max-w-none [&>button]:rounded-xl [&>button]:hover:bg-muted/80',
         )}
       >
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
           <SheetHeader className="mb-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
@@ -268,6 +291,60 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                 </div>
               )}
             </div>
+
+            {tutorLogResources ? (
+              <>
+                <div className={cn(studentModalHairline, 'my-6')} />
+                <div>
+                  <h3 className="mb-4 text-2xl font-semibold">Topics covered</h3>
+                  {tutorLogResources.topicSections.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No topics or files were linked to you in this session&apos;s log.
+                    </p>
+                  ) : (
+                    <div className="space-y-10">
+                      {tutorLogResources.topicSections.map((section) => {
+                        const short = section.subjectShortName.trim();
+                        const getFileHref = (fileCode: string) =>
+                          short
+                            ? `/resources/${encodeURIComponent(short)}/${encodeURIComponent(section.code)}/${encodeURIComponent(fileCode.toLowerCase())}`
+                            : '#';
+
+                        const topicHref =
+                          short && section.code !== '—'
+                            ? `/resources/${encodeURIComponent(short)}/${encodeURIComponent(section.code)}`
+                            : null;
+
+                        return (
+                          <div key={section.topicId}>
+                            <div className="mb-4 flex items-start justify-between gap-3">
+                              <p className="min-w-0 flex-1 text-lg font-semibold tracking-tight text-foreground">
+                                <span className="line-clamp-2">{section.code} · {section.name}</span>
+                              </p>
+                              {topicHref ? (
+                                <Button
+                                  asChild
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(studentBtnOutline, 'shrink-0')}
+                                >
+                                  <Link href={topicHref}>Go to topic</Link>
+                                </Button>
+                              ) : null}
+                            </div>
+                            <TopicFilesList
+                              files={section.files}
+                              getFileHref={getFileHref}
+                              fileTypeHeadingClassName="mb-2 text-base font-semibold text-foreground"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       </SheetContent>

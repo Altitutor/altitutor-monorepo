@@ -71,13 +71,23 @@ export function ResourceFileViewer({
   }
 
   if (isPdf && pdfSrc) {
-    return <iframe src={pdfSrc} title={filename} className="h-[80dvh] w-full rounded-md border" />;
+    return (
+      <iframe
+        src={pdfSrc}
+        title={filename}
+        className="sticky top-4 block h-[calc(100dvh-var(--navbar-height)-4rem)] w-full rounded-md border"
+      />
+    );
   }
 
   if (isImage) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
-      <img src={signedUrl} alt={filename} className="max-h-[80dvh] w-auto rounded-md border" />
+      <img
+        src={signedUrl}
+        alt={filename}
+        className="sticky top-4 block max-h-[calc(100dvh-var(--navbar-height)-4rem)] w-auto rounded-md border"
+      />
     );
   }
 

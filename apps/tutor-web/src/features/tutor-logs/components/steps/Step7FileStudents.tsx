@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect } from 'react';
-import { X } from 'lucide-react';
+import { X, Plus } from 'lucide-react';
+import type { Tables } from '@altitutor/shared';
+import { Button, SearchableSelect } from '@altitutor/ui';
 import { useTutorLogStep7Data } from '../../hooks/useTutorLogStep7Data';
 
 type TopicItem = {
@@ -125,23 +127,51 @@ export function Step7FileStudents({
                     </div>
                   );
                 })}
-                {availableStudents
-                  .filter((id) => !file.studentIds.includes(id))
-                  .map((studentId) => {
-                    const student = getStudent(studentId);
-                    if (!student) return null;
-
-                    return (
-                      <button
-                        key={studentId}
-                        type="button"
-                        onClick={() => handleAddStudent(file.topicsFilesId, studentId)}
-                        className="px-2 py-1 border border-dashed rounded-md text-sm hover:bg-accent"
-                      >
-                        + {student.first_name} {student.last_name}
-                      </button>
-                    );
-                  })}
+                {(() => {
+                  const studentsToAdd = availableStudents
+                    .filter((id) => !file.studentIds.includes(id))
+                    .map((id) => getStudent(id))
+                    .filter((s): s is Tables<'students'> => s != null);
+                  if (studentsToAdd.length === 0) return null;
+                  return (
+                    <div className="basis-full mt-3 w-full min-w-0">
+                    <SearchableSelect<Tables<'students'>>
+                      items={studentsToAdd}
+                      value={null}
+                      onValueChange={(student) => {
+                        if (student) handleAddStudent(file.topicsFilesId, student.id);
+                      }}
+                      getItemId={(s) => s.id}
+                      getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+                      getItemValue={(s) =>
+                        `${s.first_name} ${s.last_name} ${s.email ?? ''} ${s.year_level ?? ''}`.toLowerCase()
+                      }
+                      searchPlaceholder="Find student..."
+                      emptyMessage="All students for this topic are assigned to this file"
+                      trigger={
+                        <Button variant="outline" size="sm" className="border-dashed">
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add student
+                        </Button>
+                      }
+                      align="start"
+                      contentWidth="min(320px, 90vw)"
+                      renderItem={(student) => (
+                        <div className="flex w-full items-center justify-between gap-2 min-w-0">
+                          <span className="min-w-0 truncate">
+                            {student.first_name} {student.last_name}
+                          </span>
+                          {student.year_level != null && (
+                            <span className="text-sm text-muted-foreground shrink-0">
+                              Year {student.year_level}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    />
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           );

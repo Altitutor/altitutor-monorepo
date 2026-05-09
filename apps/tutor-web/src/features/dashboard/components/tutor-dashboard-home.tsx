@@ -2,26 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { addDays, format, isSameDay } from 'date-fns';
+import { addDays, format, isSameDay, startOfDay } from 'date-fns';
 import {
   ArrowRight,
   BookOpen,
   BrainCircuit,
   Calendar,
   Settings,
-  Sparkles,
   User,
   type LucideIcon,
 } from 'lucide-react';
-import {
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Skeleton,
-} from '@altitutor/ui';
+import { Button, Card, Skeleton } from '@altitutor/ui';
 import type { Database } from '@altitutor/shared';
 import type { SessionStudent } from '@/features/sessions/utils/session-helpers';
 import { TutorDashboardSessionCard } from './TutorDashboardSessionCard';
@@ -29,10 +20,11 @@ import {
   useTutorSessionDetailsBatch,
   useTutorSessionsInRange,
 } from '@/features/sessions/hooks/useSessionsQuery';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { LogSessionModal, UnloggedSessionsTableSection } from '@/features/tutor-logs/components';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
 import { TutorPageContainer } from '@/shared/components/layouts';
-import { tutorBtnOutline, tutorBtnPrimary, tutorCardCn } from '@/shared/lib/tutor-visual';
+import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 import { cn } from '@/shared/utils';
 
 const SESSION_RANGE_DAYS = 56;
@@ -43,16 +35,13 @@ type TutorSessionWithId = TutorSessionRow & { session_id: string };
 function DashboardSessionsSkeleton() {
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-4 w-full max-w-md" />
-        </div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <Skeleton className="h-8 w-40" />
         <Skeleton className="h-9 w-36 shrink-0 rounded-xl" />
       </div>
-      <div className="space-y-3">
-        <Skeleton className="h-[7.5rem] w-full rounded-2xl" />
-        <Skeleton className="h-[7.5rem] w-full rounded-2xl" />
+      <div className="space-y-2">
+        <Skeleton className="h-28 w-full rounded-xl" />
+        <Skeleton className="h-28 w-full rounded-xl" />
       </div>
     </div>
   );
@@ -119,6 +108,9 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
   const [logSessionPreselectedId, setLogSessionPreselectedId] = useState<string | undefined>(
     undefined,
   );
+  const [logSessionCompletedCount, setLogSessionCompletedCount] = useState(0);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const [isSessionModalOpen, setIsSessionModalOpen] = useState(false);
 
   const handleOpenLogSession = (preselectedSessionId?: string) => {
     setLogSessionPreselectedId(preselectedSessionId);
@@ -126,8 +118,22 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
   };
 
   const handleCloseLogSession = () => {
+    const hadPreselected = !!logSessionPreselectedId;
     setIsLogSessionModalOpen(false);
     setLogSessionPreselectedId(undefined);
+    if (hadPreselected) {
+      setLogSessionCompletedCount((c) => c + 1);
+    }
+  };
+
+  const handleOpenSession = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setIsSessionModalOpen(true);
+  };
+
+  const handleCloseSessionModal = () => {
+    setIsSessionModalOpen(false);
+    setTimeout(() => setSelectedSessionId(null), 300);
   };
 
   const today = useMemo(() => new Date(), []);
@@ -141,66 +147,27 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
     isError: sessionsError,
   } = useTutorSessionsInRange(rangeStart, rangeEnd);
 
-  const { todaysSessions, primarySessions, focusDay, scheduleMode } = useMemo((): {
-    todaysSessions: TutorSessionWithId[];
-    primarySessions: TutorSessionWithId[];
-    focusDay: Date | null;
-    scheduleMode: 'today' | 'next-day' | 'empty';
-  } => {
-    if (!sessions?.length) {
-      return {
-        todaysSessions: [],
-        primarySessions: [],
-        focusDay: null,
-        scheduleMode: 'empty',
-      };
-    }
+  /** Same idea as student dashboard: first upcoming session defines the day; show all upcoming sessions that day. */
+  const primarySessions = useMemo((): TutorSessionWithId[] => {
+    if (!sessions?.length) return [];
 
     const withId = sessions.filter((s): s is TutorSessionWithId => Boolean(s.session_id));
+    const nowMs = Date.now();
+    const upcoming = withId.filter(
+      (s) => s.start_at && new Date(s.start_at).getTime() > nowMs,
+    );
+    if (!upcoming.length) return [];
 
-    const sorted = [...withId].sort(
+    upcoming.sort(
       (a, b) =>
         new Date(a.start_at ?? 0).getTime() - new Date(b.start_at ?? 0).getTime(),
     );
 
-    const todays = sorted.filter(
-      (s) => s.start_at && isSameDay(new Date(s.start_at), today),
+    const anchorDay = startOfDay(new Date(upcoming[0].start_at!));
+    return upcoming.filter(
+      (s) => s.start_at && isSameDay(new Date(s.start_at), anchorDay),
     );
-
-    if (todays.length > 0) {
-      return {
-        todaysSessions: todays,
-        primarySessions: todays,
-        focusDay: today,
-        scheduleMode: 'today',
-      };
-    }
-
-    for (let d = 1; d <= SESSION_RANGE_DAYS; d += 1) {
-      const day = addDays(today, d);
-      const onDay = sorted.filter(
-        (s) => s.start_at && isSameDay(new Date(s.start_at), day),
-      );
-      if (onDay.length > 0) {
-        return {
-          todaysSessions: [],
-          primarySessions: [...onDay].sort(
-            (a, b) =>
-              new Date(a.start_at ?? 0).getTime() - new Date(b.start_at ?? 0).getTime(),
-          ),
-          focusDay: day,
-          scheduleMode: 'next-day',
-        };
-      }
-    }
-
-    return {
-      todaysSessions: [],
-      primarySessions: [],
-      focusDay: null,
-      scheduleMode: 'empty',
-    };
-  }, [sessions, today]);
+  }, [sessions]);
 
   const detailIds = useMemo(() => primarySessions.map((s) => s.session_id), [primarySessions]);
   const { data: detailsMap } = useTutorSessionDetailsBatch(detailIds);
@@ -208,24 +175,6 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
   const quickLinks = ucatAccess.data
     ? [baseQuickLinks[0], ucatQuickLink, ...baseQuickLinks.slice(1)]
     : baseQuickLinks;
-
-  const sessionsSubheading =
-    scheduleMode === 'today'
-      ? 'Today'
-      : scheduleMode === 'next-day' && focusDay
-        ? format(focusDay, 'EEEE, d MMMM yyyy')
-        : 'Sessions';
-
-  const sessionsDescription =
-    scheduleMode === 'today'
-      ? todaysSessions.length === 1
-        ? 'You have one session scheduled today.'
-        : `You have ${todaysSessions.length} sessions today.`
-      : scheduleMode === 'next-day' && focusDay
-        ? primarySessions.length === 1
-          ? 'No sessions today — you have one session on this day.'
-          : `No sessions today — you have ${primarySessions.length} sessions on this day.`
-        : 'No upcoming sessions in the next several weeks.';
 
   return (
     <>
@@ -243,87 +192,60 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
           </p>
         </header>
 
-        <section aria-labelledby="sessions-heading" className="space-y-4">
-          <h2 id="sessions-heading" className="text-2xl font-semibold">
-            Sessions
-          </h2>
+        <section aria-labelledby="next-session-heading" className="space-y-4">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <h2 id="next-session-heading" className="text-2xl font-semibold">
+              Next session
+            </h2>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className={cn(tutorBtnOutline, 'shrink-0')}
+            >
+              <Link href="/classes" className="gap-2">
+                Timetable
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </Button>
+          </div>
 
           {sessionsLoading ? (
             <DashboardSessionsSkeleton />
           ) : sessionsError ? (
-            <Card className={tutorCardCn('bg-destructive/8 ring-destructive/25')}>
-              <CardHeader>
-                <CardTitle className="text-base">Could not load sessions</CardTitle>
-                <CardDescription>
-                  Refresh the page or open your timetable from Classes.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button asChild variant="outline" size="sm" className={tutorBtnOutline}>
-                  <Link href="/classes">Go to classes</Link>
-                </Button>
-              </CardContent>
-            </Card>
+            <p className="text-sm text-muted-foreground">
+              Could not load your sessions.{' '}
+              <Link
+                href="/classes"
+                className="font-medium text-foreground underline-offset-4 hover:underline"
+              >
+                Open timetable
+              </Link>
+            </p>
+          ) : primarySessions.length > 0 ? (
+            <div className="space-y-2">
+              {primarySessions.map((session) => {
+                const details = detailsMap?.[session.session_id];
+                const students =
+                  details?.students?.map((s: SessionStudent) => ({
+                    ...s,
+                    year_level: s.year_level ?? undefined,
+                  })) ?? [];
+                return (
+                  <TutorDashboardSessionCard
+                    key={session.session_id}
+                    session={session}
+                    staff={details?.staff}
+                    students={students}
+                    onOpen={() => handleOpenSession(session.session_id)}
+                  />
+                );
+              })}
+            </div>
           ) : (
-            <>
-              <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                <div>
-                  <h3 className="text-xl font-semibold tracking-tight">{sessionsSubheading}</h3>
-                  <p className="mt-1.5 max-w-xl text-sm text-muted-foreground">
-                    {sessionsDescription}
-                  </p>
-                </div>
-                <Button
-                  asChild
-                  variant="outline"
-                  size="sm"
-                  className={cn(tutorBtnOutline, 'shrink-0')}
-                >
-                  <Link href="/classes" className="gap-2">
-                    Full timetable
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                </Button>
-              </div>
-
-              {primarySessions.length > 0 ? (
-                <ul className="grid gap-3 sm:grid-cols-1">
-                  {primarySessions.map((session) => {
-                    const details = detailsMap?.[session.session_id];
-                    const students =
-                      details?.students?.map((s: SessionStudent) => ({
-                        ...s,
-                        year_level: s.year_level ?? undefined,
-                      })) ?? [];
-                    return (
-                      <li key={session.session_id}>
-                        <TutorDashboardSessionCard
-                          session={session}
-                          staff={details?.staff}
-                          students={students}
-                        />
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <div className="flex flex-col items-start gap-4 rounded-2xl bg-muted/50 px-6 py-10 text-center ring-1 ring-black/[0.05] sm:items-center sm:text-center dark:ring-white/10">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                    <Sparkles className="h-6 w-6 text-muted-foreground" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="font-medium">You are all clear for now</p>
-                    <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                      When sessions are assigned to you, they will show up here. Your calendar
-                      and session tools live under Classes.
-                    </p>
-                  </div>
-                  <Button asChild className={tutorBtnPrimary}>
-                    <Link href="/classes">View classes</Link>
-                  </Button>
-                </div>
-              )}
-            </>
+            <p className="text-sm text-muted-foreground">
+              No upcoming sessions in the next several weeks. Check your timetable under Classes.
+            </p>
           )}
         </section>
 
@@ -381,6 +303,16 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
         </section>
       </TutorPageContainer>
     </div>
+
+    <SessionModal
+      isOpen={isSessionModalOpen}
+      sessionId={selectedSessionId}
+      onClose={handleCloseSessionModal}
+      onLogSessionClick={() => handleOpenLogSession(selectedSessionId ?? undefined)}
+      currentStaffId={staffId}
+      currentStaffIdForNotes={staffId}
+      refreshTrigger={logSessionCompletedCount}
+    />
 
     {staffId ? (
       <LogSessionModal

@@ -261,7 +261,7 @@ export function LogSessionModal({
             getItemValue={(s) =>
               `${s.first_name ?? ''} ${s.last_name ?? ''} ${s.email ?? ''}`.toLowerCase()
             }
-            onSearchChange={(q) => void handleAdminStaffSearch(q)}
+            onSearchChange={handleAdminStaffSearch}
             loading={adminStaffSearchLoading}
             searchPlaceholder="Search staff by name..."
             emptyMessage="Type to search for a staff member"

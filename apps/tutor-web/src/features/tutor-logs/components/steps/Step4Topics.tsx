@@ -1,11 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { Checkbox } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
-import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import type { Tables } from '@altitutor/shared';
+import { Badge, Button, Checkbox, SearchableSelect } from '@altitutor/ui';
+import { Plus, ChevronRight, ChevronDown } from 'lucide-react';
 import { useTutorLogStep4Data } from '../../hooks/useTutorLogStep4Data';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
 import { cn } from '@/shared/utils/index';
@@ -31,8 +29,11 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
 
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
   const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+
+  const crossSubjectTopicOptions = useMemo(
+    () => allTopics.filter((topic) => !topics.some((t) => t.topicId === topic.id)),
+    [allTopics, topics]
+  );
 
   const handleToggleTopic = (topicId: string, checked: boolean) => {
     if (checked) {
@@ -123,9 +124,14 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
         onUpdate([...topics, { topicId, studentIds: [] }]);
       }
     }
-    setSearchTerm('');
-    setShowSearch(false);
   };
+
+  const addTopicFromOtherSubjectTrigger = (
+    <Button variant="outline" className="w-full sm:w-auto">
+      <Plus className="h-4 w-4 mr-2" />
+      Add Topic from Another Subject
+    </Button>
+  );
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
@@ -160,81 +166,49 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
         </div>
       )}
 
-      {!showSearch && (
-        <Button variant="outline" onClick={() => setShowSearch(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Topic from Another Subject
-        </Button>
-      )}
+      <div className="mt-6">
+        <SearchableSelect<Tables<'topics'>>
+          items={crossSubjectTopicOptions}
+          value={null}
+          onValueChange={(topic) => {
+            if (topic) handleAddTopic(topic.id);
+          }}
+          getItemId={(t) => t.id}
+          getItemLabel={(t) => (t.code ? `${t.code} ${t.name}` : t.name)}
+          getItemValue={(t) => {
+            const subject = t.subject_id ? subjectsMap.get(t.subject_id) : null;
+            const subjectName = subject ? formatSubjectShortName(subject) : '';
+            return `${t.name} ${t.code ?? ''} ${subjectName}`.toLowerCase();
+          }}
+          searchPlaceholder="Search topics..."
+          emptyMessage="No matching topics, or all topics are already selected"
+          trigger={addTopicFromOtherSubjectTrigger}
+          align="start"
+          contentWidth="min(400px, 92vw)"
+          renderItem={(topic) => {
+            const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : null;
+            const topicCode = topic.code || '';
+            const { style, textColorClass } = getSubjectColorStyle(subject);
+            const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
 
-      {showSearch && (
-        <div className="space-y-2 border rounded-md p-4 bg-muted/30">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search topics..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              autoFocus
-            />
-          </div>
-
-          <div className="max-h-60 overflow-y-auto space-y-1">
-            {allTopics
-              .filter((topic) => {
-                if (isTopicSelected(topic.id)) return false;
-                if (searchTerm === '') return true;
-                
-                const searchLower = searchTerm.toLowerCase();
-                const topicName = topic.name.toLowerCase();
-                const topicCode = (topic.code || '').toLowerCase();
-                const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : null;
-                const subjectName = subject ? formatSubjectShortName(subject).toLowerCase() : '';
-                
-                return (
-                  topicName.includes(searchLower) ||
-                  topicCode.includes(searchLower) ||
-                  subjectName.includes(searchLower)
-                );
-              })
-              .map((topic) => {
-                const subject = topic.subject_id ? subjectsMap.get(topic.subject_id) : null;
-                const topicCode = topic.code || '';
-                const { style, textColorClass } = getSubjectColorStyle(subject);
-                const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
-                
-                return (
-                  <button
-                    key={topic.id}
-                    type="button"
-                    onClick={() => handleAddTopic(topic.id)}
-                    className="w-full text-left p-2 hover:bg-accent rounded-md transition-colors flex items-center gap-2"
+            return (
+              <div className="flex items-center gap-2 w-full min-w-0">
+                {subject && (
+                  <Badge
+                    variant="secondary"
+                    className={cn('text-xs px-2 py-0.5 shrink-0', defaultClass || textColorClass)}
+                    style={style.backgroundColor ? style : undefined}
                   >
-                    {subject && (
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "text-xs px-2 py-0.5 shrink-0",
-                          defaultClass || textColorClass
-                        )}
-                        style={style.backgroundColor ? style : undefined}
-                      >
-                        {formatSubjectShortName(subject)}
-                      </Badge>
-                    )}
-                    <span className="text-sm font-mono text-muted-foreground shrink-0">{topicCode}</span>
-                    <span className="flex-1">{topic.name}</span>
-                  </button>
-                );
-              })}
-          </div>
-
-          <Button variant="outline" size="sm" onClick={() => setShowSearch(false)}>
-            Cancel
-          </Button>
-        </div>
-      )}
+                    {formatSubjectShortName(subject)}
+                  </Badge>
+                )}
+                <span className="text-sm font-mono text-muted-foreground shrink-0">{topicCode}</span>
+                <span className="flex-1 min-w-0 truncate">{topic.name}</span>
+              </div>
+            );
+          }}
+        />
+      </div>
     </div>
   );
 }

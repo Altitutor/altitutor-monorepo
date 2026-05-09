@@ -1,11 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { Plus, X, Search } from 'lucide-react';
+import { SearchableSelect } from '@altitutor/ui';
+import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { useTutorLogStep3Data } from '../../hooks/useTutorLogStep3Data';
 import { tutorViewsApi } from '../../api/tutor-views';
@@ -35,8 +35,7 @@ export function Step3StudentAttendance({
     useTutorLogStep3Data(sessionId);
 
   const [additionalStudents, setAdditionalStudents] = useState<string[]>([]);
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [studentAddQuery, setStudentAddQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Tables<'students'>[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   // Cache of students we've searched for, so we can display them even if not in allStudents
@@ -78,39 +77,61 @@ export function Step3StudentAttendance({
     onUpdate(updated);
   };
 
-  const handleSearchStudents = async (search: string) => {
-    setSearchTerm(search);
-    if (!search.trim()) {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    try {
-      const results = await tutorViewsApi.searchStudents({
-        search,
-        limit: 50,
-      });
-      // Cache all searched students so we can display them later
-      const newCache = new Map(searchedStudentsCache);
-      results.forEach((student) => {
-        newCache.set(student.id, student);
-      });
-      setSearchedStudentsCache(newCache);
-      
-      // Filter out students already in session or already added
-      const existingStudentIds = new Set([
+  const existingStudentIds = useMemo(
+    () =>
+      new Set([
         ...sessionStudents.map((ss) => ss.student_id),
         ...additionalStudents,
-      ]);
-      setSearchResults(results.filter((s) => !existingStudentIds.has(s.id)));
-    } catch (error) {
-      console.error('Error searching students:', error);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  };
+      ]),
+    [sessionStudents, additionalStudents]
+  );
+
+  const localAddCandidates = useMemo(
+    () => allStudents.filter((s) => !existingStudentIds.has(s.id)),
+    [allStudents, existingStudentIds]
+  );
+
+  const addStudentSelectItems = useMemo(() => {
+    if (!studentAddQuery.trim()) return localAddCandidates;
+    if (searchResults.length > 0) return searchResults;
+    const q = studentAddQuery.toLowerCase();
+    return localAddCandidates.filter((s) =>
+      `${s.first_name} ${s.last_name}`.toLowerCase().includes(q)
+    );
+  }, [studentAddQuery, searchResults, localAddCandidates]);
+
+  const handleStudentAddSearchChange = useCallback(
+    async (search: string) => {
+      setStudentAddQuery(search);
+      if (!search.trim()) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        const results = await tutorViewsApi.searchStudents({
+          search,
+          limit: 50,
+        });
+        setSearchedStudentsCache((prev) => {
+          const next = new Map(prev);
+          results.forEach((student) => {
+            next.set(student.id, student);
+          });
+          return next;
+        });
+
+        setSearchResults(results.filter((s) => !existingStudentIds.has(s.id)));
+      } catch (error) {
+        console.error('Error searching students:', error);
+        setSearchResults([]);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [existingStudentIds]
+  );
 
   const handleAddStudent = async (studentId: string) => {
     if (!additionalStudents.includes(studentId)) {
@@ -130,9 +151,7 @@ export function Step3StudentAttendance({
       setAdditionalStudents([...additionalStudents, studentId]);
       handleAttendanceChange(studentId, true);
     }
-    setSearchTerm('');
     setSearchResults([]);
-    setShowSearch(false);
   };
 
   const handleRemoveStudent = (studentId: string) => {
@@ -144,24 +163,12 @@ export function Step3StudentAttendance({
     return studentAttendance.find((sa) => sa.studentId === studentId);
   };
 
-  const isStudentAlreadyAdded = (studentId: string) => {
-    return (
-      sessionStudents.some((ss) => ss.student_id === studentId) ||
-      additionalStudents.includes(studentId)
-    );
-  };
-
-  // Use search results if available, otherwise filter from allStudents
-  const filteredStudents = searchTerm.trim() && searchResults.length > 0
-    ? searchResults
-    : allStudents.filter(
-        (student) =>
-          !isStudentAlreadyAdded(student.id) &&
-          (searchTerm === '' ||
-            `${student.first_name} ${student.last_name}`
-              .toLowerCase()
-              .includes(searchTerm.toLowerCase()))
-      );
+  const addStudentTrigger = (
+    <Button variant="outline" className="w-full sm:w-auto">
+      <Plus className="h-4 w-4 mr-2" />
+      Add Student
+    </Button>
+  );
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
@@ -249,62 +256,48 @@ export function Step3StudentAttendance({
         </div>
       )}
 
-      {/* Add Student Button */}
-      {!showSearch && (
-        <Button variant="outline" onClick={() => setShowSearch(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Student
-        </Button>
-      )}
-
-      {/* Search Interface */}
-      {showSearch && (
-        <div className="space-y-2 border rounded-md p-4 bg-muted/30">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search students..."
-              value={searchTerm}
-              onChange={(e) => handleSearchStudents(e.target.value)}
-              className="pl-10"
-              autoFocus
-            />
-          </div>
-          
-          <div className="max-h-60 overflow-y-auto space-y-1">
-            {isSearching ? (
-              <div className="text-center py-4 text-muted-foreground text-sm">Searching...</div>
-            ) : filteredStudents.length > 0 ? (
-              filteredStudents.map((student) => (
-                <button
-                  key={student.id}
-                  type="button"
-                  onClick={() => handleAddStudent(student.id)}
-                  className="w-full text-left p-2 hover:bg-accent rounded-md transition-colors flex justify-between items-center"
-                >
-                  <span>
-                    {student.first_name} {student.last_name}
-                    {student.status === 'TRIAL' && (
-                      <span className="ml-2 text-xs text-muted-foreground">(Trial)</span>
-                    )}
-                  </span>
-                  {student.year_level != null && (
-                    <span className="text-sm text-muted-foreground">Year {student.year_level}</span>
-                  )}
-                </button>
-              ))
-            ) : (
-              <div className="text-center py-4 text-muted-foreground text-sm">
-                {searchTerm ? 'No students found' : 'Start typing to search for students'}
-              </div>
+      <div className="mt-6">
+        <SearchableSelect<Tables<'students'>>
+        items={addStudentSelectItems}
+        value={null}
+        onValueChange={(student) => {
+          if (student) void handleAddStudent(student.id);
+        }}
+        getItemId={(s) => s.id}
+        getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+        getItemValue={(s) =>
+          `${s.first_name} ${s.last_name} ${s.email ?? ''} ${s.year_level ?? ''}`.toLowerCase()
+        }
+        onSearchChange={handleStudentAddSearchChange}
+        loading={isSearching}
+        searchPlaceholder="Search students..."
+        emptyMessage={
+          studentAddQuery.trim()
+            ? 'No students found'
+            : localAddCandidates.length === 0
+              ? 'All known students are already on this session'
+              : 'Browse the list or type to search'
+        }
+        trigger={addStudentTrigger}
+        align="start"
+        contentWidth="min(400px, 92vw)"
+        renderItem={(student) => (
+          <div className="flex w-full items-center justify-between gap-2 min-w-0">
+            <span className="min-w-0 truncate">
+              {student.first_name} {student.last_name}
+              {student.status === 'TRIAL' && (
+                <span className="ml-2 text-xs text-muted-foreground">(Trial)</span>
+              )}
+            </span>
+            {student.year_level != null && (
+              <span className="text-sm text-muted-foreground shrink-0">
+                Year {student.year_level}
+              </span>
             )}
           </div>
-
-          <Button variant="outline" size="sm" onClick={() => setShowSearch(false)}>
-            Cancel
-          </Button>
-        </div>
-      )}
+        )}
+        />
+      </div>
     </div>
   );
 }

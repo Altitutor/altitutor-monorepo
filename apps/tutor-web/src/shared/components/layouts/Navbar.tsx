@@ -88,7 +88,7 @@ export function Navbar() {
                 width={160}
                 height={36}
                 priority
-                className="object-contain"
+                className="h-auto w-auto max-h-12 object-contain"
               />
             </div>
           </div>

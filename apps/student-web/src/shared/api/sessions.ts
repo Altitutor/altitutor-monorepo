@@ -2,9 +2,6 @@ import type { Database, Json, ResourceFile } from '@altitutor/shared';
 import { mapTopicFile } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
-import type { FlattenedSessionDetail } from '@/features/sessions/utils/session-helpers';
-import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
-
 type StudentSessionBase = Database['public']['Views']['vstudent_session_base']['Row'];
 
 export interface StudentSessionWithStaff extends Omit<StudentSessionBase, 'staff' | 'students'> {
@@ -72,13 +69,6 @@ export type SessionTutorLogTopicSection = {
 export type SessionTutorLogResources = {
   tutorLogId: string;
   topicSections: SessionTutorLogTopicSection[];
-};
-
-export type RecentSessionTutorLogDashboard = {
-  sessionId: string;
-  session: FlattenedSessionDetail;
-  sessionTitle: string;
-  tutorLogResources: SessionTutorLogResources;
 };
 
 export const studentSessionsApi = {
@@ -277,48 +267,6 @@ export const studentSessionsApi = {
     return {
       tutorLogId: logRow.tutor_log_id,
       topicSections,
-    };
-  },
-
-  /**
-   * Latest tutor log for the current student (by log time), with session detail and resource links data.
-   */
-  getRecentSessionTutorLogForDashboard: async (): Promise<RecentSessionTutorLogDashboard | null> => {
-    const supabase = getSupabaseClient();
-
-    const { data: latest, error: latestError } = await supabase
-      .from('vstudent_tutor_log')
-      .select('session_id')
-      .order('tutor_log_created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (latestError) throw latestError;
-    const sessionId = latest?.session_id;
-    if (!sessionId) return null;
-
-    const { data: detail, error: detailError } = await supabase
-      .from('vstudent_session_detail')
-      .select('*')
-      .eq('session_id', sessionId)
-      .maybeSingle();
-
-    if (detailError) throw detailError;
-    if (!detail) return null;
-
-    const flat = detail as unknown as FlattenedSessionDetail;
-    const tutorLogResources = await studentSessionsApi.getSessionTutorLogResources(sessionId, {
-      sessionSubjectId: flat.subject_id ?? null,
-      sessionSubjectShortName: flat.subject_short_name ?? null,
-    });
-
-    if (!tutorLogResources) return null;
-
-    return {
-      sessionId,
-      session: flat,
-      sessionTitle: getSessionTitle(flat),
-      tutorLogResources,
     };
   },
 };

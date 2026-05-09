@@ -1,7 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { ArrowLeft, ArrowRight } from 'lucide-react';
+import { Button } from '@altitutor/ui';
 import {
   ResourceAccessDenied,
   ResourceFileViewer,
@@ -25,6 +28,8 @@ import {
   pairFilesWithSolutions,
 } from '@/features/resources/lib/helpers';
 import { StudentPageContainer } from '@/shared/components/layouts';
+import { studentBtnOutline } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 export default function ResourceFileDetailPage() {
   const params = useParams<{ subjectShortName: string; topicCode: string; fileCode: string }>();
@@ -80,6 +85,15 @@ export default function ResourceFileDetailPage() {
     if (!file) return null;
     return buildResourceFileTitle(file, topic?.name ?? null, topicFiles ?? []);
   }, [file, topic?.name, topicFiles]);
+
+  const counterpartFile = useMemo(() => {
+    if (!file || !topicFiles?.length) return null;
+    if (file.isSolutions) {
+      if (!file.isSolutionsOfId) return null;
+      return topicFiles.find((f) => f.id === file.isSolutionsOfId) ?? null;
+    }
+    return topicFiles.find((f) => f.isSolutions && f.isSolutionsOfId === file.id) ?? null;
+  }, [file, topicFiles]);
 
   const { prev, next } = useMemo(() => {
     if (!file?.id || !topicFiles?.length) return { prev: null, next: null };
@@ -141,11 +155,32 @@ export default function ResourceFileDetailPage() {
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {fileTitle ?? file?.code ?? fileCode}
-            </h1>
-            <p className="mt-1 truncate text-muted-foreground">{file?.filename}</p>
+          <div className="space-y-3">
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">
+                {fileTitle ?? file?.code ?? fileCode}
+              </h1>
+              <p className="mt-1 truncate text-muted-foreground">{file?.filename}</p>
+            </div>
+            {counterpartFile ? (
+              <Button asChild variant="outline" size="sm" className={cn(studentBtnOutline, 'gap-1.5')}>
+                <Link
+                  href={`/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topicCode)}/${encodeURIComponent(counterpartFile.code.toLowerCase())}`}
+                >
+                  {file?.isSolutions ? (
+                    <>
+                      <ArrowLeft className="h-4 w-4" />
+                      <span>View questions</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>View solutions</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </Link>
+              </Button>
+            ) : null}
           </div>
 
           {file ? (
