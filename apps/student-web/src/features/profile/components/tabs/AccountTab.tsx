@@ -17,6 +17,8 @@ import { Input } from '@altitutor/ui';
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { authApi } from '@/shared/api';
+import { studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 import type { Database } from '@altitutor/shared';
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
@@ -80,7 +82,7 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold">Account</h3>
+      <h3 className="mb-4 text-2xl font-semibold">Account</h3>
       
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">
@@ -130,7 +132,7 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
             <Button
               type="submit"
               disabled={isLoading || isSuccess}
-              className="w-fit"
+              className={cn(studentBtnPrimary, 'w-fit')}
             >
               {isLoading ? (
                 <>

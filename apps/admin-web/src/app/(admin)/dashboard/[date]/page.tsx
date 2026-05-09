@@ -108,14 +108,14 @@ function DailyNoteCard({ date }: { date: string }) {
           )}
         </div>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-0">
         {isLoading ? (
           <div className="flex items-center justify-center py-10">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : (
           <>
-            <div className="min-h-[320px] rounded-md border p-4">
+            <div className="relative min-h-[220px] rounded-md border bg-background p-4 pb-20">
               <NoteEditor
                 content={content}
                 onChange={setContent}
@@ -123,8 +123,12 @@ function DailyNoteCard({ date }: { date: string }) {
                 onEditorReady={setEditor}
                 mentionSuggestions={mentionSuggestions}
               />
+              <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center">
+                <div className="pointer-events-auto">
+                  <NoteEditorBottomToolbar editor={editor} />
+                </div>
+              </div>
             </div>
-            <NoteEditorBottomToolbar editor={editor} />
           </>
         )}
       </CardContent>
@@ -158,6 +162,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
   );
   const dashboardProjectFilters = useMemo(
     () => ({
+      status: ['backlog', 'planned', 'in_progress'],
       ...(currentStaff?.id ? { project_lead_id: [currentStaff.id] } : {}),
     }),
     [currentStaff?.id]
@@ -235,7 +240,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
             </TabsList>
           </Tabs>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-0">
           <TodaySessionsView date={dateStr} viewMode={sessionsViewMode} onOpenSession={handleSessionClick} />
         </CardContent>
       </Card>
@@ -248,7 +253,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
           <CardDescription>Tasks in progress or to do</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <TasksList defaultFilters={dashboardTaskFilters} />
+          <TasksList key={currentStaff?.id ?? 'staff-loading'} defaultFilters={dashboardTaskFilters} />
         </CardContent>
       </Card>
 
@@ -268,7 +273,7 @@ export default function DashboardDatePage({ params }: { params: { date: string }
           <CardDescription>Projects you lead</CardDescription>
         </CardHeader>
         <CardContent className="p-0">
-          <ProjectsList defaultFilters={dashboardProjectFilters} />
+          <ProjectsList key={currentStaff?.id ?? 'staff-loading'} defaultFilters={dashboardProjectFilters} />
         </CardContent>
       </Card>
 

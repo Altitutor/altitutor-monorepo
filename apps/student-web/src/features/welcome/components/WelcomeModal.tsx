@@ -28,6 +28,7 @@ import {
   Button,
 } from '@altitutor/ui';
 import { CONTACT_EMAIL, CONTACT_PHONE, STUDENT_WELCOME_ADDRESS, SUBSIDY_INFO_URL } from '@/shared/constants';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn, getSubjectColorStyle } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 
@@ -470,7 +471,7 @@ export function WelcomeModal({
             variant="outline"
             onClick={handleBack}
             disabled={step === 1 || isSubmitting}
-            className="transition-all duration-200 hover:-translate-x-0.5"
+            className={cn(studentBtnOutline, 'transition-all duration-200 hover:-translate-x-0.5')}
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back
@@ -481,7 +482,7 @@ export function WelcomeModal({
               type="button"
               onClick={() => setStep(2)}
               disabled={isContextLoading}
-              className="transition-all duration-200 hover:translate-x-0.5"
+              className={cn(studentBtnPrimary, 'transition-all duration-200 hover:translate-x-0.5')}
             >
               Continue
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -490,7 +491,7 @@ export function WelcomeModal({
             <Button
               type="button"
               onClick={() => setInfoPageIndex((prev) => Math.min(prev + 1, infoPages.length - 1))}
-              className="transition-all duration-200 hover:translate-x-0.5"
+              className={cn(studentBtnPrimary, 'transition-all duration-200 hover:translate-x-0.5')}
             >
               Next
               <ArrowRight className="ml-2 h-4 w-4" />
@@ -499,13 +500,18 @@ export function WelcomeModal({
             <Button
               type="button"
               onClick={() => setStep(3)}
-              className="transition-all duration-200 hover:translate-x-0.5"
+              className={cn(studentBtnPrimary, 'transition-all duration-200 hover:translate-x-0.5')}
             >
               Next
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
-            <Button type="button" onClick={onAcknowledge} disabled={isSubmitting}>
+            <Button
+              type="button"
+              className={studentBtnPrimary}
+              onClick={onAcknowledge}
+              disabled={isSubmitting}
+            >
               {isSubmitting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

@@ -17,7 +17,7 @@ export const topicsKeys = {
   hierarchy: (subjectId: string) => ['topics', 'hierarchy', subjectId] as const,
   roots: (subjectId: string) => ['topics', 'roots', subjectId] as const,
   withSubjects: () => ['topics', 'with-subjects'] as const,
-  search: (params: { search?: string; subjectIds?: string[]; limit?: number; offset?: number }) =>
+  search: (params: { search?: string; subjectIds?: string[]; rootOnly?: boolean; limit?: number; offset?: number }) =>
     ['topics', 'search', params] as const,
 };
 
@@ -102,6 +102,7 @@ export function useTopicsWithSubjects() {
 export function useSearchTopics(params: {
   search?: string;
   subjectIds?: string[];
+  rootOnly?: boolean;
   limit?: number;
   offset?: number;
 }) {

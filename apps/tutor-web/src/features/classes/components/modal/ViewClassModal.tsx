@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { cn } from '@/shared/utils';
+import { tutorSheetContentClass } from '@/shared/lib/tutor-visual';
 import { useClassModalData } from '../../hooks/useClassModalData';
 import { ClassInfoTab } from './tabs/ClassInfoTab';
 import { ClassStudentsTab } from './tabs/ClassStudentsTab';
@@ -44,7 +46,7 @@ export function ViewClassModal({
   if (!classDetail || !classData) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent>
+        <SheetContent className={cn(tutorSheetContentClass, 'max-w-md')}>
           <SheetHeader>
             <SheetTitle>Loading class...</SheetTitle>
           </SheetHeader>
@@ -55,7 +57,7 @@ export function ViewClassModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="overflow-y-auto max-w-md">
+      <SheetContent className={cn(tutorSheetContentClass, 'max-w-md overflow-y-auto')}>
         <SheetHeader>
           <SheetTitle>
             {classData.level}

@@ -527,6 +527,46 @@ function computeOpenProjectsByDay(
   });
 }
 
+/**
+ * Finished projects per day (completed_at within the day).
+ */
+function computeFinishedProjectsByDay(
+  projects: ProjectRow[],
+  days: Date[]
+): ReportDataPoint[] {
+  return days.map((day) => {
+    const dayStart = startOfDay(day);
+    const dayEnd = endOfDay(day);
+    const dayStr = toDateOnlyString(day);
+
+    const finishedProjects = projects.filter((project) => {
+      if (!project.completed_at) return false;
+      const completedAt = new Date(project.completed_at);
+      return !isBefore(completedAt, dayStart) && !isAfter(completedAt, dayEnd);
+    });
+
+    return {
+      date: dayStr,
+      count: finishedProjects.length,
+      entities: finishedProjects.map((project) => ({
+        id: project.id,
+        name: project.name,
+        link: { kind: 'project' as ReportEntityLink['kind'], projectId: project.id },
+        meta: {
+          projectLead: project.project_lead_staff
+            ? staffName(
+                project.project_lead_staff.first_name,
+                project.project_lead_staff.last_name,
+                ''
+              )
+            : undefined,
+          completedAt: formatMetaDateTime(project.completed_at),
+        },
+      })),
+    };
+  });
+}
+
 export async function fetchProjectsReportData(
   periodStart: Date,
   periodEnd: Date
@@ -535,6 +575,7 @@ export async function fetchProjectsReportData(
   const days = eachDayOfInterval({ start: periodStart, end: periodEnd });
   return {
     openByDay: computeOpenProjectsByDay(projects, days),
+    finishedByDay: computeFinishedProjectsByDay(projects, days),
   };
 }
 
@@ -1405,13 +1446,19 @@ async function fetchSessionsStudentsForPredictedRevenue(
 }
 
 type SubsidyRow = {
+  id: string;
   student_id: string;
   subject_id: string;
   billing_type: string;
   price_cents: number;
   currency: string | null;
+  created_at: string;
   effective_from: string | null;
   effective_until: string | null;
+  student_first_name: string | null;
+  student_last_name: string | null;
+  subject_short_name: string | null;
+  subject_long_name: string | null;
 };
 
 type EnrollmentWithSubjectRow = {
@@ -1487,10 +1534,53 @@ async function fetchSubsidiesForReport(): Promise<SubsidyRow[]> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   const { data, error } = await supabase
     .from('student_subsidies')
-    .select('student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until');
+    .select(
+      `
+      id,
+      student_id,
+      subject_id,
+      billing_type,
+      price_cents,
+      currency,
+      created_at,
+      effective_from,
+      effective_until,
+      student:students(first_name, last_name),
+      subject:subjects(short_name, long_name)
+    `
+    );
 
   if (error) throw error;
-  return (data ?? []) as SubsidyRow[];
+  type RawSubsidyRow = {
+    id: string;
+    student_id: string;
+    subject_id: string;
+    billing_type: string;
+    price_cents: number;
+    currency: string | null;
+    created_at: string;
+    effective_from: string | null;
+    effective_until: string | null;
+    student: { first_name: string | null; last_name: string | null } | null;
+    subject: { short_name: string | null; long_name: string | null } | null;
+  };
+
+  const rows = (data ?? []) as RawSubsidyRow[];
+  return rows.map((row) => ({
+    id: row.id,
+    student_id: row.student_id,
+    subject_id: row.subject_id,
+    billing_type: row.billing_type,
+    price_cents: row.price_cents,
+    currency: row.currency,
+    created_at: row.created_at,
+    effective_from: row.effective_from,
+    effective_until: row.effective_until,
+    student_first_name: row.student?.first_name ?? null,
+    student_last_name: row.student?.last_name ?? null,
+    subject_short_name: row.subject?.short_name ?? null,
+    subject_long_name: row.subject?.long_name ?? null,
+  }));
 }
 
 async function fetchCreditNotesForReport(
@@ -1565,6 +1655,7 @@ export async function fetchBillingStatsReportData(
   const creditsByDay = buildEmptyRevenueSeries(days);
   const voidedInvoicesByDay = buildEmptySeries(days);
   const subsidiesEnrolledByDay = buildEmptySeries(days);
+  const subsidiesCreatedByDay = buildEmptySeries(days);
 
   const indexByDate = new Map<string, number>();
   predictedRevenueByDay.forEach((point, index) => {
@@ -1985,6 +2076,43 @@ export async function fetchBillingStatsReportData(
     point.count = count;
   });
 
+  // Subsidies created: count each subsidy on created_at date.
+  subsidies.forEach((subsidy) => {
+    const createdAt = new Date(subsidy.created_at);
+    if (Number.isNaN(createdAt.getTime())) return;
+
+    const dayStr = toDateOnlyString(createdAt);
+    const index = indexByDate.get(dayStr);
+    if (index === undefined) return;
+
+    const studentName = staffName(
+      subsidy.student_first_name,
+      subsidy.student_last_name,
+      subsidy.student_id
+    );
+    const subjectName = subsidy.subject_short_name ?? subsidy.subject_long_name ?? 'Unknown subject';
+
+    const point = subsidiesCreatedByDay[index];
+    point.count += 1;
+    point.entities = [
+      ...point.entities,
+      {
+        id: subsidy.id,
+        name: `${studentName} · ${subjectName} · $${(subsidy.price_cents / 100).toFixed(2)}`,
+        link: {
+          kind: 'student' as ReportEntityLink['kind'],
+          studentId: subsidy.student_id,
+        },
+        meta: {
+          student: studentName,
+          subject: subjectName,
+          price: `$${(subsidy.price_cents / 100).toFixed(2)}`,
+          createdAt: formatMetaDateTime(subsidy.created_at),
+        },
+      },
+    ];
+  });
+
   return {
     predictedRevenueByDay,
     actualRevenueByDay,
@@ -1992,5 +2120,6 @@ export async function fetchBillingStatsReportData(
     creditsByDay,
     voidedInvoicesByDay,
     subsidiesEnrolledByDay,
+    subsidiesCreatedByDay,
   };
 }

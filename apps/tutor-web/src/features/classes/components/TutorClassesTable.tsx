@@ -16,6 +16,7 @@ import { getSubjectColorStyle } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { Loader2 } from 'lucide-react';
 import type { Database, Tables } from '@altitutor/shared';
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual';
 
 type TutorClassRow = Database['public']['Views']['vtutor_classes']['Row'];
 
@@ -79,17 +80,18 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
 
   return (
     <div className="space-y-4">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Day</TableHead>
-            <TableHead>Time</TableHead>
-            <TableHead>Subject</TableHead>
-            <TableHead>Room</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {sortedClasses.map((classItem: TutorClassRow) => {
+      <div className={tutorTableShell}>
+        <Table>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={tutorTableHeaderRow}>
+              <TableHead>Day</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Subject</TableHead>
+              <TableHead>Room</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {sortedClasses.map((classItem: TutorClassRow) => {
             // Format subject as {curriculum} {year_level} {name} {level}
             const subjectParts: string[] = [];
             if (classItem.subject_curriculum) {
@@ -107,9 +109,7 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
             const subjectDisplay = subjectParts.join(' ') || '-';
 
             return (
-              <TableRow 
-                key={classItem.id || ''}
-              >
+              <TableRow key={classItem.id || ''} className={tutorTableBodyRow}>
                 <TableCell className="font-medium">
                   {classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
                 </TableCell>
@@ -146,8 +146,9 @@ export function TutorClassesTable({}: TutorClassesTableProps) {
               </TableRow>
             );
           })}
-        </TableBody>
-      </Table>
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

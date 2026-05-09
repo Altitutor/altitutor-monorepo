@@ -40,6 +40,7 @@ import type { SetOption } from '@/features/ucat/mocks/components/UcatMockEditorD
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
 import { cn } from '@/shared/utils'
+import { tutorBtnIconOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
 import { GripVertical, Pencil, Plus } from 'lucide-react'
 import React from 'react'
 
@@ -137,11 +138,11 @@ function DraggableSetItem({
       </div>
       <div className="flex shrink-0 items-center gap-2">
         {onEdit && (
-          <Button type="button" variant="outline" size="icon" className="text-muted-foreground hover:text-foreground" onClick={onEdit}>
+          <Button type="button" variant="outline" size="icon" className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')} onClick={onEdit}>
             <Pencil className="h-4 w-4" />
           </Button>
         )}
-        <Button type="button" variant="default" size="icon" onClick={onAdd}>
+        <Button type="button" variant="default" size="icon" className={tutorBtnPrimary} onClick={onAdd}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>

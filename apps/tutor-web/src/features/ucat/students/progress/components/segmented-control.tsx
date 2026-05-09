@@ -32,7 +32,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       className={cn(
-        'inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs',
+        'inline-flex rounded-2xl border-0 bg-muted/90 p-0.5 text-xs ring-1 ring-black/[0.06] dark:ring-white/10',
         className
       )}
       role="tablist"

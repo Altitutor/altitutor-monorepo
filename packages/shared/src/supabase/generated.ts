@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "13.0.5"
-  }
   public: {
     Tables: {
       activity_events: {
@@ -406,6 +401,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "answer_option_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "answer_option_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
         ]
       }
@@ -2049,44 +2058,47 @@ export type Database = {
       }
       files: {
         Row: {
-          bucket: string
+          bucket: string | null
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
+          external_url: string | null
           filename: string
           id: string
           metadata: Json | null
           mimetype: string
           size_bytes: number
-          storage_path: string
+          storage_path: string | null
           storage_provider: string
           updated_at: string | null
         }
         Insert: {
-          bucket: string
+          bucket?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
+          external_url?: string | null
           filename: string
           id?: string
           metadata?: Json | null
           mimetype: string
           size_bytes: number
-          storage_path: string
+          storage_path?: string | null
           storage_provider?: string
           updated_at?: string | null
         }
         Update: {
-          bucket?: string
+          bucket?: string | null
           created_at?: string | null
           created_by?: string | null
           deleted_at?: string | null
+          external_url?: string | null
           filename?: string
           id?: string
           metadata?: Json | null
           mimetype?: string
           size_bytes?: number
-          storage_path?: string
+          storage_path?: string | null
           storage_provider?: string
           updated_at?: string | null
         }
@@ -2520,6 +2532,13 @@ export type Database = {
             columns: ["student_subscription_id"]
             isOneToOne: false
             referencedRelation: "student_subscriptions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_student_subscription_id_fkey"
+            columns: ["student_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscriptions"
             referencedColumns: ["id"]
           },
         ]
@@ -4315,6 +4334,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "question_stems_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "question_stems_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
             foreignKeyName: "question_stems_files_question_stem_id_fkey"
             columns: ["question_stem_id"]
             isOneToOne: false
@@ -4610,6 +4643,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "questions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "questions_files_question_id_fkey"
@@ -4916,6 +4963,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "sessions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "sessions_files_session_id_fkey"
@@ -5657,6 +5718,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "staff_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "staff_files_staff_id_fkey"
@@ -7099,6 +7174,90 @@ export type Database = {
         }
         Relationships: []
       }
+      subjects_files: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          file_id: string
+          id: string
+          subject_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          file_id: string
+          id?: string
+          subject_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          file_id?: string
+          id?: string
+          subject_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "subjects_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assigned_to: string | null
@@ -7387,6 +7546,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "topics_files_is_solutions_of_id_fkey"
@@ -9582,6 +9755,13 @@ export type Database = {
             referencedRelation: "student_subscriptions"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "invoices_student_subscription_id_fkey"
+            columns: ["student_subscription_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscriptions"
+            referencedColumns: ["id"]
+          },
         ]
       }
       vstudent_my_subject_access: {
@@ -10034,6 +10214,116 @@ export type Database = {
           },
         ]
       }
+      vstudent_slot_reservations: {
+        Row: {
+          created_at: string | null
+          end_at: string | null
+          expires_at: string | null
+          id: string | null
+          reserved_by: string | null
+          session_type: Database["public"]["Enums"]["session_type"] | null
+          staff_id: string | null
+          start_at: string | null
+          subject_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          reserved_by?: string | null
+          session_type?: Database["public"]["Enums"]["session_type"] | null
+          staff_id?: string | null
+          start_at?: string | null
+          subject_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_at?: string | null
+          expires_at?: string | null
+          id?: string | null
+          reserved_by?: string | null
+          session_type?: Database["public"]["Enums"]["session_type"] | null
+          staff_id?: string | null
+          start_at?: string | null
+          subject_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "slot_reservations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "slot_reservations_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vstudent_subject_images: {
+        Row: {
+          bucket: string | null
+          created_at: string | null
+          deleted_at: string | null
+          file_id: string | null
+          file_metadata: Json | null
+          filename: string | null
+          mimetype: string | null
+          storage_path: string | null
+          storage_provider: string | null
+          subject_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vstudent_subject_resources: {
         Row: {
           depth: number | null
@@ -10062,6 +10352,105 @@ export type Database = {
           year_level: number | null
         }
         Relationships: []
+      }
+      vstudent_subscriptions: {
+        Row: {
+          created_at: string | null
+          current_period_end: string | null
+          current_period_start: string | null
+          id: string | null
+          status: string | null
+          stripe_price_id: string | null
+          stripe_product_id: string | null
+          stripe_subscription_id: string | null
+          student_id: string | null
+          subject_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string | null
+          status?: string | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          stripe_subscription_id?: string | null
+          student_id?: string | null
+          subject_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          current_period_end?: string | null
+          current_period_start?: string | null
+          id?: string | null
+          status?: string | null
+          stripe_price_id?: string | null
+          stripe_product_id?: string | null
+          stripe_subscription_id?: string | null
+          student_id?: string | null
+          subject_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_subscriptions_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       vstudent_topics: {
         Row: {
@@ -10163,6 +10552,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
+          external_url: string | null
           file_id: string | null
           file_metadata: Json | null
           filename: string | null
@@ -10199,6 +10589,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "topics_files_is_solutions_of_id_fkey"
@@ -12321,6 +12725,44 @@ export type Database = {
         }
         Relationships: []
       }
+      vtutor_subject_images: {
+        Row: {
+          bucket: string | null
+          created_at: string | null
+          deleted_at: string | null
+          file_id: string | null
+          file_metadata: Json | null
+          filename: string | null
+          mimetype: string | null
+          storage_path: string | null
+          storage_provider: string | null
+          subject_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vtutor_subjects: {
         Row: {
           color: string | null
@@ -12437,6 +12879,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           deleted_at: string | null
+          external_url: string | null
           file_id: string | null
           file_metadata: Json | null
           filename: string | null
@@ -12473,6 +12916,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subject_images"
+            referencedColumns: ["file_id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subject_images"
+            referencedColumns: ["file_id"]
           },
           {
             foreignKeyName: "topics_files_is_solutions_of_id_fkey"
@@ -14957,6 +15414,17 @@ export type Database = {
         Args: { p_sessions_students_ids: string[] }
         Returns: string[]
       }
+      get_my_billing_subsidies: {
+        Args: never
+        Returns: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
+          currency: string
+          standard_hourly_cents: number
+          subject_id: string
+          subject_long_name: string
+          subsidy_hourly_cents: number
+        }[]
+      }
       get_service_role_key: { Args: never; Returns: string }
       get_session_id_from_storage_path: {
         Args: { file_path: string }
@@ -15272,6 +15740,7 @@ export type Database = {
         Args: {
           p_limit?: number
           p_offset?: number
+          p_root_only?: boolean
           p_search?: string
           p_subject_ids?: string[]
         }
@@ -15393,6 +15862,7 @@ export type Database = {
       tutor_ucat_upsert_mock:
         | {
             Args: {
+              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -15402,7 +15872,6 @@ export type Database = {
           }
         | {
             Args: {
-              p_instructions_text?: Json
               p_is_private: boolean
               p_mock_id: string
               p_name: string
@@ -15664,3 +16133,4 @@ export const Constants = {
     },
   },
 } as const
+

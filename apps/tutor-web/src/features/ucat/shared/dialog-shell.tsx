@@ -9,6 +9,14 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog'
 import { cn } from '@/shared/utils'
+import {
+  tutorBtnIconOutline,
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorDialogContentClass,
+  tutorDialogFooterStrip,
+  tutorDialogHeaderStrip,
+} from '@/shared/lib/tutor-visual'
 
 export function UcatDialogShell({
   open,
@@ -47,15 +55,16 @@ export function UcatDialogShell({
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent
         className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
+          'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-4xl [&>button]:hidden',
+          tutorDialogContentClass,
           EXPANDABLE_DIALOG_TRANSITION,
-          expandedContentClass
+          expandedContentClass,
         )}
       >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
+        <DialogHeader className={cn('flex-shrink-0 px-6 py-4', tutorDialogHeaderStrip)}>
           <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button variant="outline" size="icon" onClick={onClose} className="shrink-0">
+            <div className="flex flex-1 items-center gap-3">
+              <Button variant="outline" size="icon" onClick={onClose} className={tutorBtnIconOutline}>
                 <X className="h-4 w-4" />
               </Button>
               <div className="flex-1">
@@ -72,15 +81,20 @@ export function UcatDialogShell({
 
         <div className="flex flex-1 min-h-0 flex-col overflow-hidden">{children}</div>
 
-        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-          <div className="flex items-center gap-2 w-full justify-end">
+        <DialogFooter className={cn('flex-shrink-0 px-6 py-4', tutorDialogFooterStrip)}>
+          <div className="flex w-full items-center justify-end gap-2">
             {!hideCancel ? (
-              <Button type="button" variant="outline" onClick={onClose}>
+              <Button type="button" variant="outline" className={tutorBtnOutline} onClick={onClose}>
                 Cancel
               </Button>
             ) : null}
             {onSave ? (
-              <Button type="button" onClick={onSave} disabled={saveDisabled || isSaving}>
+              <Button
+                type="button"
+                className={tutorBtnPrimary}
+                onClick={onSave}
+                disabled={saveDisabled || isSaving}
+              >
                 {isSaving ? 'Saving...' : saveLabel}
               </Button>
             ) : null}

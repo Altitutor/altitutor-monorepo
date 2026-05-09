@@ -123,10 +123,24 @@ export function useFilePreview({
     loadFile();
   }, [isOpen, fileId, junctionTableId, getMetadataFn]);
 
-  // Load preview URL when file is available
+  // Load preview URL when file is available (skip for external_url-only rows)
   useEffect(() => {
     const loadPreview = async () => {
-      if (!isOpen || !file || previewUrl || isLoadingPreview) {
+      if (!isOpen || !file) {
+        return;
+      }
+
+      if (file.external_url?.trim()) {
+        setPreviewUrl(null);
+        return;
+      }
+
+      if (!file.storage_path?.trim()) {
+        setPreviewUrl(null);
+        return;
+      }
+
+      if (previewUrl || isLoadingPreview) {
         return;
       }
 
@@ -137,7 +151,6 @@ export function useFilePreview({
         setPreviewUrl(signedUrl);
       } catch (err) {
         console.error('Failed to generate signed URL:', err);
-        // Don't set error state - preview URL failure is not critical
       } finally {
         setIsLoadingPreview(false);
       }

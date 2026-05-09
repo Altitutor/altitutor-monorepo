@@ -2,18 +2,59 @@
 
 import { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, TablePagination } from '@altitutor/ui';
-import { Loader2, Download, ExternalLink } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
-import type { InvoiceItem } from '../api';
-import { formatInvoiceDate } from '../utils/invoiceFormatters';
+import {
+  studentBtnOutline,
+  studentBtnPrimary,
+  studentTableBodyRow,
+  studentTableHeaderRow,
+  studentTableShell,
+} from '@/shared/lib/student-visual';
+import { formatAmount, getInvoiceTotalAmount, isInvoiceOverdue } from '../utils/invoiceDisplay';
 
-const formatAmount = (cents: number | null): string => {
-  if (cents === null) return '-';
-  return `$${(cents / 100).toFixed(2)}`;
-};
+function getSessionDisplayName(
+  items: Array<{
+    session?: { long_name: string | null } | null;
+    session_id?: string | null;
+    subject_name?: string | null;
+    description?: string | null;
+  }> | undefined
+): string {
+  const isFeeDescription = (value: string | null | undefined): boolean =>
+    (value ?? '').trim().toLowerCase().includes('processing fee');
 
-function getLineItemDisplayName(item: InvoiceItem): string {
-  return item.description?.trim() || item.subject_name || 'Session';
+  const sessionItems = (items ?? []).filter((item) => item.session_id);
+
+  const fromSessionLongName = sessionItems
+    .find((item) => item.session?.long_name?.trim())
+    ?.session?.long_name?.trim();
+  if (fromSessionLongName) {
+    return fromSessionLongName;
+  }
+
+  // Fallback for environments where nested session relation is not returned.
+  // Prefer non-fee description from a real session item.
+  const fromSessionDescription = sessionItems
+    .find((item) => item.description?.trim() && !isFeeDescription(item.description))
+    ?.description?.trim();
+  if (fromSessionDescription) {
+    return fromSessionDescription;
+  }
+
+  // Next best fallback: subject name from a real session item.
+  const fromSessionSubjectName = sessionItems.find((item) => item.subject_name?.trim())?.subject_name?.trim();
+  if (fromSessionSubjectName) {
+    return fromSessionSubjectName;
+  }
+
+  const fromDescription = items
+    ?.find((item) => {
+      const d = item.description?.trim();
+      return !!d && !isFeeDescription(d);
+    })
+    ?.description?.trim();
+  return fromDescription || '-';
 }
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
@@ -26,7 +67,7 @@ export function InvoicesTable() {
   const { data: invoices, isLoading, error } = useInvoicesWithItems();
 
   const sortedInvoices = useMemo(() => {
-    const list = [...(invoices || [])];
+    const list = [...(invoices || [])].filter((invoice) => invoice.billing_source !== 'subscription');
     list.sort((a, b) => {
       const aTime = a.invoice_date ? new Date(a.invoice_date).getTime() : 0;
       const bTime = b.invoice_date ? new Date(b.invoice_date).getTime() : 0;
@@ -70,40 +111,40 @@ export function InvoicesTable() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      <div className={studentTableShell}>
         <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Invoice Date</TableHead>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={studentTableHeaderRow}>
+              <TableHead>Session</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead>Sessions</TableHead>
-              <TableHead>Actions</TableHead>
+              <TableHead />
             </TableRow>
           </TableHeader>
           <TableBody>
             {paginatedInvoices.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center h-24 text-muted-foreground">
-                  No invoices found
+              <TableRow className={studentTableBodyRow}>
+                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
+                  No session invoices found
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedInvoices.map((invoice, index) => (
-                <TableRow key={invoice.id || `invoice-${index}`}>
+              paginatedInvoices.map((invoice, index) => {
+                const overdue = isInvoiceOverdue(invoice);
+                return (
+                  <TableRow key={invoice.id || `invoice-${index}`} className={studentTableBodyRow}>
                   <TableCell>
-                    {invoice.stripe_invoice_number || invoice.id?.slice(0, 8) || '-'}
-                  </TableCell>
-                  <TableCell>
-                    {invoice.invoice_date ? formatInvoiceDate(invoice.invoice_date) : '-'}
+                    {getSessionDisplayName(invoice.items)}
                   </TableCell>
                   <TableCell className="font-medium">
-                    {formatAmount(invoice.amount_due_cents)}
+                    {formatAmount(getInvoiceTotalAmount(invoice))}
                   </TableCell>
                   <TableCell>
                     {invoice.status ? (
                       <div className="flex flex-wrap gap-1">
+                        {overdue && (
+                          <Badge variant="destructive">Overdue</Badge>
+                        )}
                         {(invoice.status === 'paid' || invoice.paid_at) && (
                           <Badge variant="default">
                             {invoice.paid_at
@@ -114,7 +155,7 @@ export function InvoicesTable() {
                         {invoice.status === 'draft' && (
                           <Badge variant="outline">Draft</Badge>
                         )}
-                        {invoice.status === 'open' && (
+                        {invoice.status === 'open' && !overdue && (
                           <Badge variant="secondary">Open</Badge>
                         )}
                         {['void', 'uncollectible', 'disputed'].includes(invoice.status) && (
@@ -128,67 +169,36 @@ export function InvoicesTable() {
                     )}
                   </TableCell>
                   <TableCell>
-                    {invoice.items && invoice.items.length > 0 ? (
-                      <div className="text-sm space-y-1">
-                        <div className="space-y-0.5">
-                          {invoice.items.map((item) => (
-                            <div key={item.id ?? item.session_id ?? Math.random()}>
-                              {getLineItemDisplayName(item)}
-                            </div>
-                          ))}
-                        </div>
-                        {invoice.total_subsidies_cents != null && invoice.total_subsidies_cents > 0 && (
-                          <p className="text-muted-foreground text-xs pt-1">
-                            Subsidies: {formatAmount(invoice.total_subsidies_cents)}
-                          </p>
-                        )}
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
                     <div className="flex flex-wrap gap-2">
                       {invoice.hosted_invoice_url &&
                         (invoice.status === 'open' ? (
-                          <Button variant="default" size="sm" asChild>
+                          <Button variant="default" size="sm" className={studentBtnPrimary} asChild>
                             <a
                               href={invoice.hosted_invoice_url}
                               target="_blank"
                               rel="noopener noreferrer"
                             >
-                              Pay invoice
+                              Pay
                             </a>
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm" asChild>
+                          <Button variant="outline" size="sm" className={studentBtnOutline} asChild>
                             <a
                               href={invoice.hosted_invoice_url}
                               target="_blank"
                               rel="noopener noreferrer"
                             >
                               <ExternalLink className="h-4 w-4 mr-1" />
-                              View invoice
+                              View
                             </a>
                           </Button>
                         ))}
-                      {invoice.invoice_pdf && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a
-                            href={invoice.invoice_pdf}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                          >
-                            <Download className="h-4 w-4 mr-1" />
-                            Download PDF
-                          </a>
-                        </Button>
-                      )}
-                      {!invoice.hosted_invoice_url && !invoice.invoice_pdf && '-'}
+                      {!invoice.hosted_invoice_url && '-'}
                     </div>
                   </TableCell>
-                </TableRow>
-              ))
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

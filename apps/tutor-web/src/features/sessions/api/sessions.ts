@@ -1,5 +1,6 @@
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { dateStringToUtcEnd, dateStringToUtcStart } from '@/shared/utils/datetime';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SessionStaff, SessionStudent } from '../utils/session-helpers';
 
@@ -24,6 +25,23 @@ export const sessionsApi = {
     const { data, error } = await supabase
       .from('vtutor_sessions')
       .select('*');
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  /**
+   * Sessions for the current tutor within [rangeStart, rangeEnd] (YYYY-MM-DD, local calendar days).
+   */
+  getSessionsInDateRange: async (rangeStart: string, rangeEnd: string) => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const utcStart = dateStringToUtcStart(rangeStart);
+    const utcEnd = dateStringToUtcEnd(rangeEnd);
+    const { data, error } = await supabase
+      .from('vtutor_sessions')
+      .select('*')
+      .gte('start_at', utcStart)
+      .lte('start_at', utcEnd)
+      .order('start_at', { ascending: true });
     if (error) throw error;
     return data ?? [];
   },
@@ -143,9 +161,10 @@ export const sessionsApi = {
                 first_name: String(s.first_name),
                 last_name: String(s.last_name),
                 year_level: 'year_level' in s && typeof s.year_level === 'number' ? s.year_level : null,
+                planned_absence: 'planned_absence' in s ? Boolean(s.planned_absence) : false,
               };
             }
-            return { id: '', first_name: '', last_name: '', year_level: null };
+            return { id: '', first_name: '', last_name: '', year_level: null, planned_absence: false };
           })
         : [];
       

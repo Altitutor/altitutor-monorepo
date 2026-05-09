@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { addDays } from 'date-fns';
 import { SearchableSelect } from '@altitutor/ui';
 import { formatDate, cn } from '@/shared/utils';
-import { calculateFirstSessionDate } from '@/shared/utils/schedule';
+import { calculateFirstSessionDate, calculateLastSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
 import type { Tables } from '@altitutor/shared';
@@ -41,13 +41,21 @@ export function UnenrollStep1DateAndReason({
     ? (classData.long_name?.trim() ?? '')
     : 'choose class';
 
-  // Generate list of future session dates (next 16 weeks worth)
-  const futureSessionDates = useMemo(() => {
+  // Generate dropdown options: most recent past session + next 16 future sessions
+  const sessionDateOptions = useMemo(() => {
     if (!classData || classData.day_of_week === null || classData.day_of_week === undefined) {
       return [];
     }
 
     const today = getMidnightAdelaide(new Date());
+    const mostRecentPastSession = calculateLastSessionDate(
+      {
+        day_of_week: classData.day_of_week,
+        start_time: classData.start_time || '09:00',
+      },
+      today
+    );
+
     const firstSession = calculateFirstSessionDate(
       {
         day_of_week: classData.day_of_week,
@@ -57,6 +65,15 @@ export function UnenrollStep1DateAndReason({
     );
 
     const dates: Array<{ value: string; label: string }> = [];
+
+    if (mostRecentPastSession) {
+      const lastPastDateStr = mostRecentPastSession.toISOString().split('T')[0];
+      dates.push({
+        value: lastPastDateStr,
+        label: `${formatDate(mostRecentPastSession)} (Most recent past)`,
+      });
+    }
+
     const currentDate = new Date(firstSession);
     
     // Generate dates for the next 16 weeks (16 sessions)
@@ -76,7 +93,7 @@ export function UnenrollStep1DateAndReason({
   }, [classData]);
 
   const isClassChosen = className !== 'choose class';
-  const isDateChosen = !!unenrollmentDate && unenrollmentDate.trim() !== '' && futureSessionDates.length > 0;
+  const isDateChosen = !!unenrollmentDate && unenrollmentDate.trim() !== '' && sessionDateOptions.length > 0;
 
   // Handle session date selection - set unenrollment date to day after selected session
   const handleSessionDateChange = (sessionDateStr: string) => {
@@ -118,10 +135,10 @@ export function UnenrollStep1DateAndReason({
           </span>
           {', their final session will be '}
           <span className="inline-flex items-center">
-            {futureSessionDates.length > 0 ? (
+            {sessionDateOptions.length > 0 ? (
               <SearchableSelect<{ value: string; label: string }>
-                items={futureSessionDates}
-                value={futureSessionDates.find((d) => d.value === selectedSessionDate) ?? null}
+                items={sessionDateOptions}
+                value={sessionDateOptions.find((d) => d.value === selectedSessionDate) ?? null}
                 onValueChange={(item) => item && handleSessionDateChange(item.value)}
                 getItemLabel={(d) => d.label}
                 getItemId={(d) => d.value}
@@ -140,7 +157,7 @@ export function UnenrollStep1DateAndReason({
             )}
           </span>
         </p>
-        {classData && futureSessionDates.length > 0 && (
+        {classData && sessionDateOptions.length > 0 && (
           <p className="text-xs text-muted-foreground">
             Student will be removed from all sessions after this date
           </p>

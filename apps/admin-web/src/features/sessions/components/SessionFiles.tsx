@@ -116,6 +116,9 @@ export function SessionFiles({ sessionId }: SessionFilesProps) {
 
   const handleDownload = async (file: SessionFileWithUrl) => {
     try {
+      if (!file.file.storage_path) {
+        throw new Error('File is not stored in bucket');
+      }
       const signedUrl = await getSessionFileSignedUrl(file.file.storage_path);
       const link = document.createElement('a');
       link.href = signedUrl;

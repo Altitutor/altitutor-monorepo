@@ -4,6 +4,7 @@ import { forwardRef } from 'react';
 import { Bell } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
+import { tutorBtnIconOutline } from '@/shared/lib/tutor-visual';
 
 interface NotificationsButtonProps {
   unreadCount: number;
@@ -17,7 +18,7 @@ export const NotificationsButton = forwardRef<HTMLButtonElement, NotificationsBu
         ref={ref}
         variant="outline" 
         size="icon"
-        className="h-9 w-9 relative"
+        className={cn(tutorBtnIconOutline, 'relative')}
         aria-label={`Notifications${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
         onClick={onClick}
       >

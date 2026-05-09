@@ -23,6 +23,7 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import type { Json } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
 import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 
 type SectionRow = {
@@ -367,7 +368,7 @@ export function UcatSectionsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Sections"
         description="Create and manage UCAT sections"
@@ -392,7 +393,7 @@ export function UcatSectionsPage() {
       />
 
       <div className="pt-3">
-        <DataTable columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
+        <DataTable {...tutorDataTableProps} columns={visibleColumns} data={sortedRows} pageSizeOptions={[10, 20, 50]} />
       </div>
 
       <UcatDialogShell

@@ -7,11 +7,26 @@ import {
   FormItem,
   FormControl,
   Button,
-  Input,
   SearchableSelect,
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { Calendar, User, Flag } from 'lucide-react';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
+
+function toInputValue(value: string | null | undefined): string {
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  return d.toISOString().split('T')[0];
+}
+
+function formatDisplayDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { Tables } from '@altitutor/shared';
 import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../../types';
@@ -144,18 +159,28 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
         control={form.control}
         name="startDate"
         render={({ field }) => {
-          const dateValue = field.value ? (typeof field.value === 'string' ? field.value.split('T')[0] : new Date(field.value).toISOString().split('T')[0]) : '';
+          const dateValue = toInputValue(field.value);
+          const formattedDate = formatDisplayDate(field.value);
           return (
             <FormItem>
               <FormControl>
-                <div className="relative flex items-center h-8 min-w-[90px] rounded-full border bg-background">
-                  <Calendar className="h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
-                  <Input
+                <div
+                  className={cn(
+                    'relative inline-flex items-center gap-1 h-7 rounded-full border bg-background cursor-pointer select-none',
+                    formattedDate ? 'px-2' : 'w-7 justify-center',
+                    !field.value && 'opacity-50'
+                  )}
+                >
+                  <Calendar className="h-3 w-3 flex-shrink-0 pointer-events-none text-muted-foreground" />
+                  {formattedDate && (
+                    <span className="text-xs whitespace-nowrap pointer-events-none">{formattedDate}</span>
+                  )}
+                  <input
                     type="date"
                     value={dateValue}
                     onChange={(e) => field.onChange(e.target.value || null)}
                     onBlur={field.onBlur}
-                    className="h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                   />
                 </div>
               </FormControl>
@@ -168,18 +193,28 @@ export function ProjectPropertyPills({ form, enabled = true }: { form: UseFormRe
         control={form.control}
         name="targetDate"
         render={({ field }) => {
-          const dateValue = field.value ? (typeof field.value === 'string' ? field.value.split('T')[0] : new Date(field.value).toISOString().split('T')[0]) : '';
+          const dateValue = toInputValue(field.value);
+          const formattedDate = formatDisplayDate(field.value);
           return (
             <FormItem>
               <FormControl>
-                <div className="relative flex items-center h-8 min-w-[90px] rounded-full border bg-background">
-                  <Flag className="h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground" />
-                  <Input
+                <div
+                  className={cn(
+                    'relative inline-flex items-center gap-1 h-7 rounded-full border bg-background cursor-pointer select-none',
+                    formattedDate ? 'px-2' : 'w-7 justify-center',
+                    !field.value && 'opacity-50'
+                  )}
+                >
+                  <Flag className="h-3 w-3 flex-shrink-0 pointer-events-none text-muted-foreground" />
+                  {formattedDate && (
+                    <span className="text-xs whitespace-nowrap pointer-events-none">{formattedDate}</span>
+                  )}
+                  <input
                     type="date"
                     value={dateValue}
                     onChange={(e) => field.onChange(e.target.value || null)}
                     onBlur={field.onBlur}
-                    className="h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
                   />
                 </div>
               </FormControl>

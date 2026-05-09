@@ -18,6 +18,7 @@ import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
+import { studentBtnOutline } from '@/shared/lib/student-visual';
 import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
 import type { RegistrationFormValues } from '../validations';
 
@@ -407,7 +408,7 @@ export function RegistrationStep1StudentDetails({
                 onSearchChange={(query) => setSubjectSearchQuery(query)}
                 onOpenChange={(open) => !open && setSubjectSearchQuery('')}
                 trigger={
-                  <Button type="button" variant="outline" size="sm">
+                  <Button type="button" variant="outline" size="sm" className={studentBtnOutline}>
                     <Plus className="h-4 w-4 mr-2" />
                     Add Subject
                   </Button>

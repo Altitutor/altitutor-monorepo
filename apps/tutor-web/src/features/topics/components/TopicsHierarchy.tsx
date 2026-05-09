@@ -113,7 +113,7 @@ export function TopicNode({
           {/* Topic Files */}
           {topicFiles.length > 0 && (
             <div className="space-y-2 mb-2">
-              {topicFiles.map((tf: { id: string; code?: string | null; type: string; file?: { filename?: string; storage_path?: string; mimetype?: string } | null }) => {
+              {topicFiles.map((tf) => {
                 const fileCode = tf.code || '';
                 // Get the full topic record to access subject_id
                 const fullTopic = allTopics.find(t => t.id === topic.id);
@@ -122,9 +122,10 @@ export function TopicNode({
                     key={tf.id}
                     fileCode={fileCode}
                     fileType={tf.type as Enums<'resource_type'>}
-                    filename={tf.file?.filename || 'Unknown file'}
-                    storagePath={tf.file?.storage_path || ''}
-                    mimeType={tf.file?.mimetype}
+                    filename={tf.filename || 'Unknown file'}
+                    storagePath={tf.storage_path}
+                    externalUrl={tf.external_url}
+                    mimeType={tf.mimetype ?? undefined}
                     topicFileId={tf.id}
                     currentTopicId={topic.id}
                     currentSubjectId={fullTopic?.subject_id}

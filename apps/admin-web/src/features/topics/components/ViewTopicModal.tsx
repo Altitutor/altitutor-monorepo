@@ -506,6 +506,7 @@ export function ViewTopicModal({
                                             fileType={topicFile.type}
                                             filename={topicFile.file.filename}
                                             storagePath={topicFile.file.storage_path}
+                                            externalUrl={topicFile.file.external_url}
                                             mimeType={topicFile.file.mimetype}
                                             topicFileId={topicFile.id}
                                             fileId={topicFile.file.id}
@@ -526,6 +527,7 @@ export function ViewTopicModal({
                                               fileType={linkedSolution.type}
                                               filename={linkedSolution.file.filename}
                                               storagePath={linkedSolution.file.storage_path}
+                                              externalUrl={linkedSolution.file.external_url}
                                               mimeType={linkedSolution.file.mimetype}
                                               topicFileId={linkedSolution.id}
                                               fileId={linkedSolution.file.id}

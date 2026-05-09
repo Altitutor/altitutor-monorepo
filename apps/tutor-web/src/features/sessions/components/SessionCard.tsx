@@ -4,7 +4,6 @@ import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
-import { formatTime } from '@/shared/utils/datetime';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
@@ -44,6 +43,7 @@ interface StudentMember {
   first_name: string;
   last_name: string;
   year_level?: number;
+  planned_absence?: boolean;
 }
 
 interface SessionCardProps {
@@ -114,19 +114,37 @@ export function SessionCard({
   
   const subjectDisplayShort = session.subject_name || formatSessionType(session.session_type);
   
-  const timeRange = session.start_at && session.end_at
-    ? `${formatTime(new Date(session.start_at).toTimeString().slice(0, 5))} - ${formatTime(new Date(session.end_at).toTimeString().slice(0, 5))}`
-    : '';
+  const timeRange =
+    session.start_at && session.end_at
+      ? (() => {
+          const startDate = new Date(session.start_at);
+          const endDate = new Date(session.end_at);
+          const startTime = startDate.toLocaleTimeString('en-AU', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'Australia/Adelaide',
+            hour12: true,
+          });
+          const endTime = endDate.toLocaleTimeString('en-AU', {
+            hour: 'numeric',
+            minute: '2-digit',
+            timeZone: 'Australia/Adelaide',
+            hour12: true,
+          });
+          return `${startTime} - ${endTime}`;
+        })()
+      : '';
   
   // Get subject color for the card - create a minimal subject-like object
   const subjectForColor = session.subject_color 
     ? { color: session.subject_color } as Tables<'subjects'>
     : null;
   const subjectColorHex = getSubjectColorHex(subjectForColor);
-  const defaultBorderClass = !subjectColorHex ? 'border-gray-200 dark:border-gray-700' : '';
-  
-  // Icon background color (use subject color)
-  const iconBackgroundColor = subjectColorHex 
+  const defaultBorderClass = !subjectColorHex
+    ? 'ring-1 ring-black/[0.06] dark:ring-white/10'
+    : '';
+
+  const iconBackgroundColor = subjectColorHex
     ? { backgroundColor: subjectColorHex }
     : undefined;
   
@@ -136,14 +154,30 @@ export function SessionCard({
   return (
     <div
       ref={cardRef}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
       className={cn(
-        'relative border rounded-lg transition-colors h-full w-full overflow-hidden bg-card',
+        'relative h-full w-full overflow-hidden rounded-xl border-0 bg-card shadow-[0_6px_24px_rgb(0,0,0,0.05)] transition-all duration-300 ease-out dark:shadow-[0_6px_24px_rgb(0,0,0,0.35)]',
         shouldUseCompact ? 'p-1.5' : 'p-3',
         defaultBorderClass,
-        onClick ? 'hover:bg-muted/50 cursor-pointer' : ''
+        onClick
+          ? 'cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+          : '',
       )}
       style={{
-        ...(subjectColorHex && !defaultBorderClass ? { borderColor: subjectColorHex } : {}),
+        ...(subjectColorHex
+          ? { borderLeftWidth: 4, borderLeftColor: subjectColorHex, borderLeftStyle: 'solid' }
+          : {}),
       }}
       onClick={onClick}
     >
@@ -250,14 +284,18 @@ export function SessionCard({
                 {students.map((student) => {
                   const fullName = `${student.first_name} ${student.last_name}`;
                   const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
+                  const isAbsent = Boolean(student.planned_absence);
                   
                   const badge = (
                     <span
                       key={student.id}
                       className={cn(
-                        'rounded bg-muted text-muted-foreground',
-                        shouldUseCompact 
-                          ? 'text-[10px] px-1 py-0.5' 
+                        'rounded',
+                        isAbsent
+                          ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 line-through'
+                          : 'bg-muted text-muted-foreground',
+                        shouldUseCompact
+                          ? 'text-[10px] px-1 py-0.5'
                           : 'text-xs px-2 py-0.5'
                       )}
                     >
@@ -272,7 +310,7 @@ export function SessionCard({
                           {badge}
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{fullName}</p>
+                          <p>{fullName}{isAbsent ? ' (absent)' : ''}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

@@ -2,6 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { TutorDashboardHome } from '@/features/dashboard';
 
 // Mark this page as dynamic to prevent static generation
 // This page requires Supabase client which needs environment variables
@@ -12,26 +13,15 @@ export default function DashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-dvh">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex min-h-[50vh] items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
-  const firstName = profile?.first_name || null;
+  const firstName = profile?.first_name ?? null;
+  const staffId = profile?.id ?? null;
 
-  return (
-    <div className="container max-w-4xl py-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">
-          Welcome back, {firstName || 'Tutor'}!
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your account and view your classes
-        </p>
-      </div>
-      {/* Todo: Add more dashboard cards for sessions, attendance, etc. */}
-    </div>
-  );
+  return <TutorDashboardHome firstName={firstName} staffId={staffId} />;
 }
 

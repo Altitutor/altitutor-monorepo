@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui'
 import { MoreHorizontal } from 'lucide-react'
+import { tutorBtnIconOutline } from '@/shared/lib/tutor-visual'
 
 export type UcatRowAction = {
   label: string
@@ -16,7 +17,7 @@ export function UcatRowActions({ actions }: { actions: UcatRowAction[] }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" className="h-8 w-8">
+        <Button variant="outline" size="icon" className={tutorBtnIconOutline}>
           <MoreHorizontal className="h-4 w-4" />
         </Button>
       </DropdownMenuTrigger>

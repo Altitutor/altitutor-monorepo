@@ -116,6 +116,9 @@ export function StaffFiles({ staffId }: StaffFilesProps) {
 
   const handleDownload = async (file: StaffFileWithUrl) => {
     try {
+      if (!file.file.storage_path) {
+        throw new Error('File is not stored in bucket');
+      }
       const signedUrl = await getStaffFileSignedUrl(file.file.storage_path);
       const link = document.createElement('a');
       link.href = signedUrl;

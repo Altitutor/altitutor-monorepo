@@ -13,6 +13,12 @@ import { Button } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
 import { formatDateTime } from '@/shared/utils';
+import {
+  studentBtnOutline,
+  studentTableBodyRow,
+  studentTableHeaderRow,
+  studentTableShell,
+} from '@/shared/lib/student-visual';
 
 type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
 
@@ -65,9 +71,10 @@ export function PaymentHistoryTable() {
 
   return (
     <div className="space-y-4">
+      <div className={studentTableShell}>
       <Table>
-        <TableHeader>
-          <TableRow>
+        <TableHeader className="[&_tr]:border-b-0">
+          <TableRow className={studentTableHeaderRow}>
             <TableHead>Invoice Date</TableHead>
             <TableHead>Invoice Number</TableHead>
             <TableHead>Amount</TableHead>
@@ -78,7 +85,7 @@ export function PaymentHistoryTable() {
         </TableHeader>
         <TableBody>
           {invoices.map((invoice, index) => (
-            <TableRow key={invoice.id || `invoice-${index}`}>
+            <TableRow key={invoice.id || `invoice-${index}`} className={studentTableBodyRow}>
               <TableCell>
                 {invoice.invoice_date ? formatDateTime(invoice.invoice_date) : '-'}
               </TableCell>
@@ -115,8 +122,9 @@ export function PaymentHistoryTable() {
                 <div className="flex gap-2">
                   {invoice.receipt_url && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className={studentBtnOutline}
                       asChild
                     >
                       <a 
@@ -131,8 +139,9 @@ export function PaymentHistoryTable() {
                   )}
                   {invoice.hosted_invoice_url && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className={studentBtnOutline}
                       asChild
                     >
                       <a 
@@ -147,8 +156,9 @@ export function PaymentHistoryTable() {
                   )}
                   {invoice.invoice_pdf && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className={studentBtnOutline}
                       asChild
                     >
                       <a 
@@ -168,6 +178,7 @@ export function PaymentHistoryTable() {
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import type { Tables } from '@altitutor/shared';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
+import { Button, SearchableSelect } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
   ExpandButton,
@@ -10,9 +11,19 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+import {
+  tutorBtnIconOutline,
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorDialogContentClass,
+  tutorDialogFooterStrip,
+  tutorDialogHeaderStrip,
+} from '@/shared/lib/tutor-visual';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from '../hooks';
 import { sessionsApi } from '@/features/sessions/api/sessions';
+import { staffApi } from '@/features/staff/api/staff';
+import { StaffCard } from '@/shared/components/StaffCard';
 
 // Import step components
 import { Step1SessionPicker } from './steps/Step1SessionPicker';
@@ -47,8 +58,29 @@ export function LogSessionModal({
   const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [adminSelectedStaff, setAdminSelectedStaff] = useState<Tables<'staff'> | null>(null);
+  const [adminStaffResults, setAdminStaffResults] = useState<Tables<'staff'>[]>([]);
+  const [adminStaffSearchLoading, setAdminStaffSearchLoading] = useState(false);
+  const wasOpenRef = useRef(false);
 
   const createMutation = useCreateTutorLog();
+
+  const handleAdminStaffSearch = useCallback(async (search: string) => {
+    if (!search.trim()) {
+      setAdminStaffResults([]);
+      return;
+    }
+    setAdminStaffSearchLoading(true);
+    try {
+      const { staff } = await staffApi.search({ search, limit: 25 });
+      setAdminStaffResults(staff);
+    } catch (error) {
+      console.error('Error searching staff:', error);
+      setAdminStaffResults([]);
+    } finally {
+      setAdminStaffSearchLoading(false);
+    }
+  }, []);
 
   // Set preselected session when modal opens
   useEffect(() => {
@@ -73,8 +105,20 @@ export function LogSessionModal({
       setIsSubmitting(false);
       setSubmissionState('idle');
       setSubmissionError(null);
+      setAdminSelectedStaff(null);
+      setAdminStaffResults([]);
     }
   }, [isOpen, currentStaffId]);
+
+  // When opening in admin mode, require a fresh staff selection for this log
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current && adminMode) {
+      setSelectedStaffId('');
+      setAdminSelectedStaff(null);
+      setAdminStaffResults([]);
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, adminMode]);
 
   // Calculate total steps: if session is preselected, skip Step 1 (session selection)
   const skipSessionStep = !!preselectedSessionId;
@@ -199,13 +243,37 @@ export function LogSessionModal({
       return (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Select which staff member you're logging this session for.
+            Select which staff member you&apos;re logging this session for.
           </p>
-          {/* Staff selector would go here - for now just show current */}
-          <div className="p-4 border rounded-md">
-            <p className="font-medium">Staff ID: {selectedStaffId}</p>
-            <p className="text-sm text-muted-foreground">Staff selector to be implemented</p>
-          </div>
+          <SearchableSelect<Tables<'staff'>>
+            items={adminStaffResults}
+            value={adminSelectedStaff}
+            onValueChange={(staff) => {
+              setAdminSelectedStaff(staff);
+              setSelectedStaffId(staff?.id ?? '');
+            }}
+            allowClear
+            clearLabel="Clear selection"
+            getItemId={(s) => s.id}
+            getItemLabel={(s) =>
+              `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Staff'
+            }
+            getItemValue={(s) =>
+              `${s.first_name ?? ''} ${s.last_name ?? ''} ${s.email ?? ''}`.toLowerCase()
+            }
+            onSearchChange={handleAdminStaffSearch}
+            loading={adminStaffSearchLoading}
+            searchPlaceholder="Search staff by name..."
+            emptyMessage="Type to search for a staff member"
+            placeholder="Choose staff member..."
+            align="start"
+            contentWidth="min(400px, 92vw)"
+            renderItem={(staffMember) => (
+              <div className="w-full">
+                <StaffCard staff={staffMember} showSubjects={false} />
+              </div>
+            )}
+          />
         </div>
       );
     }
@@ -301,7 +369,7 @@ export function LogSessionModal({
   };
 
   const canGoNext = () => {
-    if (adminMode && currentStep === 0) return !!selectedStaffId;
+    if (adminMode && currentStep === 0) return !!adminSelectedStaff?.id;
     const stepIndex = adminMode ? currentStep - 1 : currentStep;
     
     // If session is preselected, skip Step 0 (session selection)
@@ -336,21 +404,22 @@ export function LogSessionModal({
     <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
       <DialogContent
         className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
+          'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-4xl [&>button]:hidden',
+          tutorDialogContentClass,
           EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS,
         )}
       >
         {/* Header */}
-        <div className="flex-shrink-0 border-b bg-background">
-          <DialogHeader className="px-6 pt-6 pb-4">
+        <div className={cn('flex-shrink-0', tutorDialogHeaderStrip)}>
+          <DialogHeader className="px-6 pb-4 pt-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 flex-1">
                 <Button
                   variant="outline"
                   size="icon"
                   onClick={submissionState === 'success' ? handleClose : onClose}
-                  className="shrink-0"
+                  className={tutorBtnIconOutline}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -372,13 +441,12 @@ export function LogSessionModal({
                 {Array.from({ length: totalSteps }).map((_, index) => (
                   <div
                     key={index}
-                    className={`flex-1 h-2 rounded-full transition-colors ${
-                      index < currentStep
-                        ? 'bg-primary'
-                        : index === currentStep
-                        ? 'bg-primary/50'
-                        : 'bg-muted'
-                    }`}
+                    className={cn(
+                      'h-2 flex-1 rounded-full transition-colors duration-300',
+                      index < currentStep && 'bg-primary',
+                      index === currentStep && 'bg-primary/50',
+                      index > currentStep && 'bg-muted',
+                    )}
                   />
                 ))}
               </div>
@@ -395,23 +463,20 @@ export function LogSessionModal({
           </div>
         </div>
 
-        <div className="flex justify-between px-6 py-4 border-t bg-background">
+        <div className={cn('flex justify-between px-6 py-4', tutorDialogFooterStrip)}>
           {submissionState === 'success' ? (
             <>
               <div></div>
-              <Button onClick={handleClose}>
+              <Button className={tutorBtnPrimary} onClick={handleClose}>
                 Close
               </Button>
             </>
           ) : submissionState === 'error' ? (
             <>
-              <Button
-                variant="outline"
-                onClick={() => setSubmissionState('idle')}
-              >
+              <Button variant="outline" className={tutorBtnOutline} onClick={() => setSubmissionState('idle')}>
                 Try Again
               </Button>
-              <Button onClick={onClose}>
+              <Button className={tutorBtnPrimary} onClick={onClose}>
                 Close
               </Button>
             </>
@@ -419,20 +484,22 @@ export function LogSessionModal({
             <>
               <Button
                 variant="outline"
+                className={tutorBtnOutline}
                 onClick={handlePrevious}
                 disabled={currentStep === 0}
               >
-                <ChevronLeft className="h-4 w-4 mr-2" />
+                <ChevronLeft className="mr-2 h-4 w-4" />
                 Previous
               </Button>
 
               {currentStep < totalSteps - 1 ? (
-                <Button onClick={handleNext} disabled={!canGoNext()}>
+                <Button className={tutorBtnPrimary} onClick={handleNext} disabled={!canGoNext()}>
                   Next
-                  <ChevronRight className="h-4 w-4 ml-2" />
+                  <ChevronRight className="ml-2 h-4 w-4" />
                 </Button>
               ) : (
                 <Button
+                  className={tutorBtnPrimary}
                   onClick={handleSubmit}
                   disabled={submissionState === 'submitting' || !canGoNext()}
                 >

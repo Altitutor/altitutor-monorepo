@@ -476,6 +476,7 @@ describe('useFileUploadFlow', () => {
       mimetype: 'application/pdf',
       size_bytes: 0,
       storage_path: 'test/test.pdf',
+      external_url: null,
       storage_provider: 'supabase',
       updated_at: null,
     } as Tables<'files'>);

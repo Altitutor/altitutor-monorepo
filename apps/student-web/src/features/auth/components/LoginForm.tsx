@@ -22,6 +22,8 @@ import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
+import { studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 type LoginFormData = z.infer<typeof loginSchema>;
 
@@ -152,7 +154,10 @@ export function LoginForm() {
 
           <Button
             type="submit"
-            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-darkBlue dark:hover:bg-brand-lightBlue/90"
+            className={cn(
+              studentBtnPrimary,
+              'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-darkBlue dark:hover:bg-brand-lightBlue/90',
+            )}
             disabled={loading}
           >
             {loading ? (

@@ -24,6 +24,7 @@ describe('fileOperations utilities', () => {
     mimetype: mimetype ?? 'application/octet-stream',
     size_bytes: 1000,
     storage_path: 'path/to/file.pdf',
+    external_url: null,
     storage_provider: 'supabase',
     bucket: 'resources',
     metadata: {},

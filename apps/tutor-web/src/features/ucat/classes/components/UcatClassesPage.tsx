@@ -11,6 +11,7 @@ import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatClassDialog } from '@/features/ucat/classes/components/UcatClassDialog'
 import { applyCoreStringFilter } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { Pencil } from 'lucide-react'
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
 
 function formatClassTime(c: UcatClassWithDetails): string {
   const day = c.day_of_week != null ? getDayOfWeek(c.day_of_week) : ''
@@ -46,7 +47,7 @@ export function UcatClassesPage() {
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Classes"
         description="View UCAT classes and assign sets and mocks to sessions"
@@ -61,10 +62,10 @@ export function UcatClassesPage() {
       />
 
       <div className="pt-3">
-        <div className="rounded-md border">
+        <div className={tutorTableShell}>
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={tutorTableHeaderRow}>
               <TableHead>Time</TableHead>
               <TableHead>Students</TableHead>
               <TableHead>Staff</TableHead>
@@ -73,14 +74,14 @@ export function UcatClassesPage() {
           </TableHeader>
           <TableBody>
             {rows.length === 0 ? (
-              <TableRow>
+              <TableRow className={tutorTableBodyRow}>
                 <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                   No UCAT classes found.
                 </TableCell>
               </TableRow>
             ) : (
               rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow key={row.id} className={tutorTableBodyRow}>
                   <TableCell>{formatClassTime(row)}</TableCell>
                   <TableCell>
                     <div className="flex flex-col gap-0.5">

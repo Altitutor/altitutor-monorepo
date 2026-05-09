@@ -89,6 +89,13 @@ import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-d
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { cn } from '@/shared/utils'
+import {
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorTableBodyRow,
+  tutorTableHeaderRow,
+  tutorTableShell,
+} from '@/shared/lib/tutor-visual'
 
 function truncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text ?? ''
@@ -723,7 +730,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title={mode === 'generated' ? 'Generated UCAT Questions' : 'UCAT Questions'}
         description={
@@ -741,17 +748,21 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           <div className="flex items-center gap-2">
             {mode === 'generated' ? (
               <>
-                <Button variant="outline" onClick={() => setAiImportOpen(true)}>
+                <Button variant="outline" className={tutorBtnOutline} onClick={() => setAiImportOpen(true)}>
                   AI Import
                 </Button>
-                <Button onClick={() => setGenerateOpen(true)}>Generate questions</Button>
+                <Button className={tutorBtnPrimary} onClick={() => setGenerateOpen(true)}>
+                  Generate questions
+                </Button>
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+                <Button variant="outline" className={tutorBtnOutline} onClick={() => setBulkImportOpen(true)}>
                   Bulk Import
                 </Button>
-                <Button onClick={() => setCreateOpen(true)}>Add Question Stem</Button>
+                <Button className={tutorBtnPrimary} onClick={() => setCreateOpen(true)}>
+                  Add Question Stem
+                </Button>
               </>
             )}
           </div>
@@ -780,7 +791,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-center"
+              className={cn(tutorBtnOutline, 'w-full justify-center')}
               onClick={() => {
                 setShowDeleted((prev) => {
                   const next = !prev
@@ -801,10 +812,10 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
       />
 
       <div className={cn('pt-3', selectionMode && 'pb-24')}>
-        <div className="rounded-md border">
+        <div className={tutorTableShell}>
         <Table className="w-full table-fixed">
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={tutorTableHeaderRow}>
               <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
                   checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
@@ -833,8 +844,9 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
                 <React.Fragment key={row.id}>
                   <TableRow
                     className={cn(
+                      tutorTableBodyRow,
                       row.deleted_at && 'bg-destructive/10',
-                      selectedStemIds.has(row.id) && 'bg-muted/50'
+                      selectedStemIds.has(row.id) && 'bg-muted/50',
                     )}
                     onClick={() => selectionMode && toggleStemSelection(row.id)}
                   >
@@ -850,7 +862,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
                         <button
                           type="button"
                           onClick={() => toggleStemExpanded(row.id)}
-                          className="p-1 hover:bg-muted rounded"
+                          className="rounded-lg p-1 hover:bg-muted"
                         >
                           {isStemExpanded ? (
                             <ChevronDown className="h-4 w-4" />
@@ -934,7 +946,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
                                           <button
                                             type="button"
                                             onClick={() => toggleQuestionExpanded(row.id, q.id)}
-                                            className="p-1 hover:bg-muted rounded"
+                                            className="rounded-lg p-1 hover:bg-muted"
                                           >
                                             {isQExpanded ? (
                                               <ChevronDown className="h-4 w-4" />
@@ -1031,7 +1043,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           searchPlaceholder="Search categories..."
           emptyMessage="No categories found"
           trigger={
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Category
             </Button>
           }
@@ -1057,7 +1069,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           searchPlaceholder="Search..."
           emptyMessage="No options"
           trigger={
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Visibility
             </Button>
           }
@@ -1068,7 +1080,10 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         <Popover open={addToSetsPopoverOpen} onOpenChange={setAddToSetsPopoverOpen}>
           <PopoverTrigger
             type="button"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border h-9 px-3 hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:border-brand-dark-border dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white"
+            className={cn(
+              tutorBtnOutline,
+              'inline-flex h-9 items-center justify-center gap-2 px-3 text-sm font-medium hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:hover:bg-brand-dark-card/70 dark:text-white',
+            )}
           >
             Add to sets
           </PopoverTrigger>

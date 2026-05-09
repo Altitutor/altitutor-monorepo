@@ -34,6 +34,8 @@ export interface ReportEntityMeta {
   type?: string;
   invoice?: string;
   price?: string;
+  subject?: string;
+  createdAt?: string;
 }
 
 export interface IssueReportEntity {
@@ -87,6 +89,7 @@ export interface TasksReportData {
 
 export interface ProjectsReportData {
   openByDay: ReportDataPoint[];
+  finishedByDay: ReportDataPoint[];
 }
 
 export interface DateRange {
@@ -173,4 +176,8 @@ export interface BillingStatsReportData {
    * enrolled in a class for that subject, per day.
    */
   subsidiesEnrolledByDay: ReportDataPoint[];
+  /**
+   * Number of student subsidies created each day in the selected period.
+   */
+  subsidiesCreatedByDay: ReportDataPoint[];
 }

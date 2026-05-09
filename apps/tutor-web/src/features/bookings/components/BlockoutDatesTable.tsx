@@ -25,6 +25,16 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+import {
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorDialogContentClass,
+  tutorDialogFooterStrip,
+  tutorDialogHeaderStrip,
+  tutorTableBodyRow,
+  tutorTableHeaderRow,
+  tutorTableShell,
+} from '@/shared/lib/tutor-visual';
 import { blockoutsApi, type BlockoutRow, type CreateBlockoutInput, type UpdateBlockoutInput } from '../api/blockouts';
 
 interface BlockoutDatesTableProps {
@@ -311,16 +321,16 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
     <>
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold">My Blockout Dates</h2>
-        <Button onClick={() => setIsAddDialogOpen(true)}>
+        <Button className={tutorBtnPrimary} onClick={() => setIsAddDialogOpen(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Blockout
         </Button>
       </div>
 
-      <div className="border rounded-lg">
+      <div className={tutorTableShell}>
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={tutorTableHeaderRow}>
               <TableHead>Date Range</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -328,14 +338,14 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
           </TableHeader>
           <TableBody>
             {blockouts.length === 0 ? (
-              <TableRow>
+              <TableRow className={tutorTableBodyRow}>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
                   No blockouts found
                 </TableCell>
               </TableRow>
             ) : (
               blockouts.map((blockout) => (
-                <TableRow key={blockout.id}>
+                <TableRow key={blockout.id} className={tutorTableBodyRow}>
                   <TableCell>{formatDateRange(blockout.start_at, blockout.end_at)}</TableCell>
                   <TableCell>{blockout.reason || '-'}</TableCell>
                   <TableCell className="text-right">
@@ -368,11 +378,12 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
       <Dialog open={!!editingBlockout} onOpenChange={() => setEditingBlockout(null)}>
         <DialogContent
           className={cn(
+            tutorDialogContentClass,
             EXPANDABLE_DIALOG_TRANSITION,
             expanded && EXPANDED_DIALOG_CONTENT_CLASS
           )}
         >
-          <DialogHeader>
+          <DialogHeader className={cn('rounded-t-2xl px-6 py-4 sm:text-left', tutorDialogHeaderStrip)}>
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <DialogTitle>Edit Blockout</DialogTitle>
@@ -417,11 +428,11 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingBlockout(null)}>
+          <DialogFooter className={cn('rounded-b-2xl px-6 py-4', tutorDialogFooterStrip)}>
+            <Button variant="outline" className={tutorBtnOutline} onClick={() => setEditingBlockout(null)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button className={tutorBtnPrimary} onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>
@@ -432,11 +443,12 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
       <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
         <DialogContent
           className={cn(
+            tutorDialogContentClass,
             EXPANDABLE_DIALOG_TRANSITION,
             expanded && EXPANDED_DIALOG_CONTENT_CLASS
           )}
         >
-          <DialogHeader>
+          <DialogHeader className={cn('rounded-t-2xl px-6 py-4 sm:text-left', tutorDialogHeaderStrip)}>
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1 min-w-0">
                 <DialogTitle>Add Blockout</DialogTitle>
@@ -481,14 +493,14 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => {
+          <DialogFooter className={cn('rounded-b-2xl px-6 py-4', tutorDialogFooterStrip)}>
+            <Button variant="outline" className={tutorBtnOutline} onClick={() => {
               setIsAddDialogOpen(false);
               resetForm();
             }}>
               Cancel
             </Button>
-            <Button onClick={handleAdd} disabled={saving}>
+            <Button className={tutorBtnPrimary} onClick={handleAdd} disabled={saving}>
               {saving ? 'Creating...' : 'Create'}
             </Button>
           </DialogFooter>

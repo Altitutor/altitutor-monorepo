@@ -83,7 +83,7 @@ export function UcatLandingHero() {
               zero knowledge to confident mastery.
             </p>
             <div className="hero-text mt-6 flex flex-col gap-3 sm:mt-10 sm:flex-row sm:flex-wrap sm:gap-4">
-              <Link href="/subscribe" className="w-full sm:w-auto">
+              <Link href="/signup" className="w-full sm:w-auto">
                 <MagneticButton className="w-full bg-marketing-accent px-6 py-3 text-base font-medium tracking-wide text-marketing-charcoal shadow-lg shadow-marketing-accent/20 sm:w-auto sm:px-8 sm:py-4 sm:text-lg">
                   Sign up for a free trial <ArrowRight className="h-5 w-5" />
                 </MagneticButton>

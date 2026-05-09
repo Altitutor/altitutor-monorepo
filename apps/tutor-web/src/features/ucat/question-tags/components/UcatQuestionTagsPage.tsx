@@ -200,7 +200,7 @@ export function UcatQuestionTagsPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="Question Tags"
         description="Create and manage reusable question tags"

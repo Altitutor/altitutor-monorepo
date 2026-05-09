@@ -74,7 +74,7 @@ export function UcatLandingPricing() {
                 $9/mo standard • $149/mo penalty
               </p>
             </div>
-            <Link href="/subscribe">
+            <Link href="/signup">
               <MagneticButton className="mt-12 w-full bg-marketing-primary py-4 text-base font-semibold text-marketing-cream hover:shadow-lg">
                 Commit Now
               </MagneticButton>

@@ -36,10 +36,38 @@ interface TutorLogStaffAttendance {
 interface TutorLog {
   id: string;
   tutor_log_id: string | null;
+  created_by?: string | null;
   student_attendance?: TutorLogStudentAttendance[];
   staff_attendance?: TutorLogStaffAttendance[];
   topics?: Array<{ id: string; name: string; subject_id: string }>;
   files?: Array<{ id: string; topic_id: string; code?: string; filename?: string }>;
+}
+
+function parseSessionStudentsFromJson(json: unknown): SessionStudent[] | undefined {
+  if (!Array.isArray(json)) return undefined;
+  const out: SessionStudent[] = [];
+  for (const item of json) {
+    if (typeof item !== 'object' || item === null || !('id' in item) || !('first_name' in item) || !('last_name' in item)) {
+      continue;
+    }
+    const row: SessionStudent = {
+      id: String(item.id),
+      first_name: String(item.first_name),
+      last_name: String(item.last_name),
+      year_level:
+        'year_level' in item && (typeof item.year_level === 'number' || item.year_level === null)
+          ? (item.year_level as number | null)
+          : null,
+      planned_absence: 'planned_absence' in item ? Boolean(item.planned_absence) : false,
+      is_rescheduled: 'is_rescheduled' in item ? Boolean(item.is_rescheduled) : false,
+      is_credited: 'is_credited' in item ? Boolean(item.is_credited) : false,
+    };
+    if ('session_student_id' in item && typeof item.session_student_id === 'string') {
+      row.session_student_id = item.session_student_id;
+    }
+    out.push(row);
+  }
+  return out.length > 0 ? out : undefined;
 }
 
 export interface UseSessionModalDataReturn {
@@ -79,24 +107,6 @@ export function useSessionModalData({
       const result = await sessionsApi.getSessionWithDetails(sessionId);
       // Transform result to match FlattenedSessionDetail type
       if (result && result.session_id) {
-        // Parse JSON fields with proper type guards
-        const parseStudents = (json: unknown): SessionStudent[] | undefined => {
-          if (!Array.isArray(json)) return undefined;
-          return json.map(item => {
-            if (typeof item === 'object' && item !== null && 'id' in item && 'first_name' in item && 'last_name' in item) {
-              return {
-                id: String(item.id),
-                first_name: String(item.first_name),
-                last_name: String(item.last_name),
-                year_level: 'year_level' in item && (typeof item.year_level === 'number' || item.year_level === null)
-                  ? item.year_level
-                  : null,
-              };
-            }
-            return null;
-          }).filter((item): item is SessionStudent => item !== null);
-        };
-        
         const parseStaff = (json: unknown): SessionStaff[] | undefined => {
           if (!Array.isArray(json)) return undefined;
           const result: SessionStaff[] = [];
@@ -127,10 +137,10 @@ export function useSessionModalData({
           }
           return result.length > 0 ? result : undefined;
         };
-        
-        const students = parseStudents(result.students);
+
+        const students = parseSessionStudentsFromJson(result.students);
         const staff = parseStaff(result.staff);
-        
+
         setData({
           ...result,
           session_id: result.session_id,
@@ -140,7 +150,7 @@ export function useSessionModalData({
       } else {
         setData(null);
       }
-      
+
       // Fetch tutor log for this session
       const logResult = await sessionsApi.getTutorLogBySessionId(sessionId);
       // Transform logResult to match TutorLog type
@@ -210,6 +220,7 @@ export function useSessionModalData({
         setTutorLog({
           id: logResult.tutor_log_id,
           tutor_log_id: logResult.tutor_log_id,
+          created_by: 'created_by' in logResult && typeof logResult.created_by === 'string' ? logResult.created_by : null,
           student_attendance: parseStudentAttendance(logResult.student_attendance),
           staff_attendance: parseStaffAttendance(logResult.staff_attendance),
           topics: parseTopics(logResult.topics),
@@ -283,24 +294,6 @@ export function useSessionModalData({
       const result = await sessionsApi.getSessionWithDetails(sessionId);
       // Transform result to match FlattenedSessionDetail type
       if (result && result.session_id) {
-        // Parse JSON fields with proper type guards
-        const parseStudents = (json: unknown): SessionStudent[] | undefined => {
-          if (!Array.isArray(json)) return undefined;
-          return json.map(item => {
-            if (typeof item === 'object' && item !== null && 'id' in item && 'first_name' in item && 'last_name' in item) {
-              return {
-                id: String(item.id),
-                first_name: String(item.first_name),
-                last_name: String(item.last_name),
-                year_level: 'year_level' in item && (typeof item.year_level === 'number' || item.year_level === null)
-                  ? item.year_level
-                  : null,
-              };
-            }
-            return null;
-          }).filter((item): item is SessionStudent => item !== null);
-        };
-        
         const parseStaff = (json: unknown): SessionStaff[] | undefined => {
           if (!Array.isArray(json)) return undefined;
           const result: SessionStaff[] = [];
@@ -331,10 +324,10 @@ export function useSessionModalData({
           }
           return result.length > 0 ? result : undefined;
         };
-        
-        const students = parseStudents(result.students);
+
+        const students = parseSessionStudentsFromJson(result.students);
         const staff = parseStaff(result.staff);
-        
+
         setData({
           ...result,
           session_id: result.session_id,

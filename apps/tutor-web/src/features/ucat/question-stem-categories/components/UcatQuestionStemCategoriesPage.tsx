@@ -17,6 +17,7 @@ import {
   useToast,
 } from '@altitutor/ui'
 import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { applySingleSelectFilter, applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
@@ -238,7 +239,7 @@ export function UcatQuestionStemCategoriesPage() {
   }
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="Question Stem Categories"
         description="Create and manage question stem categories"
@@ -268,10 +269,10 @@ export function UcatQuestionStemCategoriesPage() {
       />
 
       <div className="pt-3">
-        <div className="rounded-md border">
+        <div className={tutorTableShell}>
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={tutorTableHeaderRow}>
               <TableHead className="w-12" />
               <TableHead>Section</TableHead>
               <TableHead>Name</TableHead>
@@ -281,7 +282,7 @@ export function UcatQuestionStemCategoriesPage() {
           </TableHeader>
           <TableBody>
             {flatTree.length === 0 ? (
-              <TableRow>
+              <TableRow className={tutorTableBodyRow}>
                 <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
                   No categories match your filters
                 </TableCell>
@@ -291,13 +292,13 @@ export function UcatQuestionStemCategoriesPage() {
                 const hasKids = hasChildren(row)
                 const isExpanded = expandedCategories.has(row.id)
                 return (
-                  <TableRow key={row.id}>
+                  <TableRow key={row.id} className={tutorTableBodyRow}>
                     <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
                       {hasKids ? (
                         <button
                           type="button"
                           onClick={() => toggleExpanded(row.id)}
-                          className="p-1 hover:bg-muted rounded"
+                          className="rounded-lg p-1 hover:bg-muted"
                         >
                           {isExpanded ? (
                             <ChevronDown className="h-4 w-4" />

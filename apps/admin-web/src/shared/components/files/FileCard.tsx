@@ -42,7 +42,8 @@ export interface FileCardProps {
   fileType?: Enums<'resource_type'>;
   filename: string;
   displayName?: string | null;
-  storagePath: string;
+  storagePath?: string | null;
+  externalUrl?: string | null;
   mimeType?: string;
   /**
    * Junction table ID (e.g., topics_files.id, sessions_files.id, staff_files.id)
@@ -80,6 +81,7 @@ export function FileCard({
   filename,
   displayName,
   storagePath,
+  externalUrl,
   mimeType: _mimeType,
   topicFileId, // Deprecated but kept for backward compatibility
   junctionTableId,
@@ -128,6 +130,14 @@ export function FileCard({
 
     try {
       setDownloadingFile(true);
+      const ext = externalUrl?.trim();
+      if (ext) {
+        window.open(ext, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      if (!storagePath) {
+        return;
+      }
       const getUrlFn = getSignedUrlFn || getSignedUrl;
       const signedUrl = await getUrlFn(storagePath);
       const link = document.createElement('a');

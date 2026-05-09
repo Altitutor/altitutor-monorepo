@@ -22,6 +22,8 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { authApi } from '@/features/auth/api';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 type ResetPasswordData = z.infer<typeof resetPasswordSchema>;
 
@@ -136,14 +138,17 @@ export function ResetPasswordForm() {
         <div className="flex flex-col gap-2">
           <Button 
             onClick={() => router.push('/forgot-password')}
-            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
+            className={cn(
+              studentBtnPrimary,
+              'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90',
+            )}
           >
             Request New Reset
           </Button>
           <Button 
             variant="outline" 
             onClick={() => router.push('/login')}
-            className="w-full"
+            className={cn(studentBtnOutline, 'w-full')}
           >
             Back to Login
           </Button>
@@ -238,7 +243,10 @@ export function ResetPasswordForm() {
 
           <Button
             type="submit"
-            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
+            className={cn(
+              studentBtnPrimary,
+              'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90',
+            )}
             disabled={loading}
           >
             {loading ? (

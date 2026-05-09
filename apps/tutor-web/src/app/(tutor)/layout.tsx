@@ -3,13 +3,22 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Calendar, Home, BookOpen, Ban, User, BrainCircuit, ChevronDown, ChevronLeft } from 'lucide-react';
+import {
+  Calendar,
+  Home,
+  BookOpen,
+  User,
+  BrainCircuit,
+  ChevronDown,
+  Settings,
+} from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
 import type { LucideIcon } from 'lucide-react';
+import { TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -22,6 +31,8 @@ type NavItem =
   | { type?: 'link'; title: string; href: string; icon: LucideIcon }
   | { type: 'dropdown'; title: string; href: string; icon: LucideIcon; children: NavLink[] }
   | { type: 'heading'; title: string };
+
+type NavLinkItem = { title: string; href: string; icon: LucideIcon };
 
 const ucatDropdownChildren: NavLink[] = [
   { title: 'Questions', href: '/ucat/questions' },
@@ -36,24 +47,78 @@ const ucatDropdownChildren: NavLink[] = [
   { title: 'Sections', href: '/ucat/sections' },
 ];
 
-const allNavItems: NavItem[] = [
+const primaryNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: Home },
   { title: 'Classes', href: '/classes', icon: Calendar },
   { title: 'Resources', href: '/resources', icon: BookOpen },
   { type: 'dropdown', title: 'UCAT', href: '/ucat', icon: BrainCircuit, children: ucatDropdownChildren },
-  { title: 'Blockout Dates', href: '/settings/blockouts', icon: Ban },
   { title: 'My Profile', href: '/my-profile', icon: User },
 ];
 
-function getNavItems(isUcatTutor: boolean): NavItem[] {
-  return allNavItems.filter(
-    (item) => item.type !== 'dropdown' || (item.type === 'dropdown' && isUcatTutor)
+const settingsNavItem: NavLinkItem = { title: 'Settings', href: '/settings', icon: Settings };
+
+function getPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
+  return primaryNavItems.filter(
+    (item) => item.type !== 'dropdown' || (item.type === 'dropdown' && isUcatTutor),
   );
 }
 
-const navHoverStyles = "hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70";
+const navHoverStyles =
+  'rounded-xl hover:bg-muted/80 dark:hover:bg-white/[0.07] transition-colors duration-300 ease-out';
 
-function MobileMenu({ isOpen, onClose, navItems: items }: { isOpen: boolean; onClose: () => void; navItems: NavItem[] }) {
+function isNavLinkActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  if (href === '/') return false;
+  return pathname.startsWith(`${href}/`);
+}
+
+/** Animated height for UCAT (and future) submenu — grid 0fr → 1fr */
+function NavSubmenu({ open, children }: { open: boolean; children: React.ReactNode }) {
+  return (
+    <div
+      className={cn(
+        'grid transition-[grid-template-rows] duration-300 ease-out motion-reduce:transition-none',
+        open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div className="ml-3 mt-1 flex flex-col gap-0.5 border-l border-black/[0.08] pl-3 dark:border-white/10">
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function renderSettingsLink(item: NavLinkItem, pathname: string, collapsed: boolean) {
+  const Icon = item.icon;
+  const active = isNavLinkActive(pathname, item.href);
+  return (
+    <Link
+      href={item.href}
+      className={cn(
+        'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
+        active
+          ? 'bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
+          : navHoverStyles,
+        collapsed && 'justify-center px-0',
+      )}
+    >
+      <Icon className={cn('h-5 w-5', collapsed && 'h-6 w-6')} />
+      {!collapsed && <span className="overflow-hidden whitespace-nowrap">{item.title}</span>}
+    </Link>
+  );
+}
+
+function MobileMenu({
+  isOpen,
+  onClose,
+  primaryItems,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  primaryItems: NavItem[];
+}) {
   const pathname = usePathname();
   const [ucatOpen, setUcatOpen] = useState(() => pathname.startsWith('/ucat'));
 
@@ -90,111 +155,117 @@ function MobileMenu({ isOpen, onClose, navItems: items }: { isOpen: boolean; onC
     onClose();
   }, [pathname, onClose]);
 
+  const childLinkClass = (href: string) =>
+    cn(
+      'rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
+      pathname === href
+        ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
+        : 'text-muted-foreground hover:bg-muted/80 dark:hover:bg-white/[0.07]',
+    );
+
   return (
     <>
       {isOpen && (
         <div
           data-mobile-menu-overlay
-          className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden"
           onClick={onClose}
         />
       )}
+
       <div
         className={cn(
-          "fixed top-[var(--navbar-height)] left-0 bottom-0 w-[280px] bg-background dark:bg-brand-dark-bg border-r dark:border-brand-dark-border z-50 md:hidden transition-transform duration-300 ease-in-out overflow-y-auto",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          'fixed bottom-0 left-0 top-[var(--navbar-height)] z-50 flex w-[280px] max-w-[85vw] flex-col overflow-hidden rounded-r-3xl border-0 bg-card shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out dark:bg-brand-dark-card dark:ring-white/10 md:hidden',
+          isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex flex-col h-full">
-          <div className="flex h-14 items-center px-4 border-b dark:border-brand-dark-border">
-            <h2 className="text-lg font-semibold">Tutor Portal</h2>
-          </div>
-          <ScrollArea className="flex-1">
-            <nav className="flex flex-col gap-1 p-2">
-              {items.map((item, index) => {
-                if (item.type === 'heading') {
-                  return (
-                    <div
-                      key={`heading-${index}`}
-                      className="text-xs font-semibold text-muted-foreground px-3 pt-4 pb-2"
-                    >
-                      {item.title}
-                    </div>
-                  );
-                }
-                if (item.type === 'dropdown') {
-                  const isOpen = item.title === 'UCAT' ? ucatOpen : false;
-                  const isActive = pathname.startsWith(item.href);
-                  const Icon = item.icon;
-                  return (
-                    <div key={item.href} className="flex flex-col gap-1">
-                      <div
-                        className={cn(
-                          "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                          isActive ? "bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg" : navHoverStyles
-                        )}
-                      >
-                        <Link
-                          href={item.href}
-                          className="flex min-w-0 flex-1 items-center gap-3"
-                        >
-                          <Icon className="h-5 w-5 shrink-0" />
-                          <span className="text-left">{item.title}</span>
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (item.title === 'UCAT') setUcatOpen((o) => !o);
-                          }}
-                          className="shrink-0 rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
-                          aria-expanded={isOpen}
-                        >
-                          {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-                        </button>
-                      </div>
-                      {isOpen && (
-                        <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
-                          {item.children.map((child) => (
-                            <Link
-                              key={child.href}
-                              href={child.href}
-                              className={cn(
-                                "rounded-md px-2 py-1.5 text-sm transition-colors",
-                                pathname === child.href
-                                  ? "bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg"
-                                  : "text-muted-foreground hover:bg-brand-lightBlue/10 hover:text-foreground dark:hover:bg-brand-dark-card/70"
-                              )}
-                            >
-                              {child.title}
-                            </Link>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                }
+        <div className="flex h-14 shrink-0 items-center px-4">
+          <h2 className="text-lg font-semibold">Altitutor Tutor</h2>
+        </div>
+
+        <ScrollArea className="min-h-0 flex-1">
+          <nav className="flex flex-col gap-1 p-2">
+            {primaryItems.map((item, index) => {
+              if (item.type === 'heading') {
+                return (
+                  <div
+                    key={`heading-${index}`}
+                    className="px-3 pb-2 pt-4 text-xs font-semibold text-muted-foreground"
+                  >
+                    {item.title}
+                  </div>
+                );
+              }
+              if (item.type === 'dropdown') {
+                const open = item.title === 'UCAT' ? ucatOpen : false;
+                const isActive = pathname.startsWith(item.href);
                 const Icon = item.icon;
                 return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                      pathname === item.href
-                        ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90"
-                        : navHoverStyles
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span>{item.title}</span>
-                  </Link>
+                  <div key={item.href} className="flex flex-col gap-0">
+                    <div
+                      className={cn(
+                        'flex items-center gap-1 rounded-xl px-2 py-2 text-sm transition-all duration-300 ease-out',
+                        isActive
+                          ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
+                          : navHoverStyles,
+                      )}
+                    >
+                      <Link href={item.href} className="flex min-w-0 flex-1 items-center gap-3 px-1">
+                        <Icon className="h-5 w-5 shrink-0" />
+                        <span className="text-left">{item.title}</span>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          if (item.title === 'UCAT') setUcatOpen((o) => !o);
+                        }}
+                        className="shrink-0 rounded-lg p-1 hover:bg-black/10 dark:hover:bg-white/10"
+                        aria-expanded={open}
+                      >
+                        <ChevronDown
+                          className={cn(
+                            'h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none',
+                            open ? 'rotate-0' : '-rotate-90',
+                          )}
+                        />
+                      </button>
+                    </div>
+                    <NavSubmenu open={open}>
+                      {item.children.map((child) => (
+                        <Link key={child.href} href={child.href} className={childLinkClass(child.href)}>
+                          {child.title}
+                        </Link>
+                      ))}
+                    </NavSubmenu>
+                  </div>
                 );
-              })}
-            </nav>
-          </ScrollArea>
-        </div>
+              }
+              const Icon = item.icon;
+              const active = isNavLinkActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
+                    active
+                      ? 'bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
+                      : navHoverStyles,
+                  )}
+                >
+                  <Icon className="h-5 w-5" />
+                  <span>{item.title}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        </ScrollArea>
+
+        <nav className="shrink-0 border-t border-black/[0.06] p-2 dark:border-white/10">
+          {renderSettingsLink(settingsNavItem, pathname, false)}
+        </nav>
       </div>
     </>
   );
@@ -204,9 +275,9 @@ function SidebarNav({
   className,
   collapsed,
   onToggle,
-  navItems: items,
+  primaryItems,
   ...props
-}: SidebarNavProps & { navItems: NavItem[] }) {
+}: SidebarNavProps & { primaryItems: NavItem[] }) {
   const pathname = usePathname();
   const [ucatOpen, setUcatOpen] = useState(() => pathname.startsWith('/ucat'));
 
@@ -214,51 +285,69 @@ function SidebarNav({
     if (pathname.startsWith('/ucat')) setUcatOpen(true);
   }, [pathname]);
 
+  const childLinkClass = (href: string) =>
+    cn(
+      'rounded-xl px-2 py-1.5 text-sm transition-all duration-300 ease-out whitespace-nowrap overflow-hidden',
+      pathname === href
+        ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
+        : 'text-muted-foreground hover:bg-muted/80 dark:hover:bg-white/[0.07]',
+    );
+
   return (
     <div
       className={cn(
-        "hidden md:flex flex-col border-r bg-background dark:bg-brand-dark-bg dark:border-brand-dark-border h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
-        collapsed ? "w-[70px]" : "w-[250px]",
-        className
+        'hidden h-full min-h-0 shrink-0 flex-col rounded-2xl border-0 bg-card shadow-[0_8px_30px_rgb(0,0,0,0.06)] ring-1 ring-black/[0.06] transition-all duration-300 ease-out dark:bg-brand-dark-card dark:shadow-[0_8px_30px_rgb(0,0,0,0.35)] dark:ring-white/10 md:flex',
+        collapsed ? 'w-[72px]' : 'w-[250px]',
+        className,
       )}
       {...props}
     >
-      <div className="flex h-14 items-center px-4 border-b dark:border-brand-dark-border">
+      <div
+        className={cn(
+          'flex h-14 shrink-0 items-center',
+          collapsed ? 'justify-center px-0' : 'gap-2 px-3',
+        )}
+      >
         <Button
           variant="ghost"
           size="icon"
           onClick={onToggle}
-          className="mr-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={cn(
+            'shrink-0 rounded-xl hover:bg-muted/80 dark:hover:bg-white/[0.07]',
+            collapsed && 'size-10',
+          )}
         >
           <AnimatedHamburgerIcon isOpen={!collapsed} />
         </Button>
         {!collapsed && (
-          <div className="flex items-center overflow-hidden min-w-0 transition-opacity duration-300">
-            <h2 className="text-lg font-semibold whitespace-nowrap">Tutor Portal</h2>
+          <div className="min-w-0 flex-1 overflow-hidden transition-opacity duration-300">
+            <h2 className="whitespace-nowrap text-lg font-semibold">Altitutor Tutor</h2>
           </div>
         )}
       </div>
-      <ScrollArea className="flex-1">
+
+      <ScrollArea className="min-h-0 flex-1">
         <nav className="flex flex-col gap-1 p-2">
-          {items.map((item, index) => {
+          {primaryItems.map((item, index) => {
             if (item.type === 'heading') {
               return (
                 <div
                   key={`heading-${index}`}
                   className={cn(
-                    "text-xs font-semibold text-muted-foreground px-3 pt-4 pb-2",
-                    collapsed && "text-center px-0"
+                    'px-3 pb-2 pt-4 text-xs font-semibold text-muted-foreground',
+                    collapsed && 'px-0 text-center',
                   )}
                 >
                   {!collapsed && (
-                    <span className="whitespace-nowrap overflow-hidden">{item.title}</span>
+                    <span className="overflow-hidden whitespace-nowrap">{item.title}</span>
                   )}
-                  {collapsed && <div className="h-px bg-border" />}
+                  {collapsed && <div className="mx-auto h-px max-w-[28px] bg-border" />}
                 </div>
               );
             }
             if (item.type === 'dropdown') {
-              const isOpen = item.title === 'UCAT' ? ucatOpen : false;
+              const open = item.title === 'UCAT' ? ucatOpen : false;
               const isActive = pathname.startsWith(item.href);
               const Icon = item.icon;
               if (collapsed) {
@@ -267,10 +356,10 @@ function SidebarNav({
                     key={item.href}
                     href={item.href}
                     className={cn(
-                      "flex items-center justify-center px-0 py-2 rounded-md text-sm transition-colors",
+                      'flex items-center justify-center rounded-xl px-0 py-2 text-sm transition-all duration-300 ease-out',
                       isActive
-                        ? "bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg"
-                        : navHoverStyles
+                        ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
+                        : navHoverStyles,
                     )}
                   >
                     <Icon className="h-6 w-6" />
@@ -278,21 +367,18 @@ function SidebarNav({
                 );
               }
               return (
-                <div key={item.href} className="flex flex-col gap-1">
+                <div key={item.href} className="flex flex-col gap-0">
                   <div
                     className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
+                      'flex items-center gap-1 rounded-xl px-2 py-2 text-sm transition-all duration-300 ease-out',
                       isActive
-                        ? "bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg"
-                        : navHoverStyles
+                        ? 'bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg'
+                        : navHoverStyles,
                     )}
                   >
-                    <Link
-                      href={item.href}
-                      className="flex min-w-0 flex-1 items-center gap-3"
-                    >
+                    <Link href={item.href} className="flex min-w-0 flex-1 items-center gap-3 px-1">
                       <Icon className="h-5 w-5 shrink-0" />
-                      <span className="whitespace-nowrap overflow-hidden text-left">{item.title}</span>
+                      <span className="overflow-hidden whitespace-nowrap text-left">{item.title}</span>
                     </Link>
                     <button
                       type="button"
@@ -301,55 +387,54 @@ function SidebarNav({
                         e.stopPropagation();
                         if (item.title === 'UCAT') setUcatOpen((o) => !o);
                       }}
-                      className="shrink-0 rounded p-0.5 hover:bg-black/10 dark:hover:bg-white/10"
-                      aria-expanded={isOpen}
+                      className="shrink-0 rounded-lg p-1 hover:bg-black/10 dark:hover:bg-white/10"
+                      aria-expanded={open}
                     >
-                      {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                      <ChevronDown
+                        className={cn(
+                          'h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none',
+                          open ? 'rotate-0' : '-rotate-90',
+                        )}
+                      />
                     </button>
                   </div>
-                  {isOpen && (
-                    <div className="ml-4 mt-1 flex flex-col gap-0.5 border-l border-border pl-2">
-                      {item.children.map((child) => (
-                        <Link
-                          key={child.href}
-                          href={child.href}
-                          className={cn(
-                            "rounded-md px-2 py-1.5 text-sm transition-colors whitespace-nowrap overflow-hidden",
-                            pathname === child.href
-                              ? "bg-brand-darkBlue text-white dark:bg-brand-lightBlue dark:text-brand-dark-bg"
-                              : "text-muted-foreground hover:bg-brand-lightBlue/10 hover:text-foreground dark:hover:bg-brand-dark-card/70"
-                          )}
-                        >
-                          {child.title}
-                        </Link>
-                      ))}
-                    </div>
-                  )}
+                  <NavSubmenu open={open}>
+                    {item.children.map((child) => (
+                      <Link key={child.href} href={child.href} className={childLinkClass(child.href)}>
+                        {child.title}
+                      </Link>
+                    ))}
+                  </NavSubmenu>
                 </div>
               );
             }
             const Icon = item.icon;
+            const active = isNavLinkActive(pathname, item.href);
             return (
               <Link
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                  pathname === item.href
-                    ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90"
+                  'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
+                  active
+                    ? 'bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
                     : navHoverStyles,
-                  collapsed && "justify-center px-0"
+                  collapsed && 'justify-center px-0',
                 )}
               >
-                <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+                <Icon className={cn('h-5 w-5', collapsed && 'h-6 w-6')} />
                 {!collapsed && (
-                  <span className="whitespace-nowrap overflow-hidden">{item.title}</span>
+                  <span className="overflow-hidden whitespace-nowrap">{item.title}</span>
                 )}
               </Link>
             );
           })}
         </nav>
       </ScrollArea>
+
+      <nav className="mt-auto shrink-0 border-t border-black/[0.06] p-2 dark:border-white/10">
+        {renderSettingsLink(settingsNavItem, pathname, collapsed)}
+      </nav>
     </div>
   );
 }
@@ -363,7 +448,7 @@ export default function TutorLayout({
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const ucatAccess = useUcatAccess();
   const isUcatTutor = !!ucatAccess.data;
-  const navItems = getNavItems(isUcatTutor);
+  const primaryItems = getPrimaryNavItems(isUcatTutor);
 
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
@@ -371,11 +456,13 @@ export default function TutorLayout({
 
   return (
     <>
-      <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} navItems={navItems} />
-      <div className="flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden">
-        <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} navItems={navItems} />
-        <div className="flex-1 overflow-auto">
-          {children}
+      <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} primaryItems={primaryItems} />
+      <div className="flex h-[calc(100dvh-var(--navbar-height))] min-h-0 overflow-hidden bg-background md:gap-3 md:p-3">
+        <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} primaryItems={primaryItems} />
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl bg-card/45 ring-1 ring-black/[0.04] [scrollbar-gutter:stable] dark:bg-brand-dark-card/25 dark:ring-white/[0.06]">
+          <div className={cn('mx-auto min-h-min w-full min-w-0', TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X)}>
+            {children}
+          </div>
         </div>
       </div>
     </>

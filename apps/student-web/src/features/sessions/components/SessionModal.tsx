@@ -1,7 +1,16 @@
 'use client';
 
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Badge, SessionInfoGrid } from '@altitutor/ui';
-import { Separator } from '@altitutor/ui';
+import Link from 'next/link';
+import {
+  Button,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  Badge,
+  SessionInfoGrid,
+} from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getSessionTitle, formatSessionDate, type FlattenedSessionDetail } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
@@ -9,7 +18,15 @@ import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { useCurrentStudentId } from '@/shared/hooks';
 import { useSessionWithDetails } from '../hooks/useSessionWithDetails';
+import { useSessionTutorLogResources } from '../hooks/useSessionTutorLogResources';
+import { TopicFilesList } from '@/features/resources/components/topic-files-list';
 import { cn } from '@/shared/utils';
+import {
+  studentBtnOutline,
+  studentModalHairline,
+  studentModalInsetCard,
+  studentModalShell,
+} from '@/shared/lib/student-visual';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -39,10 +56,7 @@ function StudentCard({
   const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase();
   
   return (
-    <div className={cn(
-      "flex items-start gap-3 p-3 border rounded-lg bg-background",
-      isGreyedOut && "opacity-50"
-    )}>
+    <div className={cn(studentModalInsetCard, 'flex items-start gap-3', isGreyedOut && 'opacity-50')}>
       <div className="flex-shrink-0">
         <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
           {initials}
@@ -97,7 +111,7 @@ function StaffCard({ staff }: {
   const roleDisplay = staff.role === 'TUTOR' ? 'Tutor' : staff.role === 'ADMINSTAFF' ? 'Admin Staff' : staff.role || '';
   
   return (
-    <div className="flex items-start gap-3 p-3 border rounded-lg bg-background">
+    <div className={cn(studentModalInsetCard, 'flex items-start gap-3')}>
       <div className="flex-shrink-0">
         <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
           {initials}
@@ -120,13 +134,24 @@ function StaffCard({ staff }: {
 export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
   const { data: currentStudentId } = useCurrentStudentId();
   const { data, isLoading } = useSessionWithDetails(sessionId, isOpen && !!sessionId);
+  const sessionRowForLog = data ? (data as unknown as FlattenedSessionDetail) : null;
+  const { data: tutorLogResources } = useSessionTutorLogResources(
+    sessionId,
+    sessionRowForLog,
+    isOpen && !!sessionId,
+  );
 
   // Always render the Sheet to allow exit animation
   if (isLoading || !data) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
-          <div className="flex-1 overflow-y-auto p-6">
+        <SheetContent
+          className={cn(
+            studentModalShell,
+            'flex h-full max-h-[100dvh] w-full flex-col overflow-hidden rounded-none rounded-l-2xl p-0 md:w-[600px] md:max-w-none [&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+          )}
+        >
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
             <SheetHeader className="mb-6">
               <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
             </SheetHeader>
@@ -175,8 +200,13 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
-        <div className="flex-1 overflow-y-auto p-6">
+      <SheetContent
+        className={cn(
+          studentModalShell,
+          'flex h-full max-h-[100dvh] w-full flex-col overflow-hidden rounded-none rounded-l-2xl p-0 md:w-[600px] md:max-w-none [&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+        )}
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6">
           <SheetHeader className="mb-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
@@ -191,7 +221,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           <div className="space-y-6">
             {/* Session Information */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Session Information</h3>
+              <h3 className="mb-4 text-2xl font-semibold">Session Information</h3>
               <SessionInfoGrid
                 day={session.start_at ? formatSessionDate(session.start_at) : '—'}
                 time={formatSessionTimeRangeForDisplay(session, formatTime)}
@@ -214,11 +244,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               />
             </div>
 
-            <Separator />
+            <div className={cn(studentModalHairline, 'my-6')} />
 
             {/* Students Section */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Students ({sessionsStudents.length})</h3>
+              <h3 className="mb-4 text-2xl font-semibold">Students</h3>
               {sessionsStudents.length === 0 ? (
                 <div className="text-center py-4 text-sm text-muted-foreground">
                   No students planned
@@ -242,11 +272,10 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               )}
             </div>
 
-            <Separator />
 
             {/* Staff Section */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Staff ({sessionsStaff.length})</h3>
+              <h3 className="mb-4 text-2xl font-semibold">Tutors</h3>
               {sessionsStaff.length === 0 ? (
                 <div className="text-center py-4 text-sm text-muted-foreground">
                   No staff planned
@@ -262,6 +291,60 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                 </div>
               )}
             </div>
+
+            {tutorLogResources ? (
+              <>
+                <div className={cn(studentModalHairline, 'my-6')} />
+                <div>
+                  <h3 className="mb-4 text-2xl font-semibold">Topics covered</h3>
+                  {tutorLogResources.topicSections.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No topics or files were linked to you in this session&apos;s log.
+                    </p>
+                  ) : (
+                    <div className="space-y-10">
+                      {tutorLogResources.topicSections.map((section) => {
+                        const short = section.subjectShortName.trim();
+                        const getFileHref = (fileCode: string) =>
+                          short
+                            ? `/resources/${encodeURIComponent(short)}/${encodeURIComponent(section.code)}/${encodeURIComponent(fileCode.toLowerCase())}`
+                            : '#';
+
+                        const topicHref =
+                          short && section.code !== '—'
+                            ? `/resources/${encodeURIComponent(short)}/${encodeURIComponent(section.code)}`
+                            : null;
+
+                        return (
+                          <div key={section.topicId}>
+                            <div className="mb-4 flex items-start justify-between gap-3">
+                              <p className="min-w-0 flex-1 text-lg font-semibold tracking-tight text-foreground">
+                                <span className="line-clamp-2">{section.code} · {section.name}</span>
+                              </p>
+                              {topicHref ? (
+                                <Button
+                                  asChild
+                                  variant="outline"
+                                  size="sm"
+                                  className={cn(studentBtnOutline, 'shrink-0')}
+                                >
+                                  <Link href={topicHref}>Go to topic</Link>
+                                </Button>
+                              ) : null}
+                            </div>
+                            <TopicFilesList
+                              files={section.files}
+                              getFileHref={getFileHref}
+                              fileTypeHeadingClassName="mb-2 text-base font-semibold text-foreground"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
           </div>
         </div>
       </SheetContent>

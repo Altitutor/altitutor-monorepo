@@ -21,6 +21,7 @@ import {
   TIME_FRAME_OPTIONS,
 } from '@/features/ucat/students/progress/lib/progress-mode'
 import type { StudentProgressSummaryRow } from '@/features/ucat/students/api/students'
+import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
 
 export function UcatStudentsPage() {
   const [mode, setMode] = useState<ProgressMode>('all_time')
@@ -224,7 +225,7 @@ export function UcatStudentsPage() {
   ]
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Students"
         description="Track student progress across sets and mocks"
@@ -262,6 +263,7 @@ export function UcatStudentsPage() {
 
       <div className="pt-3">
         <DataTable
+          {...tutorDataTableProps}
           columns={visibleColumns}
           data={sortedRows}
           pageSizeOptions={[10, 20, 50]}

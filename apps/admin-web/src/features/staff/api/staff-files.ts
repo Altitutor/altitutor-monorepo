@@ -131,6 +131,9 @@ export const staffFilesApi = {
     const filesWithUrls = await Promise.all(
       (data || []).map(async (staffFile: StaffFileWithNestedFile) => {
         const file = staffFile.file;
+        if (!file.storage_path) {
+          throw new Error('Staff file record is missing storage_path');
+        }
         const signedUrl = await getStaffFileSignedUrl(file.storage_path);
         
         return {

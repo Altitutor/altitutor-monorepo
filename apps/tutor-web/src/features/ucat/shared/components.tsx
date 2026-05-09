@@ -3,17 +3,18 @@
 import Link from 'next/link'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { Button, Skeleton } from '@altitutor/ui'
+import { tutorBtnIconOutline, tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 
 export function UcatAccessDenied() {
   return (
-    <div className="rounded-lg border border-border bg-card p-8 text-center">
+    <div className={tutorCardCn('mx-auto max-w-lg p-8 text-center')}>
       <h2 className="text-xl font-semibold">UCAT Access Required</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         Your profile does not include the UCAT subject. Ask an administrator if you need access.
       </p>
       <div className="mt-4">
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" className={tutorBtnOutline}>
           <Link href="/dashboard">Back to Dashboard</Link>
         </Button>
       </div>
@@ -72,7 +73,7 @@ export function UcatPageHeader({
       <div className="mb-6 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           {backHref ? (
-            <Button asChild variant="outline" size="icon" className="mt-1">
+            <Button asChild variant="outline" size="icon" className={cn('mt-1', tutorBtnIconOutline)}>
               <Link href={backHref} aria-label={backLabel ?? 'Back'}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>
@@ -91,7 +92,7 @@ export function UcatPageHeader({
 
 export function UcatPageSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4 py-8 md:py-10">
       <div className="space-y-2">
         <Skeleton className="h-8 w-52" />
         <Skeleton className="h-4 w-80" />

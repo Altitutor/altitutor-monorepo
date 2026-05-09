@@ -114,6 +114,26 @@ export async function uploadFile({ subjectId, topicId, file }: UploadFileOptions
   return uploadToBucket('resources', path, file);
 }
 
+export interface UploadSubjectImageOptions {
+  subjectId: string;
+  file: File;
+}
+
+/**
+ * Upload a subject cover image to the resources bucket (student resources / subject cards).
+ * Path: {subjectId}/_subject_image/{timestamp}_{filename}
+ */
+export async function uploadSubjectImage({
+  subjectId,
+  file,
+}: UploadSubjectImageOptions): Promise<UploadFileResult> {
+  const timestamp = Date.now();
+  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `${subjectId}/_subject_image/${timestamp}_${sanitizedFilename}`;
+
+  return uploadToBucket('resources', path, file);
+}
+
 /**
  * Get a signed URL for a file from the resources bucket (valid for 1 hour)
  * Convenience wrapper for backward compatibility

@@ -8,6 +8,8 @@ import { Loader2 } from 'lucide-react';
 import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
 import { AvailabilityTab } from '@/features/profile/components/tabs/AvailabilityTab';
 import { AccountTab } from '@/features/profile/components/tabs/AccountTab';
+import { StudentPageContainer } from '@/shared/components/layouts';
+import { studentTabsList, studentTabsTrigger } from '@/shared/lib/student-visual';
 
 const VALID_TABS = ['details', 'availability', 'account'] as const;
 type TabValue = typeof VALID_TABS[number];
@@ -52,40 +54,46 @@ export default function MyProfilePage() {
 
   if (!profile) {
     return (
-      <div className="p-6">
+      <StudentPageContainer>
         <p className="text-muted-foreground">Profile not found</p>
-      </div>
+      </StudentPageContainer>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <StudentPageContainer className="space-y-8">
+      <div>
         <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="mt-1 text-muted-foreground">
           Update your personal information and preferences
         </p>
       </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
-          <TabsTrigger value="account">Account</TabsTrigger>
+        <TabsList className={studentTabsList}>
+          <TabsTrigger className={studentTabsTrigger} value="details">
+            Details
+          </TabsTrigger>
+          <TabsTrigger className={studentTabsTrigger} value="availability">
+            Availability
+          </TabsTrigger>
+          <TabsTrigger className={studentTabsTrigger} value="account">
+            Account
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="details" className="mt-6">
+        <TabsContent value="details" className="mt-8">
           <DetailsTab profile={profile} />
         </TabsContent>
 
-        <TabsContent value="availability" className="mt-6">
+        <TabsContent value="availability" className="mt-8">
           <AvailabilityTab profile={profile} />
         </TabsContent>
 
-        <TabsContent value="account" className="mt-6">
+        <TabsContent value="account" className="mt-8">
           <AccountTab profile={profile} />
         </TabsContent>
       </Tabs>
-    </div>
+    </StudentPageContainer>
   );
 }

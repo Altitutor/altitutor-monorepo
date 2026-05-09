@@ -78,7 +78,7 @@ export function ProgressPage({
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title={title}
           description="Loading progress..."
@@ -100,7 +100,7 @@ export function ProgressPage({
 
   if (error) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title={title}
           description="Could not load progress."
@@ -114,7 +114,7 @@ export function ProgressPage({
 
   if (!data || !filteredData) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title={title}
           description="No progress data available."
@@ -133,7 +133,7 @@ export function ProgressPage({
   ]
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title={title}
         description={description}

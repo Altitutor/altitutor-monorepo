@@ -46,6 +46,14 @@ jest.mock('../../hooks/useTopicsQuery', () => ({
 }));
 jest.mock('../../hooks/useTopicsFilesQuery', () => ({
   useAvailableSolutionLinks: jest.fn(),
+  useCreateTopicFile: jest.fn(() => ({
+    mutateAsync: jest.fn(),
+    mutate: jest.fn(),
+    reset: jest.fn(),
+    isPending: false,
+    isError: false,
+    isSuccess: false,
+  })),
 }));
 jest.mock('@/features/subjects/hooks/useSubjectsQuery', () => ({
   useSubjects: jest.fn(),

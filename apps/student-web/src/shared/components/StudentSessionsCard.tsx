@@ -33,6 +33,8 @@ interface StudentSessionsCardProps {
   session: StudentSession;
   staff?: StaffMember[];
   students?: StudentMember[];
+  /** When set, prepended inline on the same row as the time (e.g. dashboard cards). */
+  dateLabel?: string | null;
   onClick?: () => void;
   isCalendarView?: boolean;
   cardHeight?: number;
@@ -45,6 +47,7 @@ export function StudentSessionsCard({
   session,
   staff = [],
   students = [],
+  dateLabel,
   onClick,
   isCalendarView = false,
   cardHeight,
@@ -111,7 +114,7 @@ export function StudentSessionsCard({
     : '';
 
   const subjectColorHex = (session as Record<string, unknown>).subject_color as string | null ?? null;
-  const defaultBorderClass = !subjectColorHex ? 'border-gray-200 dark:border-gray-700' : '';
+  const defaultBorderClass = 'ring-1 ring-black/[0.06] dark:ring-white/10';
   const iconBackgroundColor = subjectColorHex ? { backgroundColor: subjectColorHex } : undefined;
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
@@ -121,18 +124,26 @@ export function StudentSessionsCard({
   return (
     <div
       ref={cardRef}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
       className={cn(
-        'relative border rounded-lg transition-colors h-full w-full overflow-hidden bg-card',
+        'relative h-full w-full overflow-hidden rounded-xl border-0 bg-card shadow-[0_6px_24px_rgb(0,0,0,0.05)] transition-all duration-300 ease-out dark:shadow-[0_6px_24px_rgb(0,0,0,0.35)]',
         shouldUseCompact ? 'p-1.5' : 'p-3',
         defaultBorderClass,
-        onClick ? 'hover:bg-muted/50 cursor-pointer' : '',
+        onClick ? 'cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : '',
         isGreyedOut && 'opacity-50',
-        isExtraSession && 'ring-2 ring-yellow-400 dark:ring-yellow-500'
+        isExtraSession && 'ring-2 ring-yellow-400 dark:ring-yellow-500',
       )}
-      style={{
-        ...(subjectColorHex && !isGreyedOut ? { borderColor: subjectColorHex } : {}),
-        ...(isGreyedOut ? { borderColor: '#9ca3af' } : {})
-      }}
       onClick={onClick}
     >
       <div className={cn('flex items-start', shouldUseCompact ? 'gap-1.5' : 'gap-3')}>
@@ -179,11 +190,12 @@ export function StudentSessionsCard({
                   </TooltipProvider>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1 truncate">
+              <p className="mt-1 truncate text-xs text-muted-foreground">
                 {isCalendarView ? (
                   formatSessionType(session.session_type)
                 ) : (
                   <>
+                    {dateLabel ? `${dateLabel} · ` : ''}
                     {timeRange}
                     {formatSessionType(session.session_type) && ` • ${formatSessionType(session.session_type)}`}
                   </>

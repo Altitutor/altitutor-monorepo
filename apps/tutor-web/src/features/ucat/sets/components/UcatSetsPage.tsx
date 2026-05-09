@@ -44,6 +44,7 @@ import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUca
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
+import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
@@ -303,13 +304,17 @@ export function UcatSetsPage() {
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Sets"
         description="Build and organize UCAT question sets"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Sets' }]}
-        actions={<Button onClick={() => setOpenCreate(true)}>Add Set</Button>}
+        actions={
+          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>
+            Add Set
+          </Button>
+        }
       />
 
       <DataTableToolbar
@@ -334,7 +339,7 @@ export function UcatSetsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-center"
+              className={cn(tutorBtnOutline, 'w-full justify-center')}
               onClick={() => {
                 setShowDeleted((prev) => {
                   const next = !prev
@@ -356,6 +361,7 @@ export function UcatSetsPage() {
 
       <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <DataTable
+          {...tutorDataTableProps}
           columns={[
             {
               id: 'select',
@@ -470,7 +476,7 @@ export function UcatSetsPage() {
           searchPlaceholder="Search..."
           emptyMessage="No options"
           trigger={
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Visibility
             </Button>
           }

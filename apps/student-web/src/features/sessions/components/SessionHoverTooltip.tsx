@@ -6,6 +6,7 @@ import type { Database, Tables } from '@altitutor/shared';
 import { formatSessionType, getSubjectColorStyle, formatSubjectDisplay } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { useMediaQuery, useCurrentStudentId } from '@/shared/hooks';
+import { studentBtnOutline } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 import { LogAbsenceDialog } from './LogAbsenceDialog';
 import { formatSessionDate } from '../utils/session-helpers';
@@ -337,7 +338,7 @@ export function SessionHoverTooltip({ session, children, onRequestRescheduleDraf
                     }
                   }}
                   variant="outline"
-                  className="w-full"
+                  className={cn(studentBtnOutline, 'w-full')}
                 >
                   <CalendarX className="mr-2 h-4 w-4" />
                   Reschedule Session

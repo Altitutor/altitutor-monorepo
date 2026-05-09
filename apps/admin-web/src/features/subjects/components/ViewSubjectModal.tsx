@@ -52,6 +52,8 @@ import { Separator } from "@altitutor/ui";
 import { X } from "lucide-react";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { useSubjectActions } from "../hooks";
+import { SubjectImageField } from "./SubjectImageField";
+import { cn } from "@/shared/utils";
 
 export interface ViewSubjectModalProps {
   isOpen: boolean;
@@ -276,11 +278,17 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
                     <SheetTitle className="text-xl">
                       {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
                     </SheetTitle>
-                    {!loading && subject && (
-                      <SheetDescription className="text-lg font-medium">
-                        {subject.name}
-                      </SheetDescription>
-                    )}
+                    <SheetDescription
+                      className={cn(
+                        !loading && subject
+                          ? 'text-lg font-medium text-foreground'
+                          : 'sr-only'
+                      )}
+                    >
+                      {loading
+                        ? 'Loading subject details.'
+                        : subject?.name ?? 'Subject details'}
+                    </SheetDescription>
                   </div>
                 </div>
                 {subjectId && !isEditing && (
@@ -314,6 +322,10 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
               </div>
             ) : subject ? (
               <div className="space-y-8">
+                <SubjectImageField
+                  subjectId={subject.id}
+                  onImageChanged={onSubjectUpdated}
+                />
                 {isEditing ? (
                   <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">

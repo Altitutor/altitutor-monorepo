@@ -29,6 +29,12 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+import {
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorDialogContentClass,
+  tutorDialogHeaderStrip,
+} from '@/shared/lib/tutor-visual';
 import { Input } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
 import type { Tables } from '@altitutor/shared';
@@ -272,19 +278,19 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" onClick={() => {
+              <Button variant="outline" className={cn(tutorBtnOutline, 'flex-1')} onClick={() => {
                 // Clear all saved decisions when going back
                 setDecisions([]);
                 setRescheduledSessionsMap(new Map());
                 setCurrentSessionIndex(0);
                 setStep('select-student');
-              }} className="flex-1">
+              }}>
                 Back
               </Button>
               <Button
+                className={cn(tutorBtnPrimary, 'flex-1')}
                 onClick={handleProceedToProcess}
                 disabled={selectedSessionIds.size === 0}
-                className="flex-1"
               >
                 Next ({selectedSessionIds.size} session{selectedSessionIds.size !== 1 ? 's' : ''})
               </Button>
@@ -363,17 +369,17 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
             <div className="flex gap-3">
               <Button
                 variant="outline"
+                className={cn(tutorBtnOutline, 'flex-1')}
                 onClick={() => {
                   // Go back to process the last session
                   setCurrentSessionIndex(selectedSessionsArray.length - 1);
                   setDecisions((prev) => prev.slice(0, -1));
                   setStep('process-session');
                 }}
-                className="flex-1"
               >
                 Back
               </Button>
-              <Button onClick={handleFinalConfirm} className="flex-1">
+              <Button className={cn(tutorBtnPrimary, 'flex-1')} onClick={handleFinalConfirm}>
                 Confirm All Changes
               </Button>
             </div>
@@ -412,7 +418,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
               {decisions.length} session{decisions.length !== 1 ? 's' : ''} processed
             </div>
             <div className="pt-4">
-              <Button onClick={onClose} className="w-full">
+              <Button className={cn(tutorBtnPrimary, 'w-full')} onClick={onClose}>
                 Close
               </Button>
             </div>
@@ -440,10 +446,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
               {errorMessage}
             </div>
             <div className="pt-4 flex gap-3">
-              <Button variant="outline" onClick={() => setStep('review')} className="flex-1">
+              <Button variant="outline" className={cn(tutorBtnOutline, 'flex-1')} onClick={() => setStep('review')}>
                 Go Back
               </Button>
-              <Button onClick={onClose} className="flex-1">
+              <Button className={cn(tutorBtnPrimary, 'flex-1')} onClick={onClose}>
                 Close
               </Button>
             </div>
@@ -493,12 +499,13 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         className={cn(
+          tutorDialogContentClass,
           'max-w-2xl max-h-[90vh] overflow-y-auto',
           EXPANDABLE_DIALOG_TRANSITION,
           expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
       >
-        <DialogHeader>
+        <DialogHeader className={cn('rounded-t-2xl px-6 py-4 sm:text-left', tutorDialogHeaderStrip)}>
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
               <DialogTitle>{getStepTitle()}</DialogTitle>

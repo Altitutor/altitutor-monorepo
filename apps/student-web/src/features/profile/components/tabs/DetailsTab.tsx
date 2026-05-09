@@ -12,6 +12,7 @@ import { useUpdateProfile } from '../../hooks';
 import type { Database } from '@altitutor/shared';
 import { z } from 'zod';
 import { isValidPhoneNumber } from 'react-phone-number-input';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
 
@@ -130,12 +131,13 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   if (isEditing) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Personal Information</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-2xl font-semibold">Personal Information</h3>
           <div className="flex gap-2">
             <Button
               variant="outline"
               size="sm"
+              className={studentBtnOutline}
               onClick={handleCancelEdit}
               disabled={isSubmitting}
             >
@@ -143,6 +145,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
             </Button>
             <Button
               size="sm"
+              className={studentBtnPrimary}
               onClick={handleSubmit}
               disabled={isSubmitting}
             >
@@ -209,9 +212,9 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   // View mode
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Personal Information</h3>
-        <Button variant="outline" size="sm" onClick={handleStartEdit}>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-2xl font-semibold">Personal Information</h3>
+        <Button variant="outline" size="sm" className={studentBtnOutline} onClick={handleStartEdit}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit
         </Button>

@@ -91,10 +91,7 @@ export function useTutorLogStep9Data(
       validTopics.filter((t) => topicIds.includes(t.id)).map((t) => [t.id, t])
     );
 
-    const validFiles = (topicFilesRaw || []).filter(
-      (f): f is Tables<'topics_files'> =>
-        f?.id != null && f?.code != null
-    );
+    const validFiles = (topicFilesRaw || []).filter((f) => f?.id != null && f?.code != null) as Tables<'topics_files'>[];
     const topicFilesMap = new Map(validFiles.map((f) => [f.id, f]));
 
     return {

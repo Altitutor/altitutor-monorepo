@@ -22,6 +22,7 @@ import { PhoneInput } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Plus, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
+import { studentBtnOutline } from '@/shared/lib/student-visual';
 import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
 
 const trialContactSchema = z.object({
@@ -483,7 +484,12 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                   onSearchChange={(query) => setSubjectSearchQuery(query)}
                   onOpenChange={(open) => !open && setSubjectSearchQuery('')}
                   trigger={
-                    <Button type="button" variant="outline" size="sm" className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className={cn(studentBtnOutline, 'flex items-center gap-2')}
+                    >
                       <Plus className="h-4 w-4" />
                       <span>Add Subject</span>
                     </Button>

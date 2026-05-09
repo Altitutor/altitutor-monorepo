@@ -21,6 +21,9 @@ import { useProfile } from '@/features/profile';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
+import { STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 export function Navbar() {
   const router = useRouter();
@@ -34,8 +37,12 @@ export function Navbar() {
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(profile?.id ?? '');
 
-  // Hide navbar on booking/trial-session and register routes
-  if (pathname === '/booking/trial-session' || pathname.startsWith('/register/')) {
+  // Hide navbar on booking routes and register routes
+  if (
+    pathname === '/booking/trial-session' ||
+    pathname === '/booking-success' ||
+    pathname.startsWith('/register/')
+  ) {
     return null;
   }
 
@@ -70,8 +77,8 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
-      <div className="container mx-auto px-4 h-full flex justify-between items-center">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-[var(--navbar-height)] border-0 bg-background/90 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md dark:bg-brand-dark-bg/90 dark:shadow-[0_4px_28px_rgba(0,0,0,0.45)] supports-[backdrop-filter]:bg-background/80 dark:supports-[backdrop-filter]:bg-brand-dark-bg/80">
+      <div className={cn('mx-auto flex h-full w-full items-center justify-between', STUDENT_SHELL_PAD_X)}>
         <div className="flex items-center gap-4">
           {/* Mobile Hamburger Menu Button */}
           {user && (
@@ -122,7 +129,7 @@ export function Navbar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2 h-9">
+                <Button variant="outline" className={cn(studentBtnOutline, 'flex h-9 items-center gap-2')}>
                   <div className="h-6 w-6 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-xs">
                     {getInitials()}
                   </div>
@@ -157,10 +164,10 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <>
-              <Button variant="outline" asChild>
+              <Button variant="outline" className={studentBtnOutline} asChild>
                 <Link href="/login">Login</Link>
               </Button>
-              <Button variant="default" asChild>
+              <Button variant="default" className={studentBtnPrimary} asChild>
                 <Link href="/booking/trial-session">Book now</Link>
               </Button>
             </>

@@ -20,6 +20,7 @@ import { SortableRow } from '@/features/ucat/shared/drag-list'
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { formatSecondsToDuration, minutesSecondsToTotal } from '@/features/ucat/shared/lib/time-utils'
 import { cn } from '@/shared/utils'
+import { tutorBtnIconOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual'
 import { Info, Pencil, Plus } from 'lucide-react'
 
 export type UcatSectionForTimeLimit = {
@@ -98,10 +99,10 @@ function DraggableStemItem({
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <Button type="button" variant="outline" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground" onClick={(e) => { e.stopPropagation(); onEdit() }}>
+        <Button type="button" variant="outline" size="icon" className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')} onClick={(e) => { e.stopPropagation(); onEdit() }}>
           <Pencil className="h-4 w-4" />
         </Button>
-        <Button type="button" variant="default" size="icon" className="shrink-0" onClick={(e) => { e.stopPropagation(); onAdd() }}>
+        <Button type="button" variant="default" size="icon" className={cn(tutorBtnPrimary, 'shrink-0')} onClick={(e) => { e.stopPropagation(); onAdd() }}>
           <Plus className="h-4 w-4" />
         </Button>
       </div>

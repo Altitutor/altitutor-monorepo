@@ -236,6 +236,7 @@ export const topicsApi = {
   search: async (params: {
     search?: string;
     subjectIds?: string[];
+    rootOnly?: boolean;
     limit?: number;
     offset?: number;
   }): Promise<{
@@ -245,6 +246,7 @@ export const topicsApi = {
     const {
       search = '',
       subjectIds,
+      rootOnly = false,
       limit = 20,
       offset = 0,
     } = params || {};
@@ -255,6 +257,7 @@ export const topicsApi = {
     const { data: rpcResult, error: rpcError } = await supabase.rpc('search_topics_admin', {
       p_search: trimmed.length > 0 ? trimmed : undefined,
       p_subject_ids: subjectIds && subjectIds.length > 0 ? subjectIds : undefined,
+      p_root_only: rootOnly,
       p_limit: limit,
       p_offset: offset,
     });

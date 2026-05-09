@@ -84,7 +84,7 @@ export function MocksProgressPage({
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title={title}
           description="Loading mock progress..."
@@ -106,7 +106,7 @@ export function MocksProgressPage({
 
   if (error) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title={title}
           description="Could not load mock progress."
@@ -120,7 +120,7 @@ export function MocksProgressPage({
 
   if (!data) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title={title}
           description="No progress data available."
@@ -132,7 +132,7 @@ export function MocksProgressPage({
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title={title}
         description={studentName ? `Track ${studentName}'s performance across mock exams.` : 'Track performance across mock exams.'}

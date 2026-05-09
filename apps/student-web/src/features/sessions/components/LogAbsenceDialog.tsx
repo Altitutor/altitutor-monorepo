@@ -20,6 +20,14 @@ import type {
 } from '../types/absence';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useCurrentStudentId } from '@/shared/hooks';
+import { cn } from '@/shared/utils';
+import {
+  studentBtnOutline,
+  studentBtnPrimary,
+  studentModalFooter,
+  studentModalHairline,
+  studentModalShell,
+} from '@/shared/lib/student-visual';
 
 type WizardStep = 'select-session' | 'reschedule' | 'confirmation' | 'success' | 'error';
 
@@ -250,8 +258,8 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
 
       case 'success':
         return (
-          <div className="py-12 text-center space-y-4">
-            <div className="h-16 w-16 rounded-full bg-green-100 dark:bg-green-900/20 mx-auto flex items-center justify-center">
+          <div className="space-y-4 rounded-2xl bg-emerald-500/[0.08] py-12 text-center ring-1 ring-emerald-500/20 dark:bg-emerald-500/10">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-900/30">
               <svg
                 className="h-8 w-8 text-green-600 dark:text-green-400"
                 fill="none"
@@ -273,8 +281,8 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
 
       case 'error':
         return (
-          <div className="py-12 text-center space-y-4">
-            <div className="h-16 w-16 rounded-full bg-red-100 dark:bg-red-900/20 mx-auto flex items-center justify-center">
+          <div className="space-y-4 rounded-2xl bg-destructive/[0.06] py-12 text-center ring-1 ring-destructive/20 dark:bg-destructive/10">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/30">
               <svg
                 className="h-8 w-8 text-red-600 dark:text-red-400"
                 fill="none"
@@ -329,9 +337,9 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
     switch (step) {
       case 'select-session':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
-            <div></div>
+          <div className={cn(studentModalFooter, 'justify-end')}>
             <Button
+              className={studentBtnPrimary}
               onClick={handleProceedToReschedule}
               disabled={!selectedSessionId}
             >
@@ -342,8 +350,9 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
         );
       case 'reschedule':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
+          <div className={cn(studentModalFooter)}>
             <Button
+              className={studentBtnOutline}
               variant="outline"
               onClick={() => {
                 if (initialSession) {
@@ -357,6 +366,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
               Previous
             </Button>
             <Button
+              className={studentBtnPrimary}
               onClick={handleProceedToConfirmation}
               disabled={!selectedTargetSessionId || logAbsencesMutation.isPending}
             >
@@ -376,8 +386,9 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
         );
       case 'confirmation':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
+          <div className={cn(studentModalFooter)}>
             <Button
+              className={studentBtnOutline}
               variant="outline"
               onClick={() => setStep('reschedule')}
             >
@@ -385,6 +396,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
               Previous
             </Button>
             <Button
+              className={studentBtnPrimary}
               onClick={handleConfirmAndSubmit}
               disabled={logAbsencesMutation.isPending}
             >
@@ -401,21 +413,24 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
         );
       case 'success':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
-            <div></div>
-            <Button onClick={onClose}>
+          <div className={cn(studentModalFooter, 'justify-end')}>
+            <Button className={studentBtnPrimary} onClick={onClose}>
               Close
             </Button>
           </div>
         );
       case 'error':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
-            <Button variant="outline" onClick={() => setStep('confirmation')}>
+          <div className={cn(studentModalFooter)}>
+            <Button
+              className={studentBtnOutline}
+              variant="outline"
+              onClick={() => setStep('confirmation')}
+            >
               <ChevronLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
-            <Button onClick={onClose}>
+            <Button className={studentBtnPrimary} onClick={onClose}>
               Close
             </Button>
           </div>
@@ -427,14 +442,22 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>{getStepTitle()}</DialogTitle>
+      <DialogContent
+        className={cn(
+          studentModalShell,
+          'flex h-[90vh] max-h-[90dvh] w-[calc(100vw-1.5rem)] max-w-[100vw] flex-col gap-0 overflow-hidden rounded-2xl border-0 p-0 sm:w-full md:max-w-4xl',
+          '[&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+        )}
+      >
+        <DialogHeader className="shrink-0 space-y-1.5 px-6 pb-4 pt-6 text-left">
+          <DialogTitle className="text-xl font-semibold tracking-tight">{getStepTitle()}</DialogTitle>
           <DialogDescription>{getStepDescription()}</DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">{renderStepContent()}</div>
-        
+        <div className={cn(studentModalHairline)} />
+
+        <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">{renderStepContent()}</div>
+
         {renderFooter()}
       </DialogContent>
     </Dialog>

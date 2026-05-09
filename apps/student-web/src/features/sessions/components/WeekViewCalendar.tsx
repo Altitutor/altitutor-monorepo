@@ -3,6 +3,7 @@
 import { useMemo } from 'react';
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { studentBtnIconOutline } from '@/shared/lib/student-visual';
 import { formatDate } from '@/shared/utils/datetime';
 import { StudentSessionsCard } from './StudentSessionsCard';
 
@@ -163,11 +164,12 @@ export function WeekViewCalendar({
       {/* Week Navigation */}
       <div className="flex items-center justify-between">
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
+          size="icon"
           onClick={handlePreviousWeek}
           disabled={!canGoPrevious}
-          className="p-2"
+          className={studentBtnIconOutline}
+          aria-label="Previous week"
         >
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -177,10 +179,11 @@ export function WeekViewCalendar({
         </div>
         
         <Button
-          variant="ghost"
-          size="sm"
+          variant="outline"
+          size="icon"
           onClick={handleNextWeek}
-          className="p-2"
+          className={studentBtnIconOutline}
+          aria-label="Next week"
         >
           <ChevronRight className="h-4 w-4" />
         </Button>

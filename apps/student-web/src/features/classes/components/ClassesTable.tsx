@@ -16,6 +16,7 @@ import { cn } from '@/shared/utils';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { formatTime, getDayShortName } from '@/shared/utils/datetime';
 import { Loader2 } from 'lucide-react';
+import { studentTableBodyRow, studentTableHeaderRow, studentTableShell } from '@/shared/lib/student-visual';
 
 interface ClassesTableProps {
 }
@@ -62,9 +63,10 @@ export function ClassesTable({}: ClassesTableProps) {
 
   return (
     <div className="space-y-4">
+      <div className={studentTableShell}>
       <Table>
-        <TableHeader>
-          <TableRow>
+        <TableHeader className="[&_tr]:border-b-0">
+          <TableRow className={studentTableHeaderRow}>
             <TableHead>Day</TableHead>
             <TableHead>Time</TableHead>
             <TableHead>Subject</TableHead>
@@ -90,8 +92,9 @@ export function ClassesTable({}: ClassesTableProps) {
             const subjectDisplay = subjectParts.join(' ') || '-';
 
             return (
-              <TableRow 
+              <TableRow
                 key={classItem.enrollment_id || ''}
+                className={studentTableBodyRow}
               >
                 <TableCell className="font-medium">
                   {classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
@@ -131,6 +134,7 @@ export function ClassesTable({}: ClassesTableProps) {
           })}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

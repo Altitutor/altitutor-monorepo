@@ -9,6 +9,7 @@ import { useReconciliationData, useAddQuestionTag } from '../hooks/useReconcilia
 import { useUcatSections, useUcatTags } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
+import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 
 const TRUNCATE_LEN = 80
 
@@ -159,7 +160,7 @@ export function UntaggedQuestionsTable({
           ),
         }
         return (
-          <TableRow key={`${item.stemId}-${item.questionId}`}>
+          <TableRow key={`${item.stemId}-${item.questionId}`} className={tutorTableBodyRow}>
             {visibleColumnKeys.map((key) => cells[key]).filter((c): c is React.ReactNode => c != null)}
             <TableCell>
               <div className="flex items-center gap-2">

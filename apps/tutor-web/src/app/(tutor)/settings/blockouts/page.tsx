@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { BlockoutDatesTable } from '@/features/bookings/components/BlockoutDatesTable';
 import { blockoutsApi, type BlockoutRow } from '@/features/bookings/api/blockouts';
-import { Loader2 } from 'lucide-react';
+import { ChevronLeft, Loader2 } from 'lucide-react';
+import { Button } from '@altitutor/ui';
+import { TutorPageContainer } from '@/shared/components/layouts';
 
 export default function BlockoutsPage() {
   const [blockouts, setBlockouts] = useState<BlockoutRow[]>([]);
@@ -35,15 +38,23 @@ export default function BlockoutsPage() {
   }
 
   return (
-    <div className="p-6 space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">Blockout Dates</h1>
-        <p className="text-muted-foreground">
-          Manage your unavailability dates and times
-        </p>
-      </div>
+    <TutorPageContainer className="space-y-6">
+      <header className="space-y-4">
+        <Button asChild variant="outline" size="sm" className="w-fit rounded-xl shadow-sm">
+          <Link href="/settings" className="gap-1">
+            <ChevronLeft className="h-4 w-4" />
+            Settings
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Blockout dates</h1>
+          <p className="mt-1 text-muted-foreground">
+            Manage your unavailability dates and times
+          </p>
+        </div>
+      </header>
       <BlockoutDatesTable blockouts={blockouts} onUpdate={loadData} />
-    </div>
+    </TutorPageContainer>
   );
 }
 

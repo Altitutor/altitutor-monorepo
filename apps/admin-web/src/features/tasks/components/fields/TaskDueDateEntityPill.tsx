@@ -1,10 +1,11 @@
 'use client';
 
-import { Input } from '@altitutor/ui';
 import { Calendar } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { isOverdue } from '@/shared/utils/datetime';
 import type { TaskWithAssignee } from '../../types';
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] as const;
 
 function toInputValue(value: string | null | undefined): string {
   if (!value) return '';
@@ -13,41 +14,56 @@ function toInputValue(value: string | null | undefined): string {
   return d.toISOString().split('T')[0];
 }
 
+function formatDisplayDate(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return null;
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]}`;
+}
+
 interface TaskDueDateEntityPillProps {
   task: TaskWithAssignee;
   collapsed?: boolean;
   onChange: (dueDate: string | null) => void;
 }
 
-export function TaskDueDateEntityPill({ task, collapsed, onChange }: TaskDueDateEntityPillProps) {
+export function TaskDueDateEntityPill({ task, onChange }: TaskDueDateEntityPillProps) {
   const dueDate = task.due_date;
   const overdue = isOverdue(dueDate);
   const dateValue = toInputValue(dueDate);
+  const formattedDate = formatDisplayDate(dueDate);
 
   return (
     <div
       className={cn(
-        'relative flex items-center rounded-full border bg-background',
-        collapsed ? 'h-8 w-[72px]' : 'h-8 min-w-[100px]',
-        overdue && 'border-red-500'
+        'relative inline-flex items-center gap-1 h-7 rounded-full border bg-background cursor-pointer select-none',
+        formattedDate ? 'px-2' : 'w-7 justify-center',
+        overdue ? 'border-red-500' : '',
+        !dueDate && 'opacity-50'
       )}
       onClick={(e) => e.stopPropagation()}
     >
       <Calendar
         className={cn(
-          'h-3 w-3 flex-shrink-0 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-muted-foreground',
-          !dueDate && 'opacity-40'
+          'h-3 w-3 flex-shrink-0 pointer-events-none',
+          overdue ? 'text-red-500' : 'text-muted-foreground'
         )}
       />
-      <Input
+      {formattedDate && (
+        <span
+          className={cn(
+            'text-xs whitespace-nowrap pointer-events-none',
+            overdue ? 'text-red-700 dark:text-red-400' : ''
+          )}
+        >
+          {formattedDate}
+        </span>
+      )}
+      <input
         type="date"
         value={dateValue}
         onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
-        className={cn(
-          'h-8 border-0 bg-transparent pl-8 pr-2 text-xs rounded-full focus-visible:ring-0 focus-visible:ring-offset-0',
-          collapsed ? 'w-full' : 'min-w-0',
-          overdue && 'text-red-700 dark:text-red-400'
-        )}
+        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
       />
     </div>
   );

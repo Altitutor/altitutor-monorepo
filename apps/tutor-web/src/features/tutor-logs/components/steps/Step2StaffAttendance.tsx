@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Checkbox } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
-import { Plus, Search } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import { useTutorLogStep2Data } from '../../hooks/useTutorLogStep2Data';
 import { staffApi } from '@/features/staff/api/staff';
 import { sessionsApi } from '@/features/sessions/api/sessions';
@@ -14,7 +13,6 @@ import { useQueryClient } from '@tanstack/react-query';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
 import { filterAvailableStaff } from '@/shared/utils/filtering';
 import type { Tables } from '@altitutor/shared';
-import { StaffCard } from '@/shared/components/StaffCard';
 
 const STAFF_TYPE_OPTIONS = [
   { value: 'MAIN_TUTOR' as const, label: 'Main Tutor' },
@@ -50,8 +48,6 @@ export function Step2StaffAttendance({
 }: Step2StaffAttendanceProps) {
   const queryClient = useQueryClient();
   const { sessionStaff, isLoading } = useTutorLogStep2Data(sessionId);
-  const [showAddStaff, setShowAddStaff] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [availableStaff, setAvailableStaff] = useState<Tables<'staff'>[]>([]);
   const [isLoadingStaff, setIsLoadingStaff] = useState(false);
 
@@ -107,8 +103,7 @@ export function Step2StaffAttendance({
     return staffAttendance.find((sa) => sa.staffId === staffId);
   };
 
-  const handleSearchStaff = async (search: string) => {
-    setSearchTerm(search);
+  const handleSearchStaff = useCallback(async (search: string) => {
     if (!search.trim()) {
       setAvailableStaff([]);
       return;
@@ -120,7 +115,6 @@ export function Step2StaffAttendance({
         search,
         limit: 20,
       });
-      // Filter out staff already in session
       const existingStaffIds = new Set(sessionStaff.map((ss) => ss.staff_id));
       setAvailableStaff(filterAvailableStaff(result.staff, existingStaffIds));
     } catch (error) {
@@ -128,7 +122,7 @@ export function Step2StaffAttendance({
     } finally {
       setIsLoadingStaff(false);
     }
-  };
+  }, [sessionStaff]);
 
   const handleAddStaff = async (staffId: string) => {
     if (onAddStaffToSession) {
@@ -139,12 +133,16 @@ export function Step2StaffAttendance({
     }
     // Invalidate session data to refetch with new staff
     queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
-    // Initialize attendance for new staff
     handleAttendanceChange(staffId, true);
-    setShowAddStaff(false);
-    setSearchTerm('');
     setAvailableStaff([]);
   };
+
+  const addStaffTrigger = (
+    <Button variant="outline" className="w-full sm:w-auto">
+      <Plus className="h-4 w-4 mr-2" />
+      Add Staff
+    </Button>
+  );
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
@@ -201,58 +199,29 @@ export function Step2StaffAttendance({
         </div>
       )}
 
-      {!showAddStaff && (
-        <Button variant="outline" onClick={() => setShowAddStaff(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Staff
-        </Button>
-      )}
-
-      {showAddStaff && (
-        <div className="space-y-2 border rounded-md p-4 bg-muted/30">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search staff by name..."
-              value={searchTerm}
-              onChange={(e) => handleSearchStaff(e.target.value)}
-              className="pl-10"
-              autoFocus
-            />
-          </div>
-          
-          {isLoadingStaff ? (
-            <div className="text-center py-4 text-muted-foreground text-sm">Searching...</div>
-          ) : availableStaff.length > 0 ? (
-            <div className="max-h-60 overflow-y-auto space-y-2">
-              {availableStaff.map((staffMember) => (
-                <div
-                  key={staffMember.id}
-                  onClick={() => handleAddStaff(staffMember.id)}
-                  className="cursor-pointer"
-                >
-                  <StaffCard
-                    staff={staffMember}
-                    showSubjects={false}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : searchTerm ? (
-            <div className="text-center py-4 text-muted-foreground text-sm">
-              No staff found
-            </div>
-          ) : null}
-
-          <Button variant="outline" size="sm" onClick={() => {
-            setShowAddStaff(false);
-            setSearchTerm('');
-            setAvailableStaff([]);
-          }}>
-            Cancel
-          </Button>
-        </div>
-      )}
+      <div className="mt-6">
+        <SearchableSelect<Tables<'staff'>>
+          items={availableStaff}
+          value={null}
+          onValueChange={(staffMember) => {
+            if (staffMember) void handleAddStaff(staffMember.id);
+          }}
+          getItemId={(s) => s.id}
+          getItemLabel={(s) =>
+            `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Staff'
+          }
+          getItemValue={(s) =>
+            `${s.first_name ?? ''} ${s.last_name ?? ''} ${s.email ?? ''}`.toLowerCase()
+          }
+          onSearchChange={handleSearchStaff}
+          loading={isLoadingStaff}
+          searchPlaceholder="Search staff by name..."
+          emptyMessage="Type to search staff. Results exclude people already on this session."
+          trigger={addStaffTrigger}
+          align="start"
+          contentWidth="min(380px, 92vw)"
+        />
+      </div>
     </div>
   );
 }

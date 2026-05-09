@@ -258,7 +258,7 @@ export function DataTableToolbar({
                 <Button variant="outline" size="sm" className="h-9">
                   <LayoutGrid className="h-4 w-4 mr-2" />
                   <span className="hidden md:inline">View</span>
-                  <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
+                  <ChevronDown className="hidden md:inline h-4 w-4 md:ml-1 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -290,7 +290,7 @@ export function DataTableToolbar({
                         ? groupByOptions.find((o) => o.key === state.groupBy)?.label ?? 'Grouped'
                         : 'Group by'}
                     </span>
-                    <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
+                    <ChevronDown className="hidden md:inline h-4 w-4 md:ml-1 opacity-50" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -346,7 +346,7 @@ export function DataTableToolbar({
                         'Sort by'
                       )}
                     </span>
-                    <ChevronDown className="h-4 w-4 ml-1 opacity-50 shrink-0" />
+                    <ChevronDown className="hidden md:inline h-4 w-4 md:ml-1 opacity-50 shrink-0" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -418,7 +418,7 @@ export function DataTableToolbar({
                   <span className="hidden md:inline">
                     Filter {effectiveActiveFilterCount > 0 && `(${effectiveActiveFilterCount})`}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-1 opacity-50" />
+                  <ChevronDown className="hidden md:inline h-4 w-4 md:ml-1 opacity-50" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">

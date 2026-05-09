@@ -7,11 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@altitutor/ui';
 import { Button, SearchableSelect, useToast } from '@altitutor/ui';
-import { Loader2, Check, Upload, X, File } from 'lucide-react';
-import { sessionFilesApi } from '../api/session-files';
+import { Loader2, Check } from 'lucide-react';
 import { TimeSlotPicker } from './TimeSlotPicker';
 import { BookingConfirmationCalendar } from './BookingConfirmationCalendar';
 import { useStudentSubjects } from '../hooks/useStudentSubjects';
@@ -23,6 +21,14 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
 import { cn, getErrorMessage } from '@/shared/utils';
+import {
+  studentBtnOutline,
+  studentBtnPrimary,
+  studentCardCn,
+  studentModalFooter,
+  studentModalHairline,
+  studentModalShell,
+} from '@/shared/lib/student-visual';
 import { useSessionDurationMinutes } from '../hooks/useBookingSettings';
 export interface BookDraftingSessionModalProps {
   isOpen: boolean;
@@ -60,8 +66,6 @@ export function BookDraftingSessionModal({
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
   const [subjectError, setSubjectError] = useState(false);
   const [timeError, setTimeError] = useState(false);
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
-  const [uploadingFiles, setUploadingFiles] = useState(false);
 
   // Auto-select subject from original session when rescheduling
   useEffect(() => {
@@ -98,8 +102,6 @@ export function BookDraftingSessionModal({
     setCreatedSessionId(null);
     setSubjectError(false);
     setTimeError(false);
-    setSelectedFiles([]);
-    setUploadingFiles(false);
     onClose();
   };
 
@@ -118,7 +120,7 @@ export function BookDraftingSessionModal({
       setSubjectError(false);
       setCurrentStep(1);
     } else if (currentStep === 1) {
-      // From time selection to file upload
+      // From time selection to confirmation
       if (!selectedSlot) {
         setTimeError(true);
         toast({
@@ -130,9 +132,6 @@ export function BookDraftingSessionModal({
       }
       setTimeError(false);
       setCurrentStep(2);
-    } else if (currentStep === 2) {
-      // From file upload to confirmation (files are optional)
-      setCurrentStep(3);
     }
   };
 
@@ -179,47 +178,8 @@ export function BookDraftingSessionModal({
 
       setCreatedSessionId(sessionId);
 
-      // Upload files if any were selected
-      if (selectedFiles.length > 0) {
-        setUploadingFiles(true);
-        try {
-          await Promise.all(
-            selectedFiles.map(async (file, index) => {
-              try {
-                await sessionFilesApi.uploadSessionFile({
-                  sessionId,
-                  file,
-                  displayOrder: index,
-                });
-              } catch (error: unknown) {
-                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-                const errorWithDetails = error as { message?: string; statusCode?: number; error?: { code?: string; message?: string } };
-                console.error(`Failed to upload ${file.name}:`, {
-                  error,
-                  message: errorWithDetails.message,
-                  statusCode: errorWithDetails.statusCode,
-                  errorCode: errorWithDetails.error?.code,
-                  errorMessage: errorWithDetails.error?.message,
-                  fileName: file.name,
-                  fileSize: file.size,
-                  fileType: file.type,
-                  sessionId,
-                });
-                toast({
-                  title: 'File Upload Failed',
-                  description: `Failed to upload ${file.name}: ${errorMessage || errorWithDetails.error?.message || 'Unknown error'}. You can add it later.`,
-                  variant: 'destructive',
-                });
-              }
-            })
-          );
-        } finally {
-          setUploadingFiles(false);
-        }
-      }
-
       setBookingSuccess(true);
-      setCurrentStep(4); // Move to success step
+      setCurrentStep(3); // Move to success step
       onBookingCreated?.(sessionId);
     } catch (error: unknown) {
       toast({
@@ -230,62 +190,6 @@ export function BookDraftingSessionModal({
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleFileSelect = (files: FileList | null) => {
-    if (!files) return;
-    
-    const newFiles = Array.from(files).filter(file => {
-      // Validate file size (50MB limit)
-      if (file.size > 50 * 1024 * 1024) {
-        toast({
-          title: 'File Too Large',
-          description: `${file.name} exceeds the 50MB limit`,
-          variant: 'destructive',
-        });
-        return false;
-      }
-      
-      // Validate file type
-      const allowedTypes = [
-        'application/pdf',
-        'application/msword',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'text/plain',
-        'application/vnd.ms-excel',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.ms-powerpoint',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'image/png',
-        'image/jpeg',
-        'image/jpg',
-        'image/gif',
-        'image/webp',
-      ];
-      
-      if (!allowedTypes.includes(file.type)) {
-        toast({
-          title: 'Invalid File Type',
-          description: `${file.name} is not a supported file type`,
-          variant: 'destructive',
-        });
-        return false;
-      }
-      
-      return true;
-    });
-    
-    setSelectedFiles(prev => [...prev, ...newFiles]);
-  };
-
-  const handleRemoveFile = (index: number) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const formatFileSize = (bytes: number): string => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
   };
 
   const formatSubjectDisplay = (subject: Tables<'subjects'>) => {
@@ -301,7 +205,6 @@ export function BookDraftingSessionModal({
   const steps = [
     { id: 'subject', title: 'Select Subject' },
     { id: 'time', title: 'Select Time' },
-    { id: 'files', title: 'Upload Files' },
     { id: 'confirm', title: 'Confirm Booking' },
   ];
 
@@ -340,25 +243,25 @@ export function BookDraftingSessionModal({
   const isFirstStep = currentStep === 0;
 
   const renderStepContent = () => {
-    if (bookingSuccess && currentStep === 4) {
+    if (bookingSuccess && currentStep === 3) {
       const subject = subjects?.find((s) => s.id === selectedSubjectId);
       return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
+        <div className="grid grid-cols-1 gap-6 py-2 lg:grid-cols-2">
           {/* Left side - Success message and details */}
           <div className="space-y-6">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-4">
-                <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="space-y-4 rounded-2xl bg-emerald-500/[0.08] p-6 text-center ring-1 ring-emerald-500/20 dark:bg-emerald-500/10">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-900/30">
+                <Check className="h-7 w-7 text-green-600 dark:text-green-400" />
               </div>
-              <div className="text-center">
-                <h3 className="text-xl font-semibold mb-2">Booking Confirmed!</h3>
+              <div>
+                <h3 className="mb-2 text-xl font-semibold tracking-tight">Booking Confirmed!</h3>
                 <p className="text-muted-foreground">
                   Your drafting session has been booked successfully
                 </p>
               </div>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className={studentCardCn('space-y-3 p-5')}>
               <h4 className="font-semibold">Booking Details</h4>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 {subject && (
@@ -383,7 +286,7 @@ export function BookDraftingSessionModal({
 
           {/* Right side - Calendar */}
           {selectedSlot && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <h4 className="font-semibold">Session in Calendar</h4>
               <BookingConfirmationCalendar
                 newSession={{
@@ -475,91 +378,15 @@ export function BookDraftingSessionModal({
           </div>
         );
 
-      case 'files':
-        return (
-          <div className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Optionally upload files for your drafting session (PDFs, Word documents, images, etc.)
-            </p>
-            
-            {/* File Upload Area */}
-            <div
-              className={cn(
-                'border-2 border-dashed rounded-lg p-8 text-center transition-colors',
-                'hover:border-primary/50 cursor-pointer',
-                'bg-muted/50'
-              )}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleFileSelect(e.dataTransfer.files);
-              }}
-            >
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                id="file-upload"
-                onChange={(e) => handleFileSelect(e.target.files)}
-                accept=".pdf,.doc,.docx,.txt,.xls,.xlsx,.ppt,.pptx,.png,.jpeg,.jpg,.gif,.webp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,image/png,image/jpeg,image/jpg,image/gif,image/webp"
-              />
-              <label htmlFor="file-upload" className="cursor-pointer">
-                <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-                <p className="text-sm font-medium mb-1">
-                  Click to upload or drag and drop
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  PDF, Word, Excel, PowerPoint, Images (Max 50MB per file)
-                </p>
-              </label>
-            </div>
-
-            {/* Selected Files List */}
-            {selectedFiles.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="text-sm font-medium">Selected Files ({selectedFiles.length})</h4>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
-                  {selectedFiles.map((file, index) => (
-                    <div
-                      key={`${file.name}-${index}`}
-                      className="flex items-center justify-between p-3 border rounded-lg bg-background"
-                    >
-                      <div className="flex items-center gap-3 flex-1 min-w-0">
-                        <File className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">{file.name}</p>
-                          <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveFile(index)}
-                        className="flex-shrink-0"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        );
-
       case 'confirm':
         return (
           <div className="space-y-4">
             {selectedSlot && selectedSubjectId ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {/* Left side - Booking Details */}
-                <div className="space-y-4">
+                <div className={studentCardCn('space-y-4 p-5')}>
                   <div>
-                    <h3 className="text-lg font-semibold mb-4">Booking Details</h3>
+                    <h3 className="mb-4 text-lg font-semibold tracking-tight">Booking Details</h3>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                       {(() => {
                         const subject = subjects?.find((s) => s.id === selectedSubjectId);
@@ -594,30 +421,10 @@ export function BookDraftingSessionModal({
                     </div>
                   </div>
 
-                  {/* Files Section */}
-                  {selectedFiles.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold mb-3">Files to Upload ({selectedFiles.length})</h4>
-                      <div className="space-y-2 max-h-48 overflow-y-auto">
-                        {selectedFiles.map((file, index) => (
-                          <div
-                            key={`${file.name}-${index}`}
-                            className="flex items-center gap-3 p-3 border rounded-lg bg-background"
-                          >
-                            <File className="h-5 w-5 text-muted-foreground flex-shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium truncate">{file.name}</p>
-                              <p className="text-xs text-muted-foreground">{formatFileSize(file.size)}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
 
                 {/* Right side - Calendar */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <h4 className="font-semibold">Session in Calendar</h4>
                   <BookingConfirmationCalendar
                     newSession={{
@@ -647,69 +454,79 @@ export function BookDraftingSessionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>
+      <DialogContent
+        className={cn(
+          studentModalShell,
+          'flex h-[90vh] max-h-[90dvh] w-[calc(100vw-1.5rem)] max-w-[100vw] flex-col gap-0 overflow-hidden rounded-2xl border-0 p-0 sm:w-full md:max-w-4xl',
+          '[&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+        )}
+      >
+        <DialogHeader className="shrink-0 space-y-1.5 px-6 pb-5 pt-6 text-left">
+          <DialogTitle className="text-xl font-semibold tracking-tight">
             {originalSessionId ? 'Reschedule Drafting Session' : 'Book Drafting Session'}
           </DialogTitle>
           <DialogDescription>
-            {originalSessionId 
+            {originalSessionId
               ? 'Select a new time for your drafting session. Your original session will be marked as an absence.'
               : 'Schedule a one-on-one drafting session with a tutor'}
           </DialogDescription>
-        </DialogHeader>
 
-        {/* Step Indicator - Only show 3 steps (success is not a step) */}
-        <div className="flex-shrink-0 flex items-center justify-center space-x-2 px-6 py-4 border-b overflow-x-auto">
-          {steps.map((step, index) => {
-            // When on success step (step 3), show all steps as completed
-            const isCompleted = bookingSuccess || index < currentStep;
-            const isCurrent = !bookingSuccess && index === currentStep;
-            
-            return (
-              <div key={step.id} className="flex items-center flex-shrink-0">
-                <div
-                  className={cn(
-                    'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
-                    isCurrent
-                      ? 'bg-primary text-primary-foreground'
-                      : isCompleted
-                      ? 'bg-primary/20 text-primary'
-                      : 'bg-muted text-muted-foreground'
-                  )}
-                >
-                  {index + 1}
-                </div>
-                {index < steps.length - 1 && (
+          {/* Step indicator (1–3); success step still shows all as completed */}
+          <div
+            className="flex items-center justify-center overflow-x-auto border-t border-black/[0.07] pt-5 dark:border-white/10"
+            aria-label="Booking progress"
+          >
+            {steps.map((step, index) => {
+              const isCompleted = bookingSuccess || index < currentStep;
+              const isCurrent = !bookingSuccess && index === currentStep;
+
+              return (
+                <div key={step.id} className="flex shrink-0 items-center">
                   <div
                     className={cn(
-                      'w-12 h-0.5 mx-2',
-                      isCompleted ? 'bg-primary' : 'bg-muted'
+                      'flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-colors duration-300',
+                      isCurrent
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : isCompleted
+                          ? 'bg-primary/15 text-primary ring-1 ring-primary/20'
+                          : 'bg-muted text-muted-foreground ring-1 ring-black/[0.06] dark:ring-white/10',
                     )}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  >
+                    {index + 1}
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div
+                      className={cn(
+                        'mx-2 h-0.5 w-12 rounded-full transition-colors duration-300',
+                        isCompleted ? 'bg-primary/40' : 'bg-muted',
+                      )}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </DialogHeader>
+
+        <div className={cn(studentModalHairline)} />
 
         {/* Current Step Content */}
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+        <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
           <div className="h-full overflow-y-auto">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold">{currentStepData?.title}</h3>
+              <h3 className="text-lg font-semibold tracking-tight">{currentStepData?.title}</h3>
             </div>
             {renderStepContent()}
           </div>
         </div>
 
-        {/* Footer with Back/Next buttons */}
         {!bookingSuccess && (
-          <DialogFooter className="px-6 py-4 border-t bg-background">
-            <div className="flex justify-between w-full">
+          <div className={cn(studentModalFooter)}>
+            <div className="flex w-full flex-wrap items-center justify-between gap-3">
               <div className="flex gap-2">
                 {!isFirstStep && (
                   <Button
+                    className={studentBtnOutline}
                     variant="outline"
                     onClick={handleBack}
                     disabled={isSubmitting}
@@ -719,42 +536,45 @@ export function BookDraftingSessionModal({
                 )}
               </div>
               <div className="flex gap-2">
-                {currentStep === 3 ? (
-                  // Confirmation step - show Confirm Booking button
+                {currentStep === 2 ? (
                   <Button
+                    className={studentBtnPrimary}
                     onClick={handleConfirmBooking}
-                    disabled={isSubmitting || uploadingFiles || !selectedSlot || !selectedSubjectId}
+                    disabled={isSubmitting || !selectedSlot || !selectedSubjectId}
                   >
-                    {isSubmitting || uploadingFiles ? (
+                    {isSubmitting ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {uploadingFiles ? 'Uploading files...' : 'Confirming...'}
+                        Confirming...
                       </>
                     ) : (
                       'Confirm Booking'
                     )}
                   </Button>
                 ) : (
-                  // Other steps - show Next button
                   <Button
+                    className={studentBtnPrimary}
                     onClick={handleNext}
-                    disabled={isSubmitting || (currentStep === 0 && !selectedSubjectId) || (currentStep === 1 && !selectedSlot)}
+                    disabled={
+                      isSubmitting ||
+                      (currentStep === 0 && !selectedSubjectId) ||
+                      (currentStep === 1 && !selectedSlot)
+                    }
                   >
                     Next
                   </Button>
                 )}
               </div>
             </div>
-          </DialogFooter>
+          </div>
         )}
 
-        {/* Success Footer */}
         {bookingSuccess && (
-          <DialogFooter className="px-6 py-4 border-t bg-background">
-            <Button onClick={handleClose} className="w-full">
+          <div className={cn(studentModalFooter, 'justify-end')}>
+            <Button className={cn(studentBtnPrimary, 'w-full sm:w-auto')} onClick={handleClose}>
               Close
             </Button>
-          </DialogFooter>
+          </div>
         )}
       </DialogContent>
     </Dialog>

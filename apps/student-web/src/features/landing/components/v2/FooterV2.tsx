@@ -18,7 +18,7 @@ export function FooterV2() {
               Altitutor
             </h2>
             <p className={`mt-4 max-w-sm text-[#F2F0E9]/60 ${TOKENS.typography.secondarySans}`}>
-              A mission-driven non-profit providing elite education and resources to support students.
+            A mission-driven non-profit providing accessible education for all students.
             </p>
           </div>
 
@@ -29,7 +29,6 @@ export function FooterV2() {
             <ul className={`space-y-4 text-[#F2F0E9]/80 ${TOKENS.typography.secondarySans}`}>
               <li><Link href="/login" className="hover:text-white transition-colors">Portal Login</Link></li>
               <li><Link href="https://altitutor.com" className="hover:text-white transition-colors">Main Website</Link></li>
-              <li><a href="#community" className="hover:text-white transition-colors">Community</a></li>
             </ul>
           </div>
 

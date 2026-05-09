@@ -13,6 +13,7 @@ import {
 } from '@altitutor/ui';
 import { Calendar, ChevronDown } from 'lucide-react';
 import { useReportsContext } from '../context/ReportsContext';
+import { cn } from '@/shared/utils';
 import {
   REPORTS_SECTION_KEYS,
   REPORTS_SECTION_LABELS,
@@ -27,7 +28,10 @@ function ReportsTabs() {
   const base = '/reports';
 
   return (
-    <nav className="flex gap-1 border-b">
+    <nav
+      className="grid w-full max-w-3xl grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-muted-foreground"
+      aria-label="Reports sections"
+    >
       {REPORTS_SECTION_KEYS.map((key) => {
         const href = `${base}/${key}`;
         const isActive = pathname === href || pathname?.startsWith(`${href}/`);
@@ -35,11 +39,12 @@ function ReportsTabs() {
           <Link
             key={key}
             href={href}
-            className={`px-4 py-3 text-sm font-medium border-b-2 -mb-px transition-colors ${
+            className={cn(
+              'inline-flex items-center justify-center rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all',
               isActive
-                ? 'border-primary text-foreground'
-                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-muted'
-            }`}
+                ? 'bg-background text-foreground shadow-sm'
+                : 'hover:bg-background/60 hover:text-foreground'
+            )}
           >
             {REPORTS_SECTION_LABELS[key]}
           </Link>

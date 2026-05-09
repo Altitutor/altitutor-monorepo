@@ -93,3 +93,25 @@ export function formatTimeHHMM(timeString: string | null | undefined): string {
 
   return '';
 }
+
+/**
+ * Convert YYYY-MM-DD to UTC ISO for start of local day (matches student timetable queries).
+ */
+export function dateStringToUtcStart(dateString: string): string {
+  if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    throw new Error(`Invalid date string format: ${dateString}. Expected YYYY-MM-DD`);
+  }
+  const localDate = new Date(`${dateString}T00:00:00`);
+  return localDate.toISOString();
+}
+
+/**
+ * Convert YYYY-MM-DD to UTC ISO for end of local day.
+ */
+export function dateStringToUtcEnd(dateString: string): string {
+  if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) {
+    throw new Error(`Invalid date string format: ${dateString}. Expected YYYY-MM-DD`);
+  }
+  const localDate = new Date(`${dateString}T23:59:59.999`);
+  return localDate.toISOString();
+}

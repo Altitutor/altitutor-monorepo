@@ -19,6 +19,7 @@ import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useProfile, useUpdateProfile } from '../hooks';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -114,7 +115,7 @@ export function ProfileForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         {/* Personal Information */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Personal Information</h3>
+          <h3 className="text-2xl font-semibold">Personal Information</h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <FormField
@@ -180,7 +181,7 @@ export function ProfileForm() {
 
         {/* Academic Information */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Academic Information</h3>
+          <h3 className="text-2xl font-semibold">Academic Information</h3>
           
           <FormField
             control={form.control}
@@ -244,7 +245,7 @@ export function ProfileForm() {
 
         {/* Availability */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold">Availability</h3>
+          <h3 className="text-2xl font-semibold">Availability</h3>
           
           <div className="space-y-3">
             <FormField
@@ -413,13 +414,14 @@ export function ProfileForm() {
 
         {/* Action Buttons */}
         <div className="flex gap-3">
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" className={studentBtnPrimary} disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Save Changes
           </Button>
           <Button
             type="button"
             variant="outline"
+            className={studentBtnOutline}
             onClick={() => form.reset()}
             disabled={isSubmitting}
           >

@@ -17,6 +17,17 @@ export async function POST(request: NextRequest) {
     error: authError,
   } = await supabase.auth.getUser();
 
+  // Optional priceId override from request body
+  let bodyPriceId: string | null = null;
+  try {
+    const body = (await request.clone().json()) as { priceId?: string };
+    if (typeof body.priceId === "string" && body.priceId.trim()) {
+      bodyPriceId = body.priceId.trim();
+    }
+  } catch {
+    // No body or invalid JSON — fall through to config lookup
+  }
+
   if (authError) {
     return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
   }
@@ -34,7 +45,9 @@ export async function POST(request: NextRequest) {
 
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   const priceId =
-    process.env.UCAT_STRIPE_PRICE_ID ?? (await getConfigPriceId(supabaseAdmin));
+    bodyPriceId ??
+    process.env.UCAT_STRIPE_PRICE_ID ??
+    (await getConfigPriceId(supabaseAdmin));
 
   if (!stripeSecretKey || !priceId) {
     return NextResponse.json(
@@ -121,7 +134,7 @@ export async function POST(request: NextRequest) {
     metadata: {
       student_id: student.id,
     },
-    success_url: `${origin}/subscribe/success?session_id={CHECKOUT_SESSION_ID}`,
+    success_url: `${origin}/dashboard`,
     cancel_url: `${origin}/subscribe?canceled=1`,
     allow_promotion_codes: true,
   };

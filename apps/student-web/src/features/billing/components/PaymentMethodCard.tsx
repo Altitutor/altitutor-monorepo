@@ -7,6 +7,7 @@ import { usePaymentMethods } from '../hooks/usePaymentMethods';
 import { AddPaymentMethodModal } from './AddPaymentMethodModal';
 import { PaymentMethodsList } from './PaymentMethodsList';
 import { useProfile } from '@/shared/hooks';
+import { studentBtnPrimary } from '@/shared/lib/student-visual';
 
 export function PaymentMethodCard() {
   const { data: billing, isLoading } = usePaymentMethods();
@@ -51,6 +52,7 @@ export function PaymentMethodCard() {
             </p>
           </div>
           <Button 
+            className={studentBtnPrimary}
             onClick={() => setIsModalOpen(true)}
             disabled={!studentId}
           >

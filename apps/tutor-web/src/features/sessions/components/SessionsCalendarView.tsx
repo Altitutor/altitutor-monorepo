@@ -39,6 +39,7 @@ interface StudentMember {
   first_name: string;
   last_name: string;
   year_level?: number;
+  planned_absence?: boolean;
 }
 
 type Props = { onOpenSession?: (id: string) => void };
@@ -248,6 +249,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                               first_name: student.first_name,
                               last_name: student.last_name,
                               year_level: student.year_level !== null ? student.year_level : undefined,
+                              planned_absence: student.planned_absence ?? false,
                             }));
                             
                             blocks.push(

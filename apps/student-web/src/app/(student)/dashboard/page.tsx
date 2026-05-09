@@ -2,6 +2,7 @@
 
 import { Loader2 } from 'lucide-react';
 import { useProfile } from '@/features/profile';
+import { StudentDashboardHome } from '@/features/dashboard';
 
 // Mark this page as dynamic to prevent static generation
 // This page requires Supabase client which needs environment variables
@@ -18,22 +19,9 @@ export default function DashboardPage() {
     );
   }
 
-  const firstName = profile?.first_name || null;
+  const firstName = profile?.first_name ?? null;
 
-  return (
-    <div className="container max-w-4xl py-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">
-          Welcome back, {firstName || 'Student'}!
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your account and view your classes
-        </p>
-      </div>
-
-      {/* Future: Add more dashboard cards for sessions, attendance, etc. */}
-    </div>
-  );
+  return <StudentDashboardHome firstName={firstName} />;
 }
 
 

@@ -325,6 +325,57 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
             )}
           </div>
         )}
+
+        {visibleCharts.subsidiesCreated && (
+          <div>
+            <h3 className="text-sm font-medium mb-2">Subsidies</h3>
+            <p className="text-xs text-muted-foreground mb-3">
+              Number of student subsidies created on each day in the selected period.
+            </p>
+            {isLoading ? (
+              <div className="h-[220px] flex items-center justify-center bg-muted/30 rounded-lg">
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="h-[220px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={data?.subsidiesCreatedByDay ?? []}
+                      margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                      <XAxis
+                        dataKey="date"
+                        tick={{ fontSize: 12 }}
+                        tickFormatter={(value) => {
+                          const date = new Date(value);
+                          return date.toLocaleDateString('en-AU', {
+                            weekday: 'short',
+                            day: 'numeric',
+                          });
+                        }}
+                      />
+                      <YAxis tick={{ fontSize: 12 }} allowDecimals={false} />
+                      <Tooltip content={<SubsidiesTooltip />} />
+                      <Bar
+                        dataKey="count"
+                        name="Subsidies"
+                        fill="hsl(var(--primary))"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <ReportsEntitiesTable
+                  entities={data?.subsidiesCreatedByDay?.flatMap((day) => day.entities) ?? []}
+                  variant="subsidiesCreated"
+                  onEntityClick={handleSubsidyEntityClick}
+                />
+              </div>
+            )}
+          </div>
+        )}
     </div>
 
     <SessionModal

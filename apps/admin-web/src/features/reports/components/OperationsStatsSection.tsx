@@ -178,27 +178,52 @@ export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsS
         )}
 
         {/* Projects */}
-        {visibleCharts.projects.openProjects && (
+        {(visibleCharts.projects.openProjects || visibleCharts.projects.finishedProjects) && (
           <div className="space-y-6">
             <h3 className="text-sm font-semibold">Projects</h3>
-            <div>
-              <h4 className="text-sm font-medium mb-2">Open projects at end of day</h4>
-            <p className="text-xs text-muted-foreground mb-3">
-              Number of projects that were open (not completed) at the end of each day
-            </p>
-            {projectsLoading ? (
-              <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
-                <p className="text-sm text-muted-foreground">Loading...</p>
-              </div>
-            ) : (
-              <IssuesReportChart
-                data={projectsData?.openByDay ?? []}
-                title="Open projects"
-                entityLabelSingular="project"
-                tableVariant="openProjects"
-                onEntityClick={handleEntityClick}
-              />
-            )}
+            <div className="space-y-8">
+              {visibleCharts.projects.openProjects && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Open projects at end of day</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Number of projects that were open (not completed) at the end of each day
+                  </p>
+                  {projectsLoading ? (
+                    <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Loading...</p>
+                    </div>
+                  ) : (
+                    <IssuesReportChart
+                      data={projectsData?.openByDay ?? []}
+                      title="Open projects"
+                      entityLabelSingular="project"
+                      tableVariant="openProjects"
+                      onEntityClick={handleEntityClick}
+                    />
+                  )}
+                </div>
+              )}
+              {visibleCharts.projects.finishedProjects && (
+                <div>
+                  <h4 className="text-sm font-medium mb-2">Finished projects within period</h4>
+                  <p className="text-xs text-muted-foreground mb-3">
+                    Number of projects completed on each day
+                  </p>
+                  {projectsLoading ? (
+                    <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
+                      <p className="text-sm text-muted-foreground">Loading...</p>
+                    </div>
+                  ) : (
+                    <IssuesReportChart
+                      data={projectsData?.finishedByDay ?? []}
+                      title="Finished projects"
+                      entityLabelSingular="project"
+                      tableVariant="finishedProjects"
+                      onEntityClick={handleEntityClick}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

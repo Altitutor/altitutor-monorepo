@@ -416,7 +416,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                 <Button variant="outline" size="sm" className="mr-auto">
                   <LayoutGrid className="h-4 w-4 mr-2" />
                   <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
-                  <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
+                  <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-[200px] p-0">
@@ -445,7 +445,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                     <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
                       Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                     </span>
-                    <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
+                    <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -489,7 +489,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                     <span className={cn("hidden md:inline", sortBy === 'name' && "opacity-50")}>
                       Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
                     </span>
-                    <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
+                    <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -564,7 +564,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                   <span className={cn("hidden md:inline", activeFilterCount === 0 && "opacity-50")}>
                     Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
+                  <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">
@@ -973,8 +973,8 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
         />
 
         <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill) => (
-            <div key={pill.key} className="flex-shrink-0">
+          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill, index) => (
+            <div key={pill.key} className={cn("flex-shrink-0", index > 0 && "hidden sm:flex")}>
               {compact ? (
                 pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)
               ) : (
@@ -1093,12 +1093,12 @@ function EntityListRow<TItem>({
 
       {/* Right: pills */}
       <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        {rightPills.map((pill) => {
+        {rightPills.map((pill, index) => {
           return (
             <div
               key={pill.key}
               onClick={(e) => e.stopPropagation()}
-              className="transition-opacity flex-shrink-0"
+              className={cn("transition-opacity flex-shrink-0", index > 0 && "hidden sm:flex")}
             >
               {compact ? (
                 pill.renderPill(item, () => {}, true)

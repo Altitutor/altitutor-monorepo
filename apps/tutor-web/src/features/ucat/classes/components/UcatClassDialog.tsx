@@ -74,7 +74,7 @@ function DroppableSessionWithDraft({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-lg border p-3 ${isOver ? 'ring-2 ring-primary/50 bg-primary/5' : 'bg-muted/30'}`}
+      className={`rounded-2xl border-0 p-3 ring-1 ring-black/[0.06] dark:ring-white/10 ${isOver ? 'ring-2 ring-primary/50 bg-primary/5' : 'bg-muted/30'}`}
     >
       <div className="font-medium text-sm">{sessionTitle(session.start_at)}</div>
       <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>

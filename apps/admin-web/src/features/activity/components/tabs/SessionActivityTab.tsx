@@ -32,13 +32,13 @@ export function SessionActivityTab({ sessionId, isOpen = true }: SessionActivity
 
     try {
       await createNoteMutation.mutateAsync({
-        targetType: 'session',
+        targetType: 'sessions',
         targetId: sessionId,
         note: newNoteContent,
         staffId: currentStaff.id,
       });
       setNewNoteContent(EMPTY_DOC);
-      queryClient.invalidateQueries({ queryKey: notesKeys.forTarget('session', sessionId) });
+      queryClient.invalidateQueries({ queryKey: notesKeys.forTarget('sessions', sessionId) });
       queryClient.invalidateQueries({ queryKey: activityKeys.session(sessionId) });
     } catch {
       // Error handled silently - user can retry

@@ -9,7 +9,7 @@ interface MainContentProps {
 
 export function MainContent({ children }: MainContentProps) {
   const pathname = usePathname();
-  const hideNavbar = pathname === '/booking/trial-session';
+  const hideNavbar = pathname === '/booking/trial-session' || pathname === '/booking-success';
 
   return (
     <main className={cn('flex-1', !hideNavbar && 'pt-[var(--navbar-height)]')}>
