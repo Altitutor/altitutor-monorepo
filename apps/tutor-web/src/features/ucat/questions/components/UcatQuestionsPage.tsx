@@ -89,6 +89,7 @@ import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-d
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { cn } from '@/shared/utils'
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
 
 function truncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text ?? ''
@@ -723,7 +724,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title={mode === 'generated' ? 'Generated UCAT Questions' : 'UCAT Questions'}
         description={
@@ -801,10 +802,10 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
       />
 
       <div className={cn('pt-3', selectionMode && 'pb-24')}>
-        <div className="rounded-md border">
+        <div className={tutorTableShell}>
         <Table className="w-full table-fixed">
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={tutorTableHeaderRow}>
               <TableHead className="w-12" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
                   checked={allVisibleSelected ? true : someVisibleSelected ? 'indeterminate' : false}
@@ -833,8 +834,9 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
                 <React.Fragment key={row.id}>
                   <TableRow
                     className={cn(
+                      tutorTableBodyRow,
                       row.deleted_at && 'bg-destructive/10',
-                      selectedStemIds.has(row.id) && 'bg-muted/50'
+                      selectedStemIds.has(row.id) && 'bg-muted/50',
                     )}
                     onClick={() => selectionMode && toggleStemSelection(row.id)}
                   >
@@ -850,7 +852,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
                         <button
                           type="button"
                           onClick={() => toggleStemExpanded(row.id)}
-                          className="p-1 hover:bg-muted rounded"
+                          className="rounded-lg p-1 hover:bg-muted"
                         >
                           {isStemExpanded ? (
                             <ChevronDown className="h-4 w-4" />
@@ -934,7 +936,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
                                           <button
                                             type="button"
                                             onClick={() => toggleQuestionExpanded(row.id, q.id)}
-                                            className="p-1 hover:bg-muted rounded"
+                                            className="rounded-lg p-1 hover:bg-muted"
                                           >
                                             {isQExpanded ? (
                                               <ChevronDown className="h-4 w-4" />

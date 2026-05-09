@@ -22,6 +22,8 @@ import {
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { tutorTableShell } from '@/shared/lib/tutor-visual'
+import { cn } from '@/shared/utils'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
@@ -304,7 +306,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="Edit UCAT Set"
         description={detail.data?.name ? proseMirrorToPlainText(detail.data.name) : 'Edit question set'}
@@ -326,7 +328,7 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       {stemsThatWillBecomePublicCount > 0 && (
         <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
       )}
-      <div className="mt-4 h-[70vh] rounded-md border overflow-hidden">
+      <div className={cn('mt-4 h-[70vh]', tutorTableShell)}>
         <UcatSetEditorContent
           draftName={draftName}
           draftDescription={draftDescription}

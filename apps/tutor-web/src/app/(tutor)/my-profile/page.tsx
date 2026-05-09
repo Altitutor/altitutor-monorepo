@@ -8,6 +8,8 @@ import { Loader2 } from 'lucide-react';
 import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
 import { AvailabilityTab } from '@/features/profile/components/tabs/AvailabilityTab';
 import { AccountTab } from '@/features/profile/components/tabs/AccountTab';
+import { TutorPageContainer } from '@/shared/components/layouts';
+import { tutorTabsList, tutorTabsTrigger } from '@/shared/lib/tutor-visual';
 
 const VALID_TABS = ['details', 'availability', 'account'] as const;
 type TabValue = typeof VALID_TABS[number];
@@ -44,34 +46,40 @@ export default function MyProfilePage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-dvh">
-        <Loader2 className="h-8 w-8 animate-spin" />
+      <div className="flex min-h-[50vh] items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   if (!profile) {
     return (
-      <div className="p-6">
+      <TutorPageContainer>
         <p className="text-muted-foreground">Profile not found</p>
-      </div>
+      </TutorPageContainer>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
+    <TutorPageContainer className="space-y-6">
+      <header>
         <h1 className="text-3xl font-bold tracking-tight">My Profile</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="mt-1 text-muted-foreground">
           Update your personal information and preferences
         </p>
-      </div>
+      </header>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
-          <TabsTrigger value="account">Account</TabsTrigger>
+        <TabsList className={tutorTabsList}>
+          <TabsTrigger value="details" className={tutorTabsTrigger}>
+            Details
+          </TabsTrigger>
+          <TabsTrigger value="availability" className={tutorTabsTrigger}>
+            Availability
+          </TabsTrigger>
+          <TabsTrigger value="account" className={tutorTabsTrigger}>
+            Account
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="details" className="mt-6">
@@ -86,7 +94,7 @@ export default function MyProfilePage() {
           <AccountTab profile={profile} />
         </TabsContent>
       </Tabs>
-    </div>
+    </TutorPageContainer>
   );
 }
 

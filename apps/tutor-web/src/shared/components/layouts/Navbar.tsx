@@ -6,7 +6,7 @@ import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { ThemeToggle } from '../theme-toggle';
 import { useRouter } from 'next/navigation';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, Settings, User } from 'lucide-react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import {
@@ -21,6 +21,8 @@ import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
+import { TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
+import { cn } from '@/shared/utils';
 
 export function Navbar() {
   const router = useRouter();
@@ -60,8 +62,8 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
-      <div className="container mx-auto px-4 h-full flex justify-between items-center">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-[var(--navbar-height)] border-0 bg-background/90 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md dark:bg-brand-dark-bg/90 dark:shadow-[0_4px_28px_rgba(0,0,0,0.45)] supports-[backdrop-filter]:bg-background/80 dark:supports-[backdrop-filter]:bg-brand-dark-bg/80">
+      <div className={cn('mx-auto flex h-full w-full items-center justify-between', TUTOR_SHELL_PAD_X)}>
         <div className="flex items-center gap-4">
           {/* Mobile Hamburger Menu Button */}
           {user && (
@@ -75,29 +77,18 @@ export function Navbar() {
               <AnimatedHamburgerIcon isOpen={isMobileMenuOpen} />
             </Button>
           )}
-          
+
           {/* Desktop Logo - hidden on mobile */}
-          <div className="hidden md:flex items-center gap-1">
-            <div className="h-12 flex items-center gap-1">
-              <Image 
-                src={resolvedTheme === 'dark' ? "/images/logo-banner-dark.svg" : "/images/logo-banner-light.svg"}
-                alt="Altitutor Tutor" 
-                width={160} 
+          <div className="hidden md:flex items-center">
+            <div className="h-12 flex items-center">
+              <Image
+                src={resolvedTheme === 'dark' ? '/images/logo-banner-dark.svg' : '/images/logo-banner-light.svg'}
+                alt="Altitutor Tutor"
+                width={160}
                 height={36}
                 priority
                 className="object-contain"
-                style={{ width: "auto" }}
               />
-              <span 
-                className="text-brand-lightBlue font-normal leading-none whitespace-nowrap"
-                style={{ 
-                  fontFamily: 'Calibri, "Segoe UI", system-ui, -apple-system, sans-serif',
-                  fontSize: '26px',
-                  letterSpacing: '-0.02em'
-                }}
-              >
-                TUTOR PORTAL
-              </span>
             </div>
           </div>
         </div>
@@ -110,7 +101,7 @@ export function Navbar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2">
+                <Button variant="outline" className="flex h-9 items-center gap-2">
                   <div className="h-6 w-6 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-xs">
                     {getInitials()}
                   </div>
@@ -122,6 +113,12 @@ export function Navbar() {
                   <Link href="/my-profile" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     My Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link href="/settings" className="flex items-center cursor-pointer">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Settings
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

@@ -37,7 +37,7 @@ export function MockAttemptDetailPage({
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Loading..."
           backHref={mocksPath}
@@ -53,7 +53,7 @@ export function MockAttemptDetailPage({
 
   if (error) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Mock attempt"
           description="Could not load mock attempt."
@@ -67,7 +67,7 @@ export function MockAttemptDetailPage({
 
   if (!data) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Mock attempt"
           description="No data available."
@@ -81,7 +81,7 @@ export function MockAttemptDetailPage({
   const attemptedDate = new Date(data.attemptedAt).toLocaleDateString()
 
   return (
-    <div className="p-6 min-w-0 max-w-full space-y-6">
+    <div className="min-w-0 max-w-full space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title={data.mockName ?? 'Mock attempt'}
         description={`Attempted ${attemptedDate}`}

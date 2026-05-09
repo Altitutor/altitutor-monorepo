@@ -10,6 +10,7 @@ import type { SetReconciliationRow } from '../api/reconciliation'
 import { useReconciliationData } from '../hooks/useReconciliation'
 import { useUcatTableState, applyCoreStringFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import type { DataTableColumnDefinition, DataTableSortOption } from '@altitutor/shared'
+import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 
 export function SetsReconciliationTable({
   title,
@@ -154,7 +155,7 @@ function SetReconciliationRow({
   }
 
   return (
-    <TableRow>
+    <TableRow className={tutorTableBodyRow}>
       {visibleColumnKeys.map((key) => cells[key]).filter((c): c is React.ReactNode => c != null)}
       <TableCell>
         <Button variant="default" size="sm" onClick={() => onEditSet(item.id)}>

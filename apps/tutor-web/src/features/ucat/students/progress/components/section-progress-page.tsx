@@ -195,7 +195,7 @@ export function SectionProgressPage({
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Loading..."
           backHref={backHref}
@@ -211,7 +211,7 @@ export function SectionProgressPage({
 
   if (error) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Progress"
           description="Could not load progress."
@@ -225,7 +225,7 @@ export function SectionProgressPage({
 
   if (!data) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Progress"
           description="No progress data available."
@@ -238,7 +238,7 @@ export function SectionProgressPage({
 
   if (!section) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Section not found"
           description="This section could not be found."
@@ -260,7 +260,7 @@ export function SectionProgressPage({
       : section.percentage
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <SectionProgressContent
       section={section}
       score={score}

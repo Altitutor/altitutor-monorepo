@@ -24,6 +24,7 @@ import {
 import { Button } from "./button"
 import { Input } from "./input"
 import { SearchableSelect } from "./searchable-select"
+import { cn } from "../lib/cn"
 
 interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[]
@@ -36,6 +37,14 @@ interface DataTableProps<TData, TValue> {
   getRowClassName?: (data: TData) => string | undefined
   /** Optional row click handler (e.g. for selection mode). Use stopPropagation in cell content to prevent. */
   onRowClick?: (data: TData) => void
+  /** Wrapper around the table (default: bordered card). Override for app-specific shells. */
+  tableContainerClassName?: string
+  /** Passed to TableHeader (e.g. to remove header row borders). */
+  tableHeaderClassName?: string
+  /** Applied to each header TableRow. */
+  headerRowClassName?: string
+  /** Applied to each body TableRow (and the empty-state row). */
+  bodyRowClassName?: string
 }
 
 export function DataTable<TData, TValue>({
@@ -46,6 +55,10 @@ export function DataTable<TData, TValue>({
   pagination = "internal",
   getRowClassName,
   onRowClick,
+  tableContainerClassName = "rounded-md border",
+  tableHeaderClassName,
+  headerRowClassName,
+  bodyRowClassName,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([])
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([])
@@ -85,11 +98,11 @@ export function DataTable<TData, TValue>({
           />
         </div>
       )}
-      <div className="rounded-md border">
+      <div className={tableContainerClassName}>
         <Table>
-          <TableHeader>
+          <TableHeader className={cn(tableHeaderClassName)}>
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className={cn(headerRowClassName)}>
                 {headerGroup.headers.map((header) => {
                   return (
                     <TableHead key={header.id}>
@@ -111,7 +124,7 @@ export function DataTable<TData, TValue>({
                 <TableRow
                   key={row.id}
                   data-state={row.getIsSelected() && "selected"}
-                  className={getRowClassName?.(row.original)}
+                  className={cn(bodyRowClassName, getRowClassName?.(row.original))}
                   onClick={onRowClick ? () => onRowClick(row.original) : undefined}
                 >
                   {row.getVisibleCells().map((cell) => (
@@ -125,7 +138,7 @@ export function DataTable<TData, TValue>({
                 </TableRow>
               ))
             ) : (
-              <TableRow>
+              <TableRow className={cn(bodyRowClassName)}>
                 <TableCell
                   colSpan={columns.length}
                   className="h-24 text-center"

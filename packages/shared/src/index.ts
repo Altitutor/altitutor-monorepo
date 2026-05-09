@@ -10,5 +10,6 @@ export * from "./utils/quick-filters";
 export * from "./utils/session-format";
 export * from "./external-url/embed";
 export * from "./hooks/useDebounce";
+export * from "./resources";
 
 

@@ -44,6 +44,7 @@ import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUca
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
+import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
@@ -303,7 +304,7 @@ export function UcatSetsPage() {
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Sets"
         description="Build and organize UCAT question sets"
@@ -356,6 +357,7 @@ export function UcatSetsPage() {
 
       <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <DataTable
+          {...tutorDataTableProps}
           columns={[
             {
               id: 'select',

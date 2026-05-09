@@ -112,7 +112,7 @@ export function UcatReconciliationPage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-8 py-8 md:py-10">
       <UcatPageHeader
         title="Reconciliation"
         description="Identify and resolve UCAT content gaps: uncategorized stems, missing explanations, private stems not in sets, sets with incorrect questions/timing/sections, and mocks with incorrect sets."

@@ -31,6 +31,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
+import { cn } from '@/shared/utils'
+import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
 
 const TRUNCATE_LEN = 80
 
@@ -364,7 +366,7 @@ function PrivateStemNotInSetRow({
   return (
     <TableRow
       key={item.id}
-      className={isSelected ? 'bg-muted/50' : undefined}
+      className={cn(tutorTableBodyRow, isSelected && 'bg-muted/50')}
       onClick={selectionMode ? () => selection.onToggleSelection(item.id) : undefined}
     >
       {selection && (

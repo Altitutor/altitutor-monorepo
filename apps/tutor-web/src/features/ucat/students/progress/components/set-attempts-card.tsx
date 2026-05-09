@@ -29,6 +29,7 @@ import {
 } from '../lib/progress-data-utils'
 import type { SetAttemptRow } from '@altitutor/shared'
 import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
+import { tutorCardCn, tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
 
 type SetAttemptsCardProps = {
   attempts: SetAttemptRow[]
@@ -106,7 +107,7 @@ export function SetAttemptsCard({
     basePath ? `${basePath}/sets/${attemptId}` : null
 
   return (
-    <Card className="rounded-xl border-border">
+    <Card className={tutorCardCn()}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Set attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
@@ -131,10 +132,10 @@ export function SetAttemptsCard({
         />
         <div>
           <h4 className="mb-3 text-sm font-medium">All set attempts</h4>
-          <div className="rounded-xl border border-border">
-            <Table className="[&_tr]:border-border">
-              <TableHeader>
-                <TableRow>
+          <div className={tutorTableShell}>
+            <Table>
+              <TableHeader className="[&_tr]:border-b-0">
+                <TableRow className={tutorTableHeaderRow}>
                   <TableHead>Date</TableHead>
                   <TableHead>Set</TableHead>
                   <TableHeaderWithTooltip
@@ -167,7 +168,7 @@ export function SetAttemptsCard({
               </TableHeader>
               <TableBody>
                 {standaloneAttempts.length === 0 ? (
-                  <TableRow>
+                  <TableRow className={tutorTableBodyRow}>
                     <TableCell colSpan={8} className="text-center text-muted-foreground">
                       No submitted set attempts yet
                     </TableCell>
@@ -176,7 +177,7 @@ export function SetAttemptsCard({
                   paginatedAttempts.map((a) => {
                     const href = setDetailHref(a.id)
                     return (
-                      <TableRow key={a.id}>
+                      <TableRow key={a.id} className={tutorTableBodyRow}>
                         <TableCell>
                           {a.completedAt
                             ? format(new Date(a.completedAt), 'dd MMM yyyy')

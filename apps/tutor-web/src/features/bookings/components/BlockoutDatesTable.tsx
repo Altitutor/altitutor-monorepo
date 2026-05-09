@@ -25,6 +25,7 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual';
 import { blockoutsApi, type BlockoutRow, type CreateBlockoutInput, type UpdateBlockoutInput } from '../api/blockouts';
 
 interface BlockoutDatesTableProps {
@@ -317,10 +318,10 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
         </Button>
       </div>
 
-      <div className="border rounded-lg">
+      <div className={tutorTableShell}>
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={tutorTableHeaderRow}>
               <TableHead>Date Range</TableHead>
               <TableHead>Reason</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -328,14 +329,14 @@ export function BlockoutDatesTable({ blockouts, onUpdate }: BlockoutDatesTablePr
           </TableHeader>
           <TableBody>
             {blockouts.length === 0 ? (
-              <TableRow>
+              <TableRow className={tutorTableBodyRow}>
                 <TableCell colSpan={3} className="text-center text-muted-foreground">
                   No blockouts found
                 </TableCell>
               </TableRow>
             ) : (
               blockouts.map((blockout) => (
-                <TableRow key={blockout.id}>
+                <TableRow key={blockout.id} className={tutorTableBodyRow}>
                   <TableCell>{formatDateRange(blockout.start_at, blockout.end_at)}</TableCell>
                   <TableCell>{blockout.reason || '-'}</TableCell>
                   <TableCell className="text-right">

@@ -150,7 +150,7 @@ export function ClassStudentsTab({
               return (
                 <div 
                   key={`enrolling-${student.id}`}
-                  className="flex items-center justify-between p-3 rounded-md border border-dashed bg-muted/50"
+                  className="flex items-center justify-between rounded-xl border border-dashed border-black/[0.08] bg-muted/50 p-3 dark:border-white/10"
                 >
                   <div className="flex-1">
                     <div className="font-medium text-muted-foreground">
@@ -173,7 +173,7 @@ export function ClassStudentsTab({
               <div 
                 key={student.id} 
                 className={cn(
-                  "flex items-center justify-between p-3 rounded-md border",
+                  'flex items-center justify-between rounded-xl border border-black/[0.08] p-3 dark:border-white/10',
                   removingStudents.has(student.id) && "opacity-50"
                 )}
               >

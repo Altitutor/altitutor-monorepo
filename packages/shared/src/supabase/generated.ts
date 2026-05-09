@@ -12669,6 +12669,44 @@ export type Database = {
         }
         Relationships: []
       }
+      vtutor_subject_images: {
+        Row: {
+          bucket: string | null
+          created_at: string | null
+          deleted_at: string | null
+          file_id: string | null
+          file_metadata: Json | null
+          filename: string | null
+          mimetype: string | null
+          storage_path: string | null
+          storage_provider: string | null
+          subject_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subjects_files_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vtutor_subjects: {
         Row: {
           color: string | null

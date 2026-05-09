@@ -72,7 +72,7 @@ export function SetAttemptDetailPage({
 
   if (isLoading) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Loading..."
           backHref={backHref}
@@ -88,7 +88,7 @@ export function SetAttemptDetailPage({
 
   if (error) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Set attempt"
           description="Could not load set attempt."
@@ -102,7 +102,7 @@ export function SetAttemptDetailPage({
 
   if (!data) {
     return (
-      <div className="p-6 space-y-6">
+      <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Set attempt"
           description="No data available."
@@ -117,7 +117,7 @@ export function SetAttemptDetailPage({
   const points = data.scorePoints ?? 0
 
   return (
-    <div className="p-6 min-w-0 max-w-full space-y-6">
+    <div className="min-w-0 max-w-full space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title={data.questionSetName ?? 'Set attempt'}
         description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}

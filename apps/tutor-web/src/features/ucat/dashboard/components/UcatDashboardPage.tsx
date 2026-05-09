@@ -4,6 +4,8 @@ import Link from 'next/link'
 import { Skeleton } from '@altitutor/ui'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader } from '@/features/ucat/shared/components'
+import { TutorPageContainer } from '@/shared/components/layouts'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 
 type Card = { title: string; description: string; href: string }
@@ -76,7 +78,7 @@ export function UcatDashboardPage() {
 
   if (access.isLoading) {
     return (
-      <div className="p-6 space-y-8">
+      <TutorPageContainer className="space-y-8">
         <Skeleton className="h-8 w-36" />
         <Skeleton className="h-4 w-72" />
         {[3, 1, 1, 3].map((count, sectionIndex) => (
@@ -84,7 +86,7 @@ export function UcatDashboardPage() {
             <Skeleton className="h-4 w-24" />
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: count }).map((_, index) => (
-                <div key={index} className="rounded-lg bg-muted/50 p-5">
+                <div key={index} className={tutorCardCn('p-5')}>
                   <Skeleton className="h-6 w-36" />
                   <Skeleton className="mt-2 h-4 w-full" />
                 </div>
@@ -92,14 +94,20 @@ export function UcatDashboardPage() {
             </div>
           </div>
         ))}
-      </div>
+      </TutorPageContainer>
     )
   }
 
-  if (!access.data) return <UcatAccessDenied />
+  if (!access.data) {
+    return (
+      <TutorPageContainer>
+        <UcatAccessDenied />
+      </TutorPageContainer>
+    )
+  }
 
   return (
-    <div className="p-6">
+    <TutorPageContainer className="space-y-8">
       <UcatPageHeader
         title="UCAT"
         description="Tutor UCAT management dashboard"
@@ -118,8 +126,8 @@ export function UcatDashboardPage() {
                   key={card.href}
                   href={card.href}
                   className={cn(
-                    'block rounded-lg bg-muted/50 p-5 shadow-sm transition-colors',
-                    'hover:bg-muted/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+                    tutorCardCn('block p-5'),
+                    'hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
                   )}
                 >
                   <h3 className="text-lg font-semibold">{card.title}</h3>
@@ -130,6 +138,6 @@ export function UcatDashboardPage() {
           </section>
         ))}
       </div>
-    </div>
+    </TutorPageContainer>
   )
 }

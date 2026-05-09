@@ -164,8 +164,12 @@ export default function ResourceTopicDetailPage() {
           ) : null}
         </div>
 
-        <div className="flex w-full flex-col gap-3 lg:w-72 lg:shrink-0">
-          <ResourcesBackLink href={subjectHref} label={`Back to ${subjectLabel}`} />
+        <div className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-72 lg:shrink-0 lg:self-start">
+          <ResourcesBackLink
+            href={subjectHref}
+            label={`Back to ${subjectLabel}`}
+            className="hidden lg:inline-flex"
+          />
           <ResourcesSidebar title="All topics" items={sidebarItems} className="hidden lg:block" />
           <ResourcesPager prev={prev} next={next} ariaLabel="Topic navigation" />
         </div>

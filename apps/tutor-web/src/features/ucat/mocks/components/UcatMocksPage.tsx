@@ -46,6 +46,7 @@ import { getMockExamStatus, getSetSectionStatus } from '@/features/ucat/shared/l
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
+import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
 
 type MockRow = {
   id: string
@@ -353,7 +354,7 @@ export function UcatMocksPage() {
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Mocks"
         description="Manage full mock exams (ordered sets)"
@@ -402,6 +403,7 @@ export function UcatMocksPage() {
 
       <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <DataTable
+          {...tutorDataTableProps}
           columns={[selectColumn, ...visibleColumns]}
           data={paginatedRows}
           pagination="external"

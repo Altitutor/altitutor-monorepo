@@ -8,6 +8,7 @@ import { SessionsCalendarView } from '@/features/sessions/components/SessionsCal
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { LogSessionModal } from '@/features/tutor-logs/components/LogSessionModal';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
+import { TutorPageContainer } from '@/shared/components/layouts';
 
 export default function ClassesPage() {
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
@@ -44,42 +45,38 @@ export default function ClassesPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-6 border-b">
-        <div className="flex items-start justify-between">
+    <div className="flex min-h-full flex-col">
+      <TutorPageContainer className="flex flex-1 flex-col space-y-8">
+        <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
-            <p className="text-muted-foreground mt-1">
-              View your assigned classes and sessions
-            </p>
+            <p className="mt-1 text-muted-foreground">View your assigned classes and sessions</p>
           </div>
           {currentStaff?.id && (
             <Button
               onClick={() => handleOpenLogSession()}
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 rounded-xl shadow-sm"
             >
               <FileText className="h-4 w-4" />
               Submit Tutor Log
             </Button>
           )}
-        </div>
-      </div>
+        </header>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6 space-y-8">
-        {/* Classes Section */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">Classes</h2>
+        <section aria-labelledby="classes-heading" className="space-y-4">
+          <h2 id="classes-heading" className="text-2xl font-semibold">
+            Classes
+          </h2>
           <TutorClassesTable />
-        </div>
+        </section>
 
-        {/* Timetable Section */}
-        <div>
-          <h2 className="text-2xl font-semibold mb-4">Timetable</h2>
+        <section aria-labelledby="timetable-heading" className="space-y-4">
+          <h2 id="timetable-heading" className="text-2xl font-semibold">
+            Timetable
+          </h2>
           <SessionsCalendarView onOpenSession={handleOpenSession} />
-        </div>
-      </div>
+        </section>
+      </TutorPageContainer>
 
       {/* Session Modal */}
       <SessionModal

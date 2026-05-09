@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { Button, Skeleton } from '@altitutor/ui'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 
 export function UcatAccessDenied() {
   return (
-    <div className="rounded-lg border border-border bg-card p-8 text-center">
+    <div className={tutorCardCn('mx-auto max-w-lg p-8 text-center')}>
       <h2 className="text-xl font-semibold">UCAT Access Required</h2>
       <p className="mt-2 text-sm text-muted-foreground">
         Your profile does not include the UCAT subject. Ask an administrator if you need access.
@@ -91,7 +92,7 @@ export function UcatPageHeader({
 
 export function UcatPageSkeleton({ rows = 6 }: { rows?: number }) {
   return (
-    <div className="p-6 space-y-4">
+    <div className="space-y-4 py-8 md:py-10">
       <div className="space-y-2">
         <Skeleton className="h-8 w-52" />
         <Skeleton className="h-4 w-80" />

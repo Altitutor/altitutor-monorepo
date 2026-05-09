@@ -83,7 +83,7 @@ export function UcatMockDetailPage({ mockId }: UcatMockDetailPageProps) {
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="Edit UCAT Mock"
         description={detail.data?.name ? detail.data.name : 'Edit mock exam'}

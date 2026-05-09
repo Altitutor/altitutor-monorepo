@@ -1,6 +1,5 @@
-import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import type { Database } from '@altitutor/shared';
 import { buildFileCountByTopic, mapTopicFile, normalizeSlug } from '@altitutor/shared';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type {
   ResourceAccessSource,
   ResourceFile,

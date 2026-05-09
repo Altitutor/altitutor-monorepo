@@ -27,6 +27,7 @@ import {
   type TagOption,
   UcatQuestionStemFormContent,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
 
 type UcatQuestionStemDetailPageProps = {
   stemId: string
@@ -158,7 +159,7 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
   if (!access.data) return <UcatAccessDenied />
 
   return (
-    <div className="p-6">
+    <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title={mode === 'generated' ? 'Review generated UCAT stem' : 'Edit UCAT Question Stem'}
         description={initial?.id ? `Editing stem ${initial.id}` : 'Edit question stem'}
@@ -205,7 +206,7 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
         }
       />
 
-      <div className="mt-4 rounded-md border">
+      <div className={tutorCardCn('mt-4 overflow-hidden')}>
         <UcatQuestionStemFormContent
           form={form}
           sections={sections.map((section) => ({ id: section.id, name: section.name }))}
