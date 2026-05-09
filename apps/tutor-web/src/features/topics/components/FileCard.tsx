@@ -14,12 +14,14 @@ import {
 import { cn } from '@/shared/utils';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import type { Enums } from '@altitutor/shared';
+import { parseExternalVideoEmbed } from '@altitutor/shared';
 
 export interface FileCardProps {
   fileCode: string;
   fileType: Enums<'resource_type'>;
   filename: string;
-  storagePath: string;
+  storagePath?: string | null;
+  externalUrl?: string | null;
   mimeType?: string;
   topicFileId?: string;
   currentTopicId?: string;
@@ -33,6 +35,7 @@ export function FileCard({
   fileType,
   filename,
   storagePath,
+  externalUrl,
   mimeType,
   topicFileId,
   currentTopicId: _currentTopicId,
@@ -43,7 +46,10 @@ export function FileCard({
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   useEffect(() => {
-    if (!isPreviewOpen) setExpanded(false);
+    if (!isPreviewOpen) {
+      setExpanded(false);
+      setPreviewUrl(null);
+    }
   }, [isPreviewOpen]);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -55,6 +61,8 @@ export function FileCard({
 
   const isPdf = mimeType === 'application/pdf' || filename.toLowerCase().endsWith('.pdf');
   const isImage = mimeType?.startsWith('image/');
+  const videoEmbed =
+    fileType === 'VIDEO' && externalUrl?.trim() ? parseExternalVideoEmbed(externalUrl.trim()) : null;
 
   // Handle Command+P to print the PDF
   useEffect(() => {
@@ -85,9 +93,18 @@ export function FileCard({
   };
 
   const handleCardClick = async () => {
+    setIsPreviewOpen(true);
+    if (externalUrl?.trim()) {
+      setPreviewUrl(null);
+      setLoadingPreview(false);
+      return;
+    }
+    if (!storagePath) {
+      setIsPreviewOpen(false);
+      return;
+    }
     try {
       setLoadingPreview(true);
-      setIsPreviewOpen(true);
       const signedUrl = await getSignedUrl(storagePath);
       setPreviewUrl(signedUrl);
     } catch (error) {
@@ -106,8 +123,15 @@ export function FileCard({
       return;
     }
 
+    const ext = externalUrl?.trim();
+    if (ext) {
+      window.open(ext, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
     try {
       setDownloadingFile(true);
+      if (!storagePath) return;
       const signedUrl = await getSignedUrl(storagePath);
       const link = document.createElement('a');
       link.href = signedUrl;
@@ -189,6 +213,25 @@ export function FileCard({
               <div className="flex items-center justify-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
+            ) : videoEmbed ? (
+              <div className="relative w-full overflow-hidden rounded-md border aspect-video max-h-[75vh] mx-auto">
+                <iframe
+                  src={videoEmbed.embedUrl}
+                  title={filename}
+                  className="absolute inset-0 h-full w-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
+              </div>
+            ) : externalUrl?.trim() ? (
+              <div className="space-y-3 py-6 text-center">
+                <p className="text-sm text-muted-foreground">This resource opens on an external site.</p>
+                <Button variant="outline" asChild>
+                  <a href={externalUrl.trim()} target="_blank" rel="noreferrer">
+                    Open link
+                  </a>
+                </Button>
+              </div>
             ) : previewUrl ? (
               <>
                 {isPdf ? (
@@ -244,7 +287,7 @@ export function FileCard({
               ) : (
                 <Download className="h-4 w-4 mr-2" />
               )}
-              Download
+              {externalUrl?.trim() ? 'Open link' : 'Download'}
             </Button>
             {onEdit && topicFileId && (
               <Button

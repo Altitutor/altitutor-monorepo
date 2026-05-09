@@ -1,4 +1,5 @@
 import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import { parseExternalVideoEmbed } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { uploadFile as uploadToStorage, getSignedUrl as getStorageSignedUrl } from '@/shared/lib/supabase/storage';
 import type { Database } from '@altitutor/shared';
@@ -66,7 +67,66 @@ export const filesApi = {
     
     return created as Tables<'files'>;
   },
-  
+
+  /**
+   * Create a files row for an HTTPS asset not stored in Supabase (e.g. YouTube/Vimeo).
+   * When requireVideoEmbed is true, URL must be a supported watch/share link.
+   */
+  createExternalUrlFile: async (params: {
+    displayName: string;
+    externalUrl: string;
+    requireVideoEmbed: boolean;
+  }): Promise<Tables<'files'>> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>) as SupabaseClient<Database>;
+    const trimmedUrl = params.externalUrl.trim();
+    const title = params.displayName.trim();
+    if (!trimmedUrl || !title) {
+      throw new Error('Title and URL are required');
+    }
+    if (params.requireVideoEmbed && !parseExternalVideoEmbed(trimmedUrl)) {
+      throw new Error('Use a supported YouTube or Vimeo URL');
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    let createdBy: string | null = null;
+    if (user?.id) {
+      const { data: staff } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('user_id', user.id)
+        .single();
+      createdBy = staff?.id || null;
+    }
+
+    const fileData: TablesInsert<'files'> = {
+      mimetype: 'video/external',
+      filename: title,
+      size_bytes: 0,
+      metadata: {
+        source: 'external_url',
+        linkedAt: new Date().toISOString(),
+      },
+      storage_provider: 'external',
+      bucket: null,
+      storage_path: null,
+      external_url: trimmedUrl,
+      created_by: createdBy,
+    };
+
+    const { data: created, error } = await supabase
+      .from('files')
+      .insert(fileData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Failed to create external file record:', error);
+      throw error;
+    }
+
+    return created as Tables<'files'>;
+  },
+
   /**
    * Get a file by ID
    */
@@ -91,16 +151,20 @@ export const filesApi = {
    */
   getFileWithSignedUrl: async (id: string): Promise<{
     file: Tables<'files'>;
-    signedUrl: string;
+    signedUrl: string | null;
   } | null> => {
     const file = await filesApi.getFile(id);
-    
+
     if (!file) {
       return null;
     }
-    
+
+    if (!file.storage_path) {
+      return { file, signedUrl: null };
+    }
+
     const signedUrl = await getStorageSignedUrl(file.storage_path);
-    
+
     return {
       file,
       signedUrl,

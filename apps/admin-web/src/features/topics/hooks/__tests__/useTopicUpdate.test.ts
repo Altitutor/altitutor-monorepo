@@ -121,6 +121,7 @@ describe('useTopicUpdate', () => {
       mimetype: 'application/pdf',
       size_bytes: 1000,
       storage_path: `path/to/file-${id}.pdf`,
+      external_url: null,
       storage_provider: 'supabase',
       bucket: 'resources',
       metadata: {},

@@ -35,7 +35,15 @@ export async function downloadFile(
 ): Promise<void> {
   try {
     onProgress?.(true);
+    const external = file.external_url?.trim();
+    if (external) {
+      window.open(external, '_blank', 'noopener,noreferrer');
+      return;
+    }
     const getUrlFn = getSignedUrlFn || getSignedUrl;
+    if (!file.storage_path) {
+      throw new Error('File has no storage path');
+    }
     const signedUrl = await getUrlFn(file.storage_path);
     const link = document.createElement('a');
     link.href = signedUrl;

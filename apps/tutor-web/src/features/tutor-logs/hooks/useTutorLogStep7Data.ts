@@ -27,7 +27,7 @@ export function useTutorLogStep7Data(
         t.id != null && t.name != null && t.subject_id != null
     );
     const filesData = (filesRaw || []).filter(
-      (f): f is Tables<'topics_files'> =>
+      (f) =>
         f.id != null &&
         f.file_id != null &&
         f.topic_id != null &&

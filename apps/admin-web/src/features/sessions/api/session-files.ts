@@ -130,6 +130,9 @@ export const sessionFilesApi = {
     const filesWithUrls = await Promise.all(
       (data || []).map(async (sessionFile: SessionFileRow) => {
         const file = sessionFile.file as Tables<'files'>;
+        if (!file.storage_path) {
+          throw new Error('Session file record is missing storage_path');
+        }
         const signedUrl = await getSessionFileSignedUrl(file.storage_path);
         
         return {

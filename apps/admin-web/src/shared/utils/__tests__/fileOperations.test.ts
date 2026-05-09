@@ -16,6 +16,7 @@ const createMockFile = (
     mimetype: 'application/pdf',
     size_bytes: 1024,
     storage_path: 'path/document.pdf',
+    external_url: null,
     storage_provider: 'supabase',
     created_at: null,
     created_by: null,

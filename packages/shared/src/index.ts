@@ -8,6 +8,7 @@ export * from "./types/data-table";
 export * from "./types/ucat-progress";
 export * from "./utils/quick-filters";
 export * from "./utils/session-format";
+export * from "./external-url/embed";
 export * from "./hooks/useDebounce";
 
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle } from '@altitutor/ui';
 import {
   ExpandButton,
   EXPANDABLE_DIALOG_TRANSITION,
@@ -60,8 +60,16 @@ export function FilePreviewModal({ isOpen, fileId, onClose }: FilePreviewModalPr
 
   const handleDownload = async () => {
     if (!file) return;
-    
+
     try {
+      const ext = file.external_url?.trim();
+      if (ext) {
+        window.open(ext, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      if (!file.storage_path) {
+        return;
+      }
       const signedUrl = await getSignedUrl(file.storage_path);
       const link = document.createElement('a');
       link.href = signedUrl;
@@ -92,12 +100,25 @@ export function FilePreviewModal({ isOpen, fileId, onClose }: FilePreviewModalPr
         {isLoading ? (
           <div className="text-center py-8 text-muted-foreground">Loading...</div>
         ) : file ? (
-          <FilePreview
-            fileUrl={file.storage_path}
-            fileName={file.filename}
-            mimeType={file.mimetype || 'application/octet-stream'}
-            onDownload={handleDownload}
-          />
+          file.storage_path ? (
+            <FilePreview
+              fileUrl={file.storage_path}
+              fileName={file.filename}
+              mimeType={file.mimetype || 'application/octet-stream'}
+              onDownload={handleDownload}
+            />
+          ) : file.external_url?.trim() ? (
+            <div className="space-y-3 rounded-lg border p-4">
+              <p className="text-sm text-muted-foreground">
+                This file is hosted externally. Use Download to open it in a new tab.
+              </p>
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                Open external link
+              </Button>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">No preview available</div>
+          )
         ) : (
           <div className="text-center py-8 text-muted-foreground">File not found</div>
         )}

@@ -40,9 +40,13 @@ export const filesApi = {
     if (!file) {
       return null;
     }
-    
+
+    if (!file.storage_path) {
+      return { file, signedUrl: null as string | null };
+    }
+
     const signedUrl = await getStorageSignedUrl(file.storage_path);
-    
+
     return {
       file,
       signedUrl,

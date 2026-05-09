@@ -11,6 +11,8 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Checkbox } from '@altitutor/ui';
 import { Loader2, X, GripVertical, Upload } from 'lucide-react';
 import {
   DndContext,
@@ -27,7 +29,9 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import type { Enums } from '@altitutor/shared';
-import { useFileItems, useFileUploadFlow, useFileDragAndDrop } from '../hooks';
+import { useToast } from '@altitutor/ui';
+import { filesApi } from '../api';
+import { useFileItems, useFileUploadFlow, useFileDragAndDrop, useCreateTopicFile } from '../hooks';
 import { validateFileSizes } from '../utils/fileItemHelpers';
 import { FileDropzone } from './AddResourceFileModal/FileDropzone';
 import {
@@ -67,10 +71,24 @@ export function AddResourceFileModal({
   const [isSolutions, setIsSolutions] = useState(false);
   const [selectedSolutionOfId, setSelectedSolutionOfId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [videoUseExternalLink, setVideoUseExternalLink] = useState(false);
+  const [externalVideoTitle, setExternalVideoTitle] = useState('');
+  const [externalVideoUrl, setExternalVideoUrl] = useState('');
+  const [linkSubmitting, setLinkSubmitting] = useState(false);
+  const { toast } = useToast();
+  const createTopicFileMutation = useCreateTopicFile();
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
   }, [isOpen]);
+
+  useEffect(() => {
+    if (selectedType !== 'VIDEO') {
+      setVideoUseExternalLink(false);
+      setExternalVideoTitle('');
+      setExternalVideoUrl('');
+    }
+  }, [selectedType]);
 
   const {
     fileItems,
@@ -117,11 +135,15 @@ export function AddResourceFileModal({
       setIsSolutions(false);
       setSelectedSolutionOfId(null);
       clearFiles();
+      setVideoUseExternalLink(false);
+      setExternalVideoTitle('');
+      setExternalVideoUrl('');
     }
   }, [isOpen, preselectedSubjectId, preselectedTopicId, clearFiles]);
 
   const handleFileDrop = (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
+    setVideoUseExternalLink(false);
 
     // Validate file sizes
     const oversizedFiles = validateFileSizes(acceptedFiles, MAX_FILE_SIZE);
@@ -134,13 +156,49 @@ export function AddResourceFileModal({
   };
 
   const handleSubmit = async () => {
-    if (fileItems.length === 0 || !selectedSubjectId || !selectedTopicId || !selectedType) {
+    if (!selectedSubjectId || !selectedTopicId || !selectedType) {
       return;
     }
 
-    // For single file, use the checkbox values; for multiple files, use solutionOfId from file items
+    if (selectedType === 'VIDEO' && videoUseExternalLink) {
+      if (!externalVideoTitle.trim() || !externalVideoUrl.trim()) {
+        return;
+      }
+      try {
+        setLinkSubmitting(true);
+        const fileRecord = await filesApi.createExternalUrlFile({
+          displayName: externalVideoTitle.trim(),
+          externalUrl: externalVideoUrl.trim(),
+          requireVideoEmbed: true,
+        });
+        await createTopicFileMutation.mutateAsync({
+          topic_id: selectedTopicId,
+          type: selectedType,
+          file_id: fileRecord.id,
+          is_solutions: isSolutions,
+          is_solutions_of_id: isSolutions ? selectedSolutionOfId : null,
+        });
+        onResourceAdded?.();
+        onClose();
+      } catch (error) {
+        console.error('Failed to add external video:', error);
+        toast({
+          title: 'Could not add video',
+          description: error instanceof Error ? error.message : 'Something went wrong',
+          variant: 'destructive',
+        });
+      } finally {
+        setLinkSubmitting(false);
+      }
+      return;
+    }
+
+    if (fileItems.length === 0) {
+      return;
+    }
+
     const hasSolutionRelationships = fileItems.some((f) => f.solutionOfId);
-    
+
     await uploadFiles({
       fileItems,
       subjectId: selectedSubjectId,
@@ -151,11 +209,15 @@ export function AddResourceFileModal({
     });
   };
 
+  const externalVideoReady =
+    selectedType === 'VIDEO' &&
+    videoUseExternalLink &&
+    Boolean(externalVideoTitle.trim()) &&
+    Boolean(externalVideoUrl.trim());
+
   const canSubmit =
-    fileItems.length > 0 &&
-    selectedSubjectId &&
-    selectedTopicId &&
-    selectedType;
+    Boolean(selectedSubjectId && selectedTopicId && selectedType) &&
+    (externalVideoReady || fileItems.length > 0);
 
   const hasMultipleFiles = fileItems.length > 1;
 
@@ -204,9 +266,63 @@ export function AddResourceFileModal({
             {/* Right Column - Files */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-4">
+                {selectedType === 'VIDEO' ? (
+                  <div className="space-y-3 rounded-lg border p-4">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="video-external-link"
+                        checked={videoUseExternalLink}
+                        onCheckedChange={(c) => {
+                          const on = c === true;
+                          setVideoUseExternalLink(on);
+                          if (on) clearFiles();
+                        }}
+                      />
+                      <Label htmlFor="video-external-link" className="font-normal cursor-pointer">
+                        Use YouTube or Vimeo link instead of uploading a file
+                      </Label>
+                    </div>
+                    {videoUseExternalLink ? (
+                      <div className="space-y-3 pt-1">
+                        <div className="space-y-2">
+                          <Label htmlFor="external-video-title">Display title *</Label>
+                          <Input
+                            id="external-video-title"
+                            value={externalVideoTitle}
+                            onChange={(e) => setExternalVideoTitle(e.target.value)}
+                            placeholder="e.g. Introduction to quadratics"
+                            disabled={isUploading || linkSubmitting}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="external-video-url">Video URL *</Label>
+                          <Input
+                            id="external-video-url"
+                            value={externalVideoUrl}
+                            onChange={(e) => setExternalVideoUrl(e.target.value)}
+                            placeholder="https://www.youtube.com/watch?v=… or Vimeo link"
+                            disabled={isUploading || linkSubmitting}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                            Paste a watch or share link. Students will see an embedded player on the resources page.
+                          </p>
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
                 <div className="space-y-2">
-                  <Label>File{hasMultipleFiles ? 's' : ''} *</Label>
-                  {fileItems.length === 0 ? (
+                  <Label>
+                    {videoUseExternalLink && selectedType === 'VIDEO'
+                      ? 'File upload (optional — disabled while using link)'
+                      : `File${hasMultipleFiles ? 's' : ''} *`}
+                  </Label>
+                  {videoUseExternalLink && selectedType === 'VIDEO' ? (
+                    <p className="text-sm text-muted-foreground">
+                      Uncheck &quot;Use YouTube or Vimeo link&quot; to upload an MP4 or other file instead.
+                    </p>
+                  ) : fileItems.length === 0 ? (
                     <FileDropzone
                       onDrop={handleFileDrop}
                       maxSize={MAX_FILE_SIZE}
@@ -311,11 +427,11 @@ export function AddResourceFileModal({
         </div>
 
         <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-          <Button type="button" variant="outline" onClick={onClose} disabled={isUploading}>
+          <Button type="button" variant="outline" onClick={onClose} disabled={isUploading || linkSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!canSubmit || isUploading}>
-            {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button onClick={handleSubmit} disabled={!canSubmit || isUploading || linkSubmitting}>
+            {(isUploading || linkSubmitting) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Add Resource
           </Button>
         </DialogFooter>

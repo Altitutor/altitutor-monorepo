@@ -477,6 +477,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                           fileType={topicFile.type}
                           filename={topicFile.file.filename}
                           storagePath={topicFile.file.storage_path}
+                          externalUrl={topicFile.file.external_url}
                           mimeType={topicFile.file.mimetype}
                           topicFileId={topicFile.id}
                           onEdit={(fileId) => {

@@ -22,6 +22,7 @@ import { cn } from '@/shared/utils';
 import { useFilePreview } from '@/shared/hooks/useFilePreview';
 import { isPdfFile, isImageFile, downloadFile, printPdf, setupPrintKeyboardHandler } from '@/shared/utils/fileOperations';
 import type { Enums, Tables } from '@altitutor/shared';
+import { parseExternalVideoEmbed } from '@altitutor/shared';
 
 export interface FilePreviewModalProps {
   isOpen: boolean;
@@ -138,6 +139,10 @@ export function FilePreviewModal({
   const Icon = getFileTypeIcon(fileType);
   const isPdf = isPdfFile(file);
   const isImage = isImageFile(file);
+  const videoEmbed =
+    file && fileType === 'VIDEO' && file.external_url
+      ? parseExternalVideoEmbed(file.external_url)
+      : null;
   const editId = effectiveJunctionTableId || (topicFile && 'id' in topicFile && typeof topicFile.id === 'string' ? topicFile.id : undefined);
 
   return (
@@ -183,7 +188,28 @@ export function FilePreviewModal({
               {fileError.message || 'Failed to load file'}
             </div>
           ) : file ? (
-            previewUrl ? (
+            videoEmbed ? (
+              <div className="relative w-full overflow-hidden rounded-md border aspect-video max-h-[75vh] mx-auto">
+                <iframe
+                  src={videoEmbed.embedUrl}
+                  title={filename}
+                  className="absolute inset-0 h-full w-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                  allowFullScreen
+                />
+              </div>
+            ) : file.external_url?.trim() ? (
+              <div className="space-y-3 py-6 text-center">
+                <p className="text-sm text-muted-foreground">
+                  This resource opens on an external site.
+                </p>
+                <Button variant="outline" asChild>
+                  <a href={file.external_url.trim()} target="_blank" rel="noreferrer">
+                    Open link
+                  </a>
+                </Button>
+              </div>
+            ) : previewUrl ? (
               <>
                 {isPdf ? (
                   <iframe
@@ -241,7 +267,7 @@ export function FilePreviewModal({
             ) : (
               <Download className="h-4 w-4 mr-2" />
             )}
-            Download
+            {file?.external_url?.trim() ? 'Open link' : 'Download'}
           </Button>
           {onEdit && editId && (
             <Button
