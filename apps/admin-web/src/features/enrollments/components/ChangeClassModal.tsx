@@ -207,69 +207,68 @@ export function ChangeClassModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6">
-              {/* Step 1: Select New Class */}
-              {step === 1 && (
-                <ChangeClassStep1SelectClass
-                  student={student}
-                  oldClass={oldClass}
-                  oldClassSubject={oldClassSubject}
-                  selectedNewClass={selectedNewClass}
-                  isFetching={isFetching}
-                  filteredClasses={filteredClasses}
-                  selectedNewClassId={selectedNewClassId}
-                  searchQuery={searchQuery}
-                  dayFilters={dayFilters}
-                  availableDays={availableDays}
-                  onSearchChange={setSearchQuery}
-                  onToggleDay={toggleDay}
-                  onClearFilters={clearFilters}
-                  onSelectClass={setSelectedNewClassId}
-                />
-              )}
+        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+          {step === 4 ? (
+            <ChangeClassStep4MessageScreen
+              student={student}
+              oldClass={oldClass}
+              oldClassSubject={oldClassSubject}
+              selectedNewClass={selectedNewClass}
+              changeoverDate={changeoverDate}
+            />
+          ) : (
+            <div className="h-full overflow-y-auto">
+              <div className="p-6">
+                {/* Step 1: Select New Class */}
+                {step === 1 && (
+                  <ChangeClassStep1SelectClass
+                    student={student}
+                    oldClass={oldClass}
+                    oldClassSubject={oldClassSubject}
+                    selectedNewClass={selectedNewClass}
+                    isFetching={isFetching}
+                    filteredClasses={filteredClasses}
+                    selectedNewClassId={selectedNewClassId}
+                    searchQuery={searchQuery}
+                    dayFilters={dayFilters}
+                    availableDays={availableDays}
+                    onSearchChange={setSearchQuery}
+                    onToggleDay={toggleDay}
+                    onClearFilters={clearFilters}
+                    onSelectClass={setSelectedNewClassId}
+                  />
+                )}
 
-              {/* Step 2: Select Changeover Date */}
-              {step === 2 && (
-                <ChangeClassStep2SelectDate
-                  changeoverDate={changeoverDate}
-                  onDateChange={setChangeoverDate}
-                  studentId={student.id}
-                  selectedStudent={student}
-                  selectedNewClass={selectedNewClass}
-                  oldClass={oldClass}
-                  oldClassSubject={oldClassSubject}
-                  oldClassStaff={oldClassStaff}
-                />
-              )}
+                {/* Step 2: Select Changeover Date */}
+                {step === 2 && (
+                  <ChangeClassStep2SelectDate
+                    changeoverDate={changeoverDate}
+                    onDateChange={setChangeoverDate}
+                    studentId={student.id}
+                    selectedStudent={student}
+                    selectedNewClass={selectedNewClass}
+                    oldClass={oldClass}
+                    oldClassSubject={oldClassSubject}
+                    oldClassStaff={oldClassStaff}
+                  />
+                )}
 
-              {/* Step 3: Summary & Confirm */}
-              {step === 3 && (
-                <ChangeClassStep3Summary
-                  studentId={student.id}
-                  student={student}
-                  oldClass={oldClass}
-                  oldClassSubject={oldClassSubject}
-                  oldClassStaff={oldClassStaff}
-                  selectedNewClass={selectedNewClass}
-                  changeoverDate={changeoverDate}
-                  timeOverlapWarning={timeOverlapWarning}
-                />
-              )}
-
-              {/* Step 4: Message Screen */}
-              {step === 4 && (
-                <ChangeClassStep4MessageScreen
-                  student={student}
-                  oldClass={oldClass}
-                  oldClassSubject={oldClassSubject}
-                  selectedNewClass={selectedNewClass}
-                  changeoverDate={changeoverDate}
-                />
-              )}
+                {/* Step 3: Summary & Confirm */}
+                {step === 3 && (
+                  <ChangeClassStep3Summary
+                    studentId={student.id}
+                    student={student}
+                    oldClass={oldClass}
+                    oldClassSubject={oldClassSubject}
+                    oldClassStaff={oldClassStaff}
+                    selectedNewClass={selectedNewClass}
+                    changeoverDate={changeoverDate}
+                    timeOverlapWarning={timeOverlapWarning}
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}

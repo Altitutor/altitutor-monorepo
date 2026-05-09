@@ -294,12 +294,18 @@ export function BookSessionModal({
           </div>
 
           {/* Current Step Content */}
-          <div className="flex-1 overflow-hidden min-h-0">
-            <div className="h-full overflow-y-auto">
-              <div className="p-6">
+          <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+            {isNotifyStep ? (
+              <div className="flex-1 min-h-0 flex flex-col p-6">
                 {renderStepContent()}
               </div>
-            </div>
+            ) : (
+              <div className="h-full overflow-y-auto">
+                <div className="p-6">
+                  {renderStepContent()}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Footer with Back/Next buttons */}

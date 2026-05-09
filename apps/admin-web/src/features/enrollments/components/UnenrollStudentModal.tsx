@@ -158,49 +158,48 @@ export function UnenrollStudentModal({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6">
-          {/* Step 1: Select Unenrollment Date & Reason */}
-          {step === 1 && (
-            <UnenrollStep1DateAndReason
-              student={student}
-              studentSubjects={studentSubjects}
-              classData={classData}
-              classSubject={classSubject}
-              classStaff={classStaff}
-              unenrollmentDate={unenrollmentDate}
-              reason={reason}
-              onDateChange={setUnenrollmentDate}
-              onReasonChange={setReason}
-            />
-          )}
-
-          {/* Step 2: Summary & Confirm */}
-          {step === 2 && (
-            <UnenrollStep2Summary
-              student={student}
-              studentSubjects={studentSubjects}
-              classData={classData}
-              classSubject={classSubject}
-              classStaff={classStaff}
-              unenrollmentDate={unenrollmentDate}
-              reason={reason ?? { type: 'doc', content: [{ type: 'paragraph', content: [] }] }}
-              onReasonChange={setReason}
-            />
-          )}
-
-          {/* Step 3: Message Screen */}
-          {step === 3 && (
+        <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+          {step === 3 ? (
             <UnenrollStep3MessageScreen
               student={student}
               classData={classData}
               classSubject={classSubject}
               unenrollmentDate={unenrollmentDate}
             />
-          )}
+          ) : (
+            <div className="h-full overflow-y-auto">
+              <div className="p-6">
+                {/* Step 1: Select Unenrollment Date & Reason */}
+                {step === 1 && (
+                  <UnenrollStep1DateAndReason
+                    student={student}
+                    studentSubjects={studentSubjects}
+                    classData={classData}
+                    classSubject={classSubject}
+                    classStaff={classStaff}
+                    unenrollmentDate={unenrollmentDate}
+                    reason={reason}
+                    onDateChange={setUnenrollmentDate}
+                    onReasonChange={setReason}
+                  />
+                )}
+
+                {/* Step 2: Summary & Confirm */}
+                {step === 2 && (
+                  <UnenrollStep2Summary
+                    student={student}
+                    studentSubjects={studentSubjects}
+                    classData={classData}
+                    classSubject={classSubject}
+                    classStaff={classStaff}
+                    unenrollmentDate={unenrollmentDate}
+                    reason={reason ?? { type: 'doc', content: [{ type: 'paragraph', content: [] }] }}
+                    onReasonChange={setReason}
+                  />
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Footer */}

@@ -324,73 +324,72 @@ export function EnrollStudentModal({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-hidden min-h-0">
-            <div className="h-full overflow-y-auto">
-              <div className="p-6">
-            {/* Step 1: Select Student or Class */}
-            {step === 1 && (
-              <Step1SelectStudentOrClass
-                context={context}
-                isFetching={isFetching}
-                classData={classData}
-                classSubject={classSubject}
-                classStaff={classStaff}
-                student={student}
-                studentSubjects={studentSubjects}
-                filteredStudents={filteredStudents}
-                filteredClasses={filteredClasses}
-                availableDays={availableDays}
-                selectedStudentId={selectedStudentId}
-                selectedClassId={selectedClassId}
-                onSelectStudent={setSelectedStudentId}
-                onSelectClass={setSelectedClassId}
-                searchQuery={filters.searchQuery}
-                dayFilters={filters.dayFilters}
-                onSearchChange={setSearchQuery}
-                onToggleDay={toggleDay}
-                onClearFilters={clearFilters}
-                onStudentClick={handleStudentClick}
-                classConflicts={classConflicts}
-              />
-            )}
-
-            {/* Step 2: Select Enrollment Date */}
-            {step === 2 && (
-              <Step2SelectEnrollmentDate
-                context={context}
-                enrollmentDate={enrollmentDate}
-                onDateChange={setEnrollmentDate}
-                studentId={selectedStudent?.id || null}
-                selectedStudent={selectedStudent}
-                classData={classData}
-                classSubject={classSubject}
-                classStaff={classStaff}
-                selectedClass={selectedClass}
-              />
-            )}
-
-            {/* Step 3: Summary & Confirm */}
-            {step === 3 && (
-              <Step3SummaryAndConfirm
-                context={context}
-                selectedStudent={selectedStudent}
-                selectedClass={selectedClass}
-                studentSubjects={displaySubject}
-                enrollmentDate={enrollmentDate}
-                conflicts={conflicts}
-              />
-            )}
-
-            {/* Step 4: Message Screen */}
-            {step === 4 && (
+          <div className="flex-1 overflow-hidden min-h-0 flex flex-col">
+            {step === 4 ? (
               <Step4MessageScreen
                 selectedStudent={selectedStudent}
                 selectedClass={selectedClass}
                 enrollmentDate={enrollmentDate}
               />
-            )}
+            ) : (
+              <div className="h-full overflow-y-auto">
+                <div className="p-6">
+                  {/* Step 1: Select Student or Class */}
+                  {step === 1 && (
+                    <Step1SelectStudentOrClass
+                      context={context}
+                      isFetching={isFetching}
+                      classData={classData}
+                      classSubject={classSubject}
+                      classStaff={classStaff}
+                      student={student}
+                      studentSubjects={studentSubjects}
+                      filteredStudents={filteredStudents}
+                      filteredClasses={filteredClasses}
+                      availableDays={availableDays}
+                      selectedStudentId={selectedStudentId}
+                      selectedClassId={selectedClassId}
+                      onSelectStudent={setSelectedStudentId}
+                      onSelectClass={setSelectedClassId}
+                      searchQuery={filters.searchQuery}
+                      dayFilters={filters.dayFilters}
+                      onSearchChange={setSearchQuery}
+                      onToggleDay={toggleDay}
+                      onClearFilters={clearFilters}
+                      onStudentClick={handleStudentClick}
+                      classConflicts={classConflicts}
+                    />
+                  )}
+
+                  {/* Step 2: Select Enrollment Date */}
+                  {step === 2 && (
+                    <Step2SelectEnrollmentDate
+                      context={context}
+                      enrollmentDate={enrollmentDate}
+                      onDateChange={setEnrollmentDate}
+                      studentId={selectedStudent?.id || null}
+                      selectedStudent={selectedStudent}
+                      classData={classData}
+                      classSubject={classSubject}
+                      classStaff={classStaff}
+                      selectedClass={selectedClass}
+                    />
+                  )}
+
+                  {/* Step 3: Summary & Confirm */}
+                  {step === 3 && (
+                    <Step3SummaryAndConfirm
+                      context={context}
+                      selectedStudent={selectedStudent}
+                      selectedClass={selectedClass}
+                      studentSubjects={displaySubject}
+                      enrollmentDate={enrollmentDate}
+                      conflicts={conflicts}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Footer */}

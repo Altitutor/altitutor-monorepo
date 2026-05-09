@@ -187,7 +187,7 @@ export function ChangeClassStep4MessageScreen({
   });
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="flex flex-col flex-1 min-h-0 p-6">
       {/* Success Indicator */}
       {student && oldClass && selectedNewClass && (
         <div className="mb-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2 flex-shrink-0">
