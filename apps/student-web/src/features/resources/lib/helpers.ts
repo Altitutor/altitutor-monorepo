@@ -42,6 +42,18 @@ export function buildTopicTree(topics: StudentTopicRow[]): ResourceTopicNode[] {
   return roots;
 }
 
+export function findTopicNodeInTree(
+  nodes: ResourceTopicNode[],
+  topicId: string,
+): ResourceTopicNode | null {
+  for (const node of nodes) {
+    if (node.id === topicId) return node;
+    const found = findTopicNodeInTree(node.children, topicId);
+    if (found) return found;
+  }
+  return null;
+}
+
 export function mapTopicFile(row: StudentTopicFileRow): ResourceFile | null {
   if (!row.id || !row.topic_id || !row.code || row.index == null || !row.filename) {
     return null;

@@ -51,14 +51,13 @@ export default function ResourceSubjectDetailPage() {
       />
 
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">{subject?.short_name || subject?.name}</h1>
+        <h1 className="text-3xl font-bold tracking-tight">{subject?.long_name || subject?.name}</h1>
         <p className="text-muted-foreground mt-1">Browse the full topic hierarchy for this subject.</p>
       </div>
 
       <section className={studentCardCn('p-5 sm:p-6')}>
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Topics</h2>
-          <p className="text-sm text-muted-foreground">Expand sections to move through the subject hierarchy.</p>
         </div>
         <TopicTree
           nodes={tree}

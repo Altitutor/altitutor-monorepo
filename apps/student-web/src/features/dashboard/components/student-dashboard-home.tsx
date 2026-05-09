@@ -30,6 +30,8 @@ import {
 import type { StudentSessionWithStaff } from '@/shared/api/sessions';
 import { useStudentSessions } from '@/shared/hooks/useStudentSessions';
 import { StudentSessionsCard } from '@/shared/components/StudentSessionsCard';
+import { StudentPageContainer } from '@/shared/components/layouts';
+import { studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 
 const SESSION_RANGE_DAYS = 56;
@@ -83,7 +85,7 @@ const quickLinks: QuickLinkItem[] = [
 
 function DashboardSessionsSkeleton() {
   return (
-    <Card className="overflow-hidden border-brand-darkBlue/10 dark:border-brand-lightBlue/20">
+    <Card className={studentCardCn('overflow-hidden')}>
       <CardHeader className="space-y-2">
         <Skeleton className="h-5 w-40" />
         <Skeleton className="h-4 w-full max-w-md" />
@@ -138,12 +140,11 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
   const primarySessions = showToday ? todaysSessions : nextSession ? [nextSession] : [];
 
   return (
-    <div className="min-h-full bg-background">
-      <div className="container max-w-5xl px-4 py-8 sm:px-6 lg:px-8 space-y-10">
+    <div className="min-h-full">
+      <StudentPageContainer className="space-y-8">
         <header className="space-y-2">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">{weekday}</p>
               <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
                 Hi, {displayName}
               </h1>
@@ -151,8 +152,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
             <p className="text-sm text-muted-foreground tabular-nums">{dateLabel}</p>
           </div>
           <p className="text-muted-foreground max-w-2xl text-pretty">
-            Here is what is coming up for you. Jump into classes, resources, or billing
-            whenever you are ready.
+            Welcome to Altitutor Student.
           </p>
         </header>
 
@@ -167,7 +167,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
           {isLoading ? (
             <DashboardSessionsSkeleton />
           ) : isError ? (
-            <Card className="border-destructive/40 bg-destructive/5">
+            <Card className={studentCardCn('bg-destructive/8 ring-destructive/25')}>
               <CardHeader>
                 <CardTitle className="text-base">Could not load sessions</CardTitle>
                 <CardDescription>
@@ -181,11 +181,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
               </CardContent>
             </Card>
           ) : (
-            <Card
-              className={cn(
-                'overflow-hidden border-brand-darkBlue/15 shadow-sm dark:border-brand-lightBlue/25',
-              )}
-            >
+            <Card className={studentCardCn('overflow-hidden')}>
               <CardHeader className="pb-4">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div>
@@ -206,7 +202,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
                     asChild
                     variant="outline"
                     size="sm"
-                    className="shrink-0 border-brand-darkBlue/20 hover:bg-brand-lightBlue/10 dark:border-brand-lightBlue/30"
+                    className="shrink-0 rounded-xl border-0 bg-muted/80 shadow-sm ring-1 ring-black/[0.06] hover:bg-muted dark:ring-white/10"
                   >
                     <Link href="/classes" className="gap-2">
                       Full timetable
@@ -229,7 +225,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
                     ))}
                   </ul>
                 ) : (
-                  <div className="flex flex-col items-start gap-4 rounded-xl border border-dashed bg-muted/30 px-6 py-10 text-center sm:items-center sm:text-center">
+                  <div className="flex flex-col items-start gap-4 rounded-2xl bg-muted/50 px-6 py-10 text-center ring-1 ring-black/[0.05] sm:items-center sm:text-center dark:ring-white/10">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted">
                       <Sparkles className="h-6 w-6 text-muted-foreground" />
                     </div>
@@ -265,23 +261,21 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
                   <Link href={item.href} className="group block h-full">
                     <Card
                       className={cn(
-                        'h-full transition-all duration-200',
-                        'border-border/80 hover:border-brand-darkBlue/25',
-                        'dark:hover:border-brand-lightBlue/30',
-                        'hover:shadow-md hover:-translate-y-0.5',
+                        studentCardCn('h-full'),
+                        'hover:-translate-y-0.5 hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)]',
                       )}
                     >
                       <div className="flex items-start gap-4 p-5">
                         <div
                           className={cn(
-                            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+                            'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors duration-300',
                             item.accentClass,
                           )}
                         >
                           <Icon className="h-5 w-5" aria-hidden />
                         </div>
                         <div className="min-w-0 flex-1 space-y-1.5 pr-1">
-                          <p className="text-base font-semibold leading-snug tracking-tight text-card-foreground group-hover:text-brand-darkBlue dark:group-hover:text-brand-lightBlue transition-colors">
+                          <p className="text-base font-semibold leading-snug tracking-tight text-card-foreground transition-colors duration-300 group-hover:text-brand-darkBlue dark:group-hover:text-brand-lightBlue">
                             {item.title}
                           </p>
                           <p className="text-sm leading-relaxed text-muted-foreground">
@@ -290,7 +284,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
                         </div>
                         <ArrowRight
                           className={cn(
-                            'mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform',
+                            'mt-1 h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-300 ease-out',
                             'group-hover:translate-x-0.5 group-hover:text-foreground',
                           )}
                           aria-hidden
@@ -303,7 +297,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
             })}
           </ul>
         </section>
-      </div>
+      </StudentPageContainer>
     </div>
   );
 }

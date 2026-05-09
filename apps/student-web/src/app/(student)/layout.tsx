@@ -118,7 +118,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
           </nav>
         </ScrollArea>
 
-        <nav className="shrink-0 bg-muted/25 p-2 dark:bg-white/[0.04]">
+        <nav className="shrink-0 p-2">
           {renderNavLink(settingsNavItem, pathname, false)}
         </nav>
       </div>
@@ -169,7 +169,7 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
         </nav>
       </ScrollArea>
 
-      <nav className="mt-auto shrink-0 bg-muted/25 p-2 dark:bg-white/[0.04]">
+      <nav className="mt-auto shrink-0 p-2">
         {renderNavLink(settingsNavItem, pathname, collapsed)}
       </nav>
     </div>

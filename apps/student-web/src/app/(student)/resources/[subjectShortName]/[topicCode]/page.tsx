@@ -8,14 +8,16 @@ import {
   ResourcesBreadcrumb,
   ResourcesSidebar,
   TopicFilesList,
+  TopicTree,
   useResourceAccessBySubject,
   useResourceSubject,
   useResourceTopic,
   useResourceTopicFiles,
   useResourceTopics,
 } from '@/features/resources';
-import { buildTopicTree } from '@/features/resources/lib/helpers';
+import { buildTopicTree, findTopicNodeInTree } from '@/features/resources/lib/helpers';
 import { StudentPageContainer } from '@/shared/components/layouts';
+import { studentCardCn } from '@/shared/lib/student-visual';
 import type { ResourceTopicNode } from '@/features/resources/lib/types';
 
 export default function ResourceTopicDetailPage() {
@@ -42,6 +44,13 @@ export default function ResourceTopicDetailPage() {
 
     return buildTopicTree(subjectTopics ?? []).map(toSidebarItem);
   }, [subjectTopics, topic?.id, subjectShortName]);
+
+  const subtopicNodes = useMemo(() => {
+    if (!topic?.id || !subjectTopics?.length) return [];
+    const tree = buildTopicTree(subjectTopics);
+    const node = findTopicNodeInTree(tree, topic.id);
+    return node?.children ?? [];
+  }, [subjectTopics, topic?.id]);
 
   if ((!subjectLoading && !subject) || (!topicLoading && !topic)) {
     return (
@@ -103,6 +112,23 @@ export default function ResourceTopicDetailPage() {
               }
             />
           )}
+
+          {subtopicNodes.length > 0 ? (
+            <section className={studentCardCn('p-5 sm:p-6')} aria-labelledby="subtopics-heading">
+              <div className="mb-4">
+                <h2 id="subtopics-heading" className="text-lg font-semibold">
+                  Subtopics
+                </h2>
+
+              </div>
+              <TopicTree
+                nodes={subtopicNodes}
+                getHref={(t) =>
+                  `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(t.code.toLowerCase())}`
+                }
+              />
+            </section>
+          ) : null}
         </div>
 
         <ResourcesSidebar title="All topics" items={sidebarItems} />

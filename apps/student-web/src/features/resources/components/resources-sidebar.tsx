@@ -31,7 +31,7 @@ function SidebarTreeItem({ item, depth = 0 }: { item: ResourceSidebarItem; depth
 
   return (
     <li className="rounded-lg">
-      <div className="flex items-center gap-1 py-0.5 pl-0.5 pr-1">
+      <div className="flex items-center gap-1 py-0.5 pl-0 pr-1">
         {hasChildren ? (
           <button
             type="button"
@@ -53,9 +53,12 @@ function SidebarTreeItem({ item, depth = 0 }: { item: ResourceSidebarItem; depth
 
         <Link
           href={item.href}
+          aria-current={item.active ? 'page' : undefined}
           className={cn(
-            'min-w-0 flex-1 rounded-md px-1.5 py-1 text-sm font-medium transition-colors duration-300',
-            item.active ? 'bg-muted/90 text-foreground' : 'hover:bg-muted/80'
+            'min-w-0 flex-1 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-all duration-300 ease-out',
+            item.active
+              ? 'bg-brand-darkBlue text-white shadow-sm hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
+              : 'hover:bg-muted/80'
           )}
         >
           <span className="block truncate">{item.label}</span>
@@ -70,7 +73,7 @@ function SidebarTreeItem({ item, depth = 0 }: { item: ResourceSidebarItem; depth
           )}
         >
           <div className="overflow-hidden">
-            <div className="pl-4">
+            <div className="pl-3">
               <ul className="space-y-1">
                 {item.children?.map((child) => (
                   <SidebarTreeItem key={child.key} item={child} depth={depth + 1} />
@@ -86,8 +89,8 @@ function SidebarTreeItem({ item, depth = 0 }: { item: ResourceSidebarItem; depth
 
 export function ResourcesSidebar({ title, items }: { title: string; items: ResourceSidebarItem[] }) {
   return (
-    <aside className={cn(studentCardCn('sticky top-6 self-start'), 'w-full p-4 lg:w-72')}>
-      <h3 className="mb-3 text-sm font-semibold">{title}</h3>
+    <aside className={cn(studentCardCn('sticky top-6 self-start'), 'w-full py-4 pl-2 pr-3 lg:w-72')}>
+      <h3 className="mb-3 px-2 text-sm font-semibold">{title}</h3>
       <ul className="space-y-1">
         {items.map((item) => (
           <SidebarTreeItem key={item.key} item={item} />

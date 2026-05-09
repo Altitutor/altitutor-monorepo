@@ -7,6 +7,7 @@ import { StudentSessionsCalendarView, LogAbsenceDialog } from '@/features/sessio
 import { BookDraftingSessionModal } from '@/features/bookings/components/BookDraftingSessionModal';
 import { Button } from '@altitutor/ui';
 import { PenTool, CalendarX } from 'lucide-react';
+import { StudentPageContainer } from '@/shared/components/layouts';
 
 export default function ClassesPage() {
   const searchParams = useSearchParams();
@@ -21,43 +22,42 @@ export default function ClassesPage() {
   }, [searchParams]);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="p-6 border-b">
-        <div className="flex items-center justify-between">
+    <>
+      <StudentPageContainer className="space-y-10 pb-10">
+        <div className="flex flex-col gap-8 pb-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
-            <p className="text-muted-foreground mt-1">
-              View your enrolled classes and sessions
-            </p>
+            <p className="mt-1 text-muted-foreground">View your enrolled classes and sessions</p>
           </div>
-          <Button onClick={() => setIsBookingModalOpen(true)}>
+          <Button
+            className="shrink-0 rounded-xl shadow-sm transition-all duration-300"
+            onClick={() => setIsBookingModalOpen(true)}
+          >
             <PenTool className="mr-2 h-4 w-4" />
             Book a Drafting Session
           </Button>
         </div>
-      </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-auto p-6 space-y-8">
-        {/* Classes Section */}
         <div>
-          <h2 className="text-2xl font-semibold mb-4">Classes</h2>
+          <h2 className="mb-4 text-2xl font-semibold">Classes</h2>
           <ClassesTable />
         </div>
 
-        {/* Timetable Section */}
         <div>
-          <h2 className="text-2xl font-semibold mb-4">Timetable</h2>
+          <h2 className="mb-4 text-2xl font-semibold">Timetable</h2>
           <StudentSessionsCalendarView />
           <div className="mt-4 flex justify-end">
-            <Button onClick={() => setIsAbsenceModalOpen(true)} variant="outline">
+            <Button
+              className="rounded-xl transition-all duration-300"
+              onClick={() => setIsAbsenceModalOpen(true)}
+              variant="outline"
+            >
               <CalendarX className="mr-2 h-4 w-4" />
               Log Absence
             </Button>
           </div>
         </div>
-      </div>
+      </StudentPageContainer>
 
       {/* Booking Modal */}
       <BookDraftingSessionModal
@@ -73,7 +73,7 @@ export default function ClassesPage() {
         isOpen={isAbsenceModalOpen}
         onClose={() => setIsAbsenceModalOpen(false)}
       />
-    </div>
+    </>
   );
 }
 

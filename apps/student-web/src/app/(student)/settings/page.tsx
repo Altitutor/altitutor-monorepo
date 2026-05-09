@@ -3,6 +3,8 @@
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 import { Sparkles } from 'lucide-react';
 import { OPEN_WELCOME_MODAL_EVENT } from '@/features/welcome';
+import { StudentPageContainer } from '@/shared/components/layouts';
+import { studentCardCn } from '@/shared/lib/student-visual';
 
 export default function SettingsPage() {
   const handleShowWelcomeModal = () => {
@@ -10,13 +12,13 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="container max-w-3xl py-8 space-y-6">
+    <StudentPageContainer className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold">Settings</h1>
         <p className="text-muted-foreground mt-1">Manage your student portal preferences.</p>
       </div>
 
-      <Card>
+      <Card className={studentCardCn()}>
         <CardHeader>
           <CardTitle>Welcome Modal</CardTitle>
           <CardDescription>Reopen the onboarding modal at any time.</CardDescription>
@@ -28,6 +30,6 @@ export default function SettingsPage() {
           </Button>
         </CardContent>
       </Card>
-    </div>
+    </StudentPageContainer>
   );
 }

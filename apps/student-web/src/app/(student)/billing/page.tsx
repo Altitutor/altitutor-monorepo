@@ -2,6 +2,7 @@
 
 import { BillingSubsidiesSection, PaymentMethodCard, InvoicesTable, SubscriptionsSection } from '@/features/billing/components';
 import { usePreWarmBilling } from '@/features/billing/hooks/usePreWarmBilling';
+import { StudentPageContainer } from '@/shared/components/layouts';
 
 // Mark this page as dynamic to prevent static generation
 // This page requires Supabase client which needs environment variables
@@ -12,7 +13,7 @@ export default function BillingPage() {
   usePreWarmBilling();
 
   return (
-    <div className="p-6 space-y-8">
+    <StudentPageContainer className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing & Payments</h1>
         <p className="text-muted-foreground mt-1">
@@ -21,21 +22,19 @@ export default function BillingPage() {
       </div>
 
       <BillingSubsidiesSection />
-      
-      {/* Payment Method Section */}
+
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Payment Method</h2>
         <PaymentMethodCard />
       </div>
-      
-      {/* Invoices Section */}
+
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Invoices</h2>
         <InvoicesTable />
       </div>
 
       <SubscriptionsSection />
-    </div>
+    </StudentPageContainer>
   );
 }
 

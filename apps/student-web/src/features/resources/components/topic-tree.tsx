@@ -18,7 +18,7 @@ function TopicTreeNode({ node, getHref }: { node: ResourceTopicNode; getHref: (t
 
   return (
     <li className="rounded-lg">
-      <div className="flex items-center gap-1 py-0.5 pl-0.5 pr-1">
+      <div className="flex items-center gap-1 py-0.5 pl-0 pr-1">
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
@@ -35,7 +35,7 @@ function TopicTreeNode({ node, getHref }: { node: ResourceTopicNode; getHref: (t
 
         <Link
           href={getHref(node)}
-          className="min-w-0 flex-1 rounded-md px-1.5 py-1 text-sm font-medium transition-colors duration-300 hover:bg-muted/80"
+          className="min-w-0 flex-1 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-300 hover:bg-muted/80"
         >
           <span className="block truncate">{node.code} · {node.name}</span>
         </Link>
@@ -49,7 +49,7 @@ function TopicTreeNode({ node, getHref }: { node: ResourceTopicNode; getHref: (t
           )}
         >
           <div className="overflow-hidden">
-            <div className="pl-4">
+            <div className="pl-3">
               <TopicTree nodes={node.children} getHref={getHref} />
             </div>
           </div>
