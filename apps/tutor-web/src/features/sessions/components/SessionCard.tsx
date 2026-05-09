@@ -44,6 +44,7 @@ interface StudentMember {
   first_name: string;
   last_name: string;
   year_level?: number;
+  planned_absence?: boolean;
 }
 
 interface SessionCardProps {
@@ -250,14 +251,18 @@ export function SessionCard({
                 {students.map((student) => {
                   const fullName = `${student.first_name} ${student.last_name}`;
                   const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
+                  const isAbsent = Boolean(student.planned_absence);
                   
                   const badge = (
                     <span
                       key={student.id}
                       className={cn(
-                        'rounded bg-muted text-muted-foreground',
-                        shouldUseCompact 
-                          ? 'text-[10px] px-1 py-0.5' 
+                        'rounded',
+                        isAbsent
+                          ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 line-through'
+                          : 'bg-muted text-muted-foreground',
+                        shouldUseCompact
+                          ? 'text-[10px] px-1 py-0.5'
                           : 'text-xs px-2 py-0.5'
                       )}
                     >
@@ -272,7 +277,7 @@ export function SessionCard({
                           {badge}
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{fullName}</p>
+                          <p>{fullName}{isAbsent ? ' (absent)' : ''}</p>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

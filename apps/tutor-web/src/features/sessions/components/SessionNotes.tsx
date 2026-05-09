@@ -13,7 +13,6 @@ import {
 import { format } from 'date-fns';
 import { MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useCreateSessionNote, useUpdateNote, useDeleteNote } from '../hooks/useSessionNotes';
-import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
 import {
   isTiptapContentEmpty,
   toEditorContent,
@@ -111,16 +110,13 @@ export function SessionNotes({
     }
   };
 
-  // Filter notes to only show those created by current tutor
-  const tutorNotes = notes.filter((note) => note.created_by === currentStaffId);
-
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold">Session Notes</h3>
 
-      {tutorNotes.length > 0 && (
+      {notes.length > 0 && (
         <div className="space-y-3">
-          {tutorNotes.map((note) => (
+          {notes.map((note) => (
             <Card key={note.id} className="group">
               <CardContent className="p-4">
                 <div className="flex gap-3">
@@ -171,8 +167,13 @@ export function SessionNotes({
                         </div>
                       </div>
                     ) : (
-                      <div className="text-sm text-foreground whitespace-pre-wrap break-words leading-relaxed">
-                        {extractTextFromNoteContent(note.note)}
+                      <div className="prose prose-sm dark:prose-invert max-w-none">
+                        <RichTextEditor
+                          content={toEditorContent(note.note)}
+                          onChange={() => {}}
+                          editable={false}
+                          minHeight="0px"
+                        />
                       </div>
                     )}
                   </div>

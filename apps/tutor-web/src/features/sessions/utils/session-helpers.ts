@@ -53,6 +53,10 @@ export interface SessionStudent {
   first_name: string;
   last_name: string;
   year_level: number | null;
+  session_student_id?: string;
+  planned_absence?: boolean;
+  is_rescheduled?: boolean;
+  is_credited?: boolean;
 }
 
 /**

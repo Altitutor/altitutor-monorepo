@@ -36,6 +36,7 @@ interface TutorLogStaffAttendance {
 interface TutorLog {
   id: string;
   tutor_log_id: string | null;
+  created_by?: string | null;
   student_attendance?: TutorLogStudentAttendance[];
   staff_attendance?: TutorLogStaffAttendance[];
   topics?: Array<{ id: string; name: string; subject_id: string }>;
@@ -91,6 +92,10 @@ export function useSessionModalData({
                 year_level: 'year_level' in item && (typeof item.year_level === 'number' || item.year_level === null)
                   ? item.year_level
                   : null,
+                session_student_id: 'session_student_id' in item && typeof item.session_student_id === 'string' ? item.session_student_id : undefined,
+                planned_absence: 'planned_absence' in item ? Boolean(item.planned_absence) : false,
+                is_rescheduled: 'is_rescheduled' in item ? Boolean(item.is_rescheduled) : false,
+                is_credited: 'is_credited' in item ? Boolean(item.is_credited) : false,
               };
             }
             return null;
@@ -210,6 +215,7 @@ export function useSessionModalData({
         setTutorLog({
           id: logResult.tutor_log_id,
           tutor_log_id: logResult.tutor_log_id,
+          created_by: 'created_by' in logResult && typeof logResult.created_by === 'string' ? logResult.created_by : null,
           student_attendance: parseStudentAttendance(logResult.student_attendance),
           staff_attendance: parseStaffAttendance(logResult.staff_attendance),
           topics: parseTopics(logResult.topics),
@@ -295,6 +301,10 @@ export function useSessionModalData({
                 year_level: 'year_level' in item && (typeof item.year_level === 'number' || item.year_level === null)
                   ? item.year_level
                   : null,
+                session_student_id: 'session_student_id' in item && typeof item.session_student_id === 'string' ? item.session_student_id : undefined,
+                planned_absence: 'planned_absence' in item ? Boolean(item.planned_absence) : false,
+                is_rescheduled: 'is_rescheduled' in item ? Boolean(item.is_rescheduled) : false,
+                is_credited: 'is_credited' in item ? Boolean(item.is_credited) : false,
               };
             }
             return null;

@@ -1,11 +1,29 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, SessionInfoGrid } from '@altitutor/ui';
-import { Separator, Badge } from '@altitutor/ui';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  Button,
+  SessionInfoGrid,
+  Separator,
+  Badge,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@altitutor/ui';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
-import { StudentCard, StaffCard } from '@/shared/components';
 import { AttendanceCell } from './AttendanceCell';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
@@ -28,6 +46,27 @@ type SessionModalProps = {
   refreshTrigger?: number;
 };
 
+function TutorLogSubmitterBadge({ firstName, lastName }: { firstName: string; lastName: string }) {
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  return (
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div
+            className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium flex-shrink-0 cursor-help"
+            title={`Tutor log submitted by ${firstName} ${lastName}`}
+          >
+            {initials}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>Tutor log submitted by {firstName} {lastName}</p>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
 export function SessionModal({
   isOpen,
   sessionId,
@@ -37,10 +76,8 @@ export function SessionModal({
   currentStaffIdForNotes,
   refreshTrigger,
 }: SessionModalProps) {
-  // Fetch session notes
   const { data: notesData } = useSessionNotes(sessionId || '');
 
-  // Use hook for all session data loading and processing
   const {
     session,
     tutorLog,
@@ -55,14 +92,12 @@ export function SessionModal({
     sessionId,
   });
 
-  // Refresh session data when log modal completes (parent increments refreshTrigger)
   useEffect(() => {
     if (refreshTrigger != null && refreshTrigger > 0 && sessionId) {
       refresh();
     }
   }, [refreshTrigger, sessionId, refresh]);
 
-  // Always render the Sheet to allow exit animation
   if (isLoading || !session) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
@@ -83,6 +118,11 @@ export function SessionModal({
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
 
+  // Find the tutor log submitter name from staff data
+  const tutorLogSubmitter = tutorLog?.created_by
+    ? staffData.find((d) => d.staff.id === tutorLog.created_by)?.staff
+    : null;
+
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
@@ -97,7 +137,7 @@ export function SessionModal({
               </div>
             </div>
           </SheetHeader>
-          
+
           <div className="space-y-6">
             {/* Session Information */}
             <div>
@@ -117,9 +157,7 @@ export function SessionModal({
                         {formatSubjectDisplay(subject)}
                       </Badge>
                     );
-                  })() : (
-                    '—'
-                  )
+                  })() : '—'
                 }
               />
             </div>
@@ -130,33 +168,37 @@ export function SessionModal({
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
-                {studentsData.length > 0 && (
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs text-muted-foreground">Planned</span>
-                    <span className="text-xs text-muted-foreground">Actual</span>
-                  </div>
-                )}
               </div>
               {studentsData.length === 0 ? (
                 <div className="text-center py-4 text-sm text-muted-foreground">
                   No students planned
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {studentsData.map((data: ProcessedStudent) => (
-                    <div key={data.student.id} className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <StudentCard
-                          student={data.student}
-                          showSubjects={false}
-                        />
-                      </div>
-                      <div className="flex items-center gap-4 flex-shrink-0">
-                        <AttendanceCell status={data.plannedStatus} />
-                        <AttendanceCell status={data.actualStatus} />
-                      </div>
-                    </div>
-                  ))}
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Student</TableHead>
+                        <TableHead>Planned</TableHead>
+                        <TableHead>Actual</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {studentsData.map((data: ProcessedStudent) => (
+                        <TableRow key={data.student.id}>
+                          <TableCell className="font-medium">
+                            {data.student.first_name} {data.student.last_name}
+                          </TableCell>
+                          <TableCell>
+                            <AttendanceCell status={data.plannedStatus} />
+                          </TableCell>
+                          <TableCell>
+                            <AttendanceCell status={data.actualStatus} />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
@@ -167,34 +209,51 @@ export function SessionModal({
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Staff ({staffData.length})</h3>
-                {staffData.length > 0 && (
-                  <div className="flex items-center gap-4">
-                    <span className="text-xs text-muted-foreground">Planned</span>
-                    <span className="text-xs text-muted-foreground">Actual</span>
-                  </div>
-                )}
               </div>
               {staffData.length === 0 ? (
                 <div className="text-center py-4 text-sm text-muted-foreground">
                   No staff planned
                 </div>
               ) : (
-                <div className="space-y-3">
-                  {staffData.map((data: ProcessedStaff) => (
-                    <div key={data.staff.id} className="flex items-center gap-3">
-                      <div className="flex-1">
-                        <StaffCard
-                          staff={data.staff}
-                          subjects={(data.staff.subjects ?? []) as Tables<'subjects'>[]}
-                          showSubjects={false}
-                        />
-                      </div>
-                      <div className="flex items-center gap-4 flex-shrink-0">
-                        <AttendanceCell status={data.plannedStatus} />
-                        <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
-                      </div>
-                    </div>
-                  ))}
+                <div className="border rounded-lg overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Staff</TableHead>
+                        <TableHead>Planned</TableHead>
+                        <TableHead>Actual</TableHead>
+                        <TableHead>Tutor Log</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {staffData.map((data: ProcessedStaff) => (
+                        <TableRow key={data.staff.id}>
+                          <TableCell className="font-medium">
+                            {data.staff.first_name} {data.staff.last_name}
+                          </TableCell>
+                          <TableCell>
+                            <AttendanceCell status={data.plannedStatus} />
+                          </TableCell>
+                          <TableCell>
+                            <AttendanceCell
+                              status={data.actualStatus}
+                              staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined}
+                            />
+                          </TableCell>
+                          <TableCell>
+                            {hasTutorLog && tutorLogSubmitter ? (
+                              <TutorLogSubmitterBadge
+                                firstName={tutorLogSubmitter.first_name ?? ''}
+                                lastName={tutorLogSubmitter.last_name ?? ''}
+                              />
+                            ) : (
+                              <span className="text-muted-foreground text-sm">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
                 </div>
               )}
             </div>
@@ -205,68 +264,35 @@ export function SessionModal({
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Tutor Log</h3>
-                {!hasTutorLog &&
-                  sessionId &&
-                  currentStaffId &&
-                  onLogSessionClick && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={onLogSessionClick}
-                    >
-                      Add Tutor Log
-                    </Button>
-                  )}
+                {!hasTutorLog && sessionId && currentStaffId && onLogSessionClick && (
+                  <Button variant="outline" size="sm" onClick={onLogSessionClick}>
+                    Add Tutor Log
+                  </Button>
+                )}
               </div>
 
-              {/* Topics Covered Section */}
               {hasTutorLog && tutorLog.topics && tutorLog.topics.length > 0 && (
                 <div className="space-y-4 mb-4">
                   {tutorLog.topics.map((topicData) => {
-                    // TutorLog.topics are topic records (id, name, subject_id)
                     const topic = allTopics.find(t => t.id === topicData.id);
                     const topicName = topicData.name || topic?.name || 'Unknown Topic';
                     const topicCode = topic?.code || '';
-                    
-                    // Get files for this topic from tutorLog.files
                     const topicFiles = (tutorLog.files || []).filter((f) => f.topic_id === topicData.id);
-                    
-                    // Student IDs not on topic record in hook type; use empty if needed
-                    const studentIds: string[] = [];
-                    
+
                     return (
                       <div key={topicData.id} className="border rounded-lg p-4 space-y-3">
-                        <div>
-                          <div className="font-medium">
-                            {topicCode ? `${topicCode} ` : ''}{topicName}
-                          </div>
+                        <div className="font-medium">
+                          {topicCode ? `${topicCode} ` : ''}{topicName}
                         </div>
-                        
                         {topicFiles.length > 0 && (
                           <div>
                             <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
                             <div className="space-y-1">
-                              {topicFiles.map((fileData) => {
-                                const fileCode = fileData.code || fileData.filename || '';
-                                
-                                return (
-                                  <div
-                                    key={fileData.id}
-                                    className="text-sm text-muted-foreground"
-                                  >
-                                    {fileCode}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                        
-                        {studentIds.length > 0 && (
-                          <div>
-                            <div className="text-xs font-medium text-muted-foreground mb-1">Students:</div>
-                            <div className="text-sm text-muted-foreground">
-                              {studentIds.length} student{studentIds.length !== 1 ? 's' : ''} assigned
+                              {topicFiles.map((fileData) => (
+                                <div key={fileData.id} className="text-sm text-muted-foreground">
+                                  {fileData.code || fileData.filename || ''}
+                                </div>
+                              ))}
                             </div>
                           </div>
                         )}
@@ -276,7 +302,6 @@ export function SessionModal({
                 </div>
               )}
 
-              {/* No Tutor Log Message */}
               {!hasTutorLog && (
                 <div className="text-center py-4 text-sm text-muted-foreground">
                   This session has not been logged yet.

@@ -143,9 +143,10 @@ export const sessionsApi = {
                 first_name: String(s.first_name),
                 last_name: String(s.last_name),
                 year_level: 'year_level' in s && typeof s.year_level === 'number' ? s.year_level : null,
+                planned_absence: 'planned_absence' in s ? Boolean(s.planned_absence) : false,
               };
             }
-            return { id: '', first_name: '', last_name: '', year_level: null };
+            return { id: '', first_name: '', last_name: '', year_level: null, planned_absence: false };
           })
         : [];
       
