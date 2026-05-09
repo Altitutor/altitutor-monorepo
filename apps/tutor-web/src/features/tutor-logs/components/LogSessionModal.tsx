@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import type { Tables } from '@altitutor/shared';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
+import { Button, SearchableSelect } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
   ExpandButton,
@@ -14,7 +15,6 @@ import {
   tutorBtnIconOutline,
   tutorBtnOutline,
   tutorBtnPrimary,
-  tutorCardCn,
   tutorDialogContentClass,
   tutorDialogFooterStrip,
   tutorDialogHeaderStrip,
@@ -22,6 +22,8 @@ import {
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from '../hooks';
 import { sessionsApi } from '@/features/sessions/api/sessions';
+import { staffApi } from '@/features/staff/api/staff';
+import { StaffCard } from '@/shared/components/StaffCard';
 
 // Import step components
 import { Step1SessionPicker } from './steps/Step1SessionPicker';
@@ -56,8 +58,29 @@ export function LogSessionModal({
   const [submissionState, setSubmissionState] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
   const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [adminSelectedStaff, setAdminSelectedStaff] = useState<Tables<'staff'> | null>(null);
+  const [adminStaffResults, setAdminStaffResults] = useState<Tables<'staff'>[]>([]);
+  const [adminStaffSearchLoading, setAdminStaffSearchLoading] = useState(false);
+  const wasOpenRef = useRef(false);
 
   const createMutation = useCreateTutorLog();
+
+  const handleAdminStaffSearch = useCallback(async (search: string) => {
+    if (!search.trim()) {
+      setAdminStaffResults([]);
+      return;
+    }
+    setAdminStaffSearchLoading(true);
+    try {
+      const { staff } = await staffApi.search({ search, limit: 25 });
+      setAdminStaffResults(staff);
+    } catch (error) {
+      console.error('Error searching staff:', error);
+      setAdminStaffResults([]);
+    } finally {
+      setAdminStaffSearchLoading(false);
+    }
+  }, []);
 
   // Set preselected session when modal opens
   useEffect(() => {
@@ -82,8 +105,20 @@ export function LogSessionModal({
       setIsSubmitting(false);
       setSubmissionState('idle');
       setSubmissionError(null);
+      setAdminSelectedStaff(null);
+      setAdminStaffResults([]);
     }
   }, [isOpen, currentStaffId]);
+
+  // When opening in admin mode, require a fresh staff selection for this log
+  useEffect(() => {
+    if (isOpen && !wasOpenRef.current && adminMode) {
+      setSelectedStaffId('');
+      setAdminSelectedStaff(null);
+      setAdminStaffResults([]);
+    }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, adminMode]);
 
   // Calculate total steps: if session is preselected, skip Step 1 (session selection)
   const skipSessionStep = !!preselectedSessionId;
@@ -208,13 +243,37 @@ export function LogSessionModal({
       return (
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Select which staff member you're logging this session for.
+            Select which staff member you&apos;re logging this session for.
           </p>
-          {/* Staff selector would go here - for now just show current */}
-          <div className={tutorCardCn('p-4')}>
-            <p className="font-medium">Staff ID: {selectedStaffId}</p>
-            <p className="text-sm text-muted-foreground">Staff selector to be implemented</p>
-          </div>
+          <SearchableSelect<Tables<'staff'>>
+            items={adminStaffResults}
+            value={adminSelectedStaff}
+            onValueChange={(staff) => {
+              setAdminSelectedStaff(staff);
+              setSelectedStaffId(staff?.id ?? '');
+            }}
+            allowClear
+            clearLabel="Clear selection"
+            getItemId={(s) => s.id}
+            getItemLabel={(s) =>
+              `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Staff'
+            }
+            getItemValue={(s) =>
+              `${s.first_name ?? ''} ${s.last_name ?? ''} ${s.email ?? ''}`.toLowerCase()
+            }
+            onSearchChange={(q) => void handleAdminStaffSearch(q)}
+            loading={adminStaffSearchLoading}
+            searchPlaceholder="Search staff by name..."
+            emptyMessage="Type to search for a staff member"
+            placeholder="Choose staff member..."
+            align="start"
+            contentWidth="min(400px, 92vw)"
+            renderItem={(staffMember) => (
+              <div className="w-full">
+                <StaffCard staff={staffMember} showSubjects={false} />
+              </div>
+            )}
+          />
         </div>
       );
     }
@@ -310,7 +369,7 @@ export function LogSessionModal({
   };
 
   const canGoNext = () => {
-    if (adminMode && currentStep === 0) return !!selectedStaffId;
+    if (adminMode && currentStep === 0) return !!adminSelectedStaff?.id;
     const stepIndex = adminMode ? currentStep - 1 : currentStep;
     
     // If session is preselected, skip Step 0 (session selection)
