@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ResourceAccessDenied,
@@ -22,7 +22,6 @@ export default function ResourceTopicDetailPage() {
   const params = useParams<{ subjectShortName: string; topicCode: string }>();
   const subjectShortName = params.subjectShortName;
   const topicCode = params.topicCode;
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const { data: subject, isLoading: subjectLoading } = useResourceSubject(subjectShortName);
   const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, topicCode);
@@ -46,7 +45,7 @@ export default function ResourceTopicDetailPage() {
 
   if ((!subjectLoading && !subject) || (!topicLoading && !topic)) {
     return (
-      <StudentPageContainer maxWidth="6xl">
+      <StudentPageContainer>
         <ResourceAccessDenied />
       </StudentPageContainer>
     );
@@ -54,34 +53,47 @@ export default function ResourceTopicDetailPage() {
 
   if (!subjectLoading && !hasAccess) {
     return (
-      <StudentPageContainer maxWidth="6xl">
+      <StudentPageContainer>
         <ResourceAccessDenied />
       </StudentPageContainer>
     );
   }
 
   return (
-    <StudentPageContainer maxWidth="7xl" className="space-y-8">
+    <StudentPageContainer className="space-y-8">
       <ResourcesBreadcrumb
         items={[
           { label: 'Resources', href: '/resources' },
           { label: subject?.name || subject?.short_name || subjectShortName, href: `/resources/${encodeURIComponent(subjectShortName)}` },
-          { label: topic?.code && topic?.name ? `${topic.code}. ${topic.name}` : topic?.code || topicCode },
+          {
+            label:
+              topic?.code && topic?.name
+                ? `Topic ${topic.code} · ${topic.name}`
+                : topic?.code
+                  ? `Topic ${topic.code}`
+                  : topicCode,
+          },
         ]}
       />
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-6">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">{topic?.code} · {topic?.name}</h1>
+            <h1 className="text-3xl font-bold tracking-tight">
+              {topic?.code && topic?.name
+                ? `Topic ${topic.code} · ${topic.name}`
+                : topic?.code
+                  ? `Topic ${topic.code}`
+                  : topicCode}
+            </h1>
             <p className="text-muted-foreground mt-1">Files organised by type, with solutions paired where present.</p>
           </div>
 
           {filesLoading ? (
             <div className="space-y-3">
-              <div className="h-14 rounded border bg-muted/40" />
-              <div className="h-14 rounded border bg-muted/40" />
-              <div className="h-14 rounded border bg-muted/40" />
+              <div className="h-14 rounded-2xl bg-muted/50 ring-1 ring-black/[0.05] dark:ring-white/10" />
+              <div className="h-14 rounded-2xl bg-muted/50 ring-1 ring-black/[0.05] dark:ring-white/10" />
+              <div className="h-14 rounded-2xl bg-muted/50 ring-1 ring-black/[0.05] dark:ring-white/10" />
             </div>
           ) : (
             <TopicFilesList
@@ -93,12 +105,7 @@ export default function ResourceTopicDetailPage() {
           )}
         </div>
 
-        <ResourcesSidebar
-          title="All topics"
-          items={sidebarItems}
-          collapsed={sidebarCollapsed}
-          onToggle={() => setSidebarCollapsed((prev) => !prev)}
-        />
+        <ResourcesSidebar title="All topics" items={sidebarItems} />
       </div>
     </StudentPageContainer>
   );

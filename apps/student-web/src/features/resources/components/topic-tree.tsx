@@ -18,7 +18,7 @@ function TopicTreeNode({ node, getHref }: { node: ResourceTopicNode; getHref: (t
 
   return (
     <li className="rounded-lg">
-      <div className="flex items-center gap-2 p-2">
+      <div className="flex items-center gap-1 py-0.5 pl-0.5 pr-1">
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
@@ -26,14 +26,17 @@ function TopicTreeNode({ node, getHref }: { node: ResourceTopicNode; getHref: (t
           aria-label={expanded ? `Collapse ${node.code}` : `Expand ${node.code}`}
           aria-expanded={hasChildren ? expanded : undefined}
           className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-colors',
-            hasChildren ? 'hover:bg-muted' : 'cursor-default opacity-0'
+            'flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-300',
+            hasChildren ? 'hover:bg-muted/80' : 'cursor-default opacity-0'
           )}
         >
-          <ChevronRight className={cn('h-4 w-4 transition-transform duration-200', expanded && 'rotate-90')} />
+          <ChevronRight className={cn('h-3.5 w-3.5 transition-transform duration-300 ease-out', expanded && 'rotate-90')} />
         </button>
 
-        <Link href={getHref(node)} className="min-w-0 flex-1 rounded-md px-2 py-1 text-sm font-medium transition-colors hover:bg-muted">
+        <Link
+          href={getHref(node)}
+          className="min-w-0 flex-1 rounded-md px-1.5 py-1 text-sm font-medium transition-colors duration-300 hover:bg-muted/80"
+        >
           <span className="block truncate">{node.code} · {node.name}</span>
         </Link>
       </div>
@@ -41,12 +44,12 @@ function TopicTreeNode({ node, getHref }: { node: ResourceTopicNode; getHref: (t
       {hasChildren ? (
         <div
           className={cn(
-            'grid transition-all duration-300 ease-in-out',
+            'grid transition-all duration-300 ease-out',
             expanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
           )}
         >
           <div className="overflow-hidden">
-            <div className="pl-6">
+            <div className="pl-4">
               <TopicTree nodes={node.children} getHref={getHref} />
             </div>
           </div>
@@ -62,7 +65,7 @@ export function TopicTree({ nodes, getHref, className }: TopicTreeProps) {
   }
 
   return (
-    <ul className={cn('space-y-1', className)}>
+    <ul className={cn('space-y-0', className)}>
       {nodes.map((node) => (
         <TopicTreeNode key={node.id} node={node} getHref={getHref} />
       ))}
