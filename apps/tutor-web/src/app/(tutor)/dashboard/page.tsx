@@ -20,7 +20,8 @@ export default function DashboardPage() {
   }
 
   const firstName = profile?.first_name ?? null;
+  const staffId = profile?.id ?? null;
 
-  return <TutorDashboardHome firstName={firstName} />;
+  return <TutorDashboardHome firstName={firstName} staffId={staffId} />;
 }
 

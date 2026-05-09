@@ -6,7 +6,7 @@ import { FileText } from 'lucide-react';
 import { TutorClassesTable } from '@/features/classes/components/TutorClassesTable';
 import { SessionsCalendarView } from '@/features/sessions/components/SessionsCalendarView';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { LogSessionModal } from '@/features/tutor-logs/components/LogSessionModal';
+import { LogSessionModal, UnloggedSessionsTableSection } from '@/features/tutor-logs/components';
 import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { TutorPageContainer } from '@/shared/components/layouts';
 
@@ -76,6 +76,13 @@ export default function ClassesPage() {
           </h2>
           <SessionsCalendarView onOpenSession={handleOpenSession} />
         </section>
+
+        {currentStaff?.id ? (
+          <UnloggedSessionsTableSection
+            staffId={currentStaff.id}
+            onLogSession={handleOpenLogSession}
+          />
+        ) : null}
       </TutorPageContainer>
 
       {/* Session Modal */}
