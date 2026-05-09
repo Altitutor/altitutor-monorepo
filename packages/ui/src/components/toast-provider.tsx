@@ -86,9 +86,26 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       <Toaster
         position="top-right"
         theme="system"
-        richColors
         closeButton
         className="toaster group"
+        toastOptions={{
+          classNames: {
+            toast: "border-border bg-card text-card-foreground shadow-lg",
+            title: "text-foreground",
+            description: "text-muted-foreground",
+            actionButton:
+              "bg-primary text-primary-foreground hover:bg-primary/90",
+            cancelButton: "bg-muted text-muted-foreground hover:bg-muted/80",
+            closeButton:
+              "border-border bg-background text-muted-foreground hover:bg-muted hover:text-foreground",
+            default: "border-border bg-card text-card-foreground",
+            success: "border-primary/35 bg-primary text-primary-foreground",
+            info: "border-secondary/35 bg-secondary text-secondary-foreground",
+            warning: "border-accent/35 bg-accent text-accent-foreground",
+            error:
+              "border-destructive/40 bg-destructive text-destructive-foreground",
+          },
+        }}
       />
     </ToastContext.Provider>
   );

@@ -23,10 +23,7 @@ export function BillingSubsidiesSection() {
 
   return (
     <div className="space-y-4">
-      <h2 className="text-xl font-semibold">Subsidies</h2>
-      <p className="text-sm text-muted-foreground">
-        Your subsidised hourly rate compared to the standard rate for each subject.
-      </p>
+      <h2 className="text-xl font-semibold">My subsidies</h2>
       <ul className="rounded-lg border divide-y">
         {rows.map((row) => (
           <li key={`${row.subject_id}-${row.billing_type}`} className="px-4 py-3">

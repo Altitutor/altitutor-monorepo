@@ -1,6 +1,6 @@
 'use client';
 
-import { BillingSubsidiesSection, PaymentMethodCard, InvoicesTable } from '@/features/billing/components';
+import { BillingSubsidiesSection, PaymentMethodCard, InvoicesTable, SubscriptionsSection } from '@/features/billing/components';
 import { usePreWarmBilling } from '@/features/billing/hooks/usePreWarmBilling';
 
 // Mark this page as dynamic to prevent static generation
@@ -33,6 +33,8 @@ export default function BillingPage() {
         <h2 className="text-xl font-semibold">Invoices</h2>
         <InvoicesTable />
       </div>
+
+      <SubscriptionsSection />
     </div>
   );
 }

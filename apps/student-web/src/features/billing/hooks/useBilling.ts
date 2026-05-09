@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import type { Database } from '@altitutor/shared';
-import { billingApi, type Invoice, type InvoiceWithItems } from '../api';
+import { billingApi, type Invoice, type InvoiceWithItems, type StudentSubscriptionWithSubject } from '../api';
 
 export function useBilling() {
   return useQuery({
@@ -40,6 +40,13 @@ export function useInvoiceItems(invoiceId: string) {
     queryKey: ['student', 'invoice-items', invoiceId],
     queryFn: () => billingApi.getInvoiceItems(invoiceId),
     enabled: !!invoiceId,
+  });
+}
+
+export function useStudentSubscriptions() {
+  return useQuery<StudentSubscriptionWithSubject[]>({
+    queryKey: ['student', 'subscriptions'],
+    queryFn: billingApi.getStudentSubscriptions,
   });
 }
 

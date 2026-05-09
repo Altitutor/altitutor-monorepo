@@ -1,9 +1,18 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { Tables } from '@altitutor/shared';
 
-export type ReservationRow = Tables<'slot_reservations'>;
+export interface ReservationRow {
+  id: string;
+  start_at: string;
+  end_at: string;
+  subject_id: string | null;
+  staff_id: string | null;
+  reserved_by: string;
+  expires_at: string;
+  created_at: string;
+  session_type: Database['public']['Enums']['session_type'];
+}
 
 export interface CreateReservationInput {
   start_at: string; // ISO timestamp
@@ -51,8 +60,20 @@ export const reservationsApi = {
   },
 
   async getMyReservations(): Promise<ReservationRow[]> {
-    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('slot_reservations')
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const reservationsClient = supabase as unknown as {
+      from: (table: string) => {
+        select: (columns: string) => {
+          order: (
+            column: string,
+            options: { ascending: boolean }
+          ) => Promise<{ data: ReservationRow[] | null; error: Error | null }>;
+        };
+      };
+    };
+
+    const { data, error } = await reservationsClient
+      .from('vstudent_slot_reservations')
       .select('*')
       .order('start_at', { ascending: true });
     
