@@ -95,7 +95,8 @@ export function TopicsTable({
 
   // React Query hook for data fetching with server-side filtering
   const effectiveSubjectIds = subjectId ? [subjectId] : (state.filters.subject as string[] || undefined);
-  
+  const isSearching = !!state.search?.trim();
+
   const { 
     data: topicsData, 
     isLoading, 
@@ -105,6 +106,9 @@ export function TopicsTable({
   } = useSearchTopics({
     search: state.search || undefined,
     subjectIds: effectiveSubjectIds,
+    // When not searching, paginate over root topics only; children load on expand.
+    // When searching, return all matching topics (incl. children) flat.
+    rootOnly: !isSearching,
     limit: state.pageSize,
     offset: (state.page - 1) * state.pageSize,
   });
@@ -112,16 +116,16 @@ export function TopicsTable({
   const allTopicsFromSearch = useMemo(() => {
     return topicsData?.topics || [];
   }, [topicsData?.topics]);
-  
+
   const total = topicsData?.total || 0;
 
-  // Filter to show only root topics initially (for pagination)
-  // Children will be fetched separately when expanded
-  const rootTopics = useMemo(() => {
-    return allTopicsFromSearch.filter(t => !t.parent_id);
-  }, [allTopicsFromSearch]);
+  // Topics to render at the top level: roots when browsing, all matches flat when searching.
+  const visibleTopics = useMemo(() => {
+    return isSearching
+      ? allTopicsFromSearch
+      : allTopicsFromSearch.filter(t => !t.parent_id);
+  }, [allTopicsFromSearch, isSearching]);
 
-  // Get all topics as flat array for code derivation (need all for hierarchy)
   const allTopicsFlat = useMemo(() => {
     return allTopicsFromSearch;
   }, [allTopicsFromSearch]);
@@ -175,7 +179,7 @@ export function TopicsTable({
   };
 
   // Loading state
-  if (isLoading && rootTopics.length === 0) {
+  if (isLoading && visibleTopics.length === 0) {
     return (
       <div className="space-y-4">
         <DataTableToolbar
@@ -205,7 +209,7 @@ export function TopicsTable({
   }
 
   // Error state
-  if (error && rootTopics.length === 0) {
+  if (error && visibleTopics.length === 0) {
     return (
       <div className="text-red-500 p-4">
         Failed to load topics. Please try again.
@@ -249,7 +253,7 @@ export function TopicsTable({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rootTopics.length === 0 ? (
+            {visibleTopics.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={state.visibleColumns.length + 1} className="text-center h-24">
                   {isLoading ? (
@@ -264,13 +268,14 @@ export function TopicsTable({
             ) : (
               <TopicRows
                 allTopics={allTopicsFlat}
-                topics={rootTopics}
+                topics={visibleTopics}
                 expandedTopics={expandedTopics}
                 onToggleExpansion={toggleTopicExpansion}
                 onFileClick={handleFileClick}
                 onViewTopic={onViewTopic}
                 visibleColumns={state.visibleColumns}
                 level={0}
+                flat={isSearching}
               />
             )}
           </TableBody>
@@ -313,6 +318,7 @@ interface TopicRowsProps {
   visibleColumns: string[];
   level: number;
   parentId?: string | null;
+  flat?: boolean;
 }
 
 function TopicRows({
@@ -325,21 +331,25 @@ function TopicRows({
   visibleColumns,
   level,
   parentId = null,
+  flat = false,
 }: TopicRowsProps) {
-  // Filter topics by parent
+  // In flat mode (search results) preserve server-side relevance order.
+  // In hierarchical mode, filter to children of the current parent and sort by subject + index.
   const filteredTopics = useMemo(() => {
+    if (flat) {
+      return topics;
+    }
     return topics.filter(t => {
       if (parentId === null) {
         return !t.parent_id;
       }
       return t.parent_id === parentId;
     }).sort((a, b) => {
-      // Sort by subject name, then by index
       const subjectCompare = a.subject.name.localeCompare(b.subject.name);
       if (subjectCompare !== 0) return subjectCompare;
       return a.index - b.index;
     });
-  }, [topics, parentId]);
+  }, [topics, parentId, flat]);
 
   if (filteredTopics.length === 0) {
     return null;
@@ -349,7 +359,8 @@ function TopicRows({
     <>
       {filteredTopics.map((topic) => {
         const topicCode = topic.code || '';
-        const hasChildren = allTopics.some(t => t.parent_id === topic.id);
+        // Hide expansion arrow in flat search results: child sets aren't reliable from a flat result.
+        const hasChildren = !flat && allTopics.some(t => t.parent_id === topic.id);
         const isExpanded = expandedTopics.has(topic.id);
         const subjectColorHex = getSubjectColorHex(topic.subject);
 
