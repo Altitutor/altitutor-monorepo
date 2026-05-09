@@ -21,6 +21,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { authApi } from '@/features/auth/api';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 type ForgotPasswordData = z.infer<typeof forgotPasswordSchema>;
 
@@ -70,7 +72,10 @@ export function ForgotPasswordForm() {
         </div>
         <Button 
           asChild
-          className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
+          className={cn(
+            studentBtnPrimary,
+            'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90',
+          )}
         >
           <Link href="/login">Return to Login</Link>
         </Button>
@@ -125,7 +130,10 @@ export function ForgotPasswordForm() {
           <div className="space-y-4">
             <Button
               type="submit"
-              className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-dark dark:hover:bg-brand-lightBlue/90"
+              className={cn(
+                studentBtnPrimary,
+                'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-dark dark:hover:bg-brand-lightBlue/90',
+              )}
               disabled={loading}
             >
               {loading ? (
@@ -140,7 +148,7 @@ export function ForgotPasswordForm() {
 
             <Button
               variant="outline"
-              className="w-full hover:bg-brand-lightBlue/20 dark:hover:bg-brand-dark-card"
+              className={cn(studentBtnOutline, 'w-full hover:bg-brand-lightBlue/20 dark:hover:bg-brand-dark-card')}
               asChild
             >
               <Link href="/login">Back to Login</Link>

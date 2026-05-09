@@ -22,6 +22,8 @@ import Image from 'next/image';
 import { useTheme } from 'next-themes';
 import { invitesApi, type ValidateInviteResponse } from '../api/invites';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
+import { studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 type AcceptInviteData = z.infer<typeof acceptInviteSchema>;
 
@@ -181,7 +183,10 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
         <div className="flex flex-col gap-2">
           <Button 
             onClick={() => router.push('/login')}
-            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
+            className={cn(
+              studentBtnPrimary,
+              'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90',
+            )}
           >
             Go to Login
           </Button>
@@ -298,7 +303,10 @@ export function AcceptInviteForm({ token }: AcceptInviteFormProps) {
 
           <Button
             type="submit"
-            className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90"
+            className={cn(
+              studentBtnPrimary,
+              'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90',
+            )}
             disabled={loading}
           >
             {loading ? (

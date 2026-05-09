@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { useAuth } from '@/features/auth/providers/AuthProvider';
 import { Button } from '@altitutor/ui';
+import { studentBtnOutline } from '@/shared/lib/student-visual';
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui';
 
 export function SessionTest() {
@@ -59,6 +60,7 @@ export function SessionTest() {
             onClick={() => window.location.reload()} 
             variant="outline" 
             size="sm"
+            className={studentBtnOutline}
           >
             Refresh Page
           </Button>

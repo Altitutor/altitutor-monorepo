@@ -4,7 +4,7 @@ import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle } fro
 import { Sparkles } from 'lucide-react';
 import { OPEN_WELCOME_MODAL_EVENT } from '@/features/welcome';
 import { StudentPageContainer } from '@/shared/components/layouts';
-import { studentCardCn } from '@/shared/lib/student-visual';
+import { studentBtnPrimary, studentCardCn } from '@/shared/lib/student-visual';
 
 export default function SettingsPage() {
   const handleShowWelcomeModal = () => {
@@ -24,7 +24,7 @@ export default function SettingsPage() {
           <CardDescription>Reopen the onboarding modal at any time.</CardDescription>
         </CardHeader>
         <CardContent>
-          <Button onClick={handleShowWelcomeModal}>
+          <Button className={studentBtnPrimary} onClick={handleShowWelcomeModal}>
             <Sparkles className="mr-2 h-4 w-4" />
             Show Welcome Modal Again
           </Button>

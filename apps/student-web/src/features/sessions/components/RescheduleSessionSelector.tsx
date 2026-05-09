@@ -9,7 +9,7 @@ import { WeekViewCalendar } from './WeekViewCalendar';
 import { StudentSessionsCard } from './StudentSessionsCard';
 import { useCurrentStudentId } from '@/shared/hooks';
 import { cn } from '@/shared/utils';
-import { studentModalHairline } from '@/shared/lib/student-visual';
+import { studentBtnIconOutline, studentModalHairline } from '@/shared/lib/student-visual';
 import type { Database } from '@altitutor/shared';
 
 type StudentSessionView = Database['public']['Views']['vstudent_session_base']['Row'];
@@ -186,10 +186,11 @@ export function RescheduleSessionSelector({
                 students={[]}
               />
               <Button
-                variant="ghost"
-                size="sm"
+                variant="outline"
+                size="icon"
                 onClick={onClearTargetSession}
-                className="absolute right-2 top-2 h-8 w-8 rounded-xl p-0 hover:bg-muted/80"
+                className={cn(studentBtnIconOutline, 'absolute right-2 top-2')}
+                aria-label="Clear selected session"
               >
                 <X className="h-4 w-4" />
               </Button>

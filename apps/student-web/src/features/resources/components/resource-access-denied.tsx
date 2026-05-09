@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Button } from '@altitutor/ui';
-import { studentCardCn } from '@/shared/lib/student-visual';
+import { studentBtnOutline, studentCardCn } from '@/shared/lib/student-visual';
 
 export function ResourceAccessDenied() {
   return (
@@ -12,7 +12,7 @@ export function ResourceAccessDenied() {
         You currently do not have access to this resource. If you think this is incorrect, please contact support.
       </p>
       <div className="mt-4">
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" className={studentBtnOutline}>
           <Link href="/resources">Back to Resources</Link>
         </Button>
       </div>

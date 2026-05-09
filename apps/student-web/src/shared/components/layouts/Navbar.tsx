@@ -22,6 +22,7 @@ import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
 import { STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 
 export function Navbar() {
@@ -128,7 +129,7 @@ export function Navbar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex items-center gap-2 h-9">
+                <Button variant="outline" className={cn(studentBtnOutline, 'flex h-9 items-center gap-2')}>
                   <div className="h-6 w-6 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-xs">
                     {getInitials()}
                   </div>
@@ -163,10 +164,10 @@ export function Navbar() {
             </DropdownMenu>
           ) : (
             <>
-              <Button variant="outline" asChild>
+              <Button variant="outline" className={studentBtnOutline} asChild>
                 <Link href="/login">Login</Link>
               </Button>
-              <Button variant="default" asChild>
+              <Button variant="default" className={studentBtnPrimary} asChild>
                 <Link href="/booking/trial-session">Book now</Link>
               </Button>
             </>

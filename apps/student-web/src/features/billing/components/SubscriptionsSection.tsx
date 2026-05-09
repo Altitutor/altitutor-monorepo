@@ -6,7 +6,12 @@ import { ExternalLink, Loader2 } from 'lucide-react';
 import { useInvoicesWithItems, useStudentSubscriptions } from '../hooks';
 import { formatAmount, getInvoiceTotalAmount, isInvoiceOverdue } from '../utils/invoiceDisplay';
 import { formatInvoiceDate } from '../utils/invoiceFormatters';
-import { studentTableBodyRow, studentTableHeaderRow, studentTableShell } from '@/shared/lib/student-visual';
+import {
+  studentBtnOutline,
+  studentTableBodyRow,
+  studentTableHeaderRow,
+  studentTableShell,
+} from '@/shared/lib/student-visual';
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
 
@@ -248,7 +253,7 @@ export function SubscriptionsSection() {
                       </TableCell>
                       <TableCell>
                         {invoice.hosted_invoice_url ? (
-                          <Button variant="outline" size="sm" asChild>
+                          <Button variant="outline" size="sm" className={studentBtnOutline} asChild>
                             <a href={invoice.hosted_invoice_url} target="_blank" rel="noopener noreferrer">
                               <ExternalLink className="h-4 w-4 mr-1" />
                               View

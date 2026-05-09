@@ -19,6 +19,7 @@ import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useProfile, useUpdateProfile } from '../hooks';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 
 const profileFormSchema = z.object({
   first_name: z.string().min(1, 'First name is required'),
@@ -413,13 +414,14 @@ export function ProfileForm() {
 
         {/* Action Buttons */}
         <div className="flex gap-3">
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="submit" className={studentBtnPrimary} disabled={isSubmitting}>
             {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Save Changes
           </Button>
           <Button
             type="button"
             variant="outline"
+            className={studentBtnOutline}
             onClick={() => form.reset()}
             disabled={isSubmitting}
           >

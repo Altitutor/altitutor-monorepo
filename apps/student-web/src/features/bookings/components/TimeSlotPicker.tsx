@@ -6,6 +6,7 @@ import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useAvailableSlots } from '../hooks/useAvailableSlots';
 import type { GetAvailableSlotsParams, AvailableSlot } from '../api/availability';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 import { ContactUsDialog } from './ContactUsDialog';
 
@@ -176,6 +177,7 @@ export function TimeSlotPicker({
         <Button
           variant="outline"
           size="sm"
+          className={studentBtnOutline}
           onClick={() => setCurrentWeekStart(addDays(currentWeekStart, -7))}
           disabled={isBefore(currentWeekStart, minBookingWeekStart) || isSameDay(currentWeekStart, minBookingWeekStart)}
         >
@@ -190,6 +192,7 @@ export function TimeSlotPicker({
         <Button
           variant="outline"
           size="sm"
+          className={studentBtnOutline}
           onClick={() => setCurrentWeekStart(addDays(currentWeekStart, 7))}
         >
           Next Week
@@ -207,14 +210,14 @@ export function TimeSlotPicker({
           <p className="text-muted-foreground">
             No slots available at the moment.
           </p>
-          <Button onClick={() => setIsContactDialogOpen(true)}>
+          <Button className={studentBtnPrimary} onClick={() => setIsContactDialogOpen(true)}>
             Contact us
           </Button>
         </div>
       ) : !hasSlotsInCurrentWeek ? (
         <div className="text-center py-12 space-y-4">
           <p className="text-muted-foreground">No slots this week.</p>
-          <Button onClick={() => setIsContactDialogOpen(true)}>
+          <Button className={studentBtnPrimary} onClick={() => setIsContactDialogOpen(true)}>
             Contact us
           </Button>
         </div>

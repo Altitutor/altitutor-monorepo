@@ -8,6 +8,7 @@ import { Pencil, Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { useUpdateProfile } from '../../hooks';
 import type { Database } from '@altitutor/shared';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 
 type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
 
@@ -89,6 +90,7 @@ export function AvailabilityTab({ profile }: AvailabilityTabProps) {
             <Button
               variant="outline"
               size="sm"
+              className={studentBtnOutline}
               onClick={handleCancelEdit}
               disabled={isSubmitting}
             >
@@ -96,6 +98,7 @@ export function AvailabilityTab({ profile }: AvailabilityTabProps) {
             </Button>
             <Button
               size="sm"
+              className={studentBtnPrimary}
               onClick={handleSubmit}
               disabled={isSubmitting}
             >
@@ -156,7 +159,7 @@ export function AvailabilityTab({ profile }: AvailabilityTabProps) {
     <div className="space-y-6">
       <div className="mb-4 flex items-center justify-between">
         <h3 className="text-2xl font-semibold">Availability</h3>
-        <Button variant="outline" size="sm" onClick={handleStartEdit}>
+        <Button variant="outline" size="sm" className={studentBtnOutline} onClick={handleStartEdit}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit
         </Button>

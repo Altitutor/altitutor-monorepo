@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@alti
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 
 interface BookingFlowProps {
@@ -136,6 +137,7 @@ export function BookingFlow({
             {!isFirstStep && (
               <Button
                 variant="outline"
+                className={studentBtnOutline}
                 onClick={onBack}
                 disabled={isSubmitting}
               >
@@ -148,6 +150,7 @@ export function BookingFlow({
                 onClick={onNext}
                 disabled={isSubmitting}
                 className={cn(
+                  studentBtnPrimary,
                   !canProceed && 'opacity-50 cursor-not-allowed'
                 )}
               >
@@ -155,6 +158,7 @@ export function BookingFlow({
               </Button>
             ) : (
               <Button
+                className={studentBtnPrimary}
                 onClick={onConfirm}
                 disabled={!canProceed || isSubmitting}
               >
@@ -186,6 +190,7 @@ export function BookingFlow({
                 {!isFirstStep && (
                   <Button
                     variant="outline"
+                    className={studentBtnOutline}
                     onClick={onBack}
                     disabled={isSubmitting}
                   >
@@ -198,6 +203,7 @@ export function BookingFlow({
                     onClick={onNext}
                     disabled={isSubmitting}
                     className={cn(
+                      studentBtnPrimary,
                       !canProceed && 'opacity-50 cursor-not-allowed'
                     )}
                   >
@@ -205,6 +211,7 @@ export function BookingFlow({
                   </Button>
                 ) : (
                   <Button
+                    className={studentBtnPrimary}
                     onClick={onConfirm}
                     disabled={!canProceed || isSubmitting}
                   >

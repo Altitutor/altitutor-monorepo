@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   addDays,
@@ -27,11 +27,14 @@ import {
   CardTitle,
   Skeleton,
 } from '@altitutor/ui';
+import { formatSessionDate } from '@altitutor/shared';
 import type { StudentSessionWithStaff } from '@/shared/api/sessions';
-import { useStudentSessions } from '@/shared/hooks/useStudentSessions';
+import { useRecentSessionTutorLogDashboard, useStudentSessions } from '@/shared/hooks';
+import { TopicFilesList } from '@/features/resources/components/topic-files-list';
+import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { StudentSessionsCard } from '@/shared/components/StudentSessionsCard';
 import { StudentPageContainer } from '@/shared/components/layouts';
-import { studentCardCn } from '@/shared/lib/student-visual';
+import { studentBtnOutline, studentBtnPrimary, studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 
 const SESSION_RANGE_DAYS = 56;
@@ -98,16 +101,45 @@ function DashboardSessionsSkeleton() {
   );
 }
 
+function RecentSessionCardSkeleton() {
+  return (
+    <Card className={studentCardCn('overflow-hidden')}>
+      <CardHeader className="space-y-2">
+        <Skeleton className="h-5 w-48" />
+        <Skeleton className="h-4 w-full max-w-lg" />
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <Skeleton className="h-16 w-full rounded-lg" />
+        <Skeleton className="h-16 w-full rounded-lg" />
+      </CardContent>
+    </Card>
+  );
+}
+
+function resourceTopicHref(subjectShort: string, topicCode: string) {
+  return `/resources/${encodeURIComponent(subjectShort)}/${encodeURIComponent(topicCode)}`;
+}
+
+function resourceFileHref(subjectShort: string, topicCode: string, fileCode: string) {
+  return `/resources/${encodeURIComponent(subjectShort)}/${encodeURIComponent(topicCode)}/${encodeURIComponent(fileCode.toLowerCase())}`;
+}
+
 export interface StudentDashboardHomeProps {
   firstName: string | null;
 }
 
 export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
+  const [dashboardSessionId, setDashboardSessionId] = useState<string | null>(null);
   const today = useMemo(() => new Date(), []);
   const rangeStart = format(today, 'yyyy-MM-dd');
   const rangeEnd = format(addDays(today, SESSION_RANGE_DAYS), 'yyyy-MM-dd');
 
   const { data: sessions, isLoading, isError } = useStudentSessions(rangeStart, rangeEnd);
+  const {
+    data: recentTutorLog,
+    isLoading: recentTutorLogLoading,
+    isError: recentTutorLogError,
+  } = useRecentSessionTutorLogDashboard();
 
   const { todaysSessions, nextSession } = useMemo((): {
     todaysSessions: StudentSessionWithStaff[];
@@ -174,7 +206,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <Button asChild variant="outline" size="sm">
+                <Button asChild variant="outline" size="sm" className={studentBtnOutline}>
                   <Link href="/classes">Go to classes</Link>
                 </Button>
               </CardContent>
@@ -201,7 +233,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
                     asChild
                     variant="outline"
                     size="sm"
-                    className="shrink-0 rounded-xl border-0 bg-muted/80 shadow-sm ring-1 ring-black/[0.06] hover:bg-muted dark:ring-white/10"
+                    className={cn(studentBtnOutline, 'shrink-0')}
                   >
                     <Link href="/classes" className="gap-2">
                       Full timetable
@@ -219,6 +251,11 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
                           session={session}
                           staff={session.staff}
                           students={session.students}
+                          onClick={
+                            session.session_id
+                              ? () => setDashboardSessionId(session.session_id)
+                              : undefined
+                          }
                         />
                       </li>
                     ))}
@@ -235,7 +272,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
                         and calendar always live under Classes.
                       </p>
                     </div>
-                    <Button asChild>
+                    <Button asChild className={studentBtnPrimary}>
                       <Link href="/classes">View classes</Link>
                     </Button>
                   </div>
@@ -244,6 +281,108 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
             </Card>
           )}
         </section>
+
+        {(recentTutorLogLoading || recentTutorLog) && !recentTutorLogError ? (
+        <section aria-labelledby="recent-session-heading" className="space-y-4">
+          <div className="mb-4 flex items-center gap-2">
+            <h2 id="recent-session-heading" className="text-2xl font-semibold">
+              Recent session
+            </h2>
+          </div>
+
+          {recentTutorLogLoading ? (
+            <RecentSessionCardSkeleton />
+          ) : recentTutorLog ? (
+            <Card className={studentCardCn('overflow-hidden')}>
+              <CardHeader className="pb-4">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex gap-3">
+                    <div
+                      className={cn(
+                        'flex h-11 w-11 shrink-0 items-center justify-center rounded-xl',
+                        'bg-brand-darkBlue/10 text-brand-darkBlue dark:bg-brand-lightBlue/15 dark:text-brand-lightBlue',
+                      )}
+                    >
+                      <CalendarDays className="h-5 w-5" aria-hidden />
+                    </div>
+                    <div className="min-w-0">
+                      <CardTitle className="text-xl leading-snug">{recentTutorLog.sessionTitle}</CardTitle>
+                      <CardDescription className="mt-1.5">
+                        {recentTutorLog.session.start_at
+                          ? formatSessionDate(recentTutorLog.session.start_at)
+                          : 'Past session'}
+                        {recentTutorLog.session.subject_short_name ? (
+                          <span className="text-muted-foreground">
+                            {' '}
+                            · {recentTutorLog.session.subject_short_name}
+                          </span>
+                        ) : null}
+                      </CardDescription>
+                    </div>
+                  </div>
+                  <Button
+                    asChild
+                    variant="outline"
+                    size="sm"
+                    className={cn(studentBtnOutline, 'shrink-0')}
+                  >
+                    <Link href="/classes" className="gap-2">
+                      Timetable
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-6 pt-0">
+                {recentTutorLog.tutorLogResources.topicSections.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    No topics or files were linked to you in this session&apos;s log.
+                  </p>
+                ) : (
+                  <ul className="space-y-8">
+                    {recentTutorLog.tutorLogResources.topicSections.map((section) => {
+                      const short = section.subjectShortName.trim();
+                      const topicHref =
+                        short && section.code !== '—' ? resourceTopicHref(short, section.code) : null;
+                      const getFileHref = (fileCode: string) =>
+                        short && section.code !== '—'
+                          ? resourceFileHref(short, section.code, fileCode)
+                          : '#';
+
+                      return (
+                        <li key={section.topicId} className="space-y-3">
+                          <div className="flex items-start justify-between gap-3">
+                            <p className="min-w-0 flex-1 text-base font-semibold text-foreground">
+                              <span className="line-clamp-2">
+                                {section.code} · {section.name}
+                              </span>
+                            </p>
+                            {topicHref ? (
+                              <Button
+                                asChild
+                                variant="outline"
+                                size="sm"
+                                className={cn(studentBtnOutline, 'shrink-0')}
+                              >
+                                <Link href={topicHref}>Go to topic</Link>
+                              </Button>
+                            ) : null}
+                          </div>
+                          <TopicFilesList
+                            files={section.files}
+                            getFileHref={getFileHref}
+                            fileTypeHeadingClassName="mb-2 text-base font-semibold text-foreground"
+                          />
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+          ) : null}
+        </section>
+        ) : null}
 
         <section aria-labelledby="quick-links-heading" className="space-y-4">
           <div className="mb-4 flex items-center gap-2">
@@ -296,6 +435,12 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
           </ul>
         </section>
       </StudentPageContainer>
+
+      <SessionModal
+        isOpen={dashboardSessionId !== null}
+        sessionId={dashboardSessionId}
+        onClose={() => setDashboardSessionId(null)}
+      />
     </div>
   );
 }

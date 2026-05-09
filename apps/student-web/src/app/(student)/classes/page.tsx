@@ -8,6 +8,8 @@ import { BookDraftingSessionModal } from '@/features/bookings/components/BookDra
 import { Button } from '@altitutor/ui';
 import { PenTool, CalendarX } from 'lucide-react';
 import { StudentPageContainer } from '@/shared/components/layouts';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 export default function ClassesPage() {
   const searchParams = useSearchParams();
@@ -32,14 +34,14 @@ export default function ClassesPage() {
         <div>
           <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap">
             <Button
-              className="shrink-0 rounded-xl shadow-sm transition-all duration-300 sm:w-auto"
+              className={cn(studentBtnPrimary, 'shrink-0 sm:w-auto')}
               onClick={() => setIsBookingModalOpen(true)}
             >
               <PenTool className="mr-2 h-4 w-4" />
               Book a Drafting Session
             </Button>
             <Button
-              className="rounded-xl transition-all duration-300 sm:w-auto"
+              className={cn(studentBtnOutline, 'sm:w-auto')}
               onClick={() => setIsAbsenceModalOpen(true)}
               variant="outline"
             >

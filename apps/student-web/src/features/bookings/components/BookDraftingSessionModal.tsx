@@ -21,7 +21,14 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
 import { cn, getErrorMessage } from '@/shared/utils';
-import { studentCardCn, studentModalFooter, studentModalHairline, studentModalShell } from '@/shared/lib/student-visual';
+import {
+  studentBtnOutline,
+  studentBtnPrimary,
+  studentCardCn,
+  studentModalFooter,
+  studentModalHairline,
+  studentModalShell,
+} from '@/shared/lib/student-visual';
 import { useSessionDurationMinutes } from '../hooks/useBookingSettings';
 export interface BookDraftingSessionModalProps {
   isOpen: boolean;
@@ -519,7 +526,7 @@ export function BookDraftingSessionModal({
               <div className="flex gap-2">
                 {!isFirstStep && (
                   <Button
-                    className="rounded-xl transition-all duration-300"
+                    className={studentBtnOutline}
                     variant="outline"
                     onClick={handleBack}
                     disabled={isSubmitting}
@@ -531,7 +538,7 @@ export function BookDraftingSessionModal({
               <div className="flex gap-2">
                 {currentStep === 2 ? (
                   <Button
-                    className="rounded-xl transition-all duration-300"
+                    className={studentBtnPrimary}
                     onClick={handleConfirmBooking}
                     disabled={isSubmitting || !selectedSlot || !selectedSubjectId}
                   >
@@ -546,7 +553,7 @@ export function BookDraftingSessionModal({
                   </Button>
                 ) : (
                   <Button
-                    className="rounded-xl transition-all duration-300"
+                    className={studentBtnPrimary}
                     onClick={handleNext}
                     disabled={
                       isSubmitting ||
@@ -564,7 +571,7 @@ export function BookDraftingSessionModal({
 
         {bookingSuccess && (
           <div className={cn(studentModalFooter, 'justify-end')}>
-            <Button className="w-full rounded-xl transition-all duration-300 sm:w-auto" onClick={handleClose}>
+            <Button className={cn(studentBtnPrimary, 'w-full sm:w-auto')} onClick={handleClose}>
               Close
             </Button>
           </div>

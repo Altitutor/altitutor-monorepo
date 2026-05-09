@@ -8,6 +8,8 @@ import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStri
 import { Loader2, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import type { RegistrationFormValues } from '../validations';
+import { studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 interface RegistrationStep4PaymentMethodProps {
   form: UseFormReturn<RegistrationFormValues>;
@@ -272,7 +274,7 @@ function PaymentForm({
       <Button
         type="submit"
         disabled={isProcessing || !stripe || !elements}
-        className="w-full"
+        className={cn(studentBtnPrimary, 'w-full')}
       >
         {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
         {isProcessing ? 'Verifying...' : 'Add & Verify Payment Method'}

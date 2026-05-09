@@ -1,6 +1,7 @@
 'use client';
 
 import { Button } from '@altitutor/ui';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -16,10 +17,10 @@ export function StudentExistsError() {
         </p>
       </div>
       <div className="flex gap-3 justify-center">
-        <Button onClick={() => router.push('/login')}>
+        <Button className={studentBtnPrimary} onClick={() => router.push('/login')}>
           Log In
         </Button>
-        <Button variant="outline" asChild>
+        <Button variant="outline" className={studentBtnOutline} asChild>
           <Link href="https://altitutor.com/contact-us" target="_blank">
             Contact Us
           </Link>

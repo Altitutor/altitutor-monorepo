@@ -13,6 +13,7 @@ import { PhoneInput } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Plus, X } from 'lucide-react';
 import type { RegistrationFormValues } from '../validations';
+import { studentBtnOutline } from '@/shared/lib/student-visual';
 
 interface RegistrationStep2ParentDetailsProps {
   form: UseFormReturn<RegistrationFormValues>;
@@ -34,6 +35,7 @@ export function RegistrationStep2ParentDetails({
           type="button"
           variant="outline"
           size="sm"
+          className={studentBtnOutline}
           onClick={() => append({ first_name: '', last_name: '', email: '', phone: '' })}
         >
           <Plus className="h-4 w-4 mr-2" />

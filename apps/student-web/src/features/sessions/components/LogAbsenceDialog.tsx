@@ -21,7 +21,13 @@ import type {
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useCurrentStudentId } from '@/shared/hooks';
 import { cn } from '@/shared/utils';
-import { studentModalFooter, studentModalHairline, studentModalShell } from '@/shared/lib/student-visual';
+import {
+  studentBtnOutline,
+  studentBtnPrimary,
+  studentModalFooter,
+  studentModalHairline,
+  studentModalShell,
+} from '@/shared/lib/student-visual';
 
 type WizardStep = 'select-session' | 'reschedule' | 'confirmation' | 'success' | 'error';
 
@@ -333,7 +339,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
         return (
           <div className={cn(studentModalFooter, 'justify-end')}>
             <Button
-              className="rounded-xl transition-all duration-300"
+              className={studentBtnPrimary}
               onClick={handleProceedToReschedule}
               disabled={!selectedSessionId}
             >
@@ -346,7 +352,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
         return (
           <div className={cn(studentModalFooter)}>
             <Button
-              className="rounded-xl transition-all duration-300"
+              className={studentBtnOutline}
               variant="outline"
               onClick={() => {
                 if (initialSession) {
@@ -360,7 +366,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
               Previous
             </Button>
             <Button
-              className="rounded-xl transition-all duration-300"
+              className={studentBtnPrimary}
               onClick={handleProceedToConfirmation}
               disabled={!selectedTargetSessionId || logAbsencesMutation.isPending}
             >
@@ -382,7 +388,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
         return (
           <div className={cn(studentModalFooter)}>
             <Button
-              className="rounded-xl transition-all duration-300"
+              className={studentBtnOutline}
               variant="outline"
               onClick={() => setStep('reschedule')}
             >
@@ -390,7 +396,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
               Previous
             </Button>
             <Button
-              className="rounded-xl transition-all duration-300"
+              className={studentBtnPrimary}
               onClick={handleConfirmAndSubmit}
               disabled={logAbsencesMutation.isPending}
             >
@@ -408,7 +414,7 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
       case 'success':
         return (
           <div className={cn(studentModalFooter, 'justify-end')}>
-            <Button className="rounded-xl transition-all duration-300" onClick={onClose}>
+            <Button className={studentBtnPrimary} onClick={onClose}>
               Close
             </Button>
           </div>
@@ -417,14 +423,14 @@ export function LogAbsenceDialog({ isOpen, onClose, initialSession }: LogAbsence
         return (
           <div className={cn(studentModalFooter)}>
             <Button
-              className="rounded-xl transition-all duration-300"
+              className={studentBtnOutline}
               variant="outline"
               onClick={() => setStep('confirmation')}
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
-            <Button className="rounded-xl transition-all duration-300" onClick={onClose}>
+            <Button className={studentBtnPrimary} onClick={onClose}>
               Close
             </Button>
           </div>

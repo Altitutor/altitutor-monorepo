@@ -46,3 +46,18 @@ export const studentModalInsetCard =
 /** Footer strip for wizard dialogs. */
 export const studentModalFooter =
   'flex shrink-0 items-center justify-between gap-3 bg-muted/30 px-6 py-4 dark:bg-white/[0.04]';
+
+/**
+ * Use on `Button` with `variant="outline"` for header-aligned secondary actions (matches tutor-web shell).
+ * (`border-0` drops the default outline border in favor of ring + soft fill.)
+ */
+export const studentBtnOutline = cn(
+  studentTransition,
+  'rounded-xl border-0 bg-muted/80 shadow-sm ring-1 ring-black/[0.06] hover:bg-muted dark:ring-white/10',
+);
+
+/** Primary buttons — consistent radius + shadow */
+export const studentBtnPrimary = cn(studentTransition, 'rounded-xl shadow-sm');
+
+/** Icon-only outline control (notifications, theme, compact toolbars) */
+export const studentBtnIconOutline = cn(studentBtnOutline, 'size-9 shrink-0');

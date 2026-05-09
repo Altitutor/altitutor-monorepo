@@ -9,6 +9,7 @@ import { useCreateSetupIntent } from '../hooks/usePaymentMethods';
 import { useToast } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import type { BillingData, PaymentMethodData } from '../api/payment-methods';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 
 // Use pre-loaded Stripe instance from usePreWarmBilling
 // This ensures Stripe.js is already loaded when modal opens
@@ -204,6 +205,7 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
         <Button
           type="button"
           variant="outline"
+          className={studentBtnOutline}
           onClick={onCancel}
           disabled={isProcessing}
         >
@@ -211,6 +213,7 @@ function PaymentForm({ onSuccess, onCancel, clientSecret, studentId }: {
         </Button>
         <Button
           type="submit"
+          className={studentBtnPrimary}
           disabled={isProcessing || !stripe || !elements}
         >
           {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

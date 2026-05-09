@@ -17,6 +17,7 @@ import { RegistrationStep3Availability } from './RegistrationStep3Availability';
 import { RegistrationStep4Password } from './RegistrationStep4Password';
 import { RegistrationStep4PaymentMethod } from './RegistrationStep4PaymentMethod';
 import { RegistrationStep5Confirm } from './RegistrationStep5Confirm';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 
 interface RegistrationFlowProps {
   token: string;
@@ -446,6 +447,7 @@ export function RegistrationFlow({
               {!isFirstStep && (
                 <Button
                   variant="outline"
+                  className={studentBtnOutline}
                   onClick={handleBack}
                   disabled={isSubmitting}
                 >
@@ -455,6 +457,7 @@ export function RegistrationFlow({
               <div className="flex-1" />
               {!isLastStep ? (
                 <Button
+                  className={studentBtnPrimary}
                   onClick={handleNext}
                   disabled={isSubmitting}
                 >
@@ -462,6 +465,7 @@ export function RegistrationFlow({
                 </Button>
               ) : (
                 <Button
+                  className={studentBtnPrimary}
                   onClick={handleSubmit}
                   disabled={isSubmitting}
                 >

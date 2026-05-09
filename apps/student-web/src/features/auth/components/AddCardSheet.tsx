@@ -15,6 +15,8 @@ import {
 } from '@altitutor/ui';
 import { CreditCard, Loader2 } from 'lucide-react';
 import { paymentMethodsApi } from '@/shared/api';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 // Initialize Stripe outside of component to avoid recreating on every render
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
@@ -81,7 +83,7 @@ function AddCardForm({ studentId: _studentId, onSuccess, onClose }: AddCardSheet
     <form onSubmit={handleSubmit} className="space-y-4">
       <PaymentElement />
       <div className="flex gap-2">
-        <Button type="submit" disabled={!stripe || loading} className="flex-1">
+        <Button type="submit" disabled={!stripe || loading} className={cn(studentBtnPrimary, 'flex-1')}>
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -91,7 +93,13 @@ function AddCardForm({ studentId: _studentId, onSuccess, onClose }: AddCardSheet
             'Add Card'
           )}
         </Button>
-        <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+        <Button
+          type="button"
+          variant="outline"
+          className={studentBtnOutline}
+          onClick={onClose}
+          disabled={loading}
+        >
           Cancel
         </Button>
       </div>
@@ -136,7 +144,7 @@ export function AddCardSheet({ studentId, onSuccess }: AddCardSheetProps) {
   return (
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button className="w-full">
+        <Button className={cn(studentBtnPrimary, 'w-full')}>
           <CreditCard className="mr-2 h-4 w-4" />
           Add Payment Method
         </Button>

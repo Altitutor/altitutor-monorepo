@@ -8,6 +8,7 @@ import { cn } from '@/shared/utils/index';
 import { StudentSessionsCard } from './StudentSessionsCard';
 import { SessionModal } from './SessionModal';
 import { Button } from "@altitutor/ui";
+import { studentBtnOutline } from '@/shared/lib/student-visual';
 
 export function StudentSessionsCalendarView() {
   const [anchor, setAnchor] = useState<Date>(new Date());
@@ -70,11 +71,11 @@ export function StudentSessionsCalendarView() {
   return (
     <div className="flex flex-col">
       <div className="flex gap-2 justify-end mb-3">
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, -7))}>
+        <Button variant="outline" className={studentBtnOutline} onClick={() => setAnchor(addDays(anchor, -7))}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <Button variant="outline" onClick={() => setAnchor(new Date())}>Today</Button>
-        <Button variant="outline" onClick={() => setAnchor(addDays(anchor, 7))}>
+        <Button variant="outline" className={studentBtnOutline} onClick={() => setAnchor(new Date())}>Today</Button>
+        <Button variant="outline" className={studentBtnOutline} onClick={() => setAnchor(addDays(anchor, 7))}>
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>

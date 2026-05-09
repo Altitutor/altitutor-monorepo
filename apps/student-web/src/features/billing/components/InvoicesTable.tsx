@@ -4,7 +4,13 @@ import { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, TablePagination } from '@altitutor/ui';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
-import { studentTableBodyRow, studentTableHeaderRow, studentTableShell } from '@/shared/lib/student-visual';
+import {
+  studentBtnOutline,
+  studentBtnPrimary,
+  studentTableBodyRow,
+  studentTableHeaderRow,
+  studentTableShell,
+} from '@/shared/lib/student-visual';
 import { formatAmount, getInvoiceTotalAmount, isInvoiceOverdue } from '../utils/invoiceDisplay';
 
 function getSessionDisplayName(
@@ -166,7 +172,7 @@ export function InvoicesTable() {
                     <div className="flex flex-wrap gap-2">
                       {invoice.hosted_invoice_url &&
                         (invoice.status === 'open' ? (
-                          <Button variant="default" size="sm" asChild>
+                          <Button variant="default" size="sm" className={studentBtnPrimary} asChild>
                             <a
                               href={invoice.hosted_invoice_url}
                               target="_blank"
@@ -176,7 +182,7 @@ export function InvoicesTable() {
                             </a>
                           </Button>
                         ) : (
-                          <Button variant="outline" size="sm" asChild>
+                          <Button variant="outline" size="sm" className={studentBtnOutline} asChild>
                             <a
                               href={invoice.hosted_invoice_url}
                               target="_blank"

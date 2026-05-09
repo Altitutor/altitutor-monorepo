@@ -7,6 +7,8 @@ import { Button } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 
 function ResetPasswordContent() {
   const [isLoading, setIsLoading] = useState(true);
@@ -76,10 +78,17 @@ function ResetPasswordContent() {
             </AlertDescription>
           </Alert>
           <div className="flex flex-col gap-2">
-            <Button asChild variant="default" className="w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90">
+            <Button
+              asChild
+              variant="default"
+              className={cn(
+                studentBtnPrimary,
+                'w-full bg-brand-darkBlue hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-white dark:hover:bg-brand-lightBlue/90',
+              )}
+            >
               <Link href="/forgot-password">Request New Reset</Link>
             </Button>
-            <Button asChild variant="outline" className="w-full">
+            <Button asChild variant="outline" className={cn(studentBtnOutline, 'w-full')}>
               <Link href="/login">Back to Login</Link>
             </Button>
           </div>

@@ -11,6 +11,7 @@ import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, cn } fro
 import { VENUE_ADDRESS, CONTACT_PHONE, CONTACT_EMAIL } from '@/shared/constants';
 import { downloadCalendarEvent } from '@/shared/utils/calendar';
 import type { Tables } from '@altitutor/shared';
+import { studentBtnOutline } from '@/shared/lib/student-visual';
 
 // Dynamically import VenueMap to avoid SSR issues with Leaflet
 const VenueMap = dynamic(() => import('@/shared/components/VenueMap').then(mod => ({ default: mod.VenueMap })), {
@@ -276,6 +277,7 @@ export default function BookingSuccessPage() {
                 onClick={() => downloadCalendarEvent(bookingData)}
                 variant="outline"
                 size="sm"
+                className={studentBtnOutline}
               >
                 <Calendar className="h-4 w-4 mr-2" />
                 Add to Calendar

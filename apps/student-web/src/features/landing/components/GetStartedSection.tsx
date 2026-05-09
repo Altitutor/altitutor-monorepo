@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { Button } from '@altitutor/ui';
+import { studentBtnPrimary } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
 import { SectionWrapper } from './SectionWrapper';
 import { ArrowRight } from 'lucide-react';
 
@@ -31,7 +33,7 @@ export function GetStartedSection({ isLoggedIn }: GetStartedSectionProps) {
                 <p className="text-landing-dark-grey dark:text-muted-foreground mb-6">
                   Welcome back! Access your courses, assignments, and resources from your dashboard.
                 </p>
-                <Button className="w-full md:w-auto" variant="default">
+                <Button className={cn(studentBtnPrimary, 'w-full md:w-auto')} variant="default">
                   Go to Dashboard
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -56,7 +58,7 @@ export function GetStartedSection({ isLoggedIn }: GetStartedSectionProps) {
                 If you&apos;re interested in becoming a student, click here to book a{' '}
                 <strong>free trial session</strong> at our office in the Adelaide CBD.
               </p>
-              <Button className="w-full md:w-auto" variant="default">
+              <Button className={cn(studentBtnPrimary, 'w-full md:w-auto')} variant="default">
                 Book a trial session
                 <ArrowRight className="ml-2 h-4 w-4" />
               </Button>
@@ -74,7 +76,7 @@ export function GetStartedSection({ isLoggedIn }: GetStartedSectionProps) {
             <p className="text-landing-dark-grey dark:text-muted-foreground mb-6">
               Your account will be created upon enrolment of your first course.
             </p>
-            <Button className="w-full md:w-auto" variant="default" disabled>
+            <Button className={cn(studentBtnPrimary, 'w-full md:w-auto')} variant="default" disabled>
               Coming soon
             </Button>
           </div>

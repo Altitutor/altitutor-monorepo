@@ -13,7 +13,12 @@ import { Button } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
 import { formatDateTime } from '@/shared/utils';
-import { studentTableBodyRow, studentTableHeaderRow, studentTableShell } from '@/shared/lib/student-visual';
+import {
+  studentBtnOutline,
+  studentTableBodyRow,
+  studentTableHeaderRow,
+  studentTableShell,
+} from '@/shared/lib/student-visual';
 
 type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
 
@@ -117,8 +122,9 @@ export function PaymentHistoryTable() {
                 <div className="flex gap-2">
                   {invoice.receipt_url && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className={studentBtnOutline}
                       asChild
                     >
                       <a 
@@ -133,8 +139,9 @@ export function PaymentHistoryTable() {
                   )}
                   {invoice.hosted_invoice_url && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className={studentBtnOutline}
                       asChild
                     >
                       <a 
@@ -149,8 +156,9 @@ export function PaymentHistoryTable() {
                   )}
                   {invoice.invoice_pdf && (
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
+                      className={studentBtnOutline}
                       asChild
                     >
                       <a 
