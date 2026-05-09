@@ -15463,6 +15463,7 @@ export type Database = {
         Args: {
           p_limit?: number
           p_offset?: number
+          p_root_only?: boolean
           p_search?: string
           p_subject_ids?: string[]
         }
