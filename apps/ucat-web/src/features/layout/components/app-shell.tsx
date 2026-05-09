@@ -75,6 +75,11 @@ export function AppShell({ children }: AppShellProps) {
     return <div className="p-6 text-sm text-muted-foreground">Loading...</div>;
   }
 
+  // Subscribe page gets its own full-page marketing layout — no sidebar/nav shell
+  if (isPublicSubscribeRoute) {
+    return <>{children}</>;
+  }
+
   const sidebarExpanded = isMobile ? mobileOpen : !collapsed;
   const comingSoonPath = isComingSoon(pathname);
 

@@ -1,24 +1,27 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { TOKENS } from "./shared";
+import { MARKETING_TOKENS } from "@altitutor/shared";
+import { useEffect, useState } from "react";
 
 const SECTION_ITEMS = [
-  { id: "mission", label: "Mission" },
-  { id: "resources", label: "Resources" },
-  { id: "ucat", label: "UCAT" },
-  { id: "community", label: "Community" },
-  { id: "ecosystem", label: "Get Started" },
+  { id: "systems", label: "Systems" },
+  { id: "methodology", label: "Methodology" },
+  { id: "pricing", label: "Pricing" },
 ] as const;
+const { typography: typo } = MARKETING_TOKENS;
 
-export function ScrollIndicatorV2() {
+type SectionEntry = {
+  id: string;
+  label: string;
+  element: HTMLElement;
+};
+
+export function UcatLandingScrollIndicator() {
   const [sections, setSections] = useState<{ id: string; label: string }[]>([]);
   const [activeSection, setActiveSection] = useState("");
 
   useEffect(() => {
-    const elements = SECTION_ITEMS.reduce<
-      Array<{ id: string; label: string; element: HTMLElement }>
-    >((acc, { id, label }) => {
+    const elements: SectionEntry[] = SECTION_ITEMS.reduce<SectionEntry[]>((acc, { id, label }) => {
       const element = document.getElementById(id);
       if (element) {
         acc.push({ id, label, element });
@@ -59,7 +62,7 @@ export function ScrollIndicatorV2() {
   if (sections.length === 0) return null;
 
   return (
-    <div className="fixed right-6 top-1/2 -translate-y-1/2 z-50 flex flex-col gap-4 mix-blend-difference hidden md:flex">
+    <div className="fixed right-6 top-1/2 z-50 hidden -translate-y-1/2 flex-col gap-4 mix-blend-difference md:flex">
       {sections.map(({ id, label }) => (
         <button
           key={id}
@@ -69,13 +72,15 @@ export function ScrollIndicatorV2() {
           onClick={() => scrollToSection(id)}
         >
           <span
-            className={`absolute right-6 mr-2 opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:mr-4 uppercase tracking-widest text-[10px] text-white whitespace-nowrap drop-shadow-md ${TOKENS.typography.dataMono}`}
+            className={`absolute right-6 mr-2 whitespace-nowrap text-[10px] uppercase tracking-widest text-white opacity-0 drop-shadow-md transition-all duration-300 group-hover:mr-4 group-hover:opacity-100 ${typo.dataMono}`}
           >
             {label}
           </span>
           <div
-            className={`h-2 rounded-full transition-all duration-300 bg-white ${
-              activeSection === id ? "w-6 opacity-100" : "w-2 opacity-40 hover:opacity-80 hover:w-4"
+            className={`h-2 rounded-full bg-white transition-all duration-300 ${
+              activeSection === id
+                ? "w-6 opacity-100"
+                : "w-2 opacity-40 hover:w-4 hover:opacity-80"
             }`}
           />
         </button>

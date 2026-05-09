@@ -31,6 +31,7 @@ export function PhilosophySectionV2() {
   return (
     <section
       ref={containerRef}
+      id="mission"
       className="relative z-20 -mt-10 flex min-h-dvh w-full flex-col justify-center overflow-hidden rounded-b-[3rem] rounded-t-none bg-[#1A1A1A] py-40 text-[#F2F0E9] shadow-2xl"
     >
       <div className="absolute inset-0 z-0 opacity-10">

@@ -27,7 +27,7 @@ export function HeroSectionV2() {
   return (
     <section
       ref={containerRef}
-      className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden rounded-b-[3rem] bg-[#1A1A1A]"
+      className="relative z-30 flex min-h-[100dvh] w-full flex-col overflow-hidden rounded-b-[3rem] bg-[#1A1A1A] shadow-[0_24px_60px_rgba(0,0,0,0.45)]"
     >
       {/* Background Image & Gradient */}
       <div className="absolute inset-0 z-0 opacity-70">
@@ -86,7 +86,7 @@ export function HeroSectionV2() {
                   Log in to Portal <ArrowRight className="h-5 w-5" />
                 </MagneticButton>
               </Link>
-              <Link href="#pricing" className="w-full sm:w-auto">
+              <Link href="#ecosystem" className="w-full sm:w-auto">
                 <MagneticButton className="w-full border border-[#F2F0E9]/30 bg-transparent px-6 py-3 text-base font-medium tracking-wide text-[#F2F0E9] hover:bg-[#F2F0E9]/10 sm:w-auto sm:px-8 sm:py-4 sm:text-lg">
                   Get Started <ArrowRight className="h-5 w-5" />
                 </MagneticButton>

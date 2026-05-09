@@ -48,7 +48,7 @@ export function UcatLandingNavbar() {
           Sign In
         </Link>
       </div>
-      <Link href="/subscribe">
+      <Link href="/signup">
         <MagneticButton
           className={`px-6 py-2 text-sm font-medium ${
             scrolled

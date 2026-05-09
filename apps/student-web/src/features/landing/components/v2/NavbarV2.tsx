@@ -6,6 +6,12 @@ import Link from "next/link";
 
 export function NavbarV2() {
   const [scrolled, setScrolled] = useState(false);
+  const navItems = [
+    { label: "Mission", id: "mission" },
+    { label: "Resources", id: "resources" },
+    { label: "Community", id: "community" },
+    { label: "Get Started", id: "ecosystem" },
+  ] as const;
 
   useEffect(() => {
     const handleScroll = () => {
@@ -14,6 +20,16 @@ export function NavbarV2() {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
+
+  const scrollToSection = (sectionId: string): void => {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+
+    const navbarOffset = 120;
+    const y = section.getBoundingClientRect().top + window.scrollY - navbarOffset;
+    window.history.replaceState(null, "", `#${sectionId}`);
+    window.scrollTo({ top: y, behavior: "smooth" });
+  };
 
   return (
     <nav
@@ -31,21 +47,16 @@ export function NavbarV2() {
       <div
         className={`hidden md:flex gap-8 text-sm tracking-wide ${TOKENS.typography.secondarySans}`}
       >
-        {["Features", "Protocol", "Community"].map((item) => (
-          <Link
-            key={item}
-            href={`#${item.toLowerCase()}`}
+        {navItems.map((item) => (
+          <button
+            key={item.id}
+            type="button"
             className="transition-transform hover:-translate-y-[1px] opacity-80 hover:opacity-100"
+            onClick={() => scrollToSection(item.id)}
           >
-            {item}
-          </Link>
+            {item.label}
+          </button>
         ))}
-        <Link
-          href="/login"
-          className="transition-transform hover:-translate-y-[1px] opacity-80 hover:opacity-100"
-        >
-          Login
-        </Link>
       </div>
       <div className="flex gap-4">
         <Link href="/booking/trial-session">

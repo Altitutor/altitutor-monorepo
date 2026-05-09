@@ -1,4 +1,4 @@
-import { SignupForm, LoginPageLayout } from "@/features/auth";
+import { SignupForm } from "@/features/auth";
 
 type PageProps = {
   searchParams: Promise<{ redirect?: string }>;
@@ -10,9 +10,5 @@ export default async function SignupPage({ searchParams }: PageProps) {
     params.redirect && params.redirect.startsWith("/")
       ? params.redirect
       : "/subscribe";
-  return (
-    <LoginPageLayout>
-      <SignupForm redirectTo={redirectTo} />
-    </LoginPageLayout>
-  );
+  return <SignupForm redirectTo={redirectTo} />;
 }

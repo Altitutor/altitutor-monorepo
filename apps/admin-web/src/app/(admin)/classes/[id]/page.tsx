@@ -285,6 +285,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
         <TabsContent value="staff" className="space-y-6">
           <ClassStaffTab
             classData={classData}
+            classSubject={subject || undefined}
             classStaff={classStaff}
             allStaff={allStaffData}
             loadingStaff={false}

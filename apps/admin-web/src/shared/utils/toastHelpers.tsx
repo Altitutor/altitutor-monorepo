@@ -19,6 +19,15 @@ interface EntityCreatedToastParams {
   message?: string;
 }
 
+function getEntityAction(entityType: EntityType, entityId: string, router: AppRouterInstance): () => void {
+  if (entityType === 'class') {
+    return () => {
+      window.dispatchEvent(new CustomEvent('open-class-modal', { detail: { id: entityId } }));
+    };
+  }
+  return () => router.push(getEntityHref(entityType, entityId));
+}
+
 function getEntityHref(entityType: EntityType, entityId: string): string {
   switch (entityType) {
     case 'student':
@@ -52,8 +61,8 @@ function getEntityLabel(entityType: EntityType): string {
 export function showEntityCreatedToast(params: EntityCreatedToastParams): void {
   const { toast, router, entityType, entityId, message } = params;
 
-  const href = getEntityHref(entityType, entityId);
   const label = getEntityLabel(entityType);
+  const action = getEntityAction(entityType, entityId, router);
   const defaultMessage =
     message ??
     (entityType === 'student'
@@ -73,7 +82,7 @@ export function showEntityCreatedToast(params: EntityCreatedToastParams): void {
           variant="link"
           size="sm"
           className="h-auto p-0"
-          onClick={() => router.push(href)}
+          onClick={action}
         >
           {label}
         </Button>
