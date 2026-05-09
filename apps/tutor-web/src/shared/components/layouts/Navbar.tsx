@@ -23,6 +23,7 @@ import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
 import { TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 import { cn } from '@/shared/utils';
+import { tutorBtnOutline } from '@/shared/lib/tutor-visual';
 
 export function Navbar() {
   const router = useRouter();
@@ -101,7 +102,7 @@ export function Navbar() {
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex h-9 items-center gap-2">
+                <Button variant="outline" className={cn(tutorBtnOutline, 'flex h-9 items-center gap-2')}>
                   <div className="h-6 w-6 rounded-full bg-brand-lightBlue dark:bg-brand-lightBlue flex items-center justify-center text-brand-dark-bg font-medium text-xs">
                     {getInitials()}
                   </div>
@@ -129,7 +130,7 @@ export function Navbar() {
               </DropdownMenuContent>
             </DropdownMenu>
           ) : (
-            <Button variant="outline" asChild>
+            <Button variant="outline" className={tutorBtnOutline} asChild>
               <Link href="/login">Login</Link>
             </Button>
           )}

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { Button, Skeleton } from '@altitutor/ui'
-import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { tutorBtnIconOutline, tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
 
 export function UcatAccessDenied() {
@@ -14,7 +14,7 @@ export function UcatAccessDenied() {
         Your profile does not include the UCAT subject. Ask an administrator if you need access.
       </p>
       <div className="mt-4">
-        <Button asChild variant="outline">
+        <Button asChild variant="outline" className={tutorBtnOutline}>
           <Link href="/dashboard">Back to Dashboard</Link>
         </Button>
       </div>
@@ -73,7 +73,7 @@ export function UcatPageHeader({
       <div className="mb-6 flex items-start justify-between gap-4">
         <div className="flex items-start gap-3">
           {backHref ? (
-            <Button asChild variant="outline" size="icon" className="mt-1">
+            <Button asChild variant="outline" size="icon" className={cn('mt-1', tutorBtnIconOutline)}>
               <Link href={backHref} aria-label={backLabel ?? 'Back'}>
                 <ArrowLeft className="h-4 w-4" />
               </Link>

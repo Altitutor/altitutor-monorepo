@@ -5,6 +5,8 @@ import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } 
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical, Minus, Pencil } from 'lucide-react'
 import { Button } from '@altitutor/ui'
+import { cn } from '@/shared/utils'
+import { tutorBtnIconOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
 
 export function UcatSortableList({
   ids,
@@ -74,7 +76,7 @@ export function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className={`rounded border p-3 ${isDragging ? 'opacity-60' : ''}`}
+      className={cn(tutorCardCn('p-3'), isDragging && 'opacity-60')}
     >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -89,7 +91,7 @@ export function SortableRow({
               type="button"
               variant="outline"
               size="icon"
-              className="text-muted-foreground hover:text-foreground"
+              className={cn(tutorBtnIconOutline, 'text-muted-foreground hover:text-foreground')}
               onClick={onEdit}
             >
               <Pencil className="h-4 w-4" />
@@ -99,7 +101,14 @@ export function SortableRow({
             type="button"
             variant={removeButtonVariant === 'destructive' ? 'destructive' : 'outline'}
             size="icon"
-            className={removeButtonVariant === 'outline' ? '!text-destructive border-destructive hover:!text-destructive hover:bg-destructive/10' : undefined}
+            className={
+              removeButtonVariant === 'outline'
+                ? cn(
+                    tutorBtnIconOutline,
+                    '!text-destructive ring-destructive/35 hover:!text-destructive hover:bg-destructive/10',
+                  )
+                : undefined
+            }
             onClick={onRemove}
           >
             <Minus className="h-4 w-4" />

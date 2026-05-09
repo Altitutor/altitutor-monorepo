@@ -89,7 +89,13 @@ import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-d
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { cn } from '@/shared/utils'
-import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
+import {
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorTableBodyRow,
+  tutorTableHeaderRow,
+  tutorTableShell,
+} from '@/shared/lib/tutor-visual'
 
 function truncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text ?? ''
@@ -742,17 +748,21 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           <div className="flex items-center gap-2">
             {mode === 'generated' ? (
               <>
-                <Button variant="outline" onClick={() => setAiImportOpen(true)}>
+                <Button variant="outline" className={tutorBtnOutline} onClick={() => setAiImportOpen(true)}>
                   AI Import
                 </Button>
-                <Button onClick={() => setGenerateOpen(true)}>Generate questions</Button>
+                <Button className={tutorBtnPrimary} onClick={() => setGenerateOpen(true)}>
+                  Generate questions
+                </Button>
               </>
             ) : (
               <>
-                <Button variant="outline" onClick={() => setBulkImportOpen(true)}>
+                <Button variant="outline" className={tutorBtnOutline} onClick={() => setBulkImportOpen(true)}>
                   Bulk Import
                 </Button>
-                <Button onClick={() => setCreateOpen(true)}>Add Question Stem</Button>
+                <Button className={tutorBtnPrimary} onClick={() => setCreateOpen(true)}>
+                  Add Question Stem
+                </Button>
               </>
             )}
           </div>
@@ -781,7 +791,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-center"
+              className={cn(tutorBtnOutline, 'w-full justify-center')}
               onClick={() => {
                 setShowDeleted((prev) => {
                   const next = !prev
@@ -1033,7 +1043,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           searchPlaceholder="Search categories..."
           emptyMessage="No categories found"
           trigger={
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Category
             </Button>
           }
@@ -1059,7 +1069,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           searchPlaceholder="Search..."
           emptyMessage="No options"
           trigger={
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Visibility
             </Button>
           }
@@ -1070,7 +1080,10 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         <Popover open={addToSetsPopoverOpen} onOpenChange={setAddToSetsPopoverOpen}>
           <PopoverTrigger
             type="button"
-            className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border h-9 px-3 hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:border-brand-dark-border dark:text-white dark:hover:bg-brand-dark-card/70 dark:hover:text-white"
+            className={cn(
+              tutorBtnOutline,
+              'inline-flex h-9 items-center justify-center gap-2 px-3 text-sm font-medium hover:bg-brand-lightBlue/10 text-brand-darkBlue dark:hover:bg-brand-dark-card/70 dark:text-white',
+            )}
           >
             Add to sets
           </PopoverTrigger>

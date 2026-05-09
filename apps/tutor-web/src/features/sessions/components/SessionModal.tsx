@@ -9,7 +9,6 @@ import {
   SheetDescription,
   Button,
   SessionInfoGrid,
-  Separator,
   Badge,
   Table,
   TableBody,
@@ -25,12 +24,21 @@ import {
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
-import type { Tables } from '@altitutor/shared';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 import { useSessionNotes } from '../hooks/useSessionNotes';
 import { SessionNotes } from './SessionNotes';
 import { useSessionModalData, type ProcessedStudent, type ProcessedStaff } from '../hooks/useSessionModalData';
+import {
+  tutorBtnOutline,
+  tutorCardCn,
+  tutorModalHairline,
+  tutorSheetContentClass,
+  tutorTableBodyRow,
+  tutorTableHeaderRow,
+  tutorTableShell,
+} from '@/shared/lib/tutor-visual';
+import { cn } from '@/shared/utils';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -101,7 +109,12 @@ export function SessionModal({
   if (isLoading || !session) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent
+          className={cn(
+            'flex h-full max-h-[100dvh] w-full flex-col p-0 md:w-[600px] md:max-w-none',
+            tutorSheetContentClass,
+          )}
+        >
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
               <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
@@ -125,7 +138,12 @@ export function SessionModal({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+      <SheetContent
+        className={cn(
+          'flex h-full max-h-[100dvh] w-full flex-col p-0 md:w-[600px] md:max-w-none',
+          tutorSheetContentClass,
+        )}
+      >
         <div className="flex-1 overflow-y-auto p-6">
           <SheetHeader className="mb-6">
             <div className="flex items-start justify-between gap-4">
@@ -162,7 +180,7 @@ export function SessionModal({
               />
             </div>
 
-            <Separator />
+            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
             {/* Students Section */}
             <div>
@@ -174,10 +192,10 @@ export function SessionModal({
                   No students planned
                 </div>
               ) : (
-                <div className="border rounded-lg overflow-hidden">
+                <div className={tutorTableShell}>
                   <Table>
-                    <TableHeader>
-                      <TableRow>
+                    <TableHeader className="[&_tr]:border-b-0">
+                      <TableRow className={tutorTableHeaderRow}>
                         <TableHead>Student</TableHead>
                         <TableHead>Planned</TableHead>
                         <TableHead>Actual</TableHead>
@@ -185,7 +203,7 @@ export function SessionModal({
                     </TableHeader>
                     <TableBody>
                       {studentsData.map((data: ProcessedStudent) => (
-                        <TableRow key={data.student.id}>
+                        <TableRow key={data.student.id} className={tutorTableBodyRow}>
                           <TableCell className="font-medium">
                             {data.student.first_name} {data.student.last_name}
                           </TableCell>
@@ -203,7 +221,7 @@ export function SessionModal({
               )}
             </div>
 
-            <Separator />
+            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
             {/* Staff Section */}
             <div>
@@ -215,10 +233,10 @@ export function SessionModal({
                   No staff planned
                 </div>
               ) : (
-                <div className="border rounded-lg overflow-hidden">
+                <div className={tutorTableShell}>
                   <Table>
-                    <TableHeader>
-                      <TableRow>
+                    <TableHeader className="[&_tr]:border-b-0">
+                      <TableRow className={tutorTableHeaderRow}>
                         <TableHead>Staff</TableHead>
                         <TableHead>Planned</TableHead>
                         <TableHead>Actual</TableHead>
@@ -227,7 +245,7 @@ export function SessionModal({
                     </TableHeader>
                     <TableBody>
                       {staffData.map((data: ProcessedStaff) => (
-                        <TableRow key={data.staff.id}>
+                        <TableRow key={data.staff.id} className={tutorTableBodyRow}>
                           <TableCell className="font-medium">
                             {data.staff.first_name} {data.staff.last_name}
                           </TableCell>
@@ -258,14 +276,14 @@ export function SessionModal({
               )}
             </div>
 
-            <Separator />
+            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
             {/* Tutor Log Section */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Tutor Log</h3>
                 {!hasTutorLog && sessionId && currentStaffId && onLogSessionClick && (
-                  <Button variant="outline" size="sm" onClick={onLogSessionClick}>
+                  <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={onLogSessionClick}>
                     Add Tutor Log
                   </Button>
                 )}
@@ -280,7 +298,7 @@ export function SessionModal({
                     const topicFiles = (tutorLog.files || []).filter((f) => f.topic_id === topicData.id);
 
                     return (
-                      <div key={topicData.id} className="border rounded-lg p-4 space-y-3">
+                      <div key={topicData.id} className={tutorCardCn('space-y-3 p-4')}>
                         <div className="font-medium">
                           {topicCode ? `${topicCode} ` : ''}{topicName}
                         </div>
@@ -309,7 +327,7 @@ export function SessionModal({
               )}
             </div>
 
-            <Separator />
+            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
             {/* Session Notes Section */}
             {sessionId && (

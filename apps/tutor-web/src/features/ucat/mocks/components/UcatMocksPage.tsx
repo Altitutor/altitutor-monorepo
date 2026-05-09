@@ -46,7 +46,7 @@ import { getMockExamStatus, getSetSectionStatus } from '@/features/ucat/shared/l
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
-import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
 
 type MockRow = {
   id: string
@@ -360,7 +360,11 @@ export function UcatMocksPage() {
         description="Manage full mock exams (ordered sets)"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
-        actions={<Button onClick={() => setOpenCreate(true)}>Add Mock</Button>}
+        actions={
+          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>
+            Add Mock
+          </Button>
+        }
       />
 
       <DataTableToolbar
@@ -381,7 +385,7 @@ export function UcatMocksPage() {
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-center"
+              className={cn(tutorBtnOutline, 'w-full justify-center')}
               onClick={() => {
                 setShowDeleted((prev) => {
                   const next = !prev
@@ -430,7 +434,7 @@ export function UcatMocksPage() {
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Visibility
             </Button>
           </DropdownMenuTrigger>

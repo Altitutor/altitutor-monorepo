@@ -44,7 +44,7 @@ import { useUcatSetsTable, type SetRow } from '@/features/ucat/sets/hooks/useUca
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { cn } from '@/shared/utils'
-import { tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
@@ -310,7 +310,11 @@ export function UcatSetsPage() {
         description="Build and organize UCAT question sets"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Sets' }]}
-        actions={<Button onClick={() => setOpenCreate(true)}>Add Set</Button>}
+        actions={
+          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>
+            Add Set
+          </Button>
+        }
       />
 
       <DataTableToolbar
@@ -335,7 +339,7 @@ export function UcatSetsPage() {
             <Button
               variant="outline"
               size="sm"
-              className="w-full justify-center"
+              className={cn(tutorBtnOutline, 'w-full justify-center')}
               onClick={() => {
                 setShowDeleted((prev) => {
                   const next = !prev
@@ -472,7 +476,7 @@ export function UcatSetsPage() {
           searchPlaceholder="Search..."
           emptyMessage="No options"
           trigger={
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
               Visibility
             </Button>
           }

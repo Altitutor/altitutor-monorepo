@@ -6,6 +6,8 @@ import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import type { AbsenceAction, RescheduleSession } from '../types/absence';
 import { useAvailableRescheduleSessions } from '../hooks';
 import { Calendar, Users, ArrowRight, BookOpen, Minus, Plus } from 'lucide-react';
+import { cn } from '@/shared/utils';
+import { tutorBtnOutline, tutorBtnPrimary } from '@/shared/lib/tutor-visual';
 
 interface AbsenceActionSelectorProps {
   studentId: string;
@@ -133,6 +135,7 @@ export function AbsenceActionSelector({
                 <Button
                   variant="outline"
                   size="sm"
+                  className={tutorBtnOutline}
                   onClick={() => setDateRangeDays(Math.max(1, dateRangeDays - 1))}
                   disabled={dateRangeDays <= 1}
                 >
@@ -144,6 +147,7 @@ export function AbsenceActionSelector({
                 <Button
                   variant="outline"
                   size="sm"
+                  className={tutorBtnOutline}
                   onClick={() => setDateRangeDays(Math.min(28, dateRangeDays + 1))}
                   disabled={dateRangeDays >= 28}
                 >
@@ -238,10 +242,10 @@ export function AbsenceActionSelector({
 
       {/* Actions */}
       <div className="flex gap-3">
-        <Button variant="outline" onClick={onBack} className="flex-1">
+        <Button variant="outline" className={cn(tutorBtnOutline, 'flex-1')} onClick={onBack}>
           Back
         </Button>
-        <Button onClick={handleConfirm} disabled={!canConfirm} className="flex-1">
+        <Button className={cn(tutorBtnPrimary, 'flex-1')} onClick={handleConfirm} disabled={!canConfirm}>
           Confirm Action
         </Button>
       </div>
