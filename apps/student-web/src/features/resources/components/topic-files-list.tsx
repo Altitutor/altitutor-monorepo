@@ -11,9 +11,12 @@ import { studentCardCn } from '@/shared/lib/student-visual';
 export function TopicFilesList({
   files,
   getFileHref,
+  fileTypeHeadingClassName = 'mb-4 text-2xl font-semibold',
 }: {
   files: ResourceFile[];
   getFileHref: (fileCode: string) => string;
+  /** Override for denser layouts (e.g. session sheet). */
+  fileTypeHeadingClassName?: string;
 }) {
   if (!files.length) {
     return <p className="text-sm text-muted-foreground">No files available for this topic.</p>;
@@ -29,7 +32,7 @@ export function TopicFilesList({
         const accentClass = getResourceTypeAccent(type);
         return (
           <section key={type}>
-            <h3 className="mb-4 text-2xl font-semibold">{formatResourceTypeLabel(type)}</h3>
+            <h3 className={cn(fileTypeHeadingClassName)}>{formatResourceTypeLabel(type)}</h3>
             <div className="space-y-3">
               {pairs.map(({ primary, solution }) => (
                 <div
