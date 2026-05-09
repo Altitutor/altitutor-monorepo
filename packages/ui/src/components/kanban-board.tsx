@@ -337,7 +337,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             <Button variant="outline" size="sm" className="mr-auto">
               <LayoutGrid className="h-4 w-4 mr-2" />
               <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
-              <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
+              <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-[200px]">
@@ -397,7 +397,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                   <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
                     Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
+                  <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -441,7 +441,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                   <span className={cn("hidden sm:inline", sortBy === 'name' && "opacity-50")}>
                     Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
                   </span>
-                  <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
+                  <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -510,7 +510,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 <span className={cn("hidden md:inline", activeFilterCount === 0 && "opacity-50")}>
                   Filter {activeFilterCount > 0 && `(${activeFilterCount})`}
                 </span>
-                <ChevronDown className="h-4 w-4 ml-1 md:ml-2" />
+                <ChevronDown className="hidden md:inline h-4 w-4 md:ml-2" />
               </Button>
             </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[260px] max-h-[500px] overflow-hidden flex flex-col">

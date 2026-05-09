@@ -271,6 +271,7 @@ export function ProjectsList({ defaultFilters }: ProjectsListProps = {}) {
         addButtonShowLabel={true}
         emptyMessage="No projects match your filters"
         isLoading={isLoading}
+        noPadding={true}
         filters={filters}
         onFiltersChange={setFilters}
         descriptionConfig={{

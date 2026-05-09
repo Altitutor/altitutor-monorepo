@@ -195,6 +195,7 @@ export function IssuesList({ defaultFilters }: IssuesListProps = {}) {
         addButtonShowLabel={true}
         emptyMessage="No issues match your filters"
         isLoading={isLoading}
+        noPadding={true}
         filters={filters}
         onFiltersChange={setFilters}
         descriptionConfig={{
