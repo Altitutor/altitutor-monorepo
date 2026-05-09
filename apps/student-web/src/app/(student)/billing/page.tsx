@@ -1,6 +1,6 @@
 'use client';
 
-import { PaymentMethodCard, InvoicesTable } from '@/features/billing/components';
+import { BillingSubsidiesSection, PaymentMethodCard, InvoicesTable } from '@/features/billing/components';
 import { usePreWarmBilling } from '@/features/billing/hooks/usePreWarmBilling';
 
 // Mark this page as dynamic to prevent static generation
@@ -19,6 +19,8 @@ export default function BillingPage() {
           Manage your payment methods and view invoices
         </p>
       </div>
+
+      <BillingSubsidiesSection />
       
       {/* Payment Method Section */}
       <div className="space-y-4">

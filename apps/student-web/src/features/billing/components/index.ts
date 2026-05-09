@@ -3,4 +3,5 @@ export * from './PaymentHistoryTable';
 export * from './InvoicesTable';
 export * from './AddPaymentMethodModal';
 export * from './PaymentMethodsList';
+export * from './BillingSubsidiesSection';
 
