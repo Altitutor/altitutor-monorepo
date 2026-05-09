@@ -10,50 +10,28 @@ import { ScrollArea } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { WelcomeModalGate } from '@/features/welcome';
 import type { LucideIcon } from 'lucide-react';
+import { STUDENT_CONTENT_MAX, STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
   onToggle: () => void;
 }
 
-type NavItem = 
-  | { type?: 'link'; title: string; href: string; icon: LucideIcon }
-  | { type: 'heading'; title: string };
+type NavLinkItem = { title: string; href: string; icon: LucideIcon };
 
-const navItems: NavItem[] = [
-  {
-    title: 'Dashboard',
-    href: '/dashboard',
-    icon: Home,
-  },
-  {
-    title: 'Classes',
-    href: '/classes',
-    icon: Calendar,
-  },
-  {
-    title: 'Resources',
-    href: '/resources',
-    icon: BookOpen,
-  },
-  {
-    title: 'Billing',
-    href: '/billing',
-    icon: CreditCard,
-  },
-  {
-    title: 'My Profile',
-    href: '/my-profile',
-    icon: User,
-  },
-  {
-    title: 'Settings',
-    href: '/settings',
-    icon: Settings,
-  },
+const primaryNavItems: NavLinkItem[] = [
+  { title: 'Dashboard', href: '/dashboard', icon: Home },
+  { title: 'Classes', href: '/classes', icon: Calendar },
+  { title: 'Resources', href: '/resources', icon: BookOpen },
+  { title: 'Billing', href: '/billing', icon: CreditCard },
+  { title: 'My Profile', href: '/my-profile', icon: User },
 ];
 
-const navHoverStyles = "hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70";
+const settingsNavItem: NavLinkItem = { title: 'Settings', href: '/settings', icon: Settings };
+
+/** Match resources topic tree / sidebar: `hover:bg-muted/80` */
+const navHoverStyles =
+  'rounded-xl hover:bg-muted/80 dark:hover:bg-white/[0.07] transition-colors duration-300 ease-out';
 
 function isNavItemActive(pathname: string, href: string): boolean {
   if (pathname === href) return true;
@@ -61,9 +39,30 @@ function isNavItemActive(pathname: string, href: string): boolean {
   return pathname.startsWith(`${href}/`);
 }
 
+function renderNavLink(item: NavLinkItem, pathname: string, collapsed: boolean) {
+  const Icon = item.icon;
+  const active = isNavItemActive(pathname, item.href);
+  return (
+    <Link
+      key={item.href}
+      href={item.href}
+      className={cn(
+        'flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-all duration-300 ease-out',
+        active
+          ? 'bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90'
+          : navHoverStyles,
+        collapsed && 'justify-center px-0',
+      )}
+    >
+      <Icon className={cn('h-5 w-5', collapsed && 'h-6 w-6')} />
+      {!collapsed && <span className="overflow-hidden whitespace-nowrap">{item.title}</span>}
+    </Link>
+  );
+}
+
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
-  
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -77,7 +76,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
 
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (target.hasAttribute('data-mobile-menu-overlay')) {
@@ -89,69 +88,39 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
 
-  // Close menu when route changes
   useEffect(() => {
     onClose();
   }, [pathname, onClose]);
 
   return (
     <>
-      {/* Overlay */}
       {isOpen && (
         <div
           data-mobile-menu-overlay
-          className="fixed inset-0 bg-black/50 z-40 md:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-black/50 transition-opacity duration-300 md:hidden"
           onClick={onClose}
         />
       )}
-      
-      {/* Slide-in menu */}
+
       <div
         className={cn(
-          "fixed top-[var(--navbar-height)] left-0 bottom-0 w-[280px] bg-background dark:bg-brand-dark-bg border-r dark:border-brand-dark-border z-50 md:hidden transition-transform duration-300 ease-in-out overflow-y-auto",
-          isOpen ? "translate-x-0" : "-translate-x-full"
+          'fixed bottom-0 left-0 top-[var(--navbar-height)] z-50 flex w-[280px] max-w-[85vw] flex-col overflow-hidden rounded-r-3xl border-0 bg-card shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out dark:bg-brand-dark-card dark:ring-white/10 md:hidden',
+          isOpen ? 'translate-x-0' : '-translate-x-full',
         )}
       >
-        <div className="flex flex-col h-full">
-          <div className="flex h-14 items-center px-4 border-b dark:border-brand-dark-border">
-            <h2 className="text-lg font-semibold">Altitutor Student</h2>
-          </div>
-          
-          <ScrollArea className="flex-1">
-            <nav className="flex flex-col gap-1 p-2">
-              {navItems.map((item, index) => {
-                if (item.type === 'heading') {
-                  return (
-                    <div 
-                      key={`heading-${index}`}
-                      className="text-xs font-semibold text-muted-foreground px-3 pt-4 pb-2"
-                    >
-                      {item.title}
-                    </div>
-                  );
-                }
-                
-                const Icon = item.icon;
-                const active = isNavItemActive(pathname, item.href);
-                return (
-                  <Link 
-                    key={item.href} 
-                    href={item.href}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                      active
-                        ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                        : navHoverStyles
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span>{item.title}</span>
-                  </Link>
-                );
-              })}
-            </nav>
-          </ScrollArea>
+        <div className="flex h-14 shrink-0 items-center px-4">
+          <h2 className="text-lg font-semibold">Altitutor Student</h2>
         </div>
+
+        <ScrollArea className="min-h-0 flex-1">
+          <nav className="flex flex-col gap-1 p-2">
+            {primaryNavItems.map((item) => renderNavLink(item, pathname, false))}
+          </nav>
+        </ScrollArea>
+
+        <nav className="shrink-0 bg-muted/25 p-2 dark:bg-white/[0.04]">
+          {renderNavLink(settingsNavItem, pathname, false)}
+        </nav>
       </div>
     </>
   );
@@ -159,75 +128,50 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
 
 function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProps) {
   const pathname = usePathname();
-  
+
   return (
-    <div 
+    <div
       className={cn(
-        "hidden md:flex flex-col border-r bg-background dark:bg-brand-dark-bg dark:border-brand-dark-border h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
-        collapsed ? "w-[70px]" : "w-[250px]",
-        className
-      )} 
+        'hidden h-full min-h-0 shrink-0 flex-col rounded-2xl border-0 bg-card shadow-[0_8px_30px_rgb(0,0,0,0.06)] ring-1 ring-black/[0.06] transition-all duration-300 ease-out dark:bg-brand-dark-card dark:shadow-[0_8px_30px_rgb(0,0,0,0.35)] dark:ring-white/10 md:flex',
+        collapsed ? 'w-[72px]' : 'w-[250px]',
+        className,
+      )}
       {...props}
     >
-      <div className="flex h-14 items-center px-4 border-b dark:border-brand-dark-border">
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={onToggle} 
-          className="mr-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70"
+      <div
+        className={cn(
+          'flex h-14 shrink-0 items-center',
+          collapsed ? 'justify-center px-0' : 'gap-2 px-3',
+        )}
+      >
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onToggle}
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className={cn(
+            'shrink-0 rounded-xl hover:bg-muted/80 dark:hover:bg-white/[0.07]',
+            collapsed && 'size-10',
+          )}
         >
           <AnimatedHamburgerIcon isOpen={!collapsed} />
         </Button>
         {!collapsed && (
-          <div className="flex items-center overflow-hidden min-w-0 transition-opacity duration-300">
-            <h2 className="text-lg font-semibold whitespace-nowrap">Altitutor Student</h2>
+          <div className="min-w-0 flex-1 overflow-hidden transition-opacity duration-300">
+            <h2 className="whitespace-nowrap text-lg font-semibold">Altitutor Student</h2>
           </div>
         )}
       </div>
-      
-      <ScrollArea className="flex-1">
+
+      <ScrollArea className="min-h-0 flex-1">
         <nav className="flex flex-col gap-1 p-2">
-          {navItems.map((item, index) => {
-            if (item.type === 'heading') {
-              return (
-                <div 
-                  key={`heading-${index}`}
-                  className={cn(
-                    "text-xs font-semibold text-muted-foreground px-3 pt-4 pb-2",
-                    collapsed && "text-center px-0"
-                  )}
-                >
-                  {!collapsed && (
-                    <span className="whitespace-nowrap overflow-hidden">{item.title}</span>
-                  )}
-                  {collapsed && <div className="h-px bg-border" />}
-                </div>
-              );
-            }
-            
-            const Icon = item.icon;
-            const active = isNavItemActive(pathname, item.href);
-            return (
-              <Link 
-                key={item.href} 
-                href={item.href}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                  active
-                    ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
-                    : navHoverStyles,
-                  collapsed && "justify-center px-0"
-                )}
-              >
-                <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
-                {!collapsed && (
-                  <span className="whitespace-nowrap overflow-hidden">{item.title}</span>
-                )}
-              </Link>
-            );
-          })}
+          {primaryNavItems.map((item) => renderNavLink(item, pathname, collapsed))}
         </nav>
       </ScrollArea>
+
+      <nav className="mt-auto shrink-0 bg-muted/25 p-2 dark:bg-white/[0.04]">
+        {renderNavLink(settingsNavItem, pathname, collapsed)}
+      </nav>
     </div>
   );
 }
@@ -239,18 +183,26 @@ export default function StudentLayout({
 }) {
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
-  
+
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
   };
-  
+
   return (
     <>
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
-      <div className="flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden">
+      <div className="flex h-[calc(100dvh-var(--navbar-height))] min-h-0 overflow-hidden bg-background md:gap-3 md:p-3">
         <SidebarNav collapsed={collapsed} onToggle={toggleSidebar} />
-        <div className="flex-1 overflow-auto">
-          {children}
+        <div className="min-h-0 min-w-0 flex-1 overflow-auto rounded-2xl bg-card/45 ring-1 ring-black/[0.04] [scrollbar-gutter:stable] dark:bg-brand-dark-card/25 dark:ring-white/[0.06]">
+          <div
+            className={cn(
+              'mx-auto min-h-min w-full min-w-0',
+              STUDENT_CONTENT_MAX,
+              STUDENT_SHELL_PAD_X,
+            )}
+          >
+            {children}
+          </div>
         </div>
       </div>
       <WelcomeModalGate />

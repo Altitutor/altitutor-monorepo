@@ -75,6 +75,9 @@ module.exports = {
           "dark-grey": "hsl(var(--landing-dark-grey))",
           "light-grey": "hsl(var(--landing-light-grey))",
         },
+        student: {
+          canvas: "hsl(220 14% 96%)",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",

@@ -21,6 +21,8 @@ import { useProfile } from '@/features/profile';
 import { LogoutConfirmationModal } from '../logout-confirmation-modal';
 import { NotificationsTray } from '@/features/notifications';
 import { useNotificationsRealtime } from '@/features/notifications';
+import { STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
+import { cn } from '@/shared/utils';
 
 export function Navbar() {
   const router = useRouter();
@@ -74,8 +76,8 @@ export function Navbar() {
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background dark:bg-brand-dark-bg border-b dark:border-brand-dark-border h-[var(--navbar-height)]">
-      <div className="container mx-auto px-4 h-full flex justify-between items-center">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-[var(--navbar-height)] border-0 bg-background/90 shadow-[0_4px_24px_rgba(0,0,0,0.06)] backdrop-blur-md dark:bg-brand-dark-bg/90 dark:shadow-[0_4px_28px_rgba(0,0,0,0.45)] supports-[backdrop-filter]:bg-background/80 dark:supports-[backdrop-filter]:bg-brand-dark-bg/80">
+      <div className={cn('mx-auto flex h-full w-full items-center justify-between', STUDENT_SHELL_PAD_X)}>
         <div className="flex items-center gap-4">
           {/* Mobile Hamburger Menu Button */}
           {user && (

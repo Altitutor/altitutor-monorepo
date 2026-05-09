@@ -6,6 +6,7 @@ import { ExternalLink, Loader2 } from 'lucide-react';
 import { useInvoicesWithItems, useStudentSubscriptions } from '../hooks';
 import { formatAmount, getInvoiceTotalAmount, isInvoiceOverdue } from '../utils/invoiceDisplay';
 import { formatInvoiceDate } from '../utils/invoiceFormatters';
+import { studentTableBodyRow, studentTableHeaderRow, studentTableShell } from '@/shared/lib/student-visual';
 
 const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
 
@@ -138,10 +139,10 @@ export function SubscriptionsSection() {
     <div className="space-y-8">
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Subscriptions</h2>
-        <div className="rounded-md border">
+        <div className={studentTableShell}>
           <Table>
-            <TableHeader>
-              <TableRow>
+            <TableHeader className="[&_tr]:border-b-0">
+              <TableRow className={studentTableHeaderRow}>
                 <TableHead>Subject</TableHead>
                 <TableHead>Price</TableHead>
                 <TableHead>Billing frequency</TableHead>
@@ -150,8 +151,8 @@ export function SubscriptionsSection() {
             </TableHeader>
             <TableBody>
               {sortedSubscriptions.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+                <TableRow className={studentTableBodyRow}>
+                  <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                     No subscriptions found
                   </TableCell>
                 </TableRow>
@@ -160,7 +161,7 @@ export function SubscriptionsSection() {
                   const isActive = ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status);
                   const price = getSubscriptionPrice(subscription.id, subscriptionInvoices);
                   return (
-                    <TableRow key={subscription.id}>
+                    <TableRow key={subscription.id} className={studentTableBodyRow}>
                       <TableCell className="font-medium">{getSubscriptionName(subscription)}</TableCell>
                       <TableCell>{formatAmount(price)}</TableCell>
                       <TableCell>{inferBillingFrequency(subscription)}</TableCell>
@@ -182,10 +183,10 @@ export function SubscriptionsSection() {
 
       <div className="space-y-4">
         <h2 className="text-xl font-semibold">Subscription Invoices</h2>
-        <div className="rounded-md border">
+        <div className={studentTableShell}>
           <Table>
-            <TableHeader>
-              <TableRow>
+            <TableHeader className="[&_tr]:border-b-0">
+              <TableRow className={studentTableHeaderRow}>
                 <TableHead>Date</TableHead>
                 <TableHead>Line items</TableHead>
                 <TableHead>Amount</TableHead>
@@ -195,8 +196,8 @@ export function SubscriptionsSection() {
             </TableHeader>
             <TableBody>
               {subscriptionInvoices.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
+                <TableRow className={studentTableBodyRow}>
+                  <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
                     No subscription invoices found
                   </TableCell>
                 </TableRow>
@@ -206,7 +207,7 @@ export function SubscriptionsSection() {
                   const lineItems = getLineItemsDisplay(invoice.items);
 
                   return (
-                    <TableRow key={invoice.id || `subscription-invoice-${index}`}>
+                    <TableRow key={invoice.id || `subscription-invoice-${index}`} className={studentTableBodyRow}>
                       <TableCell>{formatInvoiceDate(invoice.invoice_date)}</TableCell>
                       <TableCell className="max-w-sm">
                         {lineItems.length ? (

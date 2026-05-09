@@ -11,6 +11,7 @@ import {
 } from '@/features/resources';
 import { buildTopicTree } from '@/features/resources/lib/helpers';
 import { StudentPageContainer } from '@/shared/components/layouts';
+import { studentCardCn } from '@/shared/lib/student-visual';
 
 export default function ResourceSubjectDetailPage() {
   const params = useParams<{ subjectShortName: string }>();
@@ -24,7 +25,7 @@ export default function ResourceSubjectDetailPage() {
 
   if (!subjectLoading && !subject) {
     return (
-      <StudentPageContainer maxWidth="6xl">
+      <StudentPageContainer>
         <ResourceAccessDenied />
       </StudentPageContainer>
     );
@@ -32,7 +33,7 @@ export default function ResourceSubjectDetailPage() {
 
   if (!subjectLoading && !hasAccess) {
     return (
-      <StudentPageContainer maxWidth="6xl">
+      <StudentPageContainer>
         <ResourceAccessDenied />
       </StudentPageContainer>
     );
@@ -41,7 +42,7 @@ export default function ResourceSubjectDetailPage() {
   const tree = buildTopicTree(topics ?? []);
 
   return (
-    <StudentPageContainer maxWidth="6xl" className="space-y-8">
+    <StudentPageContainer className="space-y-8">
       <ResourcesBreadcrumb
         items={[
           { label: 'Resources', href: '/resources' },
@@ -54,7 +55,7 @@ export default function ResourceSubjectDetailPage() {
         <p className="text-muted-foreground mt-1">Browse the full topic hierarchy for this subject.</p>
       </div>
 
-      <section className="rounded-xl border bg-card p-5 shadow-sm transition-shadow duration-200 hover:shadow-md">
+      <section className={studentCardCn('p-5 sm:p-6')}>
         <div className="mb-4">
           <h2 className="text-lg font-semibold">Topics</h2>
           <p className="text-sm text-muted-foreground">Expand sections to move through the subject hierarchy.</p>

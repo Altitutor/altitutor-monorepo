@@ -7,7 +7,7 @@ export default function ResourcesPage() {
   const { data: subjects, isLoading } = useResourceSubjects();
 
   return (
-    <StudentPageContainer maxWidth="6xl" className="space-y-8">
+    <StudentPageContainer className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
         <p className="text-muted-foreground mt-1">Browse your subjects and learning materials.</p>
@@ -16,7 +16,10 @@ export default function ResourcesPage() {
       {isLoading ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {Array.from({ length: 6 }).map((_, idx) => (
-            <div key={idx} className="h-56 rounded-lg border bg-muted/40" />
+            <div
+              key={idx}
+              className="h-56 animate-pulse rounded-2xl bg-muted/50 ring-1 ring-black/[0.05] dark:ring-white/10"
+            />
           ))}
         </div>
       ) : (

@@ -19,13 +19,10 @@ function AddCardButton({ onClick, disabled }: { onClick: () => void; disabled?: 
       onClick={onClick}
       disabled={disabled}
       className={cn(
-        'relative overflow-hidden rounded-xl shadow-lg transition-all duration-300',
-        'flex flex-col items-center justify-center w-[267px]', // Same width as PaymentMethodCard
-        'border-2 border-dashed border-muted-foreground/30',
-        'bg-muted/20 hover:bg-muted/40',
-        'cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed',
-        'aspect-[1.586/1]', // Same aspect ratio as PaymentMethodCard
-        'hover:border-primary/50 hover:bg-muted/30'
+        'relative flex aspect-[1.586/1] w-[267px] flex-col items-center justify-center overflow-hidden rounded-2xl',
+        'bg-muted/25 shadow-[0_8px_30px_rgb(0,0,0,0.05)] ring-1 ring-dashed ring-muted-foreground/25 transition-all duration-300',
+        'hover:bg-muted/40 hover:ring-muted-foreground/45',
+        'cursor-pointer disabled:cursor-not-allowed disabled:opacity-50',
       )}
     >
       <div className="flex flex-col items-center justify-center gap-2 text-muted-foreground">

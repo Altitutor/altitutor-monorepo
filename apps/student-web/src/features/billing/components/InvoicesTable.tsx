@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, TablePagination } from '@altitutor/ui';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
+import { studentTableBodyRow, studentTableHeaderRow, studentTableShell } from '@/shared/lib/student-visual';
 import { formatAmount, getInvoiceTotalAmount, isInvoiceOverdue } from '../utils/invoiceDisplay';
 
 function getSessionDisplayName(
@@ -104,10 +105,10 @@ export function InvoicesTable() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      <div className={studentTableShell}>
         <Table>
-          <TableHeader>
-            <TableRow>
+          <TableHeader className="[&_tr]:border-b-0">
+            <TableRow className={studentTableHeaderRow}>
               <TableHead>Session</TableHead>
               <TableHead>Amount</TableHead>
               <TableHead>Status</TableHead>
@@ -116,8 +117,8 @@ export function InvoicesTable() {
           </TableHeader>
           <TableBody>
             {paginatedInvoices.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
+              <TableRow className={studentTableBodyRow}>
+                <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                   No session invoices found
                 </TableCell>
               </TableRow>
@@ -125,7 +126,7 @@ export function InvoicesTable() {
               paginatedInvoices.map((invoice, index) => {
                 const overdue = isInvoiceOverdue(invoice);
                 return (
-                  <TableRow key={invoice.id || `invoice-${index}`}>
+                  <TableRow key={invoice.id || `invoice-${index}`} className={studentTableBodyRow}>
                   <TableCell>
                     {getSessionDisplayName(invoice.items)}
                   </TableCell>

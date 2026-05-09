@@ -111,7 +111,9 @@ export function StudentSessionsCard({
     : '';
 
   const subjectColorHex = (session as Record<string, unknown>).subject_color as string | null ?? null;
-  const defaultBorderClass = !subjectColorHex ? 'border-gray-200 dark:border-gray-700' : '';
+  const defaultBorderClass = !subjectColorHex
+    ? 'ring-1 ring-black/[0.06] dark:ring-white/10'
+    : '';
   const iconBackgroundColor = subjectColorHex ? { backgroundColor: subjectColorHex } : undefined;
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
@@ -122,16 +124,20 @@ export function StudentSessionsCard({
     <div
       ref={cardRef}
       className={cn(
-        'relative border rounded-lg transition-colors h-full w-full overflow-hidden bg-card',
+        'relative h-full w-full overflow-hidden rounded-xl border-0 bg-card shadow-[0_6px_24px_rgb(0,0,0,0.05)] transition-all duration-300 ease-out dark:shadow-[0_6px_24px_rgb(0,0,0,0.35)]',
         shouldUseCompact ? 'p-1.5' : 'p-3',
         defaultBorderClass,
-        onClick ? 'hover:bg-muted/50 cursor-pointer' : '',
+        onClick ? 'cursor-pointer hover:bg-muted/45' : '',
         isGreyedOut && 'opacity-50',
-        isExtraSession && 'ring-2 ring-yellow-400 dark:ring-yellow-500'
+        isExtraSession && 'ring-2 ring-yellow-400 dark:ring-yellow-500',
       )}
       style={{
-        ...(subjectColorHex && !isGreyedOut ? { borderColor: subjectColorHex } : {}),
-        ...(isGreyedOut ? { borderColor: '#9ca3af' } : {})
+        ...(subjectColorHex && !isGreyedOut
+          ? { borderLeftWidth: 4, borderLeftColor: subjectColorHex, borderLeftStyle: 'solid' }
+          : {}),
+        ...(isGreyedOut
+          ? { borderLeftWidth: 4, borderLeftColor: '#9ca3af', borderLeftStyle: 'solid' }
+          : {}),
       }}
       onClick={onClick}
     >
