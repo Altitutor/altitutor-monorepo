@@ -1,6 +1,8 @@
 'use client';
 
 import { ArrowRight } from 'lucide-react';
+import { cn } from '@/shared/utils';
+import { studentCardCn, studentModalHairline } from '@/shared/lib/student-visual';
 import type { StudentSession, RescheduleSession } from '../types/absence';
 import { StudentSessionsCard } from './StudentSessionsCard';
 import type { Database } from '@altitutor/shared';
@@ -116,7 +118,7 @@ export function ConfirmationView({
         {/* Right: Target Session Card (highlighted) */}
         <div className="flex-1 min-w-0">
           <div className="mb-2 text-sm font-medium text-muted-foreground">New Session</div>
-          <div className="ring-2 ring-primary rounded-lg">
+          <div className="rounded-xl ring-2 ring-brand-darkBlue/20 dark:ring-brand-lightBlue/35">
             <StudentSessionsCard
               session={targetSessionForCard}
               staff={[]}
@@ -127,16 +129,17 @@ export function ConfirmationView({
       </div>
 
       {/* Calendar View with All Sessions */}
-      <div className="pt-4 border-t">
-        <div className="mb-4 text-sm font-medium">Your updated schedule:</div>
+      <div className="space-y-4 pt-2">
+        <div className={cn(studentModalHairline)} />
+        <div className="text-sm font-medium">Your updated schedule:</div>
         {/* Note: We'll need to modify StudentSessionsCalendarView to accept highlighted/crossed out sessions */}
         {/* For now, we'll render a simple list or use the calendar view */}
         <div className="text-sm text-muted-foreground mb-4">
           The original session will be marked as absent and the new session will be added to your schedule.
         </div>
         {/* TODO: Enhance StudentSessionsCalendarView to show crossed out and highlighted sessions */}
-        <div className="rounded-lg border p-4 bg-muted/30">
-          <div className="text-sm text-muted-foreground text-center">
+        <div className={studentCardCn('p-5 text-center')}>
+          <div className="text-sm text-muted-foreground">
             Calendar view will show your updated schedule after confirmation
           </div>
         </div>

@@ -145,7 +145,7 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
         <header className="space-y-2">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
-              <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+              <h1 className="text-3xl font-bold tracking-tight">
                 Hi, {displayName}
               </h1>
             </div>
@@ -157,9 +157,8 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
         </header>
 
         <section aria-labelledby="sessions-heading" className="space-y-4">
-          <div className="flex items-center gap-2">
-            <CalendarDays className="h-5 w-5 text-brand-darkBlue dark:text-brand-lightBlue" />
-            <h2 id="sessions-heading" className="text-lg font-semibold tracking-tight">
+          <div className="mb-4 flex items-center gap-2">
+            <h2 id="sessions-heading" className="text-2xl font-semibold">
               Sessions
             </h2>
           </div>
@@ -247,9 +246,8 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
         </section>
 
         <section aria-labelledby="quick-links-heading" className="space-y-4">
-          <div className="flex items-center gap-2">
-            <Sparkles className="h-5 w-5 text-brand-darkBlue dark:text-brand-lightBlue" />
-            <h2 id="quick-links-heading" className="text-lg font-semibold tracking-tight">
+          <div className="mb-4 flex items-center gap-2">
+            <h2 id="quick-links-heading" className="text-2xl font-semibold">
               Quick links
             </h2>
           </div>

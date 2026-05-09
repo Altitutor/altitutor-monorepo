@@ -83,8 +83,8 @@ export function AvailabilityTab({ profile }: AvailabilityTabProps) {
   if (isEditing) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">Availability</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="text-2xl font-semibold">Availability</h3>
           <div className="flex gap-2">
             <Button
               variant="outline"
@@ -154,8 +154,8 @@ export function AvailabilityTab({ profile }: AvailabilityTabProps) {
   // View mode
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Availability</h3>
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="text-2xl font-semibold">Availability</h3>
         <Button variant="outline" size="sm" onClick={handleStartEdit}>
           <Pencil className="h-4 w-4 mr-2" />
           Edit

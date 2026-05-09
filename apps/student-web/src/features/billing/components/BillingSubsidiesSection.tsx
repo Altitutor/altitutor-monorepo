@@ -23,8 +23,8 @@ export function BillingSubsidiesSection() {
   }
 
   return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold">My subsidies</h2>
+    <div>
+      <h2 className="mb-4 text-2xl font-semibold">My subsidies</h2>
       <ul className="space-y-2">
         {rows.map((row) => (
           <li key={`${row.subject_id}-${row.billing_type}`} className={studentCardCn('px-4 py-3.5')}>

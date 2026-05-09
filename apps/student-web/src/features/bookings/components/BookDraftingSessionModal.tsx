@@ -7,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
 } from '@altitutor/ui';
 import { Button, SearchableSelect, useToast } from '@altitutor/ui';
 import { Loader2, Check } from 'lucide-react';
@@ -22,6 +21,7 @@ import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import type { Tables } from '@altitutor/shared';
 import { cn, getErrorMessage } from '@/shared/utils';
+import { studentCardCn, studentModalFooter, studentModalHairline, studentModalShell } from '@/shared/lib/student-visual';
 import { useSessionDurationMinutes } from '../hooks/useBookingSettings';
 export interface BookDraftingSessionModalProps {
   isOpen: boolean;
@@ -239,22 +239,22 @@ export function BookDraftingSessionModal({
     if (bookingSuccess && currentStep === 3) {
       const subject = subjects?.find((s) => s.id === selectedSubjectId);
       return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 py-4">
+        <div className="grid grid-cols-1 gap-6 py-2 lg:grid-cols-2">
           {/* Left side - Success message and details */}
           <div className="space-y-6">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-4">
-                <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+            <div className="space-y-4 rounded-2xl bg-emerald-500/[0.08] p-6 text-center ring-1 ring-emerald-500/20 dark:bg-emerald-500/10">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-100 dark:bg-emerald-900/30">
+                <Check className="h-7 w-7 text-green-600 dark:text-green-400" />
               </div>
-              <div className="text-center">
-                <h3 className="text-xl font-semibold mb-2">Booking Confirmed!</h3>
+              <div>
+                <h3 className="mb-2 text-xl font-semibold tracking-tight">Booking Confirmed!</h3>
                 <p className="text-muted-foreground">
                   Your drafting session has been booked successfully
                 </p>
               </div>
             </div>
 
-            <div className="p-4 space-y-3">
+            <div className={studentCardCn('space-y-3 p-5')}>
               <h4 className="font-semibold">Booking Details</h4>
               <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
                 {subject && (
@@ -279,7 +279,7 @@ export function BookDraftingSessionModal({
 
           {/* Right side - Calendar */}
           {selectedSlot && (
-            <div className="space-y-2">
+            <div className="space-y-3">
               <h4 className="font-semibold">Session in Calendar</h4>
               <BookingConfirmationCalendar
                 newSession={{
@@ -375,11 +375,11 @@ export function BookDraftingSessionModal({
         return (
           <div className="space-y-4">
             {selectedSlot && selectedSubjectId ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
                 {/* Left side - Booking Details */}
-                <div className="space-y-4">
+                <div className={studentCardCn('space-y-4 p-5')}>
                   <div>
-                    <h3 className="text-lg font-semibold mb-4">Booking Details</h3>
+                    <h3 className="mb-4 text-lg font-semibold tracking-tight">Booking Details</h3>
                     <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                       {(() => {
                         const subject = subjects?.find((s) => s.id === selectedSubjectId);
@@ -417,7 +417,7 @@ export function BookDraftingSessionModal({
                 </div>
 
                 {/* Right side - Calendar */}
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <h4 className="font-semibold">Session in Calendar</h4>
                   <BookingConfirmationCalendar
                     newSession={{
@@ -447,69 +447,79 @@ export function BookDraftingSessionModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="w-full md:max-w-4xl h-[90vh] flex flex-col p-0">
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <DialogTitle>
+      <DialogContent
+        className={cn(
+          studentModalShell,
+          'flex h-[90vh] max-h-[90dvh] w-[calc(100vw-1.5rem)] max-w-[100vw] flex-col gap-0 overflow-hidden rounded-2xl border-0 p-0 sm:w-full md:max-w-4xl',
+          '[&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+        )}
+      >
+        <DialogHeader className="shrink-0 space-y-1.5 px-6 pb-5 pt-6 text-left">
+          <DialogTitle className="text-xl font-semibold tracking-tight">
             {originalSessionId ? 'Reschedule Drafting Session' : 'Book Drafting Session'}
           </DialogTitle>
           <DialogDescription>
-            {originalSessionId 
+            {originalSessionId
               ? 'Select a new time for your drafting session. Your original session will be marked as an absence.'
               : 'Schedule a one-on-one drafting session with a tutor'}
           </DialogDescription>
-        </DialogHeader>
 
-        {/* Step Indicator - Only show 3 steps (success is not a step) */}
-        <div className="flex-shrink-0 flex items-center justify-center space-x-2 px-6 py-4 border-b overflow-x-auto">
-          {steps.map((step, index) => {
-            // When on success step (step 3), show all steps as completed
-            const isCompleted = bookingSuccess || index < currentStep;
-            const isCurrent = !bookingSuccess && index === currentStep;
-            
-            return (
-              <div key={step.id} className="flex items-center flex-shrink-0">
-                <div
-                  className={cn(
-                    'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
-                    isCurrent
-                      ? 'bg-primary text-primary-foreground'
-                      : isCompleted
-                      ? 'bg-primary/20 text-primary'
-                      : 'bg-muted text-muted-foreground'
-                  )}
-                >
-                  {index + 1}
-                </div>
-                {index < steps.length - 1 && (
+          {/* Step indicator (1–3); success step still shows all as completed */}
+          <div
+            className="flex items-center justify-center overflow-x-auto border-t border-black/[0.07] pt-5 dark:border-white/10"
+            aria-label="Booking progress"
+          >
+            {steps.map((step, index) => {
+              const isCompleted = bookingSuccess || index < currentStep;
+              const isCurrent = !bookingSuccess && index === currentStep;
+
+              return (
+                <div key={step.id} className="flex shrink-0 items-center">
                   <div
                     className={cn(
-                      'w-12 h-0.5 mx-2',
-                      isCompleted ? 'bg-primary' : 'bg-muted'
+                      'flex h-9 w-9 items-center justify-center rounded-xl text-sm font-medium transition-colors duration-300',
+                      isCurrent
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : isCompleted
+                          ? 'bg-primary/15 text-primary ring-1 ring-primary/20'
+                          : 'bg-muted text-muted-foreground ring-1 ring-black/[0.06] dark:ring-white/10',
                     )}
-                  />
-                )}
-              </div>
-            );
-          })}
-        </div>
+                  >
+                    {index + 1}
+                  </div>
+                  {index < steps.length - 1 && (
+                    <div
+                      className={cn(
+                        'mx-2 h-0.5 w-12 rounded-full transition-colors duration-300',
+                        isCompleted ? 'bg-primary/40' : 'bg-muted',
+                      )}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </DialogHeader>
+
+        <div className={cn(studentModalHairline)} />
 
         {/* Current Step Content */}
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">
+        <div className="min-h-0 flex-1 overflow-hidden px-6 py-4">
           <div className="h-full overflow-y-auto">
             <div className="mb-4">
-              <h3 className="text-lg font-semibold">{currentStepData?.title}</h3>
+              <h3 className="text-lg font-semibold tracking-tight">{currentStepData?.title}</h3>
             </div>
             {renderStepContent()}
           </div>
         </div>
 
-        {/* Footer with Back/Next buttons */}
         {!bookingSuccess && (
-          <DialogFooter className="px-6 py-4 border-t bg-background">
-            <div className="flex justify-between w-full">
+          <div className={cn(studentModalFooter)}>
+            <div className="flex w-full flex-wrap items-center justify-between gap-3">
               <div className="flex gap-2">
                 {!isFirstStep && (
                   <Button
+                    className="rounded-xl transition-all duration-300"
                     variant="outline"
                     onClick={handleBack}
                     disabled={isSubmitting}
@@ -519,9 +529,9 @@ export function BookDraftingSessionModal({
                 )}
               </div>
               <div className="flex gap-2">
-                {currentStep === 3 ? (
-                  // Confirmation step - show Confirm Booking button
+                {currentStep === 2 ? (
                   <Button
+                    className="rounded-xl transition-all duration-300"
                     onClick={handleConfirmBooking}
                     disabled={isSubmitting || !selectedSlot || !selectedSubjectId}
                   >
@@ -535,26 +545,29 @@ export function BookDraftingSessionModal({
                     )}
                   </Button>
                 ) : (
-                  // Other steps - show Next button
                   <Button
+                    className="rounded-xl transition-all duration-300"
                     onClick={handleNext}
-                    disabled={isSubmitting || (currentStep === 0 && !selectedSubjectId) || (currentStep === 1 && !selectedSlot)}
+                    disabled={
+                      isSubmitting ||
+                      (currentStep === 0 && !selectedSubjectId) ||
+                      (currentStep === 1 && !selectedSlot)
+                    }
                   >
                     Next
                   </Button>
                 )}
               </div>
             </div>
-          </DialogFooter>
+          </div>
         )}
 
-        {/* Success Footer */}
         {bookingSuccess && (
-          <DialogFooter className="px-6 py-4 border-t bg-background">
-            <Button onClick={handleClose} className="w-full">
+          <div className={cn(studentModalFooter, 'justify-end')}>
+            <Button className="w-full rounded-xl transition-all duration-300 sm:w-auto" onClick={handleClose}>
               Close
             </Button>
-          </DialogFooter>
+          </div>
         )}
       </DialogContent>
     </Dialog>

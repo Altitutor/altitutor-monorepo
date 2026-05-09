@@ -46,6 +46,17 @@ export function useResourceTopic(subjectId: string | null, topicCode: string | n
   });
 }
 
+export function useResourceFileCountsBySubject(subjectId: string | null) {
+  return useQuery({
+    queryKey: ['resources', 'file-counts', subjectId],
+    queryFn: () => {
+      if (!subjectId) throw new Error('Subject ID is required');
+      return resourcesApi.getFileCountsBySubject(subjectId);
+    },
+    enabled: Boolean(subjectId),
+  });
+}
+
 export function useResourceTopicFiles(topicId: string | null) {
   return useQuery({
     queryKey: ['resources', 'topic-files', topicId],

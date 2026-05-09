@@ -4,18 +4,25 @@ import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ResourceAccessDenied,
-  type ResourceSidebarItem,
+  ResourcesBackLink,
   ResourcesBreadcrumb,
+  ResourcesPager,
+  type ResourceSidebarItem,
   ResourcesSidebar,
   TopicFilesList,
   TopicTree,
   useResourceAccessBySubject,
+  useResourceFileCountsBySubject,
   useResourceSubject,
   useResourceTopic,
   useResourceTopicFiles,
   useResourceTopics,
 } from '@/features/resources';
-import { buildTopicTree, findTopicNodeInTree } from '@/features/resources/lib/helpers';
+import {
+  buildTopicTree,
+  findTopicNodeInTree,
+  flattenTopicsDfs,
+} from '@/features/resources/lib/helpers';
 import { StudentPageContainer } from '@/shared/components/layouts';
 import { studentCardCn } from '@/shared/lib/student-visual';
 import type { ResourceTopicNode } from '@/features/resources/lib/types';
@@ -29,28 +36,52 @@ export default function ResourceTopicDetailPage() {
   const { data: topic, isLoading: topicLoading } = useResourceTopic(subject?.id ?? null, topicCode);
   const { data: topicFiles, isLoading: filesLoading } = useResourceTopicFiles(topic?.id ?? null);
   const { data: subjectTopics } = useResourceTopics(subject?.id ?? null);
+  const { data: fileCounts } = useResourceFileCountsBySubject(subject?.id ?? null);
   const { data: accessBySubject } = useResourceAccessBySubject();
 
   const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
+
+  const topicHref = (code: string) =>
+    `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(code.toLowerCase())}`;
+
+  const tree = useMemo(() => buildTopicTree(subjectTopics ?? []), [subjectTopics]);
 
   const sidebarItems = useMemo(() => {
     const toSidebarItem = (node: ResourceTopicNode): ResourceSidebarItem => ({
       key: node.id,
       label: `${node.code} · ${node.name}`,
-      href: `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(node.code.toLowerCase())}`,
+      href: topicHref(node.code),
       active: node.id === topic?.id,
       children: node.children.map(toSidebarItem),
     });
 
-    return buildTopicTree(subjectTopics ?? []).map(toSidebarItem);
-  }, [subjectTopics, topic?.id, subjectShortName]);
+    return tree.map(toSidebarItem);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, topic?.id, subjectShortName]);
 
   const subtopicNodes = useMemo(() => {
-    if (!topic?.id || !subjectTopics?.length) return [];
-    const tree = buildTopicTree(subjectTopics);
+    if (!topic?.id || !tree.length) return [];
     const node = findTopicNodeInTree(tree, topic.id);
     return node?.children ?? [];
-  }, [subjectTopics, topic?.id]);
+  }, [tree, topic?.id]);
+
+  const { prev, next } = useMemo(() => {
+    if (!topic?.id || !tree.length) return { prev: null, next: null };
+    const flat = flattenTopicsDfs(tree);
+    const idx = flat.findIndex((n) => n.id === topic.id);
+    if (idx === -1) return { prev: null, next: null };
+    const prevNode = idx > 0 ? flat[idx - 1] : null;
+    const nextNode = idx < flat.length - 1 ? flat[idx + 1] : null;
+    const toEntry = (node: ResourceTopicNode | null) =>
+      node
+        ? {
+            href: topicHref(node.code),
+            label: `${node.code} ${node.name}`,
+          }
+        : null;
+    return { prev: toEntry(prevNode), next: toEntry(nextNode) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tree, topic?.id, subjectShortName]);
 
   if ((!subjectLoading && !subject) || (!topicLoading && !topic)) {
     return (
@@ -68,12 +99,16 @@ export default function ResourceTopicDetailPage() {
     );
   }
 
+  const subjectLabel =
+    subject?.long_name || subject?.name || subject?.short_name || subjectShortName;
+  const subjectHref = `/resources/${encodeURIComponent(subjectShortName)}`;
+
   return (
     <StudentPageContainer className="space-y-8">
       <ResourcesBreadcrumb
         items={[
           { label: 'Resources', href: '/resources' },
-          { label: subject?.name || subject?.short_name || subjectShortName, href: `/resources/${encodeURIComponent(subjectShortName)}` },
+          { label: subjectLabel, href: subjectHref },
           {
             label:
               topic?.code && topic?.name
@@ -95,7 +130,6 @@ export default function ResourceTopicDetailPage() {
                   ? `Topic ${topic.code}`
                   : topicCode}
             </h1>
-            <p className="text-muted-foreground mt-1">Files organised by type, with solutions paired where present.</p>
           </div>
 
           {filesLoading ? (
@@ -115,23 +149,26 @@ export default function ResourceTopicDetailPage() {
 
           {subtopicNodes.length > 0 ? (
             <section className={studentCardCn('p-5 sm:p-6')} aria-labelledby="subtopics-heading">
-              <div className="mb-4">
-                <h2 id="subtopics-heading" className="text-lg font-semibold">
-                  Subtopics
-                </h2>
-
-              </div>
+              <h2 id="subtopics-heading" className="mb-4 text-2xl font-semibold">
+                Subtopics
+              </h2>
               <TopicTree
                 nodes={subtopicNodes}
-                getHref={(t) =>
-                  `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(t.code.toLowerCase())}`
-                }
+                getHref={(t) => topicHref(t.code)}
+                getCounts={(t) => ({
+                  topics: t.children.length,
+                  files: fileCounts?.get(t.id) ?? 0,
+                })}
               />
             </section>
           ) : null}
         </div>
 
-        <ResourcesSidebar title="All topics" items={sidebarItems} />
+        <div className="flex w-full flex-col gap-3 lg:w-72 lg:shrink-0">
+          <ResourcesBackLink href={subjectHref} label={`Back to ${subjectLabel}`} />
+          <ResourcesSidebar title="All topics" items={sidebarItems} className="hidden lg:block" />
+          <ResourcesPager prev={prev} next={next} ariaLabel="Topic navigation" />
+        </div>
       </div>
     </StudentPageContainer>
   );

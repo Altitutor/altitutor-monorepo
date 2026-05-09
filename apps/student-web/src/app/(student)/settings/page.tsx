@@ -14,8 +14,8 @@ export default function SettingsPage() {
   return (
     <StudentPageContainer className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold">Settings</h1>
-        <p className="text-muted-foreground mt-1">Manage your student portal preferences.</p>
+        <h1 className="text-3xl font-bold tracking-tight">Settings</h1>
+        <p className="mt-1 text-muted-foreground">Manage your student portal preferences.</p>
       </div>
 
       <Card className={studentCardCn()}>

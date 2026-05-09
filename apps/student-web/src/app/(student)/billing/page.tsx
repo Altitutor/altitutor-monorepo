@@ -16,20 +16,20 @@ export default function BillingPage() {
     <StudentPageContainer className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Billing & Payments</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="mt-1 text-muted-foreground">
           Manage your payment methods and view invoices
         </p>
       </div>
 
       <BillingSubsidiesSection />
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Payment Method</h2>
+      <div>
+        <h2 className="mb-4 text-2xl font-semibold">Payment Method</h2>
         <PaymentMethodCard />
       </div>
 
-      <div className="space-y-4">
-        <h2 className="text-xl font-semibold">Invoices</h2>
+      <div>
+        <h2 className="mb-4 text-2xl font-semibold">Invoices</h2>
         <InvoicesTable />
       </div>
 

@@ -1,6 +1,9 @@
 import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { uploadSubjectImage, deleteFromBucket } from '@/shared/lib/supabase/storage';
 import type { SupabaseClient } from '@supabase/supabase-js';
+
+const SUBJECT_IMAGE_MIME = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/gif']);
 
 /**
  * Subjects API client for working with subject data
@@ -80,6 +83,159 @@ export const subjectsApi = {
       .single();
     if (error && error.code !== 'PGRST116') throw error;
     return (data ?? null) as Tables<'subjects'> | null;
+  },
+
+  /**
+   * Cover image file linked via subjects_files (for student resources UI).
+   */
+  getSubjectImageFile: async (subjectId: string): Promise<Tables<'files'> | null> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data: link, error } = await supabase
+      .from('subjects_files')
+      .select('file_id')
+      .eq('subject_id', subjectId)
+      .maybeSingle();
+    if (error) throw error;
+    if (!link?.file_id) return null;
+
+    const { data: fileRow, error: fileError } = await supabase
+      .from('files')
+      .select('*')
+      .eq('id', link.file_id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (fileError) throw fileError;
+    return (fileRow ?? null) as Tables<'files'> | null;
+  },
+
+  /**
+   * Upload and attach a subject cover image (replaces any existing link).
+   */
+  setSubjectImage: async (subjectId: string, file: File): Promise<Tables<'files'>> => {
+    if (!SUBJECT_IMAGE_MIME.has(file.type)) {
+      throw new Error('Please choose a JPEG, PNG, WebP, or GIF image.');
+    }
+
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { path } = await uploadSubjectImage({ subjectId, file });
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    let createdBy: string | null = null;
+    if (user?.id) {
+      const { data: staff } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
+      createdBy = staff?.id ?? null;
+    }
+
+    const fileData: TablesInsert<'files'> = {
+      mimetype: file.type,
+      filename: file.name,
+      size_bytes: file.size,
+      metadata: {
+        originalName: file.name,
+        uploadedAt: new Date().toISOString(),
+        purpose: 'subject-image',
+      },
+      storage_provider: 'supabase',
+      bucket: 'resources',
+      storage_path: path,
+      created_by: createdBy,
+    };
+
+    const { data: created, error: insertError } = await supabase
+      .from('files')
+      .insert(fileData)
+      .select()
+      .single();
+
+    if (insertError || !created) {
+      try {
+        await deleteFromBucket('resources', path);
+      } catch (cleanupErr) {
+        console.error('Failed to remove storage after files insert error:', cleanupErr);
+      }
+      throw insertError ?? new Error('Failed to create file record');
+    }
+
+    try {
+      const { data: existing } = await supabase
+        .from('subjects_files')
+        .select('id, file_id')
+        .eq('subject_id', subjectId)
+        .maybeSingle();
+
+      const oldFileId = existing?.file_id ?? null;
+
+      if (existing) {
+        const { error: upErr } = await supabase
+          .from('subjects_files')
+          .update({
+            file_id: created.id,
+            updated_at: new Date().toISOString(),
+          } satisfies TablesUpdate<'subjects_files'>)
+          .eq('id', existing.id);
+        if (upErr) throw upErr;
+      } else {
+        const { error: insErr } = await supabase.from('subjects_files').insert({
+          subject_id: subjectId,
+          file_id: created.id,
+          created_by: createdBy,
+        });
+        if (insErr) throw insErr;
+      }
+
+      if (oldFileId && oldFileId !== created.id) {
+        const { error: softErr } = await supabase
+          .from('files')
+          .update({ deleted_at: new Date().toISOString() } satisfies TablesUpdate<'files'>)
+          .eq('id', oldFileId);
+        if (softErr) throw softErr;
+      }
+
+      return created as Tables<'files'>;
+    } catch (err) {
+      try {
+        await supabase
+          .from('files')
+          .update({ deleted_at: new Date().toISOString() } satisfies TablesUpdate<'files'>)
+          .eq('id', created.id);
+        await deleteFromBucket('resources', path);
+      } catch (cleanupErr) {
+        console.error('Failed to roll back subject image upload:', cleanupErr);
+      }
+      throw err;
+    }
+  },
+
+  /**
+   * Remove subject cover image link and soft-delete the file row.
+   */
+  removeSubjectImage: async (subjectId: string): Promise<void> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data: row, error: selErr } = await supabase
+      .from('subjects_files')
+      .select('file_id')
+      .eq('subject_id', subjectId)
+      .maybeSingle();
+    if (selErr) throw selErr;
+    if (!row?.file_id) return;
+
+    const { error: delLinkErr } = await supabase
+      .from('subjects_files')
+      .delete()
+      .eq('subject_id', subjectId);
+    if (delLinkErr) throw delLinkErr;
+
+    const { error: softErr } = await supabase
+      .from('files')
+      .update({ deleted_at: new Date().toISOString() } satisfies TablesUpdate<'files'>)
+      .eq('id', row.file_id);
+    if (softErr) throw softErr;
   },
   
   /**

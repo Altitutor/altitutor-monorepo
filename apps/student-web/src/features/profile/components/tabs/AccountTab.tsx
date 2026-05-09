@@ -80,7 +80,7 @@ export function AccountTab({ profile: _profile }: AccountTabProps) {
 
   return (
     <div className="space-y-6">
-      <h3 className="text-lg font-semibold">Account</h3>
+      <h3 className="mb-4 text-2xl font-semibold">Account</h3>
       
       <div className="space-y-4">
         <p className="text-sm text-muted-foreground">

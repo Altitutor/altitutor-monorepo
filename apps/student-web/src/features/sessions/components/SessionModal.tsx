@@ -1,7 +1,6 @@
 'use client';
 
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Badge, SessionInfoGrid } from '@altitutor/ui';
-import { Separator } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getSessionTitle, formatSessionDate, type FlattenedSessionDetail } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
@@ -10,6 +9,7 @@ import { formatTime } from '@/shared/utils/datetime';
 import { useCurrentStudentId } from '@/shared/hooks';
 import { useSessionWithDetails } from '../hooks/useSessionWithDetails';
 import { cn } from '@/shared/utils';
+import { studentModalHairline, studentModalInsetCard, studentModalShell } from '@/shared/lib/student-visual';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -39,10 +39,7 @@ function StudentCard({
   const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase();
   
   return (
-    <div className={cn(
-      "flex items-start gap-3 p-3 border rounded-lg bg-background",
-      isGreyedOut && "opacity-50"
-    )}>
+    <div className={cn(studentModalInsetCard, 'flex items-start gap-3', isGreyedOut && 'opacity-50')}>
       <div className="flex-shrink-0">
         <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
           {initials}
@@ -97,7 +94,7 @@ function StaffCard({ staff }: {
   const roleDisplay = staff.role === 'TUTOR' ? 'Tutor' : staff.role === 'ADMINSTAFF' ? 'Admin Staff' : staff.role || '';
   
   return (
-    <div className="flex items-start gap-3 p-3 border rounded-lg bg-background">
+    <div className={cn(studentModalInsetCard, 'flex items-start gap-3')}>
       <div className="flex-shrink-0">
         <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-medium text-muted-foreground">
           {initials}
@@ -125,7 +122,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   if (isLoading || !data) {
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
-        <SheetContent className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+        <SheetContent
+          className={cn(
+            studentModalShell,
+            'h-full max-h-[100dvh] w-full flex-col rounded-none rounded-l-2xl p-0 md:w-[600px] md:max-w-none [&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+          )}
+        >
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
               <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
@@ -175,7 +177,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
+      <SheetContent
+        className={cn(
+          studentModalShell,
+          'h-full max-h-[100dvh] w-full flex-col rounded-none rounded-l-2xl p-0 md:w-[600px] md:max-w-none [&>button]:rounded-xl [&>button]:hover:bg-muted/80',
+        )}
+      >
         <div className="flex-1 overflow-y-auto p-6">
           <SheetHeader className="mb-6">
             <div className="flex items-start justify-between gap-4">
@@ -191,7 +198,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           <div className="space-y-6">
             {/* Session Information */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Session Information</h3>
+              <h3 className="mb-4 text-2xl font-semibold">Session Information</h3>
               <SessionInfoGrid
                 day={session.start_at ? formatSessionDate(session.start_at) : '—'}
                 time={formatSessionTimeRangeForDisplay(session, formatTime)}
@@ -214,11 +221,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               />
             </div>
 
-            <Separator />
+            <div className={cn(studentModalHairline, 'my-6')} />
 
             {/* Students Section */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Students ({sessionsStudents.length})</h3>
+              <h3 className="mb-4 text-2xl font-semibold">Students</h3>
               {sessionsStudents.length === 0 ? (
                 <div className="text-center py-4 text-sm text-muted-foreground">
                   No students planned
@@ -242,11 +249,10 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
               )}
             </div>
 
-            <Separator />
 
             {/* Staff Section */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Staff ({sessionsStaff.length})</h3>
+              <h3 className="mb-4 text-2xl font-semibold">Tutors</h3>
               {sessionsStaff.length === 0 ? (
                 <div className="text-center py-4 text-sm text-muted-foreground">
                   No staff planned

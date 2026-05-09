@@ -1,5 +1,6 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
+import { buildFileCountByTopic, mapTopicFile, normalizeSlug } from '@altitutor/shared';
 import type {
   ResourceAccessSource,
   ResourceFile,
@@ -9,7 +10,6 @@ import type {
   StudentTopicFileRow,
   StudentTopicRow,
 } from '../lib/types';
-import { mapTopicFile, normalizeSlug } from '../lib/helpers';
 
 type SubjectImageRow = {
   subject_id: string;
@@ -124,6 +124,21 @@ export const resourcesApi = {
 
     if (error && error.code !== 'PGRST116') throw error;
     return (data as StudentTopicRow | null) ?? null;
+  },
+
+  async getFileCountsBySubject(subjectId: string): Promise<Map<string, number>> {
+    const supabase = getSupabaseClient();
+    const topics = await resourcesApi.getTopicsBySubject(subjectId);
+    const topicIds = topics.map((t) => t.id).filter((id): id is string => Boolean(id));
+    if (!topicIds.length) return new Map();
+
+    const { data, error } = await supabase
+      .from('vstudent_topics_files')
+      .select('topic_id')
+      .in('topic_id', topicIds);
+
+    if (error) throw error;
+    return buildFileCountByTopic((data ?? []) as Pick<StudentTopicFileRow, 'topic_id'>[]);
   },
 
   async getTopicFiles(topicId: string): Promise<ResourceFile[]> {

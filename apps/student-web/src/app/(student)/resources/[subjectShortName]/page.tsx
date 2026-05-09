@@ -1,11 +1,13 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ResourceAccessDenied,
   ResourcesBreadcrumb,
   TopicTree,
   useResourceAccessBySubject,
+  useResourceFileCountsBySubject,
   useResourceSubject,
   useResourceTopics,
 } from '@/features/resources';
@@ -19,9 +21,12 @@ export default function ResourceSubjectDetailPage() {
 
   const { data: subject, isLoading: subjectLoading } = useResourceSubject(subjectShortName);
   const { data: topics } = useResourceTopics(subject?.id ?? null);
+  const { data: fileCounts } = useResourceFileCountsBySubject(subject?.id ?? null);
   const { data: accessBySubject } = useResourceAccessBySubject();
 
   const hasAccess = Boolean(subject?.id && accessBySubject?.get(subject.id)?.length);
+
+  const tree = useMemo(() => buildTopicTree(topics ?? []), [topics]);
 
   if (!subjectLoading && !subject) {
     return (
@@ -39,31 +44,31 @@ export default function ResourceSubjectDetailPage() {
     );
   }
 
-  const tree = buildTopicTree(topics ?? []);
-
   return (
     <StudentPageContainer className="space-y-8">
       <ResourcesBreadcrumb
         items={[
           { label: 'Resources', href: '/resources' },
-          { label: subject?.name || subject?.short_name || subjectShortName },
+          { label: subject?.long_name || subject?.name || subject?.short_name || subjectShortName },
         ]}
       />
 
       <div>
         <h1 className="text-3xl font-bold tracking-tight">{subject?.long_name || subject?.name}</h1>
-        <p className="text-muted-foreground mt-1">Browse the full topic hierarchy for this subject.</p>
+        <p className="mt-1 text-muted-foreground">Browse the full topic hierarchy for this subject.</p>
       </div>
 
       <section className={studentCardCn('p-5 sm:p-6')}>
-        <div className="mb-4">
-          <h2 className="text-lg font-semibold">Topics</h2>
-        </div>
+        <h2 className="mb-4 text-2xl font-semibold">Topics</h2>
         <TopicTree
           nodes={tree}
           getHref={(topic) =>
             `/resources/${encodeURIComponent(subjectShortName)}/${encodeURIComponent(topic.code.toLowerCase())}`
           }
+          getCounts={(topic) => ({
+            topics: topic.children.length,
+            files: fileCounts?.get(topic.id) ?? 0,
+          })}
         />
       </section>
     </StudentPageContainer>

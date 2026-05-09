@@ -3,6 +3,18 @@
 import { useMemo } from 'react';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
 
+/**
+ * Append PDF viewer hash params that hide the toolbar (and therefore
+ * the download button) on browsers that honour them (Chrome / Edge /
+ * Safari built-in PDF viewers). Fully removing only the download button
+ * isn't possible across all browsers without bundling pdf.js, so we
+ * hide the whole toolbar.
+ */
+function withPdfViewerParams(url: string): string {
+  const separator = url.includes('#') ? '&' : '#';
+  return `${url}${separator}toolbar=0&navpanes=0`;
+}
+
 export function ResourceFileViewer({
   filename,
   mimetype,
@@ -26,27 +38,28 @@ export function ResourceFileViewer({
     return parseExternalVideoEmbed(externalUrl);
   }, [resourceType, externalUrl]);
 
+  const pdfSrc = useMemo(
+    () => (signedUrl && isPdf ? withPdfViewerParams(signedUrl) : null),
+    [signedUrl, isPdf],
+  );
+
   if (videoEmbed) {
     return (
-      <div className="space-y-3">
-        <h2 className="text-xl font-semibold">{filename}</h2>
-        <div className="relative aspect-video w-full overflow-hidden rounded-md border">
-          <iframe
-            src={videoEmbed.embedUrl}
-            title={filename}
-            className="absolute inset-0 h-full w-full border-0"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-            allowFullScreen
-          />
-        </div>
+      <div className="relative aspect-video w-full overflow-hidden rounded-md border">
+        <iframe
+          src={videoEmbed.embedUrl}
+          title={filename}
+          className="absolute inset-0 h-full w-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+        />
       </div>
     );
   }
 
   if (externalUrl && !videoEmbed) {
     return (
-      <div className="space-y-3">
-        <h2 className="text-xl font-semibold">{filename}</h2>
+      <div className="space-y-2">
         <p className="text-sm text-muted-foreground">This resource is hosted outside Altitutor.</p>
         <p className="break-all font-mono text-xs text-muted-foreground">{externalUrl}</p>
       </div>
@@ -57,22 +70,16 @@ export function ResourceFileViewer({
     return <p className="text-sm text-muted-foreground">File preview unavailable.</p>;
   }
 
-  return (
-    <div className="space-y-3">
-      <h2 className="text-xl font-semibold">{filename}</h2>
+  if (isPdf && pdfSrc) {
+    return <iframe src={pdfSrc} title={filename} className="h-[80dvh] w-full rounded-md border" />;
+  }
 
-      {isPdf ? (
-        <iframe src={signedUrl} title={filename} className="h-[70dvh] w-full rounded-md border" />
-      ) : null}
+  if (isImage) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={signedUrl} alt={filename} className="max-h-[80dvh] w-auto rounded-md border" />
+    );
+  }
 
-      {isImage ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={signedUrl} alt={filename} className="max-h-[70dvh] w-auto rounded-md border" />
-      ) : null}
-
-      {!isPdf && !isImage ? (
-        <p className="text-sm text-muted-foreground">This file type cannot be previewed inline.</p>
-      ) : null}
-    </div>
-  );
+  return <p className="text-sm text-muted-foreground">This file type cannot be previewed inline.</p>;
 }

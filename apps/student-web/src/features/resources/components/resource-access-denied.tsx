@@ -7,7 +7,7 @@ import { studentCardCn } from '@/shared/lib/student-visual';
 export function ResourceAccessDenied() {
   return (
     <div className={studentCardCn('p-8 text-center sm:p-10')}>
-      <h2 className="text-xl font-semibold">Access Required</h2>
+      <h1 className="text-3xl font-bold tracking-tight">Access Required</h1>
       <p className="mt-2 text-sm text-muted-foreground">
         You currently do not have access to this resource. If you think this is incorrect, please contact support.
       </p>

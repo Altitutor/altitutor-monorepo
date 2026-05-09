@@ -10,7 +10,7 @@ export default function ResourcesPage() {
     <StudentPageContainer className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Resources</h1>
-        <p className="text-muted-foreground mt-1">Browse your subjects and learning materials.</p>
+        <p className="mt-1 text-muted-foreground">Browse your subjects and learning materials.</p>
       </div>
 
       {isLoading ? (

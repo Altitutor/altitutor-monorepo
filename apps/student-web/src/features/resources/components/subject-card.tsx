@@ -11,7 +11,7 @@ const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1503676260728-1c00da09
 
 export function SubjectCard({ subject, href }: { subject: ResourceSubject; href: string }) {
   const [signedImageUrl, setSignedImageUrl] = useState<string | null>(null);
-  const title = subject.short_name || subject.name || 'Subject';
+  const title = subject.long_name || subject.name || 'Subject';
 
   useEffect(() => {
     let cancelled = false;

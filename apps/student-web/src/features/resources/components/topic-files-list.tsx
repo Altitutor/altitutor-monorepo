@@ -2,14 +2,11 @@
 
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
-import { groupFilesByType, pairFilesWithSolutions } from '../lib/helpers';
+import { formatResourceTypeLabel, groupFilesByType, pairFilesWithSolutions } from '../lib/helpers';
+import { getResourceTypeAccent, getResourceTypeIcon } from '../lib/resource-type-icons';
 import type { ResourceFile } from '../lib/types';
 import { cn } from '@/shared/utils';
 import { studentCardCn } from '@/shared/lib/student-visual';
-
-function typeLabel(type: string) {
-  return type.replace(/_/g, ' ').toLowerCase().replace(/\b\w/g, (c) => c.toUpperCase());
-}
 
 export function TopicFilesList({
   files,
@@ -28,9 +25,11 @@ export function TopicFilesList({
     <div className="space-y-6">
       {Object.entries(grouped).map(([type, typeFiles]) => {
         const pairs = pairFilesWithSolutions(typeFiles);
+        const Icon = getResourceTypeIcon(type);
+        const accentClass = getResourceTypeAccent(type);
         return (
           <section key={type}>
-            <h3 className="mb-3 text-lg font-semibold">{typeLabel(type)}</h3>
+            <h3 className="mb-4 text-2xl font-semibold">{formatResourceTypeLabel(type)}</h3>
             <div className="space-y-3">
               {pairs.map(({ primary, solution }) => (
                 <div
@@ -45,8 +44,16 @@ export function TopicFilesList({
                     className="absolute inset-0 z-0 rounded-2xl"
                     aria-label={`Open ${primary.filename}`}
                   />
-                  <div className="pointer-events-none relative z-[1] flex items-center justify-between gap-3">
-                    <span className="min-w-0 truncate text-sm font-medium leading-snug tracking-tight text-card-foreground transition-colors duration-300 group-hover:text-brand-darkBlue dark:group-hover:text-brand-lightBlue">
+                  <div className="pointer-events-none relative z-[1] flex items-center gap-3">
+                    <div
+                      className={cn(
+                        'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors duration-300',
+                        accentClass,
+                      )}
+                    >
+                      <Icon className="h-5 w-5" aria-hidden />
+                    </div>
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium leading-snug tracking-tight text-card-foreground transition-colors duration-300 group-hover:text-brand-darkBlue dark:group-hover:text-brand-lightBlue">
                       {primary.code} · {primary.filename}
                     </span>
                     <div className="flex shrink-0 items-center gap-3">
