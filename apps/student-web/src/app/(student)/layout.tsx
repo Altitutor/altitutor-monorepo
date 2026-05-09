@@ -55,6 +55,12 @@ const navItems: NavItem[] = [
 
 const navHoverStyles = "hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70";
 
+function isNavItemActive(pathname: string, href: string): boolean {
+  if (pathname === href) return true;
+  if (href === '/') return false;
+  return pathname.startsWith(`${href}/`);
+}
+
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
   
@@ -126,13 +132,14 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                 }
                 
                 const Icon = item.icon;
+                const active = isNavItemActive(pathname, item.href);
                 return (
                   <Link 
                     key={item.href} 
                     href={item.href}
                     className={cn(
                       "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                      pathname === item.href 
+                      active
                         ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
                         : navHoverStyles
                     )}
@@ -199,13 +206,14 @@ function SidebarNav({ className, collapsed, onToggle, ...props }: SidebarNavProp
             }
             
             const Icon = item.icon;
+            const active = isNavItemActive(pathname, item.href);
             return (
               <Link 
                 key={item.href} 
                 href={item.href}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors",
-                  pathname === item.href 
+                  active
                     ? "bg-brand-darkBlue text-white hover:bg-brand-mediumBlue dark:bg-brand-lightBlue dark:text-brand-dark-bg dark:hover:bg-brand-lightBlue/90" 
                     : navHoverStyles,
                   collapsed && "justify-center px-0"
