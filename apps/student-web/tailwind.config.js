@@ -84,6 +84,14 @@ module.exports = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      transitionDuration: {
+        "motion-snappy": "var(--motion-duration-snappy)",
+        "motion-subtle": "var(--motion-duration-subtle)",
+        "motion-enter": "var(--motion-duration-enter)",
+      },
+      transitionTimingFunction: {
+        "motion-standard": "var(--motion-ease-standard)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: 0 },
@@ -93,10 +101,17 @@ module.exports = {
           from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 },
         },
+        /** Indeterminate bar inside route `loading.tsx` (Safari-style, not full-page). */
+        "app-route-loading-bar": {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(420%)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "app-route-loading-bar":
+          "app-route-loading-bar 1.05s var(--motion-ease-standard, cubic-bezier(0.32,0.72,0,1)) infinite",
       },
     },
   },
