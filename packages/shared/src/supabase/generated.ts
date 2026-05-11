@@ -3035,6 +3035,81 @@ export type Database = {
           },
         ]
       }
+      newsletter_subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          resend_audience_synced_at: string | null
+          source: string
+          student_id: string | null
+          subscribed_at: string
+          unsubscribe_token: string
+          unsubscribed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          resend_audience_synced_at?: string | null
+          source: string
+          student_id?: string | null
+          subscribed_at?: string
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          resend_audience_synced_at?: string | null
+          source?: string
+          student_id?: string | null
+          subscribed_at?: string
+          unsubscribe_token?: string
+          unsubscribed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "newsletter_subscribers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "newsletter_subscribers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "newsletter_subscribers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "newsletter_subscribers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "newsletter_subscribers_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       notes: {
         Row: {
           created_at: string
@@ -10790,6 +10865,32 @@ export type Database = {
           has_in_person_access: boolean | null
           has_online_access: boolean | null
           has_ucat_access: boolean | null
+        }
+        Relationships: []
+      }
+      vstudent_ucat_my_activity_daily: {
+        Row: {
+          activity_date: string | null
+          question_attempts: number | null
+          set_attempts: number | null
+        }
+        Relationships: []
+      }
+      vstudent_ucat_my_activity_start: {
+        Row: {
+          started_at: string | null
+          student_id: string | null
+          timezone: string | null
+        }
+        Insert: {
+          started_at?: never
+          student_id?: never
+          timezone?: string | null
+        }
+        Update: {
+          started_at?: never
+          student_id?: never
+          timezone?: string | null
         }
         Relationships: []
       }

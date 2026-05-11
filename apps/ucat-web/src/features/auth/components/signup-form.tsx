@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import type { AuthError } from "@supabase/supabase-js";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { MARKETING_TOKENS } from "@altitutor/shared";
+import { agentDebugLog, probeAuthCookies } from "@/lib/agent-debug-log";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 
@@ -13,6 +15,37 @@ const MONTHLY_PRICE_ID = "price_1TUoHxKMw7Xacevsm4h5ulH8";
 
 type FormState = "idle" | "submitted" | "error";
 
+function getSignupOtpUserMessage(error: AuthError): string {
+  const raw = error.message ?? "";
+  const msg = raw.toLowerCase();
+  if (
+    error.status === 429 ||
+    error.code === "over_email_send_rate_limit" ||
+    msg.includes("rate limit")
+  ) {
+    return "Too many confirmation emails were requested. Please wait several minutes, then try again.";
+  }
+  if (msg.includes("api key") || msg.includes("no `apikey`")) {
+    return "Sign-in could not reach the project (missing anon key). Developers: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in apps/ucat-web/.env.local and restart `pnpm dev`.";
+  }
+  return raw || "Something went wrong. Please try again.";
+}
+
+async function subscribeToNewsletter(email: string): Promise<void> {
+  try {
+    const response = await fetch("/api/ucat/newsletter/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, source: "ucat_signup" }),
+    });
+    if (!response.ok) {
+      console.warn("[signup] Failed to save newsletter preference:", response.status);
+    }
+  } catch (error) {
+    console.warn("[signup] Failed to save newsletter preference:", error);
+  }
+}
+
 export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
@@ -20,42 +53,62 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!email.trim()) return;
+    if (submitInFlightRef.current) return;
 
+    submitInFlightRef.current = true;
     setIsSubmitting(true);
     setErrorMessage(null);
+    const normalizedEmail = email.trim().toLowerCase();
 
     const callbackUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}/auth/callback?next=/signup/flow`
         : "/auth/callback?next=/signup/flow";
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: callbackUrl,
-        data: {
-          newsletter_opt_in: newsletter,
-          pending_redirect: redirectTo,
-          pending_price_id:
-            redirectTo.includes("plan=monthly") ? MONTHLY_PRICE_ID : null,
+    try {
+      if (newsletter) {
+        void subscribeToNewsletter(normalizedEmail);
+      }
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: callbackUrl,
+          data: {
+            pending_redirect: redirectTo,
+            pending_price_id:
+              redirectTo.includes("plan=monthly") ? MONTHLY_PRICE_ID : null,
+          },
         },
-      },
-    });
+      });
 
-    setIsSubmitting(false);
+      if (error) {
+        setErrorMessage(getSignupOtpUserMessage(error));
+        setFormState("error");
+        return;
+      }
 
-    if (error) {
-      setErrorMessage(error.message ?? "Something went wrong. Please try again.");
-      setFormState("error");
-      return;
+      agentDebugLog({
+        hypothesisId: "H2-H5",
+        location: "signup-form.tsx:after_signInWithOtp_ok",
+        message: "signInWithOtp succeeded; probe cookies for PKCE storage",
+        data: {
+          ...probeAuthCookies(),
+          origin: typeof window !== "undefined" ? window.location.origin : "",
+        },
+      });
+
+      setFormState("submitted");
+    } finally {
+      submitInFlightRef.current = false;
+      setIsSubmitting(false);
     }
-
-    setFormState("submitted");
   }
 
   return (

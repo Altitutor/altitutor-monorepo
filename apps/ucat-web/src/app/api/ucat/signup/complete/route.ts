@@ -47,6 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Check if a student record already exists for this user
+  let studentId: string;
   const { data: existing } = await supabaseAdmin
     .from("students")
     .select("id")
@@ -67,6 +68,7 @@ export async function POST(request: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
     }
+    studentId = existing.id;
   } else {
     // Check if a student with this email already exists (e.g. from invite)
     const { data: byEmail } = await supabaseAdmin
@@ -90,9 +92,11 @@ export async function POST(request: NextRequest) {
       if (linkError) {
         return NextResponse.json({ error: "Failed to link profile" }, { status: 500 });
       }
+      studentId = byEmail.id;
     } else {
+      const newStudentId = crypto.randomUUID();
       const { error: insertError } = await supabaseAdmin.from("students").insert({
-        id: crypto.randomUUID(),
+        id: newStudentId,
         user_id: user.id,
         email,
         first_name: firstName,
@@ -106,7 +110,24 @@ export async function POST(request: NextRequest) {
         console.error("[signup complete] Failed to create student:", insertError);
         return NextResponse.json({ error: "Failed to create profile" }, { status: 500 });
       }
+      studentId = newStudentId;
     }
+  }
+
+  const { error: newsletterError } = await supabaseAdmin
+    .from("newsletter_subscribers")
+    .update({
+      student_id: studentId,
+      updated_at: new Date().toISOString(),
+    })
+    .ilike("email", email)
+    .is("student_id", null);
+
+  if (newsletterError) {
+    console.warn(
+      "[signup complete] Failed to link newsletter subscriber:",
+      newsletterError,
+    );
   }
 
   // Sync name to Supabase auth metadata
