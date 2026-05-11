@@ -10210,6 +10210,7 @@ export type Database = {
           planned_absence_logged_at: string | null
           rescheduled_at: string | null
           room: string | null
+          tutor_log_marked_absent: boolean | null
           session_created_at: string | null
           session_id: string | null
           session_student_id: string | null
