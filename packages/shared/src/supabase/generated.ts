@@ -6858,6 +6858,7 @@ export type Database = {
           id: string
           invite_token: string | null
           last_name: string
+          onboarding_progress: Json
           phone: string | null
           registered_at: string | null
           school: string | null
@@ -6865,7 +6866,6 @@ export type Database = {
           timezone: string
           updated_at: string | null
           user_id: string | null
-          welcome_modal_acknowledged_at: string | null
           year_level: number | null
         }
         Insert: {
@@ -6888,6 +6888,7 @@ export type Database = {
           id: string
           invite_token?: string | null
           last_name: string
+          onboarding_progress?: Json
           phone?: string | null
           registered_at?: string | null
           school?: string | null
@@ -6895,7 +6896,6 @@ export type Database = {
           timezone?: string
           updated_at?: string | null
           user_id?: string | null
-          welcome_modal_acknowledged_at?: string | null
           year_level?: number | null
         }
         Update: {
@@ -6918,6 +6918,7 @@ export type Database = {
           id?: string
           invite_token?: string | null
           last_name?: string
+          onboarding_progress?: Json
           phone?: string | null
           registered_at?: string | null
           school?: string | null
@@ -6925,7 +6926,6 @@ export type Database = {
           timezone?: string
           updated_at?: string | null
           user_id?: string | null
-          welcome_modal_acknowledged_at?: string | null
           year_level?: number | null
         }
         Relationships: [
@@ -9943,12 +9943,12 @@ export type Database = {
           first_name: string | null
           id: string | null
           last_name: string | null
+          onboarding_progress: Json | null
           phone: string | null
           school: string | null
           status: string | null
           updated_at: string | null
           user_id: string | null
-          welcome_modal_acknowledged_at: string | null
           year_level: number | null
         }
         Insert: {
@@ -9967,12 +9967,12 @@ export type Database = {
           first_name?: string | null
           id?: string | null
           last_name?: string | null
+          onboarding_progress?: Json | null
           phone?: string | null
           school?: string | null
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
-          welcome_modal_acknowledged_at?: string | null
           year_level?: number | null
         }
         Update: {
@@ -9991,12 +9991,12 @@ export type Database = {
           first_name?: string | null
           id?: string | null
           last_name?: string | null
+          onboarding_progress?: Json | null
           phone?: string | null
           school?: string | null
           status?: string | null
           updated_at?: string | null
           user_id?: string | null
-          welcome_modal_acknowledged_at?: string | null
           year_level?: number | null
         }
         Relationships: []
@@ -15865,9 +15865,18 @@ export type Database = {
         Returns: string
       }
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
+      student_complete_onboarding_tour: {
+        Args: { p_tour_id: string; p_version?: number }
+        Returns: Json
+      }
       student_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
+      }
+      student_reset_onboarding_progress: { Args: never; Returns: Json }
+      student_reset_onboarding_tour: {
+        Args: { p_tour_id: string }
+        Returns: Json
       }
       try_acquire_billing_runner_lock: {
         Args: {
