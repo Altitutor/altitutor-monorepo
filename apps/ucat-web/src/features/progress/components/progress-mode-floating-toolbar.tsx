@@ -1,11 +1,14 @@
 "use client";
 
+import { motion, useReducedMotion } from "motion/react";
 import { useAppShellLayout } from "@/features/layout/context/app-shell-layout-context";
 import { cn } from "@/lib/utils";
 import {
   ProgressModeSelector,
   type ProgressModeSelectorProps,
 } from "./progress-mode-selector";
+
+const TOOLBAR_ENTER_EASE = [0.32, 0.72, 0, 1] as const;
 
 type ProgressModeFloatingToolbarProps = ProgressModeSelectorProps & {
   /** For product tours; rendered on the fixed anchor wrapper */
@@ -18,6 +21,7 @@ export function ProgressModeFloatingToolbar({
   ...selectorProps
 }: ProgressModeFloatingToolbarProps) {
   const { mainContentHasSidebarInset } = useAppShellLayout();
+  const reduceMotion = useReducedMotion();
 
   return (
     <div
@@ -27,15 +31,21 @@ export function ProgressModeFloatingToolbar({
         className,
       )}
     >
-      <div
+      <motion.div
         {...(tourAnchorId ? { id: tourAnchorId } : {})}
         className={cn(
           "w-full max-w-5xl rounded-xl border border-border/50 bg-background/95 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur",
           "supports-[backdrop-filter]:bg-background/80 dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]",
         )}
+        initial={reduceMotion ? false : { opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{
+          duration: reduceMotion ? 0 : 0.38,
+          ease: TOOLBAR_ENTER_EASE,
+        }}
       >
         <ProgressModeSelector {...selectorProps} className="w-full min-w-0" />
-      </div>
+      </motion.div>
     </div>
   );
 }
