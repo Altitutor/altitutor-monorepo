@@ -10,6 +10,10 @@ import { SetAttemptAnalysisChart } from "./set-attempt-analysis-chart";
 import { SetAnswersCard } from "./set-answers-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
+import {
+  AnimatedFraction,
+  AnimatedInteger,
+} from "./progress-animated-display";
 
 type SetAttemptDetailPageProps = {
   attemptId: string;
@@ -144,7 +148,11 @@ export function SetAttemptDetailPage({
                 data.scaledScore == null && "text-muted-foreground",
               )}
             >
-              {data.scaledScore != null ? Math.round(data.scaledScore) : "—"}
+              {data.scaledScore != null ? (
+                <AnimatedInteger value={Math.round(data.scaledScore)} />
+              ) : (
+                "—"
+              )}
             </div>
           </div>
           <div>
@@ -152,7 +160,11 @@ export function SetAttemptDetailPage({
               Points
             </div>
             <div className="text-xl font-semibold tabular-nums">
-              {total > 0 ? `${points} / ${total}` : "—"}
+              {total > 0 ? (
+                <AnimatedFraction numerator={points} denominator={total} />
+              ) : (
+                "—"
+              )}
             </div>
           </div>
           {categoryBreakdown.length > 0 ? (
@@ -170,7 +182,14 @@ export function SetAttemptDetailPage({
                       {cat.name}
                     </span>
                     <span className="shrink-0">
-                      {cat.total > 0 ? `${cat.score} / ${cat.total}` : "—"}
+                      {cat.total > 0 ? (
+                        <AnimatedFraction
+                          numerator={cat.score}
+                          denominator={cat.total}
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </span>
                   </div>
                 ))}

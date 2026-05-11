@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
 import { useProgress } from "../hooks/use-progress";
 import { useProgressMode } from "../hooks/use-progress-mode";
-import { ProgressModeSelector } from "./progress-mode-selector";
+import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SetAttemptsCard } from "./set-attempts-card";
 import { QuestionAttemptsCard } from "./question-attempts-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
@@ -17,82 +17,16 @@ import {
   applyAttemptFilterToProgress,
   getSharedDateRange,
 } from "../lib/progress-data-utils";
+import {
+  AnimatedFraction,
+  AnimatedInteger,
+  ProgressCircular,
+} from "./progress-animated-display";
 import type {
   SectionCategoryProgress,
   QuestionAttemptRow,
   SetAttemptRow,
 } from "@/app/api/ucat/progress/route";
-
-function CircularProgress({
-  percentage,
-  size = 120,
-  strokeWidth,
-  className,
-  showLabel = true,
-}: {
-  percentage: number;
-  size?: number;
-  strokeWidth?: number;
-  className?: string;
-  showLabel?: boolean;
-}) {
-  const sw = strokeWidth ?? (size <= 56 ? 4 : 10);
-  const radius = (size - sw) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const capped = Math.min(100, Math.max(0, percentage));
-  const offset = circumference - (capped / 100) * circumference;
-
-  return (
-    <div
-      className={cn(
-        "relative inline-flex flex-col items-center justify-center shrink-0",
-        className,
-      )}
-      style={{ width: size, height: size }}
-    >
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90"
-        aria-label={`${percentage}% progress`}
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={sw}
-          className="text-muted/30"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={sw}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-accent transition-[stroke-dashoffset] duration-700 ease-out"
-        />
-      </svg>
-      {showLabel && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className={cn(
-              "font-semibold tabular-nums",
-              size <= 56 ? "text-xs" : "text-lg",
-            )}
-          >
-            {capped}%
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
 
 type SectionProgressPageProps = {
   sectionNumber: number;
@@ -365,22 +299,13 @@ function SectionProgressContent({
   }, [filteredSetAttempts, progressMode.mode, progressMode.timeFrameDays]);
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
       <UcatPageHeader
         title={section.sectionName}
         description={`Progress for ${section.sectionName}`}
         backHref="/progress"
         backLabel="Back to progress"
         breadcrumbOverrides={{ 2: section.sectionName }}
-      />
-
-      <ProgressModeSelector
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        attemptFilter={progressMode.attemptFilter}
-        onAttemptFilterChange={progressMode.onAttemptFilterChange}
       />
 
       <div className="flex flex-col gap-4">
@@ -398,7 +323,11 @@ function SectionProgressContent({
                   score == null && "text-muted-foreground",
                 )}
               >
-                {score != null ? Math.round(score) : "—"}
+                {score != null ? (
+                  <AnimatedInteger value={Math.round(score)} />
+                ) : (
+                  "—"
+                )}
               </div>
             </CardContent>
           </Card>
@@ -413,10 +342,13 @@ function SectionProgressContent({
                     Questions correct
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
-                    {stats.correct} / {stats.completed}
+                    <AnimatedFraction
+                      numerator={stats.correct}
+                      denominator={stats.completed}
+                    />
                   </span>
                 </div>
-                <CircularProgress
+                <ProgressCircular
                   percentage={stats.completed > 0 ? percentage : 0}
                   size={48}
                   className="text-accent shrink-0"
@@ -468,9 +400,14 @@ function SectionProgressContent({
                             {cat.categoryName}
                           </span>
                           <span className="shrink-0">
-                            {cat.maxScore > 0
-                              ? `${cat.correctScore} / ${cat.maxScore}`
-                              : "—"}
+                            {cat.maxScore > 0 ? (
+                              <AnimatedFraction
+                                numerator={cat.correctScore}
+                                denominator={cat.maxScore}
+                              />
+                            ) : (
+                              "—"
+                            )}
                           </span>
                         </div>
                       ));
@@ -489,14 +426,17 @@ function SectionProgressContent({
                     Total questions completed
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
-                    {stats.completed}
+                    <AnimatedInteger value={stats.completed} />
                     {progressMode.mode !== "time_frame" &&
-                    totalPublicQuestions != null
-                      ? ` / ${totalPublicQuestions}`
-                      : ""}
+                    totalPublicQuestions != null ? (
+                      <>
+                        {" / "}
+                        <AnimatedInteger value={totalPublicQuestions} />
+                      </>
+                    ) : null}
                   </span>
                 </div>
-                <CircularProgress
+                <ProgressCircular
                   percentage={
                     totalPublicQuestions != null && totalPublicQuestions > 0
                       ? Math.round(
@@ -525,9 +465,14 @@ function SectionProgressContent({
                           {cat.categoryName}
                         </span>
                         <span className="shrink-0">
-                          {cat.totalPublicQuestions != null
-                            ? `${cat.maxScore} / ${cat.totalPublicQuestions}`
-                            : `${cat.maxScore} questions`}
+                          {cat.totalPublicQuestions != null ? (
+                            <AnimatedFraction
+                              numerator={cat.maxScore}
+                              denominator={cat.totalPublicQuestions}
+                            />
+                          ) : (
+                            `${cat.maxScore} questions`
+                          )}
                         </span>
                       </div>
                     ))}
@@ -545,14 +490,17 @@ function SectionProgressContent({
                     Total sets completed
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
-                    {setsStats.totalCompleted}
+                    <AnimatedInteger value={setsStats.totalCompleted} />
                     {progressMode.mode !== "time_frame" &&
-                    totalPublicSets != null
-                      ? ` / ${totalPublicSets}`
-                      : ""}
+                    totalPublicSets != null ? (
+                      <>
+                        {" / "}
+                        <AnimatedInteger value={totalPublicSets} />
+                      </>
+                    ) : null}
                   </span>
                 </div>
-                <CircularProgress
+                <ProgressCircular
                   percentage={
                     totalPublicSets != null && totalPublicSets > 0
                       ? Math.round(
@@ -576,11 +524,14 @@ function SectionProgressContent({
                       Untimed sets completed
                     </span>
                     <span className="shrink-0">
-                      {setsStats.untimedCompleted}
+                      <AnimatedInteger value={setsStats.untimedCompleted} />
                       {progressMode.mode !== "time_frame" &&
-                      totalPublicUntimedSets != null
-                        ? ` / ${totalPublicUntimedSets}`
-                        : ""}
+                      totalPublicUntimedSets != null ? (
+                        <>
+                          {" / "}
+                          <AnimatedInteger value={totalPublicUntimedSets} />
+                        </>
+                      ) : null}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -588,11 +539,14 @@ function SectionProgressContent({
                       Timed sets completed
                     </span>
                     <span className="shrink-0">
-                      {setsStats.timedCompleted}
+                      <AnimatedInteger value={setsStats.timedCompleted} />
                       {progressMode.mode !== "time_frame" &&
-                      totalPublicTimedSets != null
-                        ? ` / ${totalPublicTimedSets}`
-                        : ""}
+                      totalPublicTimedSets != null ? (
+                        <>
+                          {" / "}
+                          <AnimatedInteger value={totalPublicTimedSets} />
+                        </>
+                      ) : null}
                     </span>
                   </div>
                 </div>
@@ -614,6 +568,15 @@ function SectionProgressContent({
         timeFrameDays={progressMode.timeFrameDays}
         sharedDateRange={sharedDateRange}
         sectionNumber={section.sectionNumber}
+      />
+
+      <ProgressModeFloatingToolbar
+        mode={progressMode.mode}
+        onModeChange={progressMode.onModeChange}
+        timeFrameDays={progressMode.timeFrameDays}
+        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
+        attemptFilter={progressMode.attemptFilter}
+        onAttemptFilterChange={progressMode.onAttemptFilterChange}
       />
     </div>
   );

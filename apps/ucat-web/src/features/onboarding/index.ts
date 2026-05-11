@@ -2,7 +2,12 @@ export { OnboardingProvider } from "@/features/onboarding/components/onboarding-
 export { OnboardingAutoStart } from "@/features/onboarding/components/onboarding-auto-start";
 export { OnboardingCard } from "@/features/onboarding/components/onboarding-card";
 export { useOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-tour";
-export { onboardingStorage } from "@/features/onboarding/lib/storage";
+export {
+  useOnboardingProgress,
+  useCompleteOnboardingTour,
+  useResetOnboardingTour,
+  useResetAllOnboardingTours,
+} from "@/features/onboarding/hooks/use-onboarding-progress";
 export {
   ALL_UCAT_TOUR_IDS,
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,

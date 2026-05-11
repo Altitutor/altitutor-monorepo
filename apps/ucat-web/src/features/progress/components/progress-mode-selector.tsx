@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@altitutor/ui";
 import { SegmentedControl } from "./segmented-control";
 import { ProgressAttemptFilterSelector } from "./progress-attempt-filter-selector";
@@ -10,7 +11,7 @@ import {
   TIME_FRAME_OPTIONS,
 } from "../lib/progress-mode";
 
-type ProgressModeSelectorProps = {
+export type ProgressModeSelectorProps = {
   mode: ProgressMode;
   onModeChange: (mode: ProgressMode) => void;
   timeFrameDays: TimeFrameDays;
@@ -33,40 +34,47 @@ export function ProgressModeSelector({
   className,
 }: ProgressModeSelectorProps) {
   return (
-    <div className={className}>
-      <div className="flex flex-wrap items-center gap-2">
-        <SegmentedControl
-          value={mode}
-          onValueChange={(v) => onModeChange(v as ProgressMode)}
-          options={[
-            { value: "all_time", label: "All time" },
-            {
-              value: "weighted",
-              label: "Weighted average",
-              infoTooltip:
-                "Recent attempts are weighted more heavily than older ones. Percentages and scaled scores use EMA; counts show all time.",
-            },
-            { value: "time_frame", label: "Time frame" },
-          ]}
-        />
-        {mode === "time_frame" && (
-          <SearchableSelect<(typeof TIME_FRAME_OPTIONS)[number]>
-            items={[...TIME_FRAME_OPTIONS]}
-            value={
-              TIME_FRAME_OPTIONS.find((r) => r.value === timeFrameDays) ?? null
-            }
-            onValueChange={(item) => item && onTimeFrameDaysChange(item.value)}
-            getItemLabel={(r) => r.label}
-            getItemId={(r) => r.value}
-            placeholder="Days"
-            triggerClassName="w-[100px]"
+    <div className={cn("w-full min-w-0", className)}>
+      <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-nowrap items-center gap-2">
+          <SegmentedControl
+            value={mode}
+            onValueChange={(v) => onModeChange(v as ProgressMode)}
+            options={[
+              { value: "all_time", label: "All time" },
+              {
+                value: "weighted",
+                label: "Weighted average",
+                infoTooltip:
+                  "Recent attempts are weighted more heavily than older ones. Percentages and scaled scores use EMA; counts show all time.",
+              },
+              { value: "time_frame", label: "Time frame" },
+            ]}
           />
-        )}
+          {mode === "time_frame" && (
+            <SearchableSelect<(typeof TIME_FRAME_OPTIONS)[number]>
+              items={[...TIME_FRAME_OPTIONS]}
+              value={
+                TIME_FRAME_OPTIONS.find((r) => r.value === timeFrameDays) ??
+                null
+              }
+              onValueChange={(item) =>
+                item && onTimeFrameDaysChange(item.value)
+              }
+              getItemLabel={(r) => r.label}
+              getItemId={(r) => r.value}
+              placeholder="Days"
+              triggerClassName="h-9 w-[6.75rem] shrink-0 px-2 sm:w-[7rem]"
+            />
+          )}
+        </div>
         {showAttemptFilter && onAttemptFilterChange && (
-          <ProgressAttemptFilterSelector
-            value={attemptFilter}
-            onValueChange={onAttemptFilterChange}
-          />
+          <div className="ml-auto flex min-w-0 shrink-0 items-center">
+            <ProgressAttemptFilterSelector
+              value={attemptFilter}
+              onValueChange={onAttemptFilterChange}
+            />
+          </div>
         )}
       </div>
     </div>

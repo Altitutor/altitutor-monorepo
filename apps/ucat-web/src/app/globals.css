@@ -179,3 +179,14 @@ body {
   display: none !important;
 }
 
+/*
+ * nextstepjs: the card wrapper is `position: absolute` next to the spotlight.
+ * Cap its box so a tall custom card cannot extend past the viewport; the
+ * onboarding card scrolls its body and keeps actions in the sticky footer.
+ */
+[data-name="nextstep-card"] {
+  max-height: min(85dvh, calc(100dvh - 1.5rem));
+  max-width: min(20rem, calc(100vw - 2rem));
+  min-height: 0;
+}
+

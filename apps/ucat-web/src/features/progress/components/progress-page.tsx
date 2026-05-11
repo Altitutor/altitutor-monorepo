@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
 import { useProgress } from "../hooks/use-progress";
 import { useProgressMode } from "../hooks/use-progress-mode";
-import { ProgressModeSelector } from "./progress-mode-selector";
+import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SectionProgressCards } from "./section-progress-cards";
 import { SetAttemptsCard } from "./set-attempts-card";
 import { MockAttemptsCard } from "./mock-attempts-card";
@@ -103,7 +103,7 @@ export function ProgressPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
       <div id="tour-progress-header">
         <UcatPageHeader
           title="Progress"
@@ -112,17 +112,6 @@ export function ProgressPage() {
       </div>
 
       <ReviewHeatmapCard />
-
-      <div id="tour-progress-mode">
-        <ProgressModeSelector
-          mode={progressMode.mode}
-          onModeChange={progressMode.onModeChange}
-          timeFrameDays={progressMode.timeFrameDays}
-          onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-          attemptFilter={progressMode.attemptFilter}
-          onAttemptFilterChange={progressMode.onAttemptFilterChange}
-        />
-      </div>
 
       <SectionProgressCards
         sections={sectionProgress}
@@ -152,6 +141,16 @@ export function ProgressPage() {
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
         sharedDateRange={sharedDateRange}
+      />
+
+      <ProgressModeFloatingToolbar
+        tourAnchorId="tour-progress-mode"
+        mode={progressMode.mode}
+        onModeChange={progressMode.onModeChange}
+        timeFrameDays={progressMode.timeFrameDays}
+        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
+        attemptFilter={progressMode.attemptFilter}
+        onAttemptFilterChange={progressMode.onAttemptFilterChange}
       />
     </div>
   );

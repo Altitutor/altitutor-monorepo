@@ -1,8 +1,10 @@
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { STUDENT_WELCOME_TOUR } from '../lib/onboarding';
+
 export interface WelcomeModalAckResponse {
   success: boolean;
   data: {
-    acknowledged_at: string | null;
-    alreadyAcknowledged: boolean;
+    acknowledged_at: string;
   };
 }
 
@@ -42,19 +44,28 @@ export const welcomeApi = {
     return response.json() as Promise<WelcomeModalContextResponse>;
   },
 
+  /**
+   * Mark the student-welcome onboarding tour completed via SECURITY DEFINER
+   * RPC. The RPC merges {tour_id: {completed_at, version}} into the
+   * students.onboarding_progress JSONB and self-checks that the caller is the
+   * owning student, so no admin client is required.
+   */
   acknowledgeWelcomeModal: async (): Promise<WelcomeModalAckResponse> => {
-    const response = await fetch('/api/welcome-modal/ack', {
-      method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+    const supabase = getSupabaseClient();
+    const { error } = await supabase.rpc('student_complete_onboarding_tour', {
+      p_tour_id: STUDENT_WELCOME_TOUR,
+      p_version: 1,
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to acknowledge welcome modal' }));
-      throw new Error(errorData.error || 'Failed to acknowledge welcome modal');
+    if (error) {
+      throw new Error(error.message || 'Failed to acknowledge welcome modal');
     }
 
-    return response.json() as Promise<WelcomeModalAckResponse>;
+    return {
+      success: true,
+      data: {
+        acknowledged_at: new Date().toISOString(),
+      },
+    };
   },
 };

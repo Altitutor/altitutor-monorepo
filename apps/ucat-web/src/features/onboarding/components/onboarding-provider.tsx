@@ -5,12 +5,16 @@ import { NextStep, NextStepProvider } from "nextstepjs";
 import { OnboardingCard } from "@/features/onboarding/components/onboarding-card";
 import { OnboardingScrollRepaint } from "@/features/onboarding/components/onboarding-scroll-repaint";
 import { ucatOnboardingTours } from "@/features/onboarding/config/tour-steps";
-import { onboardingStorage } from "@/features/onboarding/lib/storage";
+import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
+  const completeTour = useCompleteOnboardingTour();
+
   const handleFinish = (tour: string | null) => {
     if (!tour) return;
-    onboardingStorage.markCompleted(tour);
+    // Fire-and-forget; the mutation invalidates the progress query on success
+    // so the auto-start hook won't re-trigger this tour on the next mount.
+    completeTour.mutate(tour);
   };
 
   return (

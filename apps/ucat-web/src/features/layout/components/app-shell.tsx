@@ -15,6 +15,7 @@ import {
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
 } from "@/features/onboarding";
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
+import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layout-context";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -107,6 +108,11 @@ export function AppShell({ children }: AppShellProps) {
           className="pointer-events-none fixed inset-0 z-[1100]"
           aria-hidden
         />
+        <AppShellLayoutProvider
+          value={{
+            mainContentHasSidebarInset: sidebarExpanded && !isMobile,
+          }}
+        >
         <div className="min-h-dvh bg-background" id="ucat-app-shell">
         {isExamRoute ? (
           <UcatLagProvider>
@@ -177,6 +183,7 @@ export function AppShell({ children }: AppShellProps) {
           </>
         )}
         </div>
+        </AppShellLayoutProvider>
       </OnboardingProvider>
     </ComingSoonProvider>
   );

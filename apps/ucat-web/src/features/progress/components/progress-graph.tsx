@@ -153,7 +153,7 @@ export function ProgressGraph({
           activeDot={{ r: 6 }}
           connectNulls={true}
           isAnimationActive
-          animationDuration={600}
+          animationDuration={800}
           animationEasing="ease-out"
         />
       </LineChart>
@@ -214,7 +214,7 @@ export function ProgressGraph({
           fill="hsl(var(--accent))"
           radius={[4, 4, 0, 0]}
           isAnimationActive
-          animationDuration={600}
+          animationDuration={800}
           animationEasing="ease-out"
         />
       </BarChart>

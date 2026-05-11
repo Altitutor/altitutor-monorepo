@@ -130,7 +130,11 @@ const welcomeTour: Tour = {
       ),
       selector: "[data-tour='nav-mocks']",
       viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      side: "right",
+      // Lower sidebar items: `side: "right"` vertically centers the card on the
+      // target; near the bottom of the viewport that pushes controls off-screen.
+      // `top` places the card above the nav row (nextstepjs flips to `bottom`
+      // when there is not enough space above).
+      side: "top",
       showControls: true,
       showSkip: true,
       pointerPadding: 4,
@@ -147,7 +151,7 @@ const welcomeTour: Tour = {
       ),
       selector: "[data-tour='nav-settings']",
       viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      side: "right",
+      side: "top",
       showControls: true,
       showSkip: false,
       pointerPadding: 4,
@@ -239,7 +243,8 @@ const progressTour: Tour = {
         </p>
       ),
       selector: "#tour-progress-mode",
-      side: "bottom",
+      /** Toolbar is fixed at the bottom — place the card above it (not below the fold). */
+      side: "top",
       showControls: true,
       showSkip: false,
       pointerPadding: 8,

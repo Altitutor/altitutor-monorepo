@@ -11,6 +11,7 @@ import {
   type QuestionEngineExam,
   type QuestionStemWithQuestions,
 } from "@/features/question-engine/model/types";
+import { AnimatedFraction } from "./progress-animated-display";
 
 type PracticeAttemptDetailPageProps = {
   attemptId: string;
@@ -134,7 +135,11 @@ export function PracticeAttemptDetailPage({
               Points
             </div>
             <div className="text-xl font-semibold tabular-nums">
-              {total > 0 ? `${points} / ${total}` : "—"}
+              {total > 0 ? (
+                <AnimatedFraction numerator={points} denominator={total} />
+              ) : (
+                "—"
+              )}
             </div>
           </div>
           {categoryBreakdown.length > 0 ? (
@@ -152,7 +157,14 @@ export function PracticeAttemptDetailPage({
                       {cat.name}
                     </span>
                     <span className="shrink-0">
-                      {cat.total > 0 ? `${cat.score} / ${cat.total}` : "—"}
+                      {cat.total > 0 ? (
+                        <AnimatedFraction
+                          numerator={cat.score}
+                          denominator={cat.total}
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </span>
                   </div>
                 ))}

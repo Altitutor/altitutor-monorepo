@@ -231,7 +231,14 @@ export function SearchableSelect<T>({
       disabled={disabled}
       className={cn("w-full justify-between font-normal", triggerClassName)}
     >
-      <span className={cn(!value && "text-muted-foreground")}>{displayValue}</span>
+      <span
+        className={cn(
+          "min-w-0 flex-1 truncate text-left",
+          !value && "text-muted-foreground",
+        )}
+      >
+        {displayValue}
+      </span>
       {showChevron && (
         <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden />
       )}

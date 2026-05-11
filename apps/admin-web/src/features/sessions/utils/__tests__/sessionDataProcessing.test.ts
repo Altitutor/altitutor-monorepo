@@ -111,7 +111,7 @@ describe('processSessionStudents', () => {
     created_by: null,
     user_id: null,
     invite_token: null,
-    welcome_modal_acknowledged_at: null,
+    onboarding_progress: {},
     timezone: 'Australia/Adelaide',
   };
 

@@ -4,7 +4,7 @@ import { useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
 import { useProgress } from "../hooks/use-progress";
 import { useProgressMode } from "../hooks/use-progress-mode";
-import { ProgressModeSelector } from "./progress-mode-selector";
+import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SectionProgressCards } from "./section-progress-cards";
 import { MockAttemptsCard } from "./mock-attempts-card";
 import {
@@ -13,6 +13,7 @@ import {
   computeSectionProgressFromMockAttempts,
 } from "../lib/progress-data-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { AnimatedInteger } from "./progress-animated-display";
 
 export function MocksProgressPage() {
   const { data, isLoading, error } = useProgress();
@@ -108,18 +109,10 @@ export function MocksProgressPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
       <UcatPageHeader
         title="Mock progress"
         description="Track your performance across mock exams."
-      />
-
-      <ProgressModeSelector
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        showAttemptFilter={false}
       />
 
       <div className="flex flex-wrap justify-center gap-4">
@@ -135,7 +128,11 @@ export function MocksProgressPage() {
                 averageMockScore == null ? "text-muted-foreground" : ""
               }`}
             >
-              {averageMockScore != null ? averageMockScore : "—"}
+              {averageMockScore != null ? (
+                <AnimatedInteger value={averageMockScore} />
+              ) : (
+                "—"
+              )}
             </div>
           </CardContent>
         </Card>
@@ -147,10 +144,13 @@ export function MocksProgressPage() {
           </CardHeader>
           <CardContent>
             <div className="text-4xl font-bold tabular-nums text-center">
-              {mocksCompleted}
-              {data.totalPublicMocks != null
-                ? ` / ${data.totalPublicMocks}`
-                : ""}
+              <AnimatedInteger value={mocksCompleted} />
+              {data.totalPublicMocks != null ? (
+                <>
+                  {" / "}
+                  <AnimatedInteger value={data.totalPublicMocks} />
+                </>
+              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -168,6 +168,14 @@ export function MocksProgressPage() {
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
         sharedDateRange={sharedDateRange}
+      />
+
+      <ProgressModeFloatingToolbar
+        mode={progressMode.mode}
+        onModeChange={progressMode.onModeChange}
+        timeFrameDays={progressMode.timeFrameDays}
+        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
+        showAttemptFilter={false}
       />
     </div>
   );
