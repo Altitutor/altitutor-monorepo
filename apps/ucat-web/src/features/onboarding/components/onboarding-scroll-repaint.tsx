@@ -2,31 +2,23 @@
 
 import { useEffect, useRef } from "react";
 import { useNextStep } from "nextstepjs";
-import { UCAT_PROGRESS_TOUR } from "@/features/onboarding/config/tour-steps";
-
-const PROGRESS_MODE_STEP_INDEX = 1;
 
 /**
  * nextstepjs only recomputes spotlight position on `resize`. Dispatch a
  * synthetic resize on window scroll so highlights stay aligned with targets
  * while the document (or nested scroll containers) moves.
  *
- * Skips this for the progress floating toolbar step: that target is
- * `position: fixed`, so scroll does not move it — firing resize every scroll
- * frame only causes jank and overlay churn.
+ * Steps that anchor to a `position: fixed` target should set
+ * `viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID` in `tour-steps.tsx`. That
+ * mounts the overlay into the fixed portal so the spotlight position is
+ * stable across scroll without any repainting at all.
  */
 export function OnboardingScrollRepaint() {
-  const { isNextStepVisible, currentTour, currentStep } = useNextStep();
+  const { isNextStepVisible } = useNextStep();
   const rafRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isNextStepVisible) return;
-
-    const skipForFixedProgressToolbar =
-      currentTour === UCAT_PROGRESS_TOUR &&
-      currentStep === PROGRESS_MODE_STEP_INDEX;
-
-    if (skipForFixedProgressToolbar) return;
 
     const bump = () => {
       if (rafRef.current != null) {
@@ -46,7 +38,7 @@ export function OnboardingScrollRepaint() {
         rafRef.current = null;
       }
     };
-  }, [isNextStepVisible, currentTour, currentStep]);
+  }, [isNextStepVisible]);
 
   return null;
 }

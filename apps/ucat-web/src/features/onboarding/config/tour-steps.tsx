@@ -28,7 +28,15 @@ const welcomeTour: Tour = {
       ),
       selector: "#ucat-onboarding-welcome",
       viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      side: "right",
+      // Logo is flush to the top of the sidebar: plain `right` vertically
+      // centres the card and clips above the viewport. Do **not** use
+      // `right-top` / `right-bottom` here — nextstepjs `checkSideCutOff` treats
+      // any side string containing "top" or "bottom" as a vertical hint and
+      // can replace `right-top` with `right-bottom` when y < 256px, which
+      // inverts arrow placement (arrow ends up on the wrong edge of the
+      // card). `bottom` places the card *below* the logo with the arrow on the
+      // top edge of the card pointing up — stable and matches the docs.
+      side: "bottom",
       showControls: true,
       showSkip: true,
       pointerPadding: 8,
@@ -130,10 +138,10 @@ const welcomeTour: Tour = {
       ),
       selector: "[data-tour='nav-mocks']",
       viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      // Lower sidebar items: `side: "right"` vertically centers the card on the
-      // target; near the bottom of the viewport that pushes controls off-screen.
-      // `top` places the card above the nav row (nextstepjs flips to `bottom`
-      // when there is not enough space above).
+      // Near the bottom of the viewport: `right-bottom` is flipped to
+      // `right-top` by nextstepjs when the target sits low, which misplaces the
+      // arrow. `top` keeps the card above the row with the arrow on the bottom
+      // edge of the card pointing down.
       side: "top",
       showControls: true,
       showSkip: true,
@@ -243,6 +251,15 @@ const progressTour: Tour = {
         </p>
       ),
       selector: "#tour-progress-mode",
+      /**
+       * The mode toolbar is `position: fixed` at the bottom of the viewport.
+       * Without `viewportID`, the overlay portals into the document body —
+       * its origin then shifts with page scroll, so the spotlight drifts away
+       * from the fixed toolbar. Anchoring to the fixed overlay container keeps
+       * the spotlight pinned to the toolbar exactly (same trick we use for the
+       * sidebar steps).
+       */
+      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
       /** Toolbar is fixed at the bottom — place the card above it (not below the fold). */
       side: "top",
       showControls: true,
