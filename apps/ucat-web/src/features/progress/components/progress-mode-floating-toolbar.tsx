@@ -30,14 +30,11 @@ export function ProgressModeFloatingToolbar({
       <div
         {...(tourAnchorId ? { id: tourAnchorId } : {})}
         className={cn(
-          "w-max max-w-full rounded-xl border border-border/50 bg-background/95 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur",
+          "w-full max-w-5xl rounded-xl border border-border/50 bg-background/95 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur",
           "supports-[backdrop-filter]:bg-background/80 dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]",
         )}
       >
-        <ProgressModeSelector
-          {...selectorProps}
-          className="max-w-full min-w-0 w-max"
-        />
+        <ProgressModeSelector {...selectorProps} className="w-full min-w-0" />
       </div>
     </div>
   );

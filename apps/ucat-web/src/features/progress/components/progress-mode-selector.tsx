@@ -35,8 +35,8 @@ export function ProgressModeSelector({
 }: ProgressModeSelectorProps) {
   return (
     <div className={cn("w-full min-w-0", className)}>
-      <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
-        <div className="flex min-w-0 flex-nowrap items-center gap-2">
+      <div className="flex w-full min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
           <SegmentedControl
             value={mode}
             onValueChange={(v) => onModeChange(v as ProgressMode)}
@@ -69,7 +69,7 @@ export function ProgressModeSelector({
           )}
         </div>
         {showAttemptFilter && onAttemptFilterChange && (
-          <div className="ml-auto flex min-w-0 shrink-0 items-center">
+          <div className="flex min-w-0 shrink-0 items-center sm:justify-end">
             <ProgressAttemptFilterSelector
               value={attemptFilter}
               onValueChange={onAttemptFilterChange}

@@ -58,10 +58,10 @@ export function SegmentedControl<T extends string>({
               <div
                 key={option.value}
                 className={cn(
-                  "inline-flex items-stretch overflow-hidden rounded-md",
+                  "group inline-flex items-stretch rounded-md",
                   isActive
                     ? "bg-sidebar text-sidebar-foreground"
-                    : "text-foreground hover:bg-muted/80",
+                    : "text-foreground",
                 )}
               >
                 <button
@@ -69,19 +69,24 @@ export function SegmentedControl<T extends string>({
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => onValueChange(option.value)}
-                  className={cn(segmentTabPadding, "rounded-none")}
+                  className={cn(
+                    segmentTabPadding,
+                    "rounded-l-md rounded-r-none",
+                    !isActive && "hover:bg-muted/80",
+                  )}
                 >
                   {option.label}
                 </button>
-                <Tooltip>
+                <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
                       className={cn(
-                        "inline-flex items-center justify-center rounded-none border-l px-2 py-1.5",
+                        "inline-flex items-center justify-center rounded-r-md rounded-l-none border-l px-2 py-1.5",
                         "text-muted-foreground transition-[color,background-color] duration-200",
                         UCAT_INTERACTION_EASE,
                         "hover:text-foreground",
+                        !isActive && "group-hover:bg-muted/80",
                         isActive
                           ? "border-sidebar-foreground/25"
                           : "border-border/60",
@@ -92,7 +97,7 @@ export function SegmentedControl<T extends string>({
                       <Info className="h-3 w-3 shrink-0" aria-hidden />
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="bottom" className="z-[200] max-w-[240px]">
+                  <TooltipContent side="top" className="max-w-[240px]">
                     {option.infoTooltip}
                   </TooltipContent>
                 </Tooltip>
