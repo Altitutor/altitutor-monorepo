@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useLayoutEffect, useMemo, useRef } from "react";
+import { ChevronRight } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -44,6 +46,8 @@ const DOW_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 type ReviewHeatmapCardProps = {
   className?: string;
+  /** When true (e.g. on the dashboard), link to full progress. Omit on the progress page itself. */
+  showViewAllProgressLink?: boolean;
 };
 
 function BlankCell() {
@@ -139,7 +143,10 @@ function WeekColumnStrip({
   );
 }
 
-export function ReviewHeatmapCard({ className }: ReviewHeatmapCardProps) {
+export function ReviewHeatmapCard({
+  className,
+  showViewAllProgressLink = false,
+}: ReviewHeatmapCardProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { data, isLoading, error } = useUcatActivity();
 
@@ -180,8 +187,21 @@ export function ReviewHeatmapCard({ className }: ReviewHeatmapCardProps) {
 
   return (
     <Card className={cn("border-border", className)}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium">Review heatmap</CardTitle>
+      <CardHeader className="space-y-1 pb-2">
+        {showViewAllProgressLink ? (
+          <div className="flex flex-row items-start justify-between gap-3">
+            <CardTitle className="text-base font-medium">Review heatmap</CardTitle>
+            <Link
+              href="/progress"
+              className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              View all progress
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
+        ) : (
+          <CardTitle className="text-base font-medium">Review heatmap</CardTitle>
+        )}
         <p className="text-muted-foreground text-sm font-normal">
           Daily question and set attempts.
         </p>

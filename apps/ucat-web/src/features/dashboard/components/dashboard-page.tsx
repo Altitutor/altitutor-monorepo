@@ -78,7 +78,9 @@ export function DashboardPage() {
       />
 
       {access.hasInPersonAccess ? <TodaySessionCard /> : null}
-      {access.hasOnlineAccess ? <ReviewHeatmapCard /> : null}
+      {access.hasOnlineAccess ? (
+        <ReviewHeatmapCard showViewAllProgressLink />
+      ) : null}
 
       <motion.div
         className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"
