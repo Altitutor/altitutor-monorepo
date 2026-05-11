@@ -2,6 +2,7 @@ import {
   addLocalDays,
   aggregateDailyActivity,
   buildReviewHeatmapModel,
+  buildReviewHeatmapModelFromDaily,
   expandWeekToColumns,
   getMondayOnOrBefore,
   isoTimestampToLocalDateKey,
@@ -94,7 +95,7 @@ describe("review-heatmap", () => {
     const groups = buildReviewHeatmapModel(
       now,
       { questionAttempts: [], setAttempts: [] },
-      53,
+      { maxWeeks: 53 },
     );
     expect(groups.length).toBeGreaterThan(0);
     const allColumns = groups.flatMap((g) => g.columns);
@@ -108,6 +109,80 @@ describe("review-heatmap", () => {
     expect(flatDays.some((d) => d.dateKey === localDateKey(now))).toBe(true);
     const future = flatDays.filter((d) => d.isFuture);
     expect(future.every((d) => d.questionAttempts === 0)).toBe(true);
+  });
+
+  it("buildReviewHeatmapModel clamps to startDate when shorter than maxWeeks", () => {
+    const now = new Date(2025, 2, 22); // Sat Mar 22 2025
+    const startDate = new Date(2025, 2, 1); // Sat Mar 1 2025 -> Monday Feb 24
+    const groups = buildReviewHeatmapModel(
+      now,
+      { questionAttempts: [], setAttempts: [] },
+      { startDate, maxWeeks: 53 },
+    );
+    const allColumns = groups.flatMap((g) => g.columns);
+    // Mon Feb 24 → Mon Mar 17 = 4 week starts; Mon Mar 17 is the week of "now".
+    // Splitting by month boundary (Feb→Mar) adds one extra column, giving 5.
+    expect(allColumns.length).toBe(5);
+    const flatKeys = allColumns
+      .flatMap((c) => c.cells)
+      .filter(
+        (cell): cell is { kind: "day"; day: HeatmapDay } => cell.kind === "day",
+      )
+      .map((c) => c.day.dateKey);
+    expect(flatKeys[0]).toBe("2025-02-24");
+    expect(flatKeys.includes(localDateKey(now))).toBe(true);
+    expect(flatKeys.every((k) => k >= "2025-02-24")).toBe(true);
+  });
+
+  it("buildReviewHeatmapModel returns empty when startDate is after now", () => {
+    const now = new Date(2025, 2, 22);
+    const startDate = new Date(2026, 0, 1);
+    const groups = buildReviewHeatmapModel(
+      now,
+      { questionAttempts: [], setAttempts: [] },
+      { startDate },
+    );
+    expect(groups).toEqual([]);
+  });
+
+  it("buildReviewHeatmapModelFromDaily applies pre-aggregated counts", () => {
+    const now = new Date(2025, 2, 22); // Sat Mar 22 2025
+    const groups = buildReviewHeatmapModelFromDaily(
+      now,
+      [
+        { dateKey: "2025-03-19", questionAttempts: 4, setAttempts: 1 },
+        { dateKey: "2025-03-22", questionAttempts: 7, setAttempts: 0 },
+      ],
+      { startDate: new Date(2025, 2, 17), maxWeeks: 53 },
+    );
+    const flatDays = groups
+      .flatMap((g) => g.columns)
+      .flatMap((c) => c.cells)
+      .filter(
+        (cell): cell is { kind: "day"; day: HeatmapDay } => cell.kind === "day",
+      )
+      .map((c) => c.day);
+    const wed = flatDays.find((d) => d.dateKey === "2025-03-19");
+    const sat = flatDays.find((d) => d.dateKey === "2025-03-22");
+    expect(wed).toEqual({
+      dateKey: "2025-03-19",
+      questionAttempts: 4,
+      setAttempts: 1,
+      isFuture: false,
+    });
+    expect(sat).toEqual({
+      dateKey: "2025-03-22",
+      questionAttempts: 7,
+      setAttempts: 0,
+      isFuture: false,
+    });
+    const empty = flatDays.find((d) => d.dateKey === "2025-03-20");
+    expect(empty).toEqual({
+      dateKey: "2025-03-20",
+      questionAttempts: 0,
+      setAttempts: 0,
+      isFuture: false,
+    });
   });
 
   it("getMondayOnOrBefore returns Monday of the same week", () => {

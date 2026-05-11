@@ -69,6 +69,11 @@ import { QUESTION_ENGINE_SHORTCUT_MAP } from "@/features/question-engine/model/s
 import { useQuestionEnginePersistence } from "@/features/question-engine/hooks/use-question-engine-persistence";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
+import { cn } from "@/lib/utils";
+
+/** App shell: main `pt-16` + vertical `p-6` — cap embedded practice so the engine scrolls inside the viewport. */
+const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
+  "mx-auto h-[calc(100dvh-7rem)] max-h-[calc(100dvh-7rem)] w-full min-h-0 overflow-hidden";
 
 export function QuestionEnginePage({
   mode,
@@ -1318,6 +1323,11 @@ export function QuestionEnginePage({
 
   return (
     <>
+      <div
+        className={cn(
+          isPracticeMode ? PRACTICE_EMBEDDED_VIEWPORT_CLASS : "contents",
+        )}
+      >
       <UcatExamShell
         sectionTitle={
           isLoadingMorePhase
@@ -1906,6 +1916,7 @@ export function QuestionEnginePage({
           />
         ) : null}
       </UcatExamShell>
+      </div>
 
       {state.showCalculator ? (
         <CalculatorPanel

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { Badge, Skeleton } from "@altitutor/ui";
+import { Badge } from "@altitutor/ui";
 import { ChevronRight } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { useComingSoon } from "@/features/layout/context/coming-soon-context";
@@ -14,10 +14,8 @@ import {
   type RequiredUcatAccess,
 } from "@/features/ucat-access/lib/route-access";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { useProgress } from "@/features/progress/hooks/use-progress";
 import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
-import { NextSessionCard } from "@/features/dashboard/components/next-session-card";
-import { StatsCard } from "@/features/dashboard/components/stats-card";
+import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +23,6 @@ export function DashboardPage() {
   const reduceMotion = useReducedMotion();
   const { showComingSoonModal } = useComingSoon();
   const access = useUcatAccess();
-  const {
-    data: progressData,
-    isLoading: progressLoading,
-    error: progressError,
-  } = useProgress();
   const [upsellOpen, setUpsellOpen] = useState(false);
   const [upsellRequiredAccess, setUpsellRequiredAccess] =
     useState<RequiredUcatAccess | null>(null);
@@ -70,7 +63,7 @@ export function DashboardPage() {
   );
 
   const cardSurfaceClass = cn(
-    "group relative flex w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left",
+    "group relative flex h-full w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left",
     "shadow-sm transition-[transform,box-shadow,background-color,border-color] duration-200 ease-out",
     !reduceMotion && "hover:-translate-y-0.5",
     "hover:border-border hover:shadow-md hover:bg-muted/40",
@@ -84,27 +77,11 @@ export function DashboardPage() {
         description="Quick access to your UCAT preparation tools"
       />
 
-      {progressError ? (
-        <p className="text-sm text-destructive">{progressError.message}</p>
-      ) : null}
-
-      {access.hasOnlineAccess && progressData ? (
-        <ReviewHeatmapCard data={progressData} />
-      ) : progressLoading ? (
-        <Skeleton className="h-[180px] rounded-lg" />
-      ) : null}
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        {progressLoading ? (
-          <Skeleton className="h-[200px] rounded-lg" />
-        ) : progressData ? (
-          <StatsCard data={progressData} />
-        ) : null}
-        {access.hasInPersonAccess ? <NextSessionCard /> : null}
-      </div>
+      {access.hasInPersonAccess ? <TodaySessionCard /> : null}
+      {access.hasOnlineAccess ? <ReviewHeatmapCard /> : null}
 
       <motion.div
-        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"
         variants={cardGridVariants}
         initial="hidden"
         animate="show"
@@ -171,7 +148,7 @@ export function DashboardPage() {
             <motion.div
               key={card.href}
               variants={cardItemVariants}
-              className="min-w-0"
+              className="flex h-full min-w-0 flex-col"
             >
               <Link href={card.href} className={cardSurfaceClass}>
                 <div className="flex w-full items-start justify-between">

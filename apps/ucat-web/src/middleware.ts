@@ -5,6 +5,12 @@ import type { Database } from "@altitutor/shared";
 export async function middleware(request: NextRequest) {
   const { pathname, origin } = new URL(request.url);
 
+  // PKCE magic links: do not run Supabase session logic here. getUser() refreshes cookies and
+  // can clear PKCE verifier storage before /auth/callback runs exchangeCodeForSession.
+  if (pathname === "/auth/callback") {
+    return NextResponse.next({ request });
+  }
+
   let response = NextResponse.next({
     request,
   });

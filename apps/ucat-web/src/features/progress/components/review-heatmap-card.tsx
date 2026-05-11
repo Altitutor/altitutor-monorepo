@@ -6,15 +6,16 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Skeleton,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
-import type { ProgressResponse } from "@/app/api/ucat/progress/route";
+import { useUcatActivity } from "../hooks/use-ucat-activity";
 import {
-  buildReviewHeatmapModel,
+  buildReviewHeatmapModelFromDaily,
   formatHeatmapDayLabel,
   reviewHeatmapIntensityLevel,
   type HeatmapCell,
@@ -42,7 +43,6 @@ const CELL_GAP = "gap-px";
 const DOW_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 type ReviewHeatmapCardProps = {
-  data: Pick<ProgressResponse, "questionAttempts" | "setAttempts">;
   className?: string;
 };
 
@@ -139,16 +139,24 @@ function WeekColumnStrip({
   );
 }
 
-export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
+export function ReviewHeatmapCard({ className }: ReviewHeatmapCardProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { data, isLoading, error } = useUcatActivity();
+
+  const startDate = useMemo(() => {
+    if (!data?.startedAt) return null;
+    const parsed = new Date(data.startedAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, [data?.startedAt]);
 
   const monthGroups = useMemo(
     () =>
-      buildReviewHeatmapModel(new Date(), {
-        questionAttempts: data.questionAttempts,
-        setAttempts: data.setAttempts,
-      }),
-    [data.questionAttempts, data.setAttempts],
+      data
+        ? buildReviewHeatmapModelFromDaily(new Date(), data.days, {
+            startDate,
+          })
+        : [],
+    [data, startDate],
   );
 
   useLayoutEffect(() => {
@@ -156,6 +164,19 @@ export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
     if (!el) return;
     el.scrollLeft = el.scrollWidth - el.clientWidth;
   }, [monthGroups]);
+
+  if (isLoading) {
+    return <Skeleton className={cn("h-[180px] rounded-lg", className)} />;
+  }
+
+  if (error || !data) {
+    return null;
+  }
+
+  // No activity and no recorded touchpoint yet — nothing meaningful to show.
+  if (!startDate && data.days.length === 0) {
+    return null;
+  }
 
   return (
     <Card className={cn("border-border", className)}>

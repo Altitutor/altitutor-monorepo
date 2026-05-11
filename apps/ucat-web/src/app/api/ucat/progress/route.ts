@@ -38,17 +38,79 @@ export async function GET() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Fetch question attempts (submitted only) for section progress and Question Attempts card
-  const { data: questionAttemptsAll, error: qaError } = await supabase
-    .from("vstudent_ucat_my_question_attempts")
-    .select(
-      "id, question_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name",
+  // ---------------------------------------------------------------------------
+  // Wave 1: all queries here are independent and can run in parallel. They
+  // collectively determine the IDs/sections needed by wave 2.
+  // ---------------------------------------------------------------------------
+  const [
+    questionAttemptsRes,
+    sectionsRes,
+    setAttemptsRes,
+    mockAttemptsRes,
+    practiceAttemptsRes,
+    totalPublicMocksRes,
+    publicSetsRes,
+  ] = await Promise.all([
+    supabase
+      .from("vstudent_ucat_my_question_attempts")
+      .select(
+        "id, question_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, question_type, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name",
+      )
+      .eq("is_submitted", true),
+    supabase
+      .from("vstudent_ucat_sections")
+      .select("id, name, section_number")
+      .order("section_number"),
+    supabase
+      .from("vstudent_ucat_my_set_attempts")
+      .select("*")
+      .not("completed_at", "is", null),
+    supabase
+      .from("vstudent_ucat_my_mock_attempts")
+      .select("id, attempted_at, completed_at, ucat_mock_id")
+      .not("completed_at", "is", null),
+    (
+      supabase as { from: (t: string) => ReturnType<typeof supabase.from> }
     )
-    .eq("is_submitted", true);
+      .from("vstudent_ucat_my_practice_sessions")
+      .select(
+        "id, started_at, completed_at, ucat_section_id, section_name, score_points, total_points, question_count, unlimited",
+      )
+      .not("completed_at", "is", null),
+    supabase
+      .from("vstudent_ucat_mocks")
+      .select("*", { count: "exact", head: true }),
+    supabase
+      .from("vstudent_ucat_question_sets")
+      .select("id, sections, is_student_generated, time_limit_seconds")
+      .eq("is_student_generated", false),
+  ]);
 
+  const { data: questionAttemptsAll, error: qaError } = questionAttemptsRes;
   if (qaError) {
     return NextResponse.json({ error: qaError.message }, { status: 500 });
   }
+
+  const { data: sections } = sectionsRes;
+
+  const { data: setAttemptsRaw, error: setError } = setAttemptsRes;
+  if (setError) {
+    return NextResponse.json({ error: setError.message }, { status: 500 });
+  }
+
+  const { data: mockAttemptsRaw, error: mockError } = mockAttemptsRes;
+  if (mockError) {
+    return NextResponse.json({ error: mockError.message }, { status: 500 });
+  }
+
+  const { data: practiceAttemptsRaw, error: practiceError } =
+    practiceAttemptsRes;
+  if (practiceError) {
+    return NextResponse.json({ error: practiceError.message }, { status: 500 });
+  }
+
+  const { count: totalPublicMocks } = totalPublicMocksRes;
+  const { data: publicSetsRaw } = publicSetsRes;
 
   // Dedupe by question_id: keep best attempt per question (highest score, then most recent)
   type QaRaw = (typeof questionAttemptsAll)[number];
@@ -110,12 +172,7 @@ export async function GET() {
     }))
     .sort((a, b) => a.sectionNumber - b.sectionNumber);
 
-  // Ensure all 4 sections are present (from ucat_sections)
-  const { data: sections } = await supabase
-    .from("vstudent_ucat_sections")
-    .select("id, name, section_number")
-    .order("section_number");
-
+  // Ensure all 4 sections are present (from ucat_sections; fetched in wave 1)
   const sectionIds = new Set(sectionProgress.map((s) => s.sectionId));
   for (const sec of sections ?? []) {
     const secId = sec.id;
@@ -134,17 +191,8 @@ export async function GET() {
   }
   sectionProgress.sort((a, b) => a.sectionNumber - b.sectionNumber);
 
-  // Fetch set attempts (submitted = completed_at not null)
-  // View uses SELECT sqsa.* so extra columns exist at runtime; generated types may be outdated
-  const { data: setAttemptsRaw, error: setError } = await supabase
-    .from("vstudent_ucat_my_set_attempts")
-    .select("*")
-    .not("completed_at", "is", null);
-
-  if (setError) {
-    return NextResponse.json({ error: setError.message }, { status: 500 });
-  }
-
+  // setAttemptsRaw was fetched in wave 1 (above). View uses SELECT sqsa.* so
+  // extra columns exist at runtime; generated types may be outdated.
   type SetAttemptRaw = {
     id: string | null;
     attempted_at: string | null;
@@ -161,7 +209,14 @@ export async function GET() {
     was_timed?: boolean;
   };
 
-  // Enrich with time_limit and name from question_sets when missing (trigger may not have run for older attempts)
+  // ---------------------------------------------------------------------------
+  // Wave 2: queries that need IDs/sections produced by wave 1 — fan out in
+  // parallel:
+  //   * setDetails       (depends on setIds from setAttemptsRaw)
+  //   * mockDetails      (depends on mockIds from mockAttemptsRaw)
+  //   * publicCountsRaw  (depends on section IDs from sectionProgress)
+  //   * categoriesData   (depends on section IDs from sectionProgress)
+  // ---------------------------------------------------------------------------
   const setIds = [
     ...new Set(
       (setAttemptsRaw ?? [])
@@ -169,15 +224,74 @@ export async function GET() {
         .filter(Boolean),
     ),
   ];
-  const { data: setDetails } =
-    setIds.length > 0
-      ? await supabase
-          .from("vstudent_ucat_question_sets")
-          .select(
-            "id, name, time_limit_seconds, time_limit_at_exam_speed_seconds, sections, is_student_generated",
+  const mockIds = [
+    ...new Set(
+      (mockAttemptsRaw ?? [])
+        .map((r) => (r as { ucat_mock_id?: string | null }).ucat_mock_id)
+        .filter(Boolean),
+    ),
+  ] as string[];
+  const sectionIdsForCounts = sectionProgress.map((s) => s.sectionId);
+
+  type PublicCountRow = {
+    section_id: string;
+    question_stem_category_id: string | null;
+    total_questions: number;
+  };
+
+  const [setDetailsRes, mockDetailsRes, publicCountsRes, categoriesRes] =
+    await Promise.all([
+      setIds.length > 0
+        ? supabase
+            .from("vstudent_ucat_question_sets")
+            .select(
+              "id, name, time_limit_seconds, time_limit_at_exam_speed_seconds, sections, is_student_generated",
+            )
+            .in("id", setIds)
+        : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+      mockIds.length > 0
+        ? supabase
+            .from("vstudent_ucat_mocks")
+            .select("id, name")
+            .in("id", mockIds)
+        : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+      sectionIdsForCounts.length > 0
+        ? (
+            supabase as unknown as {
+              from: (r: string) => {
+                select: (c: string) => {
+                  in: (
+                    col: string,
+                    vals: string[],
+                  ) => Promise<{ data: PublicCountRow[] | null }>;
+                };
+              };
+            }
           )
-          .in("id", setIds)
-      : { data: [] };
+            .from("vstudent_ucat_public_question_counts")
+            .select("section_id, question_stem_category_id, total_questions")
+            .in("section_id", sectionIdsForCounts)
+        : Promise.resolve({ data: [] as PublicCountRow[] | null }),
+      sectionIdsForCounts.length > 0
+        ? supabase
+            .from("vstudent_ucat_question_stem_categories")
+            .select("id, name, ucat_section_id")
+            .in("ucat_section_id", sectionIdsForCounts)
+        : Promise.resolve({ data: [] as Array<Record<string, unknown>> }),
+    ]);
+
+  const { data: setDetails } = setDetailsRes as {
+    data:
+      | Array<{
+          id: string;
+          name: unknown;
+          time_limit_seconds: number | null;
+          time_limit_at_exam_speed_seconds: number | null;
+          sections: unknown;
+          is_student_generated: boolean | null;
+        }>
+      | null;
+  };
 
   const timeLimitBySetId = new Map(
     (setDetails ?? []).map((s) => [
@@ -385,32 +499,10 @@ export async function GET() {
     ),
   }));
 
-  // Fetch total public question counts per section and category
-  // View added in migration 20260316190000; types generated after migration applied
-  type PublicCountRow = {
-    section_id: string;
-    question_stem_category_id: string | null;
-    total_questions: number;
+  // publicCountsRaw fetched in wave 2. View added in migration 20260316190000.
+  const { data: publicCountsRaw } = publicCountsRes as {
+    data: PublicCountRow[] | null;
   };
-  const sectionIdsForCounts = sectionProgress.map((s) => s.sectionId);
-  const { data: publicCountsRaw } =
-    sectionIdsForCounts.length > 0
-      ? await (
-          supabase as unknown as {
-            from: (r: string) => {
-              select: (c: string) => {
-                in: (
-                  col: string,
-                  vals: string[],
-                ) => Promise<{ data: PublicCountRow[] | null }>;
-              };
-            };
-          }
-        )
-          .from("vstudent_ucat_public_question_counts")
-          .select("section_id, question_stem_category_id, total_questions")
-          .in("section_id", sectionIdsForCounts)
-      : { data: [] as PublicCountRow[] | null };
   const publicCounts = publicCountsRaw ?? [];
   const sectionTotalPublic = new Map<string, number>();
   const categoryTotalPublic = new Map<string, number>();
@@ -489,13 +581,16 @@ export async function GET() {
   for (const [, arr] of sectionCategoryDailyPctArrays) {
     arr.sort();
   }
-  const { data: categoriesData } = await supabase
-    .from("vstudent_ucat_question_stem_categories")
-    .select("id, name, ucat_section_id")
-    .in(
-      "ucat_section_id",
-      sectionProgress.map((s) => s.sectionId),
-    );
+  // categoriesData fetched in wave 2
+  const { data: categoriesData } = categoriesRes as {
+    data:
+      | Array<{
+          id: string | null;
+          name: string | null;
+          ucat_section_id: string | null;
+        }>
+      | null;
+  };
 
   const categoriesBySection = new Map<string, { id: string; name: string }[]>();
   for (const c of categoriesData ?? []) {
@@ -552,32 +647,12 @@ export async function GET() {
     );
   }
 
-  // Fetch mock attempts (submitted = completed_at not null)
-  // Note: vstudent_ucat_my_mock_attempts view types may be outdated; score columns from table
-  const { data: mockAttemptsRaw, error: mockError } = await supabase
-    .from("vstudent_ucat_my_mock_attempts")
-    .select("id, attempted_at, completed_at, ucat_mock_id")
-    .not("completed_at", "is", null);
-
-  if (mockError) {
-    return NextResponse.json({ error: mockError.message }, { status: 500 });
-  }
-
-  // Fetch mock names for display
-  const mockIds = [
-    ...new Set(
-      (mockAttemptsRaw ?? [])
-        .map((r) => (r as { ucat_mock_id?: string | null }).ucat_mock_id)
-        .filter(Boolean),
-    ),
-  ] as string[];
-  const { data: mockDetails } =
-    mockIds.length > 0
-      ? await supabase
-          .from("vstudent_ucat_mocks")
-          .select("id, name")
-          .in("id", mockIds)
-      : { data: [] };
+  // mockAttemptsRaw fetched in wave 1; mockDetails fetched in wave 2.
+  // Note: vstudent_ucat_my_mock_attempts view types may be outdated; score
+  // columns from table.
+  const { data: mockDetails } = mockDetailsRes as {
+    data: Array<{ id: string | null; name: unknown }> | null;
+  };
   const mockNameById = new Map(
     (mockDetails ?? []).map((m) => [
       m.id,
@@ -665,20 +740,7 @@ export async function GET() {
     });
   }
 
-  // Fetch practice sessions (completed only)
-  const { data: practiceAttemptsRaw, error: practiceError } = await (
-    supabase as { from: (t: string) => ReturnType<typeof supabase.from> }
-  )
-    .from("vstudent_ucat_my_practice_sessions")
-    .select(
-      "id, started_at, completed_at, ucat_section_id, section_name, score_points, total_points, question_count, unlimited",
-    )
-    .not("completed_at", "is", null);
-
-  if (practiceError) {
-    return NextResponse.json({ error: practiceError.message }, { status: 500 });
-  }
-
+  // practiceAttemptsRaw fetched in wave 1.
   type PracticeRaw = {
     id?: string | null;
     started_at?: string | null;
@@ -740,17 +802,7 @@ export async function GET() {
     categoryName: r.category_name,
   }));
 
-  // Fetch total public mocks count (for mocks completed card)
-  const { count: totalPublicMocks } = await supabase
-    .from("vstudent_ucat_mocks")
-    .select("*", { count: "exact", head: true });
-
-  // Fetch total public non-student-generated sets per section
-  const { data: publicSetsRaw } = await supabase
-    .from("vstudent_ucat_question_sets")
-    .select("id, sections, is_student_generated, time_limit_seconds")
-    .eq("is_student_generated", false);
-
+  // totalPublicMocks count and publicSetsRaw both fetched in wave 1.
   const totalPublicSetsBySection: Record<string, number> = {};
   const totalPublicUntimedSetsBySection: Record<string, number> = {};
   const totalPublicTimedSetsBySection: Record<string, number> = {};
