@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo, useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { Badge, Skeleton } from "@altitutor/ui";
 import { ChevronRight } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
@@ -17,10 +19,10 @@ import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
 import { NextSessionCard } from "@/features/dashboard/components/next-session-card";
 import { StatsCard } from "@/features/dashboard/components/stats-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
-import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export function DashboardPage() {
+  const reduceMotion = useReducedMotion();
   const { showComingSoonModal } = useComingSoon();
   const access = useUcatAccess();
   const {
@@ -38,6 +40,42 @@ export function DashboardPage() {
     setUpsellRequiredAccess(config.requiredAccess);
     setUpsellOpen(true);
   };
+
+  const cardGridVariants = useMemo(
+    () => ({
+      hidden: {},
+      show: {
+        transition: {
+          staggerChildren: reduceMotion ? 0 : 0.04,
+          delayChildren: reduceMotion ? 0 : 0.03,
+        },
+      },
+    }),
+    [reduceMotion],
+  );
+
+  const cardItemVariants = useMemo(
+    () => ({
+      hidden: reduceMotion ? { opacity: 1, y: 0 } : { opacity: 0, y: 8 },
+      show: {
+        opacity: 1,
+        y: 0,
+        transition: {
+          duration: reduceMotion ? 0 : 0.2,
+          ease: [0.32, 0.72, 0, 1] as const,
+        },
+      },
+    }),
+    [reduceMotion],
+  );
+
+  const cardSurfaceClass = cn(
+    "group relative flex w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left",
+    "shadow-sm transition-[transform,box-shadow,background-color,border-color] duration-200 ease-out",
+    !reduceMotion && "hover:-translate-y-0.5",
+    "hover:border-border hover:shadow-md hover:bg-muted/40",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+  );
 
   return (
     <div className="space-y-6">
@@ -65,7 +103,12 @@ export function DashboardPage() {
         {access.hasInPersonAccess ? <NextSessionCard /> : null}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <motion.div
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"
+        variants={cardGridVariants}
+        initial="hidden"
+        animate="show"
+      >
         {dashboardCards.map((card) => {
           const Icon = card.icon;
           const accessConfig = getUpsellConfigForPath(card.href);
@@ -73,20 +116,17 @@ export function DashboardPage() {
 
           if (card.comingSoon) {
             return (
-              <button
+              <motion.button
                 key={card.href}
                 type="button"
+                variants={cardItemVariants}
                 onClick={() => showComingSoonModal()}
-                className={cn(
-                  "group relative flex w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left",
-                  "shadow-sm transition-colors hover:bg-muted",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                )}
+                className={cardSurfaceClass}
                 aria-label={`${card.label} (coming soon)`}
               >
                 <div className="flex w-full items-start justify-between">
-                  <div className="rounded-lg bg-muted/60 p-2.5 transition-colors group-hover:bg-muted">
-                    <Icon className="h-5 w-5 text-muted-foreground" />
+                  <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
+                    <Icon className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
                   </div>
                   <Badge variant="secondary" className="shrink-0 text-[10px]">
                     Coming soon
@@ -96,25 +136,22 @@ export function DashboardPage() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {card.description}
                 </p>
-              </button>
+              </motion.button>
             );
           }
 
           if (blocked) {
             return (
-              <button
+              <motion.button
                 key={card.href}
                 type="button"
+                variants={cardItemVariants}
                 onClick={() => openUpsellForPath(card.href)}
-                className={cn(
-                  "group relative flex w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left",
-                  "shadow-sm transition-colors hover:bg-muted",
-                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                )}
+                className={cardSurfaceClass}
               >
                 <div className="flex w-full items-start justify-between">
-                  <div className="rounded-lg bg-muted/60 p-2.5 transition-colors group-hover:bg-muted">
-                    <Icon className="h-5 w-5 text-muted-foreground" />
+                  <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
+                    <Icon className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
                   </div>
                   {accessConfig ? (
                     <Badge variant="secondary" className="shrink-0 text-[10px]">
@@ -126,34 +163,38 @@ export function DashboardPage() {
                 <p className="mt-1 text-sm text-muted-foreground">
                   {card.description}
                 </p>
-              </button>
+              </motion.button>
             );
           }
 
           return (
-            <Link
+            <motion.div
               key={card.href}
-              href={card.href}
-              className={cn(
-                "group relative flex w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left",
-                "shadow-sm transition-colors hover:bg-muted",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              )}
+              variants={cardItemVariants}
+              className="min-w-0"
             >
-              <div className="flex w-full items-start justify-between">
-                <div className="rounded-lg bg-muted/60 p-2.5 transition-colors group-hover:bg-muted">
-                  <Icon className="h-5 w-5 text-muted-foreground group-hover:text-foreground" />
+              <Link href={card.href} className={cardSurfaceClass}>
+                <div className="flex w-full items-start justify-between">
+                  <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
+                    <Icon className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
+                  </div>
+                  <ChevronRight
+                    className={cn(
+                      "h-5 w-5 shrink-0 text-muted-foreground opacity-0 transition-all duration-200 group-hover:opacity-100 group-hover:text-foreground",
+                      !reduceMotion &&
+                        "translate-x-0 group-hover:translate-x-0.5",
+                    )}
+                  />
                 </div>
-                <ChevronRight className="h-5 w-5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 group-hover:text-foreground" />
-              </div>
-              <h3 className="mt-4 font-semibold">{card.label}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {card.description}
-              </p>
-            </Link>
+                <h3 className="mt-4 font-semibold">{card.label}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {card.description}
+                </p>
+              </Link>
+            </motion.div>
           );
         })}
-      </div>
+      </motion.div>
       <AccessUpsellModal
         open={upsellOpen}
         requiredAccess={upsellRequiredAccess}

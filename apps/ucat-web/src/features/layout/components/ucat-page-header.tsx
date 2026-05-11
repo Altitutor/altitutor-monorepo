@@ -40,7 +40,7 @@ export function UcatPageHeader({
               <li key={item.href} className="flex items-center gap-1.5">
                 {i > 0 ? (
                   <ChevronRight
-                    className="h-4 w-4 shrink-0 text-muted-foreground/70"
+                    className="h-4 w-4 shrink-0 text-muted-foreground/70 transition-opacity duration-150"
                     aria-hidden
                   />
                 ) : null}
@@ -51,7 +51,7 @@ export function UcatPageHeader({
                 ) : item.effectiveHref ? (
                   <Link
                     href={item.effectiveHref}
-                    className="hover:text-foreground hover:underline"
+                    className="rounded-sm transition-colors duration-150 hover:text-foreground hover:underline"
                   >
                     {item.label}
                   </Link>
@@ -67,10 +67,10 @@ export function UcatPageHeader({
         {backHref ? (
           <Link
             href={backHref}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-200 ease-out hover:bg-muted hover:text-foreground active:scale-[0.97]"
             aria-label={backLabel ?? "Go back"}
           >
-            <ChevronLeft className="h-5 w-5" />
+            <ChevronLeft className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
           </Link>
         ) : null}
         <div className="min-w-0 flex-1">

@@ -1,6 +1,10 @@
 "use client";
 
 import { Info } from "lucide-react";
+import {
+  UCAT_INTERACTION_EASE,
+  UCAT_SEGMENTED_TAB,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -33,6 +37,8 @@ export function SegmentedControl<T extends string>({
     <div
       className={cn(
         "inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs",
+        "transition-[box-shadow,border-color] duration-200",
+        UCAT_INTERACTION_EASE,
         className,
       )}
       role="tablist"
@@ -47,7 +53,7 @@ export function SegmentedControl<T extends string>({
             aria-selected={isActive}
             onClick={() => onValueChange(option.value)}
             className={cn(
-              "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md transition-colors",
+              UCAT_SEGMENTED_TAB,
               isActive
                 ? "bg-sidebar text-sidebar-foreground"
                 : "text-foreground hover:bg-muted/80",

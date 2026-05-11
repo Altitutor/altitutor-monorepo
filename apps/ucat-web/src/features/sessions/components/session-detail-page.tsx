@@ -10,6 +10,7 @@ import {
 } from "@/features/question-engine/model/rich-text";
 import { useSets } from "@/features/sets";
 import { useMocks } from "@/features/mocks";
+import { UCAT_COMPACT_LIST_ROW } from "@/lib/ucat-surface-motion";
 
 type SessionDetailPageProps = {
   sessionId: string;
@@ -94,7 +95,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
               <li key={resource.id}>
                 <Link
                   href={href}
-                  className="flex items-center gap-3 rounded-lg bg-card text-card-foreground p-3 shadow-sm transition-colors hover:bg-muted border border-border"
+                  className={UCAT_COMPACT_LIST_ROW}
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
                     <BrainCircuit className="h-4 w-4" />
@@ -125,7 +126,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
               <li key={resource.id}>
                 <Link
                   href={href}
-                  className="flex items-center gap-3 rounded-lg bg-card text-card-foreground p-3 shadow-sm transition-colors hover:bg-muted border border-border"
+                  className={UCAT_COMPACT_LIST_ROW}
                 >
                   <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
                     <ListChecks className="h-4 w-4" />
@@ -149,7 +150,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
             <li key={resource.id}>
               <Link
                 href={href}
-                className="flex items-center gap-3 rounded-lg bg-card text-card-foreground p-3 shadow-sm transition-colors hover:bg-muted border border-border"
+                className={UCAT_COMPACT_LIST_ROW}
               >
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
                   <NotebookText className="h-4 w-4" />

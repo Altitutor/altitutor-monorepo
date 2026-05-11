@@ -2,14 +2,10 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import {
-  CalendarDays,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  Users,
-} from "lucide-react";
+import { CalendarDays, ChevronDown, Clock, Users } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
+import { UCAT_INTERACTION_EASE } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
 import type { StudentUcatSession } from "@/features/sessions/api/sessions-api";
 
@@ -71,7 +67,7 @@ function SessionListItem({ session }: { session: StudentUcatSession }) {
   const isToday = status === "today";
 
   const baseClasses =
-    "flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-colors";
+    "flex items-center justify-between gap-3 rounded-lg px-3 py-2 text-sm transition-[color,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]";
   const variantClasses = isToday
     ? "bg-sidebar/80 text-sidebar-foreground"
     : isPast
@@ -167,7 +163,13 @@ function ClassCard({
   return (
     <section key={classId} className="space-y-3">
       <h2 className="text-sm font-semibold leading-tight">{subjectName}</h2>
-      <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm">
+      <div
+        className={cn(
+          "rounded-xl bg-card p-4 text-card-foreground shadow-sm",
+          "transition-shadow duration-200",
+          UCAT_INTERACTION_EASE,
+        )}
+      >
         <ul className="space-y-2">
           {visibleSessions.map((session) => (
             <SessionListItem key={session.session_id} session={session} />
@@ -177,19 +179,16 @@ function ClassCard({
           <button
             type="button"
             onClick={() => setExpanded((e) => !e)}
-            className="mt-2 flex w-full items-center justify-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            className="mt-2 flex w-full items-center justify-center gap-1 rounded-md py-1.5 text-xs text-muted-foreground transition-[color,background-color] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted/50 hover:text-foreground"
           >
-            {expanded ? (
-              <>
-                <ChevronUp className="h-3 w-3" />
-                Show less
-              </>
-            ) : (
-              <>
-                <ChevronDown className="h-3 w-3" />
-                Show {hiddenCount} more
-              </>
-            )}
+            <ChevronDown
+              className={cn(
+                "h-3 w-3 shrink-0 transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
+                expanded && "rotate-180",
+              )}
+              aria-hidden
+            />
+            {expanded ? "Show less" : `Show ${hiddenCount} more`}
           </button>
         )}
       </div>

@@ -42,7 +42,7 @@ export function ProgressAttemptFilterSelector({
         <TooltipProvider delayDuration={200}>
           <Tooltip>
             <TooltipTrigger asChild>
-              <span className="inline-flex text-muted-foreground hover:text-foreground cursor-help">
+              <span className="inline-flex cursor-help text-muted-foreground transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-foreground">
                 <Info className="h-3.5 w-3.5" aria-hidden />
               </span>
             </TooltipTrigger>

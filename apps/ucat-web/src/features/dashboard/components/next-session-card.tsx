@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_INTERACTION_EASE } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
 import type { StudentUcatSession } from "@/features/sessions/api/sessions-api";
 
@@ -108,7 +110,7 @@ export function NextSessionCard() {
         </CardTitle>
         <Link
           href="/sessions"
-          className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1"
+          className="flex items-center gap-1 text-sm text-muted-foreground transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-foreground"
         >
           View all
           <ChevronRight className="h-4 w-4" />
@@ -120,7 +122,12 @@ export function NextSessionCard() {
         ) : (
           <Link
             href={`/sessions/${encodeURIComponent(sessionToShow.session_id)}`}
-            className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-4 transition-colors hover:bg-muted/50"
+            className={cn(
+              "group flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-4",
+              "transition-[box-shadow,background-color,border-color] duration-200",
+              UCAT_INTERACTION_EASE,
+              "hover:border-border/80 hover:bg-muted/50 hover:shadow-sm",
+            )}
           >
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
               <CalendarDays className="h-5 w-5" />
@@ -152,7 +159,7 @@ export function NextSessionCard() {
                 ) : null}
               </p>
             </div>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 shrink-0 translate-x-0 text-muted-foreground transition-transform duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] group-hover:translate-x-0.5" />
           </Link>
         )}
       </CardContent>

@@ -29,7 +29,7 @@ export function PricingPage() {
             mocks, and progress tracking.
           </p>
 
-          <div className="mt-10 rounded-xl border border-border bg-card p-8">
+          <div className="mt-10 rounded-xl border border-border bg-card p-8 shadow-sm transition-shadow duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-md">
             <h2 className="text-xl font-semibold text-foreground">
               What&apos;s included
             </h2>
@@ -56,7 +56,7 @@ export function PricingPage() {
                     Already have an account?{" "}
                     <Link
                       href="/login?redirect=/subscribe"
-                      className="underline hover:text-foreground"
+                      className="underline transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:text-foreground"
                     >
                       Log in
                     </Link>

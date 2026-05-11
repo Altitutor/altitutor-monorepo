@@ -25,7 +25,7 @@ export function FloatingAppActions({
     >
       <div
         className={cn(
-          "shrink-0 transition-[margin] duration-200 ease-in-out",
+          "shrink-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
           isMenuOpen ? "ml-[240px]" : "ml-0",
         )}
       >
@@ -34,7 +34,7 @@ export function FloatingAppActions({
           variant="ghost"
           size="icon"
           onClick={onToggleNav}
-          className="h-9 w-9 rounded-lg bg-card border border-border shadow-sm hover:bg-muted transition-colors"
+          className="h-9 w-9 rounded-lg border border-border bg-card shadow-sm transition-[transform,background-color,box-shadow] duration-200 ease-out hover:bg-muted hover:shadow-md active:scale-95"
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
         >
           <AnimatedHamburgerIcon isOpen={isMenuOpen} className="h-5 w-5" />

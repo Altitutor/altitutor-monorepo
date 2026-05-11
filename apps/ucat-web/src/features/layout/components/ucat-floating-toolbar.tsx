@@ -30,14 +30,14 @@ export function UcatFloatingToolbar() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-2 z-[60] flex justify-center">
-      <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border bg-background/95 px-3 py-1 text-sm shadow-md">
+      <div className="pointer-events-auto inline-flex items-center gap-2 rounded-full border bg-background/95 px-3 py-1 text-sm shadow-md transition-shadow duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-lg">
         <div className="relative flex items-center gap-1">
           <button
             type="button"
             title="Open menu"
             aria-label="Open menu"
             onClick={() => setMenuOpen((prev) => !prev)}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent bg-transparent text-foreground hover:bg-muted/50"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent bg-transparent text-foreground transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted/50 active:scale-95"
           >
             <Menu className="h-4 w-4" />
           </button>
@@ -46,7 +46,7 @@ export function UcatFloatingToolbar() {
             title="Open settings"
             aria-label="Open settings"
             onClick={handleSettingsClick}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent bg-transparent text-foreground hover:bg-muted/50"
+            className="inline-flex h-7 w-7 items-center justify-center rounded-full border border-transparent bg-transparent text-foreground transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted/50 active:scale-95"
           >
             <Settings className="h-4 w-4" />
           </button>
@@ -59,7 +59,7 @@ export function UcatFloatingToolbar() {
           >
             <button
               type="button"
-              className="block w-full px-3 py-1.5 text-left hover:bg-muted"
+              className="block w-full px-3 py-1.5 text-left transition-colors duration-150 ease-out hover:bg-muted"
               onClick={handleGoHome}
             >
               Go home

@@ -9,6 +9,11 @@ import type {
   MockAttemptWithBreakdown,
 } from "@/features/mocks/api/mocks-api";
 import { useMockAttemptsWithBreakdown, useMocks } from "@/features/mocks";
+import {
+  UCAT_INTERACTION_EASE,
+  UCAT_PRIMARY_ACTION_BUTTON,
+} from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 type MockDetailPageProps = {
   mockId: string;
@@ -112,7 +117,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         breadcrumbOverrides={{ 1: mock.name ?? "Mock" }}
       />
 
-      <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
+      <section
+        className={cn(
+          "space-y-2 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm",
+          "transition-shadow duration-200",
+          UCAT_INTERACTION_EASE,
+        )}
+      >
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           {createdAt ? (
             <div>
@@ -132,7 +143,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
       </section>
 
       {attempts.length > 0 ? (
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <section
+          className={cn(
+            "rounded-xl border border-border bg-card p-4 shadow-sm",
+            "transition-shadow duration-200",
+            UCAT_INTERACTION_EASE,
+          )}
+        >
           <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
             <NotebookText className="h-4 w-4" />
             Previous attempts
@@ -164,7 +181,7 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
                 {attempts.map((a: MockAttemptWithBreakdown) => (
                   <tr
                     key={a.id}
-                    className="border-b border-border/50 last:border-0"
+                    className="border-b border-border/50 transition-colors duration-150 ease-out last:border-0 hover:bg-muted/40"
                   >
                     <td className="py-2 pr-4">
                       {new Date(a.attemptedAt).toLocaleString(undefined, {
@@ -205,7 +222,7 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
       <div className="flex justify-end">
         <Link
           href={`/exam/mocks?id=${encodeURIComponent(mock.id)}`}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground"
+          className={UCAT_PRIMARY_ACTION_BUTTON}
         >
           Launch mock
         </Link>

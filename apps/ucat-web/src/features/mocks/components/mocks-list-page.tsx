@@ -15,6 +15,7 @@ import {
 } from "@/features/mocks/api/mocks-api";
 import { recordToMocksFilters } from "@/features/mocks/lib/filter-adapters";
 import { NotebookText } from "lucide-react";
+import { UCAT_LIST_ROW_LINK } from "@/lib/ucat-surface-motion";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -175,7 +176,7 @@ function MockCard({
     <li>
       <Link
         href={`/mocks/${encodeURIComponent(mock.id)}`}
-        className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:bg-muted"
+        className={UCAT_LIST_ROW_LINK}
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
           <NotebookText className="h-5 w-5" />

@@ -339,7 +339,7 @@ export function MarkingBody({
                 return (
                   <tr
                     key={row.question.id}
-                    className="border-b border-border/50 hover:bg-muted/50"
+                    className="border-b border-border/50 transition-colors duration-150 ease-out hover:bg-muted/50"
                   >
                     <td className="px-3 py-2">{row.index + 1}</td>
                     <td

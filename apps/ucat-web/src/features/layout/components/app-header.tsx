@@ -16,7 +16,7 @@ export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
         <div className="flex items-center gap-3">
           <button
             type="button"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border hover:bg-muted"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted active:scale-95"
             onClick={onToggleNav}
             aria-label="Toggle navigation"
           >
@@ -35,7 +35,7 @@ export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
           {user ? (
             <button
               type="button"
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm hover:bg-muted"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm transition-colors duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted active:scale-[0.98]"
               onClick={async () => {
                 await signOut();
                 router.push("/login");

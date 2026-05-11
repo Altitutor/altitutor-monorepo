@@ -11,6 +11,11 @@ import {
 } from "@/features/question-engine/model/rich-text";
 import type { SetAttemptRow } from "@/features/sets/api/sets-api";
 import { useSetAttempts, useSets } from "@/features/sets";
+import {
+  UCAT_INTERACTION_EASE,
+  UCAT_PRIMARY_ACTION_BUTTON,
+} from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 type SetDetailPageProps = {
   setId: string;
@@ -146,7 +151,13 @@ export function SetDetailPage({
         breadcrumbOverrides={{ [breadcrumbIndex]: title }}
       />
 
-      <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
+      <section
+        className={cn(
+          "space-y-2 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm",
+          "transition-shadow duration-200",
+          UCAT_INTERACTION_EASE,
+        )}
+      >
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="font-medium text-muted-foreground">Time limit</dt>
@@ -178,7 +189,13 @@ export function SetDetailPage({
       </section>
 
       {attempts.length > 0 ? (
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+        <section
+          className={cn(
+            "rounded-xl border border-border bg-card p-4 shadow-sm",
+            "transition-shadow duration-200",
+            UCAT_INTERACTION_EASE,
+          )}
+        >
           <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
             <ListChecks className="h-4 w-4" />
             Previous attempts
@@ -205,7 +222,7 @@ export function SetDetailPage({
                 {attempts.map((a: SetAttemptRow) => (
                   <tr
                     key={a.id}
-                    className="border-b border-border/50 last:border-0"
+                    className="border-b border-border/50 transition-colors duration-150 ease-out last:border-0 hover:bg-muted/40"
                   >
                     <td className="py-2 pr-4">
                       {new Date(a.attemptedAt).toLocaleString(undefined, {
@@ -237,7 +254,7 @@ export function SetDetailPage({
       <div className="flex justify-end">
         <Link
           href={`/exam/sets?id=${encodeURIComponent(set.id)}`}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground"
+          className={UCAT_PRIMARY_ACTION_BUTTON}
         >
           Launch set
         </Link>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@/app/api/ucat/progress/route";
 import type { ProgressMode } from "../lib/progress-mode";
@@ -106,7 +107,7 @@ export function SectionProgressCards({
               key={section.sectionId}
               className={cn(
                 "rounded-xl border-border",
-                linkToSection && "transition-colors hover:bg-muted/50",
+                linkToSection && UCAT_CARD_RAISED_HOVER,
               )}
             >
               <CardHeader className="pb-2">

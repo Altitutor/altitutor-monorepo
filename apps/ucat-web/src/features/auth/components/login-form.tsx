@@ -4,6 +4,8 @@ import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Label } from "@altitutor/ui";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { UCAT_INTERACTION_EASE } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 export function LoginForm({
   redirectTo = "/dashboard",
@@ -38,7 +40,14 @@ export function LoginForm({
   }
 
   return (
-    <div className="w-full max-w-md space-y-4 rounded-xl bg-card text-card-foreground p-6 shadow-sm">
+    <div
+      className={cn(
+        "w-full max-w-md space-y-4 rounded-xl bg-card p-6 text-card-foreground shadow-sm",
+        "transition-shadow duration-200",
+        UCAT_INTERACTION_EASE,
+        "hover:shadow-md",
+      )}
+    >
       <form onSubmit={onSubmit} className="space-y-4">
         <h2 className="text-xl font-semibold leading-none tracking-tight">
           Sign in

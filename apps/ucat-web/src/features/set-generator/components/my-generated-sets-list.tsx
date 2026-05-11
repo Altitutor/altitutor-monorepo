@@ -16,6 +16,8 @@ import { formatSetSections } from "@/features/sets/lib/section-labels";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { ListChecks } from "lucide-react";
+import { UCAT_LIST_ROW_LINK } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -232,7 +234,10 @@ function GeneratedSetCard({
     <li ref={ref}>
       <Link
         href={setHref}
-        className={`flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:bg-muted ${isHighlighted ? "ucat-set-highlight-transient" : ""}`}
+        className={cn(
+          UCAT_LIST_ROW_LINK,
+          isHighlighted && "ucat-set-highlight-transient",
+        )}
       >
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
           <ListChecks className="h-5 w-5" />

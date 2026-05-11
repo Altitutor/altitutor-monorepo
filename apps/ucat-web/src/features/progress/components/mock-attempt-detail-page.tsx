@@ -5,6 +5,7 @@ import { UcatPageHeader } from "@/features/layout";
 import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { MockAttemptAnalysisChart } from "./mock-attempt-analysis-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 type MockAttemptDetailPageProps = {
@@ -127,8 +128,8 @@ export function MockAttemptDetailPage({
             const content = (
               <Card
                 className={cn(
-                  "rounded-xl border-border transition-colors",
-                  href && "cursor-pointer hover:bg-muted/50",
+                  "rounded-xl border-border",
+                  href && cn("cursor-pointer", UCAT_CARD_RAISED_HOVER),
                 )}
               >
                 <CardHeader className="pb-2">

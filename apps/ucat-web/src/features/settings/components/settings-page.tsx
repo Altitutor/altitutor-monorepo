@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Button, Label } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
+import { UCAT_INTERACTION_EASE } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 export function SettingsPage() {
   const [timezone, setTimezone] = useState<string>("Australia/Adelaide");
@@ -70,7 +72,14 @@ export function SettingsPage() {
         description="Manage your account settings"
       />
 
-      <div className="rounded-lg border border-border bg-card p-6">
+      <div
+        className={cn(
+          "rounded-lg border border-border bg-card p-6 shadow-sm",
+          "transition-shadow duration-200",
+          UCAT_INTERACTION_EASE,
+          "hover:shadow-md",
+        )}
+      >
         <h3 className="font-semibold">Timezone</h3>
         <p className="mt-1 text-sm text-muted-foreground">
           Used for practice day discounts (e.g. 20 questions per day).
@@ -81,7 +90,12 @@ export function SettingsPage() {
             id="timezone"
             value={timezone}
             onChange={(e) => setTimezone(e.target.value)}
-            className="mt-2 block w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm"
+            className={cn(
+              "mt-2 block w-full max-w-xs rounded-md border border-input bg-background px-3 py-2 text-sm",
+              "transition-[border-color,box-shadow] duration-200",
+              UCAT_INTERACTION_EASE,
+              "hover:border-ring/30 focus-visible:border-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            )}
           >
             {options.map((tz) => (
               <option key={tz} value={tz}>

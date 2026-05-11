@@ -8,6 +8,7 @@ import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters"
 import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import { setPracticeSession } from "@/features/practice/lib/session-storage";
+import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 export function PracticePage() {
   const router = useRouter();
@@ -138,7 +139,7 @@ export function PracticePage() {
       type="button"
       onClick={() => !startMutation.isPending && handleStart()}
       disabled={startMutation.isPending || !filters.selectedSection?.id}
-      className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground disabled:opacity-60"
+      className={UCAT_PRIMARY_ACTION_BUTTON}
     >
       {startMutation.isPending ? "Loading…" : "Start practice"}
     </button>

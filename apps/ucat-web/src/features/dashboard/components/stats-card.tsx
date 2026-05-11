@@ -32,7 +32,7 @@ export function StatsCard({ data }: StatsCardProps) {
       </CardHeader>
       <CardContent className="space-y-4 min-w-0 overflow-hidden">
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4 transition-shadow duration-200 ease-out hover:shadow-sm">
             <p className="text-2xl font-semibold tabular-nums">
               {questionsCompleted}
             </p>
@@ -40,7 +40,7 @@ export function StatsCard({ data }: StatsCardProps) {
               Questions completed
             </p>
           </div>
-          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4 transition-shadow duration-200 ease-out hover:shadow-sm">
             <p className="text-2xl font-semibold tabular-nums">
               {setsCompleted}
             </p>
@@ -48,7 +48,7 @@ export function StatsCard({ data }: StatsCardProps) {
               Sets completed
             </p>
           </div>
-          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4">
+          <div className="min-w-0 rounded-lg border border-border bg-muted/30 p-4 transition-shadow duration-200 ease-out hover:shadow-sm">
             <p className="text-2xl font-semibold tabular-nums">
               {mocksCompleted}
             </p>
