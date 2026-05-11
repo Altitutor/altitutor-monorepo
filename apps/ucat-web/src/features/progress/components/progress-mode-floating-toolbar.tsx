@@ -34,8 +34,8 @@ export function ProgressModeFloatingToolbar({
       <motion.div
         {...(tourAnchorId ? { id: tourAnchorId } : {})}
         className={cn(
-          "w-full max-w-5xl rounded-xl border border-border/50 bg-background/95 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur",
-          "supports-[backdrop-filter]:bg-background/80 dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)]",
+          "w-full max-w-5xl rounded-xl border-0 bg-background/95 px-4 py-3 shadow-[0_8px_32px_rgba(0,0,0,0.08)] ring-1 ring-black/[0.07] backdrop-blur dark:shadow-[0_8px_32px_rgba(0,0,0,0.35)] dark:ring-white/[0.1]",
+          "supports-[backdrop-filter]:bg-background/80",
         )}
         initial={reduceMotion ? false : { opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
