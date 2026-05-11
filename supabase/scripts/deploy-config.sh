@@ -44,26 +44,40 @@ fi
 sed -i.bak 's|enabled = false  # Set to true in production|enabled = true|g' "$TEMP_CONFIG"
 echo "✅ Enabled SMTP for production"
 
-# Update site_url for production
-# Default to admin portal as the primary site URL
-PROD_SITE_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.altitutor.com}"
+# CI sets SUPABASE_CONFIG_ENV to production (main) or development (develop) — see supabase-deploy.yml.
+# For manual runs, default to production so localhost-heavy dev redirects are not applied by accident.
+SUPABASE_CONFIG_ENV="${SUPABASE_CONFIG_ENV:-production}"
+echo "🔧 SUPABASE_CONFIG_ENV=$SUPABASE_CONFIG_ENV"
+
+# Portal base URLs: use GitHub Environment variables when hosts differ from defaults.
+# development defaults match *.development.altitutor.com; production defaults match prod.
+if [ "$SUPABASE_CONFIG_ENV" = "development" ]; then
+  ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.development.altitutor.com}"
+  STUDENT_URL="${NEXT_PUBLIC_STUDENT_URL:-https://student.development.altitutor.com}"
+  TUTOR_URL="${NEXT_PUBLIC_TUTOR_URL:-https://tutor.development.altitutor.com}"
+  UCAT_URL="${NEXT_PUBLIC_UCAT_URL:-https://ucat.development.altitutor.com}"
+  # Local apps hitting the remote *dev* Supabase project (magic links, OAuth callbacks).
+  LOCALHOST_AUTH_REDIRECTS=', "http://localhost:3000/auth/callback", "http://localhost:3000/**", "http://localhost:3001/auth/callback", "http://localhost:3001/**", "http://localhost:3002/auth/callback", "http://localhost:3002/**", "http://localhost:3004/auth/callback", "http://localhost:3004/**"'
+else
+  ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.altitutor.com}"
+  STUDENT_URL="${NEXT_PUBLIC_STUDENT_URL:-https://student.altitutor.com}"
+  TUTOR_URL="${NEXT_PUBLIC_TUTOR_URL:-https://tutor.altitutor.com}"
+  UCAT_URL="${NEXT_PUBLIC_UCAT_URL:-https://ucat.altitutor.com}"
+  # Optional local UCAT smoke tests against prod auth; omit other ports on prod for a tighter allowlist.
+  LOCALHOST_AUTH_REDIRECTS=', "http://localhost:3004/auth/callback", "http://localhost:3004/**"'
+fi
+
+# Default site_url (fallback when redirect_to is missing / invalid) follows admin portal for this env.
+PROD_SITE_URL="$ADMIN_URL"
 sed -i.bak "s|site_url = \"http://localhost:3000\"|site_url = \"$PROD_SITE_URL\"|g" "$TEMP_CONFIG"
 echo "✅ Updated site_url to $PROD_SITE_URL"
 
-# Update additional_redirect_urls for production
-# Add all web portals (admin, student, tutor, ucat) to allowed redirect URLs.
-# UCAT uses magic-link signup; localhost:3004 covers local dev against this hosted project.
-ADMIN_URL="${NEXT_PUBLIC_ADMIN_URL:-https://admin.altitutor.com}"
-STUDENT_URL="${NEXT_PUBLIC_STUDENT_URL:-https://student.altitutor.com}"
-TUTOR_URL="${NEXT_PUBLIC_TUTOR_URL:-https://tutor.altitutor.com}"
-UCAT_URL="${NEXT_PUBLIC_UCAT_URL:-https://ucat.altitutor.com}"
-
-# Build the redirect URLs array
-REDIRECT_URLS="[\"$ADMIN_URL/auth/callback\", \"$STUDENT_URL/auth/callback\", \"$TUTOR_URL/auth/callback\", \"$UCAT_URL/auth/callback\", \"http://localhost:3004/auth/callback\", \"$ADMIN_URL/**\", \"$STUDENT_URL/**\", \"$TUTOR_URL/**\", \"$UCAT_URL/**\", \"http://localhost:3004/**\"]"
+# Build additional_redirect_urls: deployed portals + localhost (dev) or minimal localhost (prod).
+REDIRECT_URLS="[\"$ADMIN_URL/auth/callback\", \"$STUDENT_URL/auth/callback\", \"$TUTOR_URL/auth/callback\", \"$UCAT_URL/auth/callback\", \"$ADMIN_URL/**\", \"$STUDENT_URL/**\", \"$TUTOR_URL/**\", \"$UCAT_URL/**\"$LOCALHOST_AUTH_REDIRECTS]"
 
 # Replace the empty additional_redirect_urls array
 sed -i.bak "s|additional_redirect_urls = \[\]|additional_redirect_urls = $REDIRECT_URLS|g" "$TEMP_CONFIG"
-echo "✅ Updated additional_redirect_urls with production URLs"
+echo "✅ Updated additional_redirect_urls (portals + localhost rules for $SUPABASE_CONFIG_ENV)"
 
 # Copy the processed config to the current directory temporarily
 cp "$TEMP_CONFIG" config.toml

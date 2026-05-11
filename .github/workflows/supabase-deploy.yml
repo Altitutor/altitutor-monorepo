@@ -24,6 +24,8 @@ jobs:
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      # deploy-config.sh uses this to pick default portal URLs and localhost auth redirects
+      SUPABASE_CONFIG_ENV: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     steps:
       - uses: actions/checkout@v4
 
