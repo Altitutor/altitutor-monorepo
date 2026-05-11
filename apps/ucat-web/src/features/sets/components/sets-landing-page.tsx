@@ -5,7 +5,7 @@ import { Card, CardContent } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
 import { ListChecks, Sparkles } from "lucide-react";
-import { UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
+import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 const SECTIONS = [1, 2, 3, 4] as const;
@@ -22,9 +22,9 @@ export function SetsLandingPage() {
           const label = SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`;
           return (
             <Link key={num} href={`/sets/sections/${num}`}>
-              <Card className={cn("h-full border-border", UCAT_CARD_RAISED_HOVER)}>
+              <Card className={cn(UCAT_CARD_CHROME, "h-full", UCAT_CARD_RAISED_HOVER)}>
                 <CardContent className="flex flex-col items-center gap-3 p-6">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sidebar text-sidebar-foreground">
+                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-ucatControl bg-sidebar text-sidebar-foreground">
                     <ListChecks className="h-6 w-6" />
                   </div>
                   <span className="text-center font-medium">{label}</span>
@@ -39,9 +39,9 @@ export function SetsLandingPage() {
           Create
         </h2>
         <Link href="/sets/set-generator">
-          <Card className={cn("border-border", UCAT_CARD_RAISED_HOVER)}>
+          <Card className={cn(UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER)}>
             <CardContent className="flex flex-col items-center gap-3 p-6 sm:flex-row sm:justify-center">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sidebar text-sidebar-foreground">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-ucatControl bg-sidebar text-sidebar-foreground">
                 <Sparkles className="h-6 w-6" />
               </div>
               <div className="text-center sm:text-left">

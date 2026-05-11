@@ -14,6 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
+import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useUcatActivity } from "../hooks/use-ucat-activity";
 import {
@@ -95,7 +96,7 @@ function DayCell({ day }: { day: HeatmapDay }) {
             type="button"
             className={cn(
               "flex items-center justify-center rounded-sm p-0.5",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
             )}
             aria-label={aria}
           >
@@ -186,7 +187,7 @@ export function ReviewHeatmapCard({
   }
 
   return (
-    <Card className={cn("border-border", className)}>
+    <Card className={cn(UCAT_CARD_CHROME, className)}>
       <CardHeader className="space-y-1 pb-2">
         {showViewAllProgressLink ? (
           <div className="flex flex-row items-start justify-between gap-3">
@@ -236,7 +237,7 @@ export function ReviewHeatmapCard({
                   className={cn(
                     "flex shrink-0 flex-col gap-0.5",
                     gi > 0 &&
-                      "border-l border-dashed border-border pl-1.5 ml-0.5",
+                      "ml-0.5 border-l border-dashed border-foreground/15 pl-1.5",
                   )}
                 >
                   <div className="flex h-4 min-w-0 items-end justify-center px-0.5 sm:h-5">

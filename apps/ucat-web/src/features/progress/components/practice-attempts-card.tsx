@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  Button,
   Card,
   CardContent,
   CardHeader,
@@ -16,9 +14,16 @@ import {
   TableRow,
 } from "@altitutor/ui";
 import { ProgressTablePagination } from "./progress-table-pagination";
+import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
 import { format } from "date-fns";
 import { filterByTimeFrame } from "../lib/progress-data-utils";
 import type { PracticeAttemptRow } from "@/app/api/ucat/progress/route";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_TABLE_BODY_ROW,
+  UCAT_TABLE_HEADER_ROW,
+  UCAT_TABLE_SHELL,
+} from "@/lib/ucat-surface-motion";
 import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
 
 type PracticeAttemptsCardProps = {
@@ -52,23 +57,24 @@ export function PracticeAttemptsCard({
   }
 
   return (
-    <Card className="rounded-xl border-border">
+    <Card className={UCAT_CARD_CHROME}>
       <CardHeader>
         <CardTitle>Practice sessions</CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Section</TableHead>
-              <TableHead>Score</TableHead>
-              <TableHead>Questions</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paginatedAttempts.map((a) => {
+        <div className={UCAT_TABLE_SHELL}>
+          <Table>
+            <TableHeader>
+              <TableRow className={UCAT_TABLE_HEADER_ROW}>
+                <TableHead>Section</TableHead>
+                <TableHead>Score</TableHead>
+                <TableHead>Questions</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paginatedAttempts.map((a) => {
               const score =
                 a.totalPoints != null &&
                 a.totalPoints > 0 &&
@@ -76,29 +82,29 @@ export function PracticeAttemptsCard({
                   ? `${a.scorePoints} / ${a.totalPoints}`
                   : "—";
               const date = a.completedAt ?? a.attemptedAt;
-              return (
-                <TableRow key={a.id}>
-                  <TableCell className="font-medium">
-                    {a.sectionName}
-                    {a.unlimited ? " (unlimited)" : ""}
-                  </TableCell>
-                  <TableCell>{score}</TableCell>
-                  <TableCell>{a.questionCount ?? "—"}</TableCell>
-                  <TableCell>
-                    {date ? format(new Date(date), "PPp") : "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button variant="outline" size="sm" asChild>
-                      <Link href={`/progress/practice-sessions/${a.id}`}>
-                        View session
-                      </Link>
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
+                return (
+                  <TableRow key={a.id} className={UCAT_TABLE_BODY_ROW}>
+                    <TableCell className="font-medium">
+                      {a.sectionName}
+                      {a.unlimited ? " (unlimited)" : ""}
+                    </TableCell>
+                    <TableCell>{score}</TableCell>
+                    <TableCell>{a.questionCount ?? "—"}</TableCell>
+                    <TableCell>
+                      {date ? format(new Date(date), "PPp") : "—"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <UcatTableRowActionLink
+                        href={`/progress/practice-sessions/${a.id}`}
+                        label="View session"
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
         <ProgressTablePagination
           total={filteredAttempts.length}
           page={page}

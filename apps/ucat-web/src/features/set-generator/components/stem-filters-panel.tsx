@@ -92,7 +92,7 @@ export function StemFiltersPanel({
     <div className="grid gap-6 lg:grid-cols-2">
       <section
         className={cn(
-          "space-y-4 rounded-xl bg-card p-4 text-card-foreground shadow-sm",
+          "space-y-4 rounded-ucatShell bg-card p-4 text-card-foreground shadow-sm",
           "transition-shadow duration-200",
           UCAT_INTERACTION_EASE,
         )}
@@ -481,7 +481,7 @@ export function StemFiltersPanel({
 
       <section
         className={cn(
-          "space-y-4 rounded-xl bg-card p-4 text-card-foreground shadow-sm",
+          "space-y-4 rounded-ucatShell bg-card p-4 text-card-foreground shadow-sm",
           "transition-shadow duration-200",
           UCAT_INTERACTION_EASE,
         )}

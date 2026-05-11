@@ -43,8 +43,8 @@ export function SegmentedControl<T extends string>({
     <TooltipProvider delayDuration={200}>
       <div
         className={cn(
-          "inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs",
-          "transition-[box-shadow,border-color] duration-200",
+          "inline-flex rounded-ucatControl border-0 bg-muted p-0.5 text-xs ring-1 ring-[hsl(0_0%_0%/0.04)] dark:ring-[hsl(0_0%_100%/0.06)]",
+          "transition-[box-shadow,ring-color] duration-200",
           UCAT_INTERACTION_EASE,
           className,
         )}
@@ -58,9 +58,9 @@ export function SegmentedControl<T extends string>({
               <div
                 key={option.value}
                 className={cn(
-                  "group inline-flex items-stretch rounded-md",
+                  "group inline-flex items-stretch overflow-hidden rounded-ucatControl",
                   isActive
-                    ? "bg-sidebar text-sidebar-foreground"
+                    ? "bg-card text-foreground shadow-sm ring-1 ring-[hsl(0_0%_0%/0.05)] dark:ring-[hsl(0_0%_100%/0.07)]"
                     : "text-foreground",
                 )}
               >
@@ -88,8 +88,8 @@ export function SegmentedControl<T extends string>({
                         "hover:text-foreground",
                         !isActive && "group-hover:bg-muted/80",
                         isActive
-                          ? "border-sidebar-foreground/25"
-                          : "border-border/60",
+                          ? "border-foreground/12"
+                          : "border-black/[0.06] dark:border-white/12",
                       )}
                       aria-label="About this option"
                       onClick={(e) => e.stopPropagation()}
@@ -115,7 +115,7 @@ export function SegmentedControl<T extends string>({
               className={cn(
                 UCAT_SEGMENTED_TAB,
                 isActive
-                  ? "bg-sidebar text-sidebar-foreground"
+                  ? "bg-card text-foreground shadow-sm ring-1 ring-[hsl(0_0%_0%/0.05)] dark:ring-[hsl(0_0%_100%/0.07)]"
                   : "text-foreground hover:bg-muted/80",
               )}
             >

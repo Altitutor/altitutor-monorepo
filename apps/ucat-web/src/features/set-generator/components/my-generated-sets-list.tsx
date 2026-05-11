@@ -16,7 +16,10 @@ import { formatSetSections } from "@/features/sets/lib/section-labels";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { ListChecks } from "lucide-react";
-import { UCAT_LIST_ROW_LINK } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_LIST_ROW_LINK,
+  UCAT_PAGINATION_ACTIVE_PAGE_BUTTON,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 const DEFAULT_PAGE_SIZE = 10;
@@ -200,6 +203,7 @@ export function MyGeneratedSetsList({
                 total={filteredSets.length}
                 onPageChange={(p) => setPage(p - 1)}
                 onPageSizeChange={handlePageSizeChange}
+                activePageButtonClassName={UCAT_PAGINATION_ACTIVE_PAGE_BUTTON}
               />
             </div>
           )}

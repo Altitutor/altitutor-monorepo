@@ -54,6 +54,7 @@ type AnimatedFractionProps = {
   duration?: number;
 };
 
+/** Renders `numerator / denominator` with only the numerator animated (denominator is a static total). */
 export function AnimatedFraction({
   numerator,
   denominator,
@@ -64,7 +65,7 @@ export function AnimatedFraction({
     <span className={className}>
       <AnimatedInteger value={numerator} duration={duration} />
       <span> / </span>
-      <AnimatedInteger value={denominator} duration={duration} />
+      <span className="tabular-nums">{denominator}</span>
     </span>
   );
 }
@@ -158,8 +159,7 @@ export function ProgressCircular({
       </div>
       {footerCount != null ? (
         <span className="text-xs text-muted-foreground tabular-nums">
-          <AnimatedInteger value={footerCount} duration={0.75} />{" "}
-          {footerSuffix}
+          {footerCount} {footerSuffix}
         </span>
       ) : null}
     </div>

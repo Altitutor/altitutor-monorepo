@@ -11,6 +11,23 @@ module.exports = {
   darkMode: ["class"],
   theme: {
     extend: {
+      borderRadius: {
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
+        /** Large shells: cards, panels, table trays (`globals.css` --ucat-radius-shell) */
+        ucatShell: "var(--ucat-radius-shell)",
+        /** Buttons, icon controls, compact chips (`--ucat-radius-control`) */
+        ucatControl: "var(--ucat-radius-control)",
+      },
+      transitionDuration: {
+        "motion-snappy": "var(--motion-duration-snappy)",
+        "motion-subtle": "var(--motion-duration-subtle)",
+        "motion-enter": "var(--motion-duration-enter)",
+      },
+      transitionTimingFunction: {
+        "motion-standard": "var(--motion-ease-standard)",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

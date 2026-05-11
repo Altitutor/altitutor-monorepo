@@ -12,6 +12,8 @@ import {
   DropdownMenuTrigger,
 } from "@altitutor/ui";
 import { useAuth } from "@/features/auth";
+import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 export function ProfileDropdown() {
   const router = useRouter();
@@ -34,7 +36,11 @@ export function ProfileDropdown() {
       <DropdownMenuTrigger asChild>
         <Button
           variant="secondary"
-          className="flex h-9 items-center gap-2 border border-border bg-card shadow-sm transition-[transform,background-color,box-shadow] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:bg-muted hover:shadow-md active:scale-[0.98]"
+          className={cn(
+            UCAT_SURFACE_CARD,
+            UCAT_SURFACE_MOTION,
+            "flex h-9 items-center gap-2 rounded-ucatControl hover:bg-muted hover:shadow-md active:scale-[0.98]",
+          )}
         >
           <div className="flex h-6 w-6 items-center justify-center rounded-full bg-sidebar text-sidebar-foreground text-xs font-medium">
             {initials}

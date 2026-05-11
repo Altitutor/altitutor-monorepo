@@ -8,6 +8,7 @@ import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SetAttemptsCard } from "./set-attempts-card";
 import { QuestionAttemptsCard } from "./question-attempts-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
   filterByTimeFrame,
@@ -310,7 +311,7 @@ function SectionProgressContent({
 
       <div className="flex flex-col gap-4">
         <div className="flex justify-center">
-          <Card className="w-full max-w-xs rounded-xl border-border">
+          <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium text-center">
                 Scaled score
@@ -334,7 +335,7 @@ function SectionProgressContent({
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="rounded-xl border-border">
+          <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">
                 <div className="flex flex-col gap-1 min-w-0">
@@ -355,7 +356,7 @@ function SectionProgressContent({
                 />
               </div>
               {categoryProgress.length > 0 ? (
-                <div className="border-t border-border pt-3">
+                <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
                   <div className="text-xs font-medium text-muted-foreground mb-2">
                     Category breakdown
                   </div>
@@ -418,7 +419,7 @@ function SectionProgressContent({
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl border-border">
+          <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">
                 <div className="flex flex-col gap-1 min-w-0">
@@ -431,7 +432,7 @@ function SectionProgressContent({
                     totalPublicQuestions != null ? (
                       <>
                         {" / "}
-                        <AnimatedInteger value={totalPublicQuestions} />
+                        <span className="tabular-nums">{totalPublicQuestions}</span>
                       </>
                     ) : null}
                   </span>
@@ -451,7 +452,7 @@ function SectionProgressContent({
                 />
               </div>
               {categoryProgress.length > 0 ? (
-                <div className="border-t border-border pt-3">
+                <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
                   <div className="text-xs font-medium text-muted-foreground mb-2">
                     Category breakdown
                   </div>
@@ -482,7 +483,7 @@ function SectionProgressContent({
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl border-border">
+          <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">
                 <div className="flex flex-col gap-1 min-w-0">
@@ -495,7 +496,7 @@ function SectionProgressContent({
                     totalPublicSets != null ? (
                       <>
                         {" / "}
-                        <AnimatedInteger value={totalPublicSets} />
+                        <span className="tabular-nums">{totalPublicSets}</span>
                       </>
                     ) : null}
                   </span>
@@ -514,7 +515,7 @@ function SectionProgressContent({
                   className="text-accent shrink-0"
                 />
               </div>
-              <div className="border-t border-border pt-3">
+              <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
                 <div className="text-xs font-medium text-muted-foreground mb-2">
                   Breakdown
                 </div>
@@ -529,7 +530,9 @@ function SectionProgressContent({
                       totalPublicUntimedSets != null ? (
                         <>
                           {" / "}
-                          <AnimatedInteger value={totalPublicUntimedSets} />
+                          <span className="tabular-nums">
+                            {totalPublicUntimedSets}
+                          </span>
                         </>
                       ) : null}
                     </span>
@@ -544,7 +547,9 @@ function SectionProgressContent({
                       totalPublicTimedSets != null ? (
                         <>
                           {" / "}
-                          <AnimatedInteger value={totalPublicTimedSets} />
+                          <span className="tabular-nums">
+                            {totalPublicTimedSets}
+                          </span>
                         </>
                       ) : null}
                     </span>

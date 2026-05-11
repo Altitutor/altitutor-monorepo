@@ -13,6 +13,8 @@ import {
   computeSectionProgressFromMockAttempts,
 } from "../lib/progress-data-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { AnimatedInteger } from "./progress-animated-display";
 
 export function MocksProgressPage() {
@@ -116,7 +118,7 @@ export function MocksProgressPage() {
       />
 
       <div className="flex flex-wrap justify-center gap-4">
-        <Card className="w-full max-w-xs rounded-xl border-border">
+        <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium text-center">
               Average mock score
@@ -136,7 +138,7 @@ export function MocksProgressPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className="w-full max-w-xs rounded-xl border-border">
+        <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium text-center">
               Mocks completed
@@ -148,7 +150,7 @@ export function MocksProgressPage() {
               {data.totalPublicMocks != null ? (
                 <>
                   {" / "}
-                  <AnimatedInteger value={data.totalPublicMocks} />
+                  <span className="tabular-nums">{data.totalPublicMocks}</span>
                 </>
               ) : null}
             </div>

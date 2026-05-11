@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@altitutor/ui";
 import { getBreadcrumbItems } from "@/features/layout/config/breadcrumbs";
+import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 type UcatPageHeaderProps = {
   title: string;
@@ -65,13 +68,19 @@ export function UcatPageHeader({
       ) : null}
       <div className="flex items-start gap-3">
         {backHref ? (
-          <Link
-            href={backHref}
-            className="group flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-colors duration-200 ease-out hover:bg-muted hover:text-foreground active:scale-[0.97]"
-            aria-label={backLabel ?? "Go back"}
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
+            className={cn(
+              UCAT_HEADER_ICON_BUTTON,
+              "group shrink-0 [&_svg]:size-5",
+            )}
           >
-            <ChevronLeft className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
-          </Link>
+            <Link href={backHref} aria-label={backLabel ?? "Go back"}>
+              <ChevronLeft className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+            </Link>
+          </Button>
         ) : null}
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>

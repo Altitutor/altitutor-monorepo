@@ -5,6 +5,8 @@ import {
   SITUATIONAL_JUDGEMENT_SECTION_NAME,
 } from "@altitutor/ucat-marking";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { UCAT_FONTS } from "@altitutor/ui/src/components/ucat/ucat-theme";
 import type {
   QuestionEngineExam,
@@ -114,7 +116,7 @@ export function MockScoreBody({
         {setResults.map(({ summary, result }) => (
           <Card
             key={summary.setIndex}
-            className="rounded-xl border-border overflow-hidden"
+            className={cn(UCAT_CARD_CHROME, "overflow-hidden")}
           >
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium">

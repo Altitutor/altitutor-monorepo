@@ -17,6 +17,7 @@ import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
 import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
+import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 export function DashboardPage() {
@@ -63,11 +64,12 @@ export function DashboardPage() {
   );
 
   const cardSurfaceClass = cn(
-    "group relative flex h-full w-full flex-col items-start rounded-lg border border-border bg-card p-6 text-left",
-    "shadow-sm transition-[transform,box-shadow,background-color,border-color] duration-200 ease-out",
+    "group relative flex h-full w-full flex-col items-start rounded-ucatShell p-6 text-left",
+    UCAT_SURFACE_CARD,
+    UCAT_SURFACE_MOTION,
     !reduceMotion && "hover:-translate-y-0.5",
-    "hover:border-border hover:shadow-md hover:bg-muted/40",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+    "hover:bg-muted/40 hover:shadow-md hover:ring-black/[0.1] dark:hover:ring-white/[0.12]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
   );
 
   return (

@@ -7,6 +7,12 @@ import {
 } from "@altitutor/ucat-marking";
 import type { QuestionMeta } from "@altitutor/ucat-marking";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_NATIVE_TABLE_BODY_ROW,
+  UCAT_NATIVE_TABLE_HEADER_ROW,
+  UCAT_TABLE_SHELL,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { QuestionItem } from "@/features/question-engine/model/types";
 
@@ -235,7 +241,7 @@ export function MarkingBody({
       {!hideHeader && (
         <div className="shrink-0 p-4 flex flex-col items-center">
           <div className="flex flex-wrap gap-4 justify-center">
-            <Card className="rounded-xl border-border max-w-[200px]">
+            <Card className={cn(UCAT_CARD_CHROME, "max-w-[200px]")}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-medium">Score</CardTitle>
               </CardHeader>
@@ -255,7 +261,7 @@ export function MarkingBody({
               </CardContent>
             </Card>
             {scaledScore != null && (
-              <Card className="rounded-xl border-border max-w-[200px]">
+              <Card className={cn(UCAT_CARD_CHROME, "max-w-[200px]")}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base font-medium">
                     Scaled score
@@ -279,7 +285,7 @@ export function MarkingBody({
               <a
                 href={viewAttemptHref}
                 data-skip-leave-warning
-                className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
+                className="inline-flex h-10 items-center justify-center rounded-ucatControl bg-sidebar px-4 text-sm font-medium text-sidebar-foreground hover:bg-sidebar/90"
               >
                 View attempt
               </a>
@@ -289,9 +295,11 @@ export function MarkingBody({
       )}
       {!isSummaryView && (
         <div className="flex-1 min-h-0 overflow-auto">
-          <table className="w-full border-collapse text-left text-sm">
+          <div className={UCAT_TABLE_SHELL}>
+            <div className="overflow-x-auto">
+              <table className="w-full border-separate border-spacing-0 text-left text-sm">
             <thead>
-              <tr className="border-b border-border">
+              <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
                 <th className="px-3 py-2 font-normal">#</th>
                 <th className="px-3 py-2 font-normal">Question</th>
                 <th className="px-3 py-2 font-normal">Correct Answer</th>
@@ -337,10 +345,7 @@ export function MarkingBody({
                 }
 
                 return (
-                  <tr
-                    key={row.question.id}
-                    className="border-b border-border/50 transition-colors duration-150 ease-out hover:bg-muted/50"
-                  >
+                  <tr key={row.question.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
                     <td className="px-3 py-2">{row.index + 1}</td>
                     <td
                       className="px-3 py-2 max-w-[200px]"
@@ -378,7 +383,9 @@ export function MarkingBody({
                 );
               })}
             </tbody>
-          </table>
+              </table>
+            </div>
+          </div>
         </div>
       )}
     </div>

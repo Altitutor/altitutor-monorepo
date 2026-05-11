@@ -1,21 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-
-const COMMON_TIMEZONES = [
-  "Australia/Adelaide",
-  "Australia/Brisbane",
-  "Australia/Darwin",
-  "Australia/Hobart",
-  "Australia/Melbourne",
-  "Australia/Perth",
-  "Australia/Sydney",
-  "Pacific/Auckland",
-  "Asia/Singapore",
-  "Europe/London",
-  "America/New_York",
-  "UTC",
-];
+import {
+  getSupportedIanaTimeZones,
+  isSupportedIanaTimeZone,
+  mergeTimeZoneIntoOptions,
+} from "@/lib/supported-timezones";
 
 /**
  * GET /api/ucat/profile
@@ -64,9 +54,12 @@ export async function GET() {
     );
   }
 
+  const timezone = student.timezone ?? "Australia/Adelaide";
+  const timezoneOptions = mergeTimeZoneIntoOptions(timezone, getSupportedIanaTimeZones());
+
   return NextResponse.json({
-    timezone: student.timezone ?? "Australia/Adelaide",
-    timezoneOptions: COMMON_TIMEZONES,
+    timezone,
+    timezoneOptions,
   });
 }
 
@@ -105,6 +98,10 @@ export async function PATCH(request: NextRequest) {
       { error: "timezone is required" },
       { status: 400 },
     );
+  }
+
+  if (!isSupportedIanaTimeZone(timezone)) {
+    return NextResponse.json({ error: "Invalid timezone" }, { status: 400 });
   }
 
   const { data: student, error: studentError } = await supabaseAdmin

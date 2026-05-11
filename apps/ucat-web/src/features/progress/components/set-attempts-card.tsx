@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
-  Button,
   Card,
   CardContent,
   CardHeader,
@@ -18,6 +16,7 @@ import {
 } from "@altitutor/ui";
 import { TableHeaderWithTooltip } from "./table-header-with-tooltip";
 import { ProgressTablePagination } from "./progress-table-pagination";
+import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
 import { GraphTypeTabs } from "./graph-type-tabs";
 import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
@@ -214,11 +213,10 @@ export function SetAttemptsCard({
                         <TableCell>{setSpeed}</TableCell>
                         <TableCell>{examSpeed}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={setAttemptHref(a.id)}>
-                              View attempt
-                            </Link>
-                          </Button>
+                          <UcatTableRowActionLink
+                            href={setAttemptHref(a.id)}
+                            label="View attempt"
+                          />
                         </TableCell>
                       </TableRow>
                     );

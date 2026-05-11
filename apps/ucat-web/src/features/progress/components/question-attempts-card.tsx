@@ -15,6 +15,7 @@ import {
   type SharedDateRange,
 } from "../lib/progress-data-utils";
 import type { QuestionAttemptRow } from "@/app/api/ucat/progress/route";
+import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
 
 type QuestionAttemptsCardProps = {
@@ -82,7 +83,7 @@ export function QuestionAttemptsCard({
   }, [attempts, graphDataType, mode, timeFrameDays, sharedDateRange]);
 
   return (
-    <Card className="rounded-xl border-border">
+    <Card className={UCAT_CARD_CHROME}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Question attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">

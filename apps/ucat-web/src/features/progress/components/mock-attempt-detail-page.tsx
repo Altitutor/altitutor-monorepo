@@ -5,7 +5,7 @@ import { UcatPageHeader } from "@/features/layout";
 import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { MockAttemptAnalysisChart } from "./mock-attempt-analysis-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
+import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
   AnimatedFraction,
@@ -76,7 +76,7 @@ export function MockAttemptDetailPage({
         breadcrumbOverrides={{ 2: data.mockName ?? "Mock" }}
       />
 
-      <Card className="rounded-xl border-border max-w-sm">
+      <Card className={cn(UCAT_CARD_CHROME, "max-w-sm")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
             Overall scaled score
@@ -103,7 +103,7 @@ export function MockAttemptDetailPage({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden rounded-xl border-border">
+      <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
             Question attempts
@@ -137,7 +137,7 @@ export function MockAttemptDetailPage({
             const content = (
               <Card
                 className={cn(
-                  "rounded-xl border-border",
+                  UCAT_CARD_CHROME,
                   href && cn("cursor-pointer", UCAT_CARD_RAISED_HOVER),
                 )}
               >

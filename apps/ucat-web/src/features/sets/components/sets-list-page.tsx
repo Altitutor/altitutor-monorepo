@@ -16,7 +16,10 @@ import { recordToSetsFilters } from "@/features/sets/lib/filter-adapters";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { ListChecks } from "lucide-react";
-import { UCAT_LIST_ROW_LINK } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_LIST_ROW_LINK,
+  UCAT_PAGINATION_ACTIVE_PAGE_BUTTON,
+} from "@/lib/ucat-surface-motion";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -225,6 +228,7 @@ export function SetsListPage({
               total={filteredSets.length}
               onPageChange={(p) => setPage(p - 1)}
               onPageSizeChange={handlePageSizeChange}
+              activePageButtonClassName={UCAT_PAGINATION_ACTIVE_PAGE_BUTTON}
             />
           </div>
         )}

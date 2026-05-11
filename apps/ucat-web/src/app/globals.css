@@ -4,62 +4,137 @@
 
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Cormorant+Garamond:ital,wght@1,300;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap");
 
-:root {
-  --background: 220 20% 95%;
-  --foreground: 224 20% 12%;
-  --border: 220 20% 88%;
-  --input: 220 20% 88%;
-  --ring: 212 86% 14%;
-  --muted: 220 18% 92%;
-  --muted-foreground: 220 10% 44%;
-  --card: 0 0% 100%;
-  --card-foreground: 224 20% 12%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 224 20% 12%;
-  --sidebar: 220 40% 35%;
-  --sidebar-foreground: 0 0% 100%;
-  --primary: 212 86% 14%;
-  --primary-foreground: 0 0% 100%;
-  --accent: 198 29% 67%;
-  --accent-foreground: 212 86% 14%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 224 20% 12%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 100%;
+@layer base {
+  :root {
+    /* Light grey app canvas — slightly darker than before for clearer contrast vs white cards */
+    --background: 220 13% 92%;
+    --foreground: 212 86% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 212 86% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 212 86% 14%;
+
+    --primary: 212 86% 14%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 224 20% 12%;
+
+    --muted: 220 11% 89%;
+    --muted-foreground: 212 86% 25%;
+
+    --accent: 198 29% 67%;
+    --accent-foreground: 212 86% 14%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 10% 90%;
+    --input: 220 10% 90%;
+    --ring: 212 86% 14%;
+
+    --radius: 1rem;
+    /* Cohesive radii: large shells vs compact controls */
+    --ucat-radius-shell: 1.25rem;
+    --ucat-radius-control: 0.75rem;
+
+    --sidebar: 220 40% 35%;
+    --sidebar-foreground: 0 0% 100%;
+
+    --motion-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-duration-snappy: 150ms;
+    --motion-duration-subtle: 220ms;
+    --motion-duration-enter: 280ms;
+  }
+
+  .dark {
+    --background: 0 0% 9%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 198 29% 67%;
+    /* Near-black on accent fills — less navy cast against grey UI */
+    --primary-foreground: 0 0% 11%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 70%;
+
+    --accent: 198 29% 67%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Softer than card (12%) so borders don’t read as heavy frames */
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    /* Neutral focus / ring token — accent cyan reads as “blue borders” on chrome */
+    --ring: 0 0% 70%;
+
+    /*
+     * Neutral sidebar (no blue cast): sits between background 9% and card 12%
+     * so it feels like part of the grey ramp, not a separate navy panel.
+     */
+    --sidebar: 0 0% 13%;
+    --sidebar-foreground: 0 0% 96%;
+
+    --secondary: 0 0% 17%;
+    --secondary-foreground: 0 0% 96%;
+  }
 }
 
-.dark {
-  --background: 220 16% 10%;
-  --foreground: 220 20% 96%;
-  --border: 220 14% 30%;
-  --input: 220 14% 30%;
-  --ring: 198 29% 67%;
-  --muted: 220 14% 16%;
-  --muted-foreground: 220 12% 74%;
-  --card: 220 14% 16%;
-  --card-foreground: 220 20% 96%;
-  --popover: 220 14% 16%;
-  --popover-foreground: 220 20% 96%;
-  --sidebar: 220 18% 12%;
-  --sidebar-foreground: 220 20% 96%;
-  --primary: 198 29% 67%;
-  --primary-foreground: 212 86% 14%;
-  --accent: 198 29% 67%;
-  --accent-foreground: 0 0% 100%;
-  --secondary: 220 14% 18%;
-  --secondary-foreground: 220 20% 96%;
-  --destructive: 0 62.8% 45%;
-  --destructive-foreground: 0 0% 100%;
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-snappy: 1ms;
+    --motion-duration-subtle: 1ms;
+    --motion-duration-enter: 1ms;
+    --motion-ease-standard: linear;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
 }
 
-html,
-body {
-  height: 100%;
-}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  @media (prefers-reduced-motion: no-preference) {
+    :where(
+        button,
+        a,
+        summary,
+        input[type="button"],
+        input[type="submit"],
+        input[type="reset"],
+        [role="button"],
+        [role="tab"]
+      ):not(:disabled):not([data-motion-static]) {
+      transition-property: color, background-color, border-color, text-decoration-color, fill, stroke,
+        box-shadow, filter, opacity, transform;
+      transition-duration: var(--motion-duration-subtle);
+      transition-timing-function: var(--motion-ease-standard);
+    }
+  }
 }
 
 /* Set generator: transient background highlight for blocked set card */
@@ -178,15 +253,3 @@ body {
 [data-name="nextstep-overlay2"] {
   display: none !important;
 }
-
-/*
- * nextstepjs: the card wrapper is `position: absolute` next to the spotlight.
- * Cap its box so a tall custom card cannot extend past the viewport; the
- * onboarding card scrolls its body and keeps actions in the sticky footer.
- */
-[data-name="nextstep-card"] {
-  max-height: min(85dvh, calc(100dvh - 1.5rem));
-  max-width: min(20rem, calc(100vw - 2rem));
-  min-height: 0;
-}
-

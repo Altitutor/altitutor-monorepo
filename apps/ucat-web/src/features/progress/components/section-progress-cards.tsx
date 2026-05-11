@@ -1,8 +1,10 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
+import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@/app/api/ucat/progress/route";
 import type { ProgressMode } from "../lib/progress-mode";
@@ -42,16 +44,30 @@ export function SectionProgressCards({
           const score = getScaledScore(section);
           const card = (
             <Card
-              key={section.sectionId}
               className={cn(
-                "rounded-xl border-border",
+                UCAT_CARD_CHROME,
                 linkToSection && UCAT_CARD_RAISED_HOVER,
               )}
             >
-              <CardHeader className="pb-2">
+              <CardHeader
+                className={cn(
+                  "pb-2",
+                  linkToSection &&
+                    "flex flex-row items-start justify-between gap-2 space-y-0",
+                )}
+              >
                 <CardTitle className="text-base font-medium">
                   {section.sectionName}
                 </CardTitle>
+                {linkToSection ? (
+                  <span
+                    className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors group-hover:text-foreground"
+                    aria-hidden
+                  >
+                    View
+                    <ChevronRight className="h-4 w-4" />
+                  </span>
+                ) : null}
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <div>
@@ -91,11 +107,13 @@ export function SectionProgressCards({
             <Link
               key={section.sectionId}
               href={`/progress/sections/${section.sectionNumber}`}
+              className="group block"
+              aria-label={`View ${section.sectionName} section progress`}
             >
               {card}
             </Link>
           ) : (
-            card
+            <Fragment key={section.sectionId}>{card}</Fragment>
           );
         })}
       </div>

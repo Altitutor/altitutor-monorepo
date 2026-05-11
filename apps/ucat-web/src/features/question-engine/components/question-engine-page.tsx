@@ -834,7 +834,7 @@ export function QuestionEnginePage({
 
   if ((mode === "set" || mode === "mock") && query.isLoading) {
     return (
-      <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-muted-foreground">
+      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-muted-foreground shadow-sm">
         Loading exam...
       </div>
     );
@@ -846,7 +846,7 @@ export function QuestionEnginePage({
     exam.questions.length === 0
   ) {
     return (
-      <div className="rounded-xl bg-card text-card-foreground p-4 shadow-sm text-sm text-red-600 dark:text-red-400">
+      <div className="rounded-ucatShell bg-card p-4 text-sm text-card-foreground text-red-600 shadow-sm dark:text-red-400">
         Unable to load questions for this {mode}. Ensure student has access via
         UCAT views and the selected source contains questions.
       </div>

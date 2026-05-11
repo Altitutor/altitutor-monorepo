@@ -42,7 +42,7 @@ export function LoginForm({
   return (
     <div
       className={cn(
-        "w-full max-w-md space-y-4 rounded-xl bg-card p-6 text-card-foreground shadow-sm",
+        "w-full max-w-md space-y-4 rounded-ucatShell bg-card p-6 text-card-foreground shadow-sm",
         "transition-shadow duration-200",
         UCAT_INTERACTION_EASE,
         "hover:shadow-md",

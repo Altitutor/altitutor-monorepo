@@ -4,6 +4,8 @@ import Link from "next/link";
 import { Button } from "@altitutor/ui";
 import { MarketingHeader } from "@/features/landing";
 import { useAuth } from "@/features/auth";
+import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 
 const features = [
@@ -29,7 +31,14 @@ export function PricingPage() {
             mocks, and progress tracking.
           </p>
 
-          <div className="mt-10 rounded-xl border border-border bg-card p-8 shadow-sm transition-shadow duration-200 ease-[cubic-bezier(0.32,0.72,0,1)] hover:shadow-md">
+          <div
+            className={cn(
+              "mt-10 rounded-ucatShell p-8",
+              UCAT_SURFACE_CARD,
+              UCAT_SURFACE_MOTION,
+              "hover:shadow-md",
+            )}
+          >
             <h2 className="text-xl font-semibold text-foreground">
               What&apos;s included
             </h2>

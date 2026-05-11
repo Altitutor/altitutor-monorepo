@@ -5,53 +5,21 @@ import { useEffect, useMemo, useState } from "react";
 import { useReducedMotion } from "motion/react";
 import { CalendarDays, ChevronRight } from "lucide-react";
 import { Badge } from "@altitutor/ui";
-import { UCAT_INTERACTION_EASE } from "@/lib/ucat-surface-motion";
+import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
-import type { StudentUcatSession } from "@/features/sessions/api/sessions-api";
+import {
+  getUcatSessionAdelaideDayStatus,
+  type StudentUcatSession,
+} from "@/features/sessions/api/sessions-api";
 
 const ADELAIDE_TZ = "Australia/Adelaide";
-
-function getAdelaideDayStatus(
-  startAtIso: string | null | undefined,
-): "past" | "today" | "future" {
-  if (!startAtIso) return "future";
-  const now = new Date();
-  const todayParts = new Intl.DateTimeFormat("en-AU", {
-    timeZone: ADELAIDE_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-    .formatToParts(now)
-    .reduce<Record<string, string>>((acc, part) => {
-      if (part.type !== "literal") acc[part.type] = part.value;
-      return acc;
-    }, {});
-  const startDate = new Date(startAtIso);
-  const startParts = new Intl.DateTimeFormat("en-AU", {
-    timeZone: ADELAIDE_TZ,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  })
-    .formatToParts(startDate)
-    .reduce<Record<string, string>>((acc, part) => {
-      if (part.type !== "literal") acc[part.type] = part.value;
-      return acc;
-    }, {});
-  const todayKey = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
-  const startKey = `${startParts.year}-${startParts.month}-${startParts.day}`;
-  if (startKey === todayKey) return "today";
-  if (startKey < todayKey) return "past";
-  return "future";
-}
 
 function getEarliestSessionToday(
   sessions: StudentUcatSession[],
 ): StudentUcatSession | null {
   const todaySessions = sessions.filter(
-    (s) => getAdelaideDayStatus(s.start_at) === "today",
+    (s) => getUcatSessionAdelaideDayStatus(s.start_at) === "today",
   );
   if (todaySessions.length === 0) return null;
   todaySessions.sort((a, b) => {
@@ -101,7 +69,7 @@ function LiveBadge({ reduceMotion }: { reduceMotion: boolean }) {
 
 export function TodaySessionCard() {
   const reduceMotion = useReducedMotion();
-  const { data: classesWithSessions, isLoading } = useStudentUcatSessions();
+  const { data: sessions, isLoading } = useStudentUcatSessions();
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
@@ -110,17 +78,9 @@ export function TodaySessionCard() {
   }, []);
 
   const sessionToday = useMemo(() => {
-    if (!classesWithSessions || classesWithSessions.length === 0) return null;
-    const allSessions = classesWithSessions.flatMap((c) => c.sessions);
-    return getEarliestSessionToday(allSessions);
-  }, [classesWithSessions]);
-
-  const classInfo = useMemo(() => {
-    if (!sessionToday || !classesWithSessions) return null;
-    return classesWithSessions.find(
-      (c) => c.class_id === sessionToday.class_id,
-    );
-  }, [sessionToday, classesWithSessions]);
+    if (!sessions || sessions.length === 0) return null;
+    return getEarliestSessionToday(sessions);
+  }, [sessions]);
 
   const live = sessionToday ? isSessionLive(sessionToday, now) : false;
 
@@ -153,12 +113,12 @@ export function TodaySessionCard() {
     <Link
       href={`/sessions/${encodeURIComponent(sessionToday.session_id)}`}
       className={cn(
-        "group block rounded-lg border border-border bg-card p-6 text-left shadow-sm",
-        "transition-[transform,box-shadow,background-color,border-color] duration-200",
-        UCAT_INTERACTION_EASE,
+        "group block rounded-ucatShell p-6 text-left",
+        UCAT_SURFACE_CARD,
+        UCAT_SURFACE_MOTION,
         !reduceMotion && "hover:-translate-y-0.5",
-        "hover:border-border hover:bg-muted/40 hover:shadow-md",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+        "hover:bg-muted/40 hover:shadow-md hover:ring-black/[0.1] dark:hover:ring-white/[0.12]",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
       )}
     >
       <div className="flex items-start justify-between gap-3">
@@ -173,8 +133,8 @@ export function TodaySessionCard() {
           <p className="font-medium">{dateLabel}</p>
           <p className="text-xs text-muted-foreground">
             {timeLabel}
-            {classInfo?.class_level ? (
-              <span className="ml-1">· {classInfo.class_level}</span>
+            {sessionToday.class_level ? (
+              <span className="ml-1">· {sessionToday.class_level}</span>
             ) : null}
           </p>
         </div>

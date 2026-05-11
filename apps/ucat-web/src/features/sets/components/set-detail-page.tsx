@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { ListChecks } from "lucide-react";
-import { Button } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
+import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
 import {
   extractTextFromRichJson,
   type JsonLike,
@@ -12,8 +12,12 @@ import {
 import type { SetAttemptRow } from "@/features/sets/api/sets-api";
 import { useSetAttempts, useSets } from "@/features/sets";
 import {
-  UCAT_INTERACTION_EASE,
+  UCAT_NATIVE_TABLE_BODY_ROW,
+  UCAT_NATIVE_TABLE_HEADER_ROW,
   UCAT_PRIMARY_ACTION_BUTTON,
+  UCAT_SURFACE_CARD,
+  UCAT_SURFACE_MOTION,
+  UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
@@ -153,9 +157,9 @@ export function SetDetailPage({
 
       <section
         className={cn(
-          "space-y-2 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm",
-          "transition-shadow duration-200",
-          UCAT_INTERACTION_EASE,
+          "space-y-2 rounded-ucatShell p-4 text-card-foreground",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
         )}
       >
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
@@ -191,19 +195,20 @@ export function SetDetailPage({
       {attempts.length > 0 ? (
         <section
           className={cn(
-            "rounded-xl border border-border bg-card p-4 shadow-sm",
-            "transition-shadow duration-200",
-            UCAT_INTERACTION_EASE,
+            "rounded-ucatShell p-4",
+            UCAT_SURFACE_CARD,
+            UCAT_SURFACE_MOTION,
           )}
         >
           <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
             <ListChecks className="h-4 w-4" />
             Previous attempts
           </h2>
-          <div className="overflow-x-auto">
+          <div className={UCAT_TABLE_SHELL}>
+            <div className="overflow-x-auto">
             <table className="w-full min-w-[420px] text-sm">
               <thead>
-                <tr className="border-b border-border">
+                <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
                   <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">
                     Date
                   </th>
@@ -220,10 +225,7 @@ export function SetDetailPage({
               </thead>
               <tbody>
                 {attempts.map((a: SetAttemptRow) => (
-                  <tr
-                    key={a.id}
-                    className="border-b border-border/50 transition-colors duration-150 ease-out last:border-0 hover:bg-muted/40"
-                  >
+                  <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
                     <td className="py-2 pr-4">
                       {new Date(a.attemptedAt).toLocaleString(undefined, {
                         dateStyle: "medium",
@@ -239,14 +241,16 @@ export function SetDetailPage({
                       {a.scaledScore != null ? a.scaledScore : "—"}
                     </td>
                     <td className="py-2 text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={setAttemptHref(a.id)}>View attempt</Link>
-                      </Button>
+                      <UcatTableRowActionLink
+                        href={setAttemptHref(a.id)}
+                        label="View attempt"
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       ) : null}
