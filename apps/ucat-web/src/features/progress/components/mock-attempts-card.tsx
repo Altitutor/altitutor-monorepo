@@ -28,6 +28,12 @@ import {
   type SharedDateRange,
 } from "../lib/progress-data-utils";
 import type { MockAttemptRow } from "@/app/api/ucat/progress/route";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_TABLE_BODY_ROW,
+  UCAT_TABLE_HEADER_ROW,
+  UCAT_TABLE_SHELL,
+} from "@/lib/ucat-surface-motion";
 import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
 
 type MockAttemptsCardProps = {
@@ -109,7 +115,7 @@ export function MockAttemptsCard({
   }, [filteredAttempts, page, pageSize]);
 
   return (
-    <Card className="rounded-xl border-border">
+    <Card className={UCAT_CARD_CHROME}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Mock attempts</CardTitle>
         <div className="flex flex-wrap items-center gap-2">
@@ -138,10 +144,10 @@ export function MockAttemptsCard({
         />
         <div>
           <h4 className="mb-3 text-sm font-medium">All mock attempts</h4>
-          <div className="rounded-xl border border-border">
-            <Table className="[&_tr]:border-border">
+          <div className={UCAT_TABLE_SHELL}>
+            <Table>
               <TableHeader>
-                <TableRow>
+                <TableRow className={UCAT_TABLE_HEADER_ROW}>
                   <TableHead>Date</TableHead>
                   <TableHead>Mock</TableHead>
                   <TableHeaderWithTooltip tooltip="Raw score: correct points earned out of total possible points across all sets in this mock.">
@@ -164,7 +170,7 @@ export function MockAttemptsCard({
               </TableHeader>
               <TableBody>
                 {filteredAttempts.length === 0 ? (
-                  <TableRow>
+                  <TableRow className={UCAT_TABLE_BODY_ROW}>
                     <TableCell
                       colSpan={8}
                       className="text-center text-muted-foreground"
@@ -191,7 +197,7 @@ export function MockAttemptsCard({
                         : "—";
 
                     return (
-                      <TableRow key={a.id}>
+                      <TableRow key={a.id} className={UCAT_TABLE_BODY_ROW}>
                         <TableCell>{dateStr}</TableCell>
                         <TableCell>{a.mockName ?? "—"}</TableCell>
                         <TableCell>
