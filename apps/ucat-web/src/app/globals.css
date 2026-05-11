@@ -169,3 +169,13 @@ body {
   }
 }
 
+/*
+ * nextstepjs: with `viewportID`, the library also renders a second full-document
+ * overlay (`nextstep-overlay2`) that mixes `getBoundingClientRect()` with
+ * `window.scrollY`. For a fixed full-viewport portal that mis-tints the page
+ * when the user scrolls. The primary portal already covers the viewport.
+ */
+[data-name="nextstep-overlay2"] {
+  display: none !important;
+}
+

@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { Button, Label } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
+import { useOnboardingTour } from "@/features/onboarding";
+import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { UCAT_INTERACTION_EASE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +14,18 @@ export function SettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { restartTour, resetAllTours } = useOnboardingTour();
+  // Sidebar (which the welcome tour highlights) is hidden behind a hamburger
+  // on mobile, so the welcome tour is desktop-only.
+  const isMobile = useMediaQuery("(max-width: 767px)");
+  const [tourFeedback, setTourFeedback] = useState<string | null>(null);
+
+  const handleResetAllTours = () => {
+    resetAllTours();
+    setTourFeedback(
+      "Feature tours reset. They will show again next time you visit each section.",
+    );
+  };
 
   useEffect(() => {
     async function load() {
@@ -109,6 +123,37 @@ export function SettingsPage() {
         </Button>
         {error ? (
           <p className="mt-4 text-sm text-destructive">{error}</p>
+        ) : null}
+      </div>
+
+      <div className="rounded-lg border border-border bg-card p-6">
+        <h3 className="font-semibold">App tours</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Replay the main walkthrough, or reset every per-feature intro so
+          each one shows again next time you visit it.
+          {isMobile ? " Tours are available on desktop only." : ""}
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setTourFeedback(null);
+              restartTour();
+            }}
+            disabled={isMobile}
+          >
+            Replay app tour
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={handleResetAllTours}
+            disabled={isMobile}
+          >
+            Reset feature tours
+          </Button>
+        </div>
+        {tourFeedback ? (
+          <p className="mt-3 text-sm text-muted-foreground">{tourFeedback}</p>
         ) : null}
       </div>
     </div>

@@ -137,6 +137,7 @@ export function PracticePage() {
   const actionButton = (
     <button
       type="button"
+      data-tour="practice-start"
       onClick={() => !startMutation.isPending && handleStart()}
       disabled={startMutation.isPending || !filters.selectedSection?.id}
       className={UCAT_PRIMARY_ACTION_BUTTON}
@@ -147,11 +148,14 @@ export function PracticePage() {
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader
-        title="Practice"
-        description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
-      />
-      <StemFiltersPanel
+      <div id="tour-practice-header">
+        <UcatPageHeader
+          title="Practice"
+          description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
+        />
+      </div>
+      <div id="tour-practice-filters">
+        <StemFiltersPanel
         input={filters.input}
         selectedSection={filters.selectedSection}
         sectionCategories={filters.sectionCategories}
@@ -177,6 +181,7 @@ export function PracticePage() {
         onQuestionCountModeChange={filters.handleQuestionCountModeChange}
         actionButton={actionButton}
       />
+      </div>
     </div>
   );
 }

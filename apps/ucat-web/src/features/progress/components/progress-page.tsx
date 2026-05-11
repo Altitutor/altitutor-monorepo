@@ -104,21 +104,25 @@ export function ProgressPage() {
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader
-        title="Progress"
-        description="Track your performance across sections, set attempts, and mock exams."
-      />
+      <div id="tour-progress-header">
+        <UcatPageHeader
+          title="Progress"
+          description="Track your performance across sections, set attempts, and mock exams."
+        />
+      </div>
 
-      <ReviewHeatmapCard data={data} />
+      <ReviewHeatmapCard />
 
-      <ProgressModeSelector
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        attemptFilter={progressMode.attemptFilter}
-        onAttemptFilterChange={progressMode.onAttemptFilterChange}
-      />
+      <div id="tour-progress-mode">
+        <ProgressModeSelector
+          mode={progressMode.mode}
+          onModeChange={progressMode.onModeChange}
+          timeFrameDays={progressMode.timeFrameDays}
+          onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
+          attemptFilter={progressMode.attemptFilter}
+          onAttemptFilterChange={progressMode.onAttemptFilterChange}
+        />
+      </div>
 
       <SectionProgressCards
         sections={sectionProgress}
