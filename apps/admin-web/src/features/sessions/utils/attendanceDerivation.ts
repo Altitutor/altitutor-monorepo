@@ -38,6 +38,8 @@ export type StudentAttendanceInput = {
   was_trial?: boolean;
   is_rescheduled?: boolean;
   is_credited?: boolean;
+  /** When absence was logged as credit (sessions_students.credited_at). */
+  credited_at?: string | null;
   rescheduled_session?: {
     session?: {
       id: string;
@@ -155,18 +157,30 @@ export function deriveStudentActualStatus(
 /**
  * Derive complete student attendance status
  */
+function formatCreditedDay(iso: string | null | undefined): string {
+  if (!iso) return '';
+  try {
+    return format(new Date(iso), 'dd/MM/yyyy');
+  } catch {
+    return '';
+  }
+}
+
 export function deriveStudentAttendanceStatus(
   input: StudentAttendanceInput,
   context: StudentAttendanceContext
 ): StudentAttendanceStatus {
   const planned = deriveStudentPlannedStatus(input, context);
   const actualStatus = deriveStudentActualStatus(input, context);
+  const creditedDisplayDate =
+    planned.status === STUDENT_PLANNED_STATUSES.CREDITED ? formatCreditedDay(input.credited_at) : '';
 
   return {
     plannedStatus: planned.status,
     actualStatus,
     rescheduledSessionId: planned.rescheduledSessionId,
     rescheduledDate: planned.rescheduledDate,
+    creditedDisplayDate,
   };
 }
 

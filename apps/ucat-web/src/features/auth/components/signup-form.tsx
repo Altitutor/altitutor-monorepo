@@ -3,6 +3,7 @@
 import type { AuthError } from "@supabase/supabase-js";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { agentDebugLog, probeAuthCookies } from "@/lib/agent-debug-log";
@@ -12,6 +13,11 @@ import { NoiseOverlay } from "@/features/landing/components/marketing/noise-over
 const { typography: typo } = MARKETING_TOKENS;
 
 const MONTHLY_PRICE_ID = "price_1TUoHxKMw7Xacevsm4h5ulH8";
+
+/** Solid fill so UA / autofill cannot flash a light panel over translucent + backdrop-blur. */
+const marketingFieldInputClass =
+  "border border-white/10 bg-[#2a2a2a] text-marketing-cream caret-marketing-accent placeholder:text-marketing-cream/30 outline-none transition-all focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 " +
+  "[&:-webkit-autofill]:[-webkit-text-fill-color:rgb(242,240,233)] [&:-webkit-autofill]:shadow-[inset_0_0_0_1000px_#2a2a2a] [&:-webkit-autofill]:[transition:background-color_9999s_ease-out_0s]";
 
 type FormState = "idle" | "submitted" | "error";
 
@@ -47,6 +53,7 @@ async function subscribeToNewsletter(email: string): Promise<void> {
 }
 
 export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string }) {
+  const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
   const [newsletter, setNewsletter] = useState(true);
@@ -54,6 +61,9 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submitInFlightRef = useRef(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -111,8 +121,62 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
     }
   }
 
+  async function onVerifyOtp(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setOtpError(null);
+    const digits = otpCode.replace(/\D/g, "");
+    if (digits.length !== 6) {
+      setOtpError("Enter the 6-digit code from your email.");
+      return;
+    }
+
+    setOtpSubmitting(true);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const tryTypes = ["email", "signup"] as const;
+    let lastError: AuthError | null = null;
+    for (const type of tryTypes) {
+      const { error } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
+        token: digits,
+        type,
+      });
+      if (!error) {
+        agentDebugLog({
+          hypothesisId: "post-fix",
+          location: "signup-form.tsx:verifyOtp_ok",
+          message: "verifyOtp succeeded",
+          data: { usedType: type },
+          runId: "post-fix",
+        });
+        setOtpSubmitting(false);
+        router.push("/signup/flow");
+        router.refresh();
+        return;
+      }
+      lastError = error;
+    }
+
+    setOtpSubmitting(false);
+    agentDebugLog({
+      hypothesisId: "post-fix",
+      location: "signup-form.tsx:verifyOtp_err",
+      message: "verifyOtp failed for email and signup types",
+      data: {
+        errLen: lastError?.message?.length ?? 0,
+        errStatus: lastError?.status ?? null,
+      },
+      runId: "post-fix",
+    });
+    setOtpError(
+      lastError
+        ? getSignupOtpUserMessage(lastError)
+        : "Invalid code. Try again or request a new email.",
+    );
+  }
+
   return (
-    <div className="relative flex min-h-dvh flex-col bg-marketing-charcoal">
+    <div className="relative flex min-h-dvh flex-col bg-marketing-charcoal [color-scheme:dark]">
       <NoiseOverlay />
 
       {/* Header */}
@@ -179,6 +243,45 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               </button>
               .
             </p>
+
+            <form
+              onSubmit={onVerifyOtp}
+              className={`mt-10 space-y-4 rounded-2xl bg-white/5 p-6 text-left ring-1 ring-white/10 ${typo.secondarySans}`}
+            >
+              <p className="text-sm text-marketing-cream/70">
+                Prefer a code? Your email includes a 6-digit code (works in incognito or when the
+                link opens in another app).
+              </p>
+              <div className="space-y-1.5">
+                <label htmlFor="signup-otp" className="block text-sm font-medium text-marketing-cream/80">
+                  6-digit code
+                </label>
+                <input
+                  id="signup-otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={12}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  disabled={otpSubmitting}
+                  className={`w-full rounded-xl px-4 py-3 text-center font-mono text-lg tracking-[0.4em] ${marketingFieldInputClass}`}
+                />
+              </div>
+              {otpError ? (
+                <p className="text-sm text-red-400" role="alert">
+                  {otpError}
+                </p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={otpSubmitting || otpCode.length !== 6}
+                className="w-full rounded-xl bg-marketing-accent py-3 text-sm font-semibold text-marketing-charcoal transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {otpSubmitting ? "Verifying…" : "Continue with code"}
+              </button>
+            </form>
           </div>
         ) : (
           <div className="w-full max-w-md">
@@ -225,7 +328,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   disabled={isSubmitting}
-                  className={`w-full rounded-xl border border-white/10 bg-white/8 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-all focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+                  className={`w-full rounded-xl px-4 py-3 ${marketingFieldInputClass} ${typo.secondarySans}`}
                 />
               </div>
 

@@ -39,6 +39,7 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
           plannedStatus: 'attending-extra',
           actualStatus: 'not-logged',
           rescheduledDate: '',
+          creditedDisplayDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -50,6 +51,7 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
           plannedStatus: 'attending',
           actualStatus: 'not-logged',
           rescheduledDate: '',
+          creditedDisplayDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -128,6 +130,7 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending-extra-trial',
           actualStatus: 'not-logged',
           rescheduledDate: '',
+          creditedDisplayDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -154,6 +157,7 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending',
           actualStatus: 'not-logged',
           rescheduledDate: '',
+          creditedDisplayDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -182,6 +186,7 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending-extra',
           actualStatus: 'not-logged',
           rescheduledDate: '',
+          creditedDisplayDate: '',
           invoiceStatus: { status: 'paid' },
           plannedAbsence: false,
           hasInvoiceItems: true,
@@ -225,6 +230,7 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending-extra',
           actualStatus: 'attended',
           rescheduledDate: '',
+          creditedDisplayDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -286,6 +292,7 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'credited',
           actualStatus: 'not-logged',
           rescheduledDate: '',
+          creditedDisplayDate: '02/01/2026',
           invoiceStatus: null,
           plannedAbsence: true,
           hasInvoiceItems: false,
@@ -293,8 +300,8 @@ describe('SessionDetailsTab', () => {
       ],
     });
 
+    expect(screen.getByText(/Credited \(02\/01\/2026\)/)).toBeInTheDocument();
     const row = screen.getByText('Credited Student').closest('tr');
-    expect(row).not.toBeNull();
     const rowButtons = within(row as HTMLElement).getAllByRole('button');
     await user.click(rowButtons[rowButtons.length - 1]);
     expect(await screen.findByText('Undo Log Absence')).toBeInTheDocument();
@@ -313,6 +320,7 @@ describe('SessionDetailsTab', () => {
           actualStatus: 'not-logged',
           rescheduledDate: 'Tue 01/01 10:00',
           rescheduledSessionId: 'session-target',
+          creditedDisplayDate: '',
           invoiceStatus: null,
           plannedAbsence: true,
           hasInvoiceItems: false,
@@ -391,6 +399,7 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending',
           actualStatus: 'not-logged',
           rescheduledDate: '',
+          creditedDisplayDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -426,6 +435,7 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending',
           actualStatus: 'not-logged',
           rescheduledDate: '',
+          creditedDisplayDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,

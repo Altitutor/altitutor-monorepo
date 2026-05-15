@@ -20,6 +20,8 @@ export type SessionTableStudent = Tables<'students'> & {
   was_trial?: boolean;
   is_rescheduled?: boolean;
   is_credited?: boolean;
+  /** sessions_students.credited_at — absence credited date */
+  absence_credited_at?: string | null;
   rescheduled_session?: {
     session?: {
       id: string;

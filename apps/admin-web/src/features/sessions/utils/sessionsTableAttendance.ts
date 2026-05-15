@@ -25,6 +25,7 @@ export function getStudentAttendanceStatus(
     was_trial: student.was_trial,
     is_rescheduled: student.is_rescheduled,
     is_credited: student.is_credited,
+    credited_at: student.absence_credited_at ?? null,
     rescheduled_session: student.rescheduled_session,
     actual_attended: student.actual_attended,
     actual_was_trial: student.actual_was_trial,

@@ -15,6 +15,7 @@ import { TutorLogAvatar } from './TutorLogAvatar';
 import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { formatTime } from '@/shared/utils/datetime';
+import { openAdminInvoiceModal } from '../utils/openAdminInvoiceModal';
 import {
   SessionInfoGrid,
   Table,
@@ -102,6 +103,7 @@ type SessionDetailsTabProps = {
     actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     rescheduledDate: string;
     rescheduledSessionId?: string;
+    creditedDisplayDate: string;
     invoiceStatus: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
     plannedAbsence: boolean;
     hasInvoiceItems: boolean;
@@ -561,7 +563,13 @@ export function SessionDetailsTab({
                                   }
                                 : undefined
                             }
-                            linkText={data.rescheduledDate}
+                            linkText={
+                              data.plannedStatus === 'rescheduled'
+                                ? data.rescheduledDate
+                                : data.plannedStatus === 'credited' && data.creditedDisplayDate
+                                  ? data.creditedDisplayDate
+                                  : undefined
+                            }
                           />
                         </TableCell>
                         <TableCell>
@@ -569,7 +577,9 @@ export function SessionDetailsTab({
                         </TableCell>
                         <TableCell>
                           {(() => {
-                            const badge = getInvoiceStatusBadge(data.invoiceStatus);
+                            const badge = getInvoiceStatusBadge(data.invoiceStatus, {
+                              onOpenInvoice: openAdminInvoiceModal,
+                            });
                             if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
                             return badge;
                           })()}

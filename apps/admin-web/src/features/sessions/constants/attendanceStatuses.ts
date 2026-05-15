@@ -65,6 +65,8 @@ export type StudentAttendanceStatus = {
   actualStatus: StudentActualStatus;
   rescheduledSessionId: string;
   rescheduledDate: string;
+  /** Formatted dd/MM/yyyy when planned absence was credited (sessions_students.credited_at). */
+  creditedDisplayDate: string;
 };
 
 /**

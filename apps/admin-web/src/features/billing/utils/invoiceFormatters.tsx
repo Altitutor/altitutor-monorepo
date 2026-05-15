@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import type { ReactNode } from 'react';
 import { Badge } from '@altitutor/ui';
 
 /**
@@ -27,6 +28,7 @@ function formatShortDate(dateString: string | null | undefined): string {
 /** Invoice-like data for status badge display. Supports both full invoice and RPC payload. */
 export type InvoiceStatusPayload = {
   status: string;
+  invoice_id?: string | null;
   paid_at?: string | null;
   refunded_at?: string | null;
   refunded_via_cn_at?: string | null;
@@ -36,6 +38,10 @@ export type InvoiceStatusPayload = {
     credit_amount_cents?: number | null;
     created_at: string;
   }> | null;
+};
+
+export type InvoiceStatusBadgeOptions = {
+  onOpenInvoice?: (invoiceId: string) => void;
 };
 
 /**
@@ -48,7 +54,10 @@ export type InvoiceStatusPayload = {
  * - credited: if credit note with credit_amount_cents > 0 → "Credited ({date})"
  * - Shows as many pills as criteria are met
  */
-export function getInvoiceStatusBadge(invoice: InvoiceStatusPayload | null | undefined): React.ReactNode {
+export function getInvoiceStatusBadge(
+  invoice: InvoiceStatusPayload | null | undefined,
+  options?: InvoiceStatusBadgeOptions
+): ReactNode {
   if (!invoice) return null;
 
   const pills: { key: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }[] = [];
@@ -99,21 +108,36 @@ export function getInvoiceStatusBadge(invoice: InvoiceStatusPayload | null | und
 
   if (pills.length === 0) return null;
 
-  return (
-    <div className="flex flex-wrap gap-1">
-      {pills.map((pill) => (
-        <Badge key={pill.key} variant={pill.variant} className="text-xs">
-          {pill.label}
-        </Badge>
-      ))}
-    </div>
-  );
+  const pillsEl = pills.map((pill) => (
+    <Badge key={pill.key} variant={pill.variant} className="text-xs">
+      {pill.label}
+    </Badge>
+  ));
+
+  const invoiceId = invoice.invoice_id ?? null;
+  if (invoiceId && options?.onOpenInvoice) {
+    return (
+      <button
+        type="button"
+        className="inline-flex flex-wrap gap-1 text-left cursor-pointer hover:underline text-accent-foreground decoration-accent-foreground/80"
+        onClick={(e) => {
+          e.stopPropagation();
+          options.onOpenInvoice!(invoiceId);
+        }}
+      >
+        {pillsEl}
+      </button>
+    );
+  }
+
+  return <div className="flex flex-wrap gap-1">{pillsEl}</div>;
 }
 
 /**
  * Build InvoiceStatusPayload from invoice row (for list/detail views with refunded_via_cn_at, credited_at).
  */
 export function toInvoiceStatusPayload(invoice: {
+  id?: string;
   status: string;
   paid_at?: string | null;
   refunded_at?: string | null;
@@ -123,6 +147,7 @@ export function toInvoiceStatusPayload(invoice: {
 } | null): InvoiceStatusPayload | null {
   if (!invoice) return null;
   return {
+    invoice_id: invoice.id ?? null,
     status: invoice.status,
     paid_at: invoice.paid_at ?? null,
     refunded_at: invoice.refunded_at ?? null,

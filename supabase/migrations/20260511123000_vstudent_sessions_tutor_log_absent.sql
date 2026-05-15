@@ -23,15 +23,6 @@ SELECT
   ss.rescheduled_at,
   ss.is_credited,
   ss.credited_at,
-  (
-    SELECT tlsa.attended IS FALSE
-    FROM public.tutor_logs tl
-    INNER JOIN public.tutor_logs_student_attendance tlsa
-      ON tlsa.tutor_log_id = tl.id
-      AND tlsa.student_id = ss.student_id
-    WHERE tl.session_id = s.id
-    LIMIT 1
-  ) AS tutor_log_marked_absent,
   c.day_of_week,
   c.start_time,
   c.end_time,
@@ -74,7 +65,16 @@ SELECT
     FROM public.sessions_staff sst
     JOIN public.staff staff ON staff.id = sst.staff_id
     WHERE sst.session_id = s.id
-  ) AS staff
+  ) AS staff,
+  (
+    SELECT tlsa.attended IS FALSE
+    FROM public.tutor_logs tl
+    INNER JOIN public.tutor_logs_student_attendance tlsa
+      ON tlsa.tutor_log_id = tl.id
+      AND tlsa.student_id = ss.student_id
+    WHERE tl.session_id = s.id
+    LIMIT 1
+  ) AS tutor_log_marked_absent
 FROM public.sessions s
 JOIN public.sessions_students ss ON ss.session_id = s.id
 LEFT JOIN public.classes c ON c.id = s.class_id

@@ -19,6 +19,8 @@ export type ProcessedStudentSessionData = {
   plannedStatus: StudentPlannedStatus;
   actualStatus: StudentActualStatus;
   rescheduledDate: string;
+  rescheduledSessionId: string;
+  creditedDisplayDate: string;
   invoiceStatus: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
 };
 
@@ -44,6 +46,8 @@ type SessionStudentDataItem = {
   was_trial_actual?: boolean;
   is_rescheduled?: boolean;
   is_credited?: boolean;
+  credited_at?: string | null;
+  absence_credited_at?: string | null;
   rescheduled_session?: unknown;
 };
 
@@ -69,6 +73,7 @@ export function processStudentSessionData(
     was_trial: studentData.was_trial,
     is_rescheduled: studentData.is_rescheduled,
     is_credited: studentData.is_credited,
+    credited_at: studentData.credited_at ?? studentData.absence_credited_at ?? null,
     rescheduled_session: studentData.rescheduled_session as StudentAttendanceInput['rescheduled_session'],
     actual_attended: studentData.actual_attended,
     actual_was_trial: studentData.was_trial_actual ?? studentData.was_trial, // Infer from planned if actual not available
@@ -86,6 +91,8 @@ export function processStudentSessionData(
     plannedStatus: attendanceStatus.plannedStatus,
     actualStatus: attendanceStatus.actualStatus,
     rescheduledDate: attendanceStatus.rescheduledDate,
+    rescheduledSessionId: attendanceStatus.rescheduledSessionId,
+    creditedDisplayDate: attendanceStatus.creditedDisplayDate,
     invoiceStatus: studentData.invoice_status_payload || null,
   };
 }
@@ -97,11 +104,14 @@ export function processStaffSessionData(
   session: Tables<'sessions'>,
   sessionStaffData: Array<{
     id: string;
+    first_name?: string;
+    last_name?: string;
     planned_absence?: boolean;
     actual_attended?: boolean | null;
     actual_was_trial?: boolean | null;
     was_trial?: boolean;
     is_swapped_in?: boolean;
+    swapped_staff?: { id: string; first_name: string; last_name: string } | null;
   }>,
   staffId: string,
   hasTutorLog: boolean,
@@ -116,10 +126,20 @@ export function processStaffSessionData(
     (s) => s.id !== staffId && s.is_swapped_in === true
   );
 
+  const swappedInRow = sessionStaffData.find((s) => s.id !== staffId && s.is_swapped_in === true);
+  const inferredSwappedStaff =
+    swappedInRow && (swappedInRow.first_name != null || swappedInRow.last_name != null)
+      ? {
+          id: swappedInRow.id,
+          first_name: swappedInRow.first_name ?? '',
+          last_name: swappedInRow.last_name ?? '',
+        }
+      : null;
+
   const input: StaffAttendanceInput = {
     planned_absence: staffData.planned_absence,
     is_swapped: hasSwappedStaff,
-    swapped_staff: null, // Modal context doesn't have swapped_staff details
+    swapped_staff: staffData.swapped_staff ?? inferredSwappedStaff,
     was_trial: staffData.was_trial,
     actual_attended: staffData.actual_attended,
     actual_was_trial: staffData.actual_was_trial,

@@ -21,6 +21,7 @@ import { AttendanceCell } from './AttendanceCell';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/sessionsTableAttendance';
 import { getShortSessionName } from '../utils/session-helpers';
+import { openAdminInvoiceModal } from '../utils/openAdminInvoiceModal';
 import type { SessionTableStudent, SessionTableStaff } from '../types/sessions-table';
 import type { UseSessionsTableModalsReturn } from '../hooks/useSessionsTableModals';
 import { useInvoiceSessionMutation } from '../hooks/useInvoiceSessionMutation';
@@ -239,7 +240,7 @@ export function SessionsTableRow({
                   : isExtra
                     ? 'text-orange-600 dark:text-orange-400'
                     : '';
-                const badge = getInvoiceStatusBadge(invoicePayload);
+                const badge = getInvoiceStatusBadge(invoicePayload, { onOpenInvoice: openAdminInvoiceModal });
                 return (
                   <div key={s.id} className="flex items-center gap-2 flex-wrap">
                     <Button
@@ -291,7 +292,13 @@ export function SessionsTableRow({
                         }
                       : undefined
                   }
-                  linkText={attendance.rescheduledDate}
+                  linkText={
+                    attendance.plannedStatus === 'rescheduled'
+                      ? attendance.rescheduledDate
+                      : attendance.plannedStatus === 'credited' && attendance.creditedDisplayDate
+                        ? attendance.creditedDisplayDate
+                        : undefined
+                  }
                 />
               );
             })()
@@ -353,7 +360,7 @@ export function SessionsTableRow({
             const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
             const invoicePayload = selectedStudent?.invoice_status_payload ?? null;
             if (invoicePayload) {
-              const badge = getInvoiceStatusBadge(invoicePayload);
+              const badge = getInvoiceStatusBadge(invoicePayload, { onOpenInvoice: openAdminInvoiceModal });
               if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
               return badge;
             }

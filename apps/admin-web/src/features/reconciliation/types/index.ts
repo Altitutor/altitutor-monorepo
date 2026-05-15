@@ -10,6 +10,8 @@ export interface UninvoicedSession {
   planned_absence: boolean;
   is_rescheduled: boolean;
   is_credited: boolean;
+  /** sessions_students.credited_at when absence was credited */
+  absence_credited_at?: string | null;
   was_trial: boolean | null;
   session_start_at: string;
   session_end_at: string | null;
@@ -41,6 +43,8 @@ export interface VoidInvoiceSession {
   planned_absence: boolean;
   is_rescheduled: boolean;
   is_credited: boolean;
+  /** sessions_students.credited_at when absence was credited */
+  absence_credited_at?: string | null;
   was_trial: boolean | null;
   session_start_at: string;
   session_end_at: string | null;

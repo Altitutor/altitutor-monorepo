@@ -23,6 +23,7 @@ import { useDataTable } from '@/shared/hooks/useDataTable';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { processStudentSessionData } from '@/features/sessions/utils/modalSessionProcessing';
+import { openAdminInvoiceModal } from '@/features/sessions/utils/openAdminInvoiceModal';
 import { LogAbsenceDialog } from '@/features/sessions/components/absences/LogAbsenceDialog';
 import { ViewClassModal } from '@/features/classes';
 import {
@@ -259,7 +260,23 @@ export function StudentModalSessionsTable({
                     <TableCell>
                       <AttendanceCell
                         status={processed.plannedStatus}
-                        linkText={processed.rescheduledDate}
+                        linkTo={
+                          processed.plannedStatus === 'rescheduled' && processed.rescheduledSessionId
+                            ? {
+                                type: 'session',
+                                id: processed.rescheduledSessionId,
+                                onClick: () =>
+                                  processed.rescheduledSessionId && handleSessionClick(processed.rescheduledSessionId),
+                              }
+                            : undefined
+                        }
+                        linkText={
+                          processed.plannedStatus === 'rescheduled'
+                            ? processed.rescheduledDate
+                            : processed.plannedStatus === 'credited' && processed.creditedDisplayDate
+                              ? processed.creditedDisplayDate
+                              : undefined
+                        }
                       />
                     </TableCell>
                     <TableCell>
@@ -267,7 +284,9 @@ export function StudentModalSessionsTable({
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const badge = getInvoiceStatusBadge(processed.invoiceStatus);
+                        const badge = getInvoiceStatusBadge(processed.invoiceStatus, {
+                          onOpenInvoice: openAdminInvoiceModal,
+                        });
                         if (!badge) {
                           return <span className="text-xs text-muted-foreground">-</span>;
                         }

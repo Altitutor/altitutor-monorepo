@@ -48,7 +48,7 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
         };
       case 'credited':
         return {
-          text: 'Credited',
+          text: linkText ? `Credited (${linkText})` : 'Credited',
           className: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400',
         };
       case 'swapped':

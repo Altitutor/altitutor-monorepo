@@ -195,6 +195,7 @@ describe('processSessionStudents', () => {
         is_extra: false,
         is_rescheduled: false,
         is_credited: true,
+        credited_at: '2026-02-20T00:00:00.000Z',
         invoice_status_payload: null,
       },
     ];
@@ -202,6 +203,7 @@ describe('processSessionStudents', () => {
     const result = processSessionStudents(sessionsStudents, {}, false);
 
     expect(result[0].plannedStatus).toBe('credited');
+    expect(result[0].creditedDisplayDate).toBe('20/02/2026');
   });
 
   it('should process unplanned student', () => {
