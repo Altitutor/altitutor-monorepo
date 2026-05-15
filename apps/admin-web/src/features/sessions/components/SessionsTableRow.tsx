@@ -15,13 +15,14 @@ import {
 } from '@altitutor/ui';
 import { Check, X, MoreVertical, ExternalLink, Copy, Calendar, CreditCard, RotateCcw, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { cn, formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
+import { cn } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
 import { AttendanceCell } from './AttendanceCell';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/sessionsTableAttendance';
 import { getShortSessionName } from '../utils/session-helpers';
 import { openAdminInvoiceModal } from '../utils/openAdminInvoiceModal';
+import { SessionTableClassColumn } from './SessionTableClassColumn';
 import type { SessionTableStudent, SessionTableStaff } from '../types/sessions-table';
 import type { UseSessionsTableModalsReturn } from '../hooks/useSessionsTableModals';
 import { useInvoiceSessionMutation } from '../hooks/useInvoiceSessionMutation';
@@ -52,6 +53,7 @@ export interface SessionsTableRowProps {
   studentId?: string;
   staffId?: string;
   classesById: Record<string, Tables<'classes'>>;
+  subjectsById: Record<string, Tables<'subjects'>>;
   sessionStudents: Record<string, Tables<'students'>[]>;
   sessionStaff: Record<string, Tables<'staff'>[]>;
   tutorLogs: TutorLogMap;
@@ -104,6 +106,7 @@ export function SessionsTableRow({
   studentId,
   staffId,
   classesById,
+  subjectsById,
   sessionStudents,
   sessionStaff,
   tutorLogs,
@@ -162,32 +165,13 @@ export function SessionsTableRow({
         <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
       )}
       {showClass && (
-        <TableCell>
-          <div className="flex items-center gap-2">
-            <Badge className={getSessionTypeBadgeColor(session.type)}>
-              {formatSessionType(session.type)}
-            </Badge>
-            {session.class_id ? (() => {
-              const cls = classesById[session.class_id];
-              const shortDisplay = getClassShortDisplayName(session);
-              const fullDisplay = getClassDisplayName(session);
-              if (cls) {
-                return (
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
-                    onClick={(e) => onClassClick(session.class_id!, e)}
-                    title={fullDisplay || 'Class'}
-                  >
-                    <span className="2xl:hidden">{shortDisplay || 'Class'}</span>
-                    <span className="hidden 2xl:inline">{fullDisplay || 'Class'}</span>
-                  </Button>
-                );
-              }
-              return null;
-            })() : null}
-          </div>
+        <TableCell className="min-w-0 max-w-[14rem]">
+          <SessionTableClassColumn
+            session={session}
+            classesById={classesById}
+            subjectsById={subjectsById}
+            onClassClick={onClassClick}
+          />
         </TableCell>
       )}
       {showStaff && (

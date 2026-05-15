@@ -263,7 +263,7 @@ export function SessionsTable({
       return [
         { key: 'date', label: 'Date' },
         { key: 'time', label: 'Time' },
-        { key: 'class', label: 'Class' },
+        { key: 'class', label: 'Subject' },
         { key: 'planned_attendance', label: 'Planned Attendance' },
         { key: 'actual_attendance', label: 'Actual Attendance' },
         { key: 'invoice', label: 'Invoice' },
@@ -273,7 +273,7 @@ export function SessionsTable({
       return [
         { key: 'date', label: 'Date' },
         { key: 'time', label: 'Time' },
-        { key: 'class', label: 'Class' },
+        { key: 'class', label: 'Subject' },
         { key: 'planned_attendance', label: 'Planned Attendance' },
         { key: 'actual_attendance', label: 'Actual Attendance' },
         { key: 'tutor_log', label: 'Tutor Log' },
@@ -282,7 +282,7 @@ export function SessionsTable({
     return [
       { key: 'date', label: 'Date' },
       { key: 'time', label: 'Time' },
-      { key: 'class', label: 'Class' },
+      { key: 'class', label: 'Subject' },
       { key: 'staff', label: 'Staff' },
       { key: 'students', label: 'Students' },
       { key: 'tutor_log', label: 'Tutor Log' },
@@ -404,7 +404,7 @@ export function SessionsTable({
               )}
               {state.visibleColumns.includes('time') && <TableHead>Time</TableHead>}
               {state.visibleColumns.includes('class') && !classId && !hideClassColumn && !hideTypeColumn && (
-                <TableHead>Class</TableHead>
+                <TableHead>Subject</TableHead>
               )}
               {state.visibleColumns.includes('staff') && !isStudentAttendanceView && !isStaffAttendanceView && <TableHead>Staff</TableHead>}
               {state.visibleColumns.includes('students') && !hideStudentsColumn && !isStudentAttendanceView && !isStaffAttendanceView && (
@@ -442,6 +442,7 @@ export function SessionsTable({
                   studentId={studentId}
                   staffId={staffId}
                   classesById={classesById}
+                  subjectsById={subjectsById}
                   sessionStudents={sessionStudents}
                   sessionStaff={sessionStaff}
                   tutorLogs={tutorLogs}

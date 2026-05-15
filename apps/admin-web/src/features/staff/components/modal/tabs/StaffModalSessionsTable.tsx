@@ -13,7 +13,6 @@ import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { SkeletonTable } from '@altitutor/ui';
 import { ArrowUpDown } from 'lucide-react';
-import { formatSessionType, getSessionTypeBadgeColor } from '@/shared/utils/index';
 import { cn } from '@/shared/utils/index';
 import { DateRangePicker } from '@altitutor/ui';
 import { TablePagination } from '@/shared/components/TablePagination';
@@ -22,6 +21,7 @@ import { useSessionsTable } from '@/features/sessions/hooks/useSessionsTable';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { processStaffSessionData } from '@/features/sessions/utils/modalSessionProcessing';
+import { SessionTableClassColumn } from '@/features/sessions/components/SessionTableClassColumn';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components/absences/LogStaffAbsenceDialog';
 import { ViewClassModal } from '@/features/classes';
 import { TutorLogAvatar } from '@/features/sessions/components/TutorLogAvatar';
@@ -79,6 +79,7 @@ export function StaffModalSessionsTable({
     filteredSessions,
     paginatedSessions,
     classesById,
+    subjectsById,
     sessionStaff,
     tutorLogs,
     isLoading,
@@ -199,7 +200,7 @@ export function StaffModalSessionsTable({
                 )} />
               </TableHead>
               <TableHead>Time</TableHead>
-              <TableHead>Class</TableHead>
+              <TableHead>Subject</TableHead>
               <TableHead>Planned Attendance</TableHead>
               <TableHead>Actual Attendance</TableHead>
               <TableHead>Tutor Log</TableHead>
@@ -233,32 +234,13 @@ export function StaffModalSessionsTable({
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Badge className={getSessionTypeBadgeColor(session.type)}>
-                          {formatSessionType(session.type)}
-                        </Badge>
-                        {session.class_id ? (() => {
-                          const cls = classesById[session.class_id];
-                          const shortDisplay = getClassShortDisplayName(session);
-                          const fullDisplay = getClassDisplayName(session);
-                          if (cls) {
-                            return (
-                              <Button
-                                variant="link"
-                                size="sm"
-                                className="h-auto p-0 text-xs justify-start whitespace-nowrap font-medium"
-                                onClick={(e) => handleClassClick(session.class_id!, e)}
-                                title={fullDisplay || 'Class'}
-                              >
-                                <span className="2xl:hidden">{shortDisplay || 'Class'}</span>
-                                <span className="hidden 2xl:inline">{fullDisplay || 'Class'}</span>
-                              </Button>
-                            );
-                          }
-                          return null;
-                        })() : null}
-                      </div>
+                    <TableCell className="min-w-0 max-w-[14rem]">
+                      <SessionTableClassColumn
+                        session={session}
+                        classesById={classesById}
+                        subjectsById={subjectsById}
+                        onClassClick={handleClassClick}
+                      />
                     </TableCell>
                     <TableCell>
                       <AttendanceCell status={processed.plannedStatus} />
