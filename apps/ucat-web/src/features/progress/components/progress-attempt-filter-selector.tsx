@@ -36,7 +36,7 @@ export function ProgressAttemptFilterSelector({
         getItemLabel={(o) => o.label}
         getItemId={(o) => o.value}
         placeholder="Filter"
-        triggerClassName="w-[220px]"
+        triggerClassName="w-[min(100%,17.5rem)] min-w-[12rem] sm:w-[17.5rem]"
       />
       {selectedOption && (
         <TooltipProvider delayDuration={200}>
@@ -46,7 +46,7 @@ export function ProgressAttemptFilterSelector({
                 <Info className="h-3.5 w-3.5" aria-hidden />
               </span>
             </TooltipTrigger>
-            <TooltipContent side="bottom" className="z-[100] max-w-[260px]">
+            <TooltipContent side="bottom" className="z-[100] max-w-[min(100vw-2rem,22rem)]">
               {selectedOption.infoTooltip}
             </TooltipContent>
           </Tooltip>

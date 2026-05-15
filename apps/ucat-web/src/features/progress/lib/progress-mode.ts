@@ -4,7 +4,10 @@ import { format } from "date-fns";
 export type ProgressMode = "all_time" | "weighted" | "time_frame";
 
 /** Global filter for which attempts to show in progress graphs and tables */
-export type AttemptFilter = "all" | "untimed" | "timed" | "altitutor";
+export type AttemptFilter =
+  | "all"
+  | "timed_sets_and_mocks"
+  | "mocks_only";
 
 export const ATTEMPT_FILTER_OPTIONS: {
   value: AttemptFilter;
@@ -15,25 +18,19 @@ export const ATTEMPT_FILTER_OPTIONS: {
     value: "all",
     label: "All question attempts",
     infoTooltip:
-      "Shows all question attempts and set attempts, including practice mode, timed sets, and untimed sets.",
+      "Shows every submitted question attempt and all set and mock rows: untimed sets, timed sets, and full mocks. Use this for a complete picture of your practice.",
   },
   {
-    value: "untimed",
-    label: "Untimed sets only",
+    value: "timed_sets_and_mocks",
+    label: "Timed sets and mocks",
     infoTooltip:
-      "Only question attempts within untimed sets (no time limit). Includes both Altitutor and student-generated sets.",
+      "Keeps timed standalone question sets and everything from full mock exams (all sections). Untimed-only standalone sets are hidden so the view matches exam-style conditions.",
   },
   {
-    value: "timed",
-    label: "Timed sets only",
+    value: "mocks_only",
+    label: "Mocks only",
     infoTooltip:
-      "Only question attempts within timed sets. Includes both Altitutor and student-generated sets.",
-  },
-  {
-    value: "altitutor",
-    label: "Altitutor sets only",
-    infoTooltip:
-      "Only question attempts within non-student-generated sets that have a time limit. Excludes practice sets and student-created sets.",
+      "Only completed mock exams and the question sets inside them. Standalone set practice is hidden so you can focus on mock performance.",
   },
 ];
 

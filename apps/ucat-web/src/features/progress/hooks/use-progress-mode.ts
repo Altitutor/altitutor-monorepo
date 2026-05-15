@@ -20,6 +20,13 @@ const VALID_FILTERS: readonly AttemptFilter[] = ATTEMPT_FILTER_OPTIONS.map(
   (o) => o.value,
 );
 
+/** Legacy ?filter= values from older progress UI */
+const LEGACY_FILTER_MAP: Record<string, AttemptFilter> = {
+  untimed: "all",
+  timed: "timed_sets_and_mocks",
+  altitutor: "all",
+};
+
 function parseMode(v: string | null): ProgressMode {
   if (v && VALID_MODES.includes(v as ProgressMode)) return v as ProgressMode;
   return "weighted";
@@ -33,6 +40,8 @@ function parseDays(v: string | null): TimeFrameDays {
 function parseFilter(v: string | null): AttemptFilter {
   if (v && VALID_FILTERS.includes(v as AttemptFilter))
     return v as AttemptFilter;
+  const legacy = v ? LEGACY_FILTER_MAP[v] : undefined;
+  if (legacy) return legacy;
   return "all";
 }
 
