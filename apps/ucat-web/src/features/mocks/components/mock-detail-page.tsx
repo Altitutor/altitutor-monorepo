@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { NotebookText } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import type {
@@ -15,6 +15,7 @@ import {
   UCAT_PRIMARY_ACTION_BUTTON,
   UCAT_SURFACE_CARD,
   UCAT_SURFACE_MOTION,
+  UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ type MockDetailPageProps = {
 export function MockDetailPage({ mockId }: MockDetailPageProps) {
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
+  const attemptsHeadingId = useId();
 
   const mock = useMemo(
     () => (mocks ?? []).find((item) => item.id === mockId),
@@ -148,36 +150,36 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
 
       {attempts.length > 0 ? (
         <section
-          className={cn(
-            "rounded-ucatShell p-4",
-            UCAT_SURFACE_CARD,
-            UCAT_SURFACE_MOTION,
-          )}
+          aria-labelledby={attemptsHeadingId}
+          className="space-y-4"
         >
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
-            <NotebookText className="h-4 w-4" />
+          <h2
+            id={attemptsHeadingId}
+            className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
+          >
+            <NotebookText className="h-5 w-5 shrink-0 text-muted-foreground" />
             Previous attempts
           </h2>
           <div className={UCAT_TABLE_SHELL}>
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[400px] text-sm">
-              <thead>
+            <table className="w-full min-w-[400px] caption-bottom text-sm">
+              <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
                 <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
-                  <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
                     Date
                   </th>
                   {sectionColumns.map((sec: MockAttemptSectionScore) => (
                     <th
                       key={sec.sectionNumber}
-                      className="pb-2 pr-3 text-right font-medium text-muted-foreground"
+                      className="h-12 px-4 text-right align-middle font-medium text-muted-foreground"
                     >
                       {sec.sectionName}
                     </th>
                   ))}
-                  <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Score
                   </th>
-                  <th className="pb-2 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Scaled
                   </th>
                 </tr>
@@ -185,7 +187,7 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
               <tbody>
                 {attempts.map((a: MockAttemptWithBreakdown) => (
                   <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
-                    <td className="py-2 pr-4">
+                    <td className="p-4 align-middle">
                       {new Date(a.attemptedAt).toLocaleString(undefined, {
                         dateStyle: "medium",
                         timeStyle: "short",
@@ -194,19 +196,19 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
                     {a.sectionScores.map((sec: MockAttemptSectionScore) => (
                       <td
                         key={sec.sectionNumber}
-                        className="py-2 pr-3 text-right"
+                        className="p-4 align-middle text-right"
                       >
                         {sec.scorePoints != null && sec.totalPoints != null
                           ? `${sec.scorePoints}/${sec.totalPoints}`
                           : "—"}
                       </td>
                     ))}
-                    <td className="py-2 pr-4 text-right">
+                    <td className="p-4 align-middle text-right">
                       {a.scorePoints != null && a.totalPoints != null
                         ? `${a.scorePoints} / ${a.totalPoints}`
                         : "—"}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="p-4 align-middle text-right">
                       {a.scaledScore != null && a.scaledScoreMax != null
                         ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
                         : a.scaledScore != null

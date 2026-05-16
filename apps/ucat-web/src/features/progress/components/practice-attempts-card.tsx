@@ -1,11 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
   Table,
   TableBody,
   TableCell,
@@ -19,8 +15,8 @@ import { format } from "date-fns";
 import { filterByTimeFrame } from "../lib/progress-data-utils";
 import type { PracticeAttemptRow } from "@/app/api/ucat/progress/route";
 import {
-  UCAT_CARD_CHROME,
   UCAT_TABLE_BODY_ROW,
+  UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_HEADER_ROW,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
@@ -52,19 +48,26 @@ export function PracticeAttemptsCard({
     return filteredAttempts.slice(start, start + pageSize);
   }, [filteredAttempts, page, pageSize]);
 
+  const attemptsTableTitleId = useId();
+
   if (filteredAttempts.length === 0) {
     return null;
   }
 
   return (
-    <Card className={UCAT_CARD_CHROME}>
-      <CardHeader>
-        <CardTitle>Practice sessions</CardTitle>
-      </CardHeader>
-      <CardContent>
+    <section
+      aria-labelledby={attemptsTableTitleId}
+      className="space-y-4"
+    >
+      <h2
+        id={attemptsTableTitleId}
+        className="text-2xl font-semibold tracking-tight"
+      >
+        Practice sessions
+      </h2>
         <div className={UCAT_TABLE_SHELL}>
           <Table>
-            <TableHeader>
+            <TableHeader className={UCAT_TABLE_HEADER_CLASSNAME}>
               <TableRow className={UCAT_TABLE_HEADER_ROW}>
                 <TableHead>Section</TableHead>
                 <TableHead>Score</TableHead>
@@ -116,7 +119,6 @@ export function PracticeAttemptsCard({
             setPage(1);
           }}
         />
-      </CardContent>
-    </Card>
+    </section>
   );
 }

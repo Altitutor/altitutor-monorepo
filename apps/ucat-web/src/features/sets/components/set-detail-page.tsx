@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useId, useMemo } from "react";
 import { ListChecks } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
@@ -17,6 +17,7 @@ import {
   UCAT_PRIMARY_ACTION_BUTTON,
   UCAT_SURFACE_CARD,
   UCAT_SURFACE_MOTION,
+  UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ export function SetDetailPage({
 }: SetDetailPageProps) {
   const { data: sets, isLoading, error } = useSets();
   const { data: attempts = [] } = useSetAttempts(setId);
+  const attemptsHeadingId = useId();
 
   const set = useMemo(
     () => (sets ?? []).find((item) => item.id === setId),
@@ -194,31 +196,31 @@ export function SetDetailPage({
 
       {attempts.length > 0 ? (
         <section
-          className={cn(
-            "rounded-ucatShell p-4",
-            UCAT_SURFACE_CARD,
-            UCAT_SURFACE_MOTION,
-          )}
+          aria-labelledby={attemptsHeadingId}
+          className="space-y-4"
         >
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
-            <ListChecks className="h-4 w-4" />
+          <h2
+            id={attemptsHeadingId}
+            className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
+          >
+            <ListChecks className="h-5 w-5 shrink-0 text-muted-foreground" />
             Previous attempts
           </h2>
           <div className={UCAT_TABLE_SHELL}>
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] text-sm">
-              <thead>
+            <table className="w-full min-w-[420px] caption-bottom text-sm">
+              <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
                 <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
-                  <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
                     Date
                   </th>
-                  <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Score
                   </th>
-                  <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Scaled
                   </th>
-                  <th className="pb-2 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Actions
                   </th>
                 </tr>
@@ -226,21 +228,21 @@ export function SetDetailPage({
               <tbody>
                 {attempts.map((a: SetAttemptRow) => (
                   <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
-                    <td className="py-2 pr-4">
+                    <td className="p-4 align-middle">
                       {new Date(a.attemptedAt).toLocaleString(undefined, {
                         dateStyle: "medium",
                         timeStyle: "short",
                       })}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="p-4 align-middle text-right">
                       {a.scorePoints != null && a.totalPoints != null
                         ? `${a.scorePoints} / ${a.totalPoints}`
                         : "—"}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="p-4 align-middle text-right">
                       {a.scaledScore != null ? a.scaledScore : "—"}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="p-4 align-middle text-right">
                       <UcatTableRowActionLink
                         href={setAttemptHref(a.id)}
                         label="View attempt"

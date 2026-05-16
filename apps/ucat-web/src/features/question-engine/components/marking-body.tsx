@@ -11,6 +11,7 @@ import {
   UCAT_CARD_CHROME,
   UCAT_NATIVE_TABLE_BODY_ROW,
   UCAT_NATIVE_TABLE_HEADER_ROW,
+  UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -298,7 +299,7 @@ export function MarkingBody({
           <div className={UCAT_TABLE_SHELL}>
             <div className="overflow-x-auto">
               <table className="w-full border-separate border-spacing-0 text-left text-sm">
-            <thead>
+            <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
               <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
                 <th className="px-3 py-2 font-normal">#</th>
                 <th className="px-3 py-2 font-normal">Question</th>
