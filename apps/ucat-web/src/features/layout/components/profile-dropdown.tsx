@@ -12,18 +12,34 @@ import {
   DropdownMenuTrigger,
 } from "@altitutor/ui";
 import { useAuth } from "@/features/auth";
-import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
+import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
+import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 export function ProfileDropdown() {
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const { data: profile } = useUcatProfile(!!user);
 
   if (!user) return null;
 
-  const initials = user.email?.charAt(0).toUpperCase() ?? "U";
-  const displayName =
-    user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
+  const getInitials = () => {
+    const fn = profile?.firstName?.trim();
+    const ln = profile?.lastName?.trim();
+    if (fn && ln) {
+      return `${fn.charAt(0)}${ln.charAt(0)}`.toUpperCase();
+    }
+    if (fn) return fn.charAt(0).toUpperCase();
+    return user.email?.charAt(0).toUpperCase() ?? "U";
+  };
+
+  const getFullName = () => {
+    const fn = profile?.firstName?.trim();
+    const ln = profile?.lastName?.trim();
+    if (fn && ln) return `${fn} ${ln}`;
+    if (fn) return fn;
+    return user.user_metadata?.full_name ?? user.email?.split("@")[0] ?? "User";
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -35,17 +51,18 @@ export function ProfileDropdown() {
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button
-          variant="secondary"
+          variant="outline"
           className={cn(
-            UCAT_SURFACE_CARD,
-            UCAT_SURFACE_MOTION,
-            "flex h-9 items-center gap-2 rounded-ucatControl hover:bg-muted hover:shadow-md active:scale-[0.98]",
+            UCAT_HEADER_BTN_OUTLINE,
+            "flex h-9 items-center gap-2 px-3 active:scale-[0.98]",
           )}
         >
-          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-sidebar text-sidebar-foreground text-xs font-medium">
-            {initials}
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sidebar text-xs font-medium text-sidebar-foreground">
+            {getInitials()}
           </div>
-          <span className="hidden sm:inline text-sm">{displayName}</span>
+          <span className="hidden max-w-[10rem] truncate text-sm sm:inline">
+            {getFullName()}
+          </span>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent

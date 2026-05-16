@@ -32,7 +32,7 @@ export function FloatingAppActions({
       >
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon"
           onClick={onToggleNav}
           className={UCAT_HEADER_ICON_BUTTON}

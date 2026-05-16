@@ -13,7 +13,7 @@ export function ThemeToggle() {
   return (
     <Button
       type="button"
-      variant="ghost"
+      variant="outline"
       size="icon"
       className={UCAT_HEADER_ICON_BUTTON}
       onClick={() => setTheme(isDark ? "light" : "dark")}

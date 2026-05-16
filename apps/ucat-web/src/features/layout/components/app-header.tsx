@@ -29,7 +29,7 @@ export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
         <div className="flex items-center gap-3">
           <Button
             type="button"
-            variant="ghost"
+            variant="outline"
             size="icon"
             className={UCAT_HEADER_ICON_BUTTON}
             onClick={onToggleNav}

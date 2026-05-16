@@ -69,7 +69,7 @@ export function UcatPageHeader({
       <div className="flex items-start gap-3">
         {backHref ? (
           <Button
-            variant="ghost"
+            variant="outline"
             size="icon"
             asChild
             className={cn(
