@@ -32,6 +32,7 @@ export function UcatLandingPhilosophy() {
 
   return (
     <section
+      id="methodology"
       ref={containerRef}
       className="relative z-20 -mt-10 flex min-h-dvh w-full flex-col justify-center overflow-hidden rounded-[3rem] bg-marketing-charcoal py-40 text-marketing-cream shadow-2xl"
     >

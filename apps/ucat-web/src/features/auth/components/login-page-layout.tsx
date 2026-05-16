@@ -1,37 +1,50 @@
 "use client";
 
-import Image from "next/image";
-import { useTheme } from "next-themes";
-import { ThemeToggle } from "@/components/theme/theme-toggle";
+import Link from "next/link";
+import { MARKETING_TOKENS } from "@altitutor/shared";
+import { AuthPageHeader } from "@/features/auth/components/auth-page-header";
 
-export function LoginPageLayout({ children }: { children: React.ReactNode }) {
-  const { resolvedTheme } = useTheme();
-  const logoSrc =
-    resolvedTheme === "dark"
-      ? "/images/logo-banner-dark.svg"
-      : "/images/logo-banner-light.svg";
+const { typography: typo } = MARKETING_TOKENS;
 
+export function LoginPageLayout({
+  children,
+  redirectTo = "/dashboard",
+}: {
+  children: React.ReactNode;
+  redirectTo?: string;
+}) {
   return (
-    <div className="relative flex min-h-dvh flex-col bg-background">
-      {/* Floating header */}
-      <header className="fixed left-0 right-0 top-0 z-10 flex items-center justify-between p-4">
-        <Image
-          src={logoSrc}
-          alt="Altitutor"
-          width={140}
-          height={32}
-          className="h-10 w-auto object-contain object-left"
-          priority
-        />
-        <ThemeToggle />
-      </header>
+    <div className="relative flex min-h-dvh flex-col bg-background text-foreground">
+      <AuthPageHeader />
 
-      {/* Main content: title + card */}
-      <main className="flex flex-1 flex-col items-center justify-center px-4 py-20">
-        <h1 className="mb-8 text-center text-2xl font-semibold tracking-tight text-foreground sm:text-3xl">
-          Altitutor UCAT System
-        </h1>
-        {children}
+      <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="mb-10">
+            <span
+              className={`text-xs font-bold uppercase tracking-[0.2em] text-primary ${typo.dataMono}`}
+            >
+              Alti UCAT
+            </span>
+            <h1
+              className={`mt-2 text-4xl font-bold leading-tight text-foreground sm:text-5xl ${typo.headingSans}`}
+            >
+              Log in
+            </h1>
+            <p className={`mt-3 text-muted-foreground ${typo.secondarySans}`}>
+              Ready to continue practicing? Log in below.
+            </p>
+          </div>
+          {children}
+          <p className={`mt-6 text-center text-sm text-muted-foreground ${typo.secondarySans}`}>
+            Don&apos;t have an account?{" "}
+            <Link
+              href={`/signup?redirect=${encodeURIComponent(redirectTo)}`}
+              className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
+            >
+              Sign up
+            </Link>
+          </p>
+        </div>
       </main>
     </div>
   );

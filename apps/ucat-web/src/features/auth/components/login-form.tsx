@@ -3,9 +3,11 @@
 import { FormEvent, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Input, Label } from "@altitutor/ui";
+import { MARKETING_TOKENS } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { UCAT_INTERACTION_EASE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+
+const { typography: typo } = MARKETING_TOKENS;
 
 export function LoginForm({
   redirectTo = "/dashboard",
@@ -40,59 +42,60 @@ export function LoginForm({
   }
 
   return (
-    <div
+    <form
+      onSubmit={onSubmit}
       className={cn(
-        "w-full max-w-md space-y-4 rounded-ucatShell bg-card p-6 text-card-foreground shadow-sm",
-        "transition-shadow duration-200",
-        UCAT_INTERACTION_EASE,
-        "hover:shadow-md",
+        "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
+        typo.secondarySans,
       )}
     >
-      <form onSubmit={onSubmit} className="space-y-4">
-        <h2 className="text-xl font-semibold leading-none tracking-tight">
-          Sign in
-        </h2>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email</Label>
-          <Input
-            id="email"
-            type="email"
-            required
-            autoComplete="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com"
-            disabled={isSubmitting}
-            className="border-0 bg-muted/50 dark:border-0 dark:bg-background dark:text-foreground"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="password">Password</Label>
-          <Input
-            id="password"
-            type="password"
-            required
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={isSubmitting}
-            className="border-0 bg-muted/50 dark:border-0 dark:bg-background dark:text-foreground"
-          />
-        </div>
-        {error ? (
-          <p className="text-sm text-destructive" role="alert">
-            {error}
-          </p>
-        ) : null}
-        <Button
-          type="submit"
+      <div className="space-y-1.5">
+        <Label htmlFor="email" className="text-sm font-medium text-foreground/90">
+          Email address
+        </Label>
+        <Input
+          id="email"
+          type="email"
+          required
+          autoComplete="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="you@example.com"
           disabled={isSubmitting}
-          className="w-full bg-sidebar text-sidebar-foreground hover:bg-sidebar/90"
-          size="default"
-        >
-          {isSubmitting ? "Signing in..." : "Sign in"}
-        </Button>
-      </form>
-    </div>
+          className="h-auto min-h-[48px] rounded-xl border-border px-4 py-3 text-base"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label htmlFor="password" className="text-sm font-medium text-foreground/90">
+          Password
+        </Label>
+        <Input
+          id="password"
+          type="password"
+          required
+          autoComplete="current-password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          disabled={isSubmitting}
+          className="h-auto min-h-[48px] rounded-xl border-border px-4 py-3 text-base"
+        />
+      </div>
+      {error ? (
+        <p className="rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive" role="alert">
+          {error}
+        </p>
+      ) : null}
+      <Button
+        type="submit"
+        disabled={isSubmitting}
+        className={cn(
+          "h-auto w-full rounded-full py-3.5 text-base font-semibold",
+          typo.headingSans,
+        )}
+        size="lg"
+      >
+        {isSubmitting ? "Signing in…" : "Sign in"}
+      </Button>
+    </form>
   );
 }
