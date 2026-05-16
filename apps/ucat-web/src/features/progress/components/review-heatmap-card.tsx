@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLayoutEffect, useMemo, useRef } from "react";
-import { ChevronRight } from "lucide-react";
+import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
   Card,
   CardContent,
@@ -14,7 +14,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import { UCAT_CARD_CHROME, UCAT_PRESSABLE_LIFT_HOVER, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { useUcatActivity } from "../hooks/use-ucat-activity";
 import {
@@ -194,10 +194,14 @@ export function ReviewHeatmapCard({
             <CardTitle className="text-base font-medium">Review heatmap</CardTitle>
             <Link
               href="/progress"
-              className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+              className={cn(
+                "group -m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
+                UCAT_SURFACE_MOTION,
+                UCAT_PRESSABLE_LIFT_HOVER,
+              )}
+              aria-label="View all progress"
             >
-              View all progress
-              <ChevronRight className="h-4 w-4" aria-hidden />
+              <UcatHoverChevron className="h-5 w-5" />
             </Link>
           </div>
         ) : (

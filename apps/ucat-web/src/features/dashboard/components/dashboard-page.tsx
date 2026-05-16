@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Badge } from "@altitutor/ui";
-import { ChevronRight } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { useComingSoon } from "@/features/layout/context/coming-soon-context";
 import { AccessUpsellModal } from "@/features/ucat-access/components/access-upsell-modal";
@@ -17,8 +16,8 @@ import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
 import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
-import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
+import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
+import { ucatDashboardNavTileClassName } from "@/lib/ucat-surface-motion";
 
 export function DashboardPage() {
   const reduceMotion = useReducedMotion();
@@ -63,14 +62,7 @@ export function DashboardPage() {
     [reduceMotion],
   );
 
-  const cardSurfaceClass = cn(
-    "group relative flex h-full w-full flex-col items-start rounded-ucatShell p-6 text-left",
-    UCAT_SURFACE_CARD,
-    UCAT_SURFACE_MOTION,
-    !reduceMotion && "hover:-translate-y-0.5",
-    "hover:bg-muted/40 hover:shadow-md hover:ring-black/[0.1] dark:hover:ring-white/[0.12]",
-    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
-  );
+  const cardSurfaceClass = ucatDashboardNavTileClassName();
 
   return (
     <div className="space-y-6">
@@ -159,13 +151,7 @@ export function DashboardPage() {
                   <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
                     <Icon className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
                   </div>
-                  <ChevronRight
-                    className={cn(
-                      "h-5 w-5 shrink-0 text-muted-foreground opacity-0 transition-all duration-200 group-hover:opacity-100 group-hover:text-foreground",
-                      !reduceMotion &&
-                        "translate-x-0 group-hover:translate-x-0.5",
-                    )}
-                  />
+                  <UcatHoverChevron />
                 </div>
                 <h3 className="mt-4 font-semibold">{card.label}</h3>
                 <p className="mt-1 text-sm text-muted-foreground">

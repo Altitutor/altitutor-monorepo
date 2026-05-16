@@ -23,6 +23,31 @@ export const UCAT_SURFACE_CARD = cn(
   "!ring-1 !ring-[hsl(0_0%_0%/0.055)] dark:!ring-[hsl(0_0%_100%/0.065)] dark:shadow-[0_8px_30px_rgb(0,0,0,0.18)]",
 );
 
+/** Hover wash + shadow + ring (dashboard tiles, list rows, pressable cards). */
+export const UCAT_PRESSABLE_SURFACE_HOVER = cn(
+  "hover:bg-muted/40 hover:shadow-md hover:!ring-black/[0.1] dark:hover:!ring-white/[0.12]",
+);
+
+/** Subtle lift on hover; disabled when `prefers-reduced-motion: reduce`. */
+export const UCAT_PRESSABLE_LIFT_HOVER = "motion-safe:hover:-translate-y-0.5";
+
+/** Focus ring for `Link` / `button` surfaces that use `UCAT_SURFACE_CARD`. */
+export const UCAT_FOCUS_RING_INSET = cn(
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
+);
+
+/** Full-bleed dashboard grid tile (`Link` / `button` with icon + hover chevron). */
+export function ucatDashboardNavTileClassName() {
+  return cn(
+    "group relative flex h-full w-full flex-col items-start rounded-ucatShell p-6 text-left",
+    UCAT_SURFACE_CARD,
+    UCAT_SURFACE_MOTION,
+    UCAT_PRESSABLE_LIFT_HOVER,
+    UCAT_PRESSABLE_SURFACE_HOVER,
+    UCAT_FOCUS_RING_INSET,
+  );
+}
+
 /** Primary app cards */
 export const UCAT_CARD_CHROME = cn(
   UCAT_SURFACE_CARD,
@@ -31,26 +56,27 @@ export const UCAT_CARD_CHROME = cn(
 );
 
 /**
- * Table “tray” inside cards: framed panel so edges read clearly vs `bg-card`.
- * Light: solid muted tray + white row stripes. Dark: canvas-dark tray + slightly lighter rows.
+ * Table wrapper — matches tutor-web dashboard tables (`tutorTableShell`):
+ * card surface, soft shadow, subtle ring (not a nested "tray" border).
  */
 export const UCAT_TABLE_SHELL = cn(
   UCAT_SURFACE_MOTION,
-  "overflow-hidden rounded-ucatShell",
-  "border border-border bg-muted shadow-sm",
-  "dark:border-border dark:bg-background dark:shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]",
+  "overflow-hidden rounded-ucatShell border-0 bg-card text-card-foreground",
+  "shadow-[0_8px_30px_rgb(0,0,0,0.04)] ring-1 ring-black/[0.06]",
+  "dark:shadow-[0_8px_30px_rgb(0,0,0,0.28)] dark:ring-white/[0.08]",
 );
 
-/** Tinted header strip + baseline under header. */
+/** Pass to `@altitutor/ui` `TableHeader` to drop the default header rule (matches tutor tables). */
+export const UCAT_TABLE_HEADER_CLASSNAME = "[&_tr]:border-b-0";
+
+/** Header row strip — muted wash, no strong divider. */
 export const UCAT_TABLE_HEADER_ROW = cn(
-  "border-b border-border bg-primary/[0.08] text-muted-foreground",
-  "dark:bg-primary/[0.14] dark:text-muted-foreground",
+  "border-0 bg-muted/45 hover:bg-muted/45 dark:hover:bg-muted/45",
 );
 
-/** Body rows: card fill on tray + light row dividers between rows. */
+/** Body rows — zebra via hover only (overrides default `TableRow` border-b). */
 export const UCAT_TABLE_BODY_ROW = cn(
-  "border-b border-border/60 bg-card transition-colors duration-200 ease-out last:border-b-0",
-  "hover:bg-muted/35 dark:hover:bg-white/[0.05]",
+  "border-0 transition-colors duration-300 hover:bg-muted/40 dark:hover:bg-muted/30",
 );
 
 /** Hairline separator */
@@ -90,16 +116,19 @@ export const UCAT_PAGINATION_ACTIVE_PAGE_BUTTON = cn(
 export const UCAT_COMPACT_LIST_ROW = cn(
   UCAT_SURFACE_CARD,
   UCAT_SURFACE_MOTION,
-  "flex items-center gap-3 rounded-ucatControl p-3",
-  "hover:bg-muted/50 hover:shadow-md hover:!ring-[hsl(0_0%_0%/0.08)] dark:hover:!ring-[hsl(0_0%_100%/0.09)]",
+  "group flex items-center gap-3 rounded-ucatControl p-3",
+  UCAT_PRESSABLE_SURFACE_HOVER,
+  UCAT_PRESSABLE_LIFT_HOVER,
 );
 
 /** Mocks / sets / generated-set list row link */
 export const UCAT_LIST_ROW_LINK = cn(
+  "group",
   UCAT_SURFACE_CARD,
   UCAT_SURFACE_MOTION,
   "flex items-center gap-3 rounded-ucatShell p-4",
-  "hover:bg-muted/50 hover:shadow-md hover:!ring-[hsl(0_0%_0%/0.08)] dark:hover:!ring-[hsl(0_0%_100%/0.09)]",
+  UCAT_PRESSABLE_SURFACE_HOVER,
+  UCAT_PRESSABLE_LIFT_HOVER,
 );
 
 /** Primary sidebar-style CTA (practice start, generate set) */
@@ -113,9 +142,8 @@ export const UCAT_PRIMARY_ACTION_BUTTON = [
 
 /** Card-style surfaces that lift slightly on hover */
 export const UCAT_CARD_RAISED_HOVER = cn(
-  "transition-[box-shadow,background-color,ring-color] duration-200",
-  UCAT_INTERACTION_EASE,
-  "hover:bg-muted/40 hover:shadow-md hover:!ring-[hsl(0_0%_0%/0.08)] dark:hover:!ring-[hsl(0_0%_100%/0.09)]",
+  UCAT_PRESSABLE_SURFACE_HOVER,
+  UCAT_PRESSABLE_LIFT_HOVER,
 );
 
 /** Inner pill in filter toolbars */
