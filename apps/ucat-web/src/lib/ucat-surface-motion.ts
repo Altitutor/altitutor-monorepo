@@ -84,12 +84,12 @@ export const UCAT_DIVIDER_TOP =
   "border-t border-black/[0.045] dark:border-white/[0.06]";
 
 /**
- * Header outline surface — matches student-web `studentBtnOutline` (muted fill + soft ring, no heavy border).
+ * Header outline surface — light: white fill; dark: muted fill (soft ring, no heavy border).
  */
 export const UCAT_HEADER_BTN_OUTLINE = cn(
   UCAT_SURFACE_MOTION,
-  "!rounded-[var(--ucat-radius-control)] !border-0 bg-muted/80 text-foreground shadow-sm",
-  "ring-1 ring-black/[0.06] hover:bg-muted dark:ring-white/10",
+  "!rounded-[var(--ucat-radius-control)] !border-0 bg-white text-foreground shadow-sm",
+  "ring-1 ring-black/[0.06] hover:bg-muted/70 dark:bg-muted/80 dark:ring-white/10 dark:hover:bg-muted",
 );
 
 /**
