@@ -21,6 +21,7 @@ import {
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
 
 type SetDetailPageProps = {
   setId: string;
@@ -30,13 +31,28 @@ type SetDetailPageProps = {
   backHref?: string;
   /** Override back label */
   backLabel?: string;
+  /** Opened from `/sessions/[id]/sets/...` — back + breadcrumbs use session */
+  sessionEntryContext?: SessionResourceEntryContext;
 };
+
+function buildSetDetailBreadcrumbOverrides(
+  sessionEntryContext: SessionResourceEntryContext | undefined,
+  leafIndex: number,
+  leafLabel: string,
+): Record<number, string> {
+  const o: Record<number, string> = { [leafIndex]: leafLabel };
+  if (sessionEntryContext != null) {
+    o[1] = sessionEntryContext.breadcrumbDateLabel;
+  }
+  return o;
+}
 
 export function SetDetailPage({
   setId,
   sectionNumber,
   backHref: backHrefProp,
   backLabel: backLabelProp,
+  sessionEntryContext,
 }: SetDetailPageProps) {
   const { data: sets, isLoading, error } = useSets();
   const { data: attempts = [] } = useSetAttempts(setId);
@@ -49,12 +65,26 @@ export function SetDetailPage({
 
   const backHref =
     backHrefProp ??
-    (sectionNumber != null ? `/sets/sections/${sectionNumber}` : "/sets");
+    (sessionEntryContext != null
+      ? `/sessions/${encodeURIComponent(sessionEntryContext.sessionId)}`
+      : sectionNumber != null
+        ? `/sets/sections/${sectionNumber}`
+        : "/sets");
   const backLabel =
     backLabelProp ??
-    (sectionNumber != null ? "Back to section" : "Back to all sets");
-  const breadcrumbIndex =
-    backHrefProp != null ? 2 : sectionNumber != null ? 3 : 1;
+    (sessionEntryContext != null
+      ? "Back to session"
+      : sectionNumber != null
+        ? "Back to section"
+        : "Back to all sets");
+  const breadcrumbLeafSegmentIndex =
+    sessionEntryContext != null
+      ? 3
+      : backHrefProp != null
+        ? 2
+        : sectionNumber != null
+          ? 3
+          : 1;
 
   if (isLoading) {
     return (
@@ -64,6 +94,11 @@ export function SetDetailPage({
           description="Practice question set details."
           backHref={backHref}
           backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Set",
+          )}
         />
         <p className="text-sm text-muted-foreground">Loading set...</p>
       </div>
@@ -78,6 +113,11 @@ export function SetDetailPage({
           description="Practice question set details."
           backHref={backHref}
           backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Set",
+          )}
         />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load set"}
@@ -94,6 +134,11 @@ export function SetDetailPage({
           description="Practice question set details."
           backHref={backHref}
           backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Set",
+          )}
         />
         <p className="text-sm text-muted-foreground">No sets available.</p>
       </div>
@@ -108,6 +153,11 @@ export function SetDetailPage({
           description="Practice question set details."
           backHref={backHref}
           backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Set",
+          )}
         />
         <p className="text-sm text-red-600 dark:text-red-400">Set not found.</p>
       </div>
@@ -154,7 +204,11 @@ export function SetDetailPage({
         description={description ?? "Review this practice set before starting."}
         backHref={backHref}
         backLabel={backLabel}
-        breadcrumbOverrides={{ [breadcrumbIndex]: title }}
+        breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+          sessionEntryContext,
+          breadcrumbLeafSegmentIndex,
+          title,
+        )}
       />
 
       <section
@@ -203,7 +257,6 @@ export function SetDetailPage({
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
           >
-            <ListChecks className="h-5 w-5 shrink-0 text-muted-foreground" />
             Previous attempts
           </h2>
           <div className={UCAT_TABLE_SHELL}>

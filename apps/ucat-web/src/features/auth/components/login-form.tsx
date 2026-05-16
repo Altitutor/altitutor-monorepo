@@ -45,7 +45,7 @@ export function LoginForm({
     <form
       onSubmit={onSubmit}
       className={cn(
-        "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
+        "auth-entrance space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
         typo.secondarySans,
       )}
     >

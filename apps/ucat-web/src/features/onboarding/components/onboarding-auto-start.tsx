@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useNextStep } from "nextstepjs";
 import { useAuth } from "@/features/auth";
 import { getTourForPathname } from "@/features/onboarding/config/tour-steps";
+import { consumeOnboardingAutoStartSuppression } from "@/features/onboarding/lib/suppress-next-auto-tour";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 
 /**
@@ -33,6 +34,10 @@ export function OnboardingAutoStart() {
 
     const tourId = getTourForPathname(pathname);
     if (!tourId) return;
+    if (consumeOnboardingAutoStartSuppression(tourId)) {
+      lastStartedRef.current = tourId;
+      return;
+    }
     if (lastStartedRef.current === tourId) return;
     if (isCompleted(tourId)) return;
     if (window.matchMedia("(max-width: 767px)").matches) return;

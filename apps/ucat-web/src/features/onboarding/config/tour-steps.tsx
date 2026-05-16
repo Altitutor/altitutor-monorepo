@@ -284,6 +284,25 @@ export const ALL_UCAT_TOUR_IDS = [
   UCAT_PROGRESS_TOUR,
 ] as const;
 
+/** Manual replay from Settings: reset this tour, go to `href`, then start the tour. */
+export const UCAT_TOUR_REPLAY_OPTIONS = [
+  {
+    tourId: UCAT_ONBOARDING_TOUR,
+    label: "App tour",
+    href: "/dashboard",
+  },
+  {
+    tourId: UCAT_PRACTICE_TOUR,
+    label: "Practice",
+    href: "/practice",
+  },
+  {
+    tourId: UCAT_PROGRESS_TOUR,
+    label: "Progress",
+    href: "/progress",
+  },
+] as const;
+
 /**
  * Pathname → tour mapping for auto-start on first visit.
  * Add an entry here when introducing a new feature tour.

@@ -2,8 +2,8 @@
 
 import { Fragment } from "react";
 import Link from "next/link";
-import { ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@/app/api/ucat/progress/route";
@@ -52,21 +52,16 @@ export function SectionProgressCards({
               <CardHeader
                 className={cn(
                   "pb-2",
-                  linkToSection &&
-                    "flex flex-row items-start justify-between gap-2 space-y-0",
+                  linkToSection && "relative space-y-0 pr-12",
                 )}
               >
                 <CardTitle className="text-base font-medium">
                   {section.sectionName}
                 </CardTitle>
                 {linkToSection ? (
-                  <span
-                    className="flex shrink-0 items-center gap-1 text-sm text-muted-foreground transition-colors group-hover:text-foreground"
-                    aria-hidden
-                  >
-                    View
-                    <ChevronRight className="h-4 w-4" />
-                  </span>
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center sm:right-3">
+                    <UcatHoverChevron className="h-4 w-4" />
+                  </div>
                 ) : null}
               </CardHeader>
               <CardContent className="flex flex-col gap-4">

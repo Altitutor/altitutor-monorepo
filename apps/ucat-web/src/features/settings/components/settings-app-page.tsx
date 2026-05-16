@@ -1,72 +1,55 @@
 "use client";
 
-import { useState, useEffect, type ReactNode } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  Button,
-  SearchableSelect,
-  buttonVariants,
-} from "@altitutor/ui";
+import { useEffect, useMemo, useState } from "react";
+import { useTheme } from "next-themes";
+import { Button, SearchableSelect } from "@altitutor/ui";
 import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
-import { useOnboardingTour } from "@/features/onboarding";
+import { UCAT_TOUR_REPLAY_OPTIONS, useOnboardingTour } from "@/features/onboarding";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { formatTimeZoneWithGmtOffset } from "@/lib/supported-timezones";
 import { cn } from "@/lib/utils";
+import { SettingsRow } from "@/features/settings/components/settings-row";
 
-function SettingsRow({
-  title,
-  description,
-  control,
-}: {
-  title: string;
-  description: ReactNode;
-  control: ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex flex-col gap-4 border-b border-border/60 py-6 last:border-b-0 last:pb-0 first:pt-0",
-        "sm:flex-row sm:items-start sm:justify-between sm:gap-8",
-      )}
-    >
-      <div className="min-w-0 flex-1 space-y-1">
-        <h3 className="text-base font-semibold tracking-tight">{title}</h3>
-        <div className="text-sm text-muted-foreground">{description}</div>
-      </div>
-      <div className="w-full shrink-0 sm:flex sm:max-w-xs sm:justify-end">{control}</div>
-    </div>
-  );
-}
+const THEME_OPTIONS = [
+  { id: "light" as const, label: "Light" },
+  { id: "dark" as const, label: "Dark" },
+  { id: "auto" as const, label: "Auto (device)" },
+] as const;
 
-export function SettingsPage() {
+type ThemeOption = (typeof THEME_OPTIONS)[number];
+
+const TOUR_REPLAY_ITEMS = [...UCAT_TOUR_REPLAY_OPTIONS];
+type TourReplayOption = (typeof UCAT_TOUR_REPLAY_OPTIONS)[number];
+
+const SELECT_TRIGGER =
+  "h-10 w-full justify-between font-normal sm:w-auto sm:min-w-[14rem] sm:max-w-md";
+const SELECT_CONTENT_WIDTH = "min(100vw - 2rem, 22rem)";
+
+export function SettingsAppPage() {
   const [timezone, setTimezone] = useState<string>("Australia/Adelaide");
   const [savedTimezone, setSavedTimezone] = useState<string | null>(null);
   const [options, setOptions] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { restartTour, resetAllTours } = useOnboardingTour();
+  const { replayTour, isResetting } = useOnboardingTour();
   const isMobile = useMediaQuery("(max-width: 767px)");
-  const [tourFeedback, setTourFeedback] = useState<string | null>(null);
-  const [resetToursOpen, setResetToursOpen] = useState(false);
+  const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const themeChoice = theme === "light" || theme === "dark" ? theme : "auto";
+
+  const selectedThemeOption = useMemo((): ThemeOption | null => {
+    if (!mounted) return null;
+    return THEME_OPTIONS.find((o) => o.id === themeChoice) ?? THEME_OPTIONS[2];
+  }, [mounted, themeChoice]);
 
   const isDirty = savedTimezone !== null && timezone !== savedTimezone;
-
-  const handleResetAllToursConfirm = () => {
-    resetAllTours();
-    setResetToursOpen(false);
-    setTourFeedback(
-      "Feature tours reset. They will show again next time you visit each section.",
-    );
-  };
 
   useEffect(() => {
     async function load() {
@@ -123,8 +106,10 @@ export function SettingsPage() {
     return (
       <div className="space-y-6">
         <UcatPageHeader
-          title="Settings"
-          description="Manage your account settings"
+          title="App settings"
+          description="Timezone, theme, and tours"
+          backHref="/settings"
+          backLabel="All settings"
         />
         <p className="text-sm text-muted-foreground">Loading...</p>
       </div>
@@ -140,8 +125,10 @@ export function SettingsPage() {
       )}
     >
       <UcatPageHeader
-        title="Settings"
-        description="Manage your account settings"
+        title="App settings"
+        description="Timezone, theme, and tours"
+        backHref="/settings"
+        backLabel="All settings"
       />
 
       <div
@@ -168,8 +155,8 @@ export function SettingsPage() {
                 placeholder="Select timezone"
                 searchPlaceholder="Search timezones…"
                 emptyMessage="No matching timezone."
-                triggerClassName="h-10 w-full justify-between font-normal"
-                contentWidth="min(100vw - 2rem, 22rem)"
+                triggerClassName={SELECT_TRIGGER}
+                contentWidth={SELECT_CONTENT_WIDTH}
               />
               {error ? (
                 <p className="text-left text-sm text-destructive sm:text-right">{error}</p>
@@ -181,63 +168,65 @@ export function SettingsPage() {
 
       <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
         <SettingsRow
+          title="Theme"
+          description="Choose light, dark, or match your device."
+          control={
+            mounted ? (
+              <SearchableSelect<ThemeOption>
+                items={[...THEME_OPTIONS]}
+                value={selectedThemeOption}
+                onValueChange={(opt) => {
+                  if (!opt) return;
+                  setTheme(opt.id === "auto" ? "system" : opt.id);
+                }}
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.id}
+                placeholder="Select theme"
+                searchPlaceholder="Search themes…"
+                emptyMessage="No matching theme."
+                triggerClassName={SELECT_TRIGGER}
+                contentWidth={SELECT_CONTENT_WIDTH}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground sm:text-right">Loading…</p>
+            )
+          }
+        />
+      </div>
+
+      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+        <SettingsRow
           title="App tours"
           description={
             <>
-              Replay the main walkthrough, or reset every per-feature intro so each one shows again
-              next time you visit it.
-              {isMobile ? " Tours are available on desktop only." : ""}
+              Replay a guided walkthrough for a specific area. We reset only that tour, then take
+              you to the right page to play it.
+              {isMobile ? " Tours are available on desktop-width layouts." : ""}
             </>
           }
           control={
-            <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-              <Button
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  setTourFeedback(null);
-                  restartTour();
+            <div className="w-full sm:w-auto sm:min-w-[14rem] sm:max-w-md">
+              <SearchableSelect<TourReplayOption>
+                items={TOUR_REPLAY_ITEMS}
+                value={null}
+                onValueChange={(opt) => {
+                  if (!opt) return;
+                  void replayTour(opt.tourId, opt.href);
                 }}
-                disabled={isMobile}
-              >
-                Replay app tour
-              </Button>
-              <Button
-                type="button"
-                variant="destructive"
-                className="w-full sm:w-auto"
-                onClick={() => setResetToursOpen(true)}
-                disabled={isMobile}
-              >
-                Reset feature tours
-              </Button>
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.tourId}
+                getItemValue={(item) => `${item.label} ${item.href}`}
+                placeholder="Replay app tour"
+                searchPlaceholder="Search tours…"
+                emptyMessage="No matching tour."
+                disabled={isMobile || isResetting}
+                triggerClassName={SELECT_TRIGGER}
+                contentWidth={SELECT_CONTENT_WIDTH}
+              />
             </div>
           }
         />
-        {tourFeedback ? (
-          <p className="mt-2 text-sm text-muted-foreground sm:text-right">{tourFeedback}</p>
-        ) : null}
       </div>
-
-      <AlertDialog open={resetToursOpen} onOpenChange={setResetToursOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Reset all feature tours?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Every section intro will show again the next time you open that part of the app. This
-              does not affect your saved progress or scores.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className={buttonVariants({ variant: "destructive" })}
-              onClick={handleResetAllToursConfirm}
-            >
-              Reset tours
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AppShellBottomFloatingDock visible={isDirty}>
         <div className="flex flex-wrap items-center justify-end gap-2">

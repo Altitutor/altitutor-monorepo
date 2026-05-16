@@ -10,6 +10,9 @@ export const SEGMENT_LABELS: Record<string, string> = {
   learn: "Learn",
   sessions: "Sessions",
   practice: "Practice",
+  settings: "Settings",
+  app: "App settings",
+  profile: "My profile",
   "skill-trainer": "Skill trainer",
   "set-generator": "Set Generator",
   "set-attempts": "Set attempt",
@@ -54,9 +57,12 @@ function isValidPagePath(path: string): boolean {
         "skill-trainer",
         "sets",
         "mocks",
+        "settings",
       ].includes(segments[0]);
     case 2:
       return (
+        (segments[0] === "settings" &&
+          ["app", "profile"].includes(segments[1])) ||
         (segments[0] === "progress" && segments[1] === "mocks") ||
         (segments[0] === "sessions" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sets" && isDynamicSegment(segments[1])) ||
@@ -82,10 +88,18 @@ function isValidPagePath(path: string): boolean {
       );
     case 4:
       return (
-        segments[0] === "sets" &&
-        segments[1] === "sections" &&
-        /^[1-4]$/.test(segments[2]) &&
-        isDynamicSegment(segments[3])
+        (segments[0] === "sessions" &&
+          isDynamicSegment(segments[1]) &&
+          segments[2] === "sets" &&
+          isDynamicSegment(segments[3])) ||
+        (segments[0] === "sessions" &&
+          isDynamicSegment(segments[1]) &&
+          segments[2] === "mocks" &&
+          isDynamicSegment(segments[3])) ||
+        (segments[0] === "sets" &&
+          segments[1] === "sections" &&
+          /^[1-4]$/.test(segments[2]) &&
+          isDynamicSegment(segments[3]))
       );
     case 5:
       return (

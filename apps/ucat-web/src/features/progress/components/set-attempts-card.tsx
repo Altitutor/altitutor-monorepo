@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -30,6 +30,7 @@ import type { SetAttemptRow } from "@/app/api/ucat/progress/route";
 import {
   UCAT_CARD_CHROME,
   UCAT_TABLE_BODY_ROW,
+  UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_HEADER_ROW,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
@@ -117,37 +118,50 @@ export function SetAttemptsCard({
       ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
       : `/progress/set-attempts/${attemptId}`;
 
+  const attemptsTableTitleId = useId();
+
   return (
-    <Card className={UCAT_CARD_CHROME}>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Set attempts</CardTitle>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
-            items={GRAPH_DATA_TYPES}
-            value={
-              GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
-            }
-            onValueChange={(item) => item && setGraphDataType(item.value)}
-            getItemLabel={(r) => r.label}
-            getItemId={(r) => r.value}
-            placeholder="Y-axis"
-            triggerClassName="w-[160px]"
+    <>
+      <Card className={UCAT_CARD_CHROME}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle>Set attempts</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
+              items={GRAPH_DATA_TYPES}
+              value={
+                GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
+              }
+              onValueChange={(item) => item && setGraphDataType(item.value)}
+              getItemLabel={(r) => r.label}
+              getItemId={(r) => r.value}
+              placeholder="Y-axis"
+              triggerClassName="w-[160px]"
+            />
+            <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ProgressGraph
+            data={graphData}
+            type={graphType}
+            dataType={graphDataType}
+            dateRangeLabel={dateRangeLabel}
           />
-          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <ProgressGraph
-          data={graphData}
-          type={graphType}
-          dataType={graphDataType}
-          dateRangeLabel={dateRangeLabel}
-        />
-        <div>
-          <h4 className="mb-3 text-sm font-medium">All set attempts</h4>
-          <div className={UCAT_TABLE_SHELL}>
+        </CardContent>
+      </Card>
+      <section
+        aria-labelledby={attemptsTableTitleId}
+        className="space-y-4"
+      >
+        <h2
+          id={attemptsTableTitleId}
+          className="text-2xl font-semibold tracking-tight"
+        >
+          All set attempts
+        </h2>
+        <div className={UCAT_TABLE_SHELL}>
             <Table>
-              <TableHeader>
+              <TableHeader className={UCAT_TABLE_HEADER_CLASSNAME}>
                 <TableRow className={UCAT_TABLE_HEADER_ROW}>
                   <TableHead>Date</TableHead>
                   <TableHead>Set</TableHead>
@@ -225,21 +239,20 @@ export function SetAttemptsCard({
               </TableBody>
             </Table>
           </div>
-          {standaloneAttempts.length > 0 ? (
-            <ProgressTablePagination
-              page={page}
-              pageSize={pageSize}
-              total={standaloneAttempts.length}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setPage(1);
-              }}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
-            />
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
+        {standaloneAttempts.length > 0 ? (
+          <ProgressTablePagination
+            page={page}
+            pageSize={pageSize}
+            total={standaloneAttempts.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+          />
+        ) : null}
+      </section>
+    </>
   );
 }

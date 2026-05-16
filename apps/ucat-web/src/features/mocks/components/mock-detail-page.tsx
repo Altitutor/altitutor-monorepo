@@ -19,15 +19,46 @@ import {
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
 
 type MockDetailPageProps = {
   mockId: string;
+  backHref?: string;
+  backLabel?: string;
+  sessionEntryContext?: SessionResourceEntryContext;
 };
 
-export function MockDetailPage({ mockId }: MockDetailPageProps) {
+function buildMockBreadcrumbOverrides(
+  sessionEntryContext: SessionResourceEntryContext | undefined,
+  leafIndex: number,
+  leafLabel: string,
+): Record<number, string> {
+  const o: Record<number, string> = { [leafIndex]: leafLabel };
+  if (sessionEntryContext != null) {
+    o[1] = sessionEntryContext.breadcrumbDateLabel;
+  }
+  return o;
+}
+
+export function MockDetailPage({
+  mockId,
+  backHref: backHrefProp,
+  backLabel: backLabelProp,
+  sessionEntryContext,
+}: MockDetailPageProps) {
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
   const attemptsHeadingId = useId();
+
+  const breadcrumbLeafSegmentIndex = sessionEntryContext != null ? 3 : 1;
+  const backHref =
+    backHrefProp ??
+    (sessionEntryContext != null
+      ? `/sessions/${encodeURIComponent(sessionEntryContext.sessionId)}`
+      : "/mocks");
+  const backLabel =
+    backLabelProp ??
+    (sessionEntryContext != null ? "Back to session" : "Back to all mocks");
 
   const mock = useMemo(
     () => (mocks ?? []).find((item) => item.id === mockId),
@@ -40,8 +71,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         <UcatPageHeader
           title="Mock"
           description="Full-length UCAT mock exam details."
-          backHref="/mocks"
-          backLabel="Back to all mocks"
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Mock",
+          )}
         />
         <p className="text-sm text-muted-foreground">Loading mock...</p>
       </div>
@@ -54,8 +90,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         <UcatPageHeader
           title="Mock"
           description="Full-length UCAT mock exam details."
-          backHref="/mocks"
-          backLabel="Back to all mocks"
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Mock",
+          )}
         />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load mock"}
@@ -70,8 +111,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         <UcatPageHeader
           title="Mock"
           description="Full-length UCAT mock exam details."
-          backHref="/mocks"
-          backLabel="Back to all mocks"
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Mock",
+          )}
         />
         <p className="text-sm text-muted-foreground">No mocks available.</p>
       </div>
@@ -84,8 +130,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         <UcatPageHeader
           title="Mock"
           description="Full-length UCAT mock exam details."
-          backHref="/mocks"
-          backLabel="Back to all mocks"
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Mock",
+          )}
         />
         <p className="text-sm text-red-600 dark:text-red-400">
           Mock not found.
@@ -118,9 +169,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
       <UcatPageHeader
         title={mock.name ?? "Mock exam"}
         description="This mock exam will launch the full UCAT question engine using all sets included in this mock."
-        backHref="/mocks"
-        backLabel="Back to all mocks"
-        breadcrumbOverrides={{ 1: mock.name ?? "Mock" }}
+        backHref={backHref}
+        backLabel={backLabel}
+        breadcrumbOverrides={buildMockBreadcrumbOverrides(
+          sessionEntryContext,
+          breadcrumbLeafSegmentIndex,
+          mock.name ?? "Mock",
+        )}
       />
 
       <section
@@ -157,7 +212,6 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
           >
-            <NotebookText className="h-5 w-5 shrink-0 text-muted-foreground" />
             Previous attempts
           </h2>
           <div className={UCAT_TABLE_SHELL}>

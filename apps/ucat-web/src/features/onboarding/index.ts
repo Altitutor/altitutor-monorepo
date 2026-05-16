@@ -6,7 +6,6 @@ export {
   useOnboardingProgress,
   useCompleteOnboardingTour,
   useResetOnboardingTour,
-  useResetAllOnboardingTours,
 } from "@/features/onboarding/hooks/use-onboarding-progress";
 export {
   ALL_UCAT_TOUR_IDS,
@@ -14,5 +13,6 @@ export {
   UCAT_ONBOARDING_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_TOUR_REPLAY_OPTIONS,
   getTourForPathname,
 } from "@/features/onboarding/config/tour-steps";
