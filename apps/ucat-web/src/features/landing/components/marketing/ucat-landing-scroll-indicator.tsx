@@ -4,8 +4,10 @@ import { MARKETING_TOKENS } from "@altitutor/shared";
 import { useEffect, useState } from "react";
 
 const SECTION_ITEMS = [
-  { id: "systems", label: "Systems" },
+  { id: "alti-ucat", label: "Alti UCAT" },
+  { id: "overview", label: "Overview" },
   { id: "methodology", label: "Methodology" },
+  { id: "how-it-works", label: "How it works" },
   { id: "pricing", label: "Pricing" },
 ] as const;
 const { typography: typo } = MARKETING_TOKENS;
@@ -54,7 +56,10 @@ export function UcatLandingScrollIndicator() {
     if (!section) return;
 
     const navbarOffset = 120;
-    const y = section.getBoundingClientRect().top + window.scrollY - navbarOffset;
+    const y = Math.max(
+      0,
+      section.getBoundingClientRect().top + window.scrollY - navbarOffset,
+    );
     window.history.replaceState(null, "", `#${sectionId}`);
     window.scrollTo({ top: y, behavior: "smooth" });
   };
