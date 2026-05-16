@@ -132,7 +132,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
     setOtpSubmitting(true);
     const normalizedEmail = email.trim().toLowerCase();
 
-    const tryTypes = ["email", "signup"] as const;
+    const tryTypes = ["email", "signup", "magiclink"] as const;
     let lastError: AuthError | null = null;
     for (const type of tryTypes) {
       const { error } = await supabase.auth.verifyOtp({
@@ -212,9 +212,19 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               Check your inbox
             </h2>
             <p className={cn("auth-entrance text-muted-foreground", typo.secondarySans)}>
-              We&apos;ve sent a confirmation link to{" "}
-              <span className="font-medium text-primary">{email}</span>. Click the
-              link to continue creating your account.
+              We&apos;ve sent a confirmation email to{" "}
+              <span className="font-medium text-primary">{email}</span>. Use the main
+              &quot;Confirm email&quot; button in the email (works in any browser), or enter the
+              6-digit code below.
+            </p>
+            <p
+              className={cn(
+                "auth-entrance mt-2 text-xs text-muted-foreground/80",
+                typo.secondarySans,
+              )}
+            >
+              Avoid the long <span className="font-mono">supabase.co</span> link — that only works
+              in the same browser where you signed up.
             </p>
             <p
               className={cn(
@@ -241,8 +251,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               )}
             >
               <p className="text-sm text-muted-foreground">
-                Prefer a code? Your email includes a 6-digit code (works in incognito or when the
-                link opens in another app).
+                Enter the 6-digit code from your email (works in any browser or incognito).
               </p>
               <div className="space-y-1.5">
                 <label htmlFor="signup-otp" className="block text-sm font-medium text-foreground/90">

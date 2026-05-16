@@ -4,82 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <title>Your Magic Link</title>
-  <!--[if mso]>
-  <style type="text/css">
-    body, table, td {font-family: Arial, sans-serif !important;}
-  </style>
-  <![endif]-->
+  <title>Confirm your Alti UCAT account</title>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
-  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f3f4f6;">
+<body style="margin: 0; padding: 0; background-color: #1A1A1A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;">
+  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #1A1A1A;">
     <tr>
-      <td align="center" style="padding: 40px 20px;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 8px; box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);">
-          <!-- Header -->
+      <td align="center" style="padding: 48px 20px;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="560" style="max-width: 560px;">
           <tr>
-            <td style="padding: 40px 40px 30px; background: linear-gradient(135deg, #0a2941 0%, #144e72 100%); border-radius: 8px 8px 0 0;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
-                <tr>
-                  <td align="center">
-                    <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">Altitutor</h1>
-                  </td>
-                </tr>
-              </table>
+            <td style="padding: 40px 48px 36px; background-color: #0a2941; border-radius: 24px 24px 0 0; text-align: center;">
+              <p style="margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.25em; text-transform: uppercase; color: #92b9c6;">
+                ALTI UCAT
+              </p>
+              <h1 style="margin: 0; font-size: 28px; font-weight: 700; color: #F2F0E9; line-height: 1.2;">
+                Confirm your email
+              </h1>
             </td>
           </tr>
-          
-          <!-- Content -->
           <tr>
-            <td style="padding: 40px;">
-              <h2 style="margin: 0 0 20px; color: #0a2941; font-size: 24px; font-weight: 600; line-height: 1.3;">Sign In to Altitutor</h2>
-              
-              <p style="margin: 0 0 24px; color: #374151; font-size: 16px; line-height: 1.6;">
-                Click the button below to sign in to your Altitutor account. This link will automatically log you in without requiring a password.
+            <td style="padding: 40px 48px 36px; background-color: #111827;">
+              <p style="margin: 0 0 24px; font-size: 15px; line-height: 1.7; color: #9ca3af;">
+                Use the button below to continue on any device or browser. You can also enter the 6-digit code on the signup page.
               </p>
-              
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 32px 0;">
+
+              <!-- Works on any browser (token_hash — no PKCE verifier required) -->
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 28px;">
                 <tr>
                   <td align="center">
-                    <a href="{{ .ConfirmationURL }}" style="display: inline-block; padding: 14px 32px; background-color: #0a2941; color: #ffffff; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: 600; line-height: 1.5; text-align: center;">
-                      Sign In
+                    <a href="{{ .RedirectTo }}&amp;token_hash={{ .TokenHash }}&amp;type=email"
+                       style="display: inline-block; padding: 16px 40px; background-color: #92b9c6; color: #0a2941; text-decoration: none; border-radius: 100px; font-size: 15px; font-weight: 700;">
+                      Confirm email &amp; continue
                     </a>
                   </td>
                 </tr>
               </table>
-              
-              <p style="margin: 24px 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                If the button doesn't work, copy and paste this link into your browser:
-              </p>
-              <p style="margin: 8px 0 0; color: #92b9c6; font-size: 14px; line-height: 1.6; word-break: break-all;">
-                <a href="{{ .ConfirmationURL }}" style="color: #92b9c6; text-decoration: underline;">{{ .ConfirmationURL }}</a>
-              </p>
-              
-              <p style="margin: 32px 0 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                This magic link will expire in 1 hour and can only be used once. If you didn't request this link, you can safely ignore this email.
-              </p>
-            </td>
-          </tr>
-          
-          <!-- Footer -->
-          <tr>
-            <td style="padding: 30px 40px; background-color: #f9fafb; border-top: 1px solid #e5e7eb; border-radius: 0 0 8px 8px;">
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%">
+
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="margin: 0 0 28px; background-color: #0f172a; border-radius: 12px;">
                 <tr>
-                  <td align="center" style="padding-bottom: 20px;">
-                    <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 1.6;">
-                      This email was sent by Altitutor. If you didn't request this email, you can safely ignore it.
+                  <td style="padding: 20px 24px; text-align: center;">
+                    <p style="margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.2em; text-transform: uppercase; color: #92b9c6;">
+                      Or enter this code on the signup page
                     </p>
-                  </td>
-                </tr>
-                <tr>
-                  <td align="center">
-                    <p style="margin: 0; color: #9ca3af; font-size: 12px; line-height: 1.5;">
-                      © 2024 Altitutor. All rights reserved.
+                    <p style="margin: 0; font-size: 32px; font-weight: 800; letter-spacing: 0.35em; color: #F2F0E9; font-family: ui-monospace, Menlo, Monaco, Consolas, monospace;">
+                      {{ .Token }}
                     </p>
                   </td>
                 </tr>
               </table>
+
+              <p style="margin: 0 0 8px; font-size: 13px; color: #6b7280;">
+                Same browser only (magic link):
+              </p>
+              <p style="margin: 0 0 24px; font-size: 12px; line-height: 1.6; word-break: break-all;">
+                <a href="{{ .ConfirmationURL }}" style="color: #92b9c6;">{{ .ConfirmationURL }}</a>
+              </p>
+
+              <p style="margin: 0; font-size: 13px; color: #6b7280;">
+                This expires in <strong style="color: #9ca3af;">1 hour</strong>. If you didn&apos;t request this, ignore this email.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 24px 48px; background-color: #0d1117; border-radius: 0 0 24px 24px; text-align: center;">
+              <p style="margin: 0; font-size: 12px; color: #4b5563;">
+                Alti UCAT · Altitutor
+              </p>
             </td>
           </tr>
         </table>

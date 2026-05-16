@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { agentDebugLog, probeAuthCookies } from "@/lib/agent-debug-log";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { parseEmailOtpType, safeNextPath } from "./auth-callback-utils";
+import { otpTypeFromParam, safeNextPath } from "./auth-callback-utils";
 
 /**
  * PKCE magic links store the code verifier in the browser client's cookie storage.
@@ -49,17 +49,28 @@ function AuthCallbackInner() {
         },
       });
 
-      const otpType = parseEmailOtpType(typeParam);
-      if (tokenHash && otpType) {
-        const { error } = await supabase.auth.verifyOtp({
-          type: otpType,
-          token_hash: tokenHash,
-        });
-        if (error) {
-          finish(error.message);
-          return;
+      if (tokenHash) {
+        const typesToTry = otpTypeFromParam(typeParam);
+        let lastVerifyError: { message: string } | null = null;
+        for (const otpType of typesToTry) {
+          const { error } = await supabase.auth.verifyOtp({
+            type: otpType,
+            token_hash: tokenHash,
+          });
+          if (!error) {
+            agentDebugLog({
+              hypothesisId: "cross-browser",
+              location: "auth-callback-client.tsx:verifyOtp_token_hash_ok",
+              message: "token_hash verifyOtp succeeded",
+              data: { usedType: otpType },
+              runId: "post-fix",
+            });
+            router.replace(next);
+            return;
+          }
+          lastVerifyError = error;
         }
-        router.replace(next);
+        finish(lastVerifyError?.message ?? "auth_failed");
         return;
       }
 
@@ -98,7 +109,14 @@ function AuthCallbackInner() {
             // eslint-disable-next-line no-console
             console.error("[auth/callback] exchangeCodeForSession:", error);
           }
-          finish(error.message);
+          const isPkceVerifierMissing = error.message
+            .toLowerCase()
+            .includes("code verifier");
+          finish(
+            isPkceVerifierMissing
+              ? "This sign-in link only works in the same browser where you requested it. Use the green button in your email (not the long supabase.co link), or enter the 6-digit code on the signup page."
+              : error.message,
+          );
           return;
         }
         agentDebugLog({
