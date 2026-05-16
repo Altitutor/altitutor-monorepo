@@ -84,17 +84,22 @@ export const UCAT_DIVIDER_TOP =
   "border-t border-black/[0.045] dark:border-white/[0.06]";
 
 /**
- * Header / toolbar icon control (back `Link`, menu `button`, theme toggle, floating `Button` + icon).
- * Includes `hover:bg-muted` + `active:scale-95` so all hits match.
- * Not composed from `UCAT_SURFACE_CARD`: fixed `!size-11` + `!p-2.5` must not fight `Card`-style classes,
- * and `Button size="icon"` needs `!` sizing/`!` radius to win under clsx-only merges.
+ * Header outline surface — matches student-web `studentBtnOutline` (muted fill + soft ring, no heavy border).
+ */
+export const UCAT_HEADER_BTN_OUTLINE = cn(
+  UCAT_SURFACE_MOTION,
+  "!rounded-[var(--ucat-radius-control)] !border-0 bg-muted/80 text-foreground shadow-sm",
+  "ring-1 ring-black/[0.06] hover:bg-muted dark:ring-white/10",
+);
+
+/**
+ * Header / toolbar icon control (menu, theme toggle, page back). Same 36px hit as student `studentBtnIconOutline`.
+ * Use with `Button variant="outline" size="icon"`.
  */
 export const UCAT_HEADER_ICON_BUTTON = cn(
-  UCAT_SURFACE_MOTION,
-  "box-border !inline-flex !size-11 shrink-0 items-center justify-center gap-0 !p-2.5",
-  "!rounded-[var(--ucat-radius-control)] !border-0 bg-card text-foreground shadow-sm",
-  "!ring-1 !ring-[hsl(0_0%_0%/0.055)] !ring-offset-0 dark:!ring-[hsl(0_0%_100%/0.065)]",
-  "hover:bg-muted active:scale-95",
+  UCAT_HEADER_BTN_OUTLINE,
+  "box-border !inline-flex !size-9 shrink-0 items-center justify-center gap-0",
+  "active:scale-95",
   "[&>svg]:pointer-events-none [&>svg]:shrink-0",
 );
 
@@ -104,7 +109,7 @@ export const UCAT_APP_HEADER_RULE =
 
 /**
  * Current page in `TablePagination` — matches sidebar **selected** nav treatment:
- * light: solid `sidebar` on white cards; dark: `sidebar-foreground/20` wash like active nav links.
+ * light: same fill as `--primary` (via `--sidebar`); dark: `sidebar-foreground/20` wash like active nav links.
  */
 export const UCAT_PAGINATION_ACTIVE_PAGE_BUTTON = cn(
   "border-transparent shadow-sm font-medium text-sidebar-foreground",
@@ -131,14 +136,24 @@ export const UCAT_LIST_ROW_LINK = cn(
   UCAT_PRESSABLE_LIFT_HOVER,
 );
 
-/** Primary sidebar-style CTA (practice start, generate set) */
-export const UCAT_PRIMARY_ACTION_BUTTON = [
-  "inline-flex h-10 items-center justify-center rounded-ucatControl bg-sidebar px-4 text-sm font-medium text-sidebar-foreground",
-  "transition-[transform,box-shadow,filter] duration-200",
-  UCAT_INTERACTION_EASE,
-  "hover:shadow-md hover:brightness-105 active:scale-[0.98]",
+/**
+ * Bottom-up hover wash; pair with `bg-primary text-primary-foreground dark:bg-accent dark:text-primary-foreground`.
+ * Styles live in `globals.css` (`.ucat-btn-accent-fill-rise`).
+ */
+export const UCAT_ACCENT_FILL_RISE = "ucat-btn-accent-fill-rise" as const;
+
+/**
+ * Primary CTA: light = navy (`--primary`) + light text; dark = light blue (`--accent`) + dark text (`--primary-foreground`).
+ * Hover: marketing-style “fill up” wash (`UCAT_ACCENT_FILL_RISE`).
+ */
+export const UCAT_PRIMARY_ACTION_BUTTON = cn(
+  UCAT_ACCENT_FILL_RISE,
+  "inline-flex h-10 items-center justify-center rounded-ucatControl bg-primary px-4 text-sm font-medium text-primary-foreground dark:bg-accent dark:text-primary-foreground",
+  "hover:shadow-md motion-safe:hover:scale-[1.02]",
+  "active:scale-[0.98]",
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   "disabled:pointer-events-none disabled:opacity-60 disabled:active:scale-100",
-].join(" ");
+);
 
 /** Card-style surfaces that lift slightly on hover */
 export const UCAT_CARD_RAISED_HOVER = cn(

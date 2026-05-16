@@ -40,8 +40,9 @@
     --ucat-radius-shell: 1.25rem;
     --ucat-radius-control: 0.75rem;
 
-    --sidebar: 220 40% 35%;
-    --sidebar-foreground: 0 0% 100%;
+    /* Same chrome blue as primary CTAs — rail, avatar chip, `bg-sidebar` accents */
+    --sidebar: var(--primary);
+    --sidebar-foreground: var(--primary-foreground);
 
     --motion-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
     --motion-duration-snappy: 150ms;
@@ -151,13 +152,47 @@
   animation: set-highlight-fade 2s ease-out forwards;
 }
 
-/* Progress page: pagination uses accent for active page button */
-.ucat-pagination button.bg-primary {
-  background-color: hsl(var(--accent)) !important;
-  color: hsl(var(--accent-foreground)) !important;
+/**
+ * Bottom-up hover wash over whatever `background-color` Tailwind sets on the
+ * control (same motion language as marketing `MagneticButton`). Base fill is
+ * `bg-primary` / `dark:bg-accent` on the element, not in this rule.
+ */
+.ucat-btn-accent-fill-rise {
+  --ucat-accent-fill-wash: hsl(0 0% 0% / 0.11);
+  background-image: linear-gradient(
+    180deg,
+    var(--ucat-accent-fill-wash) 0%,
+    var(--ucat-accent-fill-wash) 100%
+  );
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: 100% 0%;
+  transition-property: background-size, transform, box-shadow;
+  transition-duration: 500ms, 200ms, 200ms;
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94), cubic-bezier(0.32, 0.72, 0, 1),
+    cubic-bezier(0.32, 0.72, 0, 1);
 }
-.ucat-pagination button.bg-primary:hover:not(:disabled) {
-  background-color: hsl(var(--accent) / 0.9) !important;
+
+.dark .ucat-btn-accent-fill-rise {
+  --ucat-accent-fill-wash: hsl(0 0% 0% / 0.16);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ucat-btn-accent-fill-rise:hover:not(:disabled) {
+    background-size: 100% 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ucat-btn-accent-fill-rise {
+    background-image: none;
+    background-size: auto;
+    transition-duration: 1ms, 1ms, 1ms;
+  }
+
+  .ucat-btn-accent-fill-rise:hover:not(:disabled) {
+    filter: brightness(1.05);
+  }
 }
 
 /* Tiptap ResizableNodeView - invisible handles, resize from any edge/corner */
