@@ -2,15 +2,11 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { agentDebugLog, probeAuthCookies } from "@/lib/agent-debug-log";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { otpTypeFromParam, safeNextPath } from "./auth-callback-utils";
 
 /**
- * PKCE magic links store the code verifier in the browser client's cookie storage.
- * Exchanging on the server (Route Handler + next/headers cookies) often cannot read
- * the same verifier chunks as document.cookie, which yields "code verifier should be non-empty".
- * Completing the exchange here uses the same @supabase/ssr browser client as signInWithOtp.
+ * Completes email signup/sign-in: token_hash (any browser) or PKCE code exchange (same browser).
  */
 function AuthCallbackInner() {
   const router = useRouter();
@@ -31,24 +27,6 @@ function AuthCallbackInner() {
     const supabase = getSupabaseBrowserClient();
 
     void (async () => {
-      agentDebugLog({
-        hypothesisId: "H1-H3-H5",
-        location: "auth-callback-client.tsx:effect_start",
-        message: "callback mount; URL vs searchParams vs cookies",
-        data: {
-          hasCodeParam: Boolean(code),
-          codeLen: code?.length ?? 0,
-          hasTokenHash: Boolean(tokenHash),
-          typeParam: typeParam ?? "",
-          hrefHasCodeQuery:
-            typeof window !== "undefined" && window.location.search.includes("code="),
-          hrefSearchLen:
-            typeof window !== "undefined" ? window.location.search.length : -1,
-          next,
-          ...probeAuthCookies(),
-        },
-      });
-
       if (tokenHash) {
         const typesToTry = otpTypeFromParam(typeParam);
         let lastVerifyError: { message: string } | null = null;
@@ -58,13 +36,6 @@ function AuthCallbackInner() {
             token_hash: tokenHash,
           });
           if (!error) {
-            agentDebugLog({
-              hypothesisId: "cross-browser",
-              location: "auth-callback-client.tsx:verifyOtp_token_hash_ok",
-              message: "token_hash verifyOtp succeeded",
-              data: { usedType: otpType },
-              runId: "post-fix",
-            });
             router.replace(next);
             return;
           }
@@ -75,33 +46,10 @@ function AuthCallbackInner() {
       }
 
       if (code) {
-        agentDebugLog({
-          hypothesisId: "H4",
-          location: "auth-callback-client.tsx:before_exchange",
-          message: "about to exchangeCodeForSession",
-          data: { ...probeAuthCookies() },
-        });
         const { error } = await supabase.auth.exchangeCodeForSession(code);
         if (error) {
-          agentDebugLog({
-            hypothesisId: "H1-H4",
-            location: "auth-callback-client.tsx:exchange_error",
-            message: "exchangeCodeForSession returned error",
-            data: {
-              errMsgLen: error.message.length,
-              errStatus: error.status ?? null,
-              errName: error.name,
-              ...probeAuthCookies(),
-            },
-          });
           const { data: sessionData } = await supabase.auth.getSession();
           if (sessionData.session) {
-            agentDebugLog({
-              hypothesisId: "H4",
-              location: "auth-callback-client.tsx:exchange_error_but_session",
-              message: "session exists after exchange error; redirecting",
-              data: {},
-            });
             router.replace(next);
             return;
           }
@@ -114,17 +62,11 @@ function AuthCallbackInner() {
             .includes("code verifier");
           finish(
             isPkceVerifierMissing
-              ? "This sign-in link only works in the same browser where you requested it. Use the green button in your email (not the long supabase.co link), or enter the 6-digit code on the signup page."
+              ? "This sign-in link only works in the same browser where you requested it. Use the main button in your email (not the long supabase.co link), or enter the 6-digit code on the signup page."
               : error.message,
           );
           return;
         }
-        agentDebugLog({
-          hypothesisId: "H4",
-          location: "auth-callback-client.tsx:exchange_ok",
-          message: "exchangeCodeForSession succeeded",
-          data: { ...probeAuthCookies() },
-        });
         router.replace(next);
         return;
       }

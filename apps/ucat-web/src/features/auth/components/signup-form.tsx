@@ -5,7 +5,6 @@ import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MARKETING_TOKENS } from "@altitutor/shared";
-import { agentDebugLog, probeAuthCookies } from "@/lib/agent-debug-log";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { AuthPageHeader } from "@/features/auth/components/auth-page-header";
 import { authFormFieldClass } from "@/features/auth/lib/auth-form-field-class";
@@ -103,16 +102,6 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
         return;
       }
 
-      agentDebugLog({
-        hypothesisId: "H2-H5",
-        location: "signup-form.tsx:after_signInWithOtp_ok",
-        message: "signInWithOtp succeeded; probe cookies for PKCE storage",
-        data: {
-          ...probeAuthCookies(),
-          origin: typeof window !== "undefined" ? window.location.origin : "",
-        },
-      });
-
       setFormState("submitted");
     } finally {
       submitInFlightRef.current = false;
@@ -141,13 +130,6 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
         type,
       });
       if (!error) {
-        agentDebugLog({
-          hypothesisId: "post-fix",
-          location: "signup-form.tsx:verifyOtp_ok",
-          message: "verifyOtp succeeded",
-          data: { usedType: type },
-          runId: "post-fix",
-        });
         setOtpSubmitting(false);
         router.push("/signup/flow");
         router.refresh();
@@ -157,16 +139,6 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
     }
 
     setOtpSubmitting(false);
-    agentDebugLog({
-      hypothesisId: "post-fix",
-      location: "signup-form.tsx:verifyOtp_err",
-      message: "verifyOtp failed for email and signup types",
-      data: {
-        errLen: lastError?.message?.length ?? 0,
-        errStatus: lastError?.status ?? null,
-      },
-      runId: "post-fix",
-    });
     setOtpError(
       lastError
         ? getSignupOtpUserMessage(lastError)
@@ -213,18 +185,6 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
             </h2>
             <p className={cn("auth-entrance text-muted-foreground", typo.secondarySans)}>
               We&apos;ve sent a confirmation email to{" "}
-              <span className="font-medium text-primary">{email}</span>. Use the main
-              &quot;Confirm email&quot; button in the email (works in any browser), or enter the
-              6-digit code below.
-            </p>
-            <p
-              className={cn(
-                "auth-entrance mt-2 text-xs text-muted-foreground/80",
-                typo.secondarySans,
-              )}
-            >
-              Avoid the long <span className="font-mono">supabase.co</span> link — that only works
-              in the same browser where you signed up.
             </p>
             <p
               className={cn(
@@ -251,7 +211,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               )}
             >
               <p className="text-sm text-muted-foreground">
-                Enter the 6-digit code from your email (works in any browser or incognito).
+                Alternatively, enter the 6-digit code from your email.
               </p>
               <div className="space-y-1.5">
                 <label htmlFor="signup-otp" className="block text-sm font-medium text-foreground/90">
