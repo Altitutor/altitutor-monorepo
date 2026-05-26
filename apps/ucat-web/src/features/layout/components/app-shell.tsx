@@ -14,6 +14,7 @@ import {
   OnboardingProvider,
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
 } from "@/features/onboarding";
+import { StudyPlannerOnboardingModal } from "@/features/study-planner/components/study-planner-onboarding-modal";
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
 import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layout-context";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
@@ -102,6 +103,7 @@ export function AppShell({ children }: AppShellProps) {
     >
       <OnboardingProvider>
         <OnboardingAutoStart />
+        <StudyPlannerOnboardingModal />
         {/* nextstepjs portal target: fixed layer so sidebar highlights stay aligned while main content scrolls */}
         <div
           id={UCAT_NEXTSTEP_FIXED_VIEWPORT_ID}

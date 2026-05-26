@@ -6864,6 +6864,10 @@ export type Database = {
           school: string | null
           status: string
           timezone: string
+          ucat_target_score_s1?: number | null
+          ucat_target_score_s2?: number | null
+          ucat_target_score_s3?: number | null
+          ucat_test_date?: string | null
           updated_at: string | null
           user_id: string | null
           year_level: number | null
@@ -6894,6 +6898,10 @@ export type Database = {
           school?: string | null
           status: string
           timezone?: string
+          ucat_target_score_s1?: number | null
+          ucat_target_score_s2?: number | null
+          ucat_target_score_s3?: number | null
+          ucat_test_date?: string | null
           updated_at?: string | null
           user_id?: string | null
           year_level?: number | null
@@ -6924,6 +6932,10 @@ export type Database = {
           school?: string | null
           status?: string
           timezone?: string
+          ucat_target_score_s1?: number | null
+          ucat_target_score_s2?: number | null
+          ucat_target_score_s3?: number | null
+          ucat_test_date?: string | null
           updated_at?: string | null
           user_id?: string | null
           year_level?: number | null
@@ -8867,6 +8879,58 @@ export type Database = {
             columns: ["ucat_mock_id"]
             isOneToOne: false
             referencedRelation: "vtutor_ucat_mocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_model_config: {
+        Row: {
+          id: string
+          k_prior: number
+          p0: number
+          r_noise: number
+          s_inf_uplift: number
+          section_id: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          k_prior?: number
+          p0?: number
+          r_noise?: number
+          s_inf_uplift?: number
+          section_id: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          k_prior?: number
+          p0?: number
+          r_noise?: number
+          s_inf_uplift?: number
+          section_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_model_config_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: true
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_model_config_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_model_config_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_sections"
             referencedColumns: ["id"]
           },
         ]

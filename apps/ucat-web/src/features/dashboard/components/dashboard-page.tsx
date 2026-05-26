@@ -16,6 +16,10 @@ import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
 import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
+import { useStudyPlannerProjection } from "@/features/study-planner/hooks/use-study-planner-projection";
+import { useStudyPlannerSettings } from "@/features/study-planner/hooks/use-study-planner-settings";
+import { StudyPlannerTestDateCard } from "@/features/study-planner/components/study-planner-test-date-card";
+import { StudyPlannerSummaryCard } from "@/features/study-planner/components/study-planner-summary-card";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import { ucatDashboardNavTileClassName } from "@/lib/ucat-surface-motion";
 
@@ -23,6 +27,8 @@ export function DashboardPage() {
   const reduceMotion = useReducedMotion();
   const { showComingSoonModal } = useComingSoon();
   const access = useUcatAccess();
+  const settingsQuery = useStudyPlannerSettings();
+  const projectionQuery = useStudyPlannerProjection(access.hasOnlineAccess);
   const [upsellOpen, setUpsellOpen] = useState(false);
   const [upsellRequiredAccess, setUpsellRequiredAccess] =
     useState<RequiredUcatAccess | null>(null);
@@ -75,6 +81,14 @@ export function DashboardPage() {
       {access.hasOnlineAccess ? (
         <ReviewHeatmapCard showViewAllProgressLink />
       ) : null}
+
+      <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <StudyPlannerTestDateCard testDate={settingsQuery.data?.testDate ?? null} />
+        <StudyPlannerSummaryCard
+          projection={projectionQuery.data ?? null}
+          isLoading={projectionQuery.isLoading}
+        />
+      </div>
 
       <motion.div
         className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"

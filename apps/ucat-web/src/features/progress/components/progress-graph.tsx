@@ -1,11 +1,13 @@
 "use client";
 
 import {
+  Area,
   Bar,
   BarChart,
   CartesianGrid,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -50,6 +52,13 @@ export type ProgressGraphProps = {
   isMockContext?: boolean;
   /** Max value for Y-axis when isMockContext (e.g. max scaled score across attempts). */
   yAxisMax?: number;
+  projection?: {
+    conservative: { date: string; value: number }[];
+    realistic: { date: string; value: number }[];
+    aggressive: { date: string; value: number }[];
+  };
+  targetScore?: number;
+  testDate?: string;
 };
 
 const dataTypeLabels: Record<GraphDataType, string> = {
@@ -80,10 +89,69 @@ export function ProgressGraph({
   className,
   isMockContext = false,
   yAxisMax,
+  projection,
+  targetScore,
+  testDate,
 }: ProgressGraphProps) {
+  type GraphLinePoint = {
+    date: string;
+    value: number | null;
+    label?: string;
+    projectionConservative?: number;
+    projectionRealistic?: number;
+    projectionAggressive?: number;
+  };
+
   const hasAggregatedLabels = data.some((d) => d.label);
   const label = dataTypeLabels[dataType];
   const domain = getYAxisDomain(dataType, isMockContext, yAxisMax);
+  const showProjection =
+    type === "line" &&
+    dataType === "scaled_score" &&
+    !hasAggregatedLabels &&
+    projection != null;
+
+  const mergedLineData: GraphLinePoint[] = showProjection
+    ? (() => {
+        const byDate = new Map<string, GraphLinePoint>();
+        for (const point of data) {
+          byDate.set(point.date, { ...point, value: point.value });
+        }
+        for (const point of projection.conservative) {
+          const current = byDate.get(point.date) ?? {
+            date: point.date,
+            value: null,
+          };
+          current.projectionConservative = point.value;
+          byDate.set(point.date, current);
+        }
+        for (const point of projection.realistic) {
+          const current = byDate.get(point.date) ?? {
+            date: point.date,
+            value: null,
+          };
+          current.projectionRealistic = point.value;
+          byDate.set(point.date, current);
+        }
+        for (const point of projection.aggressive) {
+          const current = byDate.get(point.date) ?? {
+            date: point.date,
+            value: null,
+          };
+          current.projectionAggressive = point.value;
+          byDate.set(point.date, current);
+        }
+        return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date));
+      })()
+    : data.map((point) => ({ ...point }));
+
+  const projectionBaseLine =
+    showProjection && mergedLineData.length > 0
+      ? mergedLineData.map((point, index) => ({
+          x: index,
+          y: point.projectionConservative ?? point.projectionAggressive ?? 0,
+        }))
+      : undefined;
 
   const formatTooltipValue = (value: number | null | undefined): string => {
     if (value == null) return "—";
@@ -94,7 +162,7 @@ export function ProgressGraph({
   const chartContent =
     type === "line" ? (
       <LineChart
-        data={data}
+        data={mergedLineData}
         margin={{
           top: 5,
           right: 5,
@@ -110,7 +178,7 @@ export function ProgressGraph({
             fontSize: data.length > 14 ? 10 : 12,
             textAnchor: hasAggregatedLabels ? "end" : "middle",
           }}
-          tickFormatter={(value, index) => getXAxisLabel(data, index)}
+          tickFormatter={(value, index) => getXAxisLabel(mergedLineData, index)}
           interval={0}
           stroke="currentColor"
           className="text-muted-foreground"
@@ -144,6 +212,57 @@ export function ProgressGraph({
               : `Date: ${displayLabel}`;
           }}
         />
+        {showProjection ? (
+          <>
+            <Area
+              type="monotone"
+              dataKey="projectionAggressive"
+              baseLine={projectionBaseLine}
+              stroke="none"
+              fill="hsl(var(--accent))"
+              fillOpacity={0.12}
+              connectNulls
+            />
+            <Line
+              type="monotone"
+              dataKey="projectionConservative"
+              stroke="hsl(var(--muted-foreground))"
+              strokeDasharray="6 4"
+              dot={false}
+              connectNulls
+            />
+            <Line
+              type="monotone"
+              dataKey="projectionRealistic"
+              stroke="hsl(var(--accent))"
+              strokeDasharray="6 4"
+              dot={false}
+              connectNulls
+            />
+            <Line
+              type="monotone"
+              dataKey="projectionAggressive"
+              stroke="hsl(var(--primary))"
+              strokeDasharray="6 4"
+              dot={false}
+              connectNulls
+            />
+            {targetScore != null ? (
+              <ReferenceLine
+                y={targetScore}
+                stroke="hsl(var(--destructive))"
+                strokeDasharray="4 4"
+              />
+            ) : null}
+            {testDate ? (
+              <ReferenceLine
+                x={testDate}
+                stroke="hsl(var(--muted-foreground))"
+                strokeDasharray="4 4"
+              />
+            ) : null}
+          </>
+        ) : null}
         <Line
           type="monotone"
           dataKey="value"

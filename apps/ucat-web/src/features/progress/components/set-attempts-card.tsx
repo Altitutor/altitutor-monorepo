@@ -26,6 +26,7 @@ import {
   filterByTimeFrame,
   type SharedDateRange,
 } from "../lib/progress-data-utils";
+import { useStudyPlannerProjection } from "@/features/study-planner/hooks/use-study-planner-projection";
 import type { SetAttemptRow } from "@/app/api/ucat/progress/route";
 import {
   UCAT_CARD_CHROME,
@@ -75,6 +76,7 @@ export function SetAttemptsCard({
   const [graphType, setGraphType] = useState<"line" | "bar">("line");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const projectionQuery = useStudyPlannerProjection(sectionNumber != null);
 
   const standaloneAttempts = useMemo(() => {
     const result = attempts.filter((a) => !a.studentUcatMockAttemptId);
@@ -120,6 +122,32 @@ export function SetAttemptsCard({
 
   const attemptsTableTitleId = useId();
 
+  const sectionProjection = useMemo(() => {
+    if (!projectionQuery.data || sectionNumber == null) return null;
+    return (
+      projectionQuery.data.sections.find((s) => s.sectionNumber === sectionNumber) ??
+      null
+    );
+  }, [projectionQuery.data, sectionNumber]);
+
+  const graphProjection = useMemo(() => {
+    if (!sectionProjection) return undefined;
+    return {
+      conservative: sectionProjection.projection.map((p) => ({
+        date: p.date,
+        value: p.conservative,
+      })),
+      realistic: sectionProjection.projection.map((p) => ({
+        date: p.date,
+        value: p.realistic,
+      })),
+      aggressive: sectionProjection.projection.map((p) => ({
+        date: p.date,
+        value: p.aggressive,
+      })),
+    };
+  }, [sectionProjection]);
+
   return (
     <>
       <Card className={UCAT_CARD_CHROME}>
@@ -146,6 +174,17 @@ export function SetAttemptsCard({
             type={graphType}
             dataType={graphDataType}
             dateRangeLabel={dateRangeLabel}
+            projection={
+              graphDataType === "scaled_score" && graphType === "line"
+                ? graphProjection
+                : undefined
+            }
+            targetScore={
+              graphDataType === "scaled_score"
+                ? sectionProjection?.target?.score
+                : undefined
+            }
+            testDate={projectionQuery.data?.testDate ?? undefined}
           />
         </CardContent>
       </Card>

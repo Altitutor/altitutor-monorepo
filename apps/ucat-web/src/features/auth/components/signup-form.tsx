@@ -186,23 +186,6 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
             <p className={cn("auth-entrance text-muted-foreground", typo.secondarySans)}>
               We&apos;ve sent a confirmation email to{" "}
             </p>
-            <p
-              className={cn(
-                "auth-entrance mt-4 text-sm text-muted-foreground",
-                typo.secondarySans,
-              )}
-            >
-              Didn&apos;t receive it? Check your spam folder or{" "}
-              <button
-                type="button"
-                onClick={() => setFormState("idle")}
-                className="text-primary underline underline-offset-2 transition-colors hover:text-foreground"
-              >
-                try again
-              </button>
-              .
-            </p>
-
             <form
               onSubmit={onVerifyOtp}
               className={cn(
@@ -243,6 +226,22 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                 {otpSubmitting ? "Verifying…" : "Continue with code"}
               </button>
             </form>
+            <p
+              className={cn(
+                "auth-entrance mt-4 text-sm text-muted-foreground",
+                typo.secondarySans,
+              )}
+            >
+              Didn&apos;t receive it? Check your spam folder or{" "}
+              <button
+                type="button"
+                onClick={() => setFormState("idle")}
+                className="text-primary underline underline-offset-2 transition-colors hover:text-foreground"
+              >
+                try again
+              </button>
+              .
+            </p>
           </div>
         ) : (
           <div className="w-full max-w-md">

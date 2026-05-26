@@ -21,6 +21,12 @@ const LINKS = [
     description: "Email, your name, and password.",
     icon: User,
   },
+  {
+    href: "/settings/study-planner",
+    label: "Study planner",
+    description: "Test date and per-section target scores.",
+    icon: Monitor,
+  },
 ] as const;
 
 export function SettingsHubPage() {
