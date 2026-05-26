@@ -4,7 +4,16 @@
   "private": true,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
-  "sideEffects": false,
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./styles/native-datetime-input.css": "./src/styles/native-datetime-input.css"
+  },
+  "sideEffects": [
+    "*.css"
+  ],
   "peerDependencies": {
     "react": "^18",
     "react-dom": "^18"

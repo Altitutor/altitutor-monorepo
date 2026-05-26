@@ -1,0 +1,32 @@
+/*
+ * Native date/time inputs use WebKit internals with a large intrinsic min-width on iOS Safari,
+ * which overflows narrow containers (modals, grids). Applied globally in each web app globals.css.
+ */
+input[type='date'],
+input[type='time'],
+input[type='datetime-local'] {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+input[type='date']::-webkit-date-and-time-value,
+input[type='time']::-webkit-date-and-time-value,
+input[type='datetime-local']::-webkit-date-and-time-value {
+  text-align: left;
+  min-width: 0;
+}
+
+input[type='date']::-webkit-datetime-edit,
+input[type='time']::-webkit-datetime-edit,
+input[type='datetime-local']::-webkit-datetime-edit {
+  display: flex;
+  min-width: 0;
+  overflow: hidden;
+}
+
+input[type='date']::-webkit-datetime-edit-fields-wrapper,
+input[type='time']::-webkit-datetime-edit-fields-wrapper,
+input[type='datetime-local']::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+}

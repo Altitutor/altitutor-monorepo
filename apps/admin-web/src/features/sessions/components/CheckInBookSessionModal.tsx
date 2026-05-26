@@ -234,12 +234,12 @@ export function CheckInBookSessionModal({
         <div className="flex-1 overflow-hidden min-h-0">
           <div className="h-full overflow-y-auto">
             <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
+                <div className="min-w-0 space-y-2">
                   <Label htmlFor="checkin-date">Date</Label>
                   <Input id="checkin-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
                 </div>
-                <div className="space-y-2">
+                <div className="min-w-0 space-y-2">
                   <Label htmlFor="checkin-time">Start time</Label>
                   <Input id="checkin-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
                 </div>
