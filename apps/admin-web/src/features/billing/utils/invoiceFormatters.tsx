@@ -1,6 +1,6 @@
 import { format } from 'date-fns';
 import type { ReactNode } from 'react';
-import { Badge } from '@altitutor/ui';
+import { Badge, PAID_INVOICE_BADGE_VARIANT, type InvoiceStatusBadgeVariant } from '@altitutor/ui';
 
 /**
  * Format invoice date
@@ -60,7 +60,7 @@ export function getInvoiceStatusBadge(
 ): ReactNode {
   if (!invoice) return null;
 
-  const pills: { key: string; label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }[] = [];
+  const pills: { key: string; label: string; variant: InvoiceStatusBadgeVariant }[] = [];
 
   // Simple statuses: single pill, no dates
   if (invoice.status === 'draft') {
@@ -78,7 +78,7 @@ export function getInvoiceStatusBadge(
     const paidAt = invoice.paid_at;
     if (invoice.status === 'paid' || paidAt) {
       const paidLabel = paidAt ? `Paid (${formatShortDate(paidAt)})` : 'Paid';
-      pills.push({ key: 'paid', label: paidLabel, variant: 'default' });
+      pills.push({ key: 'paid', label: paidLabel, variant: PAID_INVOICE_BADGE_VARIANT });
     }
 
     // Refunded pill: credit note with refund_amount_cents > 0 OR refunded_at
