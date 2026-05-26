@@ -138,6 +138,44 @@ derive_env_vars() {
     fi
 }
 
+# Function to derive Expo client environment variables for student-app EAS builds
+derive_expo_env_vars() {
+    local env_file=$1
+    local project_ref=""
+    local publishable_key=""
+    local student_url=""
+
+    while IFS='=' read -r key value; do
+        case "$key" in
+            SUPABASE_PROJECT_REF|SUPABASE_PROJECT_ID)
+                project_ref="$value"
+                ;;
+            SUPABASE_PUBLISHABLE_KEY)
+                publishable_key="$value"
+                ;;
+            NEXT_PUBLIC_STUDENT_URL|EXPO_PUBLIC_STUDENT_WEB_URL)
+                student_url="$value"
+                ;;
+        esac
+    done < <(parse_env_file "$env_file")
+
+    if [ -n "$project_ref" ]; then
+        echo "EXPO_PUBLIC_SUPABASE_URL=https://${project_ref}.supabase.co"
+    fi
+
+    if [ -n "$publishable_key" ]; then
+        echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${publishable_key}"
+    fi
+
+    if [ -n "$student_url" ]; then
+        echo "EXPO_PUBLIC_STUDENT_WEB_URL=${student_url}"
+    elif [[ "$env_file" == *production* ]]; then
+        echo "EXPO_PUBLIC_STUDENT_WEB_URL=https://student.altitutor.com"
+    else
+        echo "EXPO_PUBLIC_STUDENT_WEB_URL=https://student.development.altitutor.com"
+    fi
+}
+
 # Function to get a specific env var value from a file
 get_env_value() {
     local env_file=$1

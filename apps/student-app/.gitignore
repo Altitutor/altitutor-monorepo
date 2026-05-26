@@ -33,6 +33,12 @@ yarn-error.*
 # local env files
 .env*.local
 
+# EAS / signing credentials (local only)
+credentials.json
+credentials/*
+!credentials/.gitkeep
+!credentials/README.md
+
 # typescript
 *.tsbuildinfo
 

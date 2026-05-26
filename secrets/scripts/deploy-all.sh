@@ -2,7 +2,7 @@
 
 # ============================================================
 # Master Secret Deployment Script
-# Orchestrates deployment to GitHub, Vercel, and Supabase
+# Orchestrates deployment to GitHub, Vercel, Supabase, and EAS (Expo)
 # ============================================================
 
 set -e
@@ -15,7 +15,7 @@ source "$SCRIPT_DIR/common.sh"
 
 echo -e "${BLUE}=======================================================${NC}"
 echo -e "${BLUE}Master Secret Deployment Script${NC}"
-echo -e "${BLUE}Deploying to: GitHub Actions, Vercel, and Supabase${NC}"
+echo -e "${BLUE}Deploying to: GitHub Actions, Vercel, Supabase, and EAS (Expo)${NC}"
 echo -e "${BLUE}=======================================================${NC}"
 echo ""
 
@@ -30,13 +30,15 @@ VERCEL_SUCCESS=0
 VERCEL_FAILURES=0
 SUPABASE_SUCCESS=0
 SUPABASE_FAILURES=0
+EAS_SUCCESS=0
+EAS_FAILURES=0
 
 # ============================================================
 # 1. Deploy to GitHub Actions
 # ============================================================
 
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Step 1/3: GitHub Actions Deployment                 ║${NC}"
+echo -e "${BLUE}║  Step 1/4: GitHub Actions Deployment                 ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -64,7 +66,7 @@ echo ""
 # ============================================================
 
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Step 2/3: Vercel Deployment                         ║${NC}"
+echo -e "${BLUE}║  Step 2/4: Vercel Deployment                         ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -92,7 +94,7 @@ echo ""
 # ============================================================
 
 echo -e "${BLUE}╔═══════════════════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Step 3/3: Supabase Edge Functions Deployment        ║${NC}"
+echo -e "${BLUE}║  Step 3/4: Supabase Edge Functions Deployment        ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -102,6 +104,29 @@ if bash "$SCRIPT_DIR/deploy-supabase.sh"; then
 else
     echo -e "${RED}✗ Supabase deployment had failures${NC}"
     SUPABASE_FAILURES=$FAILURE_COUNT
+    OVERALL_FAILURES=$((OVERALL_FAILURES + FAILURE_COUNT))
+fi
+
+OVERALL_SUCCESS=$((OVERALL_SUCCESS + SUCCESS_COUNT))
+
+echo ""
+echo ""
+
+# ============================================================
+# 4. Deploy to EAS (Expo student-app)
+# ============================================================
+
+echo -e "${BLUE}╔═══════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║  Step 4/4: EAS (Expo) Deployment                     ║${NC}"
+echo -e "${BLUE}╚═══════════════════════════════════════════════════════╝${NC}"
+echo ""
+
+if bash "$SCRIPT_DIR/deploy-eas.sh"; then
+    echo -e "${GREEN}✓ EAS deployment completed successfully${NC}"
+    EAS_SUCCESS=$SUCCESS_COUNT
+else
+    echo -e "${RED}✗ EAS deployment had failures${NC}"
+    EAS_FAILURES=$FAILURE_COUNT
     OVERALL_FAILURES=$((OVERALL_FAILURES + FAILURE_COUNT))
 fi
 
@@ -123,6 +148,7 @@ echo -e "${YELLOW}Breakdown by Platform:${NC}"
 echo -e "  GitHub Actions:      ${GREEN}${GITHUB_SUCCESS:-0} successful${NC} / ${RED}${GITHUB_FAILURES:-0} failed${NC}"
 echo -e "  Vercel:              ${GREEN}${VERCEL_SUCCESS:-0} successful${NC} / ${RED}${VERCEL_FAILURES:-0} failed${NC}"
 echo -e "  Supabase:            ${GREEN}${SUPABASE_SUCCESS:-0} successful${NC} / ${RED}${SUPABASE_FAILURES:-0} failed${NC}"
+echo -e "  EAS (Expo):          ${GREEN}${EAS_SUCCESS:-0} successful${NC} / ${RED}${EAS_FAILURES:-0} failed${NC}"
 echo ""
 
 echo -e "${YELLOW}Overall Total:${NC}"

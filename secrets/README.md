@@ -1,6 +1,6 @@
 # Secrets Management
 
-Centralized secrets management for the Altitutor monorepo. This directory contains environment-specific secrets and deployment scripts to sync them across GitHub Actions, Vercel, and Supabase.
+Centralized secrets management for the Altitutor monorepo. This directory contains environment-specific secrets and deployment scripts to sync them across GitHub Actions, Vercel, Supabase, and EAS (Expo).
 
 ## 🔐 Security Notice
 
@@ -28,6 +28,7 @@ secrets/
     ├── deploy-all.sh            # Master deployment script (runs all below)
     ├── deploy-github.sh         # Deploy to GitHub Actions
     ├── deploy-vercel.sh         # Deploy to Vercel projects
+    ├── deploy-eas.sh            # Deploy to EAS (student-app)
     └── deploy-supabase.sh       # Deploy to Supabase edge functions
 ```
 
@@ -66,6 +67,10 @@ vercel login
 brew install supabase/tap/supabase
 supabase login
 
+# EAS CLI (for Expo student-app environment variables)
+npm install -g eas-cli
+eas login
+
 # jq (JSON processor, required by Vercel script)
 brew install jq
 ```
@@ -96,6 +101,7 @@ cd secrets/scripts
 # Or deploy individually:
 ./deploy-github.sh     # GitHub Actions only
 ./deploy-vercel.sh     # Vercel only
+./deploy-eas.sh        # EAS (Expo student-app) only
 ./deploy-supabase.sh   # Supabase only
 ```
 
@@ -109,6 +115,7 @@ Secrets used across **all environments** (dev and prod). Use sparingly.
 - Service credentials shared across environments
 - Non-environment-specific configuration
 - `VERCEL_TOKEN` - Vercel API token for deployment scripts (optional, can also be set as environment variable)
+- `EXPO_TOKEN` - Expo access token for EAS deployment scripts (optional, can also use `eas login`)
 - `SUPABASE_ACCESS_TOKEN` - Supabase Management API access token
 - `RESEND_API_KEY` - Resend API key for SMTP email sending (required for Supabase Auth SMTP)
 
@@ -161,6 +168,28 @@ Secrets for **production environment**.
 - `altitutor-tutor-web` (apps/tutor-web)
 
 **Why:** Vercel needs client-side environment variables at build time. Only `NEXT_PUBLIC_*` variables are exposed to the browser.
+
+### EAS (Expo student-app)
+- **Development + preview environments**: Client-side `EXPO_PUBLIC_*` vars derived from `.env.development`
+- **Production environment**: Client-side `EXPO_PUBLIC_*` vars derived from `.env.production`
+
+**App deployed:**
+- `student-app` (apps/student-app)
+
+**Variables deployed:**
+- `EXPO_PUBLIC_SUPABASE_URL` (derived from `SUPABASE_PROJECT_REF`)
+- `EXPO_PUBLIC_SUPABASE_ANON_KEY` (derived from `SUPABASE_PUBLISHABLE_KEY`)
+- `EXPO_PUBLIC_STUDENT_WEB_URL` (from `NEXT_PUBLIC_STUDENT_URL` / `EXPO_PUBLIC_STUDENT_WEB_URL`, or defaults)
+
+**EAS environment mapping:**
+- `.env.development` → EAS `development` + `preview` (matches `eas.json` development/preview build profiles)
+- `.env.production` → EAS `production` (matches `eas.json` production build profile)
+
+**Not deployed via this script (managed in EAS dashboard):**
+- iOS distribution certificates and provisioning profiles
+- App Store Connect API key (`.p8`)
+
+**Why:** EAS needs client-side environment variables at native build time. These mirror the values used by `student-web` on Vercel.
 
 ### Supabase Edge Functions
 - **Development**: Secrets needed by edge functions from `.env.shared` and `.env.development`
@@ -235,6 +264,15 @@ if [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
 fi
 ```
 
+### EAS (`deploy-eas.sh`)
+```bash
+# Only includes EXPO_PUBLIC_* variables (client-side/build-time vars for native app)
+# Derived from SUPABASE_PROJECT_REF, SUPABASE_PUBLISHABLE_KEY, and student web URL
+if [[ "$key" =~ ^EXPO_PUBLIC_ ]]; then
+    deploy_eas_environment "$eas_environment" "$source_env"
+fi
+```
+
 ### Supabase (`deploy-supabase.sh`)
 ```bash
 # Only includes API keys/secrets actually used by edge functions
@@ -268,6 +306,14 @@ vercel env ls --project altitutor-student-web
 vercel env ls --project altitutor-tutor-web
 ```
 
+### EAS
+```bash
+cd apps/student-app
+eas env:list --environment development
+eas env:list --environment preview
+eas env:list --environment production
+```
+
 ### Supabase
 ```bash
 supabase secrets list --project-ref <your-dev-project-ref>
@@ -280,6 +326,7 @@ supabase secrets list --project-ref <your-prod-project-ref>
 Install the missing CLI tool:
 - `gh`: `brew install gh`
 - `vercel`: `npm install -g vercel`
+- `eas`: `npm install -g eas-cli`
 - `supabase`: `brew install supabase/tap/supabase`
 - `jq`: `brew install jq`
 
@@ -287,6 +334,7 @@ Install the missing CLI tool:
 Log in to each service:
 - `gh auth login`
 - `vercel login`
+- `eas login`
 - `supabase login`
 
 ### "Project not found" (Vercel)
@@ -298,6 +346,10 @@ Log in to each service:
 - Run `vercel login` and authenticate (if CLI auth is working)
 - Alternatively, set `VERCEL_TOKEN` environment variable with your token
 - Or add `VERCEL_TOKEN=your_token_here` to `.env.shared` (recommended for deployment scripts)
+
+### "No auth token" (EAS)
+- Run `eas login` and authenticate
+- Or add `EXPO_TOKEN=your_token_here` to `.env.shared` (create at expo.dev → Account Settings → Access Tokens)
 
 ### Secrets not updating
 - Vercel and GitHub cache secrets. Redeploy or restart to see changes.
