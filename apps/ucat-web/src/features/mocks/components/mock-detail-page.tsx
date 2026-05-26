@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useId, useMemo } from "react";
-import { NotebookText } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import type {
   MockAttemptSectionScore,

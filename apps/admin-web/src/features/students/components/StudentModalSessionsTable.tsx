@@ -87,7 +87,6 @@ export function StudentModalSessionsTable({
     refetch,
     formatDate,
     getTimeRange,
-    getClassDisplayName,
     getClassShortDisplayName,
   } = useSessionsTable({
     studentId,

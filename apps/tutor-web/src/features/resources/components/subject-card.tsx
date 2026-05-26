@@ -69,7 +69,7 @@ export function SubjectCard({ subject, href }: { subject: ResourceSubject; href:
     return () => {
       cancelled = true;
     };
-  }, [subject.image?.bucket, subject.image?.storage_path]);
+  }, [subject.image]);
 
   const showSkeleton = isSigningUrl || Boolean(signedImageUrl && !imageLoaded);
   const showPlaceholder = !signedImageUrl && !isSigningUrl;

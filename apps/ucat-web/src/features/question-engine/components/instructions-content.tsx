@@ -1,7 +1,7 @@
 "use client";
 
 import { RichTextEditor } from "@altitutor/ui";
-import { UCAT_FONTS } from "@altitutor/ui/src/components/ucat/ucat-theme";
+import { UCAT_FONTS } from "@altitutor/ui/components/ucat/ucat-theme";
 import type { InstructionsScreen } from "@/features/question-engine/model/types";
 
 export function InstructionsContent({

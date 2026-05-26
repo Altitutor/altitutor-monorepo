@@ -1,7 +1,7 @@
 'use client'
 
 import { useId, useState, type DragEventHandler, type ReactNode } from 'react'
-import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
+import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 import { UcatRichContentBlock } from '@/features/ucat/question-engine-preview/UcatRichContentBlock'
 
 const EXPLANATION_MUTED_STYLE = { color: '#5a6c7d' } as const

@@ -3,7 +3,7 @@
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import type { Json } from '@altitutor/shared'
 import { Button, Label, RadioGroup, RadioGroupItem } from '@altitutor/ui'
-import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
+import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 

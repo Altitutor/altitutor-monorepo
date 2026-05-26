@@ -113,7 +113,7 @@ export function SessionsTableRow({
   allSessions,
   formatDate,
   getTimeRange,
-  getClassDisplayName,
+  getClassDisplayName: _getClassDisplayName,
   getClassShortDisplayName,
   onOpenSession,
   onOpenStudent,

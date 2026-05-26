@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useId, useMemo } from "react";
-import { ListChecks } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
 import {

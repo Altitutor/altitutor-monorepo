@@ -7,7 +7,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import { UCAT_FONTS } from "@altitutor/ui/src/components/ucat/ucat-theme";
+import { UCAT_FONTS } from "@altitutor/ui/components/ucat/ucat-theme";
 import type {
   QuestionEngineExam,
   QuestionItem,

@@ -88,7 +88,6 @@ export function StaffModalSessionsTable({
     refetch,
     formatDate,
     getTimeRange,
-    getClassDisplayName,
     getClassShortDisplayName,
   } = useSessionsTable({
     staffId,

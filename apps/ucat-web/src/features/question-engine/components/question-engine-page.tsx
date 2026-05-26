@@ -19,7 +19,7 @@ import {
   UcatExamShell,
   useToast,
 } from "@altitutor/ui";
-import { UCAT_COLORS } from "@altitutor/ui/src/components/ucat/ucat-theme";
+import { UCAT_COLORS } from "@altitutor/ui/components/ucat/ucat-theme";
 import { useQuestionEngineData } from "@/features/question-engine/hooks/use-question-engine-data";
 import { useQuestionEngineState } from "@/features/question-engine/hooks/use-question-engine-state";
 import { useUcatLag } from "@/features/question-engine/context/ucat-lag-context";
