@@ -12,6 +12,19 @@ type TargetScoresInput = {
   s3?: number | null;
 };
 
+type PostgrestLikeError = {
+  message?: string;
+  code?: string;
+};
+
+function isMissingStudyPlannerColumnError(error: PostgrestLikeError): boolean {
+  const message = error.message ?? "";
+  return (
+    message.includes("Could not find the 'ucat_target_score_s1' column") ||
+    message.includes("Could not find the 'ucat_test_date' column")
+  );
+}
+
 function isValidScore(value: unknown): value is number {
   return (
     typeof value === "number" &&
@@ -81,7 +94,10 @@ export async function GET() {
 
   const studentId = await resolveStudentId(user.id);
   if (!studentId) {
-    return NextResponse.json({ error: "No student profile found" }, { status: 404 });
+    return NextResponse.json<StudyPlannerSettings>({
+      testDate: null,
+      targetScores: { s1: null, s2: null, s3: null },
+    });
   }
 
   const { data, error } = await supabaseAdmin
@@ -93,6 +109,12 @@ export async function GET() {
     .maybeSingle();
 
   if (error) {
+    if (isMissingStudyPlannerColumnError(error)) {
+      return NextResponse.json<StudyPlannerSettings>({
+        testDate: null,
+        targetScores: { s1: null, s2: null, s3: null },
+      });
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
@@ -167,7 +189,10 @@ export async function PATCH(request: NextRequest) {
 
   const studentId = await resolveStudentId(user.id);
   if (!studentId) {
-    return NextResponse.json({ error: "No student profile found" }, { status: 404 });
+    return NextResponse.json(
+      { warning: "No student profile found; settings update skipped" },
+      { status: 200 },
+    );
   }
 
   const updates: Record<string, string | number | null> = {
@@ -184,6 +209,15 @@ export async function PATCH(request: NextRequest) {
     .eq("id", studentId);
 
   if (error) {
+    if (isMissingStudyPlannerColumnError(error)) {
+      return NextResponse.json(
+        {
+          warning:
+            "Study planner columns not available yet; migration likely pending",
+        },
+        { status: 200 },
+      );
+    }
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

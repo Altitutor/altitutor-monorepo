@@ -51,6 +51,27 @@ type ModelConfigRow = {
   p0: number | null;
 };
 
+type PostgrestLikeError = {
+  message?: string;
+  code?: string;
+};
+
+function isMissingStudyPlannerColumnError(error: PostgrestLikeError): boolean {
+  const message = error.message ?? "";
+  return (
+    message.includes("Could not find the 'ucat_target_score_s1' column") ||
+    message.includes("Could not find the 'ucat_test_date' column")
+  );
+}
+
+function isMissingModelConfigTableError(error: PostgrestLikeError): boolean {
+  const message = error.message ?? "";
+  return (
+    message.includes("relation \"public.ucat_model_config\" does not exist") ||
+    message.includes("Could not find the table 'ucat_model_config'")
+  );
+}
+
 function asIsoDate(value: string | null): string | null {
   if (!value) return null;
   const d = new Date(value);
@@ -88,14 +109,33 @@ function toConfidence(observationCount: number): "low" | "medium" | "high" {
 
 async function resolveStudent(userId: string): Promise<StudentSettingsRow | null> {
   if (!supabaseAdmin) return null;
+  const { data: idData, error: idError } = await supabaseAdmin
+    .from("students")
+    .select("id")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (idError || !idData?.id) return null;
+
   const { data, error } = await supabaseAdmin
     .from("students")
     .select(
       "id, ucat_test_date, ucat_target_score_s1, ucat_target_score_s2, ucat_target_score_s3",
     )
-    .eq("user_id", userId)
+    .eq("id", idData.id)
     .maybeSingle();
-  if (error || !data) return null;
+  if (error) {
+    if (isMissingStudyPlannerColumnError(error)) {
+      return {
+        id: idData.id,
+        ucat_test_date: null,
+        ucat_target_score_s1: null,
+        ucat_target_score_s2: null,
+        ucat_target_score_s3: null,
+      };
+    }
+    return null;
+  }
+  if (!data) return null;
   return data as StudentSettingsRow;
 }
 
@@ -115,7 +155,10 @@ export async function GET() {
 
   const student = await resolveStudent(user.id);
   if (!student) {
-    return NextResponse.json({ error: "No student profile found" }, { status: 404 });
+    return NextResponse.json<StudyPlannerProjectionResponse>({
+      sections: [],
+      testDate: null,
+    });
   }
 
   const [sectionsRes, setAttemptsRes, questionAttemptsRes] = await Promise.all([
@@ -199,7 +242,12 @@ export async function GET() {
     .select("section_id, k_prior, s_inf_uplift, r_noise, p0");
 
   if (modelConfigRes.error) {
-    return NextResponse.json({ error: modelConfigRes.error.message }, { status: 500 });
+    if (!isMissingModelConfigTableError(modelConfigRes.error)) {
+      return NextResponse.json(
+        { error: modelConfigRes.error.message },
+        { status: 500 },
+      );
+    }
   }
 
   const configBySectionId = new Map(

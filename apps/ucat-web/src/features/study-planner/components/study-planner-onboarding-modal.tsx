@@ -46,7 +46,8 @@ export function StudyPlannerOnboardingModal() {
   const sections = useSections();
 
   const isCompleted = progress.isCompleted(UCAT_STUDY_PLANNER_ONBOARDING_TOUR_ID);
-  const open = !progress.isLoading && !isCompleted;
+  const open =
+    !progress.isLoading && !isCompleted && !settings.isError && !sections.isError;
 
   const sectionNames = useMemo(() => {
     const byNumber = new Map<number, string>();
