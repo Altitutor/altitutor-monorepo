@@ -38,6 +38,8 @@ import { useContentEditableField } from '@/features/tasks/hooks/useContentEditab
 import { useSidebarWidth } from '../hooks/useSidebarWidth';
 import { NoteAutoSaveBridge } from '../hooks/useNoteAutoSave';
 import { DOCUMENT_NOTE_MENTION_TYPES } from '../constants/documentEditorMentions';
+import { DOCUMENT_TITLE_FIELD_CLASS } from '../constants/documentTitle';
+import { useFitDocumentTitle } from '../hooks/useFitDocumentTitle';
 import type { NoteFormData } from '../types';
 import type { Resolver } from 'react-hook-form';
 import { Check, CloudOff, MoreVertical, Trash2 } from 'lucide-react';
@@ -161,11 +163,14 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
     }
   }, [note, noteId, deleteNote, router]);
 
+  const titleText = form.watch('title');
+  useFitDocumentTitle(titleFieldRef, titleText);
+
   const {
     ref: titleRef,
     handleBlur: handleTitleBlurBase,
     handleInput: handleTitleInput,
-  } = useContentEditableField(form, 'title', form.watch('title'));
+  } = useContentEditableField(form, 'title', titleText);
 
   const handleTitleBlur = useCallback((e: React.FocusEvent<HTMLDivElement>) => {
     handleTitleBlurBase(e);
@@ -296,7 +301,7 @@ export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
                           onInput={handleTitleInput}
                           onKeyDown={handleTitleKeyDown}
                           data-placeholder="Untitled"
-                          className="text-4xl font-semibold tracking-tight leading-tight outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[44px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground max-md:whitespace-normal max-md:break-words md:whitespace-nowrap md:overflow-hidden"
+                          className={`${DOCUMENT_TITLE_FIELD_CLASS} outline-none focus:outline-none focus:ring-0 border-none p-0 min-h-[44px] empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground max-md:whitespace-normal max-md:break-words md:whitespace-nowrap`}
                           suppressContentEditableWarning
                         />
                       </FormControl>
