@@ -17,6 +17,8 @@ type SectionProgressCardsProps = {
   sections: SectionProgress[];
   /** When true, cards link to section detail page */
   linkToSection?: boolean;
+  /** Base path for section links (default: /progress/sections) */
+  sectionHrefPrefix?: string;
   mode: ProgressMode;
   timeFrameDays: string;
 };
@@ -24,6 +26,7 @@ type SectionProgressCardsProps = {
 export function SectionProgressCards({
   sections,
   linkToSection = false,
+  sectionHrefPrefix = "/progress/sections",
   mode,
   timeFrameDays: _timeFrameDays,
 }: SectionProgressCardsProps) {
@@ -101,7 +104,7 @@ export function SectionProgressCards({
           return linkToSection ? (
             <Link
               key={section.sectionId}
-              href={`/progress/sections/${section.sectionNumber}`}
+              href={`${sectionHrefPrefix}/${section.sectionNumber}`}
               className="group block"
               aria-label={`View ${section.sectionName} section progress`}
             >

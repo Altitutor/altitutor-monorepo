@@ -31,13 +31,18 @@ import type {
 
 type SectionProgressPageProps = {
   sectionNumber: number;
+  /** When true, only mock set attempts are included and UI reflects mocks-only context */
+  mocksOnly?: boolean;
 };
 
 export function SectionProgressPage({
   sectionNumber,
+  mocksOnly = false,
 }: SectionProgressPageProps) {
   const { data, isLoading, error } = useProgress();
   const progressMode = useProgressMode();
+  const backHref = mocksOnly ? "/progress/mocks" : "/progress";
+  const backLabel = mocksOnly ? "Back to mock progress" : "Back to progress";
 
   const sectionId = useMemo(() => {
     if (!data) return null;
@@ -49,8 +54,9 @@ export function SectionProgressPage({
 
   const filteredData = useMemo(() => {
     if (!data) return null;
-    return applyAttemptFilterToProgress(data, progressMode.attemptFilter);
-  }, [data, progressMode.attemptFilter]);
+    const filter = mocksOnly ? "mocks_only" : progressMode.attemptFilter;
+    return applyAttemptFilterToProgress(data, filter);
+  }, [data, progressMode.attemptFilter, mocksOnly]);
 
   const {
     section,
@@ -133,8 +139,8 @@ export function SectionProgressPage({
       <div className="space-y-6">
         <UcatPageHeader
           title="Loading..."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <div className="animate-pulse space-y-6">
           <div className="h-48 rounded-lg bg-muted" />
@@ -148,10 +154,10 @@ export function SectionProgressPage({
     return (
       <div className="space-y-6">
         <UcatPageHeader
-          title="Progress"
+          title={mocksOnly ? "Mock progress" : "Progress"}
           description="Could not load your progress."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <p className="text-sm text-destructive">{error.message}</p>
       </div>
@@ -162,10 +168,10 @@ export function SectionProgressPage({
     return (
       <div className="space-y-6">
         <UcatPageHeader
-          title="Progress"
+          title={mocksOnly ? "Mock progress" : "Progress"}
           description="No progress data available."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
       </div>
     );
@@ -177,8 +183,8 @@ export function SectionProgressPage({
         <UcatPageHeader
           title="Section not found"
           description="This section could not be found."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
       </div>
     );
@@ -214,6 +220,9 @@ export function SectionProgressPage({
       categoryProgress={categoryProgress}
       progressMode={progressMode}
       sharedDateRange={sharedDateRange}
+      mocksOnly={mocksOnly}
+      backHref={backHref}
+      backLabel={backLabel}
     />
   );
 }
@@ -231,6 +240,9 @@ function SectionProgressContent({
   categoryProgress,
   progressMode,
   sharedDateRange,
+  mocksOnly,
+  backHref,
+  backLabel,
 }: {
   section: { sectionId: string; sectionName: string; sectionNumber: number };
   score: number | null;
@@ -244,6 +256,9 @@ function SectionProgressContent({
   categoryProgress: SectionCategoryProgress[];
   progressMode: ReturnType<typeof useProgressMode>;
   sharedDateRange?: ReturnType<typeof getSharedDateRange>;
+  mocksOnly: boolean;
+  backHref: string;
+  backLabel: string;
 }) {
   const stats = useMemo(() => {
     const timeFiltered =
@@ -302,11 +317,23 @@ function SectionProgressContent({
   return (
     <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
       <UcatPageHeader
-        title={section.sectionName}
-        description={`Progress for ${section.sectionName}`}
-        backHref="/progress"
-        backLabel="Back to progress"
-        breadcrumbOverrides={{ 2: section.sectionName }}
+        title={
+          mocksOnly
+            ? `${section.sectionName} (mocks only)`
+            : section.sectionName
+        }
+        description={
+          mocksOnly
+            ? `Mock exam progress for ${section.sectionName}`
+            : `Progress for ${section.sectionName}`
+        }
+        backHref={backHref}
+        backLabel={backLabel}
+        breadcrumbOverrides={
+          mocksOnly
+            ? { 3: section.sectionName }
+            : { 2: section.sectionName }
+        }
       />
 
       <div className="flex flex-col gap-4">
@@ -582,6 +609,7 @@ function SectionProgressContent({
         onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
         attemptFilter={progressMode.attemptFilter}
         onAttemptFilterChange={progressMode.onAttemptFilterChange}
+        showAttemptFilter={!mocksOnly}
       />
     </div>
   );

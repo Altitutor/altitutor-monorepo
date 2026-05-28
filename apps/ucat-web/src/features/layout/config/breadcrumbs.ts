@@ -99,7 +99,11 @@ function isValidPagePath(path: string): boolean {
         (segments[0] === "sets" &&
           segments[1] === "sections" &&
           /^[1-4]$/.test(segments[2]) &&
-          isDynamicSegment(segments[3]))
+          isDynamicSegment(segments[3])) ||
+        (segments[0] === "progress" &&
+          segments[1] === "mocks" &&
+          segments[2] === "sections" &&
+          /^[1-4]$/.test(segments[3]))
       );
     case 5:
       return (
@@ -165,6 +169,17 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
 
     // For /sets/sections/[1-4] or /progress/sections/[1-4], show section name (e.g. "Verbal Reasoning") instead of "Section"
     if (segments[1] === "sections" && i === 2 && /^[1-4]$/.test(segment)) {
+      label = SECTION_NUMBER_TO_NAME[parseInt(segment, 10)] ?? label;
+    }
+
+    // For /progress/mocks/sections/[1-4], show section name on the section number segment
+    if (
+      segments[0] === "progress" &&
+      segments[1] === "mocks" &&
+      segments[2] === "sections" &&
+      i === 3 &&
+      /^[1-4]$/.test(segment)
+    ) {
       label = SECTION_NUMBER_TO_NAME[parseInt(segment, 10)] ?? label;
     }
 

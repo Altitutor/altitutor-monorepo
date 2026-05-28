@@ -60,13 +60,6 @@ export function MocksProgressPage() {
     return Math.round(sum / withScore.length);
   }, [filteredMockAttempts]);
 
-  const mocksCompleted = useMemo(() => {
-    const uniqueMockIds = new Set(
-      filteredMockAttempts.map((a) => a.ucatMockId),
-    );
-    return uniqueMockIds.size;
-  }, [filteredMockAttempts]);
-
   if (isLoading) {
     return (
       <div className="space-y-6">
@@ -117,7 +110,7 @@ export function MocksProgressPage() {
         description="Track your performance across mock exams."
       />
 
-      <div className="flex flex-wrap justify-center gap-4">
+      <div className="flex justify-center">
         <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
           <CardHeader className="pb-2">
             <CardTitle className="text-base font-medium text-center">
@@ -126,9 +119,10 @@ export function MocksProgressPage() {
           </CardHeader>
           <CardContent>
             <div
-              className={`text-4xl font-bold tabular-nums text-center ${
-                averageMockScore == null ? "text-muted-foreground" : ""
-              }`}
+              className={cn(
+                "text-4xl font-bold tabular-nums text-center",
+                averageMockScore == null && "text-muted-foreground",
+              )}
             >
               {averageMockScore != null ? (
                 <AnimatedInteger value={averageMockScore} />
@@ -138,29 +132,12 @@ export function MocksProgressPage() {
             </div>
           </CardContent>
         </Card>
-        <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium text-center">
-              Mocks completed
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-bold tabular-nums text-center">
-              <AnimatedInteger value={mocksCompleted} />
-              {data.totalPublicMocks != null ? (
-                <>
-                  {" / "}
-                  <span className="tabular-nums">{data.totalPublicMocks}</span>
-                </>
-              ) : null}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <SectionProgressCards
         sections={sectionProgress}
         linkToSection
+        sectionHrefPrefix="/progress/mocks/sections"
         mode={progressMode.mode}
         timeFrameDays={progressMode.timeFrameDays}
       />

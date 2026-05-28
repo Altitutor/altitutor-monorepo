@@ -221,6 +221,9 @@ export function AppSidebar({
                               className={cn(
                                 "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
                                 pathname === "/progress/mocks" ||
+                                  pathname.startsWith(
+                                    "/progress/mocks/sections/",
+                                  ) ||
                                   pathname.startsWith("/progress/mock-attempts")
                                   ? "bg-sidebar-foreground/15 text-sidebar-foreground font-medium"
                                   : "text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground",
