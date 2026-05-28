@@ -2,16 +2,19 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import Image from 'next/image';
-import { Button } from '@altitutor/ui';
-import { Download, Loader2, Printer, Edit, X } from 'lucide-react';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
 } from '@altitutor/ui';
+import { Download, Loader2, MoreVertical, Printer, X } from 'lucide-react';
 import { getFileTypeIcon } from '@/shared/utils/file-type-icons';
 import {
   ExpandButton,
@@ -65,7 +68,7 @@ export function FilePreviewModal({
   fileCode: providedFileCode,
   displayName: providedDisplayName,
   onClose,
-  onEdit,
+  onEdit: _onEdit,
   getSignedUrlFn,
   getMetadataFn,
 }: FilePreviewModalProps) {
@@ -143,20 +146,20 @@ export function FilePreviewModal({
     file && fileType === 'VIDEO' && file.external_url
       ? parseExternalVideoEmbed(file.external_url)
       : null;
-  const editId = effectiveJunctionTableId || (topicFile && 'id' in topicFile && typeof topicFile.id === 'string' ? topicFile.id : undefined);
+  const downloadLabel = file?.external_url?.trim() ? 'Open link' : 'Download';
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
         className={cn(
-          'max-w-4xl max-h-[90vh] overflow-hidden flex flex-col [&>button]:hidden',
+          'w-full md:max-w-4xl h-[90vh] flex flex-col gap-0 p-0 overflow-hidden [&>button]:hidden',
           EXPANDABLE_DIALOG_TRANSITION,
           expanded && EXPANDED_DIALOG_CONTENT_CLASS
         )}
       >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
+        <DialogHeader className="flex-shrink-0 space-y-0 px-6 py-4 border-b">
+          <div className="flex items-center justify-between gap-4 w-full">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
               <Button
                 variant="outline"
                 size="icon"
@@ -165,41 +168,72 @@ export function FilePreviewModal({
               >
                 <X className="h-4 w-4" />
               </Button>
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <DialogTitle>
                   {fileCode && topicName ? `${fileCode} ${topicName}` : (displayTitle || 'File Preview')}
                 </DialogTitle>
-                <DialogDescription className="text-base">
+                <DialogDescription className="truncate" title={filename}>
                   {filename}
                 </DialogDescription>
               </div>
             </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+            <div className="flex items-center gap-2 shrink-0">
+              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="icon" className="shrink-0">
+                    <MoreVertical className="h-4 w-4" />
+                    <span className="sr-only">Actions</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {isPdf && previewUrl && (
+                    <DropdownMenuItem onClick={handlePrint}>
+                      <Printer className="h-4 w-4 mr-2" />
+                      Print
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onClick={handleDownload}
+                    disabled={downloadingFile || !file}
+                  >
+                    {downloadingFile ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Download className="h-4 w-4 mr-2" />
+                    )}
+                    {downloadLabel}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </DialogHeader>
-        
-        <div className="flex-1 overflow-auto">
+
+        <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
           {isLoading || isLoadingPreview ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex flex-1 items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : fileError ? (
-            <div className="text-center py-12 text-destructive">
+            <div className="flex flex-1 items-center justify-center text-destructive">
               {fileError.message || 'Failed to load file'}
             </div>
           ) : file ? (
             videoEmbed ? (
-              <div className="relative w-full overflow-hidden rounded-md border aspect-video max-h-[75vh] mx-auto">
-                <iframe
-                  src={videoEmbed.embedUrl}
-                  title={filename}
-                  className="absolute inset-0 h-full w-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                  allowFullScreen
-                />
+              <div className="flex flex-1 min-h-0 items-center justify-center">
+                <div className="relative h-full w-full max-h-full max-w-full overflow-hidden aspect-video">
+                  <iframe
+                    src={videoEmbed.embedUrl}
+                    title={filename}
+                    className="absolute inset-0 h-full w-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                    allowFullScreen
+                  />
+                </div>
               </div>
             ) : file.external_url?.trim() ? (
-              <div className="space-y-3 py-6 text-center">
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
                 <p className="text-sm text-muted-foreground">
                   This resource opens on an external site.
                 </p>
@@ -215,11 +249,11 @@ export function FilePreviewModal({
                   <iframe
                     ref={iframeRef}
                     src={previewUrl}
-                    className="w-full h-[70vh] border-0"
+                    className="flex-1 w-full min-h-0 border-0"
                     title={filename}
                   />
                 ) : isImage ? (
-                  <div className="relative w-full h-[70vh] flex items-center justify-center">
+                  <div className="relative flex-1 min-h-0 w-full">
                     <Image
                       src={previewUrl}
                       alt={filename}
@@ -229,59 +263,25 @@ export function FilePreviewModal({
                     />
                   </div>
                 ) : (
-                  <div className="text-center py-12">
-                    <Icon className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground mb-4">
+                  <div className="flex flex-1 flex-col items-center justify-center text-center">
+                    <Icon className="h-16 w-16 mb-4 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
                       Preview not available for this file type
                     </p>
                   </div>
                 )}
               </>
             ) : (
-              <div className="text-center py-12 text-destructive">
+              <div className="flex flex-1 items-center justify-center text-destructive">
                 Failed to load preview
               </div>
             )
           ) : (
-            <div className="text-center py-8 text-muted-foreground">File not found</div>
+            <div className="flex flex-1 items-center justify-center text-muted-foreground">
+              File not found
+            </div>
           )}
         </div>
-
-        <DialogFooter className="flex-row justify-end gap-2">
-          {isPdf && previewUrl && (
-            <Button
-              variant="outline"
-              onClick={handlePrint}
-            >
-              <Printer className="h-4 w-4 mr-2" />
-              Print
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={handleDownload}
-            disabled={downloadingFile}
-          >
-            {downloadingFile ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Download className="h-4 w-4 mr-2" />
-            )}
-            {file?.external_url?.trim() ? 'Open link' : 'Download'}
-          </Button>
-          {onEdit && editId && (
-            <Button
-              variant="outline"
-              onClick={() => {
-                onEdit(editId);
-                onClose();
-              }}
-            >
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </Button>
-          )}
-        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
