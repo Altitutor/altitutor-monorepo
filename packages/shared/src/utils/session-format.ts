@@ -2,7 +2,24 @@
  * Session display formatters shared across admin, student, and tutor apps.
  */
 
+/** Business timezone for scheduling (Adelaide). Session start_at is stored as UTC instants. */
+export const BUSINESS_TIMEZONE = 'Australia/Adelaide';
+
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+/**
+ * True when the session start time has passed (UTC instant comparison).
+ * Use this instead of calendar-day checks so logging is allowed as soon as the session starts.
+ */
+export function hasSessionStarted(
+  startAt: string | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!startAt) return false;
+  const start = new Date(startAt);
+  if (isNaN(start.getTime())) return false;
+  return start.getTime() <= now.getTime();
+}
 
 /**
  * Formats a date in the format "Friday 24/10/2025"

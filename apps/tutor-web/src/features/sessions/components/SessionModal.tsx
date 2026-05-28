@@ -22,7 +22,7 @@ import {
   TooltipTrigger,
 } from '@altitutor/ui';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
-import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
+import { formatSessionTimeRangeForDisplay, hasSessionStarted } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
@@ -130,6 +130,7 @@ export function SessionModal({
 
   const sessionTitle = getSessionTitle(session);
   const hasTutorLog = !!tutorLog;
+  const canAddTutorLog = hasSessionStarted(session.start_at);
 
   // Find the tutor log submitter name from staff data
   const tutorLogSubmitter = tutorLog?.created_by
@@ -282,7 +283,7 @@ export function SessionModal({
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Tutor Log</h3>
-                {!hasTutorLog && sessionId && currentStaffId && onLogSessionClick && (
+                {!hasTutorLog && canAddTutorLog && sessionId && currentStaffId && onLogSessionClick && (
                   <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={onLogSessionClick}>
                     Add Tutor Log
                   </Button>
@@ -322,7 +323,9 @@ export function SessionModal({
 
               {!hasTutorLog && (
                 <div className="text-center py-4 text-sm text-muted-foreground">
-                  This session has not been logged yet.
+                  {canAddTutorLog
+                    ? 'This session has not been logged yet.'
+                    : 'Tutor log will be available once this session has started.'}
                 </div>
               )}
             </div>

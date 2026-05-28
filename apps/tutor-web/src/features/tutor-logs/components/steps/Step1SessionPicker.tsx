@@ -29,7 +29,7 @@ export function Step1SessionPicker({
       <div className="text-center py-8">
         <p className="text-muted-foreground">No sessions available to log.</p>
         <p className="text-sm text-muted-foreground mt-2">
-          All past sessions have been logged or you have no sessions assigned.
+          All started sessions have been logged or you have no sessions assigned.
         </p>
       </div>
     );
@@ -38,7 +38,7 @@ export function Step1SessionPicker({
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select a session to log. Only past or current sessions are shown.
+        Select a session to log. Only sessions that have already started are shown.
       </p>
       <div className="grid gap-3">
         {sessions.map((session) => {
