@@ -1,0 +1,53 @@
+name: Supabase Types Check
+
+on:
+  pull_request:
+    paths:
+      - 'supabase/migrations/**'
+      - 'packages/shared/src/supabase/generated.ts'
+  push:
+    branches: [develop, main]
+    paths:
+      - 'supabase/migrations/**'
+      - 'packages/shared/src/supabase/generated.ts'
+  workflow_dispatch:
+
+concurrency:
+  group: supabase-types-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-types:
+    name: Verify generated.ts matches schema
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - uses: supabase/setup-cli@v1
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Start Supabase and apply migrations
+        run: |
+          supabase start
+          supabase db reset
+
+      - name: Regenerate types and fail if committed file is stale
+        run: |
+          cp packages/shared/src/supabase/generated.ts /tmp/generated.ts.before
+          pnpm db:types
+          if ! diff -q /tmp/generated.ts.before packages/shared/src/supabase/generated.ts; then
+            echo "::error::packages/shared/src/supabase/generated.ts is out of date."
+            echo "Run 'pnpm db:types' after 'supabase db reset' and commit the result with your migration."
+            diff -u /tmp/generated.ts.before packages/shared/src/supabase/generated.ts | head -80 || true
+            exit 1
+          fi
+          echo "Committed types match local schema from migrations"

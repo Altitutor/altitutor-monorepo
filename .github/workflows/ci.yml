@@ -5,6 +5,7 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
+      - 'supabase/migrations/**'
       - 'turbo.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -14,6 +15,7 @@ on:
     paths:
       - 'apps/**'
       - 'packages/**'
+      - 'supabase/migrations/**'
       - 'turbo.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
