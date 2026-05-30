@@ -7,7 +7,6 @@ import {
   Calendar,
   Home,
   BookOpen,
-  User,
   BrainCircuit,
   TrendingUp,
   ChevronDown,
@@ -54,7 +53,6 @@ const primaryNavItems: NavItem[] = [
   { title: 'Pay tier', href: '/pay-tier', icon: TrendingUp },
   { title: 'Resources', href: '/resources', icon: BookOpen },
   { type: 'dropdown', title: 'UCAT', href: '/ucat', icon: BrainCircuit, children: ucatDropdownChildren },
-  { title: 'My Profile', href: '/my-profile', icon: User },
 ];
 
 const settingsNavItem: NavLinkItem = { title: 'Settings', href: '/settings', icon: Settings };

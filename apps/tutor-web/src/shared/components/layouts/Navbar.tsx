@@ -111,7 +111,7 @@ export function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link href="/my-profile" className="flex items-center cursor-pointer">
+                  <Link href="/settings/profile" className="flex items-center cursor-pointer">
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </Link>

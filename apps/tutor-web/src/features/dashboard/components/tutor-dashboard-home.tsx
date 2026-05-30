@@ -10,7 +10,6 @@ import {
   Calendar,
   Settings,
   TrendingUp,
-  User,
   type LucideIcon,
 } from 'lucide-react';
 import { Button, Card, Skeleton } from '@altitutor/ui';
@@ -81,17 +80,10 @@ const baseQuickLinks: QuickLinkItem[] = [
   },
   {
     title: 'Settings',
-    description: 'Blockout dates and tutor preferences',
+    description: 'Profile, blockout dates, and preferences',
     href: '/settings',
     icon: Settings,
     accentClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  },
-  {
-    title: 'My profile',
-    description: 'Details, availability, and account',
-    href: '/my-profile',
-    icon: User,
-    accentClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
   },
 ];
 
