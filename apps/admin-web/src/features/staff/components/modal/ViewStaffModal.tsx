@@ -21,6 +21,7 @@ import { StaffFiles } from '../StaffFiles';
 import { useQueryClient } from '@tanstack/react-query';
 import { staffKeys } from '../../hooks/useStaffQuery';
 import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
+import { StaffPayTierTab } from './tabs/StaffPayTierTab';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components';
 import {
   AlertDialog,
@@ -312,9 +313,10 @@ export function ViewStaffModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-6">
+                  <TabsList className="grid w-full grid-cols-7">
                     <TabsTrigger value="details">Details</TabsTrigger>
                     <TabsTrigger value="classes">Classes</TabsTrigger>
+                    <TabsTrigger value="pay-tier">Pay tier</TabsTrigger>
                     <TabsTrigger value="messages">Messages</TabsTrigger>
                     <TabsTrigger value="sessions">Sessions</TabsTrigger>
                     <TabsTrigger value="files">Files</TabsTrigger>
@@ -359,6 +361,12 @@ export function ViewStaffModal({
                       staff={staffMember}
                       onStaffUpdated={onStaffUpdated}
                     />
+                  </div>
+                </TabsContent>
+
+                <TabsContent value="pay-tier" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                  <div className="p-6">
+                    {staffId && <StaffPayTierTab staffId={staffId} />}
                   </div>
                 </TabsContent>
 

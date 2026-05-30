@@ -113,6 +113,10 @@ describe('processSessionStudents', () => {
     invite_token: null,
     onboarding_progress: {},
     timezone: 'Australia/Adelaide',
+    ucat_target_score_s1: null,
+    ucat_target_score_s2: null,
+    ucat_target_score_s3: null,
+    ucat_test_date: null,
   };
 
   it('should process student with planned attendance', () => {
@@ -321,6 +325,9 @@ describe('processSessionStaff', () => {
     drafting_availability: null,
     trial_session_availability: null,
     subsidy_interview_availability: null,
+    current_tier_number: 1,
+    employment_started_at: '2024-01-01T00:00:00.000Z',
+    metric_overrides: {},
   };
 
   it('should process staff with planned attendance', () => {

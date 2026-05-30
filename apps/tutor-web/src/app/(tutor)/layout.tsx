@@ -9,6 +9,7 @@ import {
   BookOpen,
   User,
   BrainCircuit,
+  TrendingUp,
   ChevronDown,
   Settings,
 } from 'lucide-react';
@@ -50,6 +51,7 @@ const ucatDropdownChildren: NavLink[] = [
 const primaryNavItems: NavItem[] = [
   { title: 'Dashboard', href: '/dashboard', icon: Home },
   { title: 'Classes', href: '/classes', icon: Calendar },
+  { title: 'Pay tier', href: '/pay-tier', icon: TrendingUp },
   { title: 'Resources', href: '/resources', icon: BookOpen },
   { type: 'dropdown', title: 'UCAT', href: '/ucat', icon: BrainCircuit, children: ucatDropdownChildren },
   { title: 'My Profile', href: '/my-profile', icon: User },

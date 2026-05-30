@@ -89,6 +89,9 @@ describe('useNotes', () => {
           drafting_availability: null,
           trial_session_availability: null,
           subsidy_interview_availability: null,
+          current_tier_number: 1,
+          employment_started_at: '2024-01-01T00:00:00.000Z',
+          metric_overrides: {},
         },
       },
     ];

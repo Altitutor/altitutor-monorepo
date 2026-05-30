@@ -11,5 +11,6 @@ export * from "./utils/session-format";
 export * from "./external-url/embed";
 export * from "./hooks/useDebounce";
 export * from "./resources";
+export * from "./pay-tiers";
 
 

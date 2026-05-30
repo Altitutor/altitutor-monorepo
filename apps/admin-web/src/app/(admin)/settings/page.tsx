@@ -14,6 +14,7 @@ import {
   FileCheck,
   FileStack,
   GraduationCap,
+  TrendingUp,
 } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
@@ -91,6 +92,12 @@ export default function SettingsPage() {
           description: 'Manage billing pricing and subject-specific overrides',
           href: '/settings/billing',
           icon: CreditCard,
+        },
+        {
+          title: 'Pay tiers',
+          description: 'Configure staff pay tier ladder and advancement requirements',
+          href: '/pay-tiers/ladder',
+          icon: TrendingUp,
         },
         {
           title: 'Stripe Sync',
