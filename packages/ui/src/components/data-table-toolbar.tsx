@@ -12,7 +12,7 @@ import {
   Search,
   Layers,
 } from 'lucide-react';
-import {
+import type {
   DataTableState,
   QuickFilter,
   DataTableFilterDefinition,
@@ -20,8 +20,8 @@ import {
   DataTableSortOption,
   DataTableGroupByOption,
   DataTableColumnDefinition,
-  useDebounce,
 } from '@altitutor/shared';
+import { useDebounce } from '@altitutor/shared/hooks';
 import { Button } from './button';
 import { Input } from './input';
 import {

@@ -129,6 +129,7 @@ export function SessionModal({
   }
 
   const sessionTitle = getSessionTitle(session);
+  const isCheckIn = session.session_type === 'CHECK_IN';
   const hasTutorLog = !!tutorLog;
   const canAddTutorLog = hasSessionStarted(session.start_at);
 
@@ -164,25 +165,31 @@ export function SessionModal({
               <SessionInfoGrid
                 day={session.start_at ? formatSessionDate(session.start_at) : '—'}
                 time={formatSessionTimeRangeForDisplay(session, formatTime)}
-                subjectNode={
-                  subject ? (() => {
-                    const { style, textColorClass } = getSubjectColorStyle(subject);
-                    const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                    return (
-                      <Badge
-                        className={defaultClass || textColorClass}
-                        style={style.backgroundColor ? style : undefined}
-                      >
-                        {formatSubjectDisplay(subject)}
-                      </Badge>
-                    );
-                  })() : '—'
-                }
+                {...(isCheckIn
+                  ? {}
+                  : {
+                      subjectNode: subject
+                        ? (() => {
+                            const { style, textColorClass } = getSubjectColorStyle(subject);
+                            const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                            return (
+                              <Badge
+                                className={defaultClass || textColorClass}
+                                style={style.backgroundColor ? style : undefined}
+                              >
+                                {formatSubjectDisplay(subject)}
+                              </Badge>
+                            );
+                          })()
+                        : '—',
+                    })}
               />
             </div>
 
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
+            {!isCheckIn && (
+              <>
             {/* Students Section */}
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -223,6 +230,8 @@ export function SessionModal({
             </div>
 
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+              </>
+            )}
 
             {/* Staff Section */}
             <div>
@@ -241,7 +250,7 @@ export function SessionModal({
                         <TableHead>Staff</TableHead>
                         <TableHead>Planned</TableHead>
                         <TableHead>Actual</TableHead>
-                        <TableHead>Tutor Log</TableHead>
+                        {!isCheckIn && <TableHead>Tutor Log</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -259,16 +268,18 @@ export function SessionModal({
                               staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined}
                             />
                           </TableCell>
-                          <TableCell>
-                            {hasTutorLog && tutorLogSubmitter ? (
-                              <TutorLogSubmitterBadge
-                                firstName={tutorLogSubmitter.first_name ?? ''}
-                                lastName={tutorLogSubmitter.last_name ?? ''}
-                              />
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
-                          </TableCell>
+                          {!isCheckIn && (
+                            <TableCell>
+                              {hasTutorLog && tutorLogSubmitter ? (
+                                <TutorLogSubmitterBadge
+                                  firstName={tutorLogSubmitter.first_name ?? ''}
+                                  lastName={tutorLogSubmitter.last_name ?? ''}
+                                />
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -277,6 +288,8 @@ export function SessionModal({
               )}
             </div>
 
+            {!isCheckIn && (
+              <>
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
             {/* Tutor Log Section */}
@@ -331,6 +344,8 @@ export function SessionModal({
             </div>
 
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+              </>
+            )}
 
             {/* Session Notes Section */}
             {sessionId && (

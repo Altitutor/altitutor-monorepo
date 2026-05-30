@@ -56,6 +56,26 @@ export interface LastCheckInInfo {
   longName: string | null;
 }
 
+export type PayTierTierStatus = 'completed' | 'current' | 'locked';
+
+export interface PayTierTierDetail {
+  tier: StaffPayTier;
+  status: PayTierTierStatus;
+  /** Requirements on this tier to advance to the next (empty for top tier). */
+  requirementsToAdvance: RequirementProgress[];
+}
+
+export interface PayTierCheckIn {
+  sessionId: string;
+  startAt: string;
+  endAt: string | null;
+  displayName: string | null;
+  linkedPromotion: StaffTierPromotionRecord | null;
+  /** Pay tier at check-in time (admin staff view). */
+  tierAtCheckIn?: number;
+  tierName?: string | null;
+}
+
 export interface StaffTierProgress {
   staffId: string;
   currentTierNumber: number;
@@ -64,8 +84,10 @@ export interface StaffTierProgress {
   metricOverrides: Record<string, number>;
   metrics: Record<string, number>;
   tiers: StaffPayTier[];
+  tierDetails: PayTierTierDetail[];
   requirementsForNextTier: RequirementProgress[];
   isEligibleForReview: boolean;
   promotions: StaffTierPromotionRecord[];
   lastCheckIn: LastCheckInInfo | null;
+  checkIns: PayTierCheckIn[];
 }

@@ -2,6 +2,8 @@ import { evaluateRequirements, isEligibleForReview } from './evaluate';
 import { parseRequirementParams } from './evaluate';
 import type {
   LastCheckInInfo,
+  PayTierCheckIn,
+  PayTierTierDetail,
   StaffPayTier,
   StaffPayTierRequirement,
   StaffTierProgress,
@@ -24,6 +26,7 @@ export interface BuildStaffTierProgressInput {
   }>;
   promotions: StaffTierPromotionRecord[];
   lastCheckIn: LastCheckInInfo | null;
+  checkIns: PayTierCheckIn[];
 }
 
 export function buildStaffTierProgress(input: BuildStaffTierProgressInput): StaffTierProgress {
@@ -46,6 +49,40 @@ export function buildStaffTierProgress(input: BuildStaffTierProgressInput): Staf
 
   const requirementProgress = evaluateRequirements(reqsForCurrent, input.metrics);
 
+  const tierDetails = sortedTiers.map((tier) => {
+    const status: PayTierTierDetail['status'] =
+      tier.tier_number < input.currentTierNumber
+        ? 'completed'
+        : tier.tier_number === input.currentTierNumber
+          ? 'current'
+          : 'locked';
+
+    const isTopTier = tier.tier_number >= maxTier;
+    const requirementTierNumber =
+      status === 'locked' ? tier.tier_number - 1 : tier.tier_number;
+    const reqsForTier = input.requirements
+      .filter((r) => r.tier_number === requirementTierNumber)
+      .map(
+        (r): StaffPayTierRequirement => ({
+          id: r.id,
+          tier_number: r.tier_number,
+          requirement_kind: r.requirement_kind,
+          params: parseRequirementParams(r.requirement_kind, r.params),
+          sort_order: r.sort_order,
+        })
+      );
+
+    const requirementsToAdvance = isTopTier
+      ? []
+      : evaluateRequirements(reqsForTier, input.metrics);
+
+    return {
+      tier,
+      status,
+      requirementsToAdvance,
+    };
+  });
+
   return {
     staffId: input.staffId,
     currentTierNumber: input.currentTierNumber,
@@ -54,9 +91,11 @@ export function buildStaffTierProgress(input: BuildStaffTierProgressInput): Staf
     metricOverrides: input.metricOverrides,
     metrics: input.metrics,
     tiers: sortedTiers,
+    tierDetails,
     requirementsForNextTier: requirementProgress,
     isEligibleForReview: nextTierNumber !== null && isEligibleForReview(requirementProgress),
     promotions: input.promotions,
     lastCheckIn: input.lastCheckIn,
+    checkIns: input.checkIns,
   };
 }

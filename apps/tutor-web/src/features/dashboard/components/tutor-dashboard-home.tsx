@@ -9,6 +9,7 @@ import {
   BrainCircuit,
   Calendar,
   Settings,
+  TrendingUp,
   User,
   type LucideIcon,
 } from 'lucide-react';
@@ -70,6 +71,13 @@ const baseQuickLinks: QuickLinkItem[] = [
     href: '/resources',
     icon: BookOpen,
     accentClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
+  },
+  {
+    title: 'Pay tier',
+    description: 'Your pay ladder, requirements, and check-ins',
+    href: '/pay-tier',
+    icon: TrendingUp,
+    accentClass: 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
   },
   {
     title: 'Settings',

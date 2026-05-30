@@ -9,8 +9,8 @@ export * from "./types/ucat-progress";
 export * from "./utils/quick-filters";
 export * from "./utils/session-format";
 export * from "./external-url/embed";
-export * from "./hooks/useDebounce";
 export * from "./resources";
-export * from "./pay-tiers";
+// Client hooks and pay-tiers: import via subpaths `@altitutor/shared/hooks` and
+// `@altitutor/shared/pay-tiers` so server/API routes do not pull React hooks into the bundle.
 
 

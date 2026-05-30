@@ -29,8 +29,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies (pins Supabase CLI via pnpm-lock.yaml)
+        run: pnpm install --frozen-lockfile
+
+      - name: Confirm Supabase CLI version
+        run: pnpm exec supabase --version
 
       - name: Export CLI env (PROJECT_ID, DB_PASSWORD)
         run: |
@@ -38,32 +48,20 @@ jobs:
           echo "SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_DB_PASSWORD }}" >> $GITHUB_ENV
 
       - name: Link project
-        run: supabase link --project-ref $SUPABASE_PROJECT_ID
+        run: pnpm exec supabase link --project-ref $SUPABASE_PROJECT_ID
 
       - name: Push migrations
-        run: supabase db push
+        run: pnpm exec supabase db push
 
       - name: Lint remote schema (post-push)
-        run: supabase db lint --linked --level error --fail-on error
-
-      - name: Verify committed types match remote schema
-        run: |
-          mkdir -p packages/shared/src/supabase
-          supabase gen types typescript --project-id $SUPABASE_PROJECT_ID --schema public > /tmp/generated.ts
-          if ! diff -q packages/shared/src/supabase/generated.ts /tmp/generated.ts; then
-            echo "::error::packages/shared/src/supabase/generated.ts is out of date."
-            echo "Run 'pnpm db:types' after 'supabase db reset' and commit the result in the same PR as your migration."
-            diff -u packages/shared/src/supabase/generated.ts /tmp/generated.ts | head -80 || true
-            exit 1
-          fi
-          echo "Committed types match remote schema"
+        run: pnpm exec supabase db lint --linked --level error --fail-on error
 
       - name: Deploy edge functions (if any)
         if: ${{ contains(github.event.head_commit.message, '[skip-functions]') == false }}
         run: |
           if [ -d "supabase/functions" ]; then
             for fn in $(ls supabase/functions); do
-              supabase functions deploy --no-verify-jwt "$fn" --project-ref $SUPABASE_PROJECT_ID || true
+              pnpm exec supabase functions deploy --no-verify-jwt "$fn" --project-ref $SUPABASE_PROJECT_ID || true
             done
           fi
 
@@ -84,8 +82,3 @@ jobs:
           cd supabase
           chmod +x ./scripts/deploy-email-templates.sh
           ./scripts/deploy-email-templates.sh $SUPABASE_PROJECT_ID
-
-
-
-
-

@@ -1,5 +1,5 @@
-import { PayTierRoadmap } from '@/features/pay-tier/components/PayTierRoadmap';
+import { PayTierPageContent } from '@/features/pay-tier/components/PayTierPageContent';
 
 export default function PayTierPage() {
-  return <PayTierRoadmap />;
+  return <PayTierPageContent />;
 }
