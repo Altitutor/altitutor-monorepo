@@ -110,16 +110,54 @@ export function getPageStylePath(page: MarketingPage) {
 }
 
 export function getRenderableHtml(page: MarketingPage) {
-  return (page.html || `<p>${page.title}</p>`)
+  return removeElementorWidget(page.html || `<p>${page.title}</p>`, "elementor-widget-table-of-contents")
     .replaceAll("https://altitutor.com/wp-content/", "/wp-content/")
     .replaceAll("https://altitutor.com/", "/")
     .replaceAll("http://altitutor.com/", "/")
     .replaceAll("href=\"/weekly-classes/\"", "href=\"/classes/weekly-classes/\"")
     .replaceAll("href='/weekly-classes/'", "href='/classes/weekly-classes/'")
     .replace(
+      /<div class="elementor-toc__spinner-container">[\s\S]*?<\/div>/g,
+      "",
+    )
+    .replace(
       /(<span class="elementor-counter-number"[^>]*data-to-value="([^"]+)"[^>]*>)[^<]*(<\/span>)/g,
       "$1$2$3",
     );
+}
+
+function removeElementorWidget(html: string, widgetClass: string) {
+  let result = html;
+  let classIndex = result.indexOf(widgetClass);
+
+  while (classIndex !== -1) {
+    const start = result.lastIndexOf("<div", classIndex);
+    if (start === -1) break;
+
+    let depth = 0;
+    const tagPattern = /<\/?div\b[^>]*>/g;
+    tagPattern.lastIndex = start;
+
+    let end = -1;
+    let match: RegExpExecArray | null;
+    while ((match = tagPattern.exec(result)) !== null) {
+      if (match[0].startsWith("</")) {
+        depth -= 1;
+        if (depth === 0) {
+          end = tagPattern.lastIndex;
+          break;
+        }
+      } else {
+        depth += 1;
+      }
+    }
+
+    if (end === -1) break;
+    result = `${result.slice(0, start)}${result.slice(end)}`;
+    classIndex = result.indexOf(widgetClass);
+  }
+
+  return result;
 }
 
 export function createMetadata(page?: MarketingPage): Metadata {
