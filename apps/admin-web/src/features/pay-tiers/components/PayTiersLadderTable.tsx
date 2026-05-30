@@ -12,16 +12,20 @@ import {
   DataTableToolbar,
   SkeletonTable,
 } from '@altitutor/ui';
-import { ArrowUpDown, Plus } from 'lucide-react';
-import type { DataTableColumnDefinition, DataTableSortOption } from '@altitutor/shared';
+import { Plus } from 'lucide-react';
+import type { DataTableColumnDefinition } from '@altitutor/shared';
 import { formatPayRate, type StaffPayTier } from '@altitutor/shared/pay-tiers';
 import { useDataTable } from '@/shared/hooks/useDataTable';
-import { cn } from '@/shared/utils';
 import { usePayTiers, usePayTierRequirementCounts, useCreatePayTier } from '../hooks';
+import type { PayTierRequirementRow } from './PayTierRequirementEditor';
+import {
+  formatTierRequirementLabel,
+  formatTierRequirementLabels,
+} from '../utils/formatTierRequirements';
 import { PayTierEditDialog } from './PayTierEditDialog';
 
 type TierRow = StaffPayTier & {
-  requirementCount: number;
+  requirements: PayTierRequirementRow[];
   isTopTier: boolean;
 };
 
@@ -36,11 +40,13 @@ export function PayTiersLadderTable() {
 
   const rows: TierRow[] = useMemo(
     () =>
-      tiers.map((tier, index) => ({
-        ...tier,
-        requirementCount: requirementQueries[index]?.data?.length ?? 0,
-        isTopTier: tier.tier_number === maxTierNumber,
-      })),
+      tiers
+        .map((tier, index) => ({
+          ...tier,
+          requirements: (requirementQueries[index]?.data ?? []) as PayTierRequirementRow[],
+          isTopTier: tier.tier_number === maxTierNumber,
+        }))
+        .sort((a, b) => a.tier_number - b.tier_number),
     [tiers, requirementQueries, maxTierNumber]
   );
 
@@ -49,25 +55,12 @@ export function PayTiersLadderTable() {
     []
   );
 
-  const {
-    state,
-    setSearch,
-    setSort,
-    setVisibleColumns,
-    resetFilters,
-  } = useDataTable({
+  const { state, setSearch, setVisibleColumns, resetFilters } = useDataTable({
     defaultFilters: {},
     defaultSort: { field: 'tierNumber', direction: 'asc' },
     defaultVisibleColumns,
     filterKeys: [],
   });
-
-  const sortOptions: DataTableSortOption[] = [
-    { key: 'tierNumber', label: 'Tier' },
-    { key: 'name', label: 'Name' },
-    { key: 'basePay', label: 'Base pay' },
-    { key: 'requirements', label: 'Requirements' },
-  ];
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'tierNumber', label: 'Tier' },
@@ -77,50 +70,19 @@ export function PayTiersLadderTable() {
   ];
 
   const filteredRows = useMemo(() => {
-    let list = [...rows];
     const q = state.search.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (r) =>
-          String(r.tier_number).includes(q) ||
-          (r.name ?? '').toLowerCase().includes(q) ||
-          formatPayRate(r.base_pay_rate_cents, r.currency).toLowerCase().includes(q)
+    if (!q) return rows;
+
+    return rows.filter((r) => {
+      const requirementText = formatTierRequirementLabels(r.requirements).join(' ').toLowerCase();
+      return (
+        String(r.tier_number).includes(q) ||
+        (r.name ?? '').toLowerCase().includes(q) ||
+        formatPayRate(r.base_pay_rate_cents, r.currency).toLowerCase().includes(q) ||
+        requirementText.includes(q)
       );
-    }
-
-    const field = state.sortBy ?? 'tierNumber';
-    const dir = state.sortDirection === 'desc' ? -1 : 1;
-    list.sort((a, b) => {
-      let av: string | number = 0;
-      let bv: string | number = 0;
-      switch (field) {
-        case 'name':
-          av = a.name ?? '';
-          bv = b.name ?? '';
-          break;
-        case 'basePay':
-          av = a.base_pay_rate_cents;
-          bv = b.base_pay_rate_cents;
-          break;
-        case 'requirements':
-          av = a.requirementCount;
-          bv = b.requirementCount;
-          break;
-        default:
-          av = a.tier_number;
-          bv = b.tier_number;
-      }
-      if (av < bv) return -1 * dir;
-      if (av > bv) return 1 * dir;
-      return 0;
     });
-
-    return list;
-  }, [rows, state.search, state.sortBy, state.sortDirection]);
-
-  const toggleSort = (field: string) => {
-    setSort(field, state.sortBy === field && state.sortDirection === 'asc' ? 'desc' : 'asc');
-  };
+  }, [rows, state.search]);
 
   const nextTierNumber = maxTierNumber + 1;
 
@@ -139,12 +101,11 @@ export function PayTiersLadderTable() {
           state={state}
           onSearchChange={setSearch}
           onFiltersChange={() => {}}
-          onSortChange={setSort}
+          onSortChange={() => {}}
           onGroupByChange={() => {}}
           onVisibleColumnsChange={setVisibleColumns}
           onQuickFilterApply={() => {}}
           onReset={resetFilters}
-          sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           searchPlaceholder="Search tiers..."
           isLoading
@@ -182,12 +143,11 @@ export function PayTiersLadderTable() {
           state={state}
           onSearchChange={setSearch}
           onFiltersChange={() => {}}
-          onSortChange={setSort}
+          onSortChange={() => {}}
           onGroupByChange={() => {}}
           onVisibleColumnsChange={setVisibleColumns}
           onQuickFilterApply={() => {}}
           onReset={resetFilters}
-          sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           searchPlaceholder="Search tiers..."
           isLoading={isFetching}
@@ -197,69 +157,11 @@ export function PayTiersLadderTable() {
           <Table>
             <TableHeader>
               <TableRow>
-                {state.visibleColumns.includes('tierNumber') && (
-                  <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
-                    onClick={() => toggleSort('tierNumber')}
-                  >
-                    <div className="flex items-center">
-                      Tier
-                      <ArrowUpDown
-                        className={cn(
-                          'ml-2 h-4 w-4',
-                          state.sortBy === 'tierNumber' ? 'opacity-100' : 'opacity-40'
-                        )}
-                      />
-                    </div>
-                  </TableHead>
-                )}
-                {state.visibleColumns.includes('name') && (
-                  <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
-                    onClick={() => toggleSort('name')}
-                  >
-                    <div className="flex items-center">
-                      Name
-                      <ArrowUpDown
-                        className={cn(
-                          'ml-2 h-4 w-4',
-                          state.sortBy === 'name' ? 'opacity-100' : 'opacity-40'
-                        )}
-                      />
-                    </div>
-                  </TableHead>
-                )}
-                {state.visibleColumns.includes('basePay') && (
-                  <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
-                    onClick={() => toggleSort('basePay')}
-                  >
-                    <div className="flex items-center">
-                      Base pay
-                      <ArrowUpDown
-                        className={cn(
-                          'ml-2 h-4 w-4',
-                          state.sortBy === 'basePay' ? 'opacity-100' : 'opacity-40'
-                        )}
-                      />
-                    </div>
-                  </TableHead>
-                )}
+                {state.visibleColumns.includes('tierNumber') && <TableHead>Tier</TableHead>}
+                {state.visibleColumns.includes('name') && <TableHead>Name</TableHead>}
+                {state.visibleColumns.includes('basePay') && <TableHead>Base pay</TableHead>}
                 {state.visibleColumns.includes('requirements') && (
-                  <TableHead
-                    className="cursor-pointer select-none hover:bg-muted/50"
-                    onClick={() => toggleSort('requirements')}
-                  >
-                    <div className="flex items-center">
-                      Requirements
-                      <ArrowUpDown
-                        className={cn(
-                          'ml-2 h-4 w-4',
-                          state.sortBy === 'requirements' ? 'opacity-100' : 'opacity-40'
-                        )}
-                      />
-                    </div>
-                  </TableHead>
+                  <TableHead>Requirements to advance</TableHead>
                 )}
               </TableRow>
             </TableHeader>
@@ -274,30 +176,42 @@ export function PayTiersLadderTable() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredRows.map((tier) => (
-                  <TableRow
-                    key={tier.tier_number}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setEditingTier(tier)}
-                  >
-                    {state.visibleColumns.includes('tierNumber') && (
-                      <TableCell className="font-medium">{tier.tier_number}</TableCell>
-                    )}
-                    {state.visibleColumns.includes('name') && (
-                      <TableCell>{tier.name ?? '—'}</TableCell>
-                    )}
-                    {state.visibleColumns.includes('basePay') && (
-                      <TableCell>
-                        {formatPayRate(tier.base_pay_rate_cents, tier.currency)}/hr
-                      </TableCell>
-                    )}
-                    {state.visibleColumns.includes('requirements') && (
-                      <TableCell className="text-muted-foreground">
-                        {tier.isTopTier ? '—' : tier.requirementCount}
-                      </TableCell>
-                    )}
-                  </TableRow>
-                ))
+                filteredRows.map((tier) => {
+                  return (
+                    <TableRow
+                      key={tier.tier_number}
+                      className="cursor-pointer hover:bg-muted/50"
+                      onClick={() => setEditingTier(tier)}
+                    >
+                      {state.visibleColumns.includes('tierNumber') && (
+                        <TableCell className="font-medium align-top">{tier.tier_number}</TableCell>
+                      )}
+                      {state.visibleColumns.includes('name') && (
+                        <TableCell className="align-top">{tier.name ?? '—'}</TableCell>
+                      )}
+                      {state.visibleColumns.includes('basePay') && (
+                        <TableCell className="align-top whitespace-nowrap">
+                          {formatPayRate(tier.base_pay_rate_cents, tier.currency)}/hr
+                        </TableCell>
+                      )}
+                      {state.visibleColumns.includes('requirements') && (
+                        <TableCell className="align-top text-sm text-muted-foreground max-w-md">
+                          {tier.isTopTier ? (
+                            '—'
+                          ) : tier.requirements.length === 0 ? (
+                            <span className="text-xs">None</span>
+                          ) : (
+                            <ul className="space-y-0.5 list-disc list-inside">
+                              {tier.requirements.map((req) => (
+                                <li key={req.id}>{formatTierRequirementLabel(req)}</li>
+                              ))}
+                            </ul>
+                          )}
+                        </TableCell>
+                      )}
+                    </TableRow>
+                  );
+                })
               )}
             </TableBody>
           </Table>
