@@ -9,10 +9,6 @@ import {
   TableHeader,
   TableRow,
   Badge,
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
   DataTableToolbar,
   SkeletonTable,
 } from '@altitutor/ui';
@@ -21,7 +17,7 @@ import type { DataTableFilterDefinition, DataTableSortOption, DataTableColumnDef
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { cn } from '@/shared/utils';
 import { usePayTiersStaffSummaries } from '../hooks';
-import { PayTiersStaffPanel } from './PayTiersStaffPanel';
+import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { formatCheckInRecency } from '@/features/reconciliation/utils/formatCheckInRecency';
 
 type StaffSummary = {
@@ -42,9 +38,9 @@ type StaffRow = StaffSummary & {
 
 export function PayTiersStaffTable() {
   const { data: staffRaw = [], isLoading, isError, refetch, isFetching } = usePayTiersStaffSummaries();
-  const [selected, setSelected] = useState<StaffRow | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
 
-  const staff = useMemo(
+  const staff: StaffRow[] = useMemo(
     () =>
       staffRaw.map((s) => ({
         ...s,
@@ -315,7 +311,7 @@ export function PayTiersStaffTable() {
                   <TableRow
                     key={s.staffId}
                     className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => setSelected(s)}
+                    onClick={() => setSelectedStaffId(s.staffId)}
                   >
                     {state.visibleColumns.includes('name') && (
                       <TableCell className="font-medium">{s.name}</TableCell>
@@ -356,21 +352,15 @@ export function PayTiersStaffTable() {
         </p>
       </div>
 
-      <Sheet open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
-        <SheetContent className="overflow-y-auto sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle>{selected?.name ?? 'Pay tier'}</SheetTitle>
-          </SheetHeader>
-          {selected && (
-            <PayTiersStaffPanel
-              staffId={selected.staffId}
-              staffName={selected.name}
-              staffFirstName={selected.firstName}
-              staffLastName={selected.lastName}
-            />
-          )}
-        </SheetContent>
-      </Sheet>
+      <ViewStaffModal
+        isOpen={!!selectedStaffId}
+        staffId={selectedStaffId}
+        initialTab="pay-tier"
+        onClose={() => setSelectedStaffId(null)}
+        onStaffUpdated={() => {
+          void refetch();
+        }}
+      />
     </>
   );
 }

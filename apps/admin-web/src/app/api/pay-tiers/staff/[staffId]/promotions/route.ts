@@ -52,6 +52,19 @@ export async function POST(
     if (!session || session.type !== 'CHECK_IN') {
       return NextResponse.json({ error: 'check_in_session_id must be a CHECK_IN session' }, { status: 400 });
     }
+
+    const { data: existingReview } = await auth.admin
+      .from('staff_tier_promotions')
+      .select('id')
+      .eq('staff_id', params.staffId)
+      .eq('check_in_session_id', body.check_in_session_id)
+      .maybeSingle();
+    if (existingReview) {
+      return NextResponse.json(
+        { error: 'A promotion review already exists for this check-in session' },
+        { status: 409 }
+      );
+    }
   }
 
   const { error: promoError } = await auth.admin.from('staff_tier_promotions').insert({

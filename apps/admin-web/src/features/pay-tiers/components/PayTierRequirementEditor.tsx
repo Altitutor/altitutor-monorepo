@@ -1,10 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Input, Label } from '@altitutor/ui';
 import { Loader2, Trash2 } from 'lucide-react';
 import {
   ADMIN_SESSION_TYPES,
+  formatPayTierSessionType,
+  formatPayTierStaffAttendanceType,
   STAFF_ATTENDANCE_TYPES,
   TEACHING_SESSION_TYPES,
   type StaffPayTierRequirementKind,
@@ -107,33 +109,39 @@ function TenureRequirementEditor({
   };
 
   return (
-    <li className="rounded-md border p-3 space-y-2">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium capitalize">Tenure ({unit} employed)</p>
-        <Button variant="ghost" size="icon" onClick={onDelete} disabled={saving}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-      <div className="flex items-end gap-2 max-w-xs">
-        <div className="flex-1 space-y-1">
-          <Label htmlFor={`tenure-min-${requirement.id}`}>Minimum {unit}</Label>
-          <Input
-            id={`tenure-min-${requirement.id}`}
-            type="number"
-            min={0}
-            step={1}
-            value={min}
-            onChange={(e) => setMin(e.target.value)}
-            onBlur={commit}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') {
-                e.preventDefault();
-                commit();
-              }
-            }}
-          />
+    <li className="rounded-md border p-4">
+      <div className="flex items-start gap-6">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium">Tenure ({unit} employed)</p>
+            <Button variant="ghost" size="icon" className="shrink-0 -mt-1" onClick={onDelete} disabled={saving}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
         </div>
-        {saving && <Loader2 className="h-4 w-4 animate-spin mb-2 text-muted-foreground" />}
+        <div className="flex items-end gap-2 shrink-0 w-40">
+          <div className="flex-1 space-y-1">
+            <Label htmlFor={`tenure-min-${requirement.id}`} className="text-xs">
+              Minimum {unit}
+            </Label>
+            <Input
+              id={`tenure-min-${requirement.id}`}
+              type="number"
+              min={0}
+              step={1}
+              value={min}
+              onChange={(e) => setMin(e.target.value)}
+              onBlur={commit}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commit();
+                }
+              }}
+            />
+          </div>
+          {saving && <Loader2 className="h-4 w-4 animate-spin mb-2 text-muted-foreground shrink-0" />}
+        </div>
       </div>
     </li>
   );
@@ -167,99 +175,129 @@ function SessionCountRequirementEditor({
     []
   );
 
-  const commit = () => {
+  const persist = useCallback(
+    (
+      nextMin: number,
+      nextSessionTypes: string[],
+      nextAttendanceTypes: string[]
+    ) => {
+      if (Number.isNaN(nextMin) || nextMin < 0) return;
+      if (nextSessionTypes.length === 0) return;
+
+      const nextParams = {
+        min: nextMin,
+        session_types: nextSessionTypes,
+        attendance_types: nextAttendanceTypes.length > 0 ? nextAttendanceTypes : undefined,
+      };
+      const current = parseSessionParams(requirement.params);
+      const unchanged =
+        current.min === nextMin &&
+        arraysEqual(current.session_types, nextSessionTypes) &&
+        arraysEqual(current.attendance_types, nextAttendanceTypes);
+      if (!unchanged) {
+        onSave(nextParams);
+      }
+    },
+    [onSave, requirement.params]
+  );
+
+  const commitMin = () => {
     const parsedMin = parseInt(min, 10);
     if (Number.isNaN(parsedMin) || parsedMin < 0) return;
-    if (sessionTypes.length === 0) return;
+    persist(parsedMin, sessionTypes, attendanceTypes);
+  };
 
-    const nextParams = {
-      min: parsedMin,
-      session_types: sessionTypes,
-      attendance_types: attendanceTypes.length > 0 ? attendanceTypes : undefined,
-    };
-    const current = parseSessionParams(requirement.params);
-    const unchanged =
-      current.min === parsedMin &&
-      arraysEqual(current.session_types, sessionTypes) &&
-      arraysEqual(current.attendance_types, attendanceTypes);
-    if (!unchanged) {
-      onSave(nextParams);
+  const toggleSessionType = (value: string) => {
+    const next = sessionTypes.includes(value)
+      ? sessionTypes.filter((x) => x !== value)
+      : [...sessionTypes, value];
+    setSessionTypes(next);
+    const parsedMin = parseInt(min, 10);
+    if (!Number.isNaN(parsedMin) && parsedMin >= 0 && next.length > 0) {
+      persist(parsedMin, next, attendanceTypes);
     }
   };
 
-  const toggle = (value: string, list: string[], setList: (v: string[]) => void) => {
-    setList(list.includes(value) ? list.filter((x) => x !== value) : [...list, value]);
+  const toggleAttendanceType = (value: string) => {
+    const next = attendanceTypes.includes(value)
+      ? attendanceTypes.filter((x) => x !== value)
+      : [...attendanceTypes, value];
+    setAttendanceTypes(next);
+    const parsedMin = parseInt(min, 10);
+    if (!Number.isNaN(parsedMin) && parsedMin >= 0 && sessionTypes.length > 0) {
+      persist(parsedMin, sessionTypes, next);
+    }
   };
 
   return (
-    <li className="rounded-md border p-3 space-y-3">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-medium">Session count</p>
-        <Button variant="ghost" size="icon" onClick={onDelete} disabled={saving}>
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
+    <li className="rounded-md border p-4">
+      <div className="flex items-start gap-6">
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <p className="text-sm font-medium">Session count</p>
+            <Button variant="ghost" size="icon" className="shrink-0 -mt-1" onClick={onDelete} disabled={saving}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
 
-      <div className="space-y-1 max-w-xs">
-        <Label htmlFor={`sessions-min-${requirement.id}`}>Minimum sessions</Label>
-        <Input
-          id={`sessions-min-${requirement.id}`}
-          type="number"
-          min={0}
-          step={1}
-          value={min}
-          onChange={(e) => setMin(e.target.value)}
-          onBlur={commit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              commit();
-            }
-          }}
-        />
-      </div>
+          <fieldset className="space-y-1.5">
+            <legend className="text-xs font-medium text-muted-foreground">Session types</legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {allSessionTypes.map((type) => (
+                <label key={type} className="flex items-center gap-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={sessionTypes.includes(type)}
+                    onChange={() => toggleSessionType(type)}
+                  />
+                  {formatPayTierSessionType(type)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
-      <fieldset className="space-y-1">
-        <legend className="text-xs font-medium text-muted-foreground">Session types</legend>
-        <div className="flex flex-wrap gap-2">
-          {allSessionTypes.map((type) => (
-            <label key={type} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={sessionTypes.includes(type)}
-                onChange={() => toggle(type, sessionTypes, setSessionTypes)}
-                onBlur={commit}
-              />
-              {type.replace(/_/g, ' ')}
-            </label>
-          ))}
+          <fieldset className="space-y-1.5">
+            <legend className="text-xs font-medium text-muted-foreground">
+              Attendance roles (optional — leave empty for any role)
+            </legend>
+            <div className="flex flex-wrap gap-x-4 gap-y-2">
+              {STAFF_ATTENDANCE_TYPES.map((type) => (
+                <label key={type} className="flex items-center gap-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={attendanceTypes.includes(type)}
+                    onChange={() => toggleAttendanceType(type)}
+                  />
+                  {formatPayTierStaffAttendanceType(type)}
+                </label>
+              ))}
+            </div>
+          </fieldset>
         </div>
-      </fieldset>
 
-      <fieldset className="space-y-1">
-        <legend className="text-xs font-medium text-muted-foreground">
-          Attendance roles (optional — leave empty for any role)
-        </legend>
-        <div className="flex flex-wrap gap-2">
-          {STAFF_ATTENDANCE_TYPES.map((type) => (
-            <label key={type} className="flex items-center gap-1.5 text-sm">
-              <input
-                type="checkbox"
-                checked={attendanceTypes.includes(type)}
-                onChange={() => toggle(type, attendanceTypes, setAttendanceTypes)}
-                onBlur={commit}
-              />
-              {type.replace(/_/g, ' ')}
-            </label>
-          ))}
+        <div className="flex items-end gap-2 shrink-0 w-40 pt-7">
+          <div className="flex-1 space-y-1">
+            <Label htmlFor={`sessions-min-${requirement.id}`} className="text-xs">
+              Minimum sessions
+            </Label>
+            <Input
+              id={`sessions-min-${requirement.id}`}
+              type="number"
+              min={0}
+              step={1}
+              value={min}
+              onChange={(e) => setMin(e.target.value)}
+              onBlur={commitMin}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  commitMin();
+                }
+              }}
+            />
+          </div>
+          {saving && <Loader2 className="h-4 w-4 animate-spin mb-2 text-muted-foreground shrink-0" />}
         </div>
-      </fieldset>
-
-      <div className="flex items-center gap-2">
-        <Button type="button" variant="secondary" size="sm" disabled={saving} onClick={commit}>
-          Apply session rule
-        </Button>
-        {saving && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
       </div>
     </li>
   );

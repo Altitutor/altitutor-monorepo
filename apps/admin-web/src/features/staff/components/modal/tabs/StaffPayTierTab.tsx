@@ -1,13 +1,52 @@
 'use client';
 
-import Link from 'next/link';
-import { Loader2, ExternalLink } from 'lucide-react';
-import { Button, Badge } from '@altitutor/ui';
-import { formatPayRate } from '@altitutor/shared/pay-tiers';
-import { usePayTierStaffProgress } from '@/features/pay-tiers/hooks';
+import { useEffect, useState } from 'react';
+import {
+  Button,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@altitutor/ui';
+import { Loader2 } from 'lucide-react';
+import { useToast } from '@altitutor/ui';
+import { cn } from '@/shared/utils';
+import { usePayTierStaffProgress, useUpdateStaffTierProfile } from '@/features/pay-tiers/hooks';
+import {
+  buildMetricOverridesFromUi,
+  sessionOverridesToRows,
+  type SessionOverrideRow,
+} from '@/features/pay-tiers/utils/metricOverrides';
+import { PayTiersStaffProgressTab } from '@/features/pay-tiers/components/staff-dialog/PayTiersStaffProgressTab';
+import { PayTiersStaffCheckInsTab } from '@/features/pay-tiers/components/staff-dialog/PayTiersStaffCheckInsTab';
+import { PayTiersStaffOverridesTab } from '@/features/pay-tiers/components/staff-dialog/PayTiersStaffOverridesTab';
 
-export function StaffPayTierTab({ staffId }: { staffId: string }) {
+type StaffPayTierTabProps = {
+  staffId: string;
+  staffFirstName: string | null;
+  staffLastName: string | null;
+  onOpenSession: (sessionId: string) => void;
+};
+
+export function StaffPayTierTab({
+  staffId,
+  staffFirstName,
+  staffLastName,
+  onOpenSession,
+}: StaffPayTierTabProps) {
+  const { toast } = useToast();
   const { data: progress, isLoading, isError, error } = usePayTierStaffProgress(staffId);
+  const updateProfile = useUpdateStaffTierProfile();
+
+  const [activeTab, setActiveTab] = useState('progress');
+  const [employmentDate, setEmploymentDate] = useState('');
+  const [sessionRows, setSessionRows] = useState<SessionOverrideRow[]>([]);
+
+  useEffect(() => {
+    if (!progress) return;
+    setEmploymentDate(progress.employmentStartedAt.slice(0, 10));
+    setSessionRows(sessionOverridesToRows(progress.metricOverrides));
+  }, [progress]);
 
   if (isLoading) {
     return (
@@ -25,48 +64,69 @@ export function StaffPayTierTab({ staffId }: { staffId: string }) {
     );
   }
 
-  const currentTier = progress.tiers.find((t) => t.tier_number === progress.currentTierNumber);
+  const handleSaveOverrides = async () => {
+    try {
+      await updateProfile.mutateAsync({
+        staffId,
+        updates: {
+          employment_started_at: new Date(employmentDate).toISOString(),
+          metric_overrides: buildMetricOverridesFromUi(sessionRows),
+        },
+      });
+      toast({ title: 'Overrides saved' });
+    } catch (e) {
+      toast({
+        title: 'Save failed',
+        description: e instanceof Error ? e.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
 
   return (
-    <div className="space-y-4 py-2">
-      <div>
-        <p className="text-sm text-muted-foreground">Current tier</p>
-        <p className="text-lg font-semibold">
-          Tier {progress.currentTierNumber}
-          {currentTier?.name ? ` — ${currentTier.name}` : ''}
-        </p>
-        {currentTier && (
-          <p className="text-sm text-muted-foreground">
-            {formatPayRate(currentTier.base_pay_rate_cents, currentTier.currency)}/hr
-          </p>
-        )}
-        {progress.isEligibleForReview && (
-          <Badge className="mt-2">Eligible for tier review</Badge>
-        )}
-      </div>
+    <div className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="progress">Progress</TabsTrigger>
+          <TabsTrigger value="check-ins">Check ins</TabsTrigger>
+          <TabsTrigger value="overrides">Overrides</TabsTrigger>
+        </TabsList>
 
-      {progress.nextTierNumber && progress.requirementsForNextTier.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-sm font-medium">Progress toward tier {progress.nextTierNumber}</p>
-          <ul className="space-y-2 text-sm">
-            {progress.requirementsForNextTier.map((r) => (
-              <li key={r.id} className="flex justify-between rounded border p-2">
-                <span>{r.label}</span>
-                <span className={r.met ? 'text-green-600' : 'text-muted-foreground'}>
-                  {r.current} / {r.required}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+        <TabsContent value="progress" className={cn('mt-4', activeTab !== 'progress' && 'hidden')}>
+          <PayTiersStaffProgressTab progress={progress} />
+        </TabsContent>
 
-      <Button variant="outline" size="sm" asChild>
-        <Link href="/pay-tiers">
-          Manage in Pay tiers
-          <ExternalLink className="ml-2 h-3 w-3" />
-        </Link>
-      </Button>
+        <TabsContent value="check-ins" className={cn('mt-4', activeTab !== 'check-ins' && 'hidden')}>
+          <PayTiersStaffCheckInsTab
+            staffId={staffId}
+            staffFirstName={staffFirstName}
+            staffLastName={staffLastName}
+            progress={progress}
+            onOpenSession={onOpenSession}
+          />
+        </TabsContent>
+
+        <TabsContent value="overrides" className={cn('mt-4 space-y-4', activeTab !== 'overrides' && 'hidden')}>
+          <PayTiersStaffOverridesTab
+            employmentDate={employmentDate}
+            onEmploymentDateChange={setEmploymentDate}
+            sessionRows={sessionRows}
+            onSessionRowsChange={setSessionRows}
+          />
+          <div className="flex justify-end border-t pt-4">
+            <Button disabled={updateProfile.isPending} onClick={handleSaveOverrides}>
+              {updateProfile.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  Saving…
+                </>
+              ) : (
+                'Save overrides'
+              )}
+            </Button>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

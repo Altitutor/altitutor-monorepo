@@ -1,3 +1,4 @@
+import { formatPayTierRequirementLabel } from './labels';
 import {
   getMetricValue,
   METRIC_KEYS,
@@ -5,37 +6,16 @@ import {
   sessionMetricKey,
 } from './metric-keys';
 import type {
-  RequirementProgress,
   RequirementParams,
+  RequirementProgress,
+  SessionCountRequirementParams,
   StaffPayTierRequirement,
   StaffPayTierRequirementKind,
-  SessionCountRequirementParams,
   TenureRequirementParams,
 } from './types';
 
 function tenureMetricKey(kind: StaffPayTierRequirementKind): string {
   return kind === 'TENURE_MONTHS' ? METRIC_KEYS.tenureMonths : METRIC_KEYS.tenureDays;
-}
-
-function formatRequirementLabel(
-  kind: StaffPayTierRequirementKind,
-  params: RequirementParams
-): string {
-  if (kind === 'TENURE_DAYS') {
-    const p = params as TenureRequirementParams;
-    return `${p.min} days employed`;
-  }
-  if (kind === 'TENURE_MONTHS') {
-    const p = params as TenureRequirementParams;
-    return `${p.min} months employed`;
-  }
-  const p = params as SessionCountRequirementParams;
-  const types = p.session_types?.length ? p.session_types.join(', ') : 'teaching sessions';
-  const roles =
-    p.attendance_types && p.attendance_types.length > 0
-      ? ` as ${p.attendance_types.join(', ')}`
-      : '';
-  return `${p.min} ${types}${roles}`;
 }
 
 export function evaluateRequirement(
@@ -70,7 +50,7 @@ export function evaluateRequirement(
     id: requirement.id,
     requirement_kind: requirement.requirement_kind,
     params,
-    label: formatRequirementLabel(requirement.requirement_kind, params),
+    label: formatPayTierRequirementLabel(requirement.requirement_kind, params),
     required,
     current,
     met: current >= required,

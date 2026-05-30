@@ -4,4 +4,5 @@ export const payTiersKeys = {
   requirements: (tierNumber: number) => [...payTiersKeys.all, 'requirements', tierNumber] as const,
   staffSummaries: () => [...payTiersKeys.all, 'staff-summaries'] as const,
   staffProgress: (staffId: string) => [...payTiersKeys.all, 'staff-progress', staffId] as const,
+  staffCheckIns: (staffId: string) => [...payTiersKeys.all, 'staff-check-ins', staffId] as const,
 };

@@ -110,6 +110,7 @@ export function useUpdateStaffTierProfile() {
     onSuccess: (progress, { staffId }) => {
       queryClient.setQueryData(payTiersKeys.staffProgress(staffId), progress);
       void queryClient.invalidateQueries({ queryKey: payTiersKeys.staffSummaries() });
+      void queryClient.invalidateQueries({ queryKey: payTiersKeys.staffCheckIns(staffId) });
     },
   });
 }
@@ -127,6 +128,27 @@ export function useRecordPayTierPromotion() {
     onSuccess: (result, { staffId }) => {
       queryClient.setQueryData(payTiersKeys.staffProgress(staffId), result.progress);
       void queryClient.invalidateQueries({ queryKey: payTiersKeys.staffSummaries() });
+      void queryClient.invalidateQueries({ queryKey: payTiersKeys.staffCheckIns(staffId) });
+    },
+  });
+}
+
+export function useUpdatePayTierPromotion() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      staffId,
+      promotionId,
+      payload,
+    }: {
+      staffId: string;
+      promotionId: string;
+      payload: Parameters<typeof payTiersClient.updatePromotion>[2];
+    }) => payTiersClient.updatePromotion(staffId, promotionId, payload),
+    onSuccess: (result, { staffId }) => {
+      queryClient.setQueryData(payTiersKeys.staffProgress(staffId), result.progress);
+      void queryClient.invalidateQueries({ queryKey: payTiersKeys.staffSummaries() });
+      void queryClient.invalidateQueries({ queryKey: payTiersKeys.staffCheckIns(staffId) });
     },
   });
 }

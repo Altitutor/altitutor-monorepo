@@ -4,6 +4,7 @@ export {
   usePayTierRequirementCounts,
   usePayTiersStaffSummaries,
   usePayTierStaffProgress,
+  usePayTierStaffCheckIns,
 } from './usePayTiers';
 export {
   useUpdatePayTier,
@@ -14,4 +15,5 @@ export {
   useDeletePayTierRequirement,
   useUpdateStaffTierProfile,
   useRecordPayTierPromotion,
+  useUpdatePayTierPromotion,
 } from './usePayTiersMutations';

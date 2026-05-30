@@ -115,6 +115,28 @@ export const payTiersClient = {
     }>(res);
   },
 
+  async getStaffCheckIns(staffId: string) {
+    const res = await fetch(`/api/pay-tiers/staff/${staffId}/check-ins`);
+    return parseJson<{
+      checkIns: Array<{
+        sessionId: string;
+        tutorLogId: string;
+        startAt: string;
+        longName: string | null;
+        tierAtCheckIn: number;
+        tierName: string | null;
+        linkedPromotion: {
+          id: string;
+          outcome: string;
+          fromTierNumber: number;
+          toTierNumber: number;
+          notes: string | null;
+          reviewedAt: string;
+        } | null;
+      }>;
+    }>(res);
+  },
+
   async getStaffProgress(staffId: string): Promise<StaffTierProgress> {
     const res = await fetch(`/api/pay-tiers/staff/${staffId}`);
     const data = await parseJson<{ progress: StaffTierProgress }>(res);
@@ -151,6 +173,25 @@ export const payTiersClient = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     });
+    return parseJson(res);
+  },
+
+  async updatePromotion(
+    staffId: string,
+    promotionId: string,
+    payload: {
+      outcome: 'approved' | 'deferred' | 'not_ready';
+      notes?: string | null;
+    }
+  ): Promise<{ progress: StaffTierProgress; quickbooksReminder?: string }> {
+    const res = await fetch(
+      `/api/pay-tiers/staff/${staffId}/promotions/${encodeURIComponent(promotionId)}`,
+      {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      }
+    );
     return parseJson(res);
   },
 };

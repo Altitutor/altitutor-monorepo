@@ -51,3 +51,15 @@ export function usePayTierStaffProgress(staffId: string | null) {
     staleTime: 60 * 1000,
   });
 }
+
+export function usePayTierStaffCheckIns(staffId: string | null, enabled = true) {
+  return useQuery({
+    queryKey: payTiersKeys.staffCheckIns(staffId ?? ''),
+    queryFn: async () => {
+      const data = await payTiersClient.getStaffCheckIns(staffId!);
+      return data.checkIns;
+    },
+    enabled: !!staffId && enabled,
+    staleTime: 60 * 1000,
+  });
+}
