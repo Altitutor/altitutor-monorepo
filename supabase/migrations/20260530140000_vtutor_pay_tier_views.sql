@@ -1,15 +1,5 @@
--- Tutor-web reads pay tier ladder via security definer views (is_tutor), not JWT claims on base tables.
-
--- Fix base-table tutor policies (JWT user_role was never populated for most tutors)
-DROP POLICY IF EXISTS "Tutors read staff_pay_tiers" ON public.staff_pay_tiers;
-CREATE POLICY "Tutors read staff_pay_tiers" ON public.staff_pay_tiers
-  FOR SELECT TO authenticated
-  USING (public.is_tutor());
-
-DROP POLICY IF EXISTS "Tutors read staff_pay_tier_requirements" ON public.staff_pay_tier_requirements;
-CREATE POLICY "Tutors read staff_pay_tier_requirements" ON public.staff_pay_tier_requirements
-  FOR SELECT TO authenticated
-  USING (public.is_tutor());
+-- Tutor-web reads pay tier data via security definer views only (no tutor RLS on base tables).
+-- Base tables remain ADMINSTAFF-only; see 20260530150000_pay_tiers_remove_tutor_base_table_access.sql.
 
 -- Org-wide pay ladder (all tiers) for active tutors
 CREATE OR REPLACE VIEW public.vtutor_pay_tiers
