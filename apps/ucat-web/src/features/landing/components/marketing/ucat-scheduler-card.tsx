@@ -9,6 +9,12 @@ const { typography: typo } = MARKETING_TOKENS;
 
 type HeatCell = { id: number; bg: string; qs: number };
 
+/** Deterministic 0–1 value from index so SSR and client markup match (no Math.random in render). */
+function stableUnit(seed: number): number {
+  const x = Math.sin(seed * 12.9898 + 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
 export function UcatSchedulerCard() {
   const containerRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -17,18 +23,20 @@ export function UcatSchedulerCard() {
   const heatmapData = useMemo<HeatCell[]>(
     () =>
       Array.from({ length: 28 }, (_, i) => {
-        const intensity = Math.random();
+        const intensity = stableUnit(i);
+        const r1 = stableUnit(i + 100);
+        const r2 = stableUnit(i + 200);
         let bg = "bg-marketing-cream border-black/5";
         let qs = 0;
         if (intensity > 0.8) {
           bg = "bg-marketing-primary";
-          qs = Math.floor(Math.random() * 50) + 80;
+          qs = Math.floor(r1 * 50) + 80;
         } else if (intensity > 0.5) {
           bg = "border-transparent bg-marketing-primary/80";
-          qs = Math.floor(Math.random() * 40) + 40;
+          qs = Math.floor(r1 * 40) + 40;
         } else if (intensity > 0.2) {
           bg = "border-transparent bg-marketing-primary/40";
-          qs = Math.floor(Math.random() * 20) + 10;
+          qs = Math.floor(r2 * 20) + 10;
         }
         return { id: i, bg, qs };
       }),

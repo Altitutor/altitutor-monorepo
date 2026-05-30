@@ -13,7 +13,15 @@ export function MainContent({ children }: MainContentProps) {
 
   return (
     <main className={cn('flex-1', !hideNavbar && 'pt-[var(--navbar-height)]')}>
-      {children}
+      <div
+        key={pathname}
+        className={cn(
+          'motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-1 motion-safe:duration-motion-enter motion-safe:ease-motion-standard motion-safe:fill-mode-both',
+          'motion-reduce:animate-none motion-reduce:opacity-100',
+        )}
+      >
+        {children}
+      </div>
     </main>
   );
 }

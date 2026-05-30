@@ -2,14 +2,14 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  getStudentUcatClassesWithSessions,
+  getStudentUcatSessions,
   getStudentUcatSessionResources,
 } from "@/features/sessions/api/sessions-api";
 
 export function useStudentUcatSessions() {
   return useQuery({
     queryKey: ["ucat", "student-sessions"],
-    queryFn: getStudentUcatClassesWithSessions,
+    queryFn: getStudentUcatSessions,
   });
 }
 

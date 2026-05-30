@@ -8,11 +8,7 @@ globs:
 
 ## Migration Creation
 
-- **Always use Supabase CLI**: 
-  ```bash
-  supabase migration new <migration_name>
-  ```
-- **Never manually create migration files**
+- **Always use the current timestamp**
 - Use descriptive snake_case names for migrations
 
 ## Testing Migrations

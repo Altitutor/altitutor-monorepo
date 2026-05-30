@@ -1,20 +1,24 @@
 "use client";
 
+import Link from "next/link";
 import { useLayoutEffect, useMemo, useRef } from "react";
+import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
+  Skeleton,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
+import { UCAT_CARD_CHROME, UCAT_PRESSABLE_LIFT_HOVER, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import type { ProgressResponse } from "@/app/api/ucat/progress/route";
+import { useUcatActivity } from "../hooks/use-ucat-activity";
 import {
-  buildReviewHeatmapModel,
+  buildReviewHeatmapModelFromDaily,
   formatHeatmapDayLabel,
   reviewHeatmapIntensityLevel,
   type HeatmapCell,
@@ -42,8 +46,9 @@ const CELL_GAP = "gap-px";
 const DOW_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 type ReviewHeatmapCardProps = {
-  data: Pick<ProgressResponse, "questionAttempts" | "setAttempts">;
   className?: string;
+  /** When true (e.g. on the dashboard), link to full progress. Omit on the progress page itself. */
+  showViewAllProgressLink?: boolean;
 };
 
 function BlankCell() {
@@ -91,7 +96,7 @@ function DayCell({ day }: { day: HeatmapDay }) {
             type="button"
             className={cn(
               "flex items-center justify-center rounded-sm p-0.5",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
             )}
             aria-label={aria}
           >
@@ -139,16 +144,27 @@ function WeekColumnStrip({
   );
 }
 
-export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
+export function ReviewHeatmapCard({
+  className,
+  showViewAllProgressLink = false,
+}: ReviewHeatmapCardProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const { data, isLoading, error } = useUcatActivity();
+
+  const startDate = useMemo(() => {
+    if (!data?.startedAt) return null;
+    const parsed = new Date(data.startedAt);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }, [data?.startedAt]);
 
   const monthGroups = useMemo(
     () =>
-      buildReviewHeatmapModel(new Date(), {
-        questionAttempts: data.questionAttempts,
-        setAttempts: data.setAttempts,
-      }),
-    [data.questionAttempts, data.setAttempts],
+      data
+        ? buildReviewHeatmapModelFromDaily(new Date(), data.days, {
+            startDate,
+          })
+        : [],
+    [data, startDate],
   );
 
   useLayoutEffect(() => {
@@ -157,10 +173,40 @@ export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
     el.scrollLeft = el.scrollWidth - el.clientWidth;
   }, [monthGroups]);
 
+  if (isLoading) {
+    return <Skeleton className={cn("h-[180px] rounded-lg", className)} />;
+  }
+
+  if (error || !data) {
+    return null;
+  }
+
+  // No activity and no recorded touchpoint yet — nothing meaningful to show.
+  if (!startDate && data.days.length === 0) {
+    return null;
+  }
+
   return (
-    <Card className={cn("border-border", className)}>
-      <CardHeader className="pb-2">
-        <CardTitle className="text-base font-medium">Review heatmap</CardTitle>
+    <Card className={cn(UCAT_CARD_CHROME, className)}>
+      <CardHeader className="space-y-1 pb-2">
+        {showViewAllProgressLink ? (
+          <div className="flex flex-row items-start justify-between gap-3">
+            <CardTitle className="text-base font-medium">Review heatmap</CardTitle>
+            <Link
+              href="/progress"
+              className={cn(
+                "group -m-1 shrink-0 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
+                UCAT_SURFACE_MOTION,
+                UCAT_PRESSABLE_LIFT_HOVER,
+              )}
+              aria-label="View all progress"
+            >
+              <UcatHoverChevron className="h-5 w-5" />
+            </Link>
+          </div>
+        ) : (
+          <CardTitle className="text-base font-medium">Review heatmap</CardTitle>
+        )}
         <p className="text-muted-foreground text-sm font-normal">
           Daily question and set attempts.
         </p>
@@ -195,7 +241,7 @@ export function ReviewHeatmapCard({ data, className }: ReviewHeatmapCardProps) {
                   className={cn(
                     "flex shrink-0 flex-col gap-0.5",
                     gi > 0 &&
-                      "border-l border-dashed border-border pl-1.5 ml-0.5",
+                      "ml-0.5 border-l border-dashed border-foreground/15 pl-1.5",
                   )}
                 >
                   <div className="flex h-4 min-w-0 items-end justify-center px-0.5 sm:h-5">

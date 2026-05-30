@@ -9,7 +9,11 @@ import {
   analyzeAnswersPaste,
   type AnswersPasteAnalysis,
 } from '@/features/ucat/questions/lib/parseAnswersTable'
-import { parseFromLines, type ParserConfig } from '@/features/ucat/questions/lib/parsers/core'
+import {
+  mergeConsecutiveStemsWithSameText,
+  parseFromLines,
+  type ParserConfig,
+} from '@/features/ucat/questions/lib/parsers/core'
 
 export type QuestionPasteClassify = Pick<
   ParserConfig,
@@ -38,10 +42,15 @@ export function computeQuestionPasteStats(
     return { totalStems: 0, totalQuestions: 0, totalOptions: 0, stemBreakdown: [] }
   }
   const lines = getBulkImportLogicalLines(docJson, section)
-  const stems = parseFromLines(lines, {
+  const parsedStems = parseFromLines(lines, {
     ...classify,
     acceptSyllogismOptions: bulkImportParserAcceptSyllogism(section),
+    questionLookaheadLimit: section === 'quantitative_reasoning' ? 160 : undefined,
   })
+  const stems =
+    section === 'quantitative_reasoning'
+      ? mergeConsecutiveStemsWithSameText(parsedStems)
+      : parsedStems
   const stemBreakdown = stems.map((s, i) => {
     const questionCount = s.questions.length
     const optionCount = s.questions.reduce((acc, q) => acc + q.options.length, 0)

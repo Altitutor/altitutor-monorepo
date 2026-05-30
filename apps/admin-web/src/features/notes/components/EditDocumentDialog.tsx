@@ -49,6 +49,8 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+import { DOCUMENT_TITLE_FIELD_CLASS } from '../constants/documentTitle';
+import { useFitDocumentTitle } from '../hooks/useFitDocumentTitle';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
 
 const formSchema = z.object({
@@ -67,6 +69,7 @@ interface EditDocumentDialogProps {
 export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDialogProps) {
   const router = useRouter();
   const noteEditorRef = useRef<NoteEditorRef>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const lastResetNoteIdRef = useRef<string | null>(null);
   const isUpdatingFromServerRef = useRef(false);
   const [isInitialized, setIsInitialized] = useState(false);
@@ -177,6 +180,9 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
     onClose();
   }, [noteId, deleteNote, onClose]);
 
+  const titleText = form.watch('title');
+  useFitDocumentTitle(titleInputRef, titleText);
+
   if (!noteId || !isOpen) return null;
 
   const editorReady =
@@ -286,10 +292,14 @@ export function EditDocumentDialog({ isOpen, onClose, noteId }: EditDocumentDial
                           <FormItem>
                             <FormControl>
                               <input
+                                ref={titleInputRef}
                                 value={field.value || ''}
                                 onChange={field.onChange}
                                 placeholder="Untitled"
-                                className="w-full text-4xl font-semibold tracking-tight leading-tight bg-transparent outline-none border-none"
+                                className={cn(
+                                  'w-full bg-transparent outline-none border-none',
+                                  DOCUMENT_TITLE_FIELD_CLASS,
+                                )}
                               />
                             </FormControl>
                           </FormItem>

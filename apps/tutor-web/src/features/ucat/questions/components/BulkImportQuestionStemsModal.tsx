@@ -42,6 +42,7 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/Step4CreateSet'
 import {
   parseVerbalReasoningFromDoc,
+  parseVerbalReasoningWithSeparateStemDoc,
   mapParsedVerbalReasoningToFormValues,
   getVerbalReasoningStemCategoryName,
 } from '@/features/ucat/questions/lib/parsers/verbalReasoning'
@@ -97,6 +98,7 @@ export function BulkImportQuestionStemsModal({
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [sectionId, setSectionId] = useState<string | null>(null)
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
+  const [pastedVrStemContent, setPastedVrStemContent] = useState<Json | null>(null)
   const [pastedAnswersJson, setPastedAnswersJson] = useState<Json | null>(null)
   const [parseError, setParseError] = useState<string | null>(null)
   const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
@@ -122,6 +124,7 @@ export function BulkImportQuestionStemsModal({
       setSubmitError(null)
       setSectionId(null)
       setPastedContent(null)
+      setPastedVrStemContent(null)
       setPastedAnswersJson(null)
       setParseError(null)
       setPasteTableBehavior('strip_outside')
@@ -207,7 +210,13 @@ export function BulkImportQuestionStemsModal({
     if (!sectionId) return { ok: false }
     if (isVerbalReasoningSection) {
       try {
-        const parsed = parseVerbalReasoningFromDoc(pastedContent, parsingOptions)
+        const parsed = pastedVrStemContent
+          ? parseVerbalReasoningWithSeparateStemDoc(
+              pastedContent,
+              pastedVrStemContent,
+              parsingOptions
+            )
+          : parseVerbalReasoningFromDoc(pastedContent, parsingOptions)
         const forms = mapParsedVerbalReasoningToFormValues(parsed, {
           sectionId,
           isPrivate: false,
@@ -592,7 +601,28 @@ export function BulkImportQuestionStemsModal({
         <div className="flex h-full min-h-0 flex-col gap-3">
           <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:gap-0">
             <div className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden md:pr-4">
+              {isVerbalReasoningSection && (
+                <div className="mb-3 min-h-0 max-h-[38%] shrink-0 overflow-hidden">
+                  <Step2PasteDocument
+                    title="Paste VR stems"
+                    placeholder="Paste Prompt 1, Prompt 2… here when passages are in a separate document."
+                    layout="split"
+                    value={pastedVrStemContent}
+                    onChange={(value) => {
+                      setPastedVrStemContent(value)
+                      setParseError(null)
+                    }}
+                    onImageFileIdsChange={handleStep2ImageFileIds}
+                    parsingOptions={parsingOptions}
+                    onParsingOptionsChange={setParsingOptions}
+                    pasteTableBehavior={pasteTableBehavior}
+                    onPasteTableBehaviorChange={setPasteTableBehavior}
+                    liveParseSection={null}
+                  />
+                </div>
+              )}
               <Step2PasteDocument
+                title={isVerbalReasoningSection ? 'Paste VR questions' : undefined}
                 layout="split"
                 value={pastedContent}
                 onChange={(value) => {
@@ -786,4 +816,3 @@ export function BulkImportQuestionStemsModal({
     </Dialog>
   )
 }
-

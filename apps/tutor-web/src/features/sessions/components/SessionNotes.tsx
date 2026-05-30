@@ -2,7 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { Button } from '@altitutor/ui';
-import { Card, CardContent } from '@altitutor/ui';
 import { RichTextEditor } from '@altitutor/ui';
 import {
   DropdownMenu,
@@ -17,6 +16,13 @@ import {
   isTiptapContentEmpty,
   toEditorContent,
 } from '@/shared/utils/plainTextToTiptapJson';
+import {
+  tutorBtnOutline,
+  tutorBtnPrimary,
+  tutorCardCn,
+  tutorModalHairline,
+} from '@/shared/lib/tutor-visual';
+import { cn } from '@/shared/utils';
 import type { Tables } from '@altitutor/shared';
 import type { JSONContent } from '@altitutor/ui';
 
@@ -36,6 +42,23 @@ type SessionNotesProps = {
   /** Current staff ID for filtering notes and authorization - provided by parent */
   currentStaffId?: string | null;
 };
+
+function NoteAuthorAvatar({ staff }: { staff: Tables<'staff'> | null | undefined }) {
+  const initials = staff
+    ? `${staff.first_name?.[0] || ''}${staff.last_name?.[0] || ''}`.toUpperCase()
+    : '?';
+
+  return (
+    <div
+      className={cn(
+        'flex h-8 w-8 shrink-0 items-center justify-center rounded-full',
+        'bg-muted/80 text-xs font-medium text-muted-foreground ring-1 ring-black/[0.06] dark:ring-white/10',
+      )}
+    >
+      {initials}
+    </div>
+  );
+}
 
 export function SessionNotes({
   sessionId,
@@ -96,7 +119,7 @@ export function SessionNotes({
         // Error handled silently - user can retry
       }
     },
-    [editingNoteContent, updateNoteMutation, onNoteAdded]
+    [editingNoteContent, updateNoteMutation, onNoteAdded],
   );
 
   const handleDelete = async (noteId: string) => {
@@ -111,110 +134,107 @@ export function SessionNotes({
   };
 
   return (
-    <div className="space-y-4">
-      <h3 className="text-lg font-semibold">Session Notes</h3>
+    <div>
+      <h3 className="mb-4 text-lg font-semibold">Session Notes</h3>
 
       {notes.length > 0 && (
-        <div className="space-y-3">
+        <div className="mb-4 space-y-3">
           {notes.map((note) => (
-            <Card key={note.id} className="group">
-              <CardContent className="p-4">
-                <div className="flex gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
-                    {note.staff
-                      ? `${note.staff.first_name?.[0] || ''}${note.staff.last_name?.[0] || ''}`.toUpperCase()
-                      : '?'}
-                  </div>
+            <div key={note.id} className={tutorCardCn('group p-4')}>
+              <div className="flex gap-3">
+                <NoteAuthorAvatar staff={note.staff} />
 
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline gap-2 mb-1">
-                      <span className="text-sm font-medium text-foreground">
-                        {formatAuthorName(note.staff)}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(note.created_at), 'MMM d, yyyy h:mm a')}
-                      </span>
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                    <span className="text-sm font-medium text-foreground">
+                      {formatAuthorName(note.staff)}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {format(new Date(note.created_at), 'MMM d, yyyy h:mm a')}
+                    </span>
+                  </div>
+                  {editingNoteId === note.id ? (
+                    <div className="space-y-3">
+                      <RichTextEditor
+                        content={editingNoteContent}
+                        onChange={setEditingNoteContent}
+                        placeholder="Edit note..."
+                        editable={!updateNoteMutation.isPending}
+                        minHeight="80px"
+                      />
+                      <div className="flex items-center gap-2">
+                        <Button
+                          onClick={() => handleSaveEdit(note.id)}
+                          disabled={
+                            isTiptapContentEmpty(editingNoteContent) ||
+                            updateNoteMutation.isPending
+                          }
+                          size="sm"
+                          className={tutorBtnPrimary}
+                        >
+                          Save
+                        </Button>
+                        <Button
+                          onClick={handleCancelEdit}
+                          disabled={updateNoteMutation.isPending}
+                          size="sm"
+                          variant="outline"
+                          className={tutorBtnOutline}
+                        >
+                          Cancel
+                        </Button>
+                      </div>
                     </div>
-                    {editingNoteId === note.id ? (
-                      <div className="space-y-2">
-                        <RichTextEditor
-                          content={editingNoteContent}
-                          onChange={setEditingNoteContent}
-                          placeholder="Edit note..."
-                          editable={!updateNoteMutation.isPending}
-                          minHeight="80px"
-                        />
-                        <div className="flex items-center gap-2">
-                          <Button
-                            onClick={() => handleSaveEdit(note.id)}
-                            disabled={
-                              isTiptapContentEmpty(editingNoteContent) ||
-                              updateNoteMutation.isPending
-                            }
-                            size="sm"
-                            variant="default"
-                          >
-                            Save
-                          </Button>
-                          <Button
-                            onClick={handleCancelEdit}
-                            disabled={updateNoteMutation.isPending}
-                            size="sm"
-                            variant="outline"
-                          >
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="prose prose-sm dark:prose-invert max-w-none">
-                        <RichTextEditor
-                          content={toEditorContent(note.note)}
-                          onChange={() => {}}
-                          editable={false}
-                          minHeight="0px"
-                        />
-                      </div>
-                    )}
-                  </div>
-
-                  {editingNoteId !== note.id && note.created_by === currentStaffId && (
-                    <div className="flex-shrink-0">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem onClick={() => handleEdit(note)}>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => handleDelete(note.id)}
-                            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                  ) : (
+                    <div className="text-sm text-foreground">
+                      <RichTextEditor
+                        content={toEditorContent(note.note)}
+                        onChange={() => {}}
+                        editable={false}
+                        minHeight="0px"
+                      />
                     </div>
                   )}
                 </div>
-              </CardContent>
-            </Card>
+
+                {editingNoteId !== note.id && note.created_by === currentStaffId && (
+                  <div className="shrink-0">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEdit(note)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => handleDelete(note.id)}
+                          className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       )}
 
-      <div className="space-y-2 pt-2">
+      {notes.length > 0 && <div className={cn(tutorModalHairline, 'mb-4')} role="presentation" />}
+
+      <div className={tutorCardCn('space-y-3 p-4')}>
         <RichTextEditor
           content={newNoteContent}
           onChange={setNewNoteContent}
@@ -222,9 +242,9 @@ export function SessionNotes({
           editable={!createNoteMutation.isPending && !!currentStaffId}
           minHeight="80px"
         />
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <span className="text-xs text-muted-foreground">
-            {createNoteMutation.isPending ? 'Posting...' : ''}
+            {createNoteMutation.isPending ? 'Posting…' : ''}
           </span>
           <Button
             onClick={handleSubmit}
@@ -234,9 +254,9 @@ export function SessionNotes({
               !currentStaffId
             }
             size="sm"
-            variant="default"
+            className={tutorBtnPrimary}
           >
-            Post
+            Post note
           </Button>
         </div>
       </div>

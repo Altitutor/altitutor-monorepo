@@ -1,65 +1,142 @@
+@import '@altitutor/ui/styles/native-datetime-input.css';
+@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Cormorant+Garamond:ital,wght@1,300;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Cormorant+Garamond:ital,wght@1,300;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap");
+@layer base {
+  :root {
+    /* Light grey app canvas — slightly darker than before for clearer contrast vs white cards */
+    --background: 220 13% 92%;
+    --foreground: 212 86% 14%;
 
-:root {
-  --background: 220 20% 95%;
-  --foreground: 224 20% 12%;
-  --border: 220 20% 88%;
-  --input: 220 20% 88%;
-  --ring: 212 86% 14%;
-  --muted: 220 18% 92%;
-  --muted-foreground: 220 10% 44%;
-  --card: 0 0% 100%;
-  --card-foreground: 224 20% 12%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 224 20% 12%;
-  --sidebar: 220 40% 35%;
-  --sidebar-foreground: 0 0% 100%;
-  --primary: 212 86% 14%;
-  --primary-foreground: 0 0% 100%;
-  --accent: 198 29% 67%;
-  --accent-foreground: 212 86% 14%;
-  --secondary: 0 0% 96%;
-  --secondary-foreground: 224 20% 12%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 100%;
+    --card: 0 0% 100%;
+    --card-foreground: 212 86% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 212 86% 14%;
+
+    --primary: 212 86% 14%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 224 20% 12%;
+
+    --muted: 220 11% 89%;
+    --muted-foreground: 212 86% 25%;
+
+    --accent: 198 29% 67%;
+    --accent-foreground: 212 86% 14%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 10% 90%;
+    --input: 220 10% 90%;
+    --ring: 212 86% 14%;
+
+    --radius: 1rem;
+    /* Cohesive radii: large shells vs compact controls */
+    --ucat-radius-shell: 1.25rem;
+    --ucat-radius-control: 0.75rem;
+
+    /* Same chrome blue as primary CTAs — rail, avatar chip, `bg-sidebar` accents */
+    --sidebar: var(--primary);
+    --sidebar-foreground: var(--primary-foreground);
+
+    --motion-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-duration-snappy: 150ms;
+    --motion-duration-subtle: 220ms;
+    --motion-duration-enter: 280ms;
+  }
+
+  .dark {
+    --background: 0 0% 9%;
+    --foreground: 0 0% 100%;
+
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 100%;
+
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 198 29% 67%;
+    /* Near-black on accent fills — less navy cast against grey UI */
+    --primary-foreground: 0 0% 11%;
+
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 70%;
+
+    --accent: 198 29% 67%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Softer than card (12%) so borders don’t read as heavy frames */
+    --border: 0 0% 15%;
+    --input: 0 0% 15%;
+    /* Neutral focus / ring token — accent cyan reads as “blue borders” on chrome */
+    --ring: 0 0% 70%;
+
+    /*
+     * Neutral sidebar (no blue cast): sits between background 9% and card 12%
+     * so it feels like part of the grey ramp, not a separate navy panel.
+     */
+    --sidebar: 0 0% 13%;
+    --sidebar-foreground: 0 0% 96%;
+
+    --secondary: 0 0% 17%;
+    --secondary-foreground: 0 0% 96%;
+  }
 }
 
-.dark {
-  --background: 220 16% 10%;
-  --foreground: 220 20% 96%;
-  --border: 220 14% 30%;
-  --input: 220 14% 30%;
-  --ring: 198 29% 67%;
-  --muted: 220 14% 16%;
-  --muted-foreground: 220 12% 74%;
-  --card: 220 14% 16%;
-  --card-foreground: 220 20% 96%;
-  --popover: 220 14% 16%;
-  --popover-foreground: 220 20% 96%;
-  --sidebar: 220 18% 12%;
-  --sidebar-foreground: 220 20% 96%;
-  --primary: 198 29% 67%;
-  --primary-foreground: 212 86% 14%;
-  --accent: 198 29% 67%;
-  --accent-foreground: 0 0% 100%;
-  --secondary: 220 14% 18%;
-  --secondary-foreground: 220 20% 96%;
-  --destructive: 0 62.8% 45%;
-  --destructive-foreground: 0 0% 100%;
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-snappy: 1ms;
+    --motion-duration-subtle: 1ms;
+    --motion-duration-enter: 1ms;
+    --motion-ease-standard: linear;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
 }
 
-html,
-body {
-  height: 100%;
-}
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    scroll-behavior: smooth;
+  }
+  html,
+  body {
+    height: 100%;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 
-body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+  @media (prefers-reduced-motion: no-preference) {
+    :where(
+        button,
+        a,
+        summary,
+        input[type="button"],
+        input[type="submit"],
+        input[type="reset"],
+        [role="button"],
+        [role="tab"]
+      ):not(:disabled):not([data-motion-static]) {
+      transition-property: color, background-color, border-color, text-decoration-color, fill, stroke,
+        box-shadow, filter, opacity, transform;
+      transition-duration: var(--motion-duration-subtle);
+      transition-timing-function: var(--motion-ease-standard);
+    }
+  }
 }
 
 /* Set generator: transient background highlight for blocked set card */
@@ -76,13 +153,47 @@ body {
   animation: set-highlight-fade 2s ease-out forwards;
 }
 
-/* Progress page: pagination uses accent for active page button */
-.ucat-pagination button.bg-primary {
-  background-color: hsl(var(--accent)) !important;
-  color: hsl(var(--accent-foreground)) !important;
+/**
+ * Bottom-up hover wash over whatever `background-color` Tailwind sets on the
+ * control (same motion language as marketing `MagneticButton`). Base fill is
+ * `bg-primary` / `dark:bg-accent` on the element, not in this rule.
+ */
+.ucat-btn-accent-fill-rise {
+  --ucat-accent-fill-wash: hsl(0 0% 0% / 0.11);
+  background-image: linear-gradient(
+    180deg,
+    var(--ucat-accent-fill-wash) 0%,
+    var(--ucat-accent-fill-wash) 100%
+  );
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: 100% 0%;
+  transition-property: background-size, transform, box-shadow;
+  transition-duration: 500ms, 200ms, 200ms;
+  transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94), cubic-bezier(0.32, 0.72, 0, 1),
+    cubic-bezier(0.32, 0.72, 0, 1);
 }
-.ucat-pagination button.bg-primary:hover:not(:disabled) {
-  background-color: hsl(var(--accent) / 0.9) !important;
+
+.dark .ucat-btn-accent-fill-rise {
+  --ucat-accent-fill-wash: hsl(0 0% 0% / 0.16);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ucat-btn-accent-fill-rise:hover:not(:disabled) {
+    background-size: 100% 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ucat-btn-accent-fill-rise {
+    background-image: none;
+    background-size: auto;
+    transition-duration: 1ms, 1ms, 1ms;
+  }
+
+  .ucat-btn-accent-fill-rise:hover:not(:disabled) {
+    filter: brightness(1.05);
+  }
 }
 
 /* Tiptap ResizableNodeView - invisible handles, resize from any edge/corner */
@@ -169,3 +280,12 @@ body {
   }
 }
 
+/*
+ * nextstepjs: with `viewportID`, the library also renders a second full-document
+ * overlay (`nextstep-overlay2`) that mixes `getBoundingClientRect()` with
+ * `window.scrollY`. For a fixed full-viewport portal that mis-tints the page
+ * when the user scrolls. The primary portal already covers the viewport.
+ */
+[data-name="nextstep-overlay2"] {
+  display: none !important;
+}

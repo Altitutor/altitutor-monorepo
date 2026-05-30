@@ -33,6 +33,11 @@ interface NoteEditorBottomToolbarProps {
 
 type ToolbarMode = 'text-selection' | 'table' | 'default';
 
+/** Scrolls horizontally on narrow viewports; centers row when it fits (see documents / daily note). */
+const TOOLBAR_OUTER_CLASS =
+  'border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto overflow-x-auto overscroll-x-contain';
+const TOOLBAR_INNER_PAD = 'px-2 sm:px-4 py-2';
+
 /**
  * Persistent bottom toolbar that changes contextually based on editor state.
  * - Shows inline formatting when text is selected
@@ -84,9 +89,9 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
   // Table toolbar mode
   if (toolbarMode === 'table') {
     return (
-      <div className="border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
-        <div className="px-4 py-2">
-          <div className="flex items-center gap-2 justify-center flex-nowrap">
+      <div className={TOOLBAR_OUTER_CLASS}>
+        <div className={TOOLBAR_INNER_PAD}>
+          <div className="inline-flex min-w-full items-center gap-2 justify-center flex-nowrap">
             {/* Row controls */}
             <div className="flex items-center gap-0.5 pr-2 border-r border-border">
               <Button
@@ -175,9 +180,9 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
   // Text selection toolbar mode
   if (toolbarMode === 'text-selection') {
     return (
-      <div className="border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
-        <div className="px-4 py-2">
-          <div className="flex items-center gap-1 justify-center flex-nowrap">
+      <div className={TOOLBAR_OUTER_CLASS}>
+        <div className={TOOLBAR_INNER_PAD}>
+          <div className="inline-flex min-w-full items-center gap-1 justify-center flex-nowrap">
             {/* Inline formatting */}
             <Button
               type="button"
@@ -242,9 +247,9 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
 
   // Default toolbar mode (cursor position, no selection)
   return (
-    <div className="border bg-popover rounded-lg shadow-lg w-full max-w-3xl mx-auto">
-      <div className="px-4 py-2">
-        <div className="flex items-center gap-1 justify-center flex-nowrap">
+    <div className={TOOLBAR_OUTER_CLASS}>
+      <div className={TOOLBAR_INNER_PAD}>
+        <div className="inline-flex min-w-full items-center gap-1 justify-center flex-nowrap">
           {/* Headings */}
           <Button
             type="button"

@@ -6,6 +6,8 @@ import { useTheme } from "next-themes";
 import { Button } from "@altitutor/ui";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useAuth } from "@/features/auth";
+import { UCAT_APP_HEADER_RULE } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 export function MarketingHeader() {
   const { resolvedTheme } = useTheme();
@@ -16,7 +18,12 @@ export function MarketingHeader() {
       : "/images/logo-banner-light.svg";
 
   return (
-    <header className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-border/50 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
+    <header
+      className={cn(
+        "fixed left-0 right-0 top-0 z-50 flex items-center justify-between bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80",
+        UCAT_APP_HEADER_RULE,
+      )}
+    >
       <Link href="/" className="flex items-center">
         <Image
           src={logoSrc}

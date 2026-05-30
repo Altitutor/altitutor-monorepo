@@ -32,15 +32,24 @@ export function UcatLandingNavbar() {
       <div
         className={`hidden gap-8 text-sm tracking-wide md:flex ${typo.secondarySans}`}
       >
-        {["Methodology", "Systems", "Pricing"].map((item) => (
-          <a
-            key={item}
-            href={`#${item.toLowerCase()}`}
-            className="opacity-80 transition-transform hover:-translate-y-px hover:opacity-100"
-          >
-            {item}
-          </a>
-        ))}
+        <a
+          href="#methodology"
+          className="opacity-80 transition-transform hover:-translate-y-px hover:opacity-100"
+        >
+          Methodology
+        </a>
+        <a
+          href="#how-it-works"
+          className="opacity-80 transition-transform hover:-translate-y-px hover:opacity-100"
+        >
+          How it works
+        </a>
+        <a
+          href="#pricing"
+          className="opacity-80 transition-transform hover:-translate-y-px hover:opacity-100"
+        >
+          Pricing
+        </a>
         <Link
           href="/login"
           className="opacity-80 transition-transform hover:-translate-y-px hover:opacity-100"

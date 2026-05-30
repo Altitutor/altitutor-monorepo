@@ -43,12 +43,22 @@ export type ParserConfig = {
   questionNumberOnOwnLine?: boolean
   /** If true, only treat "a)" or "a." on its own line; next line is the option text. */
   answerOptionOnOwnLine?: boolean
+  /**
+   * When true, numbered question starts are expected to increase by 1 after the
+   * first detected question. A later "1." is also allowed so pasted extracts
+   * that reset numbering per stem still work.
+   */
+  enforceSequentialQuestionNumbers?: boolean
+  /** Non-blank logical lines to scan after a numbered candidate for answer options. */
+  questionLookaheadLimit?: number
 }
 
 const DEFAULT_CONFIG: ParserConfig = {
   maxConsecutiveBlankLines: 2,
   questionIndicator: 'dot',
   answerOptionIndicator: 'paren',
+  enforceSequentialQuestionNumbers: true,
+  questionLookaheadLimit: 24,
 }
 
 /** ProseMirror JSON node shape (TipTap `getJSON()`) for parser helpers. */
@@ -98,6 +108,15 @@ function buildOptionRegexes(kind: AnswerOptionIndicatorKind): {
 
 function isBlank(line: string): boolean {
   return line.trim().length === 0
+}
+
+function normaliseStructuralText(text: string): string {
+  return text
+    .replace(/\[\[TABLE:[^\]]+\]\]/g, '[[TABLE]]')
+    .replace(/\[\[IMG:[^\]]+\]\]/g, '[[IMG]]')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
 }
 
 function normaliseTextBlock(lines: string[], config: ParserConfig): string {
@@ -492,6 +511,84 @@ export function collectBlocksFromDocForQuantitativeReasoning(
   return { logicalLines: lines, tableMap }
 }
 
+type QuestionMatch = {
+  numberRaw: string
+  number: number | null
+  inlineText: string
+  isInline: boolean
+}
+
+function getQuestionMatch(
+  line: string,
+  qRe: ReturnType<typeof buildQuestionRegexes>,
+  questionNumberOnOwnLine: boolean
+): QuestionMatch | null {
+  const inlineQuestionMatch = qRe.inline.exec(line)
+  const numberOnlyMatch = qRe.numberOnly.exec(line)
+  const isQuestionLine =
+    !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
+
+  if (!isQuestionLine) return null
+
+  const numberRaw =
+    inlineQuestionMatch != null ? inlineQuestionMatch[1] ?? '' : numberOnlyMatch?.[1] ?? ''
+  const number = Number.parseInt(numberRaw, 10)
+  return {
+    numberRaw,
+    number: Number.isNaN(number) ? null : number,
+    inlineText: inlineQuestionMatch?.[2] ?? '',
+    isInline: inlineQuestionMatch != null,
+  }
+}
+
+function isPlausibleQuestionNumber(
+  questionNumber: number | null,
+  lastQuestionNumber: number | null,
+  enforceSequential: boolean
+): boolean {
+  if (!enforceSequential || questionNumber == null) return true
+  if (questionNumber < 1 || questionNumber > 300) return false
+  if (lastQuestionNumber == null) return true
+  return questionNumber === lastQuestionNumber + 1 || questionNumber === 1
+}
+
+function hasNearbyAnswerOptionEvidence(
+  rawLines: string[],
+  startIdx: number,
+  config: ParserConfig,
+  qRe: ReturnType<typeof buildQuestionRegexes>,
+  oRe: ReturnType<typeof buildOptionRegexes>
+): boolean {
+  const questionNumberOnOwnLine = config.questionNumberOnOwnLine === true
+  const answerOptionOnOwnLine = config.answerOptionOnOwnLine === true
+  const limit = config.questionLookaheadLimit ?? DEFAULT_CONFIG.questionLookaheadLimit ?? 24
+  let nonBlankCount = 0
+  let unlabelledCount = 0
+
+  for (let i = startIdx + 1; i < rawLines.length && nonBlankCount < limit; i += 1) {
+    const candidate = rawLines[i] ?? ''
+    if (isBlank(candidate)) continue
+    nonBlankCount += 1
+
+    if (getQuestionMatch(candidate, qRe, questionNumberOnOwnLine)) {
+      return false
+    }
+
+    const inlineOptionMatch = oRe.inline.exec(candidate)
+    const labelOnlyMatch = oRe.labelOnly.exec(candidate)
+    if (answerOptionOnOwnLine ? !!labelOnlyMatch : !!(inlineOptionMatch || labelOnlyMatch)) {
+      return true
+    }
+
+    unlabelledCount += 1
+    if (config.acceptSyllogismOptions && unlabelledCount >= 5) {
+      return true
+    }
+  }
+
+  return false
+}
+
 /**
  * Core line-based parser: stem text, numbered questions, and a) b) c) or (when
  * acceptSyllogismOptions) 5 unlabelled lines as syllogism options. New stem when
@@ -515,6 +612,7 @@ export function parseFromLines(
   let haveSeenOptionForCurrentQuestion = false
   let expectingOptionTextLine = false
   let expectingQuestionTextLine = false
+  let lastQuestionNumber: number | null = null
 
   const flushCurrentOption = (): void => {
     if (!currentOption || !currentQuestion) return
@@ -561,14 +659,19 @@ export function parseFromLines(
       continue
     }
 
-    const inlineQuestionMatch = qRe.inline.exec(line)
-    const numberOnlyMatch = qRe.numberOnly.exec(line)
-    const inlineOptionMatch = oRe.inline.exec(line)
-    const labelOnlyMatch = oRe.labelOnly.exec(line)
     const questionNumberOnOwnLine = config.questionNumberOnOwnLine === true
     const answerOptionOnOwnLine = config.answerOptionOnOwnLine === true
+    const questionMatch = getQuestionMatch(line, qRe, questionNumberOnOwnLine)
     const isQuestionLine =
-      !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
+      questionMatch != null &&
+      isPlausibleQuestionNumber(
+        questionMatch.number,
+        lastQuestionNumber,
+        config.enforceSequentialQuestionNumbers !== false
+      ) &&
+      hasNearbyAnswerOptionEvidence(rawLines, idx, config, qRe, oRe)
+    const inlineOptionMatch = oRe.inline.exec(line)
+    const labelOnlyMatch = oRe.labelOnly.exec(line)
 
     if (expectingQuestionTextLine && currentQuestion) {
       if (!isBlank(trimmed)) {
@@ -589,10 +692,8 @@ export function parseFromLines(
       flushCurrentQuestion()
       expectingOptionTextLine = false
 
-      const qNumberRaw =
-        inlineQuestionMatch != null ? inlineQuestionMatch[1] ?? '' : numberOnlyMatch?.[1] ?? ''
-      const qNumber = Number.parseInt(qNumberRaw, 10)
-      const questionNumber = Number.isNaN(qNumber) ? null : qNumber
+      const questionNumber = questionMatch.number
+      lastQuestionNumber = questionNumber
 
       currentQuestion = { number: questionNumber, text: '', options: [] }
       questionTextLines = []
@@ -602,8 +703,8 @@ export function parseFromLines(
 
       if (questionNumberOnOwnLine) {
         expectingQuestionTextLine = true
-      } else if (inlineQuestionMatch && inlineQuestionMatch[2]) {
-        questionTextLines.push(inlineQuestionMatch[2])
+      } else if (questionMatch.isInline && questionMatch.inlineText) {
+        questionTextLines.push(questionMatch.inlineText)
       }
       continue
     }
@@ -687,6 +788,27 @@ export function parseFromLines(
   return stems
 }
 
+export function mergeConsecutiveStemsWithSameText(stems: ParsedStem[]): ParsedStem[] {
+  const merged: ParsedStem[] = []
+
+  for (const stem of stems) {
+    const previous = merged[merged.length - 1]
+    if (
+      previous &&
+      normaliseStructuralText(previous.stemText) === normaliseStructuralText(stem.stemText)
+    ) {
+      previous.questions.push(...stem.questions)
+      continue
+    }
+    merged.push({
+      stemText: stem.stemText,
+      questions: [...stem.questions],
+    })
+  }
+
+  return merged
+}
+
 /** Per logical line, how the bulk-import line parser classifies it for live preview. */
 export type ParseLineHighlightRole = 'stem' | 'question' | 'option' | 'none'
 
@@ -713,6 +835,7 @@ export function classifyParseLineRoles(
   let haveSeenOptionForCurrentQuestion = false
   let expectingOptionTextLine = false
   let expectingQuestionTextLine = false
+  let lastQuestionNumber: number | null = null
 
   const flushCurrentOption = (): void => {
     if (!currentOption || !currentQuestion) return
@@ -760,14 +883,19 @@ export function classifyParseLineRoles(
       continue
     }
 
-    const inlineQuestionMatch = qRe.inline.exec(line)
-    const numberOnlyMatch = qRe.numberOnly.exec(line)
-    const inlineOptionMatch = oRe.inline.exec(line)
-    const labelOnlyMatch = oRe.labelOnly.exec(line)
     const questionNumberOnOwnLine = config.questionNumberOnOwnLine === true
     const answerOptionOnOwnLine = config.answerOptionOnOwnLine === true
+    const questionMatch = getQuestionMatch(line, qRe, questionNumberOnOwnLine)
     const isQuestionLine =
-      !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
+      questionMatch != null &&
+      isPlausibleQuestionNumber(
+        questionMatch.number,
+        lastQuestionNumber,
+        config.enforceSequentialQuestionNumbers !== false
+      ) &&
+      hasNearbyAnswerOptionEvidence(rawLines, idx, config, qRe, oRe)
+    const inlineOptionMatch = oRe.inline.exec(line)
+    const labelOnlyMatch = oRe.labelOnly.exec(line)
 
     if (expectingQuestionTextLine && currentQuestion) {
       if (!isBlank(trimmed)) {
@@ -790,10 +918,8 @@ export function classifyParseLineRoles(
       expectingOptionTextLine = false
       roles[idx] = 'question'
 
-      const qNumberRaw =
-        inlineQuestionMatch != null ? inlineQuestionMatch[1] ?? '' : numberOnlyMatch?.[1] ?? ''
-      const qNumber = Number.parseInt(qNumberRaw, 10)
-      const questionNumber = Number.isNaN(qNumber) ? null : qNumber
+      const questionNumber = questionMatch.number
+      lastQuestionNumber = questionNumber
 
       currentQuestion = { number: questionNumber, text: '', options: [] }
       questionTextLines = []
@@ -804,8 +930,8 @@ export function classifyParseLineRoles(
 
       if (questionNumberOnOwnLine) {
         expectingQuestionTextLine = true
-      } else if (inlineQuestionMatch && inlineQuestionMatch[2]) {
-        questionTextLines.push(inlineQuestionMatch[2])
+      } else if (questionMatch.isInline && questionMatch.inlineText) {
+        questionTextLines.push(questionMatch.inlineText)
         questionTextSources.push(idx)
       }
       continue

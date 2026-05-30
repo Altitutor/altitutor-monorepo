@@ -1,4 +1,4 @@
-import type { Database } from '@altitutor/shared';
+import { hasSessionStarted, type Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TutorLogFormData } from '../types';
@@ -97,7 +97,7 @@ export const tutorLogsApi = {
 
   /**
    * Get sessions that haven't been logged yet for the current tutor
-   * Only returns past/current sessions (start_at <= NOW())
+   * Only returns sessions that have started and have no tutor log yet (start_at <= now).
    * Note: staffId parameter is kept for API consistency but not used (RLS handles filtering)
    */
   getUnloggedSessions: async (_staffId: string): Promise<Array<Database['public']['Views']['vtutor_sessions']['Row'] & {
@@ -111,16 +111,14 @@ export const tutorLogsApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
 
     try {
-      // Get all sessions accessible to this tutor (from vtutor_sessions view)
-      // Filter by date (not timestamp) - allow sessions from today or earlier
-      const today = new Date();
-      today.setHours(23, 59, 59, 999); // End of today
-      
+      // Only sessions that have started (instant comparison; start_at is UTC in DB)
+      const nowIso = new Date().toISOString();
+
       const { data: sessions, error: sessionsError } = await supabase
         .from('vtutor_sessions')
         .select('*')
         .eq('session_type', 'CLASS')
-        .lte('start_at', today.toISOString())
+        .lte('start_at', nowIso)
         .order('start_at', { ascending: false });
 
       if (sessionsError) throw sessionsError;
@@ -149,7 +147,9 @@ export const tutorLogsApi = {
         };
       };
       
-      return (sessions || []).filter((s) => !loggedSessionIds.has(s.session_id)).map((s): TransformedSession => {
+      return (sessions || [])
+        .filter((s) => !loggedSessionIds.has(s.session_id) && hasSessionStarted(s.start_at))
+        .map((s): TransformedSession => {
         // Transform vtutor_sessions row to match expected format
         return {
           ...s,

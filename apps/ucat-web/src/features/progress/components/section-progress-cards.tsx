@@ -1,88 +1,32 @@
 "use client";
 
+import { Fragment } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
+import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import type { SectionProgress } from "@/app/api/ucat/progress/route";
 import type { ProgressMode } from "../lib/progress-mode";
+import {
+  AnimatedInteger,
+  ProgressCircular,
+} from "./progress-animated-display";
 
 type SectionProgressCardsProps = {
   sections: SectionProgress[];
   /** When true, cards link to section detail page */
   linkToSection?: boolean;
+  /** Base path for section links (default: /progress/sections) */
+  sectionHrefPrefix?: string;
   mode: ProgressMode;
   timeFrameDays: string;
 };
 
-function CircularProgress({
-  percentage,
-  total,
-  size = 120,
-  strokeWidth = 10,
-  className,
-}: {
-  percentage: number;
-  total: number;
-  size?: number;
-  strokeWidth?: number;
-  className?: string;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (percentage / 100) * circumference;
-
-  return (
-    <div
-      className={cn(
-        "flex flex-col items-center justify-center gap-2",
-        className,
-      )}
-    >
-      <div className="relative" style={{ width: size, height: size }}>
-        <svg
-          width={size}
-          height={size}
-          className="-rotate-90"
-          aria-label={`${percentage}% progress`}
-        >
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={strokeWidth}
-            className="text-muted/30"
-          />
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={strokeWidth}
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            strokeLinecap="round"
-            className="text-accent transition-[stroke-dashoffset] duration-700 ease-out"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-semibold tabular-nums">
-            {percentage}%
-          </span>
-        </div>
-      </div>
-      <span className="text-xs text-muted-foreground tabular-nums">
-        {total} questions completed
-      </span>
-    </div>
-  );
-}
-
 export function SectionProgressCards({
   sections,
   linkToSection = false,
+  sectionHrefPrefix = "/progress/sections",
   mode,
   timeFrameDays: _timeFrameDays,
 }: SectionProgressCardsProps) {
@@ -103,16 +47,25 @@ export function SectionProgressCards({
           const score = getScaledScore(section);
           const card = (
             <Card
-              key={section.sectionId}
               className={cn(
-                "rounded-xl border-border",
-                linkToSection && "transition-colors hover:bg-muted/50",
+                UCAT_CARD_CHROME,
+                linkToSection && UCAT_CARD_RAISED_HOVER,
               )}
             >
-              <CardHeader className="pb-2">
+              <CardHeader
+                className={cn(
+                  "pb-2",
+                  linkToSection && "relative space-y-0 pr-12",
+                )}
+              >
                 <CardTitle className="text-base font-medium">
                   {section.sectionName}
                 </CardTitle>
+                {linkToSection ? (
+                  <div className="pointer-events-none absolute inset-y-0 right-2 flex items-center sm:right-3">
+                    <UcatHoverChevron className="h-4 w-4" />
+                  </div>
+                ) : null}
               </CardHeader>
               <CardContent className="flex flex-col gap-4">
                 <div>
@@ -125,17 +78,24 @@ export function SectionProgressCards({
                       score == null && "text-muted-foreground",
                     )}
                   >
-                    {score != null ? Math.round(score) : "—"}
+                    {score != null ? (
+                      <AnimatedInteger value={Math.round(score)} />
+                    ) : (
+                      "—"
+                    )}
                   </div>
                 </div>
                 <div className="flex flex-col gap-2">
                   <div className="text-xs font-medium text-muted-foreground">
                     Percentage correct
                   </div>
-                  <CircularProgress
+                  <ProgressCircular
                     percentage={getPercentage(section)}
-                    total={section.maxScore}
+                    size={120}
+                    strokeWidth={10}
                     className="text-accent"
+                    footerCount={section.maxScore}
+                    footerSuffix="questions completed"
                   />
                 </div>
               </CardContent>
@@ -144,12 +104,14 @@ export function SectionProgressCards({
           return linkToSection ? (
             <Link
               key={section.sectionId}
-              href={`/progress/sections/${section.sectionNumber}`}
+              href={`${sectionHrefPrefix}/${section.sectionNumber}`}
+              className="group block"
+              aria-label={`View ${section.sectionName} section progress`}
             >
               {card}
             </Link>
           ) : (
-            card
+            <Fragment key={section.sectionId}>{card}</Fragment>
           );
         })}
       </div>

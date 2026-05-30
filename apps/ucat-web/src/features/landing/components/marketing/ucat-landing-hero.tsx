@@ -30,6 +30,7 @@ export function UcatLandingHero() {
 
   return (
     <section
+      id="alti-ucat"
       ref={containerRef}
       className="relative flex min-h-[100dvh] w-full flex-col overflow-hidden rounded-b-[3rem] bg-marketing-charcoal"
     >

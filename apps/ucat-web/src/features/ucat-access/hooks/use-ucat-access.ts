@@ -14,7 +14,7 @@ export type UcatAccessFlags = {
 
 async function fetchUcatAccess(): Promise<UcatAccessFlags> {
   const supabase = getSupabaseBrowserClient();
-  // Aggregated UCAT flags; DB derives these from vstudent_my_subject_access (class / subscription / manual).
+  // Aggregated UCAT flags; DB derives these from vstudent_my_subject_access (class / subscription / students_online_access_manual).
   const { data, error } = await supabase
     .from("vstudent_ucat_my_access")
     .select("*")

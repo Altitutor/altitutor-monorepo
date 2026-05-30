@@ -1,11 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import type { AuthError } from "@supabase/supabase-js";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
+import { AuthPageHeader } from "@/features/auth/components/auth-page-header";
+import { authFormFieldClass } from "@/features/auth/lib/auth-form-field-class";
+import { useAuthPageEntrance } from "@/features/auth/hooks/use-auth-page-entrance";
+import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -13,87 +17,155 @@ const MONTHLY_PRICE_ID = "price_1TUoHxKMw7Xacevsm4h5ulH8";
 
 type FormState = "idle" | "submitted" | "error";
 
+function getSignupOtpUserMessage(error: AuthError): string {
+  const raw = error.message ?? "";
+  const msg = raw.toLowerCase();
+  if (
+    error.status === 429 ||
+    error.code === "over_email_send_rate_limit" ||
+    msg.includes("rate limit")
+  ) {
+    return "Too many confirmation emails were requested. Please wait several minutes, then try again.";
+  }
+  if (msg.includes("api key") || msg.includes("no `apikey`")) {
+    return "Sign-in could not reach the project (missing anon key). Developers: set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in apps/ucat-web/.env.local and restart `pnpm dev`.";
+  }
+  return raw || "Something went wrong. Please try again.";
+}
+
+async function subscribeToNewsletter(email: string): Promise<void> {
+  try {
+    const response = await fetch("/api/ucat/newsletter/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, source: "ucat_signup" }),
+    });
+    if (!response.ok) {
+      console.warn("[signup] Failed to save newsletter preference:", response.status);
+    }
+  } catch (error) {
+    console.warn("[signup] Failed to save newsletter preference:", error);
+  }
+}
+
 export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string }) {
+  const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
   const [email, setEmail] = useState("");
   const [newsletter, setNewsletter] = useState(true);
   const [formState, setFormState] = useState<FormState>("idle");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpSubmitting, setOtpSubmitting] = useState(false);
+
+  const containerRef = useAuthPageEntrance(formState);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!email.trim()) return;
+    if (submitInFlightRef.current) return;
 
+    submitInFlightRef.current = true;
     setIsSubmitting(true);
     setErrorMessage(null);
+    const normalizedEmail = email.trim().toLowerCase();
 
     const callbackUrl =
       typeof window !== "undefined"
         ? `${window.location.origin}/auth/callback?next=/signup/flow`
         : "/auth/callback?next=/signup/flow";
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim().toLowerCase(),
-      options: {
-        shouldCreateUser: true,
-        emailRedirectTo: callbackUrl,
-        data: {
-          newsletter_opt_in: newsletter,
-          pending_redirect: redirectTo,
-          pending_price_id:
-            redirectTo.includes("plan=monthly") ? MONTHLY_PRICE_ID : null,
+    try {
+      if (newsletter) {
+        void subscribeToNewsletter(normalizedEmail);
+      }
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email: normalizedEmail,
+        options: {
+          shouldCreateUser: true,
+          emailRedirectTo: callbackUrl,
+          data: {
+            pending_redirect: redirectTo,
+            pending_price_id:
+              redirectTo.includes("plan=monthly") ? MONTHLY_PRICE_ID : null,
+          },
         },
-      },
-    });
+      });
 
-    setIsSubmitting(false);
+      if (error) {
+        setErrorMessage(getSignupOtpUserMessage(error));
+        setFormState("error");
+        return;
+      }
 
-    if (error) {
-      setErrorMessage(error.message ?? "Something went wrong. Please try again.");
-      setFormState("error");
+      setFormState("submitted");
+    } finally {
+      submitInFlightRef.current = false;
+      setIsSubmitting(false);
+    }
+  }
+
+  async function onVerifyOtp(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setOtpError(null);
+    const digits = otpCode.replace(/\D/g, "");
+    if (digits.length !== 6) {
+      setOtpError("Enter the 6-digit code from your email.");
       return;
     }
 
-    setFormState("submitted");
+    setOtpSubmitting(true);
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const tryTypes = ["email", "signup", "magiclink"] as const;
+    let lastError: AuthError | null = null;
+    for (const type of tryTypes) {
+      const { error } = await supabase.auth.verifyOtp({
+        email: normalizedEmail,
+        token: digits,
+        type,
+      });
+      if (!error) {
+        setOtpSubmitting(false);
+        router.push("/signup/flow");
+        router.refresh();
+        return;
+      }
+      lastError = error;
+    }
+
+    setOtpSubmitting(false);
+    setOtpError(
+      lastError
+        ? getSignupOtpUserMessage(lastError)
+        : "Invalid code. Try again or request a new email.",
+    );
   }
 
   return (
-    <div className="relative flex min-h-dvh flex-col bg-marketing-charcoal">
-      <NoiseOverlay />
+    <div
+      ref={containerRef}
+      className="relative flex min-h-dvh flex-col bg-background text-foreground"
+    >
+      <div className="auth-entrance">
+        <AuthPageHeader />
+      </div>
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/images/logo-banner-darkmode.svg"
-            alt="Alti UCAT"
-            width={140}
-            height={32}
-            className="h-8 w-auto object-contain"
-            priority
-          />
-        </Link>
-        <Link
-          href={`/login?redirect=${encodeURIComponent(redirectTo)}`}
-          className={`text-sm text-marketing-cream/60 transition-colors hover:text-marketing-cream ${typo.secondarySans}`}
-        >
-          Sign in
-        </Link>
-      </header>
-
-      {/* Main */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
         {formState === "submitted" ? (
           <div className="w-full max-w-md text-center">
-            <div className="mb-6 flex items-center justify-center">
-              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-marketing-accent/20">
+            <div className="auth-entrance mb-6 flex items-center justify-center">
+              <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/15">
                 <svg
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
                   strokeWidth={1.5}
-                  className="h-8 w-8 text-marketing-accent"
+                  className="h-8 w-8 text-primary"
                 >
                   <path
                     strokeLinecap="round"
@@ -104,23 +176,67 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               </span>
             </div>
             <h2
-              className={`mb-3 text-3xl font-bold text-marketing-cream ${typo.headingSans}`}
+              className={cn(
+                "auth-entrance mb-3 text-3xl font-bold text-foreground",
+                typo.headingSans,
+              )}
             >
               Check your inbox
             </h2>
-            <p
-              className={`text-marketing-cream/60 ${typo.secondarySans}`}
-            >
-              We&apos;ve sent a confirmation link to{" "}
-              <span className="text-marketing-accent">{email}</span>. Click the
-              link to continue creating your account.
+            <p className={cn("auth-entrance text-muted-foreground", typo.secondarySans)}>
+              We&apos;ve sent a confirmation email to{" "}
             </p>
-            <p className={`mt-4 text-sm text-marketing-cream/40 ${typo.secondarySans}`}>
+            <form
+              onSubmit={onVerifyOtp}
+              className={cn(
+                "auth-entrance mt-10 space-y-4 rounded-2xl border border-border bg-card p-6 text-left text-card-foreground",
+                typo.secondarySans,
+              )}
+            >
+              <p className="text-sm text-muted-foreground">
+                Alternatively, enter the 6-digit code from your email.
+              </p>
+              <div className="space-y-1.5">
+                <label htmlFor="signup-otp" className="block text-sm font-medium text-foreground/90">
+                  6-digit code
+                </label>
+                <input
+                  id="signup-otp"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={12}
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  placeholder="000000"
+                  disabled={otpSubmitting}
+                  className={`text-center font-mono text-lg tracking-[0.4em] ${authFormFieldClass}`}
+                />
+              </div>
+              {otpError ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {otpError}
+                </p>
+              ) : null}
+              <button
+                type="submit"
+                disabled={otpSubmitting || otpCode.length !== 6}
+                className={`w-full rounded-xl bg-primary py-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40 ${typo.secondarySans}`}
+              >
+                {otpSubmitting ? "Verifying…" : "Continue with code"}
+              </button>
+            </form>
+            <p
+              className={cn(
+                "auth-entrance mt-4 text-sm text-muted-foreground",
+                typo.secondarySans,
+              )}
+            >
               Didn&apos;t receive it? Check your spam folder or{" "}
               <button
                 type="button"
                 onClick={() => setFormState("idle")}
-                className="text-marketing-accent underline hover:text-marketing-cream transition-colors"
+                className="text-primary underline underline-offset-2 transition-colors hover:text-foreground"
               >
                 try again
               </button>
@@ -129,37 +245,47 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
           </div>
         ) : (
           <div className="w-full max-w-md">
-            {/* Heading */}
             <div className="mb-10">
               <span
-                className={`text-xs font-bold uppercase tracking-[0.2em] text-marketing-accent ${typo.dataMono}`}
+                className={cn(
+                  "auth-entrance text-xs font-bold uppercase tracking-[0.2em] text-primary",
+                  typo.dataMono,
+                )}
               >
                 Alti UCAT
               </span>
               <h1
-                className={`mt-2 text-4xl font-bold leading-tight text-marketing-cream sm:text-5xl ${typo.headingSans}`}
+                className={cn(
+                  "auth-entrance mt-2 text-4xl font-bold leading-tight text-foreground sm:text-5xl",
+                  typo.headingSans,
+                )}
               >
                 Start your{" "}
-                <span className={`italic text-marketing-cream/80 ${typo.dramaSerif}`}>
+                <span className={`italic text-muted-foreground ${typo.dramaSerif}`}>
                   free trial
                 </span>
               </h1>
               <p
-                className={`mt-3 text-marketing-cream/60 ${typo.secondarySans}`}
+                className={cn(
+                  "auth-entrance mt-3 text-muted-foreground",
+                  typo.secondarySans,
+                )}
               >
-                7-day free trial. No credit card required to confirm your email.
+                7-day free trial, on us.
               </p>
             </div>
 
-            {/* Form card */}
             <form
               onSubmit={onSubmit}
-              className="space-y-5 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm"
+              className={cn(
+                "auth-entrance space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
+                typo.secondarySans,
+              )}
             >
               <div className="space-y-1.5">
                 <label
                   htmlFor="signup-email"
-                  className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+                  className="block text-sm font-medium text-foreground/90"
                 >
                   Email address
                 </label>
@@ -172,11 +298,10 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="you@example.com"
                   disabled={isSubmitting}
-                  className={`w-full rounded-xl border border-white/10 bg-white/8 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-all focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+                  className={authFormFieldClass}
                 />
               </div>
 
-              {/* Newsletter opt-in */}
               <label className="flex cursor-pointer items-start gap-3">
                 <div className="relative mt-0.5 shrink-0">
                   <input
@@ -186,7 +311,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                     disabled={isSubmitting}
                     className="peer sr-only"
                   />
-                  <div className="h-5 w-5 rounded-md border border-white/20 bg-white/5 transition-all peer-checked:border-marketing-accent peer-checked:bg-marketing-accent" />
+                  <div className="h-5 w-5 rounded-md border border-border bg-muted/40 transition-all peer-checked:border-primary peer-checked:bg-primary" />
                   <svg
                     viewBox="0 0 12 10"
                     fill="none"
@@ -194,21 +319,21 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                   >
                     <path
                       d="M1 5l3.5 3.5L11 1"
-                      stroke="#1A1A1A"
+                      stroke="hsl(var(--primary-foreground))"
                       strokeWidth={1.8}
                       strokeLinecap="round"
                       strokeLinejoin="round"
                     />
                   </svg>
                 </div>
-                <span className={`text-sm leading-relaxed text-marketing-cream/60 ${typo.secondarySans}`}>
+                <span className="text-sm leading-relaxed text-muted-foreground">
                   Keep me updated with Altitutor news, UCAT resources, and prep
                   tips
                 </span>
               </label>
 
               {errorMessage ? (
-                <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>
+                <p className={`rounded-xl bg-destructive/10 px-4 py-3 text-sm text-destructive ${typo.secondarySans}`}>
                   {errorMessage}
                 </p>
               ) : null}
@@ -216,17 +341,22 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               <button
                 type="submit"
                 disabled={isSubmitting || !email.trim()}
-                className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-all hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
+                className={`w-full rounded-full bg-primary py-3.5 text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
               >
                 {isSubmitting ? "Sending link…" : "Register"}
               </button>
             </form>
 
-            <p className={`mt-6 text-center text-sm text-marketing-cream/40 ${typo.secondarySans}`}>
+            <p
+              className={cn(
+                "auth-entrance mt-6 text-center text-sm text-muted-foreground",
+                typo.secondarySans,
+              )}
+            >
               Already have an account?{" "}
               <Link
                 href={`/login?redirect=${encodeURIComponent(redirectTo)}`}
-                className="text-marketing-accent hover:text-marketing-cream transition-colors"
+                className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
               >
                 Sign in
               </Link>

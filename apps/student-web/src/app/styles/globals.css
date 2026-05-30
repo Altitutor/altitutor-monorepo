@@ -1,3 +1,5 @@
+@import '@altitutor/ui/styles/native-datetime-input.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -38,6 +40,11 @@
     /* Landing page theme colors */
     --landing-dark-grey: 220 13% 18%;
     --landing-light-grey: 220 14% 96%;
+
+    --motion-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
+    --motion-duration-snappy: 150ms;
+    --motion-duration-subtle: 220ms;
+    --motion-duration-enter: 280ms;
   }
 
   .dark {
@@ -75,6 +82,19 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-duration-snappy: 1ms;
+    --motion-duration-subtle: 1ms;
+    --motion-duration-enter: 1ms;
+    --motion-ease-standard: linear;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 @layer base {
   * {
     @apply border-border;
@@ -84,6 +104,25 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Default micro-interactions; utilities override. Respects --motion-* via Tailwind theme. */
+  @media (prefers-reduced-motion: no-preference) {
+    :where(
+        button,
+        a,
+        summary,
+        input[type="button"],
+        input[type="submit"],
+        input[type="reset"],
+        [role="button"],
+        [role="tab"]
+      ):not(:disabled):not([data-motion-static]) {
+      transition-property: color, background-color, border-color, text-decoration-color, fill, stroke,
+        box-shadow, filter, opacity, transform;
+      transition-duration: var(--motion-duration-subtle);
+      transition-timing-function: var(--motion-ease-standard);
+    }
   }
   /* Scroll snap alignment */
   .snap-y {

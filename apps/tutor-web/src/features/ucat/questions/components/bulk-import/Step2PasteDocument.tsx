@@ -59,6 +59,8 @@ const PASTE_TABLE_BEHAVIOR_OPTIONS: { value: PasteTableBehavior; label: string }
 type Step2PasteDocumentProps = {
   value: Json | null
   onChange: (value: Json) => void
+  title?: string
+  placeholder?: string
   onImageFileIdsChange?: (fileIds: string[]) => void
   parsingOptions?: ParsingOptions
   onParsingOptionsChange?: (options: ParsingOptions) => void
@@ -76,6 +78,8 @@ type Step2PasteDocumentProps = {
 export function Step2PasteDocument({
   value,
   onChange,
+  title = 'Paste questions document',
+  placeholder = 'Paste your UCAT questions here…',
   onImageFileIdsChange,
   parsingOptions = DEFAULT_PARSING_OPTIONS,
   onParsingOptionsChange,
@@ -125,7 +129,7 @@ export function Step2PasteDocument({
         className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
       >
         <div className="flex min-w-0 items-center gap-0.5">
-          <h2 className="text-base font-semibold">Paste questions document</h2>
+          <h2 className="text-base font-semibold">{title}</h2>
           <BulkImportParseInfoButton
             variant="questions"
             stats={questionPasteStats}
@@ -249,7 +253,7 @@ export function Step2PasteDocument({
         <UcatRichTextEditor
           value={value}
           onChange={onChange}
-          placeholder="Paste your UCAT questions here…"
+          placeholder={placeholder}
           minHeight={isSplit ? '200px' : '320px'}
           stemId={null}
           enableImages={true}

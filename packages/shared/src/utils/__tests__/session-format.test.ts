@@ -5,6 +5,7 @@
 import {
   formatSessionDate,
   formatSessionTimeRangeForDisplay,
+  hasSessionStarted,
   type SessionTimeInput,
 } from '../session-format';
 
@@ -51,5 +52,27 @@ describe('formatSessionTimeRangeForDisplay', () => {
 
   it('returns em dash when no time data', () => {
     expect(formatSessionTimeRangeForDisplay({}, formatTime)).toBe('—');
+  });
+});
+
+describe('hasSessionStarted', () => {
+  const now = new Date('2026-05-28T04:00:00.000Z');
+
+  it('returns true when start_at is in the past', () => {
+    expect(hasSessionStarted('2026-05-28T03:00:00.000Z', now)).toBe(true);
+  });
+
+  it('returns true when start_at equals now', () => {
+    expect(hasSessionStarted('2026-05-28T04:00:00.000Z', now)).toBe(true);
+  });
+
+  it('returns false when start_at is in the future', () => {
+    expect(hasSessionStarted('2026-05-28T05:00:00.000Z', now)).toBe(false);
+  });
+
+  it('returns false for null, undefined, or invalid start_at', () => {
+    expect(hasSessionStarted(null, now)).toBe(false);
+    expect(hasSessionStarted(undefined, now)).toBe(false);
+    expect(hasSessionStarted('not-a-date', now)).toBe(false);
   });
 });

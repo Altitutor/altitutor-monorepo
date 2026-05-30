@@ -321,7 +321,7 @@ export function SetAttemptAnalysisChart({
                   dataKey="value"
                   barSize={barWidth}
                   isAnimationActive
-                  animationDuration={600}
+                  animationDuration={850}
                   animationEasing="ease-out"
                   shape={
                     renderBarShape as React.ComponentProps<typeof Bar>["shape"]

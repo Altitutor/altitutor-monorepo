@@ -1,22 +1,63 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { NotebookText } from "lucide-react";
+import { useId, useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
 import type {
   MockAttemptSectionScore,
   MockAttemptWithBreakdown,
 } from "@/features/mocks/api/mocks-api";
 import { useMockAttemptsWithBreakdown, useMocks } from "@/features/mocks";
+import {
+  UCAT_NATIVE_TABLE_BODY_ROW,
+  UCAT_NATIVE_TABLE_HEADER_ROW,
+  UCAT_PRIMARY_ACTION_BUTTON,
+  UCAT_SURFACE_CARD,
+  UCAT_SURFACE_MOTION,
+  UCAT_TABLE_HEADER_CLASSNAME,
+  UCAT_TABLE_SHELL,
+} from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
+import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
 
 type MockDetailPageProps = {
   mockId: string;
+  backHref?: string;
+  backLabel?: string;
+  sessionEntryContext?: SessionResourceEntryContext;
 };
 
-export function MockDetailPage({ mockId }: MockDetailPageProps) {
+function buildMockBreadcrumbOverrides(
+  sessionEntryContext: SessionResourceEntryContext | undefined,
+  leafIndex: number,
+  leafLabel: string,
+): Record<number, string> {
+  const o: Record<number, string> = { [leafIndex]: leafLabel };
+  if (sessionEntryContext != null) {
+    o[1] = sessionEntryContext.breadcrumbDateLabel;
+  }
+  return o;
+}
+
+export function MockDetailPage({
+  mockId,
+  backHref: backHrefProp,
+  backLabel: backLabelProp,
+  sessionEntryContext,
+}: MockDetailPageProps) {
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
+  const attemptsHeadingId = useId();
+
+  const breadcrumbLeafSegmentIndex = sessionEntryContext != null ? 3 : 1;
+  const backHref =
+    backHrefProp ??
+    (sessionEntryContext != null
+      ? `/sessions/${encodeURIComponent(sessionEntryContext.sessionId)}`
+      : "/mocks");
+  const backLabel =
+    backLabelProp ??
+    (sessionEntryContext != null ? "Back to session" : "Back to all mocks");
 
   const mock = useMemo(
     () => (mocks ?? []).find((item) => item.id === mockId),
@@ -29,8 +70,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         <UcatPageHeader
           title="Mock"
           description="Full-length UCAT mock exam details."
-          backHref="/mocks"
-          backLabel="Back to all mocks"
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Mock",
+          )}
         />
         <p className="text-sm text-muted-foreground">Loading mock...</p>
       </div>
@@ -43,8 +89,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         <UcatPageHeader
           title="Mock"
           description="Full-length UCAT mock exam details."
-          backHref="/mocks"
-          backLabel="Back to all mocks"
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Mock",
+          )}
         />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load mock"}
@@ -59,8 +110,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         <UcatPageHeader
           title="Mock"
           description="Full-length UCAT mock exam details."
-          backHref="/mocks"
-          backLabel="Back to all mocks"
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Mock",
+          )}
         />
         <p className="text-sm text-muted-foreground">No mocks available.</p>
       </div>
@@ -73,8 +129,13 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
         <UcatPageHeader
           title="Mock"
           description="Full-length UCAT mock exam details."
-          backHref="/mocks"
-          backLabel="Back to all mocks"
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildMockBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Mock",
+          )}
         />
         <p className="text-sm text-red-600 dark:text-red-400">
           Mock not found.
@@ -107,12 +168,22 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
       <UcatPageHeader
         title={mock.name ?? "Mock exam"}
         description="This mock exam will launch the full UCAT question engine using all sets included in this mock."
-        backHref="/mocks"
-        backLabel="Back to all mocks"
-        breadcrumbOverrides={{ 1: mock.name ?? "Mock" }}
+        backHref={backHref}
+        backLabel={backLabel}
+        breadcrumbOverrides={buildMockBreadcrumbOverrides(
+          sessionEntryContext,
+          breadcrumbLeafSegmentIndex,
+          mock.name ?? "Mock",
+        )}
       />
 
-      <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
+      <section
+        className={cn(
+          "space-y-2 rounded-ucatShell p-4 text-card-foreground",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           {createdAt ? (
             <div>
@@ -132,41 +203,44 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
       </section>
 
       {attempts.length > 0 ? (
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
-            <NotebookText className="h-4 w-4" />
+        <section
+          aria-labelledby={attemptsHeadingId}
+          className="space-y-4"
+        >
+          <h2
+            id={attemptsHeadingId}
+            className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
+          >
             Previous attempts
           </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[400px] text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">
+          <div className={UCAT_TABLE_SHELL}>
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[400px] caption-bottom text-sm">
+              <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
+                <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
                     Date
                   </th>
                   {sectionColumns.map((sec: MockAttemptSectionScore) => (
                     <th
                       key={sec.sectionNumber}
-                      className="pb-2 pr-3 text-right font-medium text-muted-foreground"
+                      className="h-12 px-4 text-right align-middle font-medium text-muted-foreground"
                     >
                       {sec.sectionName}
                     </th>
                   ))}
-                  <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Score
                   </th>
-                  <th className="pb-2 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Scaled
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {attempts.map((a: MockAttemptWithBreakdown) => (
-                  <tr
-                    key={a.id}
-                    className="border-b border-border/50 last:border-0"
-                  >
-                    <td className="py-2 pr-4">
+                  <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
+                    <td className="p-4 align-middle">
                       {new Date(a.attemptedAt).toLocaleString(undefined, {
                         dateStyle: "medium",
                         timeStyle: "short",
@@ -175,19 +249,19 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
                     {a.sectionScores.map((sec: MockAttemptSectionScore) => (
                       <td
                         key={sec.sectionNumber}
-                        className="py-2 pr-3 text-right"
+                        className="p-4 align-middle text-right"
                       >
                         {sec.scorePoints != null && sec.totalPoints != null
                           ? `${sec.scorePoints}/${sec.totalPoints}`
                           : "—"}
                       </td>
                     ))}
-                    <td className="py-2 pr-4 text-right">
+                    <td className="p-4 align-middle text-right">
                       {a.scorePoints != null && a.totalPoints != null
                         ? `${a.scorePoints} / ${a.totalPoints}`
                         : "—"}
                     </td>
-                    <td className="py-2 text-right">
+                    <td className="p-4 align-middle text-right">
                       {a.scaledScore != null && a.scaledScoreMax != null
                         ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
                         : a.scaledScore != null
@@ -198,6 +272,7 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       ) : null}
@@ -205,7 +280,7 @@ export function MockDetailPage({ mockId }: MockDetailPageProps) {
       <div className="flex justify-end">
         <Link
           href={`/exam/mocks?id=${encodeURIComponent(mock.id)}`}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground"
+          className={UCAT_PRIMARY_ACTION_BUTTON}
         >
           Launch mock
         </Link>

@@ -81,6 +81,7 @@ function createBaseProps(overrides: Partial<SessionsTableRowProps> = {}): Sessio
     studentId: student.id,
     staffId: undefined,
     classesById: {},
+    subjectsById: {},
     sessionStudents: {
       [session.id]: [student as unknown as Tables<'students'>],
     },

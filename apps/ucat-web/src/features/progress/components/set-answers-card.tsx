@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ArrowRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { useQuestionEngineData } from "@/features/question-engine/hooks/use-question-engine-data";
 import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 import { ResultsQuestionViewer } from "@/features/question-engine/components/results-question-viewer";
@@ -99,7 +101,7 @@ export function SetAnswersCard({
 
   if (isLoadingExam) {
     return (
-      <Card className="overflow-hidden rounded-xl border-border">
+      <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">Questions</CardTitle>
         </CardHeader>
@@ -114,7 +116,7 @@ export function SetAnswersCard({
 
   if (examError) {
     return (
-      <Card className="overflow-hidden rounded-xl border-border">
+      <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">Questions</CardTitle>
         </CardHeader>
@@ -131,7 +133,7 @@ export function SetAnswersCard({
 
   if (questions.length === 0) {
     return (
-      <Card className="overflow-hidden rounded-xl border-border">
+      <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">Questions</CardTitle>
         </CardHeader>
@@ -145,7 +147,7 @@ export function SetAnswersCard({
   }
 
   return (
-    <Card className="overflow-hidden rounded-xl border-border">
+    <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-base font-medium">Questions</CardTitle>
         <div className="flex items-center gap-2">
@@ -174,7 +176,7 @@ export function SetAnswersCard({
       </CardHeader>
       <CardContent>
         <div
-          className="flex h-[480px] min-h-[200px] flex-col overflow-hidden rounded-lg border border-border bg-[#f8f9fa] p-4"
+          className="flex h-[480px] min-h-[200px] flex-col overflow-hidden rounded-ucatControl bg-muted/40 p-4 dark:bg-muted/25"
           onCopy={(e) => e.preventDefault()}
         >
           {currentQuestion && (

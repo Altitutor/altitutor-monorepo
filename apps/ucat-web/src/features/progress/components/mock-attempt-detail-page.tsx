@@ -5,7 +5,12 @@ import { UcatPageHeader } from "@/features/layout";
 import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { MockAttemptAnalysisChart } from "./mock-attempt-analysis-chart";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import {
+  AnimatedFraction,
+  AnimatedInteger,
+} from "./progress-animated-display";
 
 type MockAttemptDetailPageProps = {
   mockAttemptId: string;
@@ -71,7 +76,7 @@ export function MockAttemptDetailPage({
         breadcrumbOverrides={{ 2: data.mockName ?? "Mock" }}
       />
 
-      <Card className="rounded-xl border-border max-w-sm">
+      <Card className={cn(UCAT_CARD_CHROME, "max-w-sm")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
             Overall scaled score
@@ -84,16 +89,21 @@ export function MockAttemptDetailPage({
               data.scaledScore == null && "text-muted-foreground",
             )}
           >
-            {data.scaledScore != null && data.scaledScoreMax != null
-              ? `${Math.round(data.scaledScore)} / ${data.scaledScoreMax}`
-              : data.scaledScore != null
-                ? String(Math.round(data.scaledScore))
-                : "—"}
+            {data.scaledScore != null && data.scaledScoreMax != null ? (
+              <AnimatedFraction
+                numerator={Math.round(data.scaledScore)}
+                denominator={data.scaledScoreMax}
+              />
+            ) : data.scaledScore != null ? (
+              <AnimatedInteger value={Math.round(data.scaledScore)} />
+            ) : (
+              "—"
+            )}
           </div>
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden rounded-xl border-border">
+      <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
             Question attempts
@@ -127,8 +137,8 @@ export function MockAttemptDetailPage({
             const content = (
               <Card
                 className={cn(
-                  "rounded-xl border-border transition-colors",
-                  href && "cursor-pointer hover:bg-muted/50",
+                  UCAT_CARD_CHROME,
+                  href && cn("cursor-pointer", UCAT_CARD_RAISED_HOVER),
                 )}
               >
                 <CardHeader className="pb-2">
@@ -142,7 +152,14 @@ export function MockAttemptDetailPage({
                       Points
                     </div>
                     <div className="text-xl font-semibold tabular-nums">
-                      {total > 0 ? `${points} / ${total}` : "—"}
+                      {total > 0 ? (
+                        <AnimatedFraction
+                          numerator={points}
+                          denominator={total}
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </div>
                   </div>
                   <div>
@@ -155,9 +172,16 @@ export function MockAttemptDetailPage({
                         set.scaledScore == null && "text-muted-foreground",
                       )}
                     >
-                      {set.scaledScore != null
-                        ? `${Math.round(set.scaledScore)} / 900`
-                        : "—"}
+                      {set.scaledScore != null ? (
+                        <>
+                          <AnimatedInteger
+                            value={Math.round(set.scaledScore)}
+                          />{" "}
+                          / 900
+                        </>
+                      ) : (
+                        "—"
+                      )}
                     </div>
                   </div>
                 </CardContent>

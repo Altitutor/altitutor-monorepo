@@ -1,7 +1,8 @@
 import { cn } from '@/shared/utils';
 
-/** Default motion for interactive student UI (aligned with landing feel). */
-export const studentTransition = 'transition-all duration-300 ease-out';
+/** Default motion for interactive student UI; matches `globals.css` / Tailwind motion tokens. */
+export const studentTransition =
+  'transition-[color,background-color,border-color,box-shadow,transform,opacity,filter] duration-motion-subtle ease-motion-standard';
 
 /**
  * Solid card / panel: soft shadow and minimal ring instead of heavy borders.

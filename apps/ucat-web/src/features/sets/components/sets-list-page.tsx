@@ -16,6 +16,11 @@ import { recordToSetsFilters } from "@/features/sets/lib/filter-adapters";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { ListChecks } from "lucide-react";
+import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
+import {
+  UCAT_LIST_ROW_LINK,
+  UCAT_PAGINATION_ACTIVE_PAGE_BUTTON,
+} from "@/lib/ucat-surface-motion";
 
 const DEFAULT_PAGE_SIZE = 10;
 
@@ -224,6 +229,7 @@ export function SetsListPage({
               total={filteredSets.length}
               onPageChange={(p) => setPage(p - 1)}
               onPageSizeChange={handlePageSizeChange}
+              activePageButtonClassName={UCAT_PAGINATION_ACTIVE_PAGE_BUTTON}
             />
           </div>
         )}
@@ -257,10 +263,10 @@ function SetCard({
     <li>
       <Link
         href={setHref}
-        className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-card-foreground shadow-sm transition-colors hover:bg-muted"
+        className={UCAT_LIST_ROW_LINK}
       >
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-sidebar text-sidebar-foreground">
-          <ListChecks className="h-5 w-5" />
+        <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
+          <ListChecks className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
         </div>
         <div className="min-w-0 flex-1">
           <p className="font-medium truncate">{title}</p>
@@ -274,6 +280,7 @@ function SetCard({
           {attempted ? <Badge variant="secondary">Attempted</Badge> : null}
           {timeLabel}
         </div>
+        <UcatHoverChevron />
       </Link>
     </li>
   );

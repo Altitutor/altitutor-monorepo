@@ -1,7 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Badge, Button, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
+import {
+  Badge,
+  Button,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  PAID_INVOICE_BADGE_VARIANT,
+} from '@altitutor/ui';
 import { ExternalLink, Loader2 } from 'lucide-react';
 import { useInvoicesWithItems, useStudentSubscriptions } from '../hooks';
 import { formatAmount, getInvoiceTotalAmount, isInvoiceOverdue } from '../utils/invoiceDisplay';
@@ -235,7 +245,7 @@ export function SubscriptionsSection() {
                         <div className="flex flex-wrap gap-1">
                           {overdue && <Badge variant="destructive">Overdue</Badge>}
                           {(invoice.status === 'paid' || invoice.paid_at) && (
-                            <Badge variant="default">
+                            <Badge variant={PAID_INVOICE_BADGE_VARIANT}>
                               {invoice.paid_at
                                 ? `Paid ${new Date(invoice.paid_at).toLocaleDateString('en-AU')}`
                                 : 'Paid'}

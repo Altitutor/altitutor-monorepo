@@ -8,7 +8,7 @@ import {
   TableHeader,
   TableRow,
 } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
+import { Badge, getInvoiceStatusBadgeVariant } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Loader2, Download, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
@@ -19,24 +19,6 @@ import {
   studentTableHeaderRow,
   studentTableShell,
 } from '@/shared/lib/student-visual';
-
-type InvoiceStatus = 'draft' | 'open' | 'paid' | 'void' | 'uncollectible' | 'disputed';
-
-const getStatusVariant = (status: InvoiceStatus): 'default' | 'secondary' | 'destructive' => {
-  switch (status) {
-    case 'paid':
-      return 'default';
-    case 'draft':
-    case 'open':
-      return 'secondary';
-    case 'void':
-    case 'uncollectible':
-    case 'disputed':
-      return 'destructive';
-    default:
-      return 'secondary';
-  }
-};
 
 const formatAmount = (cents: number): string => {
   return `$${(cents / 100).toFixed(2)}`;
@@ -97,7 +79,7 @@ export function PaymentHistoryTable() {
               </TableCell>
               <TableCell>
                 {invoice.status ? (
-                  <Badge variant={getStatusVariant(invoice.status as InvoiceStatus)}>
+                  <Badge variant={getInvoiceStatusBadgeVariant(invoice.status)}>
                     {invoice.status}
                   </Badge>
                 ) : (

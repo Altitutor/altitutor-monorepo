@@ -6,6 +6,7 @@ import {
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
   collectBlocksFromDocForQuantitativeReasoning,
+  mergeConsecutiveStemsWithSameText,
   parseFromLines,
   type ParsedStem,
   type ParserConfig,
@@ -14,6 +15,10 @@ import {
 export type { ParsedStem, ParsedOption, ParsedQuestion } from '@/features/ucat/questions/lib/parsers/core'
 
 export type QuantitativeReasoningParserConfig = ParserConfig
+
+const QR_DEFAULT_CONFIG: Partial<ParserConfig> = {
+  questionLookaheadLimit: 160,
+}
 
 export type QuantitativeReasoningToFormOptions = {
   sectionId: string
@@ -25,7 +30,9 @@ export function parseQuantitativeReasoningFromLines(
   rawLines: string[],
   configOverrides?: Partial<ParserConfig>
 ): ParsedStem[] {
-  return parseFromLines(rawLines, configOverrides)
+  return mergeConsecutiveStemsWithSameText(
+    parseFromLines(rawLines, { ...QR_DEFAULT_CONFIG, ...configOverrides })
+  )
 }
 
 export function parseQuantitativeReasoningPlainText(
@@ -33,7 +40,7 @@ export function parseQuantitativeReasoningPlainText(
   configOverrides?: Partial<ParserConfig>
 ): ParsedStem[] {
   const rawLines = input.split(/\r?\n/u)
-  return parseFromLines(rawLines, configOverrides)
+  return parseQuantitativeReasoningFromLines(rawLines, configOverrides)
 }
 
 export type ParseQuantitativeReasoningResult = {
@@ -46,7 +53,7 @@ export function parseQuantitativeReasoningFromDoc(
   configOverrides?: Partial<ParserConfig>
 ): ParseQuantitativeReasoningResult {
   const { logicalLines, tableMap } = collectBlocksFromDocForQuantitativeReasoning(doc)
-  const stems = parseFromLines(logicalLines, configOverrides)
+  const stems = parseQuantitativeReasoningFromLines(logicalLines, configOverrides)
   return { stems, tableMap }
 }
 

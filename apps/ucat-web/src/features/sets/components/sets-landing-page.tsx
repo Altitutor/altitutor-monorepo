@@ -5,6 +5,9 @@ import { Card, CardContent } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
 import { ListChecks, Sparkles } from "lucide-react";
+import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
+import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 const SECTIONS = [1, 2, 3, 4] as const;
 
@@ -19,13 +22,22 @@ export function SetsLandingPage() {
         {SECTIONS.map((num) => {
           const label = SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`;
           return (
-            <Link key={num} href={`/sets/sections/${num}`}>
-              <Card className="h-full transition-colors hover:bg-muted/50">
-                <CardContent className="flex flex-col items-center gap-3 p-6">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sidebar text-sidebar-foreground">
-                    <ListChecks className="h-6 w-6" />
+            <Link
+              key={num}
+              href={`/sets/sections/${num}`}
+              className="group block h-full min-w-0"
+            >
+              <Card
+                className={cn(UCAT_CARD_CHROME, "h-full", UCAT_CARD_RAISED_HOVER)}
+              >
+                <CardContent className="flex flex-col items-start gap-0 p-6">
+                  <div className="flex w-full items-start justify-between">
+                    <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
+                      <ListChecks className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
+                    </div>
+                    <UcatHoverChevron />
                   </div>
-                  <span className="text-center font-medium">{label}</span>
+                  <span className="mt-4 font-semibold">{label}</span>
                 </CardContent>
               </Card>
             </Link>
@@ -36,19 +48,20 @@ export function SetsLandingPage() {
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Create
         </h2>
-        <Link href="/sets/set-generator">
-          <Card className="transition-colors hover:bg-muted/50">
-            <CardContent className="flex flex-col items-center gap-3 p-6 sm:flex-row sm:justify-center">
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-sidebar text-sidebar-foreground">
-                <Sparkles className="h-6 w-6" />
+        <Link href="/sets/set-generator" className="group block min-w-0">
+          <Card className={cn(UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER)}>
+            <CardContent className="flex flex-col items-start gap-0 p-6">
+              <div className="flex w-full items-start justify-between">
+                <div className="rounded-lg bg-muted/60 p-2.5 transition-colors duration-200 group-hover:bg-muted">
+                  <Sparkles className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
+                </div>
+                <UcatHoverChevron />
               </div>
-              <div className="text-center sm:text-left">
-                <span className="font-medium">Set Generator</span>
-                <p className="text-sm text-muted-foreground">
-                  Build a custom practice set from section, timing, and
-                  performance filters.
-                </p>
-              </div>
+              <span className="mt-4 font-semibold">Set Generator</span>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Build a custom practice set from section, timing, and
+                performance filters.
+              </p>
             </CardContent>
           </Card>
         </Link>

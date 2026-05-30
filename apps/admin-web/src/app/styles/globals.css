@@ -1,3 +1,5 @@
+@import '@altitutor/ui/styles/native-datetime-input.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -170,10 +172,12 @@
 @media (hover: none) and (pointer: coarse) {
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not(
       [type="button"]
-    ):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="file"]),
+    ):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="file"]):not(
+      .document-title-field
+    ),
   textarea,
   select,
-  [contenteditable="true"] {
+  [contenteditable="true"]:not(.document-title-field) {
     font-size: 16px;
   }
 }

@@ -1,16 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { ListChecks } from "lucide-react";
-import { Button } from "@altitutor/ui";
+import { useId, useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
+import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
 import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type { SetAttemptRow } from "@/features/sets/api/sets-api";
 import { useSetAttempts, useSets } from "@/features/sets";
+import {
+  UCAT_NATIVE_TABLE_BODY_ROW,
+  UCAT_NATIVE_TABLE_HEADER_ROW,
+  UCAT_PRIMARY_ACTION_BUTTON,
+  UCAT_SURFACE_CARD,
+  UCAT_SURFACE_MOTION,
+  UCAT_TABLE_HEADER_CLASSNAME,
+  UCAT_TABLE_SHELL,
+} from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
+import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
 
 type SetDetailPageProps = {
   setId: string;
@@ -20,16 +30,32 @@ type SetDetailPageProps = {
   backHref?: string;
   /** Override back label */
   backLabel?: string;
+  /** Opened from `/sessions/[id]/sets/...` — back + breadcrumbs use session */
+  sessionEntryContext?: SessionResourceEntryContext;
 };
+
+function buildSetDetailBreadcrumbOverrides(
+  sessionEntryContext: SessionResourceEntryContext | undefined,
+  leafIndex: number,
+  leafLabel: string,
+): Record<number, string> {
+  const o: Record<number, string> = { [leafIndex]: leafLabel };
+  if (sessionEntryContext != null) {
+    o[1] = sessionEntryContext.breadcrumbDateLabel;
+  }
+  return o;
+}
 
 export function SetDetailPage({
   setId,
   sectionNumber,
   backHref: backHrefProp,
   backLabel: backLabelProp,
+  sessionEntryContext,
 }: SetDetailPageProps) {
   const { data: sets, isLoading, error } = useSets();
   const { data: attempts = [] } = useSetAttempts(setId);
+  const attemptsHeadingId = useId();
 
   const set = useMemo(
     () => (sets ?? []).find((item) => item.id === setId),
@@ -38,12 +64,26 @@ export function SetDetailPage({
 
   const backHref =
     backHrefProp ??
-    (sectionNumber != null ? `/sets/sections/${sectionNumber}` : "/sets");
+    (sessionEntryContext != null
+      ? `/sessions/${encodeURIComponent(sessionEntryContext.sessionId)}`
+      : sectionNumber != null
+        ? `/sets/sections/${sectionNumber}`
+        : "/sets");
   const backLabel =
     backLabelProp ??
-    (sectionNumber != null ? "Back to section" : "Back to all sets");
-  const breadcrumbIndex =
-    backHrefProp != null ? 2 : sectionNumber != null ? 3 : 1;
+    (sessionEntryContext != null
+      ? "Back to session"
+      : sectionNumber != null
+        ? "Back to section"
+        : "Back to all sets");
+  const breadcrumbLeafSegmentIndex =
+    sessionEntryContext != null
+      ? 3
+      : backHrefProp != null
+        ? 2
+        : sectionNumber != null
+          ? 3
+          : 1;
 
   if (isLoading) {
     return (
@@ -53,6 +93,11 @@ export function SetDetailPage({
           description="Practice question set details."
           backHref={backHref}
           backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Set",
+          )}
         />
         <p className="text-sm text-muted-foreground">Loading set...</p>
       </div>
@@ -67,6 +112,11 @@ export function SetDetailPage({
           description="Practice question set details."
           backHref={backHref}
           backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Set",
+          )}
         />
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load set"}
@@ -83,6 +133,11 @@ export function SetDetailPage({
           description="Practice question set details."
           backHref={backHref}
           backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Set",
+          )}
         />
         <p className="text-sm text-muted-foreground">No sets available.</p>
       </div>
@@ -97,6 +152,11 @@ export function SetDetailPage({
           description="Practice question set details."
           backHref={backHref}
           backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            "Set",
+          )}
         />
         <p className="text-sm text-red-600 dark:text-red-400">Set not found.</p>
       </div>
@@ -143,10 +203,20 @@ export function SetDetailPage({
         description={description ?? "Review this practice set before starting."}
         backHref={backHref}
         backLabel={backLabel}
-        breadcrumbOverrides={{ [breadcrumbIndex]: title }}
+        breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+          sessionEntryContext,
+          breadcrumbLeafSegmentIndex,
+          title,
+        )}
       />
 
-      <section className="space-y-2 rounded-xl bg-card text-card-foreground p-4 shadow-sm border border-border">
+      <section
+        className={cn(
+          "space-y-2 rounded-ucatShell p-4 text-card-foreground",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div>
             <dt className="font-medium text-muted-foreground">Time limit</dt>
@@ -178,58 +248,63 @@ export function SetDetailPage({
       </section>
 
       {attempts.length > 0 ? (
-        <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-medium">
-            <ListChecks className="h-4 w-4" />
+        <section
+          aria-labelledby={attemptsHeadingId}
+          className="space-y-4"
+        >
+          <h2
+            id={attemptsHeadingId}
+            className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
+          >
             Previous attempts
           </h2>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] text-sm">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="pb-2 pr-4 text-left font-medium text-muted-foreground">
+          <div className={UCAT_TABLE_SHELL}>
+            <div className="overflow-x-auto">
+            <table className="w-full min-w-[420px] caption-bottom text-sm">
+              <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
+                <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
                     Date
                   </th>
-                  <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Score
                   </th>
-                  <th className="pb-2 pr-4 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Scaled
                   </th>
-                  <th className="pb-2 text-right font-medium text-muted-foreground">
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                     Actions
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {attempts.map((a: SetAttemptRow) => (
-                  <tr
-                    key={a.id}
-                    className="border-b border-border/50 last:border-0"
-                  >
-                    <td className="py-2 pr-4">
+                  <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
+                    <td className="p-4 align-middle">
                       {new Date(a.attemptedAt).toLocaleString(undefined, {
                         dateStyle: "medium",
                         timeStyle: "short",
                       })}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="p-4 align-middle text-right">
                       {a.scorePoints != null && a.totalPoints != null
                         ? `${a.scorePoints} / ${a.totalPoints}`
                         : "—"}
                     </td>
-                    <td className="py-2 pr-4 text-right">
+                    <td className="p-4 align-middle text-right">
                       {a.scaledScore != null ? a.scaledScore : "—"}
                     </td>
-                    <td className="py-2 text-right">
-                      <Button variant="outline" size="sm" asChild>
-                        <Link href={setAttemptHref(a.id)}>View attempt</Link>
-                      </Button>
+                    <td className="p-4 align-middle text-right">
+                      <UcatTableRowActionLink
+                        href={setAttemptHref(a.id)}
+                        label="View attempt"
+                      />
                     </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </section>
       ) : null}
@@ -237,7 +312,7 @@ export function SetDetailPage({
       <div className="flex justify-end">
         <Link
           href={`/exam/sets?id=${encodeURIComponent(set.id)}`}
-          className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground"
+          className={UCAT_PRIMARY_ACTION_BUTTON}
         >
           Launch set
         </Link>

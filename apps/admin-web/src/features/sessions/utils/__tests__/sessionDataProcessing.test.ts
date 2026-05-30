@@ -111,8 +111,12 @@ describe('processSessionStudents', () => {
     created_by: null,
     user_id: null,
     invite_token: null,
-    welcome_modal_acknowledged_at: null,
+    onboarding_progress: {},
     timezone: 'Australia/Adelaide',
+    ucat_target_score_s1: null,
+    ucat_target_score_s2: null,
+    ucat_target_score_s3: null,
+    ucat_test_date: null,
   };
 
   it('should process student with planned attendance', () => {
@@ -195,6 +199,7 @@ describe('processSessionStudents', () => {
         is_extra: false,
         is_rescheduled: false,
         is_credited: true,
+        credited_at: '2026-02-20T00:00:00.000Z',
         invoice_status_payload: null,
       },
     ];
@@ -202,6 +207,7 @@ describe('processSessionStudents', () => {
     const result = processSessionStudents(sessionsStudents, {}, false);
 
     expect(result[0].plannedStatus).toBe('credited');
+    expect(result[0].creditedDisplayDate).toBe('20/02/2026');
   });
 
   it('should process unplanned student', () => {
@@ -319,6 +325,9 @@ describe('processSessionStaff', () => {
     drafting_availability: null,
     trial_session_availability: null,
     subsidy_interview_availability: null,
+    current_tier_number: 1,
+    employment_started_at: '2024-01-01T00:00:00.000Z',
+    metric_overrides: {},
   };
 
   it('should process staff with planned attendance', () => {

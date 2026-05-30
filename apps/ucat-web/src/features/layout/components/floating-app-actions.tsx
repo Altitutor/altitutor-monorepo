@@ -3,6 +3,7 @@
 import { Button, AnimatedHamburgerIcon } from "@altitutor/ui";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { ProfileDropdown } from "@/features/layout/components/profile-dropdown";
+import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 type FloatingAppActionsProps = {
@@ -25,16 +26,16 @@ export function FloatingAppActions({
     >
       <div
         className={cn(
-          "shrink-0 transition-[margin] duration-200 ease-in-out",
+          "shrink-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
           isMenuOpen ? "ml-[240px]" : "ml-0",
         )}
       >
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon"
           onClick={onToggleNav}
-          className="h-9 w-9 rounded-lg bg-card border border-border shadow-sm hover:bg-muted transition-colors"
+          className={UCAT_HEADER_ICON_BUTTON}
           aria-label={isMenuOpen ? "Close menu" : "Open menu"}
         >
           <AnimatedHamburgerIcon isOpen={isMenuOpen} className="h-5 w-5" />

@@ -22,7 +22,7 @@ import {
   TooltipTrigger,
 } from '@altitutor/ui';
 import { getSessionTitle, formatSessionDate } from '../utils/session-helpers';
-import { formatSessionTimeRangeForDisplay } from '@altitutor/shared';
+import { formatSessionTimeRangeForDisplay, hasSessionStarted } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
 import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
@@ -129,7 +129,9 @@ export function SessionModal({
   }
 
   const sessionTitle = getSessionTitle(session);
+  const isCheckIn = session.session_type === 'CHECK_IN';
   const hasTutorLog = !!tutorLog;
+  const canAddTutorLog = hasSessionStarted(session.start_at);
 
   // Find the tutor log submitter name from staff data
   const tutorLogSubmitter = tutorLog?.created_by
@@ -163,25 +165,31 @@ export function SessionModal({
               <SessionInfoGrid
                 day={session.start_at ? formatSessionDate(session.start_at) : '—'}
                 time={formatSessionTimeRangeForDisplay(session, formatTime)}
-                subjectNode={
-                  subject ? (() => {
-                    const { style, textColorClass } = getSubjectColorStyle(subject);
-                    const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                    return (
-                      <Badge
-                        className={defaultClass || textColorClass}
-                        style={style.backgroundColor ? style : undefined}
-                      >
-                        {formatSubjectDisplay(subject)}
-                      </Badge>
-                    );
-                  })() : '—'
-                }
+                {...(isCheckIn
+                  ? {}
+                  : {
+                      subjectNode: subject
+                        ? (() => {
+                            const { style, textColorClass } = getSubjectColorStyle(subject);
+                            const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                            return (
+                              <Badge
+                                className={defaultClass || textColorClass}
+                                style={style.backgroundColor ? style : undefined}
+                              >
+                                {formatSubjectDisplay(subject)}
+                              </Badge>
+                            );
+                          })()
+                        : '—',
+                    })}
               />
             </div>
 
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
+            {!isCheckIn && (
+              <>
             {/* Students Section */}
             <div>
               <div className="flex items-center justify-between mb-4">
@@ -222,6 +230,8 @@ export function SessionModal({
             </div>
 
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+              </>
+            )}
 
             {/* Staff Section */}
             <div>
@@ -240,7 +250,7 @@ export function SessionModal({
                         <TableHead>Staff</TableHead>
                         <TableHead>Planned</TableHead>
                         <TableHead>Actual</TableHead>
-                        <TableHead>Tutor Log</TableHead>
+                        {!isCheckIn && <TableHead>Tutor Log</TableHead>}
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -258,16 +268,18 @@ export function SessionModal({
                               staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined}
                             />
                           </TableCell>
-                          <TableCell>
-                            {hasTutorLog && tutorLogSubmitter ? (
-                              <TutorLogSubmitterBadge
-                                firstName={tutorLogSubmitter.first_name ?? ''}
-                                lastName={tutorLogSubmitter.last_name ?? ''}
-                              />
-                            ) : (
-                              <span className="text-muted-foreground text-sm">—</span>
-                            )}
-                          </TableCell>
+                          {!isCheckIn && (
+                            <TableCell>
+                              {hasTutorLog && tutorLogSubmitter ? (
+                                <TutorLogSubmitterBadge
+                                  firstName={tutorLogSubmitter.first_name ?? ''}
+                                  lastName={tutorLogSubmitter.last_name ?? ''}
+                                />
+                              ) : (
+                                <span className="text-muted-foreground text-sm">—</span>
+                              )}
+                            </TableCell>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -276,13 +288,15 @@ export function SessionModal({
               )}
             </div>
 
+            {!isCheckIn && (
+              <>
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
             {/* Tutor Log Section */}
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Tutor Log</h3>
-                {!hasTutorLog && sessionId && currentStaffId && onLogSessionClick && (
+                {!hasTutorLog && canAddTutorLog && sessionId && currentStaffId && onLogSessionClick && (
                   <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={onLogSessionClick}>
                     Add Tutor Log
                   </Button>
@@ -322,12 +336,16 @@ export function SessionModal({
 
               {!hasTutorLog && (
                 <div className="text-center py-4 text-sm text-muted-foreground">
-                  This session has not been logged yet.
+                  {canAddTutorLog
+                    ? 'This session has not been logged yet.'
+                    : 'Tutor log will be available once this session has started.'}
                 </div>
               )}
             </div>
 
             <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+              </>
+            )}
 
             {/* Session Notes Section */}
             {sessionId && (

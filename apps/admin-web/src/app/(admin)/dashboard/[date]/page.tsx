@@ -115,7 +115,7 @@ function DailyNoteCard({ date }: { date: string }) {
           </div>
         ) : (
           <>
-            <div className="relative min-h-[220px] rounded-md border bg-background p-4 pb-20">
+            <div className="relative min-h-[220px] min-w-0 rounded-md border bg-background p-4 pb-20">
               <NoteEditor
                 content={content}
                 onChange={setContent}
@@ -124,7 +124,7 @@ function DailyNoteCard({ date }: { date: string }) {
                 mentionSuggestions={mentionSuggestions}
               />
               <div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center">
-                <div className="pointer-events-auto">
+                <div className="pointer-events-auto min-w-0 max-w-full">
                   <NoteEditorBottomToolbar editor={editor} />
                 </div>
               </div>

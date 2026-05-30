@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
-import type { Database } from '@altitutor/shared';
+import { hasSessionStarted, type Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
+import { fetchPayTierProgressForStaff } from '@/features/pay-tier/server/fetchPayTierProgress';
+import { ensurePayTierEligibilityNotification } from '@/features/pay-tier/server/ensurePayTierEligibilityNotification';
 
 /**
  * POST /api/tutor-logs
@@ -82,22 +86,12 @@ export async function POST(request: NextRequest) {
     type SessionAccess = Pick<Database['public']['Views']['vtutor_sessions']['Row'], 'session_id' | 'start_at'>;
     const typedSessionAccess = sessionAccess as SessionAccess;
 
-    // Validate that session is loggable (today or past dates only, not future dates)
-    if (typedSessionAccess.start_at) {
-      const sessionDate = new Date(typedSessionAccess.start_at);
-      const today = new Date();
-      
-      // Set both to midnight for date-only comparison
-      sessionDate.setHours(0, 0, 0, 0);
-      today.setHours(0, 0, 0, 0);
-      
-      // Block logging if session date is in the future (tomorrow or later)
-      if (sessionDate > today) {
-        return NextResponse.json(
-          { error: 'Cannot log tutor log for future sessions. Only sessions from today or earlier can be logged.' },
-          { status: 400 }
-        );
-      }
+    // Block logging until the session has started (start_at is a UTC instant in DB)
+    if (!hasSessionStarted(typedSessionAccess.start_at)) {
+      return NextResponse.json(
+        { error: 'Cannot log a session that has not started yet.' },
+        { status: 400 }
+      );
     }
     
     // Check if a tutor log already exists for this session
@@ -203,6 +197,16 @@ export async function POST(request: NextRequest) {
         { error: (result as TutorLogResult).error || 'Failed to create tutor log' },
         { status: 400 }
       );
+    }
+
+    try {
+      const progress = await fetchPayTierProgressForStaff(
+        userClient as unknown as SupabaseClient<Database>,
+        tutorId
+      );
+      await ensurePayTierEligibilityNotification(getServiceRoleClient(), progress);
+    } catch (syncError) {
+      console.error('Failed to sync pay tier eligibility notification after tutor log:', syncError);
     }
 
     return NextResponse.json({ success: true, data: result });

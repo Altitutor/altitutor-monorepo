@@ -336,7 +336,14 @@ export function UninvoicedSessionsTable({
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <AttendanceCell status={plannedStatus} />
+              <AttendanceCell
+                status={plannedStatus}
+                linkText={
+                  plannedStatus === 'credited' && item.absence_credited_at
+                    ? format(new Date(item.absence_credited_at), 'dd/MM/yyyy')
+                    : undefined
+                }
+              />
             </TableCell>
             <TableCell>
               <AttendanceCell status={actualStatus} />
@@ -427,7 +434,14 @@ export function VoidInvoiceSessionsTable({
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <AttendanceCell status={plannedStatus} />
+              <AttendanceCell
+                status={plannedStatus}
+                linkText={
+                  plannedStatus === 'credited' && item.absence_credited_at
+                    ? format(new Date(item.absence_credited_at), 'dd/MM/yyyy')
+                    : undefined
+                }
+              />
             </TableCell>
             <TableCell>
               <AttendanceCell status={actualStatus} />

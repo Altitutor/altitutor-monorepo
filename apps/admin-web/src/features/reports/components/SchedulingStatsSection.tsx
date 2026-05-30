@@ -39,14 +39,14 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
     const link = entity.link;
     if (!link) return;
     if (
-      (link.kind === 'student' || link.kind === 'registration') &&
+      (link.kind === 'student' ||
+        link.kind === 'registration' ||
+        link.kind === 'unenrolment') &&
       link.studentId
     ) {
       setSelectedStudentId(link.studentId);
     } else if (
-      (link.kind === 'class' ||
-        link.kind === 'enrolment' ||
-        link.kind === 'unenrolment') &&
+      (link.kind === 'class' || link.kind === 'enrolment') &&
       link.classId
     ) {
       setSelectedClassId(link.classId);

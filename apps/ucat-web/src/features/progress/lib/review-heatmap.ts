@@ -19,6 +19,31 @@ export type ReviewHeatmapInput = {
   }>;
 };
 
+/**
+ * Server-pre-aggregated daily counts (dates are already bucketed in the
+ * student's timezone). Use with {@link buildReviewHeatmapModelFromDaily} so the
+ * client never has to parse thousands of attempt timestamps.
+ */
+export type ReviewHeatmapDailyInput = ReadonlyArray<{
+  dateKey: string;
+  questionAttempts: number;
+  setAttempts: number;
+}>;
+
+export type BuildReviewHeatmapOptions = {
+  /**
+   * If provided, the heatmap will only show weeks from this point forward
+   * (clamped to today). The actual first column is the Monday on or before
+   * this date.
+   */
+  startDate?: Date | null;
+  /**
+   * Hard cap on how many weeks to display (default 53). When `startDate` is
+   * provided and produces a shorter range, the shorter range wins.
+   */
+  maxWeeks?: number;
+};
+
 export type HeatmapCell =
   | { kind: "day"; day: HeatmapDay }
   | { kind: "blank" };
@@ -177,19 +202,33 @@ export function formatMonthAxisLabel(monthKey: string): string {
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
-/**
- * Month clusters (oldest → newest), each with week columns.
- * Weeks start Monday; columns that span two months are split.
- */
-export function buildReviewHeatmapModel(
+function resolveFirstMonday(
+  lastMonday: Date,
+  options: BuildReviewHeatmapOptions | undefined,
+): Date {
+  const maxWeeks = Math.max(1, options?.maxWeeks ?? DEFAULT_WEEK_COUNT);
+  const cappedFirstMonday = addLocalDays(lastMonday, -(maxWeeks - 1) * 7);
+
+  if (!options?.startDate) return cappedFirstMonday;
+
+  const startMonday = getMondayOnOrBefore(options.startDate);
+  return startMonday.getTime() > cappedFirstMonday.getTime()
+    ? startMonday
+    : cappedFirstMonday;
+}
+
+function buildModelFromCounts(
   now: Date,
-  input: ReviewHeatmapInput,
-  weekCount: number = DEFAULT_WEEK_COUNT,
+  countsByDay: Map<string, { questionAttempts: number; setAttempts: number }>,
+  options: BuildReviewHeatmapOptions | undefined,
 ): HeatmapMonthGroup[] {
   const end = startOfLocalDay(now);
-  const countsByDay = aggregateDailyActivity(input);
   const lastMonday = getMondayOnOrBefore(end);
-  const firstMonday = addLocalDays(lastMonday, -(weekCount - 1) * 7);
+  const firstMonday = resolveFirstMonday(lastMonday, options);
+
+  if (firstMonday.getTime() > lastMonday.getTime()) {
+    return [];
+  }
 
   const flat: HeatmapWeekColumn[] = [];
   for (
@@ -205,6 +244,53 @@ export function buildReviewHeatmapModel(
   }
 
   return groupColumnsByMonth(flat);
+}
+
+/**
+ * Month clusters (oldest → newest), each with week columns.
+ * Weeks start Monday; columns that span two months are split.
+ *
+ * `options.startDate` clamps the window to start no earlier than the Monday on
+ * or before that date — used to scope the heatmap to the user's first ucat-web
+ * touchpoint.
+ */
+export function buildReviewHeatmapModel(
+  now: Date,
+  input: ReviewHeatmapInput,
+  options?: BuildReviewHeatmapOptions,
+): HeatmapMonthGroup[] {
+  return buildModelFromCounts(
+    now,
+    aggregateDailyActivity(input),
+    options,
+  );
+}
+
+/**
+ * Variant that consumes pre-aggregated daily counts (e.g. produced server-side
+ * by `vstudent_ucat_my_activity_daily`). Avoids shipping every attempt to the
+ * client just to be bucketed.
+ *
+ * `dateKey` is expected to be `YYYY-MM-DD` in the same calendar the rest of
+ * the model uses (local time / the student's timezone). No tz parsing here.
+ */
+export function buildReviewHeatmapModelFromDaily(
+  now: Date,
+  daily: ReviewHeatmapDailyInput,
+  options?: BuildReviewHeatmapOptions,
+): HeatmapMonthGroup[] {
+  const counts = new Map<
+    string,
+    { questionAttempts: number; setAttempts: number }
+  >();
+  for (const row of daily) {
+    if (!row.dateKey) continue;
+    counts.set(row.dateKey, {
+      questionAttempts: row.questionAttempts ?? 0,
+      setAttempts: row.setAttempts ?? 0,
+    });
+  }
+  return buildModelFromCounts(now, counts, options);
 }
 
 /** 0 = no activity, 1–4 increasing intensity (by combined attempts). */

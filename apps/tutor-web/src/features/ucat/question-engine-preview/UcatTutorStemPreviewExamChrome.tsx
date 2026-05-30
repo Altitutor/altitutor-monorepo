@@ -7,7 +7,7 @@ import {
   UcatFloatingPanel,
 } from '@altitutor/ui'
 import { ArrowLeft, ArrowRight, Calculator, Flag, Navigation } from 'lucide-react'
-import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/src/components/ucat/ucat-theme'
+import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
 
 type UcatTutorStemPreviewExamChromeProps = {
   /** UCAT section name (e.g. Verbal Reasoning). */

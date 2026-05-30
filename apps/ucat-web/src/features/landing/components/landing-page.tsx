@@ -4,6 +4,13 @@ import Link from "next/link";
 import { Button } from "@altitutor/ui";
 import { MarketingHeader } from "./marketing-header";
 import { BrainCircuit, BarChart3, BookOpen } from "lucide-react";
+import {
+  UCAT_CARD_RAISED_HOVER,
+  UCAT_DIVIDER_TOP,
+  UCAT_SURFACE_CARD,
+  UCAT_SURFACE_MOTION,
+} from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 export function LandingPage() {
   return (
@@ -30,27 +37,48 @@ export function LandingPage() {
         </section>
 
         {/* Features */}
-        <section className="border-t border-border bg-muted/30 px-4 py-16">
+        <section className={cn(UCAT_DIVIDER_TOP, "bg-muted/30 px-4 py-16")}>
           <div className="mx-auto max-w-5xl">
             <h2 className="text-center text-2xl font-semibold text-foreground sm:text-3xl">
               Everything you need to prepare
             </h2>
             <div className="mt-12 grid gap-8 sm:grid-cols-3">
-              <div className="rounded-lg border border-border bg-card p-6">
+              <div
+                className={cn(
+                  "rounded-ucatShell p-6",
+                  UCAT_SURFACE_CARD,
+                  UCAT_SURFACE_MOTION,
+                  UCAT_CARD_RAISED_HOVER,
+                )}
+              >
                 <BrainCircuit className="h-10 w-10 text-primary" />
                 <h3 className="mt-4 font-semibold">Practice sets</h3>
                 <p className="mt-2 text-sm text-muted-foreground">
                   Timed practice across all UCAT sections with instant feedback.
                 </p>
               </div>
-              <div className="rounded-lg border border-border bg-card p-6">
+              <div
+                className={cn(
+                  "rounded-ucatShell p-6",
+                  UCAT_SURFACE_CARD,
+                  UCAT_SURFACE_MOTION,
+                  UCAT_CARD_RAISED_HOVER,
+                )}
+              >
                 <BarChart3 className="h-10 w-10 text-primary" />
                 <h3 className="mt-4 font-semibold">Progress tracking</h3>
                 <p className="mt-2 text-sm text-muted-foreground">
                   See your strengths and weaknesses with detailed analytics.
                 </p>
               </div>
-              <div className="rounded-lg border border-border bg-card p-6">
+              <div
+                className={cn(
+                  "rounded-ucatShell p-6",
+                  UCAT_SURFACE_CARD,
+                  UCAT_SURFACE_MOTION,
+                  UCAT_CARD_RAISED_HOVER,
+                )}
+              >
                 <BookOpen className="h-10 w-10 text-primary" />
                 <h3 className="mt-4 font-semibold">Full mocks</h3>
                 <p className="mt-2 text-sm text-muted-foreground">
@@ -63,7 +91,14 @@ export function LandingPage() {
 
         {/* CTA */}
         <section className="px-4 py-20">
-          <div className="mx-auto max-w-2xl rounded-xl border border-border bg-card p-8 text-center">
+          <div
+            className={cn(
+              "mx-auto max-w-2xl rounded-ucatShell p-8 text-center",
+              UCAT_SURFACE_CARD,
+              UCAT_SURFACE_MOTION,
+              "hover:shadow-md",
+            )}
+          >
             <h2 className="text-xl font-semibold text-foreground sm:text-2xl">
               Ready to get started?
             </h2>

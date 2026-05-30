@@ -245,7 +245,7 @@ export function MockAttemptAnalysisChart({
                   dataKey="value"
                   radius={[4, 4, 0, 0]}
                   isAnimationActive
-                  animationDuration={600}
+                  animationDuration={850}
                   animationEasing="ease-out"
                 >
                   {chartData.map((entry, index) => (

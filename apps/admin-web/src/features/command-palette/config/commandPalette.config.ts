@@ -136,6 +136,20 @@ export const additionalPages: CommandPalettePage[] = [
     keywords: ['billing', 'pricing', 'settings'],
   },
   {
+    id: 'settings-pay-tiers',
+    title: 'Pay tiers ladder',
+    href: '/pay-tiers/ladder',
+    icon: CreditCard,
+    keywords: ['pay', 'tier', 'staff', 'salary', 'wage'],
+  },
+  {
+    id: 'pay-tiers',
+    title: 'Pay tiers',
+    href: '/pay-tiers',
+    icon: CreditCard,
+    keywords: ['pay', 'tier', 'staff', 'promotion', 'review'],
+  },
+  {
     id: 'settings-stripe-sync',
     title: 'Stripe Sync',
     href: '/settings/stripe-sync',

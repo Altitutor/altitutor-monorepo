@@ -4,10 +4,11 @@ import { useMemo } from "react";
 import { UcatPageHeader } from "@/features/layout";
 import { useProgress } from "../hooks/use-progress";
 import { useProgressMode } from "../hooks/use-progress-mode";
-import { ProgressModeSelector } from "./progress-mode-selector";
+import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
 import { SetAttemptsCard } from "./set-attempts-card";
 import { QuestionAttemptsCard } from "./question-attempts-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import {
   filterByTimeFrame,
@@ -17,92 +18,31 @@ import {
   applyAttemptFilterToProgress,
   getSharedDateRange,
 } from "../lib/progress-data-utils";
+import {
+  AnimatedFraction,
+  AnimatedInteger,
+  ProgressCircular,
+} from "./progress-animated-display";
 import type {
   SectionCategoryProgress,
   QuestionAttemptRow,
   SetAttemptRow,
 } from "@/app/api/ucat/progress/route";
 
-function CircularProgress({
-  percentage,
-  size = 120,
-  strokeWidth,
-  className,
-  showLabel = true,
-}: {
-  percentage: number;
-  size?: number;
-  strokeWidth?: number;
-  className?: string;
-  showLabel?: boolean;
-}) {
-  const sw = strokeWidth ?? (size <= 56 ? 4 : 10);
-  const radius = (size - sw) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const capped = Math.min(100, Math.max(0, percentage));
-  const offset = circumference - (capped / 100) * circumference;
-
-  return (
-    <div
-      className={cn(
-        "relative inline-flex flex-col items-center justify-center shrink-0",
-        className,
-      )}
-      style={{ width: size, height: size }}
-    >
-      <svg
-        width={size}
-        height={size}
-        className="-rotate-90"
-        aria-label={`${percentage}% progress`}
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={sw}
-          className="text-muted/30"
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={sw}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          className="text-accent transition-[stroke-dashoffset] duration-700 ease-out"
-        />
-      </svg>
-      {showLabel && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span
-            className={cn(
-              "font-semibold tabular-nums",
-              size <= 56 ? "text-xs" : "text-lg",
-            )}
-          >
-            {capped}%
-          </span>
-        </div>
-      )}
-    </div>
-  );
-}
-
 type SectionProgressPageProps = {
   sectionNumber: number;
+  /** When true, only mock set attempts are included and UI reflects mocks-only context */
+  mocksOnly?: boolean;
 };
 
 export function SectionProgressPage({
   sectionNumber,
+  mocksOnly = false,
 }: SectionProgressPageProps) {
   const { data, isLoading, error } = useProgress();
   const progressMode = useProgressMode();
+  const backHref = mocksOnly ? "/progress/mocks" : "/progress";
+  const backLabel = mocksOnly ? "Back to mock progress" : "Back to progress";
 
   const sectionId = useMemo(() => {
     if (!data) return null;
@@ -114,8 +54,9 @@ export function SectionProgressPage({
 
   const filteredData = useMemo(() => {
     if (!data) return null;
-    return applyAttemptFilterToProgress(data, progressMode.attemptFilter);
-  }, [data, progressMode.attemptFilter]);
+    const filter = mocksOnly ? "mocks_only" : progressMode.attemptFilter;
+    return applyAttemptFilterToProgress(data, filter);
+  }, [data, progressMode.attemptFilter, mocksOnly]);
 
   const {
     section,
@@ -198,8 +139,8 @@ export function SectionProgressPage({
       <div className="space-y-6">
         <UcatPageHeader
           title="Loading..."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <div className="animate-pulse space-y-6">
           <div className="h-48 rounded-lg bg-muted" />
@@ -213,10 +154,10 @@ export function SectionProgressPage({
     return (
       <div className="space-y-6">
         <UcatPageHeader
-          title="Progress"
+          title={mocksOnly ? "Mock progress" : "Progress"}
           description="Could not load your progress."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
         <p className="text-sm text-destructive">{error.message}</p>
       </div>
@@ -227,10 +168,10 @@ export function SectionProgressPage({
     return (
       <div className="space-y-6">
         <UcatPageHeader
-          title="Progress"
+          title={mocksOnly ? "Mock progress" : "Progress"}
           description="No progress data available."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
       </div>
     );
@@ -242,8 +183,8 @@ export function SectionProgressPage({
         <UcatPageHeader
           title="Section not found"
           description="This section could not be found."
-          backHref="/progress"
-          backLabel="Back to progress"
+          backHref={backHref}
+          backLabel={backLabel}
         />
       </div>
     );
@@ -279,6 +220,9 @@ export function SectionProgressPage({
       categoryProgress={categoryProgress}
       progressMode={progressMode}
       sharedDateRange={sharedDateRange}
+      mocksOnly={mocksOnly}
+      backHref={backHref}
+      backLabel={backLabel}
     />
   );
 }
@@ -296,6 +240,9 @@ function SectionProgressContent({
   categoryProgress,
   progressMode,
   sharedDateRange,
+  mocksOnly,
+  backHref,
+  backLabel,
 }: {
   section: { sectionId: string; sectionName: string; sectionNumber: number };
   score: number | null;
@@ -309,6 +256,9 @@ function SectionProgressContent({
   categoryProgress: SectionCategoryProgress[];
   progressMode: ReturnType<typeof useProgressMode>;
   sharedDateRange?: ReturnType<typeof getSharedDateRange>;
+  mocksOnly: boolean;
+  backHref: string;
+  backLabel: string;
 }) {
   const stats = useMemo(() => {
     const timeFiltered =
@@ -365,27 +315,30 @@ function SectionProgressContent({
   }, [filteredSetAttempts, progressMode.mode, progressMode.timeFrameDays]);
 
   return (
-    <div className="space-y-6">
+    <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
       <UcatPageHeader
-        title={section.sectionName}
-        description={`Progress for ${section.sectionName}`}
-        backHref="/progress"
-        backLabel="Back to progress"
-        breadcrumbOverrides={{ 2: section.sectionName }}
-      />
-
-      <ProgressModeSelector
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        attemptFilter={progressMode.attemptFilter}
-        onAttemptFilterChange={progressMode.onAttemptFilterChange}
+        title={
+          mocksOnly
+            ? `${section.sectionName} (mocks only)`
+            : section.sectionName
+        }
+        description={
+          mocksOnly
+            ? `Mock exam progress for ${section.sectionName}`
+            : `Progress for ${section.sectionName}`
+        }
+        backHref={backHref}
+        backLabel={backLabel}
+        breadcrumbOverrides={
+          mocksOnly
+            ? { 3: section.sectionName }
+            : { 2: section.sectionName }
+        }
       />
 
       <div className="flex flex-col gap-4">
         <div className="flex justify-center">
-          <Card className="w-full max-w-xs rounded-xl border-border">
+          <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-medium text-center">
                 Scaled score
@@ -398,14 +351,18 @@ function SectionProgressContent({
                   score == null && "text-muted-foreground",
                 )}
               >
-                {score != null ? Math.round(score) : "—"}
+                {score != null ? (
+                  <AnimatedInteger value={Math.round(score)} />
+                ) : (
+                  "—"
+                )}
               </div>
             </CardContent>
           </Card>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card className="rounded-xl border-border">
+          <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">
                 <div className="flex flex-col gap-1 min-w-0">
@@ -413,17 +370,20 @@ function SectionProgressContent({
                     Questions correct
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
-                    {stats.correct} / {stats.completed}
+                    <AnimatedFraction
+                      numerator={stats.correct}
+                      denominator={stats.completed}
+                    />
                   </span>
                 </div>
-                <CircularProgress
+                <ProgressCircular
                   percentage={stats.completed > 0 ? percentage : 0}
                   size={48}
                   className="text-accent shrink-0"
                 />
               </div>
               {categoryProgress.length > 0 ? (
-                <div className="border-t border-border pt-3">
+                <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
                   <div className="text-xs font-medium text-muted-foreground mb-2">
                     Category breakdown
                   </div>
@@ -468,9 +428,14 @@ function SectionProgressContent({
                             {cat.categoryName}
                           </span>
                           <span className="shrink-0">
-                            {cat.maxScore > 0
-                              ? `${cat.correctScore} / ${cat.maxScore}`
-                              : "—"}
+                            {cat.maxScore > 0 ? (
+                              <AnimatedFraction
+                                numerator={cat.correctScore}
+                                denominator={cat.maxScore}
+                              />
+                            ) : (
+                              "—"
+                            )}
                           </span>
                         </div>
                       ));
@@ -481,7 +446,7 @@ function SectionProgressContent({
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl border-border">
+          <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">
                 <div className="flex flex-col gap-1 min-w-0">
@@ -489,14 +454,17 @@ function SectionProgressContent({
                     Total questions completed
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
-                    {stats.completed}
+                    <AnimatedInteger value={stats.completed} />
                     {progressMode.mode !== "time_frame" &&
-                    totalPublicQuestions != null
-                      ? ` / ${totalPublicQuestions}`
-                      : ""}
+                    totalPublicQuestions != null ? (
+                      <>
+                        {" / "}
+                        <span className="tabular-nums">{totalPublicQuestions}</span>
+                      </>
+                    ) : null}
                   </span>
                 </div>
-                <CircularProgress
+                <ProgressCircular
                   percentage={
                     totalPublicQuestions != null && totalPublicQuestions > 0
                       ? Math.round(
@@ -511,7 +479,7 @@ function SectionProgressContent({
                 />
               </div>
               {categoryProgress.length > 0 ? (
-                <div className="border-t border-border pt-3">
+                <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
                   <div className="text-xs font-medium text-muted-foreground mb-2">
                     Category breakdown
                   </div>
@@ -525,9 +493,14 @@ function SectionProgressContent({
                           {cat.categoryName}
                         </span>
                         <span className="shrink-0">
-                          {cat.totalPublicQuestions != null
-                            ? `${cat.maxScore} / ${cat.totalPublicQuestions}`
-                            : `${cat.maxScore} questions`}
+                          {cat.totalPublicQuestions != null ? (
+                            <AnimatedFraction
+                              numerator={cat.maxScore}
+                              denominator={cat.totalPublicQuestions}
+                            />
+                          ) : (
+                            `${cat.maxScore} questions`
+                          )}
                         </span>
                       </div>
                     ))}
@@ -537,7 +510,7 @@ function SectionProgressContent({
             </CardContent>
           </Card>
 
-          <Card className="rounded-xl border-border">
+          <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">
                 <div className="flex flex-col gap-1 min-w-0">
@@ -545,14 +518,17 @@ function SectionProgressContent({
                     Total sets completed
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
-                    {setsStats.totalCompleted}
+                    <AnimatedInteger value={setsStats.totalCompleted} />
                     {progressMode.mode !== "time_frame" &&
-                    totalPublicSets != null
-                      ? ` / ${totalPublicSets}`
-                      : ""}
+                    totalPublicSets != null ? (
+                      <>
+                        {" / "}
+                        <span className="tabular-nums">{totalPublicSets}</span>
+                      </>
+                    ) : null}
                   </span>
                 </div>
-                <CircularProgress
+                <ProgressCircular
                   percentage={
                     totalPublicSets != null && totalPublicSets > 0
                       ? Math.round(
@@ -566,7 +542,7 @@ function SectionProgressContent({
                   className="text-accent shrink-0"
                 />
               </div>
-              <div className="border-t border-border pt-3">
+              <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
                 <div className="text-xs font-medium text-muted-foreground mb-2">
                   Breakdown
                 </div>
@@ -576,11 +552,16 @@ function SectionProgressContent({
                       Untimed sets completed
                     </span>
                     <span className="shrink-0">
-                      {setsStats.untimedCompleted}
+                      <AnimatedInteger value={setsStats.untimedCompleted} />
                       {progressMode.mode !== "time_frame" &&
-                      totalPublicUntimedSets != null
-                        ? ` / ${totalPublicUntimedSets}`
-                        : ""}
+                      totalPublicUntimedSets != null ? (
+                        <>
+                          {" / "}
+                          <span className="tabular-nums">
+                            {totalPublicUntimedSets}
+                          </span>
+                        </>
+                      ) : null}
                     </span>
                   </div>
                   <div className="flex justify-between">
@@ -588,11 +569,16 @@ function SectionProgressContent({
                       Timed sets completed
                     </span>
                     <span className="shrink-0">
-                      {setsStats.timedCompleted}
+                      <AnimatedInteger value={setsStats.timedCompleted} />
                       {progressMode.mode !== "time_frame" &&
-                      totalPublicTimedSets != null
-                        ? ` / ${totalPublicTimedSets}`
-                        : ""}
+                      totalPublicTimedSets != null ? (
+                        <>
+                          {" / "}
+                          <span className="tabular-nums">
+                            {totalPublicTimedSets}
+                          </span>
+                        </>
+                      ) : null}
                     </span>
                   </div>
                 </div>
@@ -614,6 +600,16 @@ function SectionProgressContent({
         timeFrameDays={progressMode.timeFrameDays}
         sharedDateRange={sharedDateRange}
         sectionNumber={section.sectionNumber}
+      />
+
+      <ProgressModeFloatingToolbar
+        mode={progressMode.mode}
+        onModeChange={progressMode.onModeChange}
+        timeFrameDays={progressMode.timeFrameDays}
+        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
+        attemptFilter={progressMode.attemptFilter}
+        onAttemptFilterChange={progressMode.onAttemptFilterChange}
+        showAttemptFilter={!mocksOnly}
       />
     </div>
   );

@@ -8,6 +8,14 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./pay-tiers": {
+      "types": "./dist/pay-tiers/index.d.ts",
+      "default": "./dist/pay-tiers/index.js"
+    },
+    "./hooks": {
+      "types": "./dist/hooks/index.d.ts",
+      "default": "./dist/hooks/index.js"
     }
   },
   "sideEffects": false,

@@ -9,7 +9,7 @@ import {
   BrainCircuit,
   Calendar,
   Settings,
-  User,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 import { Button, Card, Skeleton } from '@altitutor/ui';
@@ -72,18 +72,18 @@ const baseQuickLinks: QuickLinkItem[] = [
     accentClass: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400',
   },
   {
+    title: 'Pay tier',
+    description: 'Your pay ladder, requirements, and check-ins',
+    href: '/pay-tier',
+    icon: TrendingUp,
+    accentClass: 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
+  },
+  {
     title: 'Settings',
-    description: 'Blockout dates and tutor preferences',
+    description: 'Profile, blockout dates, and preferences',
     href: '/settings',
     icon: Settings,
     accentClass: 'bg-rose-500/10 text-rose-700 dark:text-rose-300',
-  },
-  {
-    title: 'My profile',
-    description: 'Details, availability, and account',
-    href: '/my-profile',
-    icon: User,
-    accentClass: 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
   },
 ];
 

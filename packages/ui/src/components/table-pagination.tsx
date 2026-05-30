@@ -15,6 +15,8 @@ export interface TablePaginationProps {
   onPageSizeChange: (pageSize: number) => void;
   pageSizeOptions?: number[];
   className?: string;
+  /** When set, current page uses `outline` plus these classes (e.g. app chrome color). Otherwise active page uses `default` (primary). */
+  activePageButtonClassName?: string;
 }
 
 const DEFAULT_PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -29,6 +31,7 @@ export function TablePagination({
   onPageSizeChange,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   className,
+  activePageButtonClassName,
 }: TablePaginationProps) {
   const pageCount = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = Math.min(Math.max(page, 1), pageCount);
@@ -99,7 +102,7 @@ export function TablePagination({
             onValueChange={handlePageSizeChange}
             getItemLabel={(i) => String(i.value)}
             getItemId={(i) => String(i.value)}
-            triggerClassName="w-[80px]"
+            triggerClassName="!w-auto min-w-[5.25rem] shrink-0 max-w-[6.5rem]"
           />
         </div>
 
@@ -116,10 +119,17 @@ export function TablePagination({
               ) : (
                 <Button
                   key={item}
-                  variant={item === currentPage ? 'default' : 'outline'}
+                  variant={
+                    item === currentPage && !activePageButtonClassName
+                      ? 'default'
+                      : 'outline'
+                  }
                   size="sm"
                   onClick={() => handlePageChange(item)}
-                  className="min-w-[36px]"
+                  className={cn(
+                    'min-w-[36px]',
+                    item === currentPage && activePageButtonClassName,
+                  )}
                 >
                   {item}
                 </Button>

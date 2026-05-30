@@ -7,7 +7,7 @@ import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, C
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { cn, navHoverStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
-import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound } from 'lucide-react';
+import { Beaker, Newspaper, ClipboardList, MessageCircle, UserRound, TrendingUp } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
@@ -136,6 +136,11 @@ const navItems: NavItem[] = [
     title: 'Tutor logs',
     href: '/tutor-logs',
     icon: ClipboardList,
+  },
+  {
+    title: 'Pay tiers',
+    href: '/pay-tiers',
+    icon: TrendingUp,
   },
   {
     type: 'heading',

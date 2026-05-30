@@ -243,6 +243,25 @@ describe('deriveStudentAttendanceStatus', () => {
     expect(result.actualStatus).toBe(STUDENT_ACTUAL_STATUSES.ATTENDED_TRIAL);
     expect(result.rescheduledSessionId).toBe('');
     expect(result.rescheduledDate).toBe('');
+    expect(result.creditedDisplayDate).toBe('');
+  });
+
+  it('includes credited display date when absence credited', () => {
+    const input: StudentAttendanceInput = {
+      student_id: 'student-1',
+      sessions_students_id: 'ss-1',
+      planned_absence: true,
+      is_rescheduled: false,
+      is_credited: true,
+      credited_at: '2026-03-10T12:00:00.000Z',
+    };
+    const context: StudentAttendanceContext = {
+      hasTutorLog: false,
+      plannedStudentIds: new Set(),
+    };
+    const result = deriveStudentAttendanceStatus(input, context);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.CREDITED);
+    expect(result.creditedDisplayDate).toBe('10/03/2026');
   });
 });
 

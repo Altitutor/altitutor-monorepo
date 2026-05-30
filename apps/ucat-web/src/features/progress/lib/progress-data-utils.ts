@@ -36,10 +36,12 @@ export function applyAttemptFilter(
 
   const filteredSetIds = new Set<string>();
   for (const s of setAttempts) {
-    if (filter === "untimed" && !s.wasTimed) filteredSetIds.add(s.id);
-    if (filter === "timed" && s.wasTimed) filteredSetIds.add(s.id);
-    if (filter === "altitutor" && s.wasTimed && !s.isStudentGenerated)
-      filteredSetIds.add(s.id);
+    const isMockSet = s.studentUcatMockAttemptId != null;
+    if (filter === "timed_sets_and_mocks") {
+      if (isMockSet || s.wasTimed) filteredSetIds.add(s.id);
+    } else if (filter === "mocks_only") {
+      if (isMockSet) filteredSetIds.add(s.id);
+    }
   }
 
   const filteredSetAttempts = setAttempts.filter((s) =>
@@ -49,7 +51,7 @@ export function applyAttemptFilter(
   const filteredQuestionAttempts = questionAttempts.filter((qa) => {
     const setId = qa.studentQuestionSetAttemptId;
     if (!setId) {
-      return filter === "untimed";
+      return false;
     }
     return filteredSetIds.has(setId);
   });
@@ -59,10 +61,6 @@ export function applyAttemptFilter(
       (s) => s.studentUcatMockAttemptId === m.id,
     );
     if (childSets.length === 0) return false;
-    if (filter === "untimed") return childSets.every((s) => !s.wasTimed);
-    if (filter === "timed") return childSets.every((s) => s.wasTimed);
-    if (filter === "altitutor")
-      return childSets.every((s) => s.wasTimed && !s.isStudentGenerated);
     return true;
   });
 

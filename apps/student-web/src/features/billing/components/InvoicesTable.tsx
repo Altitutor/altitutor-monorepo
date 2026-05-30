@@ -1,7 +1,18 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Badge, Button, TablePagination } from '@altitutor/ui';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Badge,
+  Button,
+  TablePagination,
+  PAID_INVOICE_BADGE_VARIANT,
+} from '@altitutor/ui';
 import { Loader2, ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
 import {
@@ -146,7 +157,7 @@ export function InvoicesTable() {
                           <Badge variant="destructive">Overdue</Badge>
                         )}
                         {(invoice.status === 'paid' || invoice.paid_at) && (
-                          <Badge variant="default">
+                          <Badge variant={PAID_INVOICE_BADGE_VARIANT}>
                             {invoice.paid_at
                               ? `Paid ${new Date(invoice.paid_at).toLocaleDateString('en-AU')}`
                               : 'Paid'}

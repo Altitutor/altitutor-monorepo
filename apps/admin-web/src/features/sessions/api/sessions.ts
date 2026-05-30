@@ -823,7 +823,7 @@ export const sessionsApi = {
         ? await supabase
             .from('invoice_items')
             .select(
-              'sessions_students_id, invoice:invoices(status, paid_at, refunded_at, refunded_via_cn_at, credited_at, deleted_at)'
+              'sessions_students_id, invoice_id, invoice:invoices(id, status, paid_at, refunded_at, refunded_via_cn_at, credited_at, deleted_at)'
             )
             .in('sessions_students_id', sessionsStudentsIds)
             .is('deleted_at', null)
@@ -833,6 +833,7 @@ export const sessionsApi = {
 
       // Build invoice_status_payload map for centralized badge display
       type InvoicePayload = {
+        invoice_id?: string | null;
         status: string;
         paid_at?: string | null;
         refunded_at?: string | null;
@@ -843,12 +844,14 @@ export const sessionsApi = {
       (
         invoiceItemsData as Array<{
           sessions_students_id?: string | null;
-          invoice?: { status?: string; paid_at?: string | null; refunded_at?: string | null; refunded_via_cn_at?: string | null; credited_at?: string | null; deleted_at?: string | null } | null;
+          invoice_id?: string | null;
+          invoice?: { id?: string; status?: string; paid_at?: string | null; refunded_at?: string | null; refunded_via_cn_at?: string | null; credited_at?: string | null; deleted_at?: string | null } | null;
         }> | null
       )?.forEach((row) => {
         if (row.sessions_students_id && row.invoice && !(row.invoice as { deleted_at?: string | null }).deleted_at) {
           const inv = row.invoice;
           invoiceStatusPayloadMap[row.sessions_students_id] = {
+            invoice_id: inv.id ?? row.invoice_id ?? null,
             status: inv.status ?? 'draft',
             paid_at: inv.paid_at ?? null,
             refunded_at: inv.refunded_at ?? null,

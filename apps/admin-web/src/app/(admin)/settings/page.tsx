@@ -14,6 +14,7 @@ import {
   FileCheck,
   FileStack,
   GraduationCap,
+  TrendingUp,
 } from 'lucide-react';
 import { Card, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 
@@ -93,6 +94,12 @@ export default function SettingsPage() {
           icon: CreditCard,
         },
         {
+          title: 'Pay tiers',
+          description: 'Configure staff pay tier ladder and advancement requirements',
+          href: '/pay-tiers/ladder',
+          icon: TrendingUp,
+        },
+        {
           title: 'Stripe Sync',
           description: 'Sync Stripe customers to students and manage payment methods',
           href: '/settings/stripe-sync',
@@ -102,6 +109,17 @@ export default function SettingsPage() {
           title: 'UCAT subscription',
           description: 'UCAT online trial, pricing, practice-day discounts, and Stripe price IDs',
           href: '/settings/ucat-subscription',
+          icon: GraduationCap,
+        },
+      ],
+    },
+    {
+      title: 'UCAT',
+      items: [
+        {
+          title: 'Score predictor model',
+          description: 'Configure cold-start constants for UCAT section score projections',
+          href: '/settings/ucat-model-config',
           icon: GraduationCap,
         },
       ],

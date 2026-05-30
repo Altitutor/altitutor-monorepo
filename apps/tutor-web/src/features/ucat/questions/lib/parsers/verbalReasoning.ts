@@ -8,6 +8,7 @@ import {
   collectLogicalLinesFromDoc,
   parseFromLines,
   type ParsedStem,
+  type ParsedQuestion,
   type ParserConfig,
 } from '@/features/ucat/questions/lib/parsers/core'
 
@@ -84,6 +85,95 @@ export function parseVerbalReasoningFromDoc(
     detectNestedQuestionTables: true,
   })
   return parseFromLines(logicalLines, configOverrides)
+}
+
+function splitPromptBlocks(lines: string[], configOverrides?: Partial<ParserConfig>): string[] {
+  const blocks: string[][] = []
+  let current: string[] = []
+  let hasSeenPromptMarker = false
+
+  const flush = (allowPrePrompt = false): void => {
+    const text = current.join('\n').trim()
+    if (text.length > 0 && (hasSeenPromptMarker || allowPrePrompt)) blocks.push([...current])
+    current = []
+  }
+
+  for (const line of lines) {
+    const trimmed = line.trim()
+    const promptMatch = /^prompt\s+\d+\b[\s:.-]*/i.exec(trimmed)
+    if (promptMatch) {
+      flush()
+      hasSeenPromptMarker = true
+      const rest = trimmed.slice(promptMatch[0].length).trim()
+      if (rest.length > 0) current.push(rest)
+      continue
+    }
+    current.push(line)
+  }
+  flush(true)
+
+  return blocks
+    .map((block) => {
+      const parsed = parseFromLines(block, configOverrides)
+      if (parsed.length === 1 && parsed[0]?.questions.length === 0) {
+        return parsed[0]?.stemText.trim() ?? ''
+      }
+      return block.join('\n').trim()
+    })
+    .filter((text) => text.length > 0)
+}
+
+function splitQuestionsEvenly(questions: ParsedQuestion[], groupCount: number): ParsedQuestion[][] {
+  if (groupCount <= 0) return []
+  if (questions.length === 0) return Array.from({ length: groupCount }, () => [])
+  if (questions.length % groupCount === 0) {
+    const size = questions.length / groupCount
+    return Array.from({ length: groupCount }, (_, i) =>
+      questions.slice(i * size, (i + 1) * size)
+    )
+  }
+
+  const groups: ParsedQuestion[][] = []
+  let cursor = 0
+  for (let i = 0; i < groupCount; i += 1) {
+    const remainingQuestions = questions.length - cursor
+    const remainingGroups = groupCount - i
+    const size = Math.ceil(remainingQuestions / remainingGroups)
+    groups.push(questions.slice(cursor, cursor + size))
+    cursor += size
+  }
+  return groups
+}
+
+export function parseVerbalReasoningWithSeparateStemDoc(
+  questionDoc: Json | null | undefined,
+  stemDoc: Json | null | undefined,
+  configOverrides?: Partial<ParserConfig>
+): ParsedStem[] {
+  const promptLines = collectLogicalLinesFromDoc(stemDoc, {
+    detectNestedQuestionTables: true,
+  })
+  const promptBlocks = splitPromptBlocks(promptLines, configOverrides)
+  if (promptBlocks.length === 0) return parseVerbalReasoningFromDoc(questionDoc, configOverrides)
+
+  const parsedQuestionStems = parseVerbalReasoningFromDoc(questionDoc, configOverrides)
+  if (parsedQuestionStems.length === 0) return []
+
+  if (parsedQuestionStems.length === promptBlocks.length) {
+    return parsedQuestionStems.map((stem, i) => ({
+      stemText: promptBlocks[i] ?? stem.stemText,
+      questions: stem.questions,
+    }))
+  }
+
+  const allQuestions = parsedQuestionStems.flatMap((stem) => stem.questions)
+  const groupedQuestions = splitQuestionsEvenly(allQuestions, promptBlocks.length)
+  return promptBlocks
+    .map((stemText, i) => ({
+      stemText,
+      questions: groupedQuestions[i] ?? [],
+    }))
+    .filter((stem) => stem.questions.length > 0)
 }
 
 /**

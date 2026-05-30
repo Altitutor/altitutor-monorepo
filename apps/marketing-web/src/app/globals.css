@@ -1,0 +1,130 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: #fff;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.legacy-site-header {
+  position: relative;
+  z-index: 20;
+  background: #fff;
+  font-family:
+    Montserrat, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+.legacy-site-header__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 54px;
+  padding: 8px 18px 7px 14px;
+}
+
+.legacy-site-header__brand {
+  display: inline-flex;
+  align-items: center;
+}
+
+.legacy-site-header__brand img {
+  display: block;
+  width: 150px;
+  height: auto;
+}
+
+.legacy-site-header__book {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
+  border-radius: 999px;
+  background: #0a2941;
+  padding: 0 20px;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1;
+  text-decoration: none;
+}
+
+.legacy-site-header__nav {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  align-items: center;
+  min-height: 40px;
+  background: #0a2941;
+  text-align: center;
+}
+
+.legacy-site-header__nav a {
+  color: #fff;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.legacy-wordpress-page {
+  overflow-x: hidden;
+  overflow-wrap: anywhere;
+}
+
+.legacy-wordpress-page img {
+  height: auto;
+  max-width: 100%;
+}
+
+.legacy-wordpress-page iframe,
+.legacy-wordpress-page video {
+  max-width: 100%;
+}
+
+.legacy-wordpress-page .elementor-hidden,
+.legacy-wordpress-page style {
+  display: none;
+}
+
+.legacy-wordpress-page .elementor-section.elementor-section-stretched {
+  left: 0 !important;
+  width: 100% !important;
+}
+
+.elementor-invisible {
+  visibility: visible !important;
+}
+
+.legacy-wordpress-page .elementor-element.elementor-widget {
+  opacity: 1 !important;
+}
+
+@media (max-width: 767px) {
+  .legacy-site-header__top {
+    padding-inline: 12px;
+  }
+
+  .legacy-site-header__brand img {
+    width: 132px;
+  }
+
+  .legacy-site-header__nav {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1px;
+  }
+
+  .legacy-site-header__nav a {
+    padding: 10px 4px;
+    font-size: 13px;
+  }
+}

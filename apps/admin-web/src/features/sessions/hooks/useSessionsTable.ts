@@ -51,6 +51,7 @@ export interface UseSessionsTableReturn {
     was_trial?: boolean;
     is_rescheduled?: boolean;
     is_credited?: boolean;
+    absence_credited_at?: string | null;
     rescheduled_session?: unknown;
   }>>;
   sessionStaff: Record<string, Array<Tables<'staff'> & {

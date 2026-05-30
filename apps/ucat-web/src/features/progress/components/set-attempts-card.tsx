@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import {
-  Button,
   Card,
   CardContent,
   CardHeader,
@@ -18,6 +16,7 @@ import {
 } from "@altitutor/ui";
 import { TableHeaderWithTooltip } from "./table-header-with-tooltip";
 import { ProgressTablePagination } from "./progress-table-pagination";
+import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
 import { GraphTypeTabs } from "./graph-type-tabs";
 import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
@@ -27,7 +26,15 @@ import {
   filterByTimeFrame,
   type SharedDateRange,
 } from "../lib/progress-data-utils";
+import { useStudyPlannerProjection } from "@/features/study-planner/hooks/use-study-planner-projection";
 import type { SetAttemptRow } from "@/app/api/ucat/progress/route";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_TABLE_BODY_ROW,
+  UCAT_TABLE_HEADER_CLASSNAME,
+  UCAT_TABLE_HEADER_ROW,
+  UCAT_TABLE_SHELL,
+} from "@/lib/ucat-surface-motion";
 import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
 
 type SetAttemptsCardProps = {
@@ -69,6 +76,7 @@ export function SetAttemptsCard({
   const [graphType, setGraphType] = useState<"line" | "bar">("line");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const projectionQuery = useStudyPlannerProjection(sectionNumber != null);
 
   const standaloneAttempts = useMemo(() => {
     const result = attempts.filter((a) => !a.studentUcatMockAttemptId);
@@ -112,38 +120,88 @@ export function SetAttemptsCard({
       ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
       : `/progress/set-attempts/${attemptId}`;
 
+  const attemptsTableTitleId = useId();
+
+  const sectionProjection = useMemo(() => {
+    if (!projectionQuery.data || sectionNumber == null) return null;
+    return (
+      projectionQuery.data.sections.find((s) => s.sectionNumber === sectionNumber) ??
+      null
+    );
+  }, [projectionQuery.data, sectionNumber]);
+
+  const graphProjection = useMemo(() => {
+    if (!sectionProjection) return undefined;
+    return {
+      conservative: sectionProjection.projection.map((p) => ({
+        date: p.date,
+        value: p.conservative,
+      })),
+      realistic: sectionProjection.projection.map((p) => ({
+        date: p.date,
+        value: p.realistic,
+      })),
+      aggressive: sectionProjection.projection.map((p) => ({
+        date: p.date,
+        value: p.aggressive,
+      })),
+    };
+  }, [sectionProjection]);
+
   return (
-    <Card className="rounded-xl border-border">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle>Set attempts</CardTitle>
-        <div className="flex flex-wrap items-center gap-2">
-          <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
-            items={GRAPH_DATA_TYPES}
-            value={
-              GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
+    <>
+      <Card className={UCAT_CARD_CHROME}>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle>Set attempts</CardTitle>
+          <div className="flex flex-wrap items-center gap-2">
+            <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
+              items={GRAPH_DATA_TYPES}
+              value={
+                GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
+              }
+              onValueChange={(item) => item && setGraphDataType(item.value)}
+              getItemLabel={(r) => r.label}
+              getItemId={(r) => r.value}
+              placeholder="Y-axis"
+              triggerClassName="w-[160px]"
+            />
+            <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <ProgressGraph
+            data={graphData}
+            type={graphType}
+            dataType={graphDataType}
+            dateRangeLabel={dateRangeLabel}
+            projection={
+              graphDataType === "scaled_score" && graphType === "line"
+                ? graphProjection
+                : undefined
             }
-            onValueChange={(item) => item && setGraphDataType(item.value)}
-            getItemLabel={(r) => r.label}
-            getItemId={(r) => r.value}
-            placeholder="Y-axis"
-            triggerClassName="w-[160px]"
+            targetScore={
+              graphDataType === "scaled_score"
+                ? sectionProjection?.target?.score
+                : undefined
+            }
+            testDate={projectionQuery.data?.testDate ?? undefined}
           />
-          <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <ProgressGraph
-          data={graphData}
-          type={graphType}
-          dataType={graphDataType}
-          dateRangeLabel={dateRangeLabel}
-        />
-        <div>
-          <h4 className="mb-3 text-sm font-medium">All set attempts</h4>
-          <div className="rounded-xl border border-border">
-            <Table className="[&_tr]:border-border">
-              <TableHeader>
-                <TableRow>
+        </CardContent>
+      </Card>
+      <section
+        aria-labelledby={attemptsTableTitleId}
+        className="space-y-4"
+      >
+        <h2
+          id={attemptsTableTitleId}
+          className="text-2xl font-semibold tracking-tight"
+        >
+          All set attempts
+        </h2>
+        <div className={UCAT_TABLE_SHELL}>
+            <Table>
+              <TableHeader className={UCAT_TABLE_HEADER_CLASSNAME}>
+                <TableRow className={UCAT_TABLE_HEADER_ROW}>
                   <TableHead>Date</TableHead>
                   <TableHead>Set</TableHead>
                   <TableHeaderWithTooltip tooltip="Raw score: correct points earned out of total possible points for this set.">
@@ -166,7 +224,7 @@ export function SetAttemptsCard({
               </TableHeader>
               <TableBody>
                 {standaloneAttempts.length === 0 ? (
-                  <TableRow>
+                  <TableRow className={UCAT_TABLE_BODY_ROW}>
                     <TableCell
                       colSpan={8}
                       className="text-center text-muted-foreground"
@@ -193,7 +251,7 @@ export function SetAttemptsCard({
                         : "—";
 
                     return (
-                      <TableRow key={a.id}>
+                      <TableRow key={a.id} className={UCAT_TABLE_BODY_ROW}>
                         <TableCell>{dateStr}</TableCell>
                         <TableCell>{a.questionSetName ?? "—"}</TableCell>
                         <TableCell>
@@ -208,11 +266,10 @@ export function SetAttemptsCard({
                         <TableCell>{setSpeed}</TableCell>
                         <TableCell>{examSpeed}</TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
-                            <Link href={setAttemptHref(a.id)}>
-                              View attempt
-                            </Link>
-                          </Button>
+                          <UcatTableRowActionLink
+                            href={setAttemptHref(a.id)}
+                            label="View attempt"
+                          />
                         </TableCell>
                       </TableRow>
                     );
@@ -221,21 +278,20 @@ export function SetAttemptsCard({
               </TableBody>
             </Table>
           </div>
-          {standaloneAttempts.length > 0 ? (
-            <ProgressTablePagination
-              page={page}
-              pageSize={pageSize}
-              total={standaloneAttempts.length}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPageSize(size);
-                setPage(1);
-              }}
-              pageSizeOptions={PAGE_SIZE_OPTIONS}
-            />
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
+        {standaloneAttempts.length > 0 ? (
+          <ProgressTablePagination
+            page={page}
+            pageSize={pageSize}
+            total={standaloneAttempts.length}
+            onPageChange={setPage}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setPage(1);
+            }}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+          />
+        ) : null}
+      </section>
+    </>
   );
 }

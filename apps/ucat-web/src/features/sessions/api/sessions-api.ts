@@ -12,15 +12,6 @@ export type StudentUcatSession = StudentSessionRow & {
   subject_name: string;
 };
 
-export type StudentUcatClassWithSessions = {
-  class_id: string;
-  class_level: string | null;
-  class_status: string | null;
-  subject_name: string;
-  subject_color: string | null;
-  sessions: StudentUcatSession[];
-};
-
 export type StudentUcatSessionResource =
   | {
       id: string;
@@ -44,12 +35,58 @@ function getClient(): SupabaseClient {
   return getSupabaseBrowserClient();
 }
 
-export async function getStudentUcatClassesWithSessions(): Promise<
-  StudentUcatClassWithSessions[]
-> {
+/** Adelaide calendar day of `startAtIso` vs “today” in Adelaide (ordering + labels). */
+export function getUcatSessionAdelaideDayStatus(
+  startAtIso: string | null | undefined,
+): "past" | "today" | "future" {
+  if (!startAtIso) return "future";
+
+  const adelaideTz = "Australia/Adelaide";
+  const now = new Date();
+
+  const todayParts = new Intl.DateTimeFormat("en-AU", {
+    timeZone: adelaideTz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .formatToParts(now)
+    .reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== "literal") acc[part.type] = part.value;
+      return acc;
+    }, {});
+
+  const startParts = new Intl.DateTimeFormat("en-AU", {
+    timeZone: adelaideTz,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  })
+    .formatToParts(new Date(startAtIso))
+    .reduce<Record<string, string>>((acc, part) => {
+      if (part.type !== "literal") acc[part.type] = part.value;
+      return acc;
+    }, {});
+
+  const todayKey = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+  const startKey = `${startParts.year}-${startParts.month}-${startParts.day}`;
+
+  if (startKey === todayKey) return "today";
+  if (startKey < todayKey) return "past";
+  return "future";
+}
+
+function sortSessionsChronologicalAsc(sessions: StudentUcatSession[]): void {
+  sessions.sort((a, b) => {
+    const aTime = a.start_at ? new Date(a.start_at).getTime() : 0;
+    const bTime = b.start_at ? new Date(b.start_at).getTime() : 0;
+    return aTime - bTime;
+  });
+}
+
+export async function getStudentUcatSessions(): Promise<StudentUcatSession[]> {
   const supabase = getClient();
 
-  // 1) Fetch all sessions the student is in (all subjects), then filter to UCAT via subject_name
   const { data: sessionsData, error: sessionsError } = await supabase
     .from("vstudent_sessions")
     .select("*");
@@ -62,48 +99,9 @@ export async function getStudentUcatClassesWithSessions(): Promise<
       (s.subject_name ?? "").toUpperCase() === "UCAT",
   );
 
-  if (sessions.length === 0) {
-    return [];
-  }
+  sortSessionsChronologicalAsc(sessions);
 
-  // 2) Group by class
-  const byClass = new Map<string, StudentUcatClassWithSessions>();
-  for (const session of sessions) {
-    const classId = session.class_id;
-    if (!byClass.has(classId)) {
-      byClass.set(classId, {
-        class_id: classId,
-        class_level: session.class_level,
-        class_status: session.class_status,
-        subject_name: session.subject_name ?? "UCAT",
-        subject_color: session.subject_color ?? null,
-        sessions: [],
-      });
-    }
-    byClass.get(classId)!.sessions.push(session);
-  }
-
-  // 3) Sort sessions within each class by start_at ascending
-  const result: StudentUcatClassWithSessions[] = [];
-  for (const [, value] of byClass) {
-    value.sessions.sort((a, b) => {
-      const aTime = a.start_at ? new Date(a.start_at).getTime() : 0;
-      const bTime = b.start_at ? new Date(b.start_at).getTime() : 0;
-      return aTime - bTime;
-    });
-    result.push(value);
-  }
-
-  // 4) Sort classes by the first session start time
-  result.sort((a, b) => {
-    const aFirst = a.sessions[0];
-    const bFirst = b.sessions[0];
-    const aTime = aFirst?.start_at ? new Date(aFirst.start_at).getTime() : 0;
-    const bTime = bFirst?.start_at ? new Date(bFirst.start_at).getTime() : 0;
-    return aTime - bTime;
-  });
-
-  return result;
+  return sessions;
 }
 
 export async function getStudentUcatSessionResources(

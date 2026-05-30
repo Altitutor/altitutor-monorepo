@@ -3,7 +3,7 @@ import type { QuestionItem } from "@/features/question-engine/model/types";
 import {
   UCAT_COLORS,
   UCAT_FONTS,
-} from "@altitutor/ui/src/components/ucat/ucat-theme";
+} from "@altitutor/ui/components/ucat/ucat-theme";
 import { RichContentBlock } from "./rich-content-block";
 import type { CachedContent } from "@/features/question-engine/hooks/use-refreshed-content-cache";
 

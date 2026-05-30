@@ -9,7 +9,12 @@ import { useMockAttemptDetail } from "../hooks/use-mock-attempt-detail";
 import { SetAttemptAnalysisChart } from "./set-attempt-analysis-chart";
 import { SetAnswersCard } from "./set-answers-card";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import {
+  AnimatedFraction,
+  AnimatedInteger,
+} from "./progress-animated-display";
 
 type SetAttemptDetailPageProps = {
   attemptId: string;
@@ -129,7 +134,7 @@ export function SetAttemptDetailPage({
         }
       />
 
-      <Card className="rounded-xl border-border max-w-sm">
+      <Card className={cn(UCAT_CARD_CHROME, "max-w-sm")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">Score</CardTitle>
         </CardHeader>
@@ -144,7 +149,11 @@ export function SetAttemptDetailPage({
                 data.scaledScore == null && "text-muted-foreground",
               )}
             >
-              {data.scaledScore != null ? Math.round(data.scaledScore) : "—"}
+              {data.scaledScore != null ? (
+                <AnimatedInteger value={Math.round(data.scaledScore)} />
+              ) : (
+                "—"
+              )}
             </div>
           </div>
           <div>
@@ -152,11 +161,15 @@ export function SetAttemptDetailPage({
               Points
             </div>
             <div className="text-xl font-semibold tabular-nums">
-              {total > 0 ? `${points} / ${total}` : "—"}
+              {total > 0 ? (
+                <AnimatedFraction numerator={points} denominator={total} />
+              ) : (
+                "—"
+              )}
             </div>
           </div>
           {categoryBreakdown.length > 0 ? (
-            <div className="mt-3 border-t border-border pt-3">
+            <div className={cn(UCAT_DIVIDER_TOP, "mt-3 pt-3")}>
               <div className="text-xs font-medium text-muted-foreground mb-2">
                 Category breakdown
               </div>
@@ -170,7 +183,14 @@ export function SetAttemptDetailPage({
                       {cat.name}
                     </span>
                     <span className="shrink-0">
-                      {cat.total > 0 ? `${cat.score} / ${cat.total}` : "—"}
+                      {cat.total > 0 ? (
+                        <AnimatedFraction
+                          numerator={cat.score}
+                          denominator={cat.total}
+                        />
+                      ) : (
+                        "—"
+                      )}
                     </span>
                   </div>
                 ))}
@@ -180,7 +200,7 @@ export function SetAttemptDetailPage({
         </CardContent>
       </Card>
 
-      <Card className="overflow-hidden rounded-xl border-border">
+      <Card className={cn(UCAT_CARD_CHROME, "overflow-hidden")}>
         <CardHeader className="pb-2">
           <CardTitle className="text-base font-medium">
             Question attempts

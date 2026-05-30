@@ -1,7 +1,12 @@
 "use client"
 
 import * as React from "react"
-import { Calendar as BigCalendar, dateFnsLocalizer, View } from "react-big-calendar"
+import {
+  Calendar as ReactBigCalendar,
+  dateFnsLocalizer,
+  type CalendarProps as ReactBigCalendarProps,
+  type View,
+} from "react-big-calendar"
 import { format, parse, startOfWeek, getDay } from "date-fns"
 import { enUS } from "date-fns/locale"
 import { cn } from '../lib/cn'
@@ -28,6 +33,11 @@ export interface CalendarEvent {
   allDay?: boolean
   resource?: unknown
 }
+
+/** react-big-calendar's class component types are incompatible with @types/react JSX checks */
+const BigCalendar = ReactBigCalendar as unknown as React.ComponentType<
+  ReactBigCalendarProps<CalendarEvent>
+>
 
 interface CalendarProps {
   events: CalendarEvent[]

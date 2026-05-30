@@ -24,6 +24,12 @@ import type {
   PerformanceFilter,
 } from "@/features/set-generator/hooks/use-stem-filters";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import {
+  UCAT_FILTER_PILL_INNER,
+  UCAT_FILTER_PILL_INNER_INLINE,
+  UCAT_INTERACTION_EASE,
+} from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 export type StemFiltersPanelProps = {
   input: SetGeneratorInput;
@@ -84,7 +90,13 @@ export function StemFiltersPanel({
 }: StemFiltersPanelProps) {
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <section className="space-y-4 rounded-xl bg-card text-card-foreground p-4 shadow-sm">
+      <section
+        className={cn(
+          "space-y-4 rounded-ucatShell bg-card p-4 text-card-foreground shadow-sm",
+          "transition-shadow duration-200",
+          UCAT_INTERACTION_EASE,
+        )}
+      >
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Filters
         </h2>
@@ -169,12 +181,13 @@ export function StemFiltersPanel({
                   <button
                     type="button"
                     onClick={() => onTimePerQuestionChange?.(null)}
-                    className={`px-3 py-1.5 rounded-md transition-colors ${
+                    className={cn(
+                      UCAT_FILTER_PILL_INNER,
                       input.timePerQuestionSeconds == null ||
-                      input.timePerQuestionSeconds <= 0
+                        input.timePerQuestionSeconds <= 0
                         ? "bg-sidebar text-sidebar-foreground"
-                        : "text-foreground hover:bg-muted/80"
-                    }`}
+                        : "text-foreground hover:bg-muted/80",
+                    )}
                   >
                     Off
                   </button>
@@ -187,12 +200,13 @@ export function StemFiltersPanel({
                           90,
                       )
                     }
-                    className={`px-3 py-1.5 rounded-md transition-colors ${
+                    className={cn(
+                      UCAT_FILTER_PILL_INNER,
                       input.timePerQuestionSeconds != null &&
-                      input.timePerQuestionSeconds > 0
+                        input.timePerQuestionSeconds > 0
                         ? "bg-sidebar text-sidebar-foreground"
-                        : "text-foreground hover:bg-muted/80"
-                    }`}
+                        : "text-foreground hover:bg-muted/80",
+                    )}
                   >
                     Timed
                   </button>
@@ -260,11 +274,12 @@ export function StemFiltersPanel({
                         key={item.mode}
                         type="button"
                         onClick={() => onTimeModeChange(item.mode)}
-                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors ${
+                        className={cn(
+                          UCAT_FILTER_PILL_INNER_INLINE,
                           isActive
                             ? "bg-sidebar text-sidebar-foreground"
-                            : "text-foreground hover:bg-muted/80"
-                        }`}
+                            : "text-foreground hover:bg-muted/80",
+                        )}
                       >
                         {item.label}
                         {isActive && (
@@ -364,11 +379,12 @@ export function StemFiltersPanel({
                   key={item.mode}
                   type="button"
                   onClick={() => onPerformanceFilterChange(item.mode)}
-                  className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-md transition-colors ${
+                  className={cn(
+                    UCAT_FILTER_PILL_INNER_INLINE,
                     isActive
                       ? "bg-sidebar text-sidebar-foreground"
-                      : "text-foreground hover:bg-muted/80"
-                  }`}
+                      : "text-foreground hover:bg-muted/80",
+                  )}
                 >
                   {item.label}
                   {isActive && (
@@ -411,22 +427,24 @@ export function StemFiltersPanel({
                 <button
                   type="button"
                   onClick={() => onQuestionCountModeChange?.("set")}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                  className={cn(
+                    UCAT_FILTER_PILL_INNER,
                     questionCountMode === "set"
                       ? "bg-sidebar text-sidebar-foreground"
-                      : "text-foreground hover:bg-muted/80"
-                  }`}
+                      : "text-foreground hover:bg-muted/80",
+                  )}
                 >
                   Set
                 </button>
                 <button
                   type="button"
                   onClick={() => onQuestionCountModeChange?.("unlimited")}
-                  className={`px-3 py-1.5 rounded-md transition-colors ${
+                  className={cn(
+                    UCAT_FILTER_PILL_INNER,
                     questionCountMode === "unlimited"
                       ? "bg-sidebar text-sidebar-foreground"
-                      : "text-foreground hover:bg-muted/80"
-                  }`}
+                      : "text-foreground hover:bg-muted/80",
+                  )}
                 >
                   Unlimited
                 </button>
@@ -461,7 +479,13 @@ export function StemFiltersPanel({
         </div>
       </section>
 
-      <section className="space-y-4 rounded-xl bg-card text-card-foreground p-4 shadow-sm">
+      <section
+        className={cn(
+          "space-y-4 rounded-ucatShell bg-card p-4 text-card-foreground shadow-sm",
+          "transition-shadow duration-200",
+          UCAT_INTERACTION_EASE,
+        )}
+      >
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Preview
         </h2>

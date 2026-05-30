@@ -9,11 +9,15 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
     return browserClient;
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
 
-  // Skip validation during Next.js production build (CI) so prerender can complete
-  if (process.env.NEXT_PHASE === "phase-production-build") {
+  // Skip validation during Next.js production build (CI) so prerender can complete.
+  // Only on the server: never use placeholders in the browser (would send invalid apikey).
+  if (
+    typeof window === "undefined" &&
+    process.env.NEXT_PHASE === "phase-production-build"
+  ) {
     browserClient = createBrowserClient<Database>(
       supabaseUrl || "https://placeholder.supabase.co",
       supabaseAnonKey || "placeholder-key",

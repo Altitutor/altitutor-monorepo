@@ -4,7 +4,7 @@ import { Flag } from "lucide-react";
 import {
   UCAT_COLORS,
   UCAT_FONTS,
-} from "@altitutor/ui/src/components/ucat/ucat-theme";
+} from "@altitutor/ui/components/ucat/ucat-theme";
 import type { QuestionItem } from "@/features/question-engine/model/types";
 import type { ReviewQuestionStatus } from "@/features/question-engine/lib/review";
 

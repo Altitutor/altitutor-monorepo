@@ -132,7 +132,7 @@ export function UcatLandingProtocol() {
   return (
     <section
       ref={containerRef}
-      id="methodology"
+      id="how-it-works"
       className="relative w-full bg-marketing-cream px-4 py-32 pb-[40vh] md:px-8"
     >
       <div className="relative z-20 mx-auto mb-32 max-w-5xl text-center text-marketing-charcoal">

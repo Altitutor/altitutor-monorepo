@@ -107,8 +107,12 @@ const mockStudents: Tables<'students'>[] = [
     created_by: null,
     user_id: null,
     invite_token: null,
-    welcome_modal_acknowledged_at: null,
+    onboarding_progress: {},
     timezone: 'Australia/Adelaide',
+    ucat_target_score_s1: null,
+    ucat_target_score_s2: null,
+    ucat_target_score_s3: null,
+    ucat_test_date: null,
   },
   {
     id: 'student-2',
@@ -137,8 +141,12 @@ const mockStudents: Tables<'students'>[] = [
     created_by: null,
     user_id: null,
     invite_token: null,
-    welcome_modal_acknowledged_at: null,
+    onboarding_progress: {},
     timezone: 'Australia/Adelaide',
+    ucat_target_score_s1: null,
+    ucat_target_score_s2: null,
+    ucat_target_score_s3: null,
+    ucat_test_date: null,
   },
 ];
 

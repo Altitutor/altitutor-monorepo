@@ -25,6 +25,7 @@ export type ProcessedStudentData = {
   actualStatus: StudentActualStatus;
   rescheduledDate: string;
   rescheduledSessionId?: string;
+  creditedDisplayDate: string;
   invoiceStatus: InvoiceStatusPayload | null;
   plannedAbsence: boolean;
   hasInvoiceItems: boolean;
@@ -53,6 +54,9 @@ export type SessionStudentItem = {
   was_trial?: boolean;
   is_rescheduled?: boolean;
   is_credited?: boolean;
+  credited_at?: string | null;
+  /** search_sessions_admin student JSON field */
+  absence_credited_at?: string | null;
   invoice_status_payload?: InvoiceStatusPayload | null;
   rescheduled_session?: {
     session?: {
@@ -111,6 +115,7 @@ export function processSessionStudents(
       was_trial: ss.was_trial,
       is_rescheduled: ss.is_rescheduled,
       is_credited: ss.is_credited,
+      credited_at: ss.credited_at ?? ss.absence_credited_at ?? null,
       rescheduled_session: ss.rescheduled_session,
       actual_attended: actualStudentAttendance[ss.student_id]?.attended,
       actual_was_trial: actualStudentAttendance[ss.student_id]?.was_trial,
@@ -131,6 +136,7 @@ export function processSessionStudents(
       actualStatus: attendanceStatus.actualStatus,
       rescheduledDate: attendanceStatus.rescheduledDate,
       rescheduledSessionId: attendanceStatus.rescheduledSessionId,
+      creditedDisplayDate: attendanceStatus.creditedDisplayDate,
       invoiceStatus: ss.invoice_status_payload || null,
       plannedAbsence: ss.planned_absence || false,
       hasInvoiceItems: !!ss.invoice_status_payload,

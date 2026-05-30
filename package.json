@@ -17,7 +17,7 @@
     "typecheck": "turbo run typecheck",
     "checkall": "turbo run lint && turbo run typecheck && turbo run test && turbo run build",
     "db:types": "pnpm exec supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm --filter @altitutor/shared run build",
-    "db:committypes": "pnpm exec supabase db reset && supabase db lint --local --level=error --fail-on error && pnpm db:types && git add packages/shared/src/supabase/generated.ts && (git diff --cached --quiet || git commit -m 'chore: regenerate types')"
+    "db:committypes": "pnpm exec supabase db reset && pnpm exec supabase db lint --local --level=error --fail-on error && pnpm db:types && git add packages/shared/src/supabase/generated.ts && (git diff --cached --quiet || git commit -m 'chore: regenerate types')"
   },
   "devDependencies": {
     "supabase": "^2.76.9",

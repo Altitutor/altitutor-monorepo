@@ -11,7 +11,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
       ? params.redirect
       : "/dashboard";
   return (
-    <LoginPageLayout>
+    <LoginPageLayout redirectTo={redirectTo}>
       <LoginForm redirectTo={redirectTo} />
     </LoginPageLayout>
   );

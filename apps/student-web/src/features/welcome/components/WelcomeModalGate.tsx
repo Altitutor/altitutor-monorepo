@@ -5,6 +5,7 @@ import { useProfile } from '@/features/profile';
 import { WelcomeModal } from './WelcomeModal';
 import { useWelcomeModalAcknowledge } from '../hooks/useWelcomeModalAcknowledge';
 import { useWelcomeModalContext } from '../hooks/useWelcomeModalContext';
+import { isTourCompleted, STUDENT_WELCOME_TOUR } from '../lib/onboarding';
 
 export const OPEN_WELCOME_MODAL_EVENT = 'student-web:open-welcome-modal';
 
@@ -13,7 +14,8 @@ export function WelcomeModalGate() {
   const acknowledgeMutation = useWelcomeModalAcknowledge();
   const [open, setOpen] = useState(false);
   const [forceOpen, setForceOpen] = useState(false);
-  const shouldShowModal = !!profile && profile.welcome_modal_acknowledged_at === null;
+  const hasAcknowledgedWelcome = isTourCompleted(profile, STUDENT_WELCOME_TOUR);
+  const shouldShowModal = !!profile && !hasAcknowledgedWelcome;
   const isEligibleToShow = shouldShowModal || forceOpen;
   const { data: contextData, isLoading: isContextLoading } = useWelcomeModalContext(open && isEligibleToShow);
 
@@ -22,9 +24,9 @@ export function WelcomeModalGate() {
     if (!profile) return;
 
     if (!forceOpen) {
-      setOpen(profile.welcome_modal_acknowledged_at === null);
+      setOpen(!hasAcknowledgedWelcome);
     }
-  }, [profile, isProfileLoading, forceOpen]);
+  }, [profile, isProfileLoading, forceOpen, hasAcknowledgedWelcome]);
 
   useEffect(() => {
     const handler = () => {

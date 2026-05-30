@@ -8,6 +8,7 @@ import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters"
 import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import { setPracticeSession } from "@/features/practice/lib/session-storage";
+import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 export function PracticePage() {
   const router = useRouter();
@@ -136,9 +137,10 @@ export function PracticePage() {
   const actionButton = (
     <button
       type="button"
+      data-tour="practice-start"
       onClick={() => !startMutation.isPending && handleStart()}
       disabled={startMutation.isPending || !filters.selectedSection?.id}
-      className="inline-flex h-10 items-center justify-center rounded-lg bg-sidebar px-4 text-sm font-medium text-sidebar-foreground disabled:opacity-60"
+      className={UCAT_PRIMARY_ACTION_BUTTON}
     >
       {startMutation.isPending ? "Loading…" : "Start practice"}
     </button>
@@ -146,11 +148,14 @@ export function PracticePage() {
 
   return (
     <div className="space-y-6">
-      <UcatPageHeader
-        title="Practice"
-        description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
-      />
-      <StemFiltersPanel
+      <div id="tour-practice-header">
+        <UcatPageHeader
+          title="Practice"
+          description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
+        />
+      </div>
+      <div id="tour-practice-filters">
+        <StemFiltersPanel
         input={filters.input}
         selectedSection={filters.selectedSection}
         sectionCategories={filters.sectionCategories}
@@ -176,6 +181,7 @@ export function PracticePage() {
         onQuestionCountModeChange={filters.handleQuestionCountModeChange}
         actionButton={actionButton}
       />
+      </div>
     </div>
   );
 }
