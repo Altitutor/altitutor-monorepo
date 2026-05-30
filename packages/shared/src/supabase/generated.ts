@@ -5666,13 +5666,16 @@ export type Database = {
           availability_tuesday: boolean | null
           availability_wednesday: boolean | null
           created_at: string | null
+          current_tier_number: number
           drafting_availability: boolean | null
           email: string | null
+          employment_started_at: string
           first_name: string
           has_parking_remote: string | null
           id: string
           invite_token: string | null
           last_name: string
+          metric_overrides: Json
           notes: string | null
           office_key_number: number | null
           phone_number: string | null
@@ -5694,13 +5697,16 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
+          current_tier_number?: number
           drafting_availability?: boolean | null
           email?: string | null
+          employment_started_at?: string
           first_name: string
           has_parking_remote?: string | null
           id: string
           invite_token?: string | null
           last_name: string
+          metric_overrides?: Json
           notes?: string | null
           office_key_number?: number | null
           phone_number?: string | null
@@ -5722,13 +5728,16 @@ export type Database = {
           availability_tuesday?: boolean | null
           availability_wednesday?: boolean | null
           created_at?: string | null
+          current_tier_number?: number
           drafting_availability?: boolean | null
           email?: string | null
+          employment_started_at?: string
           first_name?: string
           has_parking_remote?: string | null
           id?: string
           invite_token?: string | null
           last_name?: string
+          metric_overrides?: Json
           notes?: string | null
           office_key_number?: number | null
           phone_number?: string | null
@@ -5739,7 +5748,15 @@ export type Database = {
           updated_at?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_current_tier_number_fkey"
+            columns: ["current_tier_number"]
+            isOneToOne: false
+            referencedRelation: "staff_pay_tiers"
+            referencedColumns: ["tier_number"]
+          },
+        ]
       }
       staff_files: {
         Row: {
@@ -5857,6 +5874,71 @@ export type Database = {
           },
         ]
       }
+      staff_pay_tier_requirements: {
+        Row: {
+          created_at: string
+          id: string
+          params: Json
+          requirement_kind: Database["public"]["Enums"]["staff_pay_tier_requirement_kind"]
+          sort_order: number
+          tier_number: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          params?: Json
+          requirement_kind: Database["public"]["Enums"]["staff_pay_tier_requirement_kind"]
+          sort_order?: number
+          tier_number: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          params?: Json
+          requirement_kind?: Database["public"]["Enums"]["staff_pay_tier_requirement_kind"]
+          sort_order?: number
+          tier_number?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_pay_tier_requirements_tier_number_fkey"
+            columns: ["tier_number"]
+            isOneToOne: false
+            referencedRelation: "staff_pay_tiers"
+            referencedColumns: ["tier_number"]
+          },
+        ]
+      }
+      staff_pay_tiers: {
+        Row: {
+          base_pay_rate_cents: number
+          created_at: string
+          currency: string
+          name: string | null
+          tier_number: number
+          updated_at: string
+        }
+        Insert: {
+          base_pay_rate_cents: number
+          created_at?: string
+          currency?: string
+          name?: string | null
+          tier_number: number
+          updated_at?: string
+        }
+        Update: {
+          base_pay_rate_cents?: number
+          created_at?: string
+          currency?: string
+          name?: string | null
+          tier_number?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_subjects: {
         Row: {
           created_at: string | null
@@ -5913,6 +5995,123 @@ export type Database = {
             columns: ["subject_id"]
             isOneToOne: false
             referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_tier_promotions: {
+        Row: {
+          check_in_session_id: string | null
+          created_at: string
+          from_tier_number: number
+          id: string
+          notes: string | null
+          outcome: Database["public"]["Enums"]["staff_tier_promotion_outcome"]
+          reviewed_at: string
+          reviewed_by: string
+          staff_id: string
+          to_tier_number: number
+        }
+        Insert: {
+          check_in_session_id?: string | null
+          created_at?: string
+          from_tier_number: number
+          id?: string
+          notes?: string | null
+          outcome: Database["public"]["Enums"]["staff_tier_promotion_outcome"]
+          reviewed_at?: string
+          reviewed_by: string
+          staff_id: string
+          to_tier_number: number
+        }
+        Update: {
+          check_in_session_id?: string | null
+          created_at?: string
+          from_tier_number?: number
+          id?: string
+          notes?: string | null
+          outcome?: Database["public"]["Enums"]["staff_tier_promotion_outcome"]
+          reviewed_at?: string
+          reviewed_by?: string
+          staff_id?: string
+          to_tier_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_tier_promotions_check_in_session_id_fkey"
+            columns: ["check_in_session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_check_in_session_id_fkey"
+            columns: ["check_in_session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_check_in_session_id_fkey"
+            columns: ["check_in_session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_check_in_session_id_fkey"
+            columns: ["check_in_session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_check_in_session_id_fkey"
+            columns: ["check_in_session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_check_in_session_id_fkey"
+            columns: ["check_in_session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_check_in_session_id_fkey"
+            columns: ["check_in_session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_tier_promotions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -15404,6 +15603,10 @@ export type Database = {
         }
         Returns: Json
       }
+      compute_staff_tier_metrics: {
+        Args: { p_staff_id: string }
+        Returns: Json
+      }
       count_submitted_attempts_today: {
         Args: { p_student_id: string; p_timezone?: string }
         Returns: number
@@ -15943,6 +16146,10 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
+      staff_tier_session_metric_key: {
+        Args: { p_attendance_type: string; p_session_type: string }
+        Returns: string
+      }
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
       student_complete_onboarding_tour: {
         Args: { p_tour_id: string; p_version?: number }
@@ -16147,6 +16354,11 @@ export type Database = {
         | "ADMIN_SHIFT"
         | "CHECK_IN"
         | "ADMIN_MEETING"
+      staff_pay_tier_requirement_kind:
+        | "TENURE_DAYS"
+        | "TENURE_MONTHS"
+        | "SESSION_COUNT"
+      staff_tier_promotion_outcome: "approved" | "deferred" | "not_ready"
       subject_curriculum: "SACE" | "IB" | "PRESACE" | "PRIMARY" | "MEDICINE"
       subject_discipline:
         | "MATHEMATICS"
@@ -16308,6 +16520,12 @@ export const Constants = {
         "CHECK_IN",
         "ADMIN_MEETING",
       ],
+      staff_pay_tier_requirement_kind: [
+        "TENURE_DAYS",
+        "TENURE_MONTHS",
+        "SESSION_COUNT",
+      ],
+      staff_tier_promotion_outcome: ["approved", "deferred", "not_ready"],
       subject_curriculum: ["SACE", "IB", "PRESACE", "PRIMARY", "MEDICINE"],
       subject_discipline: [
         "MATHEMATICS",
