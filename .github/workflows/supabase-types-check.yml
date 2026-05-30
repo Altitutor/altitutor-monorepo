@@ -20,6 +20,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # CLI version resolved from pnpm-lock.yaml (see supabase/setup-cli@v2)
+      - uses: supabase/setup-cli@v2
+
       - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
@@ -27,16 +30,18 @@ jobs:
           node-version: 20
           cache: 'pnpm'
 
-      - name: Install dependencies (pins Supabase CLI via pnpm-lock.yaml)
+      - name: Install dependencies (for pnpm db:types / shared build)
         run: pnpm install --frozen-lockfile
+        env:
+          NODE_ENV: development
 
       - name: Confirm Supabase CLI version
-        run: pnpm exec supabase --version
+        run: supabase --version
 
       - name: Start Supabase and apply migrations
         run: |
-          pnpm exec supabase start
-          pnpm exec supabase db reset
+          supabase start
+          supabase db reset
 
       - name: Regenerate types and fail if committed file is stale
         run: |

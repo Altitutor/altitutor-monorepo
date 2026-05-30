@@ -29,18 +29,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'pnpm'
-
-      - name: Install dependencies (pins Supabase CLI via pnpm-lock.yaml)
-        run: pnpm install --frozen-lockfile
+      # CLI version resolved from pnpm-lock.yaml (see supabase/setup-cli@v2)
+      - uses: supabase/setup-cli@v2
 
       - name: Confirm Supabase CLI version
-        run: pnpm exec supabase --version
+        run: supabase --version
 
       - name: Export CLI env (PROJECT_ID, DB_PASSWORD)
         run: |
@@ -48,20 +41,20 @@ jobs:
           echo "SUPABASE_DB_PASSWORD=${{ secrets.SUPABASE_DB_PASSWORD }}" >> $GITHUB_ENV
 
       - name: Link project
-        run: pnpm exec supabase link --project-ref $SUPABASE_PROJECT_ID
+        run: supabase link --project-ref $SUPABASE_PROJECT_ID
 
       - name: Push migrations
-        run: pnpm exec supabase db push
+        run: supabase db push
 
       - name: Lint remote schema (post-push)
-        run: pnpm exec supabase db lint --linked --level error --fail-on error
+        run: supabase db lint --linked --level error --fail-on error
 
       - name: Deploy edge functions (if any)
         if: ${{ contains(github.event.head_commit.message, '[skip-functions]') == false }}
         run: |
           if [ -d "supabase/functions" ]; then
             for fn in $(ls supabase/functions); do
-              pnpm exec supabase functions deploy --no-verify-jwt "$fn" --project-ref $SUPABASE_PROJECT_ID || true
+              supabase functions deploy --no-verify-jwt "$fn" --project-ref $SUPABASE_PROJECT_ID || true
             done
           fi
 
