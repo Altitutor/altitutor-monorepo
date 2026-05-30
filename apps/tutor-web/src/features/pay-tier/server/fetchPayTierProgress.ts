@@ -5,6 +5,7 @@ import {
   type StaffPayTier,
   type StaffTierPromotionRecord,
   type PayTierCheckIn,
+  type PayTierCheckInStaffMember,
 } from '@altitutor/shared/pay-tiers';
 import type { Database } from '@altitutor/shared';
 
@@ -30,13 +31,43 @@ function parseOverrides(raw: unknown): Record<string, number> {
   return out;
 }
 
+type SessionDetailStaffEmbed = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+function parseSessionStaff(raw: unknown): SessionDetailStaffEmbed[] {
+  if (!raw || !Array.isArray(raw)) return [];
+  return raw.filter(
+    (item): item is SessionDetailStaffEmbed =>
+      typeof item === 'object' &&
+      item !== null &&
+      typeof (item as SessionDetailStaffEmbed).id === 'string'
+  );
+}
+
+function otherStaffOnCheckIn(
+  staff: SessionDetailStaffEmbed[],
+  currentStaffId: string
+): PayTierCheckInStaffMember[] {
+  return staff
+    .filter((member) => member.id !== currentStaffId)
+    .map((member) => ({
+      staffId: member.id,
+      firstName: member.first_name,
+      lastName: member.last_name,
+    }));
+}
+
 async function fetchCheckIns(
   client: Client,
+  currentStaffId: string,
   promotions: StaffTierPromotionRecord[]
 ): Promise<PayTierCheckIn[]> {
   const { data, error } = await client
-    .from('vtutor_sessions')
-    .select('session_id, start_at, end_at, session_type, subject_name')
+    .from('vtutor_session_detail')
+    .select('session_id, start_at, end_at, session_type, subject_name, staff')
     .eq('session_type', 'CHECK_IN')
     .order('start_at', { ascending: false });
 
@@ -59,6 +90,7 @@ async function fetchCheckIns(
       endAt: row.end_at ?? null,
       displayName: row.subject_name,
       linkedPromotion: promoBySession.get(row.session_id) ?? null,
+      otherStaff: otherStaffOnCheckIn(parseSessionStaff(row.staff), currentStaffId),
     }));
 }
 
@@ -111,7 +143,7 @@ export async function fetchPayTierProgressForStaff(
   if (metricsResult.error) throw metricsResult.error;
 
   const promotionRows = (promotions.data ?? []) as StaffTierPromotionRecord[];
-  const checkIns = await fetchCheckIns(client, promotionRows);
+  const checkIns = await fetchCheckIns(client, staffId, promotionRows);
   const lastCheckIn =
     checkIns.length > 0
       ? {

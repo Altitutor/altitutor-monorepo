@@ -16,6 +16,9 @@ export type ParsedAnswerRow = {
 
 const HEADER_LIKE = /^(answer|explanation|correct|#|number|no\.?)$/i
 const OPTION_LETTER = /^[A-Ea-e]$/
+const QUESTION_NUMBER_LINE = /^\s*(?:q(?:uestion)?\s*)?(\d{1,3})[\.\)]?\s*$/i
+const INLINE_ANSWER_LINE =
+  /^\s*(?:q(?:uestion)?\s*)?(\d{1,3})[\.\)]?\s+([A-Ea-e])(?:[\.\)]|\b)\s*(.*)$/i
 
 function isHeaderRow(cells: string[]): boolean {
   if (cells.length < 2) return false
@@ -56,6 +59,93 @@ function extractRowsFromPlainText(text: string): string[][] {
     .filter((cells) => cells.some((c) => c.length > 0))
 }
 
+function isIgnorableLooseAnswerLine(line: string): boolean {
+  const normalised = line.trim().toLowerCase().replace(/\s+/g, ' ')
+  return (
+    normalised.length === 0 ||
+    normalised === 'answer' ||
+    normalised === 'answers' ||
+    normalised === 'correct answer' ||
+    normalised === 'correct answers' ||
+    normalised === 'explanation' ||
+    normalised === 'explanations' ||
+    normalised === 'solution' ||
+    normalised === 'solutions' ||
+    normalised === '* solutions'
+  )
+}
+
+function isLooseQuestionNumberLine(line: string): number | null {
+  const match = QUESTION_NUMBER_LINE.exec(line)
+  if (!match) return null
+  const parsed = Number.parseInt(match[1] ?? '', 10)
+  if (Number.isNaN(parsed) || parsed < 1 || parsed > 999) return null
+  return parsed
+}
+
+function isLooseLetterLine(line: string): string | null {
+  const trimmed = line.trim()
+  if (!OPTION_LETTER.test(trimmed)) return null
+  return trimmed.toUpperCase()
+}
+
+function parseLooseAnswerRowsFromText(text: string): string[][] {
+  const lines = text
+    .trim()
+    .split(/\r\n|\n|\r/)
+    .map((line) => line.trim())
+    .filter((line) => !isIgnorableLooseAnswerLine(line))
+
+  const rows: string[][] = []
+  let i = 0
+
+  while (i < lines.length) {
+    const line = lines[i] ?? ''
+    const inline = INLINE_ANSWER_LINE.exec(line)
+    if (inline) {
+      const questionNumber = inline[1] ?? ''
+      const letter = (inline[2] ?? '').toUpperCase()
+      const explanationLines: string[] = []
+      const rest = (inline[3] ?? '').trim()
+      if (rest.length > 0) explanationLines.push(rest)
+      i += 1
+      while (i < lines.length) {
+        const next = lines[i] ?? ''
+        if (INLINE_ANSWER_LINE.test(next)) break
+        const nextNumber = isLooseQuestionNumberLine(next)
+        const followingLetter = i + 1 < lines.length ? isLooseLetterLine(lines[i + 1] ?? '') : null
+        if (nextNumber != null && followingLetter) break
+        explanationLines.push(next)
+        i += 1
+      }
+      rows.push([questionNumber, letter, explanationLines.join('\n').trim()])
+      continue
+    }
+
+    const questionNumber = isLooseQuestionNumberLine(line)
+    const letter = i + 1 < lines.length ? isLooseLetterLine(lines[i + 1] ?? '') : null
+    if (questionNumber != null && letter) {
+      i += 2
+      const explanationLines: string[] = []
+      while (i < lines.length) {
+        const next = lines[i] ?? ''
+        if (INLINE_ANSWER_LINE.test(next)) break
+        const nextNumber = isLooseQuestionNumberLine(next)
+        const followingLetter = i + 1 < lines.length ? isLooseLetterLine(lines[i + 1] ?? '') : null
+        if (nextNumber != null && followingLetter) break
+        explanationLines.push(next)
+        i += 1
+      }
+      rows.push([String(questionNumber), letter, explanationLines.join('\n').trim()])
+      continue
+    }
+
+    i += 1
+  }
+
+  return rows
+}
+
 function extractRowsFromHtml(html: string): string[][] {
   if (typeof document === 'undefined') return []
   try {
@@ -88,6 +178,8 @@ export function parseAnswersTable(input: string): ParsedAnswerRow[] {
   let rows: string[][]
   if (raw.startsWith('<') && raw.includes('<table')) {
     rows = extractRowsFromHtml(raw)
+  } else if (!raw.includes('\t')) {
+    rows = parseLooseAnswerRowsFromText(raw)
   } else {
     rows = extractRowsFromPlainText(raw)
   }
@@ -113,6 +205,8 @@ export function getAnswersTableDataRows(input: string): string[][] {
   let rows: string[][]
   if (raw.startsWith('<') && raw.includes('<table')) {
     rows = extractRowsFromHtml(raw)
+  } else if (!raw.includes('\t')) {
+    rows = parseLooseAnswerRowsFromText(raw)
   } else {
     rows = extractRowsFromPlainText(raw)
   }
@@ -567,25 +661,45 @@ export function parseDecisionMakingAnswers(
     const segmentLines = lines.slice(start + 1, end)
     const type = questionTypes[s]
     if (type === 'syllogism') {
-      const yn: string[] = []
-      for (const ln of segmentLines) {
+      const pairs: { token: string; explanation: string }[] = []
+      for (let i = 0; i < segmentLines.length; i += 1) {
+        const ln = segmentLines[i] ?? ''
         if (YN_LINE.test(ln)) {
-          yn.push(ln.charAt(0).toUpperCase())
-          if (yn.length >= 5) break
+          const token = ln.charAt(0).toUpperCase()
+          const explanationLines: string[] = []
+          i += 1
+          while (i < segmentLines.length && !YN_LINE.test(segmentLines[i] ?? '')) {
+            const explanationLine = segmentLines[i] ?? ''
+            if (explanationLine.trim().length > 0) explanationLines.push(explanationLine)
+            i += 1
+          }
+          i -= 1
+          pairs.push({ token, explanation: explanationLines.join('\n').trim() })
+          if (pairs.length >= 5) break
         }
       }
-      result.push({ pattern: yn.length === 5 ? yn.join('') : undefined })
+      const yn = pairs.map((p) => p.token)
+      result.push({
+        pattern: yn.length === 5 ? yn.join('') : undefined,
+        optionExplanations: yn.length === 5 ? pairs.map((p) => p.explanation) : undefined,
+      })
     } else {
       let letter: string | undefined
-      for (const ln of segmentLines) {
+      let explanation = ''
+      for (let i = 0; i < segmentLines.length; i += 1) {
+        const ln = segmentLines[i] ?? ''
         if (LETTER_LINE.test(ln)) {
           letter = (ln.charAt(0) ?? '').toUpperCase()
+          explanation = segmentLines
+            .slice(i + 1)
+            .filter((line) => line.trim().length > 0)
+            .join('\n')
+            .trim()
           break
         }
       }
-      result.push(letter ? { letter } : {})
+      result.push(letter ? { letter, explanation: explanation || undefined } : {})
     }
   }
   return result
 }
-

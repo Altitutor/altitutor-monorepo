@@ -49,7 +49,7 @@ function TierRequirementsBody({
   if (isTopTier) {
     return (
       <p className="text-sm text-muted-foreground">
-        You&apos;ve reached the top tier on the ladder.
+        More tiers will be added as staff reach the highest tier.
       </p>
     );
   }

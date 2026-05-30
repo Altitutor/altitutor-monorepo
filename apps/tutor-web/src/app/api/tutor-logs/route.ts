@@ -3,6 +3,10 @@ import { createClient } from '@supabase/supabase-js';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
 import { hasSessionStarted, type Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
+import { fetchPayTierProgressForStaff } from '@/features/pay-tier/server/fetchPayTierProgress';
+import { ensurePayTierEligibilityNotification } from '@/features/pay-tier/server/ensurePayTierEligibilityNotification';
 
 /**
  * POST /api/tutor-logs
@@ -193,6 +197,16 @@ export async function POST(request: NextRequest) {
         { error: (result as TutorLogResult).error || 'Failed to create tutor log' },
         { status: 400 }
       );
+    }
+
+    try {
+      const progress = await fetchPayTierProgressForStaff(
+        userClient as unknown as SupabaseClient<Database>,
+        tutorId
+      );
+      await ensurePayTierEligibilityNotification(getServiceRoleClient(), progress);
+    } catch (syncError) {
+      console.error('Failed to sync pay tier eligibility notification after tutor log:', syncError);
     }
 
     return NextResponse.json({ success: true, data: result });

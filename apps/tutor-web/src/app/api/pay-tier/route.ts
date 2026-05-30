@@ -2,7 +2,9 @@ import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { fetchPayTierProgressForStaff } from '@/features/pay-tier/server/fetchPayTierProgress';
+import { ensurePayTierEligibilityNotification } from '@/features/pay-tier/server/ensurePayTierEligibilityNotification';
 
 export async function GET() {
   try {
@@ -30,6 +32,13 @@ export async function GET() {
       supabase as unknown as SupabaseClient<Database>,
       tutorId
     );
+
+    try {
+      await ensurePayTierEligibilityNotification(getServiceRoleClient(), progress);
+    } catch (syncError) {
+      console.error('Failed to sync pay tier eligibility notification:', syncError);
+    }
+
     return NextResponse.json({ progress });
   } catch (e) {
     console.error('GET /api/pay-tier:', e);

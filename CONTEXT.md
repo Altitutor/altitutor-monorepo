@@ -1,5 +1,25 @@
 # Altitutor domain glossary
 
+## Public web surfaces
+
+- **Marketing site** — The public, search-indexable website served from `altitutor.com`. It presents Altitutor's courses, resources, company information, and acquisition pages; it does not own authenticated learning, booking, checkout, or account workflows.
+  _Avoid_: Main site, WordPress site, landing pages
+
+- **Product app** — A user-facing application that owns an authenticated or transactional product workflow, such as the student portal or UCAT practice app. Product apps may have public entry pages, but their product workflows are separate from the Marketing site.
+  _Avoid_: Landing site, marketing app
+
+## UCAT content
+
+- **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience.
+
+- **UCAT section** — One of the canonical UCAT areas, such as Verbal Reasoning, Decision Making, Quantitative Reasoning, or Situational Judgement.
+
+- **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
+
+- **Answer option** — One selectable response for a UCAT question.
+
+- **Bulk import** — A tutor workflow for turning pasted source exam content into UCAT question stems, questions, answer options, and answer metadata for review and import.
+
 ## Staff pay tiers
 
 - **Pay tier** — A numbered step on the organisation’s single pay ladder. Each tier has a canonical base hourly rate stored in Altitutor (not synced to QuickBooks automatically).

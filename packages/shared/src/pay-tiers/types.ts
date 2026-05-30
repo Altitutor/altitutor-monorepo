@@ -65,6 +65,12 @@ export interface PayTierTierDetail {
   requirementsToAdvance: RequirementProgress[];
 }
 
+export interface PayTierCheckInStaffMember {
+  staffId: string;
+  firstName: string | null;
+  lastName: string | null;
+}
+
 export interface PayTierCheckIn {
   sessionId: string;
   startAt: string;
@@ -74,6 +80,8 @@ export interface PayTierCheckIn {
   /** Pay tier at check-in time (admin staff view). */
   tierAtCheckIn?: number;
   tierName?: string | null;
+  /** Other staff on the check-in (excludes the viewing tutor). */
+  otherStaff?: PayTierCheckInStaffMember[];
 }
 
 export interface StaffTierProgress {

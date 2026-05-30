@@ -52,8 +52,7 @@ export function PayTierPageContent() {
         <header>
           <h1 className="text-3xl font-bold tracking-tight">Pay tier</h1>
           <p className="mt-1 text-muted-foreground">
-            Your progression on the Altitutor pay ladder. Promotions follow a check-in review with
-            admin.
+            Your current pay tier. Fulfil the requirements of your tier, then request a check in with us to advance to the next tier.
           </p>
         </header>
 

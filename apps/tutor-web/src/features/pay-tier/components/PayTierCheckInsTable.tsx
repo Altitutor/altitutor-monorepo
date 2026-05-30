@@ -2,7 +2,6 @@
 
 import { format } from 'date-fns';
 import {
-  Badge,
   Button,
   Table,
   TableBody,
@@ -12,8 +11,7 @@ import {
   TableRow,
 } from '@altitutor/ui';
 import { Eye } from 'lucide-react';
-import type { PayTierCheckIn } from '@altitutor/shared/pay-tiers';
-import { formatPayTierPromotionOutcome } from '@altitutor/shared/pay-tiers';
+import type { PayTierCheckIn, PayTierCheckInStaffMember } from '@altitutor/shared/pay-tiers';
 import {
   tutorBtnPrimary,
   tutorTableBodyRow,
@@ -39,15 +37,17 @@ function formatCheckInTime(startAt: string, endAt: string | null): string {
   return format(start, 'HH:mm');
 }
 
+function formatStaffMemberName(member: PayTierCheckInStaffMember): string {
+  const name = [member.firstName, member.lastName].filter(Boolean).join(' ').trim();
+  return name || 'Staff member';
+}
+
 export function PayTierCheckInsTable({ checkIns, onOpenSession }: PayTierCheckInsTableProps) {
   return (
     <section aria-labelledby="check-ins-heading" className="space-y-4">
       <h2 id="check-ins-heading" className="text-2xl font-semibold">
         Check-ins
       </h2>
-      <p className="text-sm text-muted-foreground">
-        Tier reviews are linked to check-in sessions. Use View to open session details.
-      </p>
 
       <div className={tutorTableShell}>
         <Table>
@@ -55,7 +55,7 @@ export function PayTierCheckInsTable({ checkIns, onOpenSession }: PayTierCheckIn
             <TableRow className={tutorTableHeaderRow}>
               <TableHead>Date</TableHead>
               <TableHead>Time</TableHead>
-              <TableHead>Promotion review</TableHead>
+              <TableHead>Staff</TableHead>
               <TableHead className="w-[120px] text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -68,7 +68,7 @@ export function PayTierCheckInsTable({ checkIns, onOpenSession }: PayTierCheckIn
               </TableRow>
             ) : (
               checkIns.map((row) => {
-                const promo = row.linkedPromotion;
+                const others = row.otherStaff ?? [];
                 return (
                   <TableRow key={row.sessionId} className={tutorTableBodyRow}>
                     <TableCell className="tabular-nums font-medium">
@@ -78,19 +78,10 @@ export function PayTierCheckInsTable({ checkIns, onOpenSession }: PayTierCheckIn
                       {formatCheckInTime(row.startAt, row.endAt)}
                     </TableCell>
                     <TableCell>
-                      {promo ? (
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant={promo.outcome === 'approved' ? 'default' : 'secondary'}>
-                            {formatPayTierPromotionOutcome(promo.outcome)}
-                          </Badge>
-                          {promo.from_tier_number !== promo.to_tier_number ? (
-                            <span className="text-xs text-muted-foreground">
-                              Tier {promo.from_tier_number} → {promo.to_tier_number}
-                            </span>
-                          ) : null}
-                        </div>
-                      ) : (
+                      {others.length === 0 ? (
                         <span className="text-sm text-muted-foreground">—</span>
+                      ) : (
+                        <p className="text-sm">{others.map(formatStaffMemberName).join(', ')}</p>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
