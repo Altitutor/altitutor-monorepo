@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import { LegacyWordPressInteractions } from "../LegacyWordPressInteractions";
 import {
   createMetadata,
   getAllMarketingPages,
@@ -16,6 +17,43 @@ type PageProps = {
     slug?: string[];
   };
 };
+
+const LEGACY_SITE_FOOTER_HTML = `
+  <div class="legacy-site-footer__content">
+    <div class="legacy-site-footer__brand">
+      <h2>Altitutor.</h2>
+      <address>Level 1, 17A Solomon St<br />Adelaide SA 5000</address>
+      <p>Copyright © 2021 Altitutor Pty Ltd</p>
+      <p>ACN: 639 197 167</p>
+      <nav class="legacy-site-footer__socials" aria-label="Social links">
+        <a href="https://www.facebook.com/altitutoreducation/">Facebook</a>
+        <a href="https://twitter.com/Altitutor">Twitter</a>
+        <a href="https://www.youtube.com/channel/UCtHb57z0bE-caSB76YguEMA">YouTube</a>
+        <a href="https://www.tiktok.com/@altitutor">TikTok</a>
+        <a href="https://www.linkedin.com/company/altitutor/">LinkedIn</a>
+        <a href="https://www.instagram.com/altitutor/">Instagram</a>
+      </nav>
+    </div>
+    <nav class="legacy-site-footer__nav" aria-label="Education links">
+      <h3>Education</h3>
+      <a href="/classes/">All classes</a>
+      <a href="/classes/weekly-classes/">Weekly subject tutoring</a>
+      <a href="/classes/english-assignment-drafting/">English assignment drafting</a>
+      <a href="/classes/examprep/">Exam preparation courses</a>
+      <a href="/classes/ucatprep/">UCAT preparation</a>
+      <a href="/classes/medical-interview-preparation/">Medical Interview Preparation</a>
+    </nav>
+    <nav class="legacy-site-footer__nav" aria-label="Company links">
+      <h3>Company</h3>
+      <a href="/">Home</a>
+      <a href="/about/">About us</a>
+      <a href="/about/testimonials/">Testimonials</a>
+      <a href="/about/subsidy/">Tuition subsidy</a>
+      <a href="/about/apply/">Work with us</a>
+      <a href="/about/contact/">Contact us</a>
+    </nav>
+  </div>
+`;
 
 export function generateStaticParams() {
   return getAllMarketingPages()
@@ -77,6 +115,12 @@ export default function MarketingRoute({ params }: PageProps) {
       <main
         className="legacy-wordpress-page"
         dangerouslySetInnerHTML={{ __html: getRenderableHtml(page) }}
+      />
+      <LegacyWordPressInteractions />
+      <footer
+        className="legacy-site-footer"
+        suppressHydrationWarning
+        dangerouslySetInnerHTML={{ __html: LEGACY_SITE_FOOTER_HTML }}
       />
     </>
   );

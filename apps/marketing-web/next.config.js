@@ -65,6 +65,16 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/english-assignment-drafting/",
+        destination: "/classes/english-assignment-drafting/",
+        permanent: true,
+      },
+      {
+        source: "/subsidy/",
+        destination: "/about/subsidy/",
+        permanent: true,
+      },
+      {
         source: "/new-student-registration/",
         destination: "https://student.altitutor.com/booking/trial-session",
         permanent: true,
@@ -82,6 +92,11 @@ const nextConfig = {
       {
         source: "/contact-us/",
         destination: "/about/contact/",
+        permanent: true,
+      },
+      {
+        source: "/testimonials/",
+        destination: "/about/testimonials/",
         permanent: true,
       }
     ];
