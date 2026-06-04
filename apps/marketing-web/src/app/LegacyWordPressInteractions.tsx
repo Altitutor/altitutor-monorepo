@@ -9,7 +9,12 @@ export function LegacyWordPressInteractions() {
     document.querySelectorAll<HTMLElement>(".showme").forEach((trigger) => {
       const handleClick = () => {
         document.querySelectorAll<HTMLElement>(".hiddensection1").forEach((section) => {
-          section.style.display = section.style.display === "none" ? "" : "none";
+          section.classList.toggle("legacy-expanded");
+          section.classList.remove(
+            "elementor-hidden-desktop",
+            "elementor-hidden-tablet",
+            "elementor-hidden-mobile",
+          );
         });
         trigger.classList.toggle("opened");
       };
@@ -21,7 +26,7 @@ export function LegacyWordPressInteractions() {
     document.querySelectorAll<HTMLElement>(".closebutton").forEach((trigger) => {
       const handleClick = () => {
         document.querySelectorAll<HTMLElement>(".hiddensection1").forEach((section) => {
-          section.style.display = "none";
+          section.classList.remove("legacy-expanded");
         });
         document.querySelectorAll<HTMLElement>(".showme").forEach((showTrigger) => {
           showTrigger.classList.remove("opened");
@@ -102,6 +107,7 @@ export function LegacyWordPressInteractions() {
             slide.style.display = slideIndex === index ? "block" : "none";
             slide.classList.toggle("swiper-slide-active", slideIndex === index);
           });
+          widget.style.setProperty("--legacy-carousel-slide", String(index));
           bullets.forEach((bullet, bulletIndex) => {
             bullet.classList.toggle("swiper-pagination-bullet-active", bulletIndex === index);
           });

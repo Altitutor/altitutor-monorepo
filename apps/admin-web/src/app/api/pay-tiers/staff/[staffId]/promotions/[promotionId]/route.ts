@@ -1,4 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import {
+  getHighestEligiblePromotionTier,
+  parseRequirementParams,
+  validateApprovedPromotionTier,
+  type StaffPayTierRequirement,
+} from '@altitutor/shared/pay-tiers';
 import { fetchStaffTierProgress } from '@/features/pay-tiers/server/payTierService';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 
@@ -14,6 +20,7 @@ export async function PATCH(
   const body = (await request.json()) as {
     outcome?: PromotionOutcome;
     notes?: string | null;
+    to_tier_number?: number;
   };
 
   if (!body.outcome) {
@@ -40,20 +47,62 @@ export async function PATCH(
     return NextResponse.json({ error: 'Staff not found' }, { status: 404 });
   }
 
-  const nextTierNumber = existing.from_tier_number + 1;
-  if (body.outcome === 'approved') {
-    const { data: nextTier } = await auth.admin
-      .from('staff_pay_tiers')
-      .select('tier_number')
-      .eq('tier_number', nextTierNumber)
-      .maybeSingle();
-    if (!nextTier) {
-      return NextResponse.json({ error: 'No higher tier exists' }, { status: 400 });
+  const fromTier = existing.from_tier_number;
+
+  const [tiersResult, requirementsResult, metricsResult] = await Promise.all([
+    auth.admin.from('staff_pay_tiers').select('tier_number').order('tier_number', { ascending: true }),
+    auth.admin
+      .from('staff_pay_tier_requirements')
+      .select('id, tier_number, requirement_kind, params, sort_order'),
+    auth.admin.rpc('compute_staff_tier_metrics', { p_staff_id: params.staffId }),
+  ]);
+
+  if (tiersResult.error || requirementsResult.error || metricsResult.error) {
+    return NextResponse.json({ error: 'Failed to load tier data' }, { status: 500 });
+  }
+
+  const maxTier =
+    tiersResult.data?.length && tiersResult.data[tiersResult.data.length - 1]?.tier_number != null
+      ? tiersResult.data[tiersResult.data.length - 1]!.tier_number
+      : fromTier;
+
+  const metrics: Record<string, number> = {};
+  if (metricsResult.data && typeof metricsResult.data === 'object') {
+    for (const [k, v] of Object.entries(metricsResult.data as Record<string, unknown>)) {
+      const n = typeof v === 'number' ? v : Number(v);
+      if (!Number.isNaN(n)) metrics[k] = n;
     }
   }
 
-  const newToTier =
-    body.outcome === 'approved' ? nextTierNumber : existing.from_tier_number;
+  const requirements: StaffPayTierRequirement[] = (requirementsResult.data ?? []).map((r) => ({
+    id: r.id,
+    tier_number: r.tier_number,
+    requirement_kind: r.requirement_kind as StaffPayTierRequirement['requirement_kind'],
+    params: parseRequirementParams(r.requirement_kind as StaffPayTierRequirement['requirement_kind'], r.params),
+    sort_order: r.sort_order,
+  }));
+
+  const highestEligible = getHighestEligiblePromotionTier(fromTier, maxTier, requirements, metrics);
+
+  let newToTier = fromTier;
+  if (body.outcome === 'approved') {
+    const requested = body.to_tier_number ?? existing.to_tier_number;
+    const validationError = validateApprovedPromotionTier(fromTier, requested, highestEligible);
+    if (validationError) {
+      return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+    newToTier = requested;
+
+    const { data: tierRow } = await auth.admin
+      .from('staff_pay_tiers')
+      .select('tier_number')
+      .eq('tier_number', newToTier)
+      .maybeSingle();
+    if (!tierRow) {
+      return NextResponse.json({ error: 'Promotion target tier does not exist' }, { status: 400 });
+    }
+  }
+
   const wasApproved = existing.outcome === 'approved';
   const isApproved = body.outcome === 'approved';
 
@@ -72,10 +121,8 @@ export async function PATCH(
   let newStaffTier = staff.current_tier_number;
   if (wasApproved && !isApproved && staff.current_tier_number === existing.to_tier_number) {
     newStaffTier = existing.from_tier_number;
-  } else if (!wasApproved && isApproved) {
-    newStaffTier = Math.max(staff.current_tier_number, nextTierNumber);
-  } else if (isApproved && staff.current_tier_number < nextTierNumber) {
-    newStaffTier = nextTierNumber;
+  } else if (isApproved) {
+    newStaffTier = Math.max(staff.current_tier_number, newToTier);
   }
 
   if (newStaffTier !== staff.current_tier_number) {

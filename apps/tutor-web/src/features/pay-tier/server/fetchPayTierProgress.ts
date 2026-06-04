@@ -1,6 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   buildStaffTierProgress,
+  isCheckInHostRole,
+  isCheckInReceiverRole,
   type StaffTierProgress,
   type StaffPayTier,
   type StaffTierPromotionRecord,
@@ -35,6 +37,7 @@ type SessionDetailStaffEmbed = {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  type?: string | null;
 };
 
 function parseSessionStaff(raw: unknown): SessionDetailStaffEmbed[] {
@@ -47,17 +50,22 @@ function parseSessionStaff(raw: unknown): SessionDetailStaffEmbed[] {
   );
 }
 
-function otherStaffOnCheckIn(
+function conductingStaffOnCheckIn(
   staff: SessionDetailStaffEmbed[],
   currentStaffId: string
 ): PayTierCheckInStaffMember[] {
   return staff
-    .filter((member) => member.id !== currentStaffId)
+    .filter((member) => member.id !== currentStaffId && isCheckInHostRole(member.type))
     .map((member) => ({
       staffId: member.id,
       firstName: member.first_name,
       lastName: member.last_name,
     }));
+}
+
+function isReceiverOnCheckIn(staff: SessionDetailStaffEmbed[], currentStaffId: string): boolean {
+  const self = staff.find((member) => member.id === currentStaffId);
+  return self ? isCheckInReceiverRole(self.type) : false;
 }
 
 async function fetchCheckIns(
@@ -84,14 +92,23 @@ async function fetchCheckIns(
     .filter((row): row is typeof row & { session_id: string; start_at: string } =>
       Boolean(row.session_id && row.start_at)
     )
-    .map((row) => ({
-      sessionId: row.session_id,
-      startAt: row.start_at,
-      endAt: row.end_at ?? null,
-      displayName: row.subject_name,
-      linkedPromotion: promoBySession.get(row.session_id) ?? null,
-      otherStaff: otherStaffOnCheckIn(parseSessionStaff(row.staff), currentStaffId),
-    }));
+    .filter((row) => {
+      const staff = parseSessionStaff(row.staff);
+      return isReceiverOnCheckIn(staff, currentStaffId);
+    })
+    .map((row) => {
+      const staff = parseSessionStaff(row.staff);
+      const hosts = conductingStaffOnCheckIn(staff, currentStaffId);
+      return {
+        sessionId: row.session_id,
+        startAt: row.start_at,
+        endAt: row.end_at ?? null,
+        displayName: row.subject_name,
+        linkedPromotion: promoBySession.get(row.session_id) ?? null,
+        conductingStaff: hosts,
+        otherStaff: hosts,
+      };
+    });
 }
 
 /**

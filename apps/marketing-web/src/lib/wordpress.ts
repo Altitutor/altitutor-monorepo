@@ -176,7 +176,8 @@ export function createMetadata(page?: MarketingPage): Metadata {
   const shouldIndex = robotsIndex !== "noindex";
   const shouldFollow = seo.robots?.follow !== "nofollow";
   const canonical = seo.canonical || `${SITE_URL}${page.path}`;
-  const description = seo.description || stripHtml(page.excerpt);
+  const description = seo.description;
+  const socialDescription = seo.og_description || description || stripHtml(page.excerpt);
   const ogImage = seo.og_image?.[0];
 
   return {
@@ -187,7 +188,7 @@ export function createMetadata(page?: MarketingPage): Metadata {
     },
     openGraph: {
       title: seo.og_title || seo.title || page.title,
-      description: seo.og_description || description,
+      description: socialDescription,
       url: seo.og_url || canonical,
       siteName: seo.og_site_name || SITE_NAME,
       locale: seo.og_locale === "en_US" ? "en_AU" : seo.og_locale || "en_AU",
@@ -207,7 +208,7 @@ export function createMetadata(page?: MarketingPage): Metadata {
       card: "summary_large_image",
       site: seo.twitter_site || "@Altitutor",
       title: seo.og_title || seo.title || page.title,
-      description: seo.og_description || description,
+      description: socialDescription,
       images: ogImage?.url ? [ogImage.url] : undefined,
     },
     robots: {

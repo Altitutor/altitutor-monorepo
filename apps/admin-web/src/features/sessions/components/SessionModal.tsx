@@ -431,7 +431,13 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     }}
                     onMeetingAddStaff={async (staffMember) => {
                       if (!sessionId) return;
-                      await addStaffMutation.mutateAsync({ sessionId, staffId: staffMember.id, type: 'MAIN_TUTOR' });
+                      const staffType =
+                        session.type === 'CHECK_IN' ? 'CHECK_IN_RECEIVER' : 'MAIN_TUTOR';
+                      await addStaffMutation.mutateAsync({
+                        sessionId,
+                        staffId: staffMember.id,
+                        type: staffType,
+                      });
                       await sessionData.refresh();
                       toast({ title: 'Staff added', description: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() });
                     }}

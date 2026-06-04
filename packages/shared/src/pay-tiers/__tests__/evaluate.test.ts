@@ -1,4 +1,11 @@
-import { evaluateRequirement, evaluateRequirements, isEligibleForReview } from '../evaluate';
+import {
+  evaluateRequirement,
+  evaluateRequirements,
+  getHighestEligiblePromotionTier,
+  getPromotionTierOptions,
+  isEligibleForReview,
+  validateApprovedPromotionTier,
+} from '../evaluate';
 import { METRIC_KEYS } from '../metric-keys';
 
 describe('pay tier requirement evaluation', () => {
@@ -71,5 +78,35 @@ describe('pay tier requirement evaluation', () => {
       metrics
     );
     expect(isEligibleForReview(progress)).toBe(false);
+  });
+
+  it('computes highest eligible promotion tier across multiple tiers', () => {
+    const requirements = [
+      {
+        id: 't1',
+        tier_number: 1,
+        requirement_kind: 'TENURE_DAYS' as const,
+        params: { min: 365 },
+        sort_order: 0,
+      },
+      {
+        id: 't2',
+        tier_number: 2,
+        requirement_kind: 'TENURE_DAYS' as const,
+        params: { min: 500 },
+        sort_order: 0,
+      },
+      {
+        id: 't3',
+        tier_number: 3,
+        requirement_kind: 'TENURE_DAYS' as const,
+        params: { min: 800 },
+        sort_order: 0,
+      },
+    ];
+    expect(getHighestEligiblePromotionTier(1, 3, requirements, metrics)).toBe(2);
+    expect(getPromotionTierOptions(1, 2)).toEqual([2]);
+    expect(validateApprovedPromotionTier(1, 2, 2)).toBeNull();
+    expect(validateApprovedPromotionTier(1, 3, 2)).toMatch(/eligible/);
   });
 });

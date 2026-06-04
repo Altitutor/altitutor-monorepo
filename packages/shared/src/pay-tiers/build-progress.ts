@@ -1,4 +1,8 @@
-import { evaluateRequirements, isEligibleForReview } from './evaluate';
+import {
+  evaluateRequirements,
+  getHighestEligiblePromotionTier,
+  isEligibleForReview,
+} from './evaluate';
 import { parseRequirementParams } from './evaluate';
 import type {
   LastCheckInInfo,
@@ -49,6 +53,23 @@ export function buildStaffTierProgress(input: BuildStaffTierProgressInput): Staf
 
   const requirementProgress = evaluateRequirements(reqsForCurrent, input.metrics);
 
+  const parsedRequirements = input.requirements.map(
+    (r): StaffPayTierRequirement => ({
+      id: r.id,
+      tier_number: r.tier_number,
+      requirement_kind: r.requirement_kind,
+      params: parseRequirementParams(r.requirement_kind, r.params),
+      sort_order: r.sort_order,
+    })
+  );
+
+  const highestEligiblePromotionTier = getHighestEligiblePromotionTier(
+    input.currentTierNumber,
+    maxTier,
+    parsedRequirements,
+    input.metrics
+  );
+
   const tierDetails = sortedTiers.map((tier) => {
     const status: PayTierTierDetail['status'] =
       tier.tier_number < input.currentTierNumber
@@ -94,6 +115,7 @@ export function buildStaffTierProgress(input: BuildStaffTierProgressInput): Staf
     tierDetails,
     requirementsForNextTier: requirementProgress,
     isEligibleForReview: nextTierNumber !== null && isEligibleForReview(requirementProgress),
+    highestEligiblePromotionTier,
     promotions: input.promotions,
     lastCheckIn: input.lastCheckIn,
     checkIns: input.checkIns,

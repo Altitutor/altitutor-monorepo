@@ -22,8 +22,17 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   useToast,
 } from '@altitutor/ui';
+import {
+  formatCheckInHostLabel,
+  formatCheckInReceiverLabel,
+} from '@altitutor/shared/pay-tiers';
 import { Loader2, MoreVertical, Trash2, X } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getTodayAdelaideDate, adelaideWallDateTimePlusMinutesUtcIso } from '@/features/bookings/utils/dateTimeHelpers';
@@ -47,18 +56,19 @@ const DURATION_ITEMS: DurationItem[] = DURATION_OPTIONS.map((minutes) => ({
 }));
 
 type IdLabel = { id: string; label: string };
+type StaffPick = IdLabel & { role: 'host' | 'receiver' };
 
 export type CheckInBookSessionModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onCreated?: (sessionId: string) => void;
+  onCreated?: (sessionId: string, staffIds: string[]) => void;
   sessionType?: CheckInSessionType;
   /** Applied when the dialog opens (from global quick actions or entity menus) */
   initialPrefill?: CheckInModalPrefill | null;
 };
 
 function picksFromPrefill(prefill: CheckInModalPrefill | null | undefined): {
-  staff: IdLabel[];
+  staff: StaffPick[];
   students: IdLabel[];
   parents: IdLabel[];
 } {
@@ -69,6 +79,7 @@ function picksFromPrefill(prefill: CheckInModalPrefill | null | undefined): {
     staff: (prefill.staff ?? []).map((s) => ({
       id: s.id,
       label: `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Staff',
+      role: 'receiver' as const,
     })),
     students: (prefill.students ?? []).map((s) => ({
       id: s.id,
@@ -105,7 +116,7 @@ export function CheckInBookSessionModal({
   const [date, setDate] = useState('');
   const [time, setTime] = useState('09:00');
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
-  const [staffPicks, setStaffPicks] = useState<IdLabel[]>([]);
+  const [staffPicks, setStaffPicks] = useState<StaffPick[]>([]);
   const [studentPicks, setStudentPicks] = useState<IdLabel[]>([]);
   const [parentPicks, setParentPicks] = useState<IdLabel[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -138,8 +149,12 @@ export function CheckInBookSessionModal({
   const addStaff = useCallback((s: Tables<'staff'>) => {
     const id = s.id;
     const label = nameStaff(s);
-    setStaffPicks((prev) => (prev.some((p) => p.id === id) ? prev : [...prev, { id, label }]));
-  }, []);
+    setStaffPicks((prev) =>
+      prev.some((p) => p.id === id)
+        ? prev
+        : [...prev, { id, label, role: sessionType === 'CHECK_IN' ? 'receiver' : 'receiver' }]
+    );
+  }, [sessionType]);
 
   const addStudent = useCallback((s: Tables<'students'>) => {
     const id = s.id;
@@ -161,7 +176,17 @@ export function CheckInBookSessionModal({
       toast({ title: 'Missing fields', description: 'Choose date and start time.', variant: 'destructive' });
       return;
     }
-    if (staffIds.length === 0) {
+    if (sessionType === 'CHECK_IN') {
+      const receivers = staffPicks.filter((p) => p.role === 'receiver');
+      if (receivers.length === 0) {
+        toast({
+          title: 'Receiving staff required',
+          description: 'Add at least one staff member receiving the check-in.',
+          variant: 'destructive',
+        });
+        return;
+      }
+    } else if (staffIds.length === 0) {
       toast({ title: 'Staff required', description: 'Add at least one staff member.', variant: 'destructive' });
       return;
     }
@@ -175,7 +200,14 @@ export function CheckInBookSessionModal({
           session_type: sessionType,
           start_at: startAt,
           end_at: endAt,
-          staff_ids: staffIds,
+          ...(sessionType === 'CHECK_IN'
+            ? {
+                check_in_staff: {
+                  host_ids: staffPicks.filter((p) => p.role === 'host').map((p) => p.id),
+                  receiver_ids: staffPicks.filter((p) => p.role === 'receiver').map((p) => p.id),
+                },
+              }
+            : { staff_ids: staffIds }),
           student_ids: canManageStudentsAndParents ? studentIds : [],
           parent_ids: canManageStudentsAndParents ? parentIds : [],
         }),
@@ -185,7 +217,7 @@ export function CheckInBookSessionModal({
         throw new Error(json.error || 'Failed to create session');
       }
       if (json.session_id) {
-        onCreated?.(json.session_id);
+        onCreated?.(json.session_id, staffIds);
       }
       onClose();
     } catch (e) {
@@ -357,7 +389,11 @@ export function CheckInBookSessionModal({
                       <TableHeader>
                         <TableRow>
                           <TableHead>Staff</TableHead>
-                          <TableHead>Attendance</TableHead>
+                          {sessionType === 'CHECK_IN' ? (
+                            <TableHead>Role</TableHead>
+                          ) : (
+                            <TableHead>Attendance</TableHead>
+                          )}
                           <TableHead className="w-[50px]" />
                         </TableRow>
                       </TableHeader>
@@ -367,9 +403,33 @@ export function CheckInBookSessionModal({
                             <TableCell>
                               <span className="font-medium">{row.label}</span>
                             </TableCell>
-                            <TableCell>
-                              <AttendanceCell status="attending" />
-                            </TableCell>
+                            {sessionType === 'CHECK_IN' ? (
+                              <TableCell>
+                                <Select
+                                  value={row.role}
+                                  onValueChange={(v) =>
+                                    setStaffPicks((prev) =>
+                                      prev.map((p) =>
+                                        p.id === row.id ? { ...p, role: v as StaffPick['role'] } : p
+                                      )
+                                    )
+                                  }
+                                  disabled={submitting}
+                                >
+                                  <SelectTrigger className="h-8 w-[160px]">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="host">{formatCheckInHostLabel()}</SelectItem>
+                                    <SelectItem value="receiver">{formatCheckInReceiverLabel()}</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                            ) : (
+                              <TableCell>
+                                <AttendanceCell status="attending" />
+                              </TableCell>
+                            )}
                             <TableCell>
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>

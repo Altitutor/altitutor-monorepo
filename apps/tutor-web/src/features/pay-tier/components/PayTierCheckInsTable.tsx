@@ -55,7 +55,7 @@ export function PayTierCheckInsTable({ checkIns, onOpenSession }: PayTierCheckIn
             <TableRow className={tutorTableHeaderRow}>
               <TableHead>Date</TableHead>
               <TableHead>Time</TableHead>
-              <TableHead>Staff</TableHead>
+              <TableHead>Conducted by</TableHead>
               <TableHead className="w-[120px] text-right">Action</TableHead>
             </TableRow>
           </TableHeader>
@@ -68,7 +68,7 @@ export function PayTierCheckInsTable({ checkIns, onOpenSession }: PayTierCheckIn
               </TableRow>
             ) : (
               checkIns.map((row) => {
-                const others = row.otherStaff ?? [];
+                const hosts = row.conductingStaff ?? row.otherStaff ?? [];
                 return (
                   <TableRow key={row.sessionId} className={tutorTableBodyRow}>
                     <TableCell className="tabular-nums font-medium">
@@ -78,10 +78,10 @@ export function PayTierCheckInsTable({ checkIns, onOpenSession }: PayTierCheckIn
                       {formatCheckInTime(row.startAt, row.endAt)}
                     </TableCell>
                     <TableCell>
-                      {others.length === 0 ? (
+                      {hosts.length === 0 ? (
                         <span className="text-sm text-muted-foreground">—</span>
                       ) : (
-                        <p className="text-sm">{others.map(formatStaffMemberName).join(', ')}</p>
+                        <p className="text-sm">{hosts.map(formatStaffMemberName).join(', ')}</p>
                       )}
                     </TableCell>
                     <TableCell className="text-right">

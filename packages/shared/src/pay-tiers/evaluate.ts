@@ -91,6 +91,52 @@ export function isEligibleForReview(requirementProgress: RequirementProgress[]):
   return requirementProgress.every((r) => r.met);
 }
 
+/**
+ * Highest tier number the staff member may be promoted to in one approval,
+ * based on meeting requirements for each intermediate tier (current → target).
+ */
+export function getHighestEligiblePromotionTier(
+  currentTierNumber: number,
+  maxTierNumber: number,
+  requirements: StaffPayTierRequirement[],
+  metrics: Record<string, number>
+): number {
+  let tier = currentTierNumber;
+  while (tier < maxTierNumber) {
+    const reqsForTier = requirements.filter((r) => r.tier_number === tier);
+    const progress = evaluateRequirements(reqsForTier, metrics);
+    if (!isEligibleForReview(progress)) break;
+    tier += 1;
+  }
+  return tier;
+}
+
+export function getPromotionTierOptions(
+  fromTierNumber: number,
+  highestEligibleTier: number
+): number[] {
+  if (highestEligibleTier <= fromTierNumber) return [];
+  const options: number[] = [];
+  for (let t = fromTierNumber + 1; t <= highestEligibleTier; t += 1) {
+    options.push(t);
+  }
+  return options;
+}
+
+export function validateApprovedPromotionTier(
+  fromTierNumber: number,
+  toTierNumber: number,
+  highestEligibleTier: number
+): string | null {
+  if (toTierNumber <= fromTierNumber) {
+    return 'Promotion target must be higher than the current tier';
+  }
+  if (toTierNumber > highestEligibleTier) {
+    return 'Promotion target exceeds the highest tier this staff member is eligible for';
+  }
+  return null;
+}
+
 export function parseRequirementParams(
   kind: StaffPayTierRequirementKind,
   raw: unknown

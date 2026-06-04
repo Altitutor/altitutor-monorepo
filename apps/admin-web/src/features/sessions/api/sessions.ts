@@ -590,13 +590,17 @@ export const sessionsApi = {
   /**
    * Assign a staff member to a session
    */
-  assignStaffToSession: async (sessionId: string, staffId: string, type: string = 'MAIN_TUTOR'): Promise<Tables<'sessions_staff'>> => {
+  assignStaffToSession: async (
+    sessionId: string,
+    staffId: string,
+    type: string = 'MAIN_TUTOR'
+  ): Promise<Tables<'sessions_staff'>> => {
     try {
       const payload: TablesInsert<'sessions_staff'> = {
         id: crypto.randomUUID(),
         session_id: sessionId,
         staff_id: staffId,
-        type: type as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR',
+        type: type as TablesInsert<'sessions_staff'>['type'],
       };
       const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').insert(payload).select().single();
       if (error) throw error;

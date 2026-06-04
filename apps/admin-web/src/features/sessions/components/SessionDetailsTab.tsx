@@ -34,6 +34,7 @@ import {
   useToast,
 } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
+import { formatCheckInStaffRole } from '@altitutor/shared/pay-tiers';
 import type { SessionDetailsSession, SessionDetailsTutorLog } from '../types';
 import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSelectPopover';
 import { ClassSelectPopover } from '@/features/classes/components/ClassSelectPopover';
@@ -115,6 +116,7 @@ type SessionDetailsTabProps = {
     plannedStatus: 'attending' | 'attending-trial' | 'absent' | 'swapped';
     actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     staffType?: string;
+    sessionsStaffType?: string | null;
     swappedStaffName: string;
     swappedStaffId: string;
     submittedTutorLog: boolean;
@@ -212,6 +214,7 @@ export function SessionDetailsTab({
   const { toast } = useToast();
 
   const allowAbsenceLogging = Boolean(session?.class_id || session?.admin_shift_id);
+  const isCheckInSession = session?.type === 'CHECK_IN';
   const hasTutorLog = !!tutorLog;
   const subject = session?.subject ?? session?.class?.subject;
   const classData = session?.class;
@@ -717,6 +720,7 @@ export function SessionDetailsTab({
               <TableHeader>
                 <TableRow>
                   <TableHead>Staff</TableHead>
+                  {isCheckInSession ? <TableHead>Role</TableHead> : null}
                   {allowAbsenceLogging ? (
                     <>
                       <TableHead>Planned Attendance</TableHead>
@@ -741,6 +745,13 @@ export function SessionDetailsTab({
                         {data.staff.first_name} {data.staff.last_name}
                       </button>
                     </TableCell>
+                    {isCheckInSession ? (
+                      <TableCell>
+                        <Badge variant="outline">
+                          {formatCheckInStaffRole(data.sessionsStaffType) ?? '—'}
+                        </Badge>
+                      </TableCell>
+                    ) : null}
                     {allowAbsenceLogging ? (
                       <>
                         <TableCell>

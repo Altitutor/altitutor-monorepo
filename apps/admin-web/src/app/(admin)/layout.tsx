@@ -14,6 +14,7 @@ import { useToast } from '@altitutor/ui';
 import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
 import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
+import { payTiersKeys } from '@/features/pay-tiers/api/queryKeys';
 import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
 import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
 import { LogSessionModal } from '@/features/tutor-logs';
@@ -500,9 +501,20 @@ function AdminLayoutContent({
                 onClose={closeCheckInModal}
                 sessionType={checkInSessionType}
                 initialPrefill={checkInPrefill}
-                onCreated={(sessionId) => {
+                onCreated={(sessionId, staffIds) => {
                   void queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
                   void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
+                  if (checkInSessionType === 'CHECK_IN') {
+                    for (const staffId of staffIds) {
+                      void queryClient.invalidateQueries({
+                        queryKey: payTiersKeys.staffProgress(staffId),
+                      });
+                      void queryClient.invalidateQueries({
+                        queryKey: payTiersKeys.staffCheckIns(staffId),
+                      });
+                    }
+                    void queryClient.invalidateQueries({ queryKey: payTiersKeys.staffSummaries() });
+                  }
                   closeCheckInModal();
                   toast({
                     title:

@@ -69,9 +69,17 @@ export type SessionStudentItem = {
   } | null;
 };
 
+export type SessionStaffRole =
+  | 'MAIN_TUTOR'
+  | 'SECONDARY_TUTOR'
+  | 'TRIAL_TUTOR'
+  | 'CHECK_IN_HOST'
+  | 'CHECK_IN_RECEIVER';
+
 export type SessionStaffItem = {
   id?: string;
   staff_id: string;
+  type?: SessionStaffRole | string | null;
   staff?: Tables<'staff'> | null;
   planned_absence?: boolean;
   is_swapped?: boolean;
@@ -178,6 +186,7 @@ export function processSessionStaff(
     return {
       staff: sf.staff,
       sessionsStaffId: sf.id ?? null,
+      sessionsStaffType: sf.type ?? null,
       swappedSessionsStaffId: sf.swapped_sessions_staff_id ?? null,
       plannedStatus: attendanceStatus.plannedStatus,
       actualStatus: attendanceStatus.actualStatus,

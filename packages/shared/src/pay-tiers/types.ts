@@ -80,7 +80,9 @@ export interface PayTierCheckIn {
   /** Pay tier at check-in time (admin staff view). */
   tierAtCheckIn?: number;
   tierName?: string | null;
-  /** Other staff on the check-in (excludes the viewing tutor). */
+  /** Staff conducting the check-in (hosts). */
+  conductingStaff?: PayTierCheckInStaffMember[];
+  /** @deprecated Use conductingStaff */
   otherStaff?: PayTierCheckInStaffMember[];
 }
 
@@ -95,6 +97,8 @@ export interface StaffTierProgress {
   tierDetails: PayTierTierDetail[];
   requirementsForNextTier: RequirementProgress[];
   isEligibleForReview: boolean;
+  /** Highest tier achievable in one approval (equals current tier when not eligible to advance). */
+  highestEligiblePromotionTier: number;
   promotions: StaffTierPromotionRecord[];
   lastCheckIn: LastCheckInInfo | null;
   checkIns: PayTierCheckIn[];
