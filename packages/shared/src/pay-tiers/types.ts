@@ -1,4 +1,10 @@
-export type StaffPayTierRequirementKind = 'TENURE_DAYS' | 'TENURE_MONTHS' | 'SESSION_COUNT';
+export type StaffPayTierRequirementKind =
+  | 'TENURE_DAYS'
+  | 'TENURE_MONTHS'
+  | 'TIME_SINCE_LAST_PROMOTION'
+  | 'SESSION_COUNT';
+
+export type TimeUnit = 'days' | 'weeks' | 'months';
 
 export type StaffTierPromotionOutcome = 'approved' | 'deferred' | 'not_ready';
 
@@ -9,9 +15,14 @@ export interface StaffPayTier {
   currency: string;
 }
 
-export interface TenureRequirementParams {
+export interface TimeRequirementParams {
   min: number;
+  unit?: TimeUnit;
 }
+
+export interface TenureRequirementParams extends TimeRequirementParams {}
+
+export interface TimeSincePromotionRequirementParams extends TimeRequirementParams {}
 
 export interface SessionCountRequirementParams {
   min: number;
@@ -19,7 +30,10 @@ export interface SessionCountRequirementParams {
   attendance_types?: string[];
 }
 
-export type RequirementParams = TenureRequirementParams | SessionCountRequirementParams;
+export type RequirementParams =
+  | TenureRequirementParams
+  | TimeSincePromotionRequirementParams
+  | SessionCountRequirementParams;
 
 export interface StaffPayTierRequirement {
   id: string;

@@ -15,7 +15,9 @@ import { usePayTierStaffProgress, useUpdateStaffTierProfile } from '@/features/p
 import {
   buildMetricOverridesFromUi,
   sessionOverridesToRows,
+  timeOverridesToRows,
   type SessionOverrideRow,
+  type TimeOverrideRow,
 } from '@/features/pay-tiers/utils/metricOverrides';
 import { PayTiersStaffProgressTab } from '@/features/pay-tiers/components/staff-dialog/PayTiersStaffProgressTab';
 import { PayTiersStaffCheckInsTab } from '@/features/pay-tiers/components/staff-dialog/PayTiersStaffCheckInsTab';
@@ -41,11 +43,13 @@ export function StaffPayTierTab({
   const [activeTab, setActiveTab] = useState('progress');
   const [employmentDate, setEmploymentDate] = useState('');
   const [sessionRows, setSessionRows] = useState<SessionOverrideRow[]>([]);
+  const [timeRows, setTimeRows] = useState<TimeOverrideRow[]>([]);
 
   useEffect(() => {
     if (!progress) return;
     setEmploymentDate(progress.employmentStartedAt.slice(0, 10));
     setSessionRows(sessionOverridesToRows(progress.metricOverrides));
+    setTimeRows(timeOverridesToRows(progress.metricOverrides));
   }, [progress]);
 
   if (isLoading) {
@@ -70,7 +74,7 @@ export function StaffPayTierTab({
         staffId,
         updates: {
           employment_started_at: new Date(employmentDate).toISOString(),
-          metric_overrides: buildMetricOverridesFromUi(sessionRows),
+          metric_overrides: buildMetricOverridesFromUi(sessionRows, timeRows),
         },
       });
       toast({ title: 'Overrides saved' });
@@ -112,6 +116,8 @@ export function StaffPayTierTab({
             onEmploymentDateChange={setEmploymentDate}
             sessionRows={sessionRows}
             onSessionRowsChange={setSessionRows}
+            timeRows={timeRows}
+            onTimeRowsChange={setTimeRows}
           />
           <div className="flex justify-end border-t pt-4">
             <Button disabled={updateProfile.isPending} onClick={handleSaveOverrides}>

@@ -4,8 +4,9 @@ import type {
   StaffPayTierRequirementKind,
   SessionCountRequirementParams,
   StaffTierPromotionOutcome,
-  TenureRequirementParams,
+  TimeRequirementParams,
 } from './types';
+import { formatTimeUnit, parseTimeRequirementParams, resolveTimeUnit } from './time-units';
 
 /** Human-readable labels for session types used in pay tier metrics and overrides. */
 export const PAY_TIER_SESSION_TYPE_LABELS: Record<string, string> = {
@@ -73,17 +74,25 @@ export function formatPayTierTierStatus(status: PayTierTierStatus): string {
   return PAY_TIER_TIER_STATUS_LABELS[status];
 }
 
+function formatTimeRequirementLabel(
+  prefix: string,
+  kind: StaffPayTierRequirementKind,
+  params: TimeRequirementParams
+): string {
+  const parsed = parseTimeRequirementParams(params);
+  const unit = resolveTimeUnit(kind, parsed);
+  return `${parsed.min} ${formatTimeUnit(unit, parsed.min)} ${prefix}`;
+}
+
 export function formatPayTierRequirementLabel(
   kind: StaffPayTierRequirementKind,
   params: RequirementParams
 ): string {
-  if (kind === 'TENURE_DAYS') {
-    const p = params as TenureRequirementParams;
-    return `${p.min} days employed`;
+  if (kind === 'TENURE_DAYS' || kind === 'TENURE_MONTHS') {
+    return formatTimeRequirementLabel('employed', kind, params as TimeRequirementParams);
   }
-  if (kind === 'TENURE_MONTHS') {
-    const p = params as TenureRequirementParams;
-    return `${p.min} months employed`;
+  if (kind === 'TIME_SINCE_LAST_PROMOTION') {
+    return formatTimeRequirementLabel('since last promotion', kind, params as TimeRequirementParams);
   }
   const p = params as SessionCountRequirementParams;
   const types = formatPayTierSessionTypesList(p.session_types);
@@ -104,4 +113,11 @@ export function formatPayTierPromotionOutcome(outcome: StaffTierPromotionOutcome
         ? outcome.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
         : 'Unknown';
   }
+}
+
+export function formatTimeMetricOverrideLabel(prefix: 'tenure' | 'time_since_promotion', unit: string): string {
+  if (prefix === 'tenure') {
+    return `Tenure (${unit})`;
+  }
+  return `Time since last promotion (${unit})`;
 }

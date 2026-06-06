@@ -11,7 +11,11 @@ import { METRIC_KEYS } from '../metric-keys';
 describe('pay tier requirement evaluation', () => {
   const metrics = {
     [METRIC_KEYS.tenureDays]: 400,
+    [METRIC_KEYS.tenureWeeks]: 57,
     [METRIC_KEYS.tenureMonths]: 13,
+    [METRIC_KEYS.timeSincePromotionDays]: 90,
+    [METRIC_KEYS.timeSincePromotionWeeks]: 12,
+    [METRIC_KEYS.timeSincePromotionMonths]: 3,
     'sessions.CLASS.MAIN_TUTOR': 50,
     'sessions.CLASS.any': 55,
     [METRIC_KEYS.teachingAll]: 80,
@@ -29,6 +33,34 @@ describe('pay tier requirement evaluation', () => {
     );
     expect(result.met).toBe(true);
     expect(result.current).toBe(400);
+  });
+
+  it('evaluates tenure weeks via unit param', () => {
+    const result = evaluateRequirement(
+      {
+        id: '1b',
+        requirement_kind: 'TENURE_DAYS',
+        params: { min: 52, unit: 'weeks' },
+      },
+      metrics
+    );
+    expect(result.met).toBe(true);
+    expect(result.current).toBe(57);
+    expect(result.label).toContain('weeks employed');
+  });
+
+  it('evaluates time since last promotion in months', () => {
+    const result = evaluateRequirement(
+      {
+        id: '1c',
+        requirement_kind: 'TIME_SINCE_LAST_PROMOTION',
+        params: { min: 2, unit: 'months' },
+      },
+      metrics
+    );
+    expect(result.met).toBe(true);
+    expect(result.current).toBe(3);
+    expect(result.label).toContain('since last promotion');
   });
 
   it('evaluates session count with specific role', () => {

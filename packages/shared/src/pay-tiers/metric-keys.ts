@@ -17,10 +17,17 @@ export function sessionMetricKey(sessionType: string, attendanceType?: string | 
 
 export const METRIC_KEYS = {
   tenureDays: 'tenure.days',
+  tenureWeeks: 'tenure.weeks',
   tenureMonths: 'tenure.months',
+  timeSincePromotionDays: 'time_since_promotion.days',
+  timeSincePromotionWeeks: 'time_since_promotion.weeks',
+  timeSincePromotionMonths: 'time_since_promotion.months',
   teachingAll: 'sessions.teaching.all',
   adminAll: 'sessions.admin.all',
 } as const;
+
+export const TIME_METRIC_PREFIXES = ['tenure', 'time_since_promotion'] as const;
+export type TimeMetricPrefix = (typeof TIME_METRIC_PREFIXES)[number];
 
 export function resolveSessionCountMetricKey(params: {
   session_types: string[];

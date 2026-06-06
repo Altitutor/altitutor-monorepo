@@ -1,15 +1,30 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Input, Label } from '@altitutor/ui';
+import {
+  Button,
+  Input,
+  Label,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@altitutor/ui';
 import { Loader2, Trash2 } from 'lucide-react';
 import {
   ADMIN_SESSION_TYPES,
   formatPayTierSessionType,
   formatPayTierStaffAttendanceType,
+  isTenureRequirementKind,
+  parseTimeRequirementParams,
+  resolveTimeUnit,
   STAFF_ATTENDANCE_TYPES,
   TEACHING_SESSION_TYPES,
+  tenureKindForUnit,
+  TIME_UNITS,
   type StaffPayTierRequirementKind,
+  type TimeUnit,
 } from '@altitutor/shared/pay-tiers';
 import {
   useUpdatePayTierRequirement,
@@ -24,14 +39,12 @@ export type PayTierRequirementRow = {
   sort_order: number;
 };
 
-const TENURE_KINDS: StaffPayTierRequirementKind[] = ['TENURE_DAYS', 'TENURE_MONTHS'];
-
-export function isTenureRequirementKind(kind: StaffPayTierRequirementKind): boolean {
-  return TENURE_KINDS.includes(kind);
-}
-
 export function hasTenureRequirement(requirements: PayTierRequirementRow[]): boolean {
   return requirements.some((r) => isTenureRequirementKind(r.requirement_kind));
+}
+
+export function hasTimeSincePromotionRequirement(requirements: PayTierRequirementRow[]): boolean {
+  return requirements.some((r) => r.requirement_kind === 'TIME_SINCE_LAST_PROMOTION');
 }
 
 type PayTierRequirementEditorProps = {
@@ -46,14 +59,38 @@ export function PayTierRequirementEditor({ tierNumber, requirement }: PayTierReq
 
   if (isTenureRequirementKind(requirement.requirement_kind)) {
     return (
-      <TenureRequirementEditor
+      <TimeRequirementEditor
+        title="Tenure"
+        description="Time employed at Altitutor"
         requirement={requirement}
         saving={saving}
-        onSave={(min) =>
+        onSave={(params, kind) =>
           updateRequirement.mutate({
             tierNumber,
             id: requirement.id,
-            params: { min },
+            params,
+            requirement_kind: kind,
+          })
+        }
+        onDelete={() =>
+          deleteRequirement.mutate({ tierNumber, requirementId: requirement.id })
+        }
+      />
+    );
+  }
+
+  if (requirement.requirement_kind === 'TIME_SINCE_LAST_PROMOTION') {
+    return (
+      <TimeRequirementEditor
+        title="Time since last promotion"
+        description="Measured from the last check-in that resulted in a promotion"
+        requirement={requirement}
+        saving={saving}
+        onSave={(params) =>
+          updateRequirement.mutate({
+            tierNumber,
+            id: requirement.id,
+            params,
           })
         }
         onDelete={() =>
@@ -81,31 +118,56 @@ export function PayTierRequirementEditor({ tierNumber, requirement }: PayTierReq
   );
 }
 
-function TenureRequirementEditor({
+function TimeRequirementEditor({
+  title,
+  description,
   requirement,
   saving,
   onSave,
   onDelete,
 }: {
+  title: string;
+  description: string;
   requirement: PayTierRequirementRow;
   saving: boolean;
-  onSave: (min: number) => void;
+  onSave: (params: { min: number; unit: TimeUnit }, kind?: StaffPayTierRequirementKind) => void;
   onDelete: () => void;
 }) {
-  const unit = requirement.requirement_kind === 'TENURE_MONTHS' ? 'months' : 'days';
-  const initialMin = parseMinParam(requirement.params);
-  const [min, setMin] = useState(String(initialMin));
+  const parsed = parseTimeRequirementParams(requirement.params);
+  const initialUnit = resolveTimeUnit(requirement.requirement_kind, parsed);
+  const [min, setMin] = useState(String(parsed.min));
+  const [unit, setUnit] = useState<TimeUnit>(initialUnit);
 
   useEffect(() => {
-    setMin(String(parseMinParam(requirement.params)));
-  }, [requirement.id, requirement.params]);
+    const next = parseTimeRequirementParams(requirement.params);
+    setMin(String(next.min));
+    setUnit(resolveTimeUnit(requirement.requirement_kind, next));
+  }, [requirement.id, requirement.params, requirement.requirement_kind]);
 
-  const commit = () => {
-    const parsed = parseInt(min, 10);
-    if (Number.isNaN(parsed) || parsed < 0) return;
-    if (parsed !== parseMinParam(requirement.params)) {
-      onSave(parsed);
-    }
+  const commit = useCallback(
+    (nextMin: string, nextUnit: TimeUnit) => {
+      const parsedMin = parseInt(nextMin, 10);
+      if (Number.isNaN(parsedMin) || parsedMin < 0) return;
+
+      const params = { min: parsedMin, unit: nextUnit };
+      const current = parseTimeRequirementParams(requirement.params);
+      const currentUnit = resolveTimeUnit(requirement.requirement_kind, current);
+      const unchanged = current.min === parsedMin && currentUnit === nextUnit;
+      if (unchanged) return;
+
+      if (isTenureRequirementKind(requirement.requirement_kind)) {
+        onSave(params, tenureKindForUnit(nextUnit));
+        return;
+      }
+      onSave(params);
+    },
+    [onSave, requirement.params, requirement.requirement_kind]
+  );
+
+  const handleMinBlur = () => commit(min, unit);
+  const handleUnitChange = (nextUnit: TimeUnit) => {
+    setUnit(nextUnit);
+    commit(min, nextUnit);
   };
 
   return (
@@ -113,32 +175,52 @@ function TenureRequirementEditor({
       <div className="flex items-start gap-6">
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-sm font-medium">Tenure ({unit} employed)</p>
+            <div>
+              <p className="text-sm font-medium">{title}</p>
+              <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+            </div>
             <Button variant="ghost" size="icon" className="shrink-0 -mt-1" onClick={onDelete} disabled={saving}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </div>
-        <div className="flex items-end gap-2 shrink-0 w-40">
-          <div className="flex-1 space-y-1">
-            <Label htmlFor={`tenure-min-${requirement.id}`} className="text-xs">
-              Minimum {unit}
+        <div className="flex items-end gap-2 shrink-0">
+          <div className="space-y-1 w-24">
+            <Label htmlFor={`time-min-${requirement.id}`} className="text-xs">
+              Minimum
             </Label>
             <Input
-              id={`tenure-min-${requirement.id}`}
+              id={`time-min-${requirement.id}`}
               type="number"
               min={0}
               step={1}
               value={min}
               onChange={(e) => setMin(e.target.value)}
-              onBlur={commit}
+              onBlur={handleMinBlur}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') {
                   e.preventDefault();
-                  commit();
+                  handleMinBlur();
                 }
               }}
             />
+          </div>
+          <div className="space-y-1 w-28">
+            <Label htmlFor={`time-unit-${requirement.id}`} className="text-xs">
+              Unit
+            </Label>
+            <Select value={unit} onValueChange={(v) => handleUnitChange(v as TimeUnit)}>
+              <SelectTrigger id={`time-unit-${requirement.id}`}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {TIME_UNITS.map((u) => (
+                  <SelectItem key={u} value={u}>
+                    {u}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           {saving && <Loader2 className="h-4 w-4 animate-spin mb-2 text-muted-foreground shrink-0" />}
         </div>
