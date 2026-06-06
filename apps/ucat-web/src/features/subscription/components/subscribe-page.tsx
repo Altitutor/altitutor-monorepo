@@ -1,18 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
 import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
 import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
-import { useAuth } from "@/features/auth";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import { getTrialBookingUrl } from "@/features/landing/lib/trial-booking-url";
-import { UcatLandingFooter } from "@/features/landing/components/marketing/ucat-landing-footer";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -49,8 +44,6 @@ const ONLINE_FEATURES = [
 ];
 
 export function SubscribePage() {
-  const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
   const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -67,10 +60,6 @@ export function SubscribePage() {
   }, []);
 
   const handleOnlineSubscribe = async (plan: PlanId) => {
-    if (!user) {
-      router.push(`/signup?redirect=${encodeURIComponent("/subscribe")}`);
-      return;
-    }
     setLoadingPlan(plan);
     setError(null);
     try {
@@ -92,46 +81,8 @@ export function SubscribePage() {
     <div className="relative flex min-h-dvh flex-col bg-marketing-cream">
       <NoiseOverlay />
 
-      {/* Navbar */}
-      <header className="fixed left-1/2 top-6 z-50 flex h-16 w-[90%] max-w-5xl -translate-x-1/2 items-center justify-between rounded-full border border-black/5 bg-marketing-cream/80 px-6 shadow-[0_8px_32px_rgba(0,0,0,0.08)] backdrop-blur-xl">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/images/logo-banner-light.svg"
-            alt="Alti UCAT"
-            width={120}
-            height={28}
-            className="h-7 w-auto object-contain"
-            priority
-          />
-        </Link>
-        <div className={`flex items-center gap-4 text-sm text-marketing-charcoal/70 ${typo.secondarySans}`}>
-          {!authLoading && (
-            user ? (
-              <Link href="/dashboard" className="transition-colors hover:text-marketing-charcoal">
-                Dashboard
-              </Link>
-            ) : (
-              <>
-                <Link
-                  href={`/login?redirect=${encodeURIComponent("/subscribe")}`}
-                  className="transition-colors hover:text-marketing-charcoal"
-                >
-                  Sign in
-                </Link>
-                <Link
-                  href="/signup"
-                  className="rounded-full bg-marketing-primary px-5 py-1.5 text-marketing-cream transition-colors hover:bg-marketing-primary/90"
-                >
-                  Register
-                </Link>
-              </>
-            )
-          )}
-        </div>
-      </header>
-
       {/* Hero */}
-      <section className="relative pt-40 pb-24 px-4">
+      <section className="relative px-4 pt-24 pb-24">
         <div className="mx-auto max-w-4xl text-center">
           <span
             className={`text-xs font-bold uppercase tracking-[0.25em] text-marketing-primary ${typo.dataMono}`}
@@ -445,8 +396,6 @@ export function SubscribePage() {
           </p>
         </div>
       </section>
-
-      <UcatLandingFooter />
     </div>
   );
 }
