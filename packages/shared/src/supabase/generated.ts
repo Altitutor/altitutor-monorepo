@@ -17694,6 +17694,7 @@ export type Database = {
         | "TENURE_DAYS"
         | "TENURE_MONTHS"
         | "SESSION_COUNT"
+        | "TIME_SINCE_LAST_PROMOTION"
       staff_tier_promotion_outcome: "approved" | "deferred" | "not_ready"
       subject_curriculum: "SACE" | "IB" | "PRESACE" | "PRIMARY" | "MEDICINE"
       subject_discipline:
@@ -17860,6 +17861,7 @@ export const Constants = {
         "TENURE_DAYS",
         "TENURE_MONTHS",
         "SESSION_COUNT",
+        "TIME_SINCE_LAST_PROMOTION",
       ],
       staff_tier_promotion_outcome: ["approved", "deferred", "not_ready"],
       subject_curriculum: ["SACE", "IB", "PRESACE", "PRIMARY", "MEDICINE"],
