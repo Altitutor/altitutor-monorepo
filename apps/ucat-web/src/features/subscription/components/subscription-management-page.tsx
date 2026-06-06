@@ -24,7 +24,7 @@ import {
 } from "@/lib/ucat/stripe-subscription-fields";
 import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
 import {
-  UCAT_HEADER_BTN_OUTLINE,
+  UCAT_PRIMARY_ACTION_BUTTON,
   UCAT_SURFACE_CARD,
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
@@ -206,8 +206,7 @@ export function SubscriptionManagementPage() {
 
               <Button
                 type="button"
-                variant="outline"
-                className={UCAT_HEADER_BTN_OUTLINE}
+                className={UCAT_PRIMARY_ACTION_BUTTON}
                 disabled={portalLoading}
                 onClick={() => void handleManageOnStripe()}
               >
