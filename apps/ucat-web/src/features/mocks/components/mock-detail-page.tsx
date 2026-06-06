@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useId, useMemo } from "react";
+import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
 import type {
   MockAttemptSectionScore,
@@ -278,12 +279,11 @@ export function MockDetailPage({
       ) : null}
 
       <div className="flex justify-end">
-        <Link
-          href={`/exam/mocks?id=${encodeURIComponent(mock.id)}`}
-          className={UCAT_PRIMARY_ACTION_BUTTON}
-        >
-          Launch mock
-        </Link>
+        <Button asChild className={UCAT_PRIMARY_ACTION_BUTTON}>
+          <Link href={`/exam/mocks?id=${encodeURIComponent(mock.id)}`}>
+            Launch mock
+          </Link>
+        </Button>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import { SECTION_KEY_TO_NUMBER } from "@/features/set-generator/model/mock-data"
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import type { StudentSetRow } from "@/features/sets/api/sets-api";
 import { useAttemptedSetIds, useSets } from "@/features/sets/hooks/use-sets";
+import { Button } from "@/components/ui/button";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 function getSectionNumberFromSet(set: {
@@ -136,14 +137,14 @@ export function SetGeneratorPage() {
   };
 
   const actionButton = (
-    <button
+    <Button
       type="button"
       onClick={() => !generateMutation.isPending && handleGenerateClick()}
       disabled={generateMutation.isPending}
       className={UCAT_PRIMARY_ACTION_BUTTON}
     >
       {generateMutation.isPending ? "Generating…" : "Generate set"}
-    </button>
+    </Button>
   );
 
   return (

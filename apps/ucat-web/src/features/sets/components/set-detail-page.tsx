@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useId, useMemo } from "react";
+import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
 import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
 import {
@@ -310,12 +311,11 @@ export function SetDetailPage({
       ) : null}
 
       <div className="flex justify-end">
-        <Link
-          href={`/exam/sets?id=${encodeURIComponent(set.id)}`}
-          className={UCAT_PRIMARY_ACTION_BUTTON}
-        >
-          Launch set
-        </Link>
+        <Button asChild className={UCAT_PRIMARY_ACTION_BUTTON}>
+          <Link href={`/exam/sets?id=${encodeURIComponent(set.id)}`}>
+            Launch set
+          </Link>
+        </Button>
       </div>
     </div>
   );
