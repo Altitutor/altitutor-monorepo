@@ -20,6 +20,27 @@ async function getUcatSubjectId(supabase: SupabaseClient): Promise<string | null
   return data?.id ?? null;
 }
 
+function subscriptionCancelFields(subscription: {
+  cancel_at_period_end?: boolean;
+  cancel_at?: number | null;
+  current_period_end?: number;
+}): { cancel_at_period_end: boolean; cancel_at: string | null } {
+  const cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
+  if (subscription.cancel_at) {
+    return {
+      cancel_at_period_end: cancelAtPeriodEnd,
+      cancel_at: new Date(subscription.cancel_at * 1000).toISOString(),
+    };
+  }
+  if (cancelAtPeriodEnd && subscription.current_period_end) {
+    return {
+      cancel_at_period_end: true,
+      cancel_at: new Date(subscription.current_period_end * 1000).toISOString(),
+    };
+  }
+  return { cancel_at_period_end: cancelAtPeriodEnd, cancel_at: null };
+}
+
 Deno.serve(async (req: Request) => {
   // Health check endpoint
   if (req.method === 'GET' || (req.method === 'POST' && req.url.includes('health'))) {
@@ -725,6 +746,7 @@ Deno.serve(async (req: Request) => {
                 current_period_end: subscription.current_period_end
                   ? new Date(subscription.current_period_end * 1000).toISOString()
                   : null,
+                ...subscriptionCancelFields(subscription),
                 updated_at: new Date().toISOString(),
               },
               { onConflict: 'student_id,subject_id' }
@@ -749,6 +771,8 @@ Deno.serve(async (req: Request) => {
           status: string;
           current_period_start?: number;
           current_period_end?: number;
+          cancel_at_period_end?: boolean;
+          cancel_at?: number | null;
           items?: { data?: Array<{ price?: { id?: string } }> };
         };
 
@@ -788,6 +812,7 @@ Deno.serve(async (req: Request) => {
             current_period_end: subscription.current_period_end
               ? new Date(subscription.current_period_end * 1000).toISOString()
               : null,
+            ...subscriptionCancelFields(subscription),
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id);
@@ -806,6 +831,8 @@ Deno.serve(async (req: Request) => {
           .from('student_subscriptions')
           .update({
             status: 'canceled',
+            cancel_at_period_end: false,
+            cancel_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id);

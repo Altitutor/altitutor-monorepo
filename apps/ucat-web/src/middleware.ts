@@ -50,13 +50,10 @@ export async function middleware(request: NextRequest) {
     "/signup",
     "/signup/flow",
     "/pricing",
-    "/subscribe",
-    "/subscribe/success",
     "/auth/callback",
   ];
   const isPublicPath =
     publicPaths.includes(pathname) ||
-    pathname.startsWith("/subscribe") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth/") ||
     pathname === "/api/ucat/subscription-config";
@@ -64,6 +61,12 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (!user && pathname.startsWith("/subscribe")) {
+    const signupUrl = new URL("/signup", origin);
+    signupUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(signupUrl);
+  }
 
   if (!user && !isPublicPath) {
     return NextResponse.redirect(new URL("/login", origin));
