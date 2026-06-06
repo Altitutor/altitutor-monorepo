@@ -18,6 +18,7 @@ export interface ReportEntityMeta {
   discontinuedAt?: string;
   discontinuedBy?: string;
   absenceDate?: string;
+  dateLogged?: string;
   loggedBy?: string;
   class?: string;
   staff?: string;

@@ -723,7 +723,8 @@ export async function fetchStaffAbsencesReportData(
         meta: {
           staff: staffNameStr,
           class: row.class_short_name ?? undefined,
-          absenceDate: formatMetaDate(row.planned_absence_logged_at),
+          absenceDate: formatMetaDate(row.session_start_at),
+          dateLogged: formatMetaDate(row.planned_absence_logged_at),
           loggedBy:
             row.logged_by_first_name || row.logged_by_last_name
               ? staffName(row.logged_by_first_name, row.logged_by_last_name, '')
@@ -1186,7 +1187,8 @@ export async function fetchStudentStatsReportData(
           meta: {
             student: studentName,
             class: row.class_short_name ?? undefined,
-            absenceDate: formatMetaDate(at),
+            absenceDate: formatMetaDate(row.session_start_at),
+            dateLogged: formatMetaDate(at),
             loggedBy: row.planned_absence_logged_by_staff
               ? staffName(row.planned_absence_logged_by_staff.first_name, row.planned_absence_logged_by_staff.last_name, '')
               : undefined,
