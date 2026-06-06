@@ -9,12 +9,9 @@ import {
   SearchableSelect,
   SearchableSelectInline,
   Slider,
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
 } from "@altitutor/ui";
-import { ChevronDown, Info } from "lucide-react";
+import { ChevronDown } from "lucide-react";
+import { SegmentedControl } from "@/features/progress/components/segmented-control";
 import type {
   SectionKey,
   TimeMode,
@@ -24,11 +21,7 @@ import type {
   PerformanceFilter,
 } from "@/features/set-generator/hooks/use-stem-filters";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
-import {
-  UCAT_FILTER_PILL_INNER,
-  UCAT_FILTER_PILL_INNER_INLINE,
-  UCAT_INTERACTION_EASE,
-} from "@/lib/ucat-surface-motion";
+import { UCAT_INTERACTION_EASE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 export type StemFiltersPanelProps = {
@@ -177,40 +170,29 @@ export function StemFiltersPanel({
           <div className="flex flex-col items-end gap-2">
             {timeControlType === "perQuestion" ? (
               <>
-                <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => onTimePerQuestionChange?.(null)}
-                    className={cn(
-                      UCAT_FILTER_PILL_INNER,
-                      input.timePerQuestionSeconds == null ||
-                        input.timePerQuestionSeconds <= 0
-                        ? "bg-sidebar text-sidebar-foreground"
-                        : "text-foreground hover:bg-muted/80",
-                    )}
-                  >
-                    Off
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      onTimePerQuestionChange?.(
-                        input.timePerQuestionSeconds ??
-                          sectionTimePerQuestionSeconds ??
-                          90,
-                      )
+                <SegmentedControl<"off" | "timed">
+                  value={
+                    input.timePerQuestionSeconds == null ||
+                    input.timePerQuestionSeconds <= 0
+                      ? "off"
+                      : "timed"
+                  }
+                  onValueChange={(mode) => {
+                    if (mode === "off") {
+                      onTimePerQuestionChange?.(null);
+                      return;
                     }
-                    className={cn(
-                      UCAT_FILTER_PILL_INNER,
-                      input.timePerQuestionSeconds != null &&
-                        input.timePerQuestionSeconds > 0
-                        ? "bg-sidebar text-sidebar-foreground"
-                        : "text-foreground hover:bg-muted/80",
-                    )}
-                  >
-                    Timed
-                  </button>
-                </div>
+                    onTimePerQuestionChange?.(
+                      input.timePerQuestionSeconds ??
+                        sectionTimePerQuestionSeconds ??
+                        90,
+                    );
+                  }}
+                  options={[
+                    { value: "off", label: "Off" },
+                    { value: "timed", label: "Timed" },
+                  ]}
+                />
                 {input.timePerQuestionSeconds != null &&
                 input.timePerQuestionSeconds > 0 ? (
                   <label className="flex items-center gap-2 text-sm">
@@ -240,72 +222,36 @@ export function StemFiltersPanel({
               </>
             ) : (
               <>
-                <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-muted p-0.5 text-xs">
-                  {(
-                    [
-                      {
-                        mode: "off" as const,
-                        label: "Off",
-                        tooltip: "No time limit. Take as long as you need.",
-                      },
-                      {
-                        mode: "exam" as const,
-                        label: "Exam",
-                        tooltip:
-                          "Time limit matches UCAT pacing for this section.",
-                      },
-                      {
-                        mode: "speed" as const,
-                        label: "Speed",
-                        tooltip:
-                          "Scale exam timing. 1 = exam pace, 0.5 = 2× time, 0.1 = 10× time. Drag the slider to adjust.",
-                      },
-                      {
-                        mode: "custom" as const,
-                        label: "Custom",
-                        tooltip:
-                          "Set your own time limit. Defaults to the exam estimate when you switch.",
-                      },
-                    ] as const
-                  ).map((item) => {
-                    const isActive = input.timeMode === item.mode;
-                    return (
-                      <button
-                        key={item.mode}
-                        type="button"
-                        onClick={() => onTimeModeChange(item.mode)}
-                        className={cn(
-                          UCAT_FILTER_PILL_INNER_INLINE,
-                          isActive
-                            ? "bg-sidebar text-sidebar-foreground"
-                            : "text-foreground hover:bg-muted/80",
-                        )}
-                      >
-                        {item.label}
-                        {isActive && (
-                          <TooltipProvider delayDuration={200}>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <span
-                                  className="inline-flex opacity-80 hover:opacity-100 cursor-help"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Info className="h-3 w-3" aria-hidden />
-                                </span>
-                              </TooltipTrigger>
-                              <TooltipContent
-                                side="bottom"
-                                className="max-w-[240px]"
-                              >
-                                {item.tooltip}
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </button>
-                    );
-                  })}
-                </div>
+                <SegmentedControl<TimeMode>
+                  value={input.timeMode}
+                  onValueChange={onTimeModeChange}
+                  className="flex-wrap"
+                  options={[
+                    {
+                      value: "off",
+                      label: "Off",
+                      infoTooltip: "No time limit. Take as long as you need.",
+                    },
+                    {
+                      value: "exam",
+                      label: "Exam",
+                      infoTooltip:
+                        "Time limit matches UCAT pacing for this section.",
+                    },
+                    {
+                      value: "speed",
+                      label: "Speed",
+                      infoTooltip:
+                        "Scale exam timing. 1 = exam pace, 0.5 = 2× time, 0.1 = 10× time. Drag the slider to adjust.",
+                    },
+                    {
+                      value: "custom",
+                      label: "Custom",
+                      infoTooltip:
+                        "Set your own time limit. Defaults to the exam estimate when you switch.",
+                    },
+                  ]}
+                />
                 {input.timeMode === "speed" ? (
                   <div className="flex flex-col gap-1.5 w-full sm:w-48">
                     <div className="flex items-center justify-between text-xs">
@@ -352,62 +298,29 @@ export function StemFiltersPanel({
           <div className="space-y-0.5 min-w-0 flex-1">
             <Label className="text-sm font-medium">Performance</Label>
           </div>
-          <div className="inline-flex flex-wrap items-center gap-1 rounded-lg border border-border bg-muted p-0.5 text-xs">
-            {(
-              [
-                {
-                  mode: "any" as const,
-                  label: "Any",
-                  tooltip:
-                    "Include all questions regardless of your past attempts.",
-                },
-                {
-                  mode: "unanswered" as const,
-                  label: "Unanswered",
-                  tooltip: "Only questions you haven't answered before.",
-                },
-                {
-                  mode: "incorrect" as const,
-                  label: "Incorrect",
-                  tooltip: "Only questions you've got wrong before.",
-                },
-              ] as const
-            ).map((item) => {
-              const isActive = performanceFilter === item.mode;
-              return (
-                <button
-                  key={item.mode}
-                  type="button"
-                  onClick={() => onPerformanceFilterChange(item.mode)}
-                  className={cn(
-                    UCAT_FILTER_PILL_INNER_INLINE,
-                    isActive
-                      ? "bg-sidebar text-sidebar-foreground"
-                      : "text-foreground hover:bg-muted/80",
-                  )}
-                >
-                  {item.label}
-                  {isActive && (
-                    <TooltipProvider delayDuration={200}>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span
-                            className="inline-flex opacity-80 hover:opacity-100 cursor-help"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <Info className="h-3 w-3" aria-hidden />
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-[240px]">
-                          {item.tooltip}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </button>
-              );
-            })}
-          </div>
+          <SegmentedControl<PerformanceFilter>
+            value={performanceFilter}
+            onValueChange={onPerformanceFilterChange}
+            className="flex-wrap"
+            options={[
+              {
+                value: "any",
+                label: "Any",
+                infoTooltip:
+                  "Include all questions regardless of your past attempts.",
+              },
+              {
+                value: "unanswered",
+                label: "Unanswered",
+                infoTooltip: "Only questions you haven't answered before.",
+              },
+              {
+                value: "incorrect",
+                label: "Incorrect",
+                infoTooltip: "Only questions you've got wrong before.",
+              },
+            ]}
+          />
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -423,32 +336,14 @@ export function StemFiltersPanel({
           </div>
           {showUnlimitedOption ? (
             <div className="flex flex-col gap-2">
-              <div className="inline-flex rounded-lg border border-border bg-muted p-0.5 text-xs">
-                <button
-                  type="button"
-                  onClick={() => onQuestionCountModeChange?.("set")}
-                  className={cn(
-                    UCAT_FILTER_PILL_INNER,
-                    questionCountMode === "set"
-                      ? "bg-sidebar text-sidebar-foreground"
-                      : "text-foreground hover:bg-muted/80",
-                  )}
-                >
-                  Set
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onQuestionCountModeChange?.("unlimited")}
-                  className={cn(
-                    UCAT_FILTER_PILL_INNER,
-                    questionCountMode === "unlimited"
-                      ? "bg-sidebar text-sidebar-foreground"
-                      : "text-foreground hover:bg-muted/80",
-                  )}
-                >
-                  Unlimited
-                </button>
-              </div>
+              <SegmentedControl<"set" | "unlimited">
+                value={questionCountMode}
+                onValueChange={(mode) => onQuestionCountModeChange?.(mode)}
+                options={[
+                  { value: "set", label: "Set" },
+                  { value: "unlimited", label: "Unlimited" },
+                ]}
+              />
               {questionCountMode === "set" && (
                 <input
                   id="question-count"
