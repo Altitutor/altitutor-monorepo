@@ -20,24 +20,53 @@ async function getUcatSubjectId(supabase: SupabaseClient): Promise<string | null
   return data?.id ?? null;
 }
 
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
+
+function subscriptionPeriodFields(subscription: {
+  current_period_start?: number;
+  current_period_end?: number;
+  items?: { data?: Array<{ current_period_start?: number; current_period_end?: number }> };
+}): { current_period_start: string | null; current_period_end: string | null } {
+  const item = subscription.items?.data?.[0];
+  const start = subscription.current_period_start ?? item?.current_period_start ?? null;
+  const end = subscription.current_period_end ?? item?.current_period_end ?? null;
+  return {
+    current_period_start: start != null ? new Date(start * 1000).toISOString() : null,
+    current_period_end: end != null ? new Date(end * 1000).toISOString() : null,
+  };
+}
+
 function subscriptionCancelFields(subscription: {
+  status?: string;
   cancel_at_period_end?: boolean;
   cancel_at?: number | null;
   current_period_end?: number;
+  items?: { data?: Array<{ current_period_end?: number }> };
 }): { cancel_at_period_end: boolean; cancel_at: string | null } {
   const cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
+  const status = subscription.status ?? 'active';
+  const stillActive = ACTIVE_SUBSCRIPTION_STATUSES.has(status);
+
   if (subscription.cancel_at) {
+    const cancelAtMs = subscription.cancel_at * 1000;
+    const isScheduled = stillActive && cancelAtMs > Date.now();
     return {
-      cancel_at_period_end: cancelAtPeriodEnd,
-      cancel_at: new Date(subscription.cancel_at * 1000).toISOString(),
+      cancel_at_period_end: cancelAtPeriodEnd || isScheduled,
+      cancel_at: new Date(cancelAtMs).toISOString(),
     };
   }
-  if (cancelAtPeriodEnd && subscription.current_period_end) {
-    return {
-      cancel_at_period_end: true,
-      cancel_at: new Date(subscription.current_period_end * 1000).toISOString(),
-    };
+
+  if (cancelAtPeriodEnd) {
+    const periodEnd =
+      subscription.current_period_end ?? subscription.items?.data?.[0]?.current_period_end;
+    if (periodEnd) {
+      return {
+        cancel_at_period_end: true,
+        cancel_at: new Date(periodEnd * 1000).toISOString(),
+      };
+    }
   }
+
   return { cancel_at_period_end: cancelAtPeriodEnd, cancel_at: null };
 }
 
@@ -740,12 +769,7 @@ Deno.serve(async (req: Request) => {
                 stripe_price_id: priceId,
                 stripe_product_id: productId,
                 status: subscription.status,
-                current_period_start: subscription.current_period_start
-                  ? new Date(subscription.current_period_start * 1000).toISOString()
-                  : null,
-                current_period_end: subscription.current_period_end
-                  ? new Date(subscription.current_period_end * 1000).toISOString()
-                  : null,
+                ...subscriptionPeriodFields(subscription),
                 ...subscriptionCancelFields(subscription),
                 updated_at: new Date().toISOString(),
               },
@@ -773,7 +797,13 @@ Deno.serve(async (req: Request) => {
           current_period_end?: number;
           cancel_at_period_end?: boolean;
           cancel_at?: number | null;
-          items?: { data?: Array<{ price?: { id?: string } }> };
+          items?: {
+            data?: Array<{
+              current_period_start?: number;
+              current_period_end?: number;
+              price?: { id?: string; product?: string | { id?: string } };
+            }>;
+          };
         };
 
         const { data: existing } = await supabase
@@ -806,12 +836,7 @@ Deno.serve(async (req: Request) => {
             status: subscription.status,
             stripe_price_id: priceId,
             stripe_product_id: productId,
-            current_period_start: subscription.current_period_start
-              ? new Date(subscription.current_period_start * 1000).toISOString()
-              : null,
-            current_period_end: subscription.current_period_end
-              ? new Date(subscription.current_period_end * 1000).toISOString()
-              : null,
+            ...subscriptionPeriodFields(subscription),
             ...subscriptionCancelFields(subscription),
             updated_at: new Date().toISOString(),
           })

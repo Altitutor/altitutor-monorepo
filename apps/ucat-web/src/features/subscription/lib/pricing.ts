@@ -88,15 +88,7 @@ export function computePracticeDiscountPricing(
   };
 }
 
-export function getSubscriptionEndDateIso(subscription: {
-  cancel_at_period_end: boolean;
-  cancel_at: string | null;
-  current_period_end: string | null;
-}): string | null {
-  if (!subscription.cancel_at_period_end) return null;
-  if (subscription.cancel_at) return subscription.cancel_at.slice(0, 10);
-  if (subscription.current_period_end) {
-    return subscription.current_period_end.slice(0, 10);
-  }
-  return null;
-}
+export {
+  getSubscriptionEndDateIso,
+  isSubscriptionCancelScheduled,
+} from "@/lib/ucat/stripe-subscription-fields";

@@ -141,6 +141,7 @@ async function syncSubscriptionFromStripe(): Promise<void> {
 
 export async function fetchUcatSubscriptionBilling() {
   await syncSubscriptionFromStripe();
+  // Re-fetch after sync so cancel_at / period fields are current.
   const subscription = await fetchUcatSubscription();
   const invoices = subscription
     ? await fetchUcatSubscriptionInvoices(subscription.id)

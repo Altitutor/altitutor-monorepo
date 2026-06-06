@@ -6,34 +6,11 @@ import {
   getStudentIdForUser,
   getUcatSubscriptionForStudent,
 } from "@/lib/ucat/ucat-subscription";
-
-type StripeSubscriptionSnapshot = {
-  status: string;
-  cancel_at_period_end?: boolean;
-  cancel_at?: number | null;
-  current_period_start?: number;
-  current_period_end?: number;
-};
-
-function cancelFieldsFromStripe(subscription: StripeSubscriptionSnapshot): {
-  cancel_at_period_end: boolean;
-  cancel_at: string | null;
-} {
-  const cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
-  if (subscription.cancel_at) {
-    return {
-      cancel_at_period_end: cancelAtPeriodEnd,
-      cancel_at: new Date(subscription.cancel_at * 1000).toISOString(),
-    };
-  }
-  if (cancelAtPeriodEnd && subscription.current_period_end) {
-    return {
-      cancel_at_period_end: true,
-      cancel_at: new Date(subscription.current_period_end * 1000).toISOString(),
-    };
-  }
-  return { cancel_at_period_end: cancelAtPeriodEnd, cancel_at: null };
-}
+import {
+  subscriptionCancelFields,
+  subscriptionPeriodFields,
+  type StripeSubscriptionSnapshot,
+} from "@/lib/ucat/stripe-subscription-fields";
 
 /**
  * GET /api/ucat/subscription/sync
@@ -83,25 +60,31 @@ export async function GET() {
   try {
     const stripeSub = (await stripe.subscriptions.retrieve(
       subscription.stripe_subscription_id,
+      { expand: ["items.data"] },
     )) as unknown as StripeSubscriptionSnapshot;
-    const cancelFields = cancelFieldsFromStripe(stripeSub);
+    const cancelFields = subscriptionCancelFields(stripeSub);
+    const periodFields = subscriptionPeriodFields(stripeSub);
 
-    await supabaseAdmin
+    const { error: updateError } = await supabaseAdmin
       .from("student_subscriptions")
       .update({
-        status: stripeSub.status,
-        current_period_start: stripeSub.current_period_start
-          ? new Date(stripeSub.current_period_start * 1000).toISOString()
-          : null,
-        current_period_end: stripeSub.current_period_end
-          ? new Date(stripeSub.current_period_end * 1000).toISOString()
-          : null,
+        status: stripeSub.status ?? subscription.status,
+        ...periodFields,
         ...cancelFields,
         updated_at: new Date().toISOString(),
       })
       .eq("id", subscription.id);
 
-    return NextResponse.json({ synced: true, ...cancelFields });
+    if (updateError) {
+      console.error("[ucat subscription sync] DB update failed:", updateError);
+      return NextResponse.json({ synced: false });
+    }
+
+    return NextResponse.json({
+      synced: true,
+      ...cancelFields,
+      ...periodFields,
+    });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error("[ucat subscription sync] Stripe error:", msg);

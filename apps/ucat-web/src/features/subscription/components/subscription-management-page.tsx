@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Badge, Button } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@altitutor/ui";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { createBillingPortalSession } from "@/features/subscription/api/create-billing-portal-session";
@@ -16,10 +17,11 @@ import {
 import {
   formatMoneyFromMinorUnits,
 } from "@/features/subscription/lib/format-subscription-copy";
+import { computePracticeDiscountPricing } from "@/features/subscription/lib/pricing";
 import {
-  computePracticeDiscountPricing,
   getSubscriptionEndDateIso,
-} from "@/features/subscription/lib/pricing";
+  isSubscriptionCancelScheduled,
+} from "@/lib/ucat/stripe-subscription-fields";
 import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
 import {
   UCAT_HEADER_BTN_OUTLINE,
@@ -63,7 +65,9 @@ export function SubscriptionManagementPage() {
   const cancelEndDate = subscription
     ? getSubscriptionEndDateIso(subscription)
     : null;
-  const isCancelScheduled = Boolean(subscription?.cancel_at_period_end);
+  const isCancelScheduled = subscription
+    ? isSubscriptionCancelScheduled(subscription)
+    : false;
 
   const pricing = useMemo(() => {
     if (!subscription) return null;
