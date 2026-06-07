@@ -9,7 +9,8 @@
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     },
-    "./styles/native-datetime-input.css": "./src/styles/native-datetime-input.css"
+    "./styles/native-datetime-input.css": "./src/styles/native-datetime-input.css",
+    "./styles/prosemirror-tables.css": "./src/styles/prosemirror-tables.css"
   },
   "sideEffects": [
     "*.css"

@@ -1,4 +1,5 @@
 @import '@altitutor/ui/styles/native-datetime-input.css';
+@import '@altitutor/ui/styles/prosemirror-tables.css';
 
 @tailwind base;
 @tailwind components;
