@@ -9903,6 +9903,8 @@ export type Database = {
           free_skill_trainer_period: string
           id: string
           min_questions_per_day: number
+          monthly_base_price_cents: number
+          monthly_stripe_price_id: string | null
           stripe_price_id: string | null
           stripe_product_id: string | null
           trial_days: number
@@ -9926,6 +9928,8 @@ export type Database = {
           free_skill_trainer_period?: string
           id?: string
           min_questions_per_day?: number
+          monthly_base_price_cents?: number
+          monthly_stripe_price_id?: string | null
           stripe_price_id?: string | null
           stripe_product_id?: string | null
           trial_days?: number
@@ -9949,6 +9953,8 @@ export type Database = {
           free_skill_trainer_period?: string
           id?: string
           min_questions_per_day?: number
+          monthly_base_price_cents?: number
+          monthly_stripe_price_id?: string | null
           stripe_price_id?: string | null
           stripe_product_id?: string | null
           trial_days?: number
