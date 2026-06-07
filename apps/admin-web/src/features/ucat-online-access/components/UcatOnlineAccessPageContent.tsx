@@ -24,11 +24,15 @@ import {
   AlertDialogTitle,
   AlertDialog,
 } from '@altitutor/ui';
-import { Plus, Trash2, Loader2, ArrowUpDown } from 'lucide-react';
+import { Plus, Trash2, Loader2, ArrowUpDown, Shield } from 'lucide-react';
 import type { DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { manualOnlineAccessApi } from '@/features/ucat-online-access/api/ucat-online-access';
+import {
+  manualOnlineAccessApi,
+  UCAT_TIER_OVERRIDE_LABELS,
+} from '@/features/ucat-online-access/api/ucat-online-access';
 import { AddUcatOnlineAccessModal } from './AddUcatOnlineAccessModal';
+import { SetUcatTierOverrideModal } from './SetUcatTierOverrideModal';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentSearchForFilter } from '@/features/sessions/hooks/useStudentSearchForFilter';
@@ -40,6 +44,7 @@ export function UcatOnlineAccessPageContent() {
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const [addOpen, setAddOpen] = useState(false);
+  const [tierOverrideOpen, setTierOverrideOpen] = useState(false);
   const [revokeId, setRevokeId] = useState<string | null>(null);
   const [studentFilterSearch, setStudentFilterSearch] = useState('');
   const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
@@ -47,7 +52,7 @@ export function UcatOnlineAccessPageContent() {
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'created_at', direction: 'desc' as const }), []);
   const defaultVisibleColumns = useMemo(
-    () => ['student', 'subject', 'status', 'granted', 'notes'],
+    () => ['student', 'subject', 'status', 'ucat_tier', 'granted', 'notes'],
     [],
   );
 
@@ -132,6 +137,7 @@ export function UcatOnlineAccessPageContent() {
     { key: 'student', label: 'Student' },
     { key: 'subject', label: 'Subject' },
     { key: 'status', label: 'Status' },
+    { key: 'ucat_tier', label: 'UCAT tier override' },
     { key: 'granted', label: 'Granted' },
     { key: 'notes', label: 'Notes' },
   ];
@@ -162,14 +168,20 @@ export function UcatOnlineAccessPageContent() {
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Manual online access</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Grant or revoke admin manual online access for any student and subject. Grants are mirrored to the
-              standard student–subject link so the rest of admin stays consistent.
+              Grant or revoke admin manual online access for any student and subject. UCAT grants set Force UCAT
+              Pro; revoking the last UCAT grant resets to Default. Use tier override to force UCAT Free.
             </p>
           </div>
-          <Button onClick={() => setAddOpen(true)} disabled>
-            <Plus className="h-4 w-4 mr-2" />
-            Grant access
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => setTierOverrideOpen(true)} disabled>
+              <Shield className="h-4 w-4 mr-2" />
+              Set UCAT tier
+            </Button>
+            <Button onClick={() => setAddOpen(true)} disabled>
+              <Plus className="h-4 w-4 mr-2" />
+              Grant access
+            </Button>
+          </div>
         </div>
         <DataTableToolbar
           state={state}
@@ -218,14 +230,20 @@ export function UcatOnlineAccessPageContent() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Manual online access</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Grant or revoke admin manual online access for any student and subject. Grants are mirrored to the
-            standard student–subject link so the rest of admin stays consistent.
+            Grant or revoke admin manual online access for any student and subject. UCAT grants set Force UCAT
+            Pro; revoking the last UCAT grant resets to Default. Use tier override to force UCAT Free.
           </p>
         </div>
-        <Button onClick={() => setAddOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Grant access
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setTierOverrideOpen(true)}>
+            <Shield className="h-4 w-4 mr-2" />
+            Set UCAT tier
+          </Button>
+          <Button onClick={() => setAddOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Grant access
+          </Button>
+        </div>
       </div>
 
       <DataTableToolbar
@@ -296,6 +314,7 @@ export function UcatOnlineAccessPageContent() {
                 </TableHead>
               )}
               {state.visibleColumns.includes('status') && <TableHead>Status</TableHead>}
+              {state.visibleColumns.includes('ucat_tier') && <TableHead>UCAT tier override</TableHead>}
               {state.visibleColumns.includes('granted') && (
                 <TableHead
                   className="cursor-pointer"
@@ -362,6 +381,15 @@ export function UcatOnlineAccessPageContent() {
                     {state.visibleColumns.includes('status') && (
                       <TableCell>{st?.status ?? '—'}</TableCell>
                     )}
+                    {state.visibleColumns.includes('ucat_tier') && (
+                      <TableCell className="text-muted-foreground">
+                        {sub?.name === 'UCAT' && st?.ucat_online_tier_override
+                          ? UCAT_TIER_OVERRIDE_LABELS[st.ucat_online_tier_override]
+                          : sub?.name === 'UCAT'
+                            ? UCAT_TIER_OVERRIDE_LABELS.default
+                            : '—'}
+                      </TableCell>
+                    )}
                     {state.visibleColumns.includes('granted') && (
                       <TableCell className="text-muted-foreground">
                         {format(new Date(row.created_at), 'dd MMM yyyy, HH:mm')}
@@ -405,6 +433,12 @@ export function UcatOnlineAccessPageContent() {
         isOpen={addOpen}
         onClose={() => setAddOpen(false)}
         onGranted={() => queryClient.invalidateQueries({ queryKey: ['manual-online-access'] })}
+      />
+
+      <SetUcatTierOverrideModal
+        isOpen={tierOverrideOpen}
+        onClose={() => setTierOverrideOpen(false)}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ['manual-online-access'] })}
       />
 
       <AlertDialog open={revokeId != null} onOpenChange={(o) => !o && setRevokeId(null)}>

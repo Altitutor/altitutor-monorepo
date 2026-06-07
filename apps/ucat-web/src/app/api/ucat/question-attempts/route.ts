@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  checkQuotaForAction,
+  quotaExceededResponse,
+} from "@/lib/ucat/quota/quota-service";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -63,6 +67,25 @@ export async function POST(request: NextRequest) {
       { error: "No student profile found" },
       { status: 404 },
     );
+  }
+
+  const isPracticeAttempt =
+    body.studentPracticeSessionId != null &&
+    body.studentPracticeSessionId !== "" &&
+    body.studentQuestionSetAttemptId === null;
+
+  if (isPracticeAttempt) {
+    const hasAnswer =
+      body.questionAnswerOptionId != null || body.answerSnapshot != null;
+    const quotaCheck = await checkQuotaForAction(
+      supabaseAdmin,
+      student.id,
+      "practice",
+      { practiceQuestionId: body.questionId, hasAnswer },
+    );
+    if (!quotaCheck.allowed) {
+      return quotaExceededResponse(quotaCheck.payload);
+    }
   }
 
   let query = supabaseAdmin

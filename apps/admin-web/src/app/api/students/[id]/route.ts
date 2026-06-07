@@ -39,6 +39,17 @@ export async function PATCH(
     const studentId = params.id;
     const body = await request.json();
 
+    const validTierOverrides = ['default', 'force_free', 'force_pro'] as const;
+    if (
+      body.ucat_online_tier_override !== undefined &&
+      !validTierOverrides.includes(body.ucat_online_tier_override)
+    ) {
+      return NextResponse.json(
+        { error: 'Invalid ucat_online_tier_override. Must be default, force_free, or force_pro.' },
+        { status: 400 },
+      );
+    }
+
     // Get current student record to get user_id for auth update
     const { data: currentStudent, error: fetchError} = await supabase
       .from('students')
@@ -118,6 +129,9 @@ export async function PATCH(
         availability_saturday_pm: body.availability_saturday_pm,
         availability_sunday_am: body.availability_sunday_am,
         availability_sunday_pm: body.availability_sunday_pm,
+        ...(body.ucat_online_tier_override !== undefined
+          ? { ucat_online_tier_override: body.ucat_online_tier_override }
+          : {}),
       })
       .eq('id', studentId)
       .select()

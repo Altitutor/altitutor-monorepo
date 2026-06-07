@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import type { TablesInsert } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import {
+  checkQuotaForAction,
+  quotaExceededResponse,
+} from "@/lib/ucat/quota/quota-service";
 
 type SetAttemptInsert = TablesInsert<"student_question_set_attempts">;
 
@@ -59,6 +63,17 @@ export async function POST(request: NextRequest) {
       { error: "No student profile found" },
       { status: 404 },
     );
+  }
+
+  if (!body.mockAttemptId) {
+    const quotaCheck = await checkQuotaForAction(
+      supabaseAdmin,
+      student.id,
+      "sets",
+    );
+    if (!quotaCheck.allowed) {
+      return quotaExceededResponse(quotaCheck.payload);
+    }
   }
 
   const insertPayload: SetAttemptInsert = {

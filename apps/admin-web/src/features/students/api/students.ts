@@ -741,6 +741,8 @@ export const studentsApi = {
           availability_saturday_pm: data.availability_saturday_pm,
           availability_sunday_am: data.availability_sunday_am,
           availability_sunday_pm: data.availability_sunday_pm,
+          ucat_online_tier_override: (data as { ucat_online_tier_override?: string })
+            .ucat_online_tier_override,
         }),
       });
 

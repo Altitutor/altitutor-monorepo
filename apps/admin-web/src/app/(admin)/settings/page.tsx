@@ -107,7 +107,7 @@ export default function SettingsPage() {
         },
         {
           title: 'UCAT subscription',
-          description: 'UCAT online trial, pricing, practice-day discounts, and Stripe price IDs',
+          description: 'UCAT online trial, pricing, practice-day discounts, Free quotas, and Stripe price IDs',
           href: '/settings/ucat-subscription',
           icon: GraduationCap,
         },

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import type { PublicUcatSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
+import { mapQuotaConfigRow } from "@/lib/ucat/quota/config";
 
 const BILLING_INTERVALS = new Set(["week", "fortnight", "month"]);
 
@@ -19,7 +20,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("ucat_subscription_config")
     .select(
-      "trial_days, min_questions_per_day, discount_per_day_cents, base_price_cents, currency, billing_interval",
+      "trial_days, min_questions_per_day, discount_per_day_cents, base_price_cents, currency, billing_interval, free_practice_limit, free_practice_period, free_sets_limit, free_sets_period, free_mocks_limit, free_mocks_period, free_learn_limit, free_learn_period, free_skill_trainer_limit, free_skill_trainer_period",
     )
     .order("created_at", { ascending: true })
     .limit(1)
@@ -48,6 +49,7 @@ export async function GET() {
     basePriceCents: data.base_price_cents ?? 0,
     currency: (data.currency ?? "aud").toLowerCase(),
     billingInterval,
+    freeQuotas: mapQuotaConfigRow(data),
   };
 
   return NextResponse.json(body, {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@altitutor/ui";
 import { ExternalLink, Loader2 } from "lucide-react";
+import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
 import { UcatPageHeader } from "@/features/layout";
 import { createBillingPortalSession } from "@/features/subscription/api/create-billing-portal-session";
 import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
@@ -95,6 +96,8 @@ export function SubscriptionManagementPage() {
         title="Subscription"
         description="View your UCAT online subscription and billing history."
       />
+
+      <QuotaUsageCard />
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">

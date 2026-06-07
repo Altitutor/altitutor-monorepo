@@ -7608,6 +7608,9 @@ export type Database = {
           school: string | null
           status: string
           timezone: string
+          ucat_onboarding_completed_at: string | null
+          ucat_online_tier_override: string
+          ucat_pro_trial_consumed_at: string | null
           ucat_target_score_s1: number | null
           ucat_target_score_s2: number | null
           ucat_target_score_s3: number | null
@@ -7642,6 +7645,9 @@ export type Database = {
           school?: string | null
           status: string
           timezone?: string
+          ucat_onboarding_completed_at?: string | null
+          ucat_online_tier_override?: string
+          ucat_pro_trial_consumed_at?: string | null
           ucat_target_score_s1?: number | null
           ucat_target_score_s2?: number | null
           ucat_target_score_s3?: number | null
@@ -7676,6 +7682,9 @@ export type Database = {
           school?: string | null
           status?: string
           timezone?: string
+          ucat_onboarding_completed_at?: string | null
+          ucat_online_tier_override?: string
+          ucat_pro_trial_consumed_at?: string | null
           ucat_target_score_s1?: number | null
           ucat_target_score_s2?: number | null
           ucat_target_score_s3?: number | null
@@ -9882,6 +9891,16 @@ export type Database = {
           created_at: string
           currency: string
           discount_per_day_cents: number
+          free_learn_limit: number
+          free_learn_period: string
+          free_mocks_limit: number
+          free_mocks_period: string
+          free_practice_limit: number
+          free_practice_period: string
+          free_sets_limit: number
+          free_sets_period: string
+          free_skill_trainer_limit: number
+          free_skill_trainer_period: string
           id: string
           min_questions_per_day: number
           stripe_price_id: string | null
@@ -9895,6 +9914,16 @@ export type Database = {
           created_at?: string
           currency?: string
           discount_per_day_cents?: number
+          free_learn_limit?: number
+          free_learn_period?: string
+          free_mocks_limit?: number
+          free_mocks_period?: string
+          free_practice_limit?: number
+          free_practice_period?: string
+          free_sets_limit?: number
+          free_sets_period?: string
+          free_skill_trainer_limit?: number
+          free_skill_trainer_period?: string
           id?: string
           min_questions_per_day?: number
           stripe_price_id?: string | null
@@ -9908,6 +9937,16 @@ export type Database = {
           created_at?: string
           currency?: string
           discount_per_day_cents?: number
+          free_learn_limit?: number
+          free_learn_period?: string
+          free_mocks_limit?: number
+          free_mocks_period?: string
+          free_practice_limit?: number
+          free_practice_period?: string
+          free_sets_limit?: number
+          free_sets_period?: string
+          free_skill_trainer_limit?: number
+          free_skill_trainer_period?: string
           id?: string
           min_questions_per_day?: number
           stripe_price_id?: string | null
@@ -11918,6 +11957,10 @@ export type Database = {
           has_in_person_access: boolean | null
           has_online_access: boolean | null
           has_ucat_access: boolean | null
+          is_quota_exempt: boolean | null
+          online_tier: string | null
+          pro_trial_eligible: boolean | null
+          ucat_onboarding_completed_at: string | null
         }
         Relationships: []
       }

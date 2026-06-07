@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
+import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
 import { UcatPageHeader } from "@/features/layout";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
@@ -155,6 +156,7 @@ export function PracticePage() {
           description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
         />
       </div>
+      <QuotaUsageCard area="practice" />
       <div id="tour-practice-filters">
         <StemFiltersPanel
         input={filters.input}

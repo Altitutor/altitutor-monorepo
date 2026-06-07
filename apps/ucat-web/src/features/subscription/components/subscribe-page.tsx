@@ -1,13 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { MARKETING_TOKENS } from "@altitutor/shared";
+import { completeUcatOnboarding } from "@/features/ucat-access/api/complete-onboarding";
+import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
 import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
 import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import { getTrialBookingUrl } from "@/features/landing/lib/trial-booking-url";
+import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
+import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -40,12 +45,32 @@ const ONLINE_FEATURES = [
   "Full-length mock exams + percentile tracking",
   "Adaptive skill trainer with performance analytics",
   "Progress dashboard with session history",
-  "7-day free trial — no credit card required",
+  "Unlimited access across all areas",
 ];
 
+const FREE_QUOTA_AREAS: UcatQuotaArea[] = [
+  "practice",
+  "sets",
+  "mocks",
+  "learn",
+  "skill_trainer",
+];
+
+function formatFreeQuotaLine(
+  area: UcatQuotaArea,
+  limit: number,
+  period: "day" | "week" | "month",
+): string {
+  const label = UCAT_QUOTA_AREA_LABELS[area];
+  if (limit <= 0) return `${label} — not included on Free`;
+  return `${limit} ${label.toLowerCase()} per ${period}`;
+}
+
 export function SubscribePage() {
+  const router = useRouter();
+  const access = useUcatAccess();
   const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
-  const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PlanId | "free" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -71,6 +96,29 @@ export function SubscribePage() {
       setLoadingPlan(null);
     }
   };
+
+  const handleContinueFree = async () => {
+    setLoadingPlan("free");
+    setError(null);
+    try {
+      await completeUcatOnboarding("free");
+      router.push("/dashboard");
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to continue with Free");
+    } finally {
+      setLoadingPlan(null);
+    }
+  };
+
+  const proTrialEligible = access.proTrialEligible;
+  const isOnFree = access.onlineTier === "free";
+  const isOnPro =
+    access.onlineTier === "pro" || access.onlineTier === "pro_trial";
+  const proTrialCta = proTrialEligible ? "Start Pro trial" : "Subscribe";
+  const proTrialHint = proTrialEligible
+    ? `${cfg.trialDays}-day Pro trial — you won't be charged until day ${cfg.trialDays + 1}`
+    : "Subscribe for unlimited access";
 
   const weeklyPrice = formatMoneyFromMinorUnits(cfg.basePriceCents, cfg.currency);
   // Monthly display: ~25% discount vs weekly * 4 (approx monthly commitment benefit)
@@ -98,8 +146,10 @@ export function SubscribePage() {
             </span>
           </h1>
           <p className={`mx-auto mt-6 max-w-2xl text-lg text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}>
-            Precision practice, adaptive analytics, and full-length mocks.
-            Start free for 7 days — no credit card required.
+            Start with UCAT Free, or unlock unlimited access with UCAT Pro.
+            {proTrialEligible
+              ? ` Try Pro free for ${cfg.trialDays} days.`
+              : null}
           </p>
 
           {/* Feature pills */}
@@ -196,7 +246,7 @@ export function SubscribePage() {
               Choose your plan
             </h2>
             <p className={`mt-4 text-marketing-charcoal/60 ${typo.secondarySans}`}>
-              All online plans include the same full access. Pay weekly or save with monthly.
+              UCAT Free includes limited access. UCAT Pro plans unlock everything with the same accountability pricing.
             </p>
           </div>
 
@@ -206,7 +256,80 @@ export function SubscribePage() {
             </div>
           ) : null}
 
-          <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-3">
+          <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-4">
+            {/* Card 0: UCAT Free */}
+            <div
+              className={`relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] bg-white p-8 shadow-lg ring-1 transition-all duration-300 md:p-10 ${
+                isOnFree
+                  ? "ring-2 ring-marketing-primary/30"
+                  : "ring-black/5 hover:shadow-xl"
+              }`}
+            >
+              <div>
+                {isOnFree ? (
+                  <span
+                    className={`inline-block rounded-full bg-marketing-primary/10 px-3 py-1 text-xs font-semibold text-marketing-primary ${typo.dataMono}`}
+                  >
+                    Current plan
+                  </span>
+                ) : null}
+                <span
+                  className={`mt-2 block text-xs font-bold uppercase tracking-widest text-marketing-charcoal/50 ${typo.dataMono}`}
+                >
+                  Free
+                </span>
+                <h3 className={`mt-3 text-2xl font-bold text-marketing-charcoal ${typo.headingSans}`}>
+                  UCAT Free
+                </h3>
+                <p className={`mt-3 text-sm text-marketing-charcoal/60 ${typo.secondarySans}`}>
+                  Get started at no cost with limited access to every area of the platform.
+                </p>
+
+                <div className="mt-6 space-y-1">
+                  <div className="flex items-end gap-2">
+                    <span className={`text-4xl font-bold text-marketing-charcoal ${typo.headingSans}`}>
+                      $0
+                    </span>
+                    <span className={`mb-1 text-marketing-charcoal/50 ${typo.secondarySans}`}>
+                      forever
+                    </span>
+                  </div>
+                  <p className={`text-xs text-marketing-charcoal/50 ${typo.dataMono}`}>
+                    Quotas reset daily, weekly, or monthly
+                  </p>
+                </div>
+
+                <ul className={`mt-6 space-y-2.5 text-sm text-marketing-charcoal/70 ${typo.secondarySans}`}>
+                  {FREE_QUOTA_AREAS.map((area) => {
+                    const quota = cfg.freeQuotas[area];
+                    return (
+                      <li key={area} className="flex items-start gap-2 text-marketing-primary">
+                        <CheckIcon />
+                        <span className="text-marketing-charcoal/70">
+                          {formatFreeQuotaLine(area, quota.limit, quota.period)}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+
+              {isOnPro ? null : (
+                <button
+                  type="button"
+                  onClick={() => void handleContinueFree()}
+                  disabled={loadingPlan !== null || isOnFree}
+                  className={`mt-10 w-full rounded-full border-2 border-marketing-charcoal/20 py-4 text-base font-semibold text-marketing-charcoal transition-all hover:border-marketing-charcoal/40 hover:bg-marketing-charcoal/5 disabled:cursor-not-allowed disabled:opacity-60 ${typo.headingSans}`}
+                >
+                  {isOnFree
+                    ? "Current plan"
+                    : loadingPlan === "free"
+                      ? "Saving…"
+                      : "Continue with Free"}
+                </button>
+              )}
+            </div>
+
             {/* Card 1: Weekly online */}
             <div className="relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] bg-white p-8 shadow-lg ring-1 ring-black/5 transition-all duration-300 hover:shadow-xl hover:ring-marketing-primary/20 md:p-10">
               <div className="absolute right-0 top-0 h-28 w-28 rounded-bl-full bg-marketing-primary/8 blur-2xl" />
@@ -238,7 +361,7 @@ export function SubscribePage() {
                     </span>
                   </div>
                   <p className={`text-xs text-marketing-primary ${typo.dataMono}`}>
-                    {cfg.trialDays > 0 ? `${cfg.trialDays}-day free trial` : "No trial — starts immediately"}
+                    {proTrialHint}
                   </p>
                 </div>
 
@@ -258,7 +381,7 @@ export function SubscribePage() {
                 disabled={loadingPlan !== null}
                 className={`mt-10 w-full rounded-full border-2 border-marketing-primary py-4 text-base font-semibold text-marketing-primary transition-all hover:bg-marketing-primary hover:text-marketing-cream disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
               >
-                {loadingPlan === "weekly" ? "Redirecting…" : "Start free trial"}
+                {loadingPlan === "weekly" ? "Redirecting…" : proTrialCta}
               </button>
             </div>
 
@@ -302,7 +425,7 @@ export function SubscribePage() {
                     </span>
                   </div>
                   <p className={`text-xs text-marketing-accent ${typo.dataMono}`}>
-                    {cfg.trialDays > 0 ? `${cfg.trialDays}-day free trial` : "No trial — starts immediately"}
+                    {proTrialHint}
                   </p>
                 </div>
 
@@ -326,7 +449,7 @@ export function SubscribePage() {
                 disabled={loadingPlan !== null}
                 className={`mt-10 w-full rounded-full bg-marketing-accent py-4 text-base font-semibold text-marketing-charcoal shadow-lg shadow-marketing-accent/30 transition-all hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
               >
-                {loadingPlan === "monthly" ? "Redirecting…" : "Start free trial"}
+                {loadingPlan === "monthly" ? "Redirecting…" : proTrialCta}
               </button>
             </div>
 

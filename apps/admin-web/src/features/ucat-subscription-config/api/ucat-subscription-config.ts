@@ -3,7 +3,23 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
 
-export type UcatSubscriptionConfigRow = Tables<'ucat_subscription_config'>;
+export type UcatQuotaPeriod = 'day' | 'week' | 'month';
+
+/** Extends generated row until db:types includes freemium columns */
+export type UcatFreeQuotaFields = {
+  free_practice_limit: number;
+  free_practice_period: UcatQuotaPeriod;
+  free_sets_limit: number;
+  free_sets_period: UcatQuotaPeriod;
+  free_mocks_limit: number;
+  free_mocks_period: UcatQuotaPeriod;
+  free_learn_limit: number;
+  free_learn_period: UcatQuotaPeriod;
+  free_skill_trainer_limit: number;
+  free_skill_trainer_period: UcatQuotaPeriod;
+};
+
+export type UcatSubscriptionConfigRow = Tables<'ucat_subscription_config'> & UcatFreeQuotaFields;
 
 export type UcatSubscriptionConfigUpdate = Pick<
   UcatSubscriptionConfigRow,
@@ -15,6 +31,7 @@ export type UcatSubscriptionConfigUpdate = Pick<
   | 'currency'
   | 'stripe_price_id'
   | 'stripe_product_id'
+  | keyof UcatFreeQuotaFields
 >;
 
 export const ucatSubscriptionConfigApi = {
@@ -26,7 +43,7 @@ export const ucatSubscriptionConfigApi = {
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    return data;
+    return data as UcatSubscriptionConfigRow | null;
   },
 
   async update(id: string, updates: UcatSubscriptionConfigUpdate): Promise<void> {
