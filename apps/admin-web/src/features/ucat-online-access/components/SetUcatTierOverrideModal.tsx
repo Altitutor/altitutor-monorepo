@@ -36,7 +36,12 @@ type SetUcatTierOverrideModalProps = {
   onSaved: () => void;
 };
 
-const TIER_OPTIONS: UcatOnlineTierOverride[] = ['default', 'force_free', 'force_pro'];
+const TIER_OPTIONS: UcatOnlineTierOverride[] = [
+  'default',
+  'force_free',
+  'force_unlimited',
+  'force_pro',
+];
 
 function isTierOverride(value: string): value is UcatOnlineTierOverride {
   return (TIER_OPTIONS as readonly string[]).includes(value);

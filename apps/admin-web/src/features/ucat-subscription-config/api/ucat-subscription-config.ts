@@ -5,12 +5,6 @@ import type { Tables } from '@altitutor/shared';
 
 export type UcatQuotaPeriod = 'day' | 'week' | 'month';
 
-/** Extends generated row until db:types includes freemium columns */
-export type UcatMonthlyPlanFields = {
-  monthly_base_price_cents: number;
-  monthly_stripe_price_id: string | null;
-};
-
 export type UcatFreeQuotaFields = {
   free_practice_limit: number;
   free_practice_period: UcatQuotaPeriod;
@@ -25,22 +19,18 @@ export type UcatFreeQuotaFields = {
 };
 
 export type UcatSubscriptionConfigRow = Tables<'ucat_subscription_config'> &
-  UcatFreeQuotaFields &
-  UcatMonthlyPlanFields;
+  UcatFreeQuotaFields;
 
 export type UcatSubscriptionConfigUpdate = Partial<
   Pick<
     UcatSubscriptionConfigRow,
     | 'min_questions_per_day'
     | 'discount_per_day_cents'
-    | 'billing_interval'
     | 'trial_days'
-    | 'base_price_cents'
     | 'currency'
-    | 'stripe_price_id'
-    | 'stripe_product_id'
+    | 'unlimited_stripe_product_id'
+    | 'pro_stripe_product_id'
     | keyof UcatFreeQuotaFields
-    | keyof UcatMonthlyPlanFields
   >
 >;
 

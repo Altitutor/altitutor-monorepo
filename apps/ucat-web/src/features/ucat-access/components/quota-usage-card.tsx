@@ -77,9 +77,9 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
       return;
     }
     openPlanPicker({
-      title: "Upgrade to UCAT Pro",
+      title: "Upgrade to UCAT Unlimited",
       description:
-        "Compare Free and Pro plans with accountability pricing.",
+        "Compare Free, Unlimited, and Pro plans with accountability pricing.",
     });
   };
 
@@ -115,7 +115,7 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
             className="shrink-0"
             onClick={handleUpsell}
           >
-            {entry.atLimit ? "Upgrade to Pro" : "View Pro plans"}
+            {entry.atLimit ? "Upgrade to Unlimited" : "View plans"}
           </Button>
         </CardContent>
       </Card>
@@ -159,7 +159,7 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
         </ul>
         <div className="flex flex-wrap gap-2 pt-1">
           <Button type="button" size="sm" onClick={handleUpsell}>
-            {anyAtLimit ? "Upgrade to Pro" : "View Pro plans"}
+            {anyAtLimit ? "Upgrade to Unlimited" : "View plans"}
           </Button>
           <Button
             type="button"
@@ -169,7 +169,7 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
               openPlanPicker({
                 title: "Compare plans",
                 description:
-                  "UCAT Free includes limited access. Pro unlocks unlimited use across all areas.",
+                  "UCAT Free includes limited access. Unlimited unlocks all online areas.",
               })
             }
           >

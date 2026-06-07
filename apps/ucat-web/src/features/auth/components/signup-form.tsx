@@ -1,7 +1,7 @@
 "use client";
 
 import type { AuthError } from "@supabase/supabase-js";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -11,6 +11,8 @@ import { authFormFieldClass } from "@/features/auth/lib/auth-form-field-class";
 import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
+
+const RESEND_COOLDOWN_SECONDS = 20;
 
 type FormState = "idle" | "submitted" | "error";
 
@@ -57,6 +59,69 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpSubmitting, setOtpSubmitting] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [resendError, setResendError] = useState<string | null>(null);
+  const [isResending, setIsResending] = useState(false);
+
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setResendCooldown((seconds) => Math.max(0, seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [resendCooldown]);
+
+  function getCallbackUrl() {
+    return typeof window !== "undefined"
+      ? `${window.location.origin}/auth/callback?next=/signup/complete`
+      : "/auth/callback?next=/signup/complete";
+  }
+
+  async function sendConfirmationEmail(
+    normalizedEmail: string,
+  ): Promise<AuthError | null> {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: normalizedEmail,
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: getCallbackUrl(),
+        data: {
+          pending_redirect: redirectTo,
+          pending_plan: redirectTo.includes("plan=monthly") ? "monthly" : null,
+        },
+      },
+    });
+    return error;
+  }
+
+  function returnToSignupForm() {
+    setFormState("idle");
+    setOtpCode("");
+    setOtpError(null);
+    setResendError(null);
+    setResendCooldown(0);
+  }
+
+  async function onResendConfirmation() {
+    if (!submittedEmail || isResending || resendCooldown > 0) return;
+
+    setIsResending(true);
+    setResendError(null);
+
+    const error = await sendConfirmationEmail(submittedEmail);
+
+    setIsResending(false);
+
+    if (error) {
+      setResendError(getSignupOtpUserMessage(error));
+      return;
+    }
+
+    setResendCooldown(RESEND_COOLDOWN_SECONDS);
+    setOtpCode("");
+    setOtpError(null);
+  }
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -67,11 +132,6 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
     setIsSubmitting(true);
     setErrorMessage(null);
     const normalizedEmail = email.trim().toLowerCase();
-
-    const callbackUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/auth/callback?next=/signup/complete`
-        : "/auth/callback?next=/signup/complete";
 
     try {
       const checkRes = await fetch("/api/ucat/signup/check-email", {
@@ -97,17 +157,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
         void subscribeToNewsletter(normalizedEmail);
       }
 
-      const { error } = await supabase.auth.signInWithOtp({
-        email: normalizedEmail,
-        options: {
-          shouldCreateUser: true,
-          emailRedirectTo: callbackUrl,
-          data: {
-            pending_redirect: redirectTo,
-            pending_plan: redirectTo.includes("plan=monthly") ? "monthly" : null,
-          },
-        },
-      });
+      const error = await sendConfirmationEmail(normalizedEmail);
 
       if (error) {
         setErrorMessage(getSignupOtpUserMessage(error));
@@ -115,6 +165,11 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
         return;
       }
 
+      setSubmittedEmail(normalizedEmail);
+      setResendCooldown(RESEND_COOLDOWN_SECONDS);
+      setResendError(null);
+      setOtpCode("");
+      setOtpError(null);
       setFormState("submitted");
     } finally {
       submitInFlightRef.current = false;
@@ -132,7 +187,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
     }
 
     setOtpSubmitting(true);
-    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedEmail = (submittedEmail || email).trim().toLowerCase();
 
     const tryTypes = ["email", "signup", "magiclink"] as const;
     let lastError: AuthError | null = null;
@@ -161,7 +216,10 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-background text-foreground">
-      <AuthPageHeader />
+      <AuthPageHeader
+        backLabel={formState === "submitted" ? "Back" : "Home"}
+        onBack={formState === "submitted" ? returnToSignupForm : undefined}
+      />
 
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
         {formState === "submitted" ? (
@@ -190,6 +248,7 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
             </h2>
             <p className={cn("text-muted-foreground", typo.secondarySans)}>
               We&apos;ve sent a confirmation email to{" "}
+              <span className="font-medium text-foreground">{submittedEmail}</span>.
             </p>
             <form
               onSubmit={onVerifyOtp}
@@ -202,9 +261,6 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                 Alternatively, enter the 6-digit code from your email.
               </p>
               <div className="space-y-1.5">
-                <label htmlFor="signup-otp" className="block text-sm font-medium text-foreground/90">
-                  6-digit code
-                </label>
                 <input
                   id="signup-otp"
                   type="text"
@@ -235,16 +291,37 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
               </button>
             </form>
             <p className={cn("mt-4 text-sm text-muted-foreground", typo.secondarySans)}>
-              Didn&apos;t receive it? Check your spam folder or{" "}
-              <button
-                type="button"
-                onClick={() => setFormState("idle")}
-                className="text-primary underline underline-offset-2 transition-colors hover:text-foreground"
-              >
-                try again
-              </button>
-              .
+              Didn&apos;t receive it? Check your spam folder
+              {resendCooldown > 0 ? (
+                <>
+                  {" "}
+                  or resend in{" "}
+                  <span className="font-medium tabular-nums text-foreground">
+                    {resendCooldown}s
+                  </span>
+                  .
+                </>
+              ) : (
+                <>
+                  {" "}
+                  or{" "}
+                  <button
+                    type="button"
+                    onClick={() => void onResendConfirmation()}
+                    disabled={isResending}
+                    className="text-primary underline underline-offset-2 transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isResending ? "sending…" : "resend email"}
+                  </button>
+                  .
+                </>
+              )}
             </p>
+            {resendError ? (
+              <p className="mt-2 text-sm text-destructive" role="alert">
+                {resendError}
+              </p>
+            ) : null}
           </div>
         ) : (
           <div key="idle" className="auth-entrance w-full max-w-md">
@@ -269,7 +346,8 @@ export function SignupForm({ redirectTo = "/subscribe" }: { redirectTo?: string 
                 </span>
               </h1>
               <p className={cn("mt-3 text-muted-foreground", typo.secondarySans)}>
-                Create your account, then choose UCAT Free or try UCAT Pro free
+                Create your account, then choose UCAT Free or try UCAT Unlimited
+                free
                 for 7 days.
               </p>
             </div>

@@ -2,7 +2,11 @@ import type { Database, Tables } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-export type UcatOnlineTierOverride = 'default' | 'force_free' | 'force_pro';
+export type UcatOnlineTierOverride =
+  | 'default'
+  | 'force_free'
+  | 'force_unlimited'
+  | 'force_pro';
 
 /** Extends generated student row until db:types includes tier override column */
 export type StudentWithUcatTierOverride = Pick<
@@ -128,7 +132,7 @@ export const manualOnlineAccessApi = {
     await syncStudentsSubjectsLink(supabase, params.studentId, params.subjectId, 'insert');
 
     if (await isUcatSubject(supabase, params.subjectId)) {
-      await setStudentUcatTierOverride(supabase, params.studentId, 'force_pro');
+      await setStudentUcatTierOverride(supabase, params.studentId, 'force_unlimited');
     }
 
     return data as Tables<'students_online_access_manual'>;
@@ -174,5 +178,6 @@ export type UcatOnlineAccessRow = ManualOnlineAccessRow;
 export const UCAT_TIER_OVERRIDE_LABELS: Record<UcatOnlineTierOverride, string> = {
   default: 'Default (Stripe-derived)',
   force_free: 'Force UCAT Free',
+  force_unlimited: 'Force UCAT Unlimited',
   force_pro: 'Force UCAT Pro',
 };

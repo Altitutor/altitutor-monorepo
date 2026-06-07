@@ -2,9 +2,9 @@
 
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { isUcatOnlineTier, type UcatOnlineTier } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/features/auth";
-import type { UcatOnlineTier } from "@/features/ucat-access/types/quota";
 
 export type UcatAccessFlags = {
   hasOnlineAccess: boolean;
@@ -13,7 +13,7 @@ export type UcatAccessFlags = {
   onlineTier: UcatOnlineTier | null;
   isQuotaExempt: boolean;
   onboardingCompleted: boolean;
-  proTrialEligible: boolean;
+  unlimitedTrialEligible: boolean;
   isLoading: boolean;
 };
 
@@ -24,7 +24,9 @@ type VstudentUcatMyAccessRow = {
   online_tier: string | null;
   is_quota_exempt: boolean | null;
   ucat_onboarding_completed_at: string | null;
-  pro_trial_eligible: boolean | null;
+  unlimited_trial_eligible: boolean | null;
+  /** @deprecated pre-migration column name */
+  pro_trial_eligible?: boolean | null;
 };
 
 const EMPTY_FLAGS: Omit<UcatAccessFlags, "isLoading"> = {
@@ -34,15 +36,16 @@ const EMPTY_FLAGS: Omit<UcatAccessFlags, "isLoading"> = {
   onlineTier: null,
   isQuotaExempt: false,
   onboardingCompleted: false,
-  proTrialEligible: false,
+  unlimitedTrialEligible: false,
 };
 
 function parseOnlineTier(value: string | null): UcatOnlineTier | null {
-  if (value === "free" || value === "pro_trial" || value === "pro") return value;
-  return null;
+  return isUcatOnlineTier(value) ? value : null;
 }
 
-function mapAccessRow(data: VstudentUcatMyAccessRow): Omit<UcatAccessFlags, "isLoading"> {
+function mapAccessRow(
+  data: VstudentUcatMyAccessRow,
+): Omit<UcatAccessFlags, "isLoading"> {
   return {
     hasOnlineAccess: true,
     hasInPersonAccess: Boolean(data.has_in_person_access),
@@ -50,7 +53,9 @@ function mapAccessRow(data: VstudentUcatMyAccessRow): Omit<UcatAccessFlags, "isL
     onlineTier: parseOnlineTier(data.online_tier),
     isQuotaExempt: Boolean(data.is_quota_exempt),
     onboardingCompleted: Boolean(data.ucat_onboarding_completed_at),
-    proTrialEligible: Boolean(data.pro_trial_eligible),
+    unlimitedTrialEligible: Boolean(
+      data.unlimited_trial_eligible ?? data.pro_trial_eligible,
+    ),
   };
 }
 
@@ -74,7 +79,7 @@ async function fetchUcatAccess(): Promise<Omit<UcatAccessFlags, "isLoading">> {
 
 /**
  * UCAT entitlements for the current student (tier, quotas, in-person add-on).
- * Source: vstudent_ucat_my_access → vstudent_my_subject_access.
+ * Source: vstudent_ucat_my_access.
  */
 export function useUcatAccess(): UcatAccessFlags {
   const { user, isLoading: authLoading } = useAuth();

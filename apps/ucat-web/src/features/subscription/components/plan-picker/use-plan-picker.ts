@@ -1,21 +1,31 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import type { UcatBillingInterval, UcatPaidPlanTier } from "@altitutor/shared";
 import { completeUcatOnboarding } from "@/features/ucat-access/api/complete-onboarding";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
+import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
 import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
-import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
-import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import {
-  computeMonthlyProMarketingPricing,
-  computeWeeklyProMarketingPricing,
+  defaultPublicSubscriptionConfig,
+  getPublicPlanPrice,
+  isPlanCheckoutAvailable,
+  isTierOffered,
+} from "@/features/subscription/types/public-subscription-config";
+import {
+  formatMoneyFromMinorUnits,
+  isAustralianTimezone,
+} from "@/features/subscription/lib/format-subscription-copy";
+import {
+  billedAtLabel,
+  computeMarketingPlanPricing,
 } from "@/features/subscription/lib/marketing-plan-pricing";
 import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
-import type { UcatCheckoutPlan } from "@/lib/ucat/subscription-plan";
+import type { UcatCheckoutSelection } from "@/lib/ucat/subscription-plan";
 
 const ONLINE_FEATURES = [
   "Full practice set library — all UCAT sections",
@@ -23,6 +33,13 @@ const ONLINE_FEATURES = [
   "Adaptive skill trainer with performance analytics",
   "Progress dashboard with session history",
   "Unlimited access across all areas",
+] as const;
+
+const PRO_FEATURES = [
+  "Everything in UCAT Unlimited",
+  "1 online training workshop per month",
+  "On-demand help from tutors",
+  "1-1 performance review each month",
 ] as const;
 
 const FREE_QUOTA_AREAS: UcatQuotaArea[] = [
@@ -43,6 +60,8 @@ function formatFreeQuotaLine(
   return `${limit} ${label.toLowerCase()} per ${period}`;
 }
 
+type LoadingKey = UcatPaidPlanTier | "free";
+
 type UsePlanPickerOptions = {
   onContinueFree?: () => void;
   onCheckoutStart?: () => void;
@@ -52,11 +71,12 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const access = useUcatAccess();
+  const { data: profile } = useUcatProfile();
   const needsOnboarding = !access.isLoading && !access.onboardingCompleted;
   const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
-  const [loadingPlan, setLoadingPlan] = useState<UcatCheckoutPlan | "free" | null>(
-    null,
-  );
+  const [billingInterval, setBillingInterval] =
+    useState<UcatBillingInterval>("month");
+  const [loadingPlan, setLoadingPlan] = useState<LoadingKey | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -70,42 +90,66 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     };
   }, []);
 
-  const handleOnlineSubscribe = async (plan: UcatCheckoutPlan) => {
-    setLoadingPlan(plan);
+  const omitAudPrefix = isAustralianTimezone(profile?.timezone);
+
+  const formatMoney = (cents: number) =>
+    formatMoneyFromMinorUnits(cents, cfg.currency, { omitAudPrefix });
+
+  const unlimitedTrialEligible = access.unlimitedTrialEligible;
+  const trialCta = unlimitedTrialEligible ? "Free trial" : "Subscribe";
+  const trialHint = unlimitedTrialEligible
+    ? `${cfg.trialDays}-day trial — you won't be charged until day ${cfg.trialDays + 1}`
+    : "Subscribe for unlimited access";
+
+  const isOnFree = access.onlineTier === "free";
+  const freeIsCurrentPlan = isOnFree && !needsOnboarding;
+  const isOnPaid =
+    access.onlineTier === "unlimited" ||
+    access.onlineTier === "unlimited_trial" ||
+    access.onlineTier === "pro";
+
+  const unlimitedPricing = useMemo(() => {
+    const row = getPublicPlanPrice(cfg, "unlimited", billingInterval);
+    if (!row) return null;
+    return computeMarketingPlanPricing(
+      row.basePriceCents,
+      billingInterval,
+      cfg.discountPerDayCents,
+    );
+  }, [cfg, billingInterval]);
+
+  const proPricing = useMemo(() => {
+    const row = getPublicPlanPrice(cfg, "pro", billingInterval);
+    if (!row) return null;
+    return computeMarketingPlanPricing(
+      row.basePriceCents,
+      billingInterval,
+      cfg.discountPerDayCents,
+    );
+  }, [cfg, billingInterval]);
+
+  const unlimitedAvailable = isPlanCheckoutAvailable(
+    cfg,
+    "unlimited",
+    billingInterval,
+  );
+  const proAvailable = isPlanCheckoutAvailable(cfg, "pro", billingInterval);
+  const unlimitedTierOffered = isTierOffered(cfg, "unlimited");
+  const proTierOffered = isTierOffered(cfg, "pro");
+
+  const handleOnlineSubscribe = async (tier: UcatPaidPlanTier) => {
+    const selection: UcatCheckoutSelection = { tier, interval: billingInterval };
+    setLoadingPlan(tier);
     setError(null);
     options.onCheckoutStart?.();
     try {
-      const { url } = await createUcatCheckoutSession(plan);
+      const { url } = await createUcatCheckoutSession(selection);
       window.location.href = url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start checkout");
       setLoadingPlan(null);
     }
   };
-
-  const proTrialEligible = access.proTrialEligible;
-  const isOnFree = access.onlineTier === "free";
-  const freeIsCurrentPlan = isOnFree && !needsOnboarding;
-  const isOnPro =
-    access.onlineTier === "pro" || access.onlineTier === "pro_trial";
-  const proTrialCta = proTrialEligible ? "Free trial" : "Subscribe";
-  const proTrialHint = proTrialEligible
-    ? `${cfg.trialDays}-day trial — you won't be charged until day ${cfg.trialDays + 1}`
-    : "Subscribe for unlimited access";
-
-  const weeklyProPricing = computeWeeklyProMarketingPricing(cfg);
-  const monthlyProPricing = computeMonthlyProMarketingPricing(cfg);
-
-  const weeklyMonthlyEquivalent = cfg.basePriceCents * 4;
-  const monthlySavingsPercent =
-    weeklyMonthlyEquivalent > 0
-      ? Math.max(
-          0,
-          Math.round(
-            (1 - cfg.monthlyBasePriceCents / weeklyMonthlyEquivalent) * 100,
-          ),
-        )
-      : 0;
 
   const handleContinueFree = async () => {
     setLoadingPlan("free");
@@ -136,19 +180,32 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     await handleContinueFree();
   };
 
+  const billedAt = (periodCents: number) =>
+    billedAtLabel(periodCents, billingInterval, formatMoney);
+
   return {
     cfg,
     error,
     loadingPlan,
+    billingInterval,
+    setBillingInterval,
     freeIsCurrentPlan,
-    isOnPro,
-    proTrialCta,
-    proTrialHint,
-    weeklyProPricing,
-    monthlyProPricing,
-    monthlySavingsPercent,
-    formatMoney: (cents: number) => formatMoneyFromMinorUnits(cents, cfg.currency),
+    isOnPaid,
+    isOnUnlimited:
+      access.onlineTier === "unlimited" || access.onlineTier === "unlimited_trial",
+    isOnPro: access.onlineTier === "pro",
+    trialCta,
+    trialHint,
+    unlimitedPricing,
+    proPricing,
+    unlimitedAvailable,
+    proAvailable,
+    unlimitedTierOffered,
+    proTierOffered,
+    formatMoney,
+    billedAt,
     onlineFeatures: ONLINE_FEATURES,
+    proFeatures: PRO_FEATURES,
     freeQuotaAreas: FREE_QUOTA_AREAS,
     formatFreeQuotaLine,
     handleFreePlanAction,

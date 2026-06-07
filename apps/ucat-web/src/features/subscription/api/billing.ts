@@ -30,7 +30,7 @@ export async function fetchUcatSubscription(): Promise<UcatSubscriptionRow | nul
   const { data, error } = await supabase
     .from("vstudent_subscriptions")
     .select(
-      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, created_at, updated_at",
+      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, created_at, updated_at",
     )
     .eq("subject_id", ucatSubjectId)
     .in("status", [...MANAGEABLE_UCAT_SUBSCRIPTION_STATUSES])
@@ -50,6 +50,8 @@ export async function fetchUcatSubscription(): Promise<UcatSubscriptionRow | nul
     cancel_at: data.cancel_at,
     stripe_subscription_id: data.stripe_subscription_id,
     stripe_price_id: data.stripe_price_id,
+    plan_tier: data.plan_tier ?? null,
+    billing_interval: data.billing_interval ?? null,
     created_at: data.created_at ?? new Date().toISOString(),
     updated_at: data.updated_at ?? new Date().toISOString(),
   };

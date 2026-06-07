@@ -26,8 +26,8 @@ export function QuotaLimitModal() {
     : `${areaLabel} limit reached`;
 
   const description = isDisabled
-    ? `${areaLabel} is not available on UCAT Free. Choose UCAT Pro for unlimited access across Learn, Practice, Sets, Mocks, and Skill trainer.`
-    : `You've used ${payload.used} of ${payload.limit} ${areaLabel.toLowerCase()} ${periodLabel} on UCAT Free. Upgrade to UCAT Pro for unlimited access.`;
+    ? `${areaLabel} is not available on UCAT Free. Choose UCAT Unlimited for unlimited access across Learn, Practice, Sets, Mocks, and Skill trainer.`
+    : `You've used ${payload.used} of ${payload.limit} ${areaLabel.toLowerCase()} ${periodLabel} on UCAT Free. Upgrade to UCAT Unlimited for unlimited access.`;
 
   return (
     <Dialog

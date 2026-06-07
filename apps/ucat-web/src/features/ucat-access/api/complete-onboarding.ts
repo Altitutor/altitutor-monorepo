@@ -1,8 +1,12 @@
-export type OnboardingChoice = "free" | "pro_trial";
+export type OnboardingChoice = "free" | "unlimited_trial";
 
 export async function completeUcatOnboarding(
   choice: OnboardingChoice,
-): Promise<{ ok: boolean; alreadyCompleted?: boolean; choice?: OnboardingChoice }> {
+): Promise<{
+  ok: boolean;
+  alreadyCompleted?: boolean;
+  choice?: OnboardingChoice;
+}> {
   const res = await fetch("/api/ucat/onboarding/complete", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

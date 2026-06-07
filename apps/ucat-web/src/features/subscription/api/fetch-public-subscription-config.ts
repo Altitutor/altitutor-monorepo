@@ -1,21 +1,14 @@
 import {
   defaultPublicSubscriptionConfig,
+  type PublicUcatPlanPrice,
   type PublicUcatSubscriptionConfig,
 } from "@/features/subscription/types/public-subscription-config";
 import type { UcatFreeQuotaConfig } from "@/lib/ucat/quota/config";
 import { DEFAULT_FREE_QUOTA_CONFIG } from "@/lib/ucat/quota/config";
-
-const BILLING: PublicUcatSubscriptionConfig["billingInterval"][] = [
-  "week",
-  "fortnight",
-  "month",
-];
-
-function isBillingInterval(
-  v: unknown,
-): v is PublicUcatSubscriptionConfig["billingInterval"] {
-  return typeof v === "string" && (BILLING as readonly string[]).includes(v);
-}
+import {
+  isUcatBillingInterval,
+  isUcatPaidPlanTier,
+} from "@altitutor/shared";
 
 function isFreeQuotas(value: unknown): value is UcatFreeQuotaConfig {
   if (!value || typeof value !== "object") return false;
@@ -29,6 +22,29 @@ function isFreeQuotas(value: unknown): value is UcatFreeQuotaConfig {
       typeof row.limit === "number" &&
       (row.period === "day" || row.period === "week" || row.period === "month")
     );
+  });
+}
+
+function parsePlanPrices(value: unknown): PublicUcatPlanPrice[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const r = row as Record<string, unknown>;
+    if (
+      !isUcatPaidPlanTier(r.tier) ||
+      !isUcatBillingInterval(r.interval) ||
+      typeof r.basePriceCents !== "number"
+    ) {
+      return [];
+    }
+    return [
+      {
+        tier: r.tier,
+        interval: r.interval,
+        basePriceCents: r.basePriceCents,
+        available: r.available === true,
+      },
+    ];
   });
 }
 
@@ -47,33 +63,20 @@ export async function fetchPublicSubscriptionConfig(): Promise<PublicUcatSubscri
     ) {
       return defaultPublicSubscriptionConfig;
     }
-    const basePriceCents =
-      typeof data.basePriceCents === "number"
-        ? data.basePriceCents
-        : defaultPublicSubscriptionConfig.basePriceCents;
-    const monthlyBasePriceCents =
-      typeof data.monthlyBasePriceCents === "number"
-        ? data.monthlyBasePriceCents
-        : defaultPublicSubscriptionConfig.monthlyBasePriceCents;
-    const billingInterval = isBillingInterval(data.billingInterval)
-      ? data.billingInterval
-      : defaultPublicSubscriptionConfig.billingInterval;
     return {
       trialDays: data.trialDays,
       minQuestionsPerDay: data.minQuestionsPerDay,
       discountPerDayCents: data.discountPerDayCents,
-      basePriceCents,
-      monthlyBasePriceCents,
-      monthlyPlanAvailable: data.monthlyPlanAvailable === true,
-      weeklyPlanAvailable: data.weeklyPlanAvailable === true,
       currency: (typeof data.currency === "string"
         ? data.currency
         : defaultPublicSubscriptionConfig.currency
       ).toLowerCase(),
-      billingInterval,
       freeQuotas: isFreeQuotas(data.freeQuotas)
         ? data.freeQuotas
         : DEFAULT_FREE_QUOTA_CONFIG,
+      planPrices: parsePlanPrices(data.planPrices),
+      unlimitedProductConfigured: data.unlimitedProductConfigured === true,
+      proProductConfigured: data.proProductConfigured === true,
     };
   } catch {
     return defaultPublicSubscriptionConfig;

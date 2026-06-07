@@ -1,3 +1,7 @@
+import type { UcatOnlineTier } from "@altitutor/shared";
+
+export type { UcatOnlineTier };
+
 export type UcatQuotaArea =
   | "practice"
   | "sets"
@@ -6,8 +10,6 @@ export type UcatQuotaArea =
   | "skill_trainer";
 
 export type UcatQuotaPeriod = "day" | "week" | "month";
-
-export type UcatOnlineTier = "free" | "pro_trial" | "pro";
 
 export type UcatQuotaAreaUsage = {
   area: UcatQuotaArea;
@@ -22,7 +24,7 @@ export type UcatQuotaAreaUsage = {
 export type UcatQuotaUsageResponse = {
   onlineTier: UcatOnlineTier;
   isQuotaExempt: boolean;
-  proTrialEligible: boolean;
+  unlimitedTrialEligible: boolean;
   onboardingCompleted: boolean;
   areas: UcatQuotaAreaUsage[];
 };

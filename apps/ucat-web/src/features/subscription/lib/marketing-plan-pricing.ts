@@ -1,66 +1,63 @@
-import type { PublicUcatSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
+import {
+  periodCentsToPerWeekCents,
+  ucatBillingPeriodDays,
+  type UcatBillingInterval,
+} from "@altitutor/shared";
 
-/** Weeks used to express a monthly bill as an equivalent weekly rate on marketing surfaces. */
-const WEEKS_PER_MONTH_DISPLAY = 4;
-
-const WEEKLY_BILLING_DAYS = 7;
-const MONTHLY_BILLING_DAYS = 30;
-
-export type MarketingProPlanPricing = {
+export type MarketingPlanPricing = {
   /** Standard price for the billing period with no practice-day discounts. */
   penaltyPeriodCents: number;
   /** Lowest price for the period if every day qualifies for a practice discount. */
   idealPeriodCents: number;
-  /** Penalty rate shown as a weekly amount (monthly plans divide by 4). */
+  /** Penalty rate shown as a weekly amount. */
   penaltyWeeklyCents: number;
-  /** Ideal rate shown as a weekly amount (monthly plans divide by 4). */
+  /** Ideal rate shown as a weekly amount. */
   idealWeeklyCents: number;
 };
 
-function computePeriodPricing(
+export function computeMarketingPlanPricing(
   penaltyPeriodCents: number,
-  billingPeriodDays: number,
+  interval: UcatBillingInterval,
   discountPerDayCents: number,
-  expressAsWeeklyShare: boolean,
-): MarketingProPlanPricing {
+): MarketingPlanPricing {
+  const billingPeriodDays = ucatBillingPeriodDays(interval);
   const maxDiscountCents = billingPeriodDays * discountPerDayCents;
   const idealPeriodCents = Math.max(0, penaltyPeriodCents - maxDiscountCents);
-
-  if (!expressAsWeeklyShare) {
-    return {
-      penaltyPeriodCents,
-      idealPeriodCents,
-      penaltyWeeklyCents: penaltyPeriodCents,
-      idealWeeklyCents: idealPeriodCents,
-    };
-  }
 
   return {
     penaltyPeriodCents,
     idealPeriodCents,
-    penaltyWeeklyCents: Math.round(penaltyPeriodCents / WEEKS_PER_MONTH_DISPLAY),
-    idealWeeklyCents: Math.round(idealPeriodCents / WEEKS_PER_MONTH_DISPLAY),
+    penaltyWeeklyCents: periodCentsToPerWeekCents(penaltyPeriodCents, interval),
+    idealWeeklyCents: periodCentsToPerWeekCents(idealPeriodCents, interval),
   };
 }
 
-export function computeWeeklyProMarketingPricing(
-  config: PublicUcatSubscriptionConfig,
-): MarketingProPlanPricing {
-  return computePeriodPricing(
-    config.basePriceCents,
-    WEEKLY_BILLING_DAYS,
-    config.discountPerDayCents,
-    false,
-  );
+export function billingIntervalLabel(interval: UcatBillingInterval): string {
+  switch (interval) {
+    case "week":
+      return "Weekly";
+    case "month":
+      return "Monthly";
+    case "year":
+      return "Yearly";
+  }
 }
 
-export function computeMonthlyProMarketingPricing(
-  config: PublicUcatSubscriptionConfig,
-): MarketingProPlanPricing {
-  return computePeriodPricing(
-    config.monthlyBasePriceCents,
-    MONTHLY_BILLING_DAYS,
-    config.discountPerDayCents,
-    true,
-  );
+export function billingIntervalShort(interval: UcatBillingInterval): string {
+  switch (interval) {
+    case "week":
+      return "wk";
+    case "month":
+      return "mo";
+    case "year":
+      return "yr";
+  }
+}
+
+export function billedAtLabel(
+  periodCents: number,
+  interval: UcatBillingInterval,
+  formatMoney: (cents: number) => string,
+): string {
+  return `Billed at ${formatMoney(periodCents)}/${billingIntervalShort(interval)}`;
 }

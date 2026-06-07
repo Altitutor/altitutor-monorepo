@@ -37,7 +37,7 @@ export function SubscribePage() {
     };
   }, []);
 
-  const proTrialEligible = access.proTrialEligible;
+  const unlimitedTrialEligible = access.unlimitedTrialEligible;
   const freeIsCurrentPlan =
     access.onlineTier === "free" && !access.isLoading && access.onboardingCompleted;
 
@@ -50,7 +50,7 @@ export function SubscribePage() {
           className={`sticky top-0 z-20 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-b border-marketing-primary/15 bg-white/90 px-4 py-3 text-center text-sm shadow-sm backdrop-blur-md ${typo.secondarySans}`}
         >
           <span className="text-marketing-charcoal/70">
-            You&apos;re on UCAT Free. Compare Pro plans below or return to the app.
+            You&apos;re on UCAT Free. Compare paid plans below or return to the app.
           </span>
           <Link
             href="/dashboard"
@@ -66,7 +66,7 @@ export function SubscribePage() {
           className={`sticky top-0 z-20 border-b border-marketing-primary/20 bg-marketing-primary/10 px-4 py-3 text-center text-sm text-marketing-charcoal shadow-sm backdrop-blur-md ${typo.secondarySans}`}
           role="status"
         >
-          Choose UCAT Free or start a Pro trial to continue into the app.
+          Choose UCAT Free or start an Unlimited trial to continue into the app.
         </div>
       ) : null}
 
@@ -88,8 +88,11 @@ export function SubscribePage() {
           <p
             className={`mx-auto mt-6 max-w-2xl text-lg text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
           >
-            Start with UCAT Free, or unlock unlimited access with UCAT Pro.
-            {proTrialEligible ? ` Try Pro free for ${cfg.trialDays} days.` : null}
+            Start with UCAT Free, or unlock unlimited online access with UCAT
+            Unlimited and UCAT Pro.
+            {unlimitedTrialEligible
+              ? ` Try Unlimited free for ${cfg.trialDays} days.`
+              : null}
           </p>
 
           <div
@@ -189,8 +192,8 @@ export function SubscribePage() {
               Choose your plan
             </h2>
             <p className={`mt-4 text-marketing-charcoal/60 ${typo.secondarySans}`}>
-              UCAT Free includes limited access. UCAT Pro plans unlock everything
-              with the same accountability pricing.
+              UCAT Free includes limited access. UCAT Unlimited and UCAT Pro
+              unlock everything with accountability pricing.
             </p>
           </div>
 

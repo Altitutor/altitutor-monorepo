@@ -115,7 +115,7 @@ const mockStudents: Tables<'students'>[] = [
     ucat_test_date: null,
     ucat_onboarding_completed_at: null,
     ucat_online_tier_override: 'default',
-    ucat_pro_trial_consumed_at: null,
+    ucat_unlimited_trial_consumed_at: null,
   },
   {
     id: 'student-2',
@@ -152,7 +152,7 @@ const mockStudents: Tables<'students'>[] = [
     ucat_test_date: null,
     ucat_onboarding_completed_at: null,
     ucat_online_tier_override: 'default',
-    ucat_pro_trial_consumed_at: null,
+    ucat_unlimited_trial_consumed_at: null,
   },
 ];
 

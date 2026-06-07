@@ -119,7 +119,7 @@ describe('processSessionStudents', () => {
     ucat_test_date: null,
     ucat_onboarding_completed_at: null,
     ucat_online_tier_override: 'default',
-    ucat_pro_trial_consumed_at: null,
+    ucat_unlimited_trial_consumed_at: null,
   };
 
   it('should process student with planned attendance', () => {

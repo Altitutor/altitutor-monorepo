@@ -7,6 +7,8 @@ export type UcatSubscriptionDetails = {
   cancel_at: string | null;
   stripe_subscription_id: string;
   stripe_price_id: string | null;
+  plan_tier: string | null;
+  billing_interval: string | null;
   created_at: string;
   updated_at: string;
 };

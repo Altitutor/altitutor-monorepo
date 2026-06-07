@@ -1,4 +1,8 @@
-import type { PublicUcatSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
+import type { UcatBillingInterval } from "@altitutor/shared";
+import {
+  getPublicPlanPrice,
+  type PublicUcatSubscriptionConfig,
+} from "@/features/subscription/types/public-subscription-config";
 import { billingIntervalNoun } from "@/features/subscription/lib/format-subscription-copy";
 import { inferBillingFrequency } from "@/features/subscription/lib/invoice-display";
 
@@ -13,10 +17,23 @@ export type PracticeDiscountPricing = {
   billingIntervalNoun: string;
 };
 
+function parseBillingInterval(
+  value: string | null | undefined,
+): UcatBillingInterval | null {
+  if (value === "week" || value === "month" || value === "year") return value;
+  return null;
+}
+
+function intervalFromFrequencyLabel(label: string): UcatBillingInterval {
+  if (label === "Monthly") return "month";
+  if (label === "Yearly") return "year";
+  return "week";
+}
+
 function getBillingPeriodDayCount(
   periodStart: string | null,
   periodEnd: string | null,
-  configInterval: PublicUcatSubscriptionConfig["billingInterval"],
+  interval: UcatBillingInterval,
 ): number {
   if (periodStart && periodEnd) {
     const start = new Date(periodStart).getTime();
@@ -26,9 +43,9 @@ function getBillingPeriodDayCount(
     }
   }
 
-  switch (configInterval) {
-    case "fortnight":
-      return 14;
+  switch (interval) {
+    case "year":
+      return 365;
     case "month":
       return 30;
     case "week":
@@ -39,15 +56,18 @@ function getBillingPeriodDayCount(
 
 function getStandardPriceCents(
   config: PublicUcatSubscriptionConfig,
+  subscription: {
+    plan_tier?: string | null;
+    billing_interval?: string | null;
+  },
   billingFrequencyLabel: string,
 ): number {
-  if (billingFrequencyLabel === "Monthly") {
-    return Math.round(config.basePriceCents * 4 * 0.75);
-  }
-  if (billingFrequencyLabel === "Fortnightly") {
-    return config.basePriceCents * 2;
-  }
-  return config.basePriceCents;
+  const tier = subscription.plan_tier === "pro" ? "pro" : "unlimited";
+  const interval =
+    parseBillingInterval(subscription.billing_interval) ??
+    intervalFromFrequencyLabel(billingFrequencyLabel);
+  const row = getPublicPlanPrice(config, tier, interval);
+  return row?.basePriceCents ?? 0;
 }
 
 export function computePracticeDiscountPricing(
@@ -55,26 +75,26 @@ export function computePracticeDiscountPricing(
   subscription: {
     current_period_start: string | null;
     current_period_end: string | null;
+    plan_tier?: string | null;
+    billing_interval?: string | null;
   },
 ): PracticeDiscountPricing {
   const billingFrequencyLabel = inferBillingFrequency(subscription);
+  const interval =
+    parseBillingInterval(subscription.billing_interval) ??
+    intervalFromFrequencyLabel(billingFrequencyLabel);
   const billingPeriodDays = getBillingPeriodDayCount(
     subscription.current_period_start,
     subscription.current_period_end,
-    config.billingInterval,
+    interval,
   );
-  const standardPriceCents = getStandardPriceCents(config, billingFrequencyLabel);
+  const standardPriceCents = getStandardPriceCents(
+    config,
+    subscription,
+    billingFrequencyLabel,
+  );
   const maxDiscountCents = billingPeriodDays * config.discountPerDayCents;
   const minimumPriceCents = Math.max(0, standardPriceCents - maxDiscountCents);
-
-  const intervalNoun =
-    billingFrequencyLabel === "Weekly"
-      ? "week"
-      : billingFrequencyLabel === "Monthly"
-        ? "month"
-        : billingFrequencyLabel === "Fortnightly"
-          ? "fortnight"
-          : billingIntervalNoun(config.billingInterval);
 
   return {
     standardPriceCents,
@@ -84,7 +104,7 @@ export function computePracticeDiscountPricing(
     maxDiscountCents,
     minimumPriceCents,
     billingFrequencyLabel,
-    billingIntervalNoun: intervalNoun,
+    billingIntervalNoun: billingIntervalNoun(interval),
   };
 }
 

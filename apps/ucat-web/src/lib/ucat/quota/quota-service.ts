@@ -23,7 +23,7 @@ export type StudentQuotaContext = {
   timezone: string;
   onlineTier: UcatOnlineTier;
   isQuotaExempt: boolean;
-  proTrialEligible: boolean;
+  unlimitedTrialEligible: boolean;
   onboardingCompleted: boolean;
 };
 
@@ -49,7 +49,7 @@ export async function resolveStudentQuotaContext(
   const { data: student, error } = await supabase
     .from("students")
     .select(
-      "id, timezone, ucat_online_tier_override, ucat_onboarding_completed_at, ucat_pro_trial_consumed_at",
+      "id, timezone, ucat_online_tier_override, ucat_onboarding_completed_at, ucat_unlimited_trial_consumed_at",
     )
     .eq("id", studentId)
     .maybeSingle();
@@ -60,7 +60,7 @@ export async function resolveStudentQuotaContext(
   const { data: subscription } = ucatSubjectId
     ? await supabase
         .from("student_subscriptions")
-        .select("status")
+        .select("status, plan_tier")
         .eq("student_id", studentId)
         .eq("subject_id", ucatSubjectId)
         .in("status", ["trialing", "active"])
@@ -70,14 +70,18 @@ export async function resolveStudentQuotaContext(
   const onlineTier = resolveOnlineTier(
     student.ucat_online_tier_override,
     subscription?.status ?? null,
+    subscription?.plan_tier ?? null,
   );
 
   return {
     studentId,
     timezone: student.timezone ?? "Australia/Adelaide",
     onlineTier,
-    isQuotaExempt: onlineTier === "pro" || onlineTier === "pro_trial",
-    proTrialEligible: student.ucat_pro_trial_consumed_at == null,
+    isQuotaExempt:
+      onlineTier === "unlimited" ||
+      onlineTier === "unlimited_trial" ||
+      onlineTier === "pro",
+    unlimitedTrialEligible: student.ucat_unlimited_trial_consumed_at == null,
     onboardingCompleted: student.ucat_onboarding_completed_at != null,
   };
 }
@@ -85,11 +89,14 @@ export async function resolveStudentQuotaContext(
 function resolveOnlineTier(
   override: string,
   subscriptionStatus: string | null,
+  planTier: string | null,
 ): UcatOnlineTier {
   if (override === "force_free") return "free";
+  if (override === "force_unlimited") return "unlimited";
   if (override === "force_pro") return "pro";
-  if (subscriptionStatus === "trialing") return "pro_trial";
-  if (subscriptionStatus === "active") return "pro";
+  if (subscriptionStatus === "trialing") return "unlimited_trial";
+  if (subscriptionStatus === "active" && planTier === "pro") return "pro";
+  if (subscriptionStatus === "active") return "unlimited";
   return "free";
 }
 
@@ -218,7 +225,7 @@ export async function getQuotaUsageForStudent(
   return {
     onlineTier: ctx.onlineTier,
     isQuotaExempt: ctx.isQuotaExempt,
-    proTrialEligible: ctx.proTrialEligible,
+    unlimitedTrialEligible: ctx.unlimitedTrialEligible,
     onboardingCompleted: ctx.onboardingCompleted,
     areas: areaUsages,
   };

@@ -3,9 +3,10 @@ import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUcatSubjectId } from "@/lib/ucat/ucat-subject-id";
+import { getUcatPlanPrice } from "@/lib/ucat/plan-price-lookup";
 import {
-  isUcatCheckoutPlan,
-  type UcatCheckoutPlan,
+  isUcatCheckoutSelection,
+  type UcatCheckoutSelection,
 } from "@/lib/ucat/subscription-plan";
 
 /**
@@ -21,14 +22,14 @@ export async function POST(request: NextRequest) {
     error: authError,
   } = await supabase.auth.getUser();
 
-  let plan: UcatCheckoutPlan = "weekly";
+  let selection: UcatCheckoutSelection = { tier: "unlimited", interval: "week" };
   try {
-    const body = (await request.clone().json()) as { plan?: unknown };
-    if (isUcatCheckoutPlan(body.plan)) {
-      plan = body.plan;
+    const body = (await request.clone().json()) as unknown;
+    if (isUcatCheckoutSelection(body)) {
+      selection = body;
     }
   } catch {
-    // No body or invalid JSON — default to weekly
+    // No body or invalid JSON — default to Unlimited weekly
   }
 
   if (authError) {
@@ -42,23 +43,28 @@ export async function POST(request: NextRequest) {
   if (!supabaseAdmin) {
     return NextResponse.json(
       { error: "Server not configured" },
-      { status: 500 },
+      { status: 503 },
     );
   }
 
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  const priceId = await resolveCheckoutPriceId(supabaseAdmin, plan);
+  const planPrice = await getUcatPlanPrice(
+    supabaseAdmin,
+    selection.tier,
+    selection.interval,
+  );
+  const priceId = planPrice?.stripe_price_id?.trim() ?? null;
 
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
   if (!stripeSecretKey || !priceId) {
     return NextResponse.json(
-      { error: "Subscription not configured. Please contact support." },
+      { error: "This plan is not available yet. Please try another option." },
       { status: 503 },
     );
   }
 
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
-    .select("id, first_name, last_name, email")
+    .select("id, first_name, last_name, email, ucat_unlimited_trial_consumed_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -110,8 +116,22 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   const trialDays = config?.trial_days ?? 7;
+  const trialEligible = student.ucat_unlimited_trial_consumed_at == null;
 
   const origin = request.headers.get("origin") ?? request.nextUrl.origin;
+
+  const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
+    {
+      metadata: {
+        student_id: student.id,
+        ucat_plan_tier: selection.tier,
+        ucat_billing_interval: selection.interval,
+      },
+    };
+
+  if (trialEligible && trialDays > 0) {
+    subscriptionData.trial_period_days = trialDays;
+  }
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
@@ -122,18 +142,13 @@ export async function POST(request: NextRequest) {
         quantity: 1,
       },
     ],
-    subscription_data: {
-      trial_period_days: trialDays,
-      metadata: {
-        student_id: student.id,
-        ucat_plan: plan,
-      },
-    },
+    subscription_data: subscriptionData,
     payment_method_collection: "always",
     customer_email: student.email ?? undefined,
     metadata: {
       student_id: student.id,
-      ucat_plan: plan,
+      ucat_plan_tier: selection.tier,
+      ucat_billing_interval: selection.interval,
     },
     success_url: `${origin}/dashboard`,
     cancel_url: `${origin}/subscribe?canceled=1`,
@@ -170,35 +185,4 @@ export async function POST(request: NextRequest) {
       { status: 500 },
     );
   }
-}
-
-async function resolveCheckoutPriceId(
-  supabase: NonNullable<typeof supabaseAdmin>,
-  plan: UcatCheckoutPlan,
-): Promise<string | null> {
-  if (plan === "monthly") {
-    const envMonthly = process.env.UCAT_STRIPE_MONTHLY_PRICE_ID?.trim();
-    if (envMonthly) return envMonthly;
-
-    const { data } = await supabase
-      .from("ucat_subscription_config")
-      .select("monthly_stripe_price_id")
-      .not("monthly_stripe_price_id", "is", null)
-      .limit(1)
-      .maybeSingle();
-
-    return data?.monthly_stripe_price_id ?? null;
-  }
-
-  const envWeekly = process.env.UCAT_STRIPE_PRICE_ID?.trim();
-  if (envWeekly) return envWeekly;
-
-  const { data } = await supabase
-    .from("ucat_subscription_config")
-    .select("stripe_price_id")
-    .not("stripe_price_id", "is", null)
-    .limit(1)
-    .maybeSingle();
-
-  return data?.stripe_price_id ?? null;
 }

@@ -2,11 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-type OnboardingChoice = "free" | "pro_trial";
+type OnboardingChoice = "free" | "unlimited_trial";
+
+function parseOnboardingChoice(value: string | undefined): OnboardingChoice | null {
+  if (value === "free" || value === "unlimited_trial") return value;
+  // Legacy client payload
+  if (value === "pro_trial") return "unlimited_trial";
+  return null;
+}
 
 /**
  * POST /api/ucat/onboarding/complete
- * Records required onboarding choice. Pro trial choice does not start checkout —
+ * Records required onboarding choice. Unlimited trial choice does not start checkout —
  * client redirects to Stripe separately.
  */
 export async function POST(request: NextRequest) {
@@ -34,17 +41,18 @@ export async function POST(request: NextRequest) {
   let choice: OnboardingChoice;
   try {
     const body = (await request.json()) as { choice?: string };
-    if (body.choice !== "free" && body.choice !== "pro_trial") {
+    const parsed = parseOnboardingChoice(body.choice);
+    if (!parsed) {
       return NextResponse.json({ error: "Invalid choice" }, { status: 400 });
     }
-    choice = body.choice;
+    choice = parsed;
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
-    .select("id, ucat_onboarding_completed_at, ucat_pro_trial_consumed_at")
+    .select("id, ucat_onboarding_completed_at, ucat_unlimited_trial_consumed_at")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -70,9 +78,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, alreadyCompleted: true });
   }
 
-  if (choice === "pro_trial" && student.ucat_pro_trial_consumed_at) {
+  if (
+    choice === "unlimited_trial" &&
+    student.ucat_unlimited_trial_consumed_at
+  ) {
     return NextResponse.json(
-      { error: "Pro trial is no longer available for this account" },
+      { error: "Unlimited trial is no longer available for this account" },
       { status: 400 },
     );
   }

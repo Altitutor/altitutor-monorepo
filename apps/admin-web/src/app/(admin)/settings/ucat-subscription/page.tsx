@@ -9,6 +9,7 @@ import {
   type UcatSubscriptionConfigRow,
 } from '@/features/ucat-subscription-config/api/ucat-subscription-config';
 import { UcatSubscriptionConfigForm } from '@/features/ucat-subscription-config/components/UcatSubscriptionConfigForm';
+import { UcatPlanPricesForm } from '@/features/ucat-subscription-config/components/UcatPlanPricesForm';
 
 export default function UcatSubscriptionSettingsPage() {
   const router = useRouter();
@@ -46,8 +47,8 @@ export default function UcatSubscriptionSettingsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="flex items-center gap-4 mb-6">
+    <div className="p-6 space-y-6">
+      <div className="flex items-center gap-4">
         <Button
           variant="ghost"
           size="icon"
@@ -59,16 +60,17 @@ export default function UcatSubscriptionSettingsPage() {
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">UCAT subscription</h1>
           <p className="text-muted-foreground">
-            Pro trial, weekly and monthly pricing, practice-day discounts, and Stripe price IDs
+            UCAT Unlimited and UCAT Pro pricing, trial, practice-day discounts, and Stripe IDs
           </p>
         </div>
       </div>
 
       {loadError && !config ? (
-        <p className="text-sm text-destructive mb-4">{loadError}</p>
+        <p className="text-sm text-destructive">{loadError}</p>
       ) : null}
 
       {config ? <UcatSubscriptionConfigForm initial={config} onSaved={load} /> : null}
+      <UcatPlanPricesForm />
     </div>
   );
 }

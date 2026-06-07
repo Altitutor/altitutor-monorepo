@@ -1,27 +1,27 @@
-import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
-import {
-  computeMonthlyProMarketingPricing,
-  computeWeeklyProMarketingPricing,
-} from "@/features/subscription/lib/marketing-plan-pricing";
+import { computeMarketingPlanPricing } from "@/features/subscription/lib/marketing-plan-pricing";
 
 describe("marketing-plan-pricing", () => {
   it("computes weekly ideal and penalty from practice-day discounts", () => {
-    const pricing = computeWeeklyProMarketingPricing(defaultPublicSubscriptionConfig);
+    const pricing = computeMarketingPlanPricing(7500, "week", 1000);
     // 7500 - (7 * 1000) = 500
     expect(pricing.penaltyPeriodCents).toBe(7500);
     expect(pricing.idealPeriodCents).toBe(500);
     expect(pricing.idealWeeklyCents).toBe(500);
+    expect(pricing.penaltyWeeklyCents).toBe(7500);
   });
 
-  it("expresses monthly plans as weekly with billed monthly totals", () => {
-    const pricing = computeMonthlyProMarketingPricing({
-      ...defaultPublicSubscriptionConfig,
-      monthlyBasePriceCents: 22500,
-    });
-    // 22500 - (30 * 1000) = -7500 -> 0
-    expect(pricing.penaltyPeriodCents).toBe(22500);
+  it("converts monthly period prices to per-week using 7/30", () => {
+    const pricing = computeMarketingPlanPricing(30000, "month", 1000);
+    // 30000 - (30 * 1000) = 0
+    expect(pricing.penaltyPeriodCents).toBe(30000);
     expect(pricing.idealPeriodCents).toBe(0);
+    expect(pricing.penaltyWeeklyCents).toBe(7000);
     expect(pricing.idealWeeklyCents).toBe(0);
-    expect(pricing.penaltyWeeklyCents).toBe(5625);
+  });
+
+  it("converts yearly period prices to per-week using 7/365", () => {
+    const pricing = computeMarketingPlanPricing(36500, "year", 0);
+    expect(pricing.penaltyWeeklyCents).toBe(700);
+    expect(pricing.idealWeeklyCents).toBe(700);
   });
 });

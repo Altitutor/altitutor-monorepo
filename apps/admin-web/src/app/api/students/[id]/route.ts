@@ -39,13 +39,21 @@ export async function PATCH(
     const studentId = params.id;
     const body = await request.json();
 
-    const validTierOverrides = ['default', 'force_free', 'force_pro'] as const;
+    const validTierOverrides = [
+      'default',
+      'force_free',
+      'force_unlimited',
+      'force_pro',
+    ] as const;
     if (
       body.ucat_online_tier_override !== undefined &&
       !validTierOverrides.includes(body.ucat_online_tier_override)
     ) {
       return NextResponse.json(
-        { error: 'Invalid ucat_online_tier_override. Must be default, force_free, or force_pro.' },
+        {
+          error:
+            'Invalid ucat_online_tier_override. Must be default, force_free, force_unlimited, or force_pro.',
+        },
         { status: 400 },
       );
     }

@@ -70,6 +70,58 @@ function subscriptionCancelFields(subscription: {
   return { cancel_at_period_end: cancelAtPeriodEnd, cancel_at: null };
 }
 
+type UcatPlanFields = {
+  plan_tier: 'unlimited' | 'pro' | null;
+  billing_interval: 'week' | 'month' | 'year' | null;
+};
+
+async function resolveUcatPlanFields(
+  supabase: SupabaseClient,
+  priceId: string | null,
+  productId: string | null,
+  metadata?: Record<string, string> | null,
+): Promise<UcatPlanFields> {
+  const metaTier = metadata?.ucat_plan_tier;
+  const metaInterval = metadata?.ucat_billing_interval;
+  if (
+    (metaTier === 'unlimited' || metaTier === 'pro') &&
+    (metaInterval === 'week' || metaInterval === 'month' || metaInterval === 'year')
+  ) {
+    return { plan_tier: metaTier, billing_interval: metaInterval };
+  }
+
+  if (priceId) {
+    const { data } = await supabase
+      .from('ucat_plan_prices')
+      .select('plan_tier, billing_interval')
+      .eq('stripe_price_id', priceId)
+      .maybeSingle();
+    if (data?.plan_tier === 'unlimited' || data?.plan_tier === 'pro') {
+      const interval = data.billing_interval;
+      if (interval === 'week' || interval === 'month' || interval === 'year') {
+        return { plan_tier: data.plan_tier, billing_interval: interval };
+      }
+      return { plan_tier: data.plan_tier, billing_interval: null };
+    }
+  }
+
+  if (productId) {
+    const { data: config } = await supabase
+      .from('ucat_subscription_config')
+      .select('unlimited_stripe_product_id, pro_stripe_product_id')
+      .limit(1)
+      .maybeSingle();
+    if (config?.pro_stripe_product_id === productId) {
+      return { plan_tier: 'pro', billing_interval: null };
+    }
+    if (config?.unlimited_stripe_product_id === productId) {
+      return { plan_tier: 'unlimited', billing_interval: null };
+    }
+  }
+
+  return { plan_tier: null, billing_interval: null };
+}
+
 Deno.serve(async (req: Request) => {
   // Health check endpoint
   if (req.method === 'GET' || (req.method === 'POST' && req.url.includes('health'))) {
@@ -710,7 +762,11 @@ Deno.serve(async (req: Request) => {
           subscription?: string;
           customer?: string;
           customer_email?: string;
-          metadata?: { student_id?: string };
+          metadata?: {
+            student_id?: string;
+            ucat_plan_tier?: string;
+            ucat_billing_interval?: string;
+          };
         };
 
         if (session.mode !== 'subscription' || !session.subscription) {
@@ -761,6 +817,16 @@ Deno.serve(async (req: Request) => {
               );
             }
 
+            const planFields = await resolveUcatPlanFields(
+              supabase,
+              priceId,
+              productId,
+              {
+                ...(session.metadata ?? {}),
+                ...(subscription.metadata ?? {}),
+              },
+            );
+
             await supabase.from('student_subscriptions').upsert(
               {
                 student_id: studentId,
@@ -768,6 +834,8 @@ Deno.serve(async (req: Request) => {
                 stripe_subscription_id: subscription.id,
                 stripe_price_id: priceId,
                 stripe_product_id: productId,
+                plan_tier: planFields.plan_tier,
+                billing_interval: planFields.billing_interval,
                 status: subscription.status,
                 ...subscriptionPeriodFields(subscription),
                 ...subscriptionCancelFields(subscription),
@@ -830,12 +898,21 @@ Deno.serve(async (req: Request) => {
               ? (productRaw as { id: string }).id
               : null;
 
+        const planFields = await resolveUcatPlanFields(
+          supabase,
+          priceId,
+          productId,
+          (subscription as { metadata?: Record<string, string> }).metadata ?? null,
+        );
+
         await supabase
           .from('student_subscriptions')
           .update({
             status: subscription.status,
             stripe_price_id: priceId,
             stripe_product_id: productId,
+            plan_tier: planFields.plan_tier,
+            billing_interval: planFields.billing_interval,
             ...subscriptionPeriodFields(subscription),
             ...subscriptionCancelFields(subscription),
             updated_at: new Date().toISOString(),

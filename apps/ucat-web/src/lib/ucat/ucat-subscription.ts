@@ -18,6 +18,8 @@ export type UcatSubscriptionRow = {
   cancel_at: string | null;
   stripe_subscription_id: string;
   stripe_price_id: string | null;
+  plan_tier: string | null;
+  billing_interval: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -44,7 +46,7 @@ export async function getUcatSubscriptionForStudent(
   const { data } = await supabase
     .from("student_subscriptions")
     .select(
-      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, created_at, updated_at",
+      "id, status, current_period_start, current_period_end, cancel_at_period_end, cancel_at, stripe_subscription_id, stripe_price_id, plan_tier, billing_interval, created_at, updated_at",
     )
     .eq("student_id", studentId)
     .eq("subject_id", ucatSubjectId)
@@ -66,6 +68,8 @@ export async function getUcatSubscriptionForStudent(
     cancel_at: data.cancel_at,
     stripe_subscription_id: data.stripe_subscription_id,
     stripe_price_id: data.stripe_price_id,
+    plan_tier: data.plan_tier ?? null,
+    billing_interval: data.billing_interval ?? null,
     created_at: data.created_at,
     updated_at: data.updated_at,
   };

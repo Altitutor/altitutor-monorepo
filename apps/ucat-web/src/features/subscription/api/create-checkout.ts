@@ -1,16 +1,16 @@
-import type { UcatCheckoutPlan } from "@/lib/ucat/subscription-plan";
+import type { UcatCheckoutSelection } from "@/lib/ucat/subscription-plan";
 
 /**
  * Creates a Stripe Checkout Session for UCAT subscription.
  * Returns the redirect URL to Stripe hosted checkout.
  */
 export async function createUcatCheckoutSession(
-  plan: UcatCheckoutPlan = "weekly",
+  selection: UcatCheckoutSelection,
 ): Promise<{ url: string }> {
   const res = await fetch("/api/ucat/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ plan }),
+    body: JSON.stringify(selection),
   });
 
   if (!res.ok) {
