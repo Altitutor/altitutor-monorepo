@@ -14,11 +14,10 @@ import {
   appNavigationFooter,
 } from "@/features/layout/config/navigation";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { AccessUpsellModal } from "@/features/ucat-access/components/access-upsell-modal";
+import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import {
   getUpsellConfigForPath,
   hasAccessForPath,
-  type RequiredUcatAccess,
 } from "@/features/ucat-access/lib/route-access";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
 import { cn } from "@/lib/utils";
@@ -37,9 +36,7 @@ export function AppSidebar({
   const pathname = usePathname();
   const access = useUcatAccess();
   const { showComingSoonModal } = useComingSoon();
-  const [upsellOpen, setUpsellOpen] = useState(false);
-  const [upsellRequiredAccess, setUpsellRequiredAccess] =
-    useState<RequiredUcatAccess | null>(null);
+  const { openInPersonUpsell } = useUpsellDialog();
   const [progressExpanded, setProgressExpanded] = useState(() =>
     pathname.startsWith("/progress"),
   );
@@ -65,9 +62,8 @@ export function AppSidebar({
 
   const openUpsellForPath = (path: string) => {
     const config = getUpsellConfigForPath(path);
-    if (!config) return;
-    setUpsellRequiredAccess(config.requiredAccess);
-    setUpsellOpen(true);
+    if (!config || config.requiredAccess !== "inPerson") return;
+    openInPersonUpsell();
   };
 
   return (
@@ -474,14 +470,6 @@ export function AppSidebar({
           </nav>
         </div>
       </aside>
-      <AccessUpsellModal
-        open={upsellOpen}
-        requiredAccess={upsellRequiredAccess}
-        onOpenChange={(open) => {
-          setUpsellOpen(open);
-          if (!open) setUpsellRequiredAccess(null);
-        }}
-      />
     </>
   );
 }

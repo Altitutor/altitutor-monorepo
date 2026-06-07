@@ -1,16 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Badge } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import { useComingSoon } from "@/features/layout/context/coming-soon-context";
-import { AccessUpsellModal } from "@/features/ucat-access/components/access-upsell-modal";
+import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import {
   getUpsellConfigForPath,
   hasAccessForPath,
-  type RequiredUcatAccess,
 } from "@/features/ucat-access/lib/route-access";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
@@ -29,15 +28,12 @@ export function DashboardPage() {
   const access = useUcatAccess();
   const settingsQuery = useStudyPlannerSettings();
   const projectionQuery = useStudyPlannerProjection(access.hasOnlineAccess);
-  const [upsellOpen, setUpsellOpen] = useState(false);
-  const [upsellRequiredAccess, setUpsellRequiredAccess] =
-    useState<RequiredUcatAccess | null>(null);
+  const { openInPersonUpsell } = useUpsellDialog();
 
   const openUpsellForPath = (path: string) => {
     const config = getUpsellConfigForPath(path);
-    if (!config) return;
-    setUpsellRequiredAccess(config.requiredAccess);
-    setUpsellOpen(true);
+    if (!config || config.requiredAccess !== "inPerson") return;
+    openInPersonUpsell();
   };
 
   const cardGridVariants = useMemo(
@@ -176,14 +172,6 @@ export function DashboardPage() {
           );
         })}
       </motion.div>
-      <AccessUpsellModal
-        open={upsellOpen}
-        requiredAccess={upsellRequiredAccess}
-        onOpenChange={(open) => {
-          setUpsellOpen(open);
-          if (!open) setUpsellRequiredAccess(null);
-        }}
-      />
     </div>
   );
 }

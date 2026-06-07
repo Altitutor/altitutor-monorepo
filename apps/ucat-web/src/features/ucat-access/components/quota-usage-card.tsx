@@ -1,7 +1,5 @@
 "use client";
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Badge,
   Button,
@@ -12,6 +10,7 @@ import {
   CardTitle,
 } from "@altitutor/ui";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { formatQuotaUsageLabel } from "@/features/ucat-access/lib/format-quota-period";
 import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
@@ -49,9 +48,9 @@ function QuotaProgressBar({
 }
 
 export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
-  const router = useRouter();
   const { data, isLoading } = useQuotaUsage();
   const { openQuotaLimit } = useQuotaLimitModal();
+  const { openPlanPicker } = useUpsellDialog();
 
   if (isLoading || !data || data.isQuotaExempt || data.onlineTier !== "free") {
     return null;
@@ -77,7 +76,11 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
       });
       return;
     }
-    router.push("/subscribe");
+    openPlanPicker({
+      title: "Upgrade to UCAT Pro",
+      description:
+        "Compare Free and Pro plans with accountability pricing.",
+    });
   };
 
   if (area && areas.length === 1) {
@@ -158,8 +161,19 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
           <Button type="button" size="sm" onClick={handleUpsell}>
             {anyAtLimit ? "Upgrade to Pro" : "View Pro plans"}
           </Button>
-          <Button type="button" size="sm" variant="outline" asChild>
-            <Link href="/subscribe">Compare plans</Link>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() =>
+              openPlanPicker({
+                title: "Compare plans",
+                description:
+                  "UCAT Free includes limited access. Pro unlocks unlimited use across all areas.",
+              })
+            }
+          >
+            Compare plans
           </Button>
         </div>
       </CardContent>

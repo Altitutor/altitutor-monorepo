@@ -1,4 +1,10 @@
-export { AccessUpsellModal } from "@/features/ucat-access/components/access-upsell-modal";
+export { InPersonUpsellDialog } from "@/features/ucat-access/components/in-person-upsell-dialog";
+export { PlanPickerDialog } from "@/features/ucat-access/components/plan-picker-dialog";
+export { UpsellDialogProvider, useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+export {
+  IN_PERSON_SEARCH_PARAM,
+  UPGRADE_SEARCH_PARAM,
+} from "@/features/ucat-access/lib/upsell-query-params";
 export { OnboardingGateRedirect } from "@/features/ucat-access/components/onboarding-gate-redirect";
 export { QuotaLimitModal } from "@/features/ucat-access/components/quota-limit-modal";
 export {
