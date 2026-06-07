@@ -19,6 +19,7 @@ export * from './components/input';
 export * from './components/list-toolbar';
 export * from './components/label';
 export * from './components/phone-input';
+export * from './lib/phone';
 export * from './components/popover';
 export * from './components/radio-group';
 export * from './components/scroll-area';

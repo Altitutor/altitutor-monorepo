@@ -5,6 +5,7 @@ import PhoneInputLib from 'react-phone-number-input';
 import type { Country, Value as PhoneValue } from 'react-phone-number-input';
 import { cn } from '../lib/cn';
 import { Info } from 'lucide-react';
+import { PhoneCountrySelect } from './phone-country-select';
 import 'react-phone-number-input/style.css';
 
 export interface PhoneInputProps {
@@ -16,7 +17,14 @@ export interface PhoneInputProps {
   error?: string;
   defaultCountry?: Country;
   international?: boolean;
+  countries?: Country[];
+  countrySelectClassName?: string;
 }
+
+const phoneFieldClassName = cn(
+  'phone-input-wrapper flex items-center gap-2',
+  '[&_.PhoneInputInput]:flex [&_.PhoneInputInput]:h-12 [&_.PhoneInputInput]:min-w-0 [&_.PhoneInputInput]:flex-1 [&_.PhoneInputInput]:rounded-md [&_.PhoneInputInput]:border [&_.PhoneInputInput]:border-input [&_.PhoneInputInput]:bg-background [&_.PhoneInputInput]:px-3 [&_.PhoneInputInput]:py-2 [&_.PhoneInputInput]:text-sm [&_.PhoneInputInput]:ring-offset-background [&_.PhoneInputInput]:placeholder:text-muted-foreground [&_.PhoneInputInput]:focus-visible:outline-none [&_.PhoneInputInput]:focus-visible:ring-2 [&_.PhoneInputInput]:focus-visible:ring-ring [&_.PhoneInputInput]:focus-visible:ring-offset-2 [&_.PhoneInputInput]:disabled:cursor-not-allowed [&_.PhoneInputInput]:disabled:opacity-50',
+);
 
 /**
  * PhoneInput component for international phone numbers
@@ -31,10 +39,22 @@ export function PhoneInput({
   error,
   defaultCountry = 'AU',
   international = true,
+  countries,
+  countrySelectClassName,
 }: PhoneInputProps) {
   const handleChange = (phoneValue: PhoneValue) => {
     onChange?.(phoneValue || '');
   };
+
+  const handleNumberKeyDown = React.useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      // Spaces in an empty/partial international field reset the country to defaultCountry.
+      if (event.key === ' ') {
+        event.preventDefault();
+      }
+    },
+    [],
+  );
 
   return (
     <div className={cn('space-y-1', className)}>
@@ -42,22 +62,22 @@ export function PhoneInput({
         <PhoneInputLib
           international={international}
           defaultCountry={defaultCountry}
+          countries={countries}
+          addInternationalOption={false}
+          countryCallingCodeEditable
+          countrySelectComponent={PhoneCountrySelect}
+          countrySelectProps={{ className: countrySelectClassName }}
           value={value as PhoneValue}
           onChange={handleChange}
           disabled={disabled}
           placeholder={placeholder}
           className={cn(
-            'phone-input-wrapper',
-            '[&_.PhoneInputInput]:flex [&_.PhoneInputInput]:h-10 [&_.PhoneInputInput]:w-full [&_.PhoneInputInput]:rounded-md [&_.PhoneInputInput]:border [&_.PhoneInputInput]:border-input [&_.PhoneInputInput]:bg-background [&_.PhoneInputInput]:px-3 [&_.PhoneInputInput]:py-2 [&_.PhoneInputInput]:text-sm [&_.PhoneInputInput]:ring-offset-background [&_.PhoneInputInput]:placeholder:text-muted-foreground [&_.PhoneInputInput]:focus-visible:outline-none [&_.PhoneInputInput]:focus-visible:ring-2 [&_.PhoneInputInput]:focus-visible:ring-ring [&_.PhoneInputInput]:focus-visible:ring-offset-2 [&_.PhoneInputInput]:disabled:cursor-not-allowed [&_.PhoneInputInput]:disabled:opacity-50',
+            phoneFieldClassName,
             error && '[&_.PhoneInputInput]:border-destructive [&_.PhoneInputInput]:focus-visible:ring-destructive',
-            '[&_.PhoneInputCountryIcon]:border-0 [&_.PhoneInputCountryIcon]:bg-transparent',
-            '[&_.PhoneInputCountrySelect]:h-10 [&_.PhoneInputCountrySelect]:rounded-md [&_.PhoneInputCountrySelect]:border [&_.PhoneInputCountrySelect]:border-input [&_.PhoneInputCountrySelect]:bg-background [&_.PhoneInputCountrySelect]:px-2 [&_.PhoneInputCountrySelect]:pr-8 [&_.PhoneInputCountrySelect]:text-sm [&_.PhoneInputCountrySelect]:ring-offset-background [&_.PhoneInputCountrySelect]:focus:outline-none [&_.PhoneInputCountrySelect]:focus:ring-2 [&_.PhoneInputCountrySelect]:focus:ring-ring [&_.PhoneInputCountrySelect]:focus:ring-offset-2 [&_.PhoneInputCountrySelect]:disabled:cursor-not-allowed [&_.PhoneInputCountrySelect]:disabled:opacity-50',
-            '[&_.PhoneInputCountrySelectArrow]:opacity-50 [&_.PhoneInputCountrySelectArrow]:absolute [&_.PhoneInputCountrySelectArrow]:right-2 [&_.PhoneInputCountrySelectArrow]:top-1/2 [&_.PhoneInputCountrySelectArrow]:-translate-y-1/2'
           )}
           numberInputProps={{
-            className: cn(
-              error && 'border-destructive focus-visible:ring-destructive'
-            ),
+            className: cn(error && 'border-destructive focus-visible:ring-destructive'),
+            onKeyDown: handleNumberKeyDown,
           }}
         />
       </div>
@@ -75,4 +95,3 @@ export function PhoneInput({
     </div>
   );
 }
-

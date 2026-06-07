@@ -1,6 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateOptionalStudentPhone } from "@altitutor/ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
+function phoneUpdateErrorMessage(message: string): string {
+  if (message.includes("Invalid phone number format")) {
+    return "Please enter a valid Australian mobile number.";
+  }
+  if (message.includes("already associated with")) {
+    return "This phone number is already linked to another account.";
+  }
+  return "Failed to save your details. Please try again.";
+}
 
 /**
  * POST /api/ucat/signup/complete
@@ -32,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   const firstName = body.firstName?.trim();
   const lastName = body.lastName?.trim();
-  const phone = body.phone?.trim() || null;
+  const hasPhoneField = Object.prototype.hasOwnProperty.call(body, "phone");
 
   if (!firstName || !lastName) {
     return NextResponse.json(
@@ -41,9 +52,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let normalizedPhone: string | null | undefined;
+  if (hasPhoneField) {
+    const phoneResult = validateOptionalStudentPhone(body.phone);
+    if (phoneResult.error) {
+      return NextResponse.json({ error: phoneResult.error }, { status: 400 });
+    }
+    normalizedPhone = phoneResult.phone;
+  }
+
   const email = user.email?.trim().toLowerCase();
   if (!email) {
     return NextResponse.json({ error: "No email on account" }, { status: 400 });
+  }
+
+  const profileUpdate: {
+    first_name: string;
+    last_name: string;
+    updated_at: string;
+    phone?: string | null;
+  } = {
+    first_name: firstName,
+    last_name: lastName,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (hasPhoneField) {
+    profileUpdate.phone = normalizedPhone ?? null;
   }
 
   // Check if a student record already exists for this user
@@ -57,16 +92,15 @@ export async function POST(request: NextRequest) {
   if (existing) {
     const { error: updateError } = await supabaseAdmin
       .from("students")
-      .update({
-        first_name: firstName,
-        last_name: lastName,
-        phone,
-        updated_at: new Date().toISOString(),
-      })
+      .update(profileUpdate)
       .eq("id", existing.id);
 
     if (updateError) {
-      return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
+      console.error("[signup complete] Failed to update student:", updateError);
+      return NextResponse.json(
+        { error: phoneUpdateErrorMessage(updateError.message) },
+        { status: 400 },
+      );
     }
     studentId = existing.id;
   } else {
@@ -82,15 +116,16 @@ export async function POST(request: NextRequest) {
         .from("students")
         .update({
           user_id: user.id,
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          updated_at: new Date().toISOString(),
+          ...profileUpdate,
         })
         .eq("id", byEmail.id);
 
       if (linkError) {
-        return NextResponse.json({ error: "Failed to link profile" }, { status: 500 });
+        console.error("[signup complete] Failed to link student:", linkError);
+        return NextResponse.json(
+          { error: phoneUpdateErrorMessage(linkError.message) },
+          { status: 400 },
+        );
       }
       studentId = byEmail.id;
     } else {
@@ -101,14 +136,17 @@ export async function POST(request: NextRequest) {
         email,
         first_name: firstName,
         last_name: lastName,
-        phone,
+        phone: hasPhoneField ? (normalizedPhone ?? null) : null,
         status: "ACTIVE",
         timezone: "Australia/Adelaide",
       });
 
       if (insertError) {
         console.error("[signup complete] Failed to create student:", insertError);
-        return NextResponse.json({ error: "Failed to create profile" }, { status: 500 });
+        return NextResponse.json(
+          { error: phoneUpdateErrorMessage(insertError.message) },
+          { status: 400 },
+        );
       }
       studentId = newStudentId;
     }

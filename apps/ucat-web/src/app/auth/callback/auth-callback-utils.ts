@@ -28,5 +28,5 @@ export function safeNextPath(next: string | null): string {
   if (next?.startsWith("/") && !next.startsWith("//")) {
     return next;
   }
-  return "/signup/flow";
+  return "/signup/complete";
 }
