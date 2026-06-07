@@ -49,6 +49,7 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (studentError) {
+    console.error("[onboarding/complete] student lookup failed:", studentError);
     return NextResponse.json(
       { error: "Failed to resolve student" },
       { status: 500 },
@@ -57,7 +58,10 @@ export async function POST(request: NextRequest) {
 
   if (!student) {
     return NextResponse.json(
-      { error: "No student profile found" },
+      {
+        error:
+          "No student profile found. Finish signup at /signup/complete first.",
+      },
       { status: 404 },
     );
   }

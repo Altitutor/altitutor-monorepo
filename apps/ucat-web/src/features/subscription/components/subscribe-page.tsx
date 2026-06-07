@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { completeUcatOnboarding } from "@/features/ucat-access/api/complete-onboarding";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
@@ -68,7 +69,9 @@ function formatFreeQuotaLine(
 
 export function SubscribePage() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const access = useUcatAccess();
+  const needsOnboarding = !access.isLoading && !access.onboardingCompleted;
   const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
   const [loadingPlan, setLoadingPlan] = useState<PlanId | "free" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -102,6 +105,7 @@ export function SubscribePage() {
     setError(null);
     try {
       await completeUcatOnboarding("free");
+      await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
       router.push("/dashboard");
       router.refresh();
     } catch (e) {
@@ -128,6 +132,15 @@ export function SubscribePage() {
   return (
     <div className="relative flex min-h-dvh flex-col bg-marketing-cream">
       <NoiseOverlay />
+
+      {needsOnboarding ? (
+        <div
+          className={`relative z-10 border-b border-marketing-primary/20 bg-marketing-primary/10 px-4 py-3 text-center text-sm text-marketing-charcoal ${typo.secondarySans}`}
+          role="status"
+        >
+          Choose UCAT Free or start a Pro trial to continue into the app.
+        </div>
+      ) : null}
 
       {/* Hero */}
       <section className="relative px-4 pt-24 pb-24">

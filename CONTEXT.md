@@ -53,8 +53,8 @@
 - **Pro trial eligibility** — Whether a student may start a Pro trial. False once a Pro trial has ever been started on that account, regardless of outcome (converted, cancelled, or lapsed). Consumed when a Stripe subscription is created with `trialing` status. Admin Force Pro does not consume trial eligibility.
   _Avoid_: Trial available, can trial
 
-- **UCAT onboarding choice** — A required first-login prompt for newly signed-up students: start a Pro trial or explicitly continue on UCAT Free. The student must choose one of the two actions before reaching the dashboard — the modal cannot be dismissed without a choice. Shown once per account. Pro trial can be started later from `/subscribe` or upsell CTAs if still eligible.
-  _Avoid_: Signup tier selection, plan picker at signup
+- **UCAT onboarding choice** — A required first visit to `/subscribe` for newly signed-up students: start a Pro trial or explicitly continue on UCAT Free. The student cannot reach the rest of the app until one action is recorded. Shown once per account. Pro trial can be started later from `/subscribe` or upsell CTAs if still eligible.
+  _Avoid_: Signup tier selection, onboarding modal
 
 - **In-person UCAT access** — An add-on entitlement for tutor-led UCAT class workflows (e.g. assigned sessions and session content). Independent of UCAT Free, Pro trial, and UCAT Pro — a student may hold any combination (e.g. in-person + Free, in-person + Pro).
   _Avoid_: Class subscription, in-person tier

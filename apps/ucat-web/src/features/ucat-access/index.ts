@@ -1,5 +1,5 @@
 export { AccessUpsellModal } from "@/features/ucat-access/components/access-upsell-modal";
-export { OnboardingModal } from "@/features/ucat-access/components/onboarding-modal";
+export { OnboardingGateRedirect } from "@/features/ucat-access/components/onboarding-gate-redirect";
 export { QuotaLimitModal } from "@/features/ucat-access/components/quota-limit-modal";
 export {
   QuotaUsageCard,
