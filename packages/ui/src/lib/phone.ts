@@ -14,18 +14,18 @@ export function isPhoneCountryCodeOnly(value: string | undefined): boolean {
   }
 }
 
-export interface StudentPhoneValidationResult {
+export interface PhoneValidationResult {
   phone: string | null;
   error?: string;
 }
 
 /**
- * Normalizes an optional student phone for storage.
- * Returns null when empty or country-code-only. AU E.164 only (matches DB constraint).
+ * Normalizes an optional phone for storage as international E.164.
+ * Returns null when empty or country-code-only.
  */
-export function validateOptionalStudentPhone(
+export function validateOptionalPhoneE164(
   value: string | undefined,
-): StudentPhoneValidationResult {
+): PhoneValidationResult {
   const trimmed = value?.trim();
   if (!trimmed || isPhoneCountryCodeOnly(trimmed)) {
     return { phone: null };
@@ -46,12 +46,8 @@ export function validateOptionalStudentPhone(
     };
   }
 
-  if (parsed.country !== 'AU') {
-    return {
-      phone: null,
-      error: 'Only Australian mobile numbers are supported.',
-    };
-  }
-
   return { phone: parsed.format('E.164') };
 }
+
+/** @deprecated Use validateOptionalPhoneE164 */
+export const validateOptionalStudentPhone = validateOptionalPhoneE164;

@@ -92,6 +92,7 @@ export function PhoneCountrySelect({
   return (
     <div className={cn('PhoneInputCountry', className)} data-phone-country-select>
       <SearchableSelect<PhoneCountryOption>
+        key={value ?? 'ZZ'}
         items={countryOptions}
         value={selectedOption}
         onValueChange={handleValueChange}
@@ -114,6 +115,7 @@ export function PhoneCountrySelect({
             className="h-12 shrink-0 gap-1 rounded-md border border-input bg-background px-2 font-normal shadow-none"
           >
             <FlagIcon
+              key={value ?? 'ZZ'}
               aria-hidden
               country={value}
               label={selectedOption?.label ?? ''}

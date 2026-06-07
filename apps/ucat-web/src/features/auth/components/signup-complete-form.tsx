@@ -2,15 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
   PhoneInput,
   isPhoneCountryCodeOnly,
-  validateOptionalStudentPhone,
+  validateOptionalPhoneE164,
 } from "@altitutor/ui";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { PROFILE_SETUP_COMPLETE_KEY } from "@/features/auth/lib/signup-profile";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import { cn } from "@/lib/utils";
 
@@ -30,18 +29,27 @@ type Step = 1 | 2;
 interface SignupCompleteFormProps {
   email: string;
   redirectTo?: string;
+  initialFirstName?: string;
+  initialLastName?: string;
+  initialPhone?: string;
 }
 
-export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupCompleteFormProps) {
+export function SignupCompleteForm({
+  email,
+  redirectTo = "/subscribe",
+  initialFirstName = "",
+  initialLastName = "",
+  initialPhone = "",
+}: SignupCompleteFormProps) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
   const [step, setStep] = useState<Step>(1);
 
   // Step 1 fields
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
+  const [firstName, setFirstName] = useState(initialFirstName);
+  const [lastName, setLastName] = useState(initialLastName);
+  const [phone, setPhone] = useState(initialPhone);
 
   // Step 2 fields
   const [password, setPassword] = useState("");
@@ -61,7 +69,7 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
       return;
     }
 
-    const phoneResult = validateOptionalStudentPhone(phone);
+    const phoneResult = validateOptionalPhoneE164(phone);
     if (phoneResult.error) {
       setPhoneError(phoneResult.error);
       return;
@@ -118,7 +126,10 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
 
     setIsSubmitting(true);
     try {
-      const { error: updateError } = await supabase.auth.updateUser({ password });
+      const { error: updateError } = await supabase.auth.updateUser({
+        password,
+        data: { [PROFILE_SETUP_COMPLETE_KEY]: true },
+      });
       if (updateError) {
         setError(updateError.message ?? "Failed to set password.");
         return;
@@ -137,29 +148,14 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
     <div className="relative flex min-h-dvh flex-col bg-marketing-charcoal">
       <NoiseOverlay />
 
-      {/* Header */}
-      <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-        <Link href="/" className="flex items-center">
-          <Image
-            src="/images/logo-banner-darkmode.svg"
-            alt="Alti UCAT"
-            width={140}
-            height={32}
-            className="h-8 w-auto object-contain"
-            priority
-          />
-        </Link>
-      </header>
-
-      {/* Main */}
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
+        <div key={step} className="auth-entrance w-full max-w-md">
           {/* Step indicators */}
           <div className="mb-10 flex items-center gap-3">
             {[1, 2].map((s) => (
               <div key={s} className="flex items-center gap-3">
                 <div
-                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all ${
+                  className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-colors duration-200 ${
                     s === step
                       ? "bg-marketing-accent text-marketing-charcoal"
                       : s < step
@@ -183,7 +179,7 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
                 </div>
                 {s < 2 && (
                   <div
-                    className={`h-px w-12 transition-all ${
+                    className={`h-px w-12 transition-colors duration-200 ${
                       s < step ? "bg-marketing-accent/50" : "bg-white/10"
                     }`}
                   />
@@ -229,7 +225,7 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Jane"
                       disabled={isSubmitting}
-                      className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-all focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+                      className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -248,7 +244,7 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Smith"
                       disabled={isSubmitting}
-                      className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-all focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+                      className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
                     />
                   </div>
                 </div>
@@ -300,7 +296,7 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-all hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
+                  className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors duration-200 hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
                 >
                   {isSubmitting ? "Saving…" : "Next"}
                 </button>
@@ -345,7 +341,7 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="At least 8 characters"
                     disabled={isSubmitting}
-                    className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-all focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+                    className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
                   />
                 </div>
 
@@ -366,7 +362,7 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     placeholder="Repeat your password"
                     disabled={isSubmitting}
-                    className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-all focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+                    className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
                   />
                 </div>
 
@@ -379,7 +375,7 @@ export function SignupCompleteForm({ email, redirectTo = "/subscribe" }: SignupC
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-all hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
+                  className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors duration-200 hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
                 >
                   {isSubmitting ? "Setting up…" : "Complete sign up"}
                 </button>

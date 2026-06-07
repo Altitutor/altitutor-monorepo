@@ -65,6 +65,7 @@ export function PhoneInput({
           countries={countries}
           addInternationalOption={false}
           countryCallingCodeEditable
+          smartCaret={false}
           countrySelectComponent={PhoneCountrySelect}
           countrySelectProps={{ className: countrySelectClassName }}
           value={value as PhoneValue}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateOptionalStudentPhone } from "@altitutor/ui";
+import { validateOptionalPhoneE164 } from "@altitutor/ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
   let normalizedPhone: string | null | undefined;
   if (hasPhoneField) {
-    const phoneResult = validateOptionalStudentPhone(body.phone);
+    const phoneResult = validateOptionalPhoneE164(body.phone);
     if (phoneResult.error) {
       return NextResponse.json({ error: phoneResult.error }, { status: 400 });
     }

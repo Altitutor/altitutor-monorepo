@@ -52,14 +52,14 @@ export async function middleware(request: NextRequest) {
     "/",
     "/login",
     "/signup",
-    "/signup/flow",
     "/auth/callback",
   ];
   const isPublicPath =
     publicPaths.includes(pathname) ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth/") ||
-    pathname === "/api/ucat/subscription-config";
+    pathname === "/api/ucat/subscription-config" ||
+    pathname === "/api/ucat/signup/check-email";
 
   const {
     data: { user },
