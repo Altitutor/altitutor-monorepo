@@ -23,6 +23,8 @@ describe('splitStemDocumentLines', () => {
     expect(result.stems[0]).toContain('whales')
     expect(result.stems[1]).toContain('parliament')
     expect(result.warnings.some((w) => w.includes('before the first marker'))).toBe(true)
+    expect(result.discardedLineIndices.sort((a, b) => a - b)).toEqual([0, 1, 3])
+    expect(result.discardedLineSpans).toEqual([])
   })
 
   it('treats document as one stem when line breaks never reach threshold', () => {
@@ -55,6 +57,7 @@ describe('splitStemDocumentLines', () => {
     expect(result.stems[0]).toContain('whales')
     expect(result.stems[1]).toContain('parliament')
     expect(result.splitLineIndices).toEqual([2])
+    expect(result.discardedLineIndices).toEqual([2, 3])
   })
 
   it('splits when more than threshold consecutive blank lines are present', () => {
@@ -92,6 +95,24 @@ describe('splitStemDocumentLines', () => {
     expect(result.stems).toHaveLength(2)
     expect(result.stems[0]).toBe('First stem body.')
     expect(result.stems[1]).toBe('Second stem body.')
+    expect(result.discardedLineIndices).toEqual([0, 2])
+    expect(result.discardedLineSpans).toEqual([])
+  })
+
+  it('strikes only the marker prefix when remainder is on the same line', () => {
+    const lines = ['Prompt 1 First passage.', 'Prompt 2 Second passage.']
+    const result = splitStemDocumentLines(lines, {
+      mode: 'keyword',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
+    })
+    expect(result.stems).toHaveLength(2)
+    expect(result.discardedLineIndices).toEqual([])
+    expect(result.discardedLineSpans.map((s) => ({ ...s, line: lines[s.lineIndex] }))).toEqual([
+      { lineIndex: 0, start: 0, end: 9, line: 'Prompt 1 First passage.' },
+      { lineIndex: 1, start: 0, end: 9, line: 'Prompt 2 Second passage.' },
+    ])
   })
 
   it('only splits on the configured stem number marker style', () => {

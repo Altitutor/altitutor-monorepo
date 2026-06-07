@@ -17,6 +17,7 @@ import { Settings2 } from 'lucide-react'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { cn } from '@/shared/utils'
 import { BulkImportParseInfoButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseInfoButton'
+import { BulkImportParseLegendButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseLegendButton'
 import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
 import { computeQuestionPasteStats } from '@/features/ucat/questions/components/bulk-import/bulkImportPasteStats'
 import type { BulkImportParseSection } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
@@ -129,7 +130,9 @@ export function Step2PasteDocument({
     return (
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-base font-semibold">Question parsing options</h2>
-        <DropdownMenu>
+        <div className="flex shrink-0 items-center gap-2">
+          <BulkImportParseLegendButton variant="questions" />
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
@@ -213,7 +216,8 @@ export function Step2PasteDocument({
               </div>
             </div>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+        </div>
       </div>
     )
   }
@@ -233,7 +237,8 @@ export function Step2PasteDocument({
             sectionKnown={liveParseSection != null}
           />
         </div>
-        <div className="shrink-0 self-start sm:pt-0.5">
+        <div className="flex shrink-0 items-center gap-2 self-start sm:pt-0.5">
+          <BulkImportParseLegendButton variant="questions" />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button

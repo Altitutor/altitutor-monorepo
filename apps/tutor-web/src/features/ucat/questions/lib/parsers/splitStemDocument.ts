@@ -22,11 +22,21 @@ export const DEFAULT_STEM_SPLIT_OPTIONS: StemSplitOptions = {
   stemNumberIndicator: 'dot',
 }
 
+export type StemSplitDiscardLineSpan = {
+  lineIndex: number
+  start: number
+  end: number
+}
+
 export type SplitStemDocumentResult = {
   stems: string[]
   warnings: string[]
   /** Logical line indices where a new stem begins (for in-editor markers). */
   splitLineIndices: number[]
+  /** Entire logical lines omitted from imported stem text. */
+  discardedLineIndices: number[]
+  /** Prefix spans within a line omitted from imported stem text (e.g. keyword markers). */
+  discardedLineSpans: StemSplitDiscardLineSpan[]
 }
 
 function isBlankLine(line: string): boolean {
@@ -47,13 +57,67 @@ function buildStemNumberMarkerRegex(indicator: StemNumberIndicator): RegExp {
   return new RegExp(`^\\s*(\\d+)${suffix}\\s*(.*)$`)
 }
 
+type MarkerParseResult = {
+  isMarker: boolean
+  remainder: string
+  discardStart: number
+  discardEnd: number
+}
+
+function parseMarkerLine(line: string, re: RegExp): MarkerParseResult {
+  const trimmed = line.trim()
+  const match = re.exec(trimmed)
+  if (!match) {
+    return { isMarker: false, remainder: '', discardStart: 0, discardEnd: 0 }
+  }
+  const remainder = (match[2] ?? '').trim()
+  const leading = line.length - line.trimStart().length
+  const remainderRaw = match[2] ?? ''
+  const discardEndInTrimmed = trimmed.length - remainderRaw.length
+  return {
+    isMarker: true,
+    remainder,
+    discardStart: leading,
+    discardEnd: leading + discardEndInTrimmed,
+  }
+}
+
+function recordMarkerDiscard(
+  lineIndex: number,
+  line: string,
+  marker: MarkerParseResult,
+  discardedLineIndices: number[],
+  discardedLineSpans: StemSplitDiscardLineSpan[]
+): void {
+  if (!marker.isMarker) return
+  if (marker.remainder.length === 0) {
+    discardedLineIndices.push(lineIndex)
+    return
+  }
+  if (marker.discardEnd > marker.discardStart) {
+    discardedLineSpans.push({
+      lineIndex,
+      start: marker.discardStart,
+      end: marker.discardEnd,
+    })
+  }
+}
+
 function splitByLineBreaks(
   lines: string[],
   threshold: number
-): { blocks: string[][]; splitLineIndices: number[]; warnings: string[] } {
+): {
+  blocks: string[][]
+  splitLineIndices: number[]
+  warnings: string[]
+  discardedLineIndices: number[]
+  discardedLineSpans: StemSplitDiscardLineSpan[]
+} {
   const blocks: string[][] = []
   const splitLineIndices: number[] = []
   const warnings: string[] = []
+  const discardedLineIndices: number[] = []
+  const discardedLineSpans: StemSplitDiscardLineSpan[] = []
   let current: string[] = []
   let consecutiveBlank = 0
   let hasSplit = false
@@ -69,6 +133,9 @@ function splitByLineBreaks(
     if (isBlankLine(line)) {
       consecutiveBlank += 1
       if (consecutiveBlank >= threshold && current.some((l) => l.trim().length > 0)) {
+        for (let j = i - threshold + 1; j <= i; j += 1) {
+          if (isBlankLine(lines[j] ?? '')) discardedLineIndices.push(j)
+        }
         flush()
         hasSplit = true
         splitLineIndices.push(i - threshold + 1)
@@ -90,18 +157,27 @@ function splitByLineBreaks(
     warnings.push('Only 1 stem detected. Adjust line-break threshold or split mode if you expected more.')
   }
 
-  return { blocks, splitLineIndices, warnings }
+  return { blocks, splitLineIndices, warnings, discardedLineIndices, discardedLineSpans }
 }
 
 function splitByMarkers(
   lines: string[],
-  isMarker: (line: string) => { isMarker: boolean; remainder: string }
-): { blocks: string[][]; splitLineIndices: number[]; warnings: string[] } {
+  isMarker: (line: string) => MarkerParseResult
+): {
+  blocks: string[][]
+  splitLineIndices: number[]
+  warnings: string[]
+  discardedLineIndices: number[]
+  discardedLineSpans: StemSplitDiscardLineSpan[]
+} {
   const blocks: string[][] = []
   const splitLineIndices: number[] = []
   const warnings: string[] = []
+  const discardedLineIndices: number[] = []
+  const discardedLineSpans: StemSplitDiscardLineSpan[] = []
   let current: string[] = []
   let hasSeenFirstMarker = false
+  let firstMarkerIndex = -1
 
   const flush = (allowPreMarker = false): void => {
     const text = current.join('\n').trim()
@@ -115,6 +191,7 @@ function splitByMarkers(
     const line = lines[i] ?? ''
     const marker = isMarker(line)
     if (marker.isMarker) {
+      if (firstMarkerIndex < 0) firstMarkerIndex = i
       if (!hasSeenFirstMarker) {
         hasSeenFirstMarker = true
         flush(false)
@@ -122,6 +199,7 @@ function splitByMarkers(
         flush(true)
       }
       splitLineIndices.push(i)
+      recordMarkerDiscard(i, line, marker, discardedLineIndices, discardedLineSpans)
       if (marker.remainder.length > 0) current.push(marker.remainder)
       continue
     }
@@ -129,21 +207,32 @@ function splitByMarkers(
   }
   flush(true)
 
+  if (firstMarkerIndex > 0) {
+    for (let i = 0; i < firstMarkerIndex; i += 1) {
+      discardedLineIndices.push(i)
+    }
+  }
+
   if (!hasSeenFirstMarker && lines.some((l) => l.trim().length > 0)) {
     warnings.push('No stem markers found. Content before the first marker is discarded.')
-    return { blocks: [], splitLineIndices, warnings }
+    return {
+      blocks: [],
+      splitLineIndices,
+      warnings,
+      discardedLineIndices: lines.map((_, index) => index),
+      discardedLineSpans,
+    }
   }
 
   if (blocks.length === 0) {
     warnings.push('No stems detected. Check your split settings and document formatting.')
   }
 
-  const leadingDiscarded = lines.findIndex((l) => isMarker(l).isMarker)
-  if (leadingDiscarded > 0) {
-    warnings.push(`${leadingDiscarded} line(s) before the first marker were ignored.`)
+  if (firstMarkerIndex > 0) {
+    warnings.push(`${firstMarkerIndex} line(s) before the first marker were ignored.`)
   }
 
-  return { blocks, splitLineIndices, warnings }
+  return { blocks, splitLineIndices, warnings, discardedLineIndices, discardedLineSpans }
 }
 
 function blocksToStemTexts(blocks: string[][]): string[] {
@@ -159,23 +248,34 @@ export function splitStemDocumentLines(
   const resolved = { ...DEFAULT_STEM_SPLIT_OPTIONS, ...options }
   const threshold = Math.max(1, resolved.lineBreakThreshold)
 
+  const emptyDiscards = {
+    discardedLineIndices: [] as number[],
+    discardedLineSpans: [] as StemSplitDiscardLineSpan[],
+  }
+
   if (resolved.mode === 'line_breaks') {
-    const { blocks, splitLineIndices, warnings } = splitByLineBreaks(lines, threshold)
+    const { blocks, splitLineIndices, warnings, discardedLineIndices, discardedLineSpans } =
+      splitByLineBreaks(lines, threshold)
     return {
       stems: blocksToStemTexts(blocks),
       warnings,
       splitLineIndices,
+      discardedLineIndices,
+      discardedLineSpans,
     }
   }
 
   if (resolved.mode === 'stem_numbers') {
     const stemNumberRe = buildStemNumberMarkerRegex(resolved.stemNumberIndicator)
-    const { blocks, splitLineIndices, warnings } = splitByMarkers(lines, (line) => {
-      const match = stemNumberRe.exec(line.trim())
-      if (!match) return { isMarker: false, remainder: '' }
-      return { isMarker: true, remainder: (match[2] ?? '').trim() }
-    })
-    return { stems: blocksToStemTexts(blocks), warnings, splitLineIndices }
+    const { blocks, splitLineIndices, warnings, discardedLineIndices, discardedLineSpans } =
+      splitByMarkers(lines, (line) => parseMarkerLine(line, stemNumberRe))
+    return {
+      stems: blocksToStemTexts(blocks),
+      warnings,
+      splitLineIndices,
+      discardedLineIndices,
+      discardedLineSpans,
+    }
   }
 
   const prefix = resolved.keywordPrefix.trim()
@@ -184,16 +284,20 @@ export function splitStemDocumentLines(
       stems: [],
       warnings: ['Enter a keyword prefix to split stems.'],
       splitLineIndices: [],
+      ...emptyDiscards,
     }
   }
 
   const keywordRe = buildKeywordMarkerRegex(prefix)
-  const { blocks, splitLineIndices, warnings } = splitByMarkers(lines, (line) => {
-    const match = keywordRe.exec(line.trim())
-    if (!match) return { isMarker: false, remainder: '' }
-    return { isMarker: true, remainder: (match[2] ?? '').trim() }
-  })
-  return { stems: blocksToStemTexts(blocks), warnings, splitLineIndices }
+  const { blocks, splitLineIndices, warnings, discardedLineIndices, discardedLineSpans } =
+    splitByMarkers(lines, (line) => parseMarkerLine(line, keywordRe))
+  return {
+    stems: blocksToStemTexts(blocks),
+    warnings,
+    splitLineIndices,
+    discardedLineIndices,
+    discardedLineSpans,
+  }
 }
 
 export function splitStemDocumentFromDoc(

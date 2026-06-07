@@ -5,18 +5,6 @@ import { Info } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import type { AnswerPasteStats, QuestionPasteStats } from './bulkImportPasteStats'
 
-function LegendSwatch({ className }: { className: string }) {
-  return (
-    <span
-      className={cn(
-        'inline-block h-2.5 min-w-[1.25rem] shrink-0 rounded-sm ring-1 ring-border/60',
-        className
-      )}
-      aria-hidden
-    />
-  )
-}
-
 function StatRow({ label, value }: { label: string; value: string | number }) {
   return (
     <div className="flex justify-between gap-4">
@@ -49,23 +37,6 @@ type AnswersPanelProps = {
 function QuestionsTooltipBody({ stats, sectionKnown }: Omit<QuestionsPanelProps, 'variant'>) {
   return (
     <div className="space-y-3">
-      <div>
-        <p className="font-semibold text-foreground">Highlight legend</p>
-        <ul className="mt-2 space-y-1.5">
-          <li className="flex items-center gap-2">
-            <LegendSwatch className="ucat-parse-hl-q-stem" />
-            <span>Passage / stem</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <LegendSwatch className="ucat-parse-hl-q-question" />
-            <span>Question prompt / numbering</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <LegendSwatch className="ucat-parse-hl-q-option" />
-            <span>Answer options</span>
-          </li>
-        </ul>
-      </div>
       <div>
         <p className="font-semibold text-foreground">Totals (parsed structure)</p>
         {!sectionKnown ? (
@@ -104,48 +75,10 @@ function QuestionsTooltipBody({ stats, sectionKnown }: Omit<QuestionsPanelProps,
   )
 }
 
-function AnswersTooltipBody({
-  stats,
-  includeExplanationsOnImport,
-}: Omit<AnswersPanelProps, 'variant'>) {
-  const explClass = includeExplanationsOnImport ? 'ucat-parse-hl-a-expl' : 'ucat-parse-hl-a-expl-muted'
+function AnswersTooltipBody({ stats }: { stats: AnswerPasteStats }) {
   const totalAnswerLines = stats.totalMcqAnswerRows + stats.totalSyllogismTokenRows
   return (
     <div className="space-y-3">
-      <div>
-        <p className="font-semibold text-foreground">Highlight legend</p>
-        <ul className="mt-2 space-y-1.5">
-          <li className="flex items-center gap-2">
-            <LegendSwatch className="ucat-parse-hl-a-qnum" />
-            <span>Question number</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <LegendSwatch className="ucat-parse-hl-a-letter" />
-            <span>Correct letter or Y/N</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <LegendSwatch className={explClass} />
-            <span>
-              Explanation
-              {!includeExplanationsOnImport ? ' (dimmed — not imported)' : ''}
-            </span>
-          </li>
-          <li className="flex items-center gap-2">
-            <LegendSwatch className="ucat-parse-hl-a-header" />
-            <span>Header row</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <span className="ucat-parse-hl-a-sep font-mono text-xs" aria-hidden>
-              ⇥
-            </span>
-            <span>Tab separators</span>
-          </li>
-          <li className="flex items-center gap-2">
-            <LegendSwatch className="ucat-parse-hl-a-other" />
-            <span>Unrecognized cells</span>
-          </li>
-        </ul>
-      </div>
       <div>
         <p className="font-semibold text-foreground">Totals</p>
         <div className="mt-2 space-y-1">
@@ -204,8 +137,8 @@ export type BulkImportParseInfoButtonProps = QuestionsPanelProps | AnswersPanelP
 export function BulkImportParseInfoButton(props: BulkImportParseInfoButtonProps) {
   const label =
     props.variant === 'questions'
-      ? 'Parse highlight legend and statistics for pasted questions'
-      : 'Parse highlight legend and statistics for pasted answers'
+      ? 'Parse statistics for pasted questions'
+      : 'Parse statistics for pasted answers'
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -229,10 +162,7 @@ export function BulkImportParseInfoButton(props: BulkImportParseInfoButtonProps)
           {props.variant === 'questions' ? (
             <QuestionsTooltipBody stats={props.stats} sectionKnown={props.sectionKnown} />
           ) : (
-            <AnswersTooltipBody
-              stats={props.stats}
-              includeExplanationsOnImport={props.includeExplanationsOnImport}
-            />
+            <AnswersTooltipBody stats={props.stats} />
           )}
         </TooltipContent>
       </Tooltip>

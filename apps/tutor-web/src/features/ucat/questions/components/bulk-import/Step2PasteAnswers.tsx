@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from 'react'
 import type { Json } from '@altitutor/shared'
 import { BulkImportParseInfoButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseInfoButton'
+import { BulkImportParseLegendButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseLegendButton'
 import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
 import { computeAnswerPasteStats } from '@/features/ucat/questions/components/bulk-import/bulkImportPasteStats'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
@@ -84,6 +85,7 @@ export function Step2PasteAnswers({ value, onChange, layout = 'default' }: Step2
             includeExplanationsOnImport
           />
         </div>
+        <BulkImportParseLegendButton variant="answers" includeExplanationsOnImport />
       </div>
 
       <div
