@@ -133,6 +133,21 @@ export function BulkImportQuestionStemsModal({
   })
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null)
   const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
+  /** Blocks parent Dialog close while a nested confirm is opening/open (Radix races onOpenChange). */
+  const suppressDialogCloseRef = useRef(false)
+
+  function queueConfirm(confirm: PendingConfirm) {
+    suppressDialogCloseRef.current = true
+    setPendingConfirm(confirm)
+  }
+
+  function clearPendingConfirm() {
+    setPendingConfirm(null)
+    // Defer so Radix does not treat the alert dismiss as an outside click on the parent dialog.
+    window.setTimeout(() => {
+      suppressDialogCloseRef.current = false
+    }, 0)
+  }
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = categoriesQuery.data ?? []
@@ -193,6 +208,7 @@ export function BulkImportQuestionStemsModal({
         questionNumberOnOwnLine: false,
         answerOptionOnOwnLine: false,
       })
+      suppressDialogCloseRef.current = false
       setPendingConfirm(null)
       step2NewImageFileIdsRef.current = new Set()
       wizard.reset()
@@ -313,8 +329,9 @@ export function BulkImportQuestionStemsModal({
 
   function handleRequestClose() {
     if (status === 'submitting') return
+    if (suppressDialogCloseRef.current || pendingConfirm != null) return
     if (hasUnsavedBulkImportWork) {
-      setPendingConfirm({ type: 'close_modal' })
+      queueConfirm({ type: 'close_modal' })
       return
     }
     performClose()
@@ -326,13 +343,17 @@ export function BulkImportQuestionStemsModal({
       event.preventDefault()
       return
     }
+    if (suppressDialogCloseRef.current || pendingConfirm != null) {
+      event.preventDefault()
+      return
+    }
     if (status === 'submitting') {
       event.preventDefault()
       return
     }
     if (hasUnsavedBulkImportWork) {
       event.preventDefault()
-      setPendingConfirm({ type: 'close_modal' })
+      queueConfirm({ type: 'close_modal' })
     }
   }
 
@@ -455,7 +476,7 @@ export function BulkImportQuestionStemsModal({
   function handlePreviousClick() {
     if (!canGoPrevious) return
     if (stepKind === 'per_stem_questions') {
-      setPendingConfirm({ type: 'back_to_stems' })
+      queueConfirm({ type: 'back_to_stems' })
       return
     }
     setStep((current) => Math.max(0, current - 1))
@@ -464,7 +485,7 @@ export function BulkImportQuestionStemsModal({
   function handleSeparateStemDocumentChange(nextValue: boolean) {
     if (nextValue === separateStemDocument) return
     if (step > 0 && hasDownstreamPasteWork) {
-      setPendingConfirm({ type: 'toggle_separate_stem', nextValue })
+      queueConfirm({ type: 'toggle_separate_stem', nextValue })
       return
     }
     setSeparateStemDocument(nextValue)
@@ -484,7 +505,7 @@ export function BulkImportQuestionStemsModal({
         d.optionExplanations.some((e) => e != null)
     )
     if ((nextMode === 'bulk' && hasPerQuestion) || (nextMode === 'per_question' && hasBulk)) {
-      setPendingConfirm({ type: 'switch_answers_mode', nextMode })
+      queueConfirm({ type: 'switch_answers_mode', nextMode })
       return
     }
     setAnswersInputMode(nextMode)
@@ -510,15 +531,15 @@ export function BulkImportQuestionStemsModal({
         const flat = flattenBulkImportQuestions(wizard.state.stems)
         setPerQuestionAnswers(createDefaultPerQuestionAnswers(flat))
       }
-      setPendingConfirm(null)
+      clearPendingConfirm()
       return
     }
     if (pendingConfirm.type === 'close_modal') {
-      setPendingConfirm(null)
+      clearPendingConfirm()
       performClose()
       return
     }
-    setPendingConfirm(null)
+    clearPendingConfirm()
   }
 
   async function handleImportAll() {
@@ -764,7 +785,12 @@ export function BulkImportQuestionStemsModal({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(next) => (!next ? handleRequestClose() : undefined)}>
+      <Dialog
+        open={open}
+        onOpenChange={(next) => {
+          if (!next && !suppressDialogCloseRef.current) handleRequestClose()
+        }}
+      >
         <DialogContent
           className={cn(
             'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-5xl [&>button]:hidden',
@@ -819,7 +845,7 @@ export function BulkImportQuestionStemsModal({
 
           <div className="min-h-0 flex-1 overflow-hidden">
             {useFullHeightLayout ? (
-              <div className="flex h-full min-h-0 flex-col px-6">
+              <div className="flex h-full min-h-0 flex-col px-6 py-4">
                 <div className="min-h-0 flex-1 overflow-hidden">{renderBody()}</div>
                 {parseError ? (
                   <div className="mt-3 shrink-0 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -834,7 +860,7 @@ export function BulkImportQuestionStemsModal({
               </div>
             ) : (
               <div className="h-full overflow-y-auto">
-                <div className="px-6">
+                <div className="px-6 py-4">
                   {renderBody()}
                   {parseError ? (
                     <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -897,7 +923,7 @@ export function BulkImportQuestionStemsModal({
           description={confirmCopy.description}
           confirmLabel={confirmCopy.confirmLabel}
           onConfirm={resolvePendingConfirm}
-          onCancel={() => setPendingConfirm(null)}
+          onCancel={clearPendingConfirm}
         />
       ) : null}
     </>
