@@ -10,6 +10,14 @@ beforeAll(() => {
   global.fetch = jest.fn().mockResolvedValue({}) as typeof fetch
 })
 
+/** Layout used when question numbers and A./B. options are each on their own line. */
+const OWN_LINE_PARSER_CONFIG = {
+  questionsOnly: true,
+  questionNumberOnOwnLine: true,
+  answerOptionOnOwnLine: true,
+  answerOptionIndicator: 'dot' as const,
+}
+
 const MINACK_OWN_LINE_OPTIONS = `1.
 
 According to the passage, for five months over the summer, the theatre:
@@ -52,9 +60,7 @@ was unsustainable in the past.`
 
 describe('parseFromLines', () => {
   it('parses questions with number and option letters on their own lines (A. / B. layout)', () => {
-    const stems = parseFromLines(MINACK_OWN_LINE_OPTIONS.split(/\r?\n/u), {
-      questionsOnly: true,
-    })
+    const stems = parseFromLines(MINACK_OWN_LINE_OPTIONS.split(/\r?\n/u), OWN_LINE_PARSER_CONFIG)
 
     expect(stems.flatMap((s) => s.questions)).toHaveLength(2)
     expect(stems[0]?.questions[0]?.options).toHaveLength(4)
@@ -153,7 +159,7 @@ False
 C.
 Can't Tell`
 
-    const stems = parseFromLines(input.split(/\r?\n/u), { questionsOnly: true })
+    const stems = parseFromLines(input.split(/\r?\n/u), OWN_LINE_PARSER_CONFIG)
     const questions = stems.flatMap((s) => s.questions)
 
     expect(questions).toHaveLength(4)
@@ -210,7 +216,7 @@ False
 C.
 Can't Tell`
 
-    const stems = parseFromLines(input.split(/\r?\n/u), { questionsOnly: true })
+    const stems = parseFromLines(input.split(/\r?\n/u), OWN_LINE_PARSER_CONFIG)
     const questions = stems.flatMap((s) => s.questions)
 
     expect(questions).toHaveLength(4)

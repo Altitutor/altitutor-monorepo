@@ -665,6 +665,9 @@ export function parseFromLines(
     const trimmed = line.trim()
 
     if (expectingOptionTextLine && currentOption && currentQuestion) {
+      if (isBlank(trimmed)) {
+        continue
+      }
       currentOptionLines = [line]
       flushCurrentOption()
       haveSeenOptionForCurrentQuestion = true
@@ -897,6 +900,9 @@ export function classifyParseLineRoles(
     const trimmed = line.trim()
 
     if (expectingOptionTextLine && currentOption && currentQuestion) {
+      if (isBlank(trimmed)) {
+        continue
+      }
       roles[idx] = 'option'
       currentOptionLines = [line]
       flushCurrentOption()
