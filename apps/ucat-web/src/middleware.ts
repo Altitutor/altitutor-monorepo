@@ -52,6 +52,8 @@ export async function middleware(request: NextRequest) {
     "/",
     "/login",
     "/signup",
+    "/forgot-password",
+    "/reset-password",
     "/auth/callback",
   ];
   const isPublicPath =
@@ -76,6 +78,10 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", origin));
+  }
+
+  if (user && pathname === "/forgot-password") {
     return NextResponse.redirect(new URL("/dashboard", origin));
   }
 
