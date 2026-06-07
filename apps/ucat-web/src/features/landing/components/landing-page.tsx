@@ -1,7 +1,7 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
-import { Button } from "@altitutor/ui";
 import { MarketingHeader } from "./marketing-header";
 import { BrainCircuit, BarChart3, BookOpen } from "lucide-react";
 import {
@@ -28,7 +28,7 @@ export function LandingPage() {
           </p>
           <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
             <Button size="lg" asChild>
-              <Link href="/pricing">View pricing</Link>
+              <Link href="/subscribe">Get started</Link>
             </Button>
             <Button variant="outline" size="lg" asChild>
               <Link href="/login">Log in</Link>
@@ -107,7 +107,7 @@ export function LandingPage() {
             </p>
             <div className="mt-6 flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
               <Button asChild>
-                <Link href="/pricing">View pricing</Link>
+                <Link href="/subscribe">Get started</Link>
               </Button>
               <Button variant="outline" asChild>
                 <Link href="/login">Log in</Link>

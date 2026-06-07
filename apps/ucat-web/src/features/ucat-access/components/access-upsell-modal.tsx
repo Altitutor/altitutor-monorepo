@@ -34,8 +34,8 @@ export function AccessUpsellModal({
   const description = isOnline
     ? "Subscribe to access Learn, Practice, Sets, and Mocks. Keep your in-person classes and add full online practice."
     : "You can add in-person UCAT classes for guided sessions with your tutor. Keep your online subscription and combine both.";
-  const ctaLabel = isOnline ? "View pricing" : "Contact us";
-  const ctaHref = isOnline ? "/pricing" : "mailto:support@altitutor.com.au";
+  const ctaLabel = isOnline ? "Subscribe" : "Contact us";
+  const ctaHref = isOnline ? "/subscribe" : "mailto:support@altitutor.com.au";
 
   const handlePrimaryAction = () => {
     onOpenChange(false);

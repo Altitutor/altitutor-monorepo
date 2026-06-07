@@ -1,9 +1,9 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 import Image from "next/image";
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { Button } from "@altitutor/ui";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useAuth } from "@/features/auth";
 import { UCAT_APP_HEADER_RULE } from "@/lib/ucat-surface-motion";
@@ -45,7 +45,7 @@ export function MarketingHeader() {
           </Button>
         )}
         <Button size="sm" asChild>
-          <Link href={user ? "/subscribe" : "/pricing"}>
+          <Link href="/subscribe">
             {user ? "Subscribe" : "Get started"}
           </Link>
         </Button>

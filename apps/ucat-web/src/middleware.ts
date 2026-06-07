@@ -44,12 +44,15 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  if (pathname === "/pricing") {
+    return NextResponse.redirect(new URL("/subscribe", origin));
+  }
+
   const publicPaths = [
     "/",
     "/login",
     "/signup",
     "/signup/flow",
-    "/pricing",
     "/auth/callback",
   ];
   const isPublicPath =
