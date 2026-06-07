@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { Json } from '@altitutor/shared'
 import type { Resolver, UseFormReturn } from 'react-hook-form'
-import { Controller, useFieldArray, useForm } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
@@ -15,51 +15,22 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
-  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
-  RadioGroup,
-  RadioGroupItem,
-  SearchableSelect,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   useToast,
 } from '@altitutor/ui'
-import { ExternalLink, MonitorPlay, Pencil, Trash2 } from 'lucide-react'
+import { ExternalLink, Trash2 } from 'lucide-react'
+import { cn } from '@/shared/utils'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
-import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
 import { secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
-import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
-import {
-  stemFormValuesToEnginePreviewQuestion,
-  resolveSectionDisplayColumns,
-} from '@/features/ucat/question-engine-preview/mapStemFormToEnginePreview'
-import { UcatTutorStemPreviewExamChrome } from '@/features/ucat/question-engine-preview/UcatTutorStemPreviewExamChrome'
-
-/** Trim leading/trailing blank lines and whitespace from plain text. */
-function trimTextParagraphs(text: string): string {
-  return text
-    .split(/\n/)
-    .map((line) => line.trimEnd())
-    .join('\n')
-    .replace(/^\s*\n+/, '')
-    .replace(/\n+\s*$/, '')
-    .trim()
-}
+import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
 function getFirstValidationMessage(errors: Record<string, unknown>): string {
@@ -90,14 +61,7 @@ export type TagOption = { id: string; name: string }
 /** Section row for the stem form + engine preview layout (two-column vs single column). */
 export type UcatSectionOption = { id: string | null; name: string | null; display_columns?: number | null }
 
-export const EMPTY_DOC: Json = plainTextToProseMirror('')
-
-export const DEFAULT_OPTIONS = [
-  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: true },
-  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: false },
-  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: false },
-  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: false },
-]
+export { EMPTY_DOC, DEFAULT_OPTIONS } from '@/features/ucat/questions/constants/stemFormConstants'
 
 export function UcatQuestionStemDialog({
   open,
@@ -125,8 +89,6 @@ export function UcatQuestionStemDialog({
   onDelete?: () => void
 }) {
   const { toast } = useToast()
-  const [previewOpen, setPreviewOpen] = useState(false)
-  const [previewQuestionIndex, setPreviewQuestionIndex] = useState(0)
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
     if (!initial) {
@@ -200,12 +162,10 @@ export function UcatQuestionStemDialog({
     }
   }, [initial, defaultValues, form])
 
-  // When dialog closes: reset stem ref, preview UI
+  // When dialog closes: reset stem ref
   useEffect(() => {
     if (!open) {
       lastResetStemIdRef.current = null
-      setPreviewOpen(false)
-      setPreviewQuestionIndex(0)
     }
   }, [open])
 
@@ -280,57 +240,8 @@ export function UcatQuestionStemDialog({
 
   const stemId = initial?.id
 
-  const watchedSectionId = form.watch('sectionId')
-  const watchedQuestions = form.watch('questions')
-  const previewSectionTitle =
-    sections.find((s) => s.id === watchedSectionId)?.name?.trim() ||
-    initial?.section_name?.trim() ||
-    'UCAT'
-
-  const sectionDisplayColumns = resolveSectionDisplayColumns(
-    sections.find((s) => s.id === watchedSectionId)?.display_columns ?? undefined,
-    { display_columns: initial?.display_columns }
-  )
-
-  const questionCount = watchedQuestions?.length ?? 0
-  const safePreviewIndex =
-    questionCount > 0 ? Math.min(previewQuestionIndex, questionCount - 1) : 0
-
-  const previewQuestion =
-    questionCount > 0
-      ? stemFormValuesToEnginePreviewQuestion(
-          watchedValues as UcatQuestionStemFormValues,
-          safePreviewIndex,
-          sectionDisplayColumns
-        )
-      : null
-
-  useEffect(() => {
-    if (questionCount === 0) return
-    setPreviewQuestionIndex((idx) => Math.min(idx, questionCount - 1))
-  }, [questionCount])
-
   const headerActions = (
     <div className="flex items-center gap-2">
-      <Button
-        type="button"
-        variant={previewOpen ? 'secondary' : 'outline'}
-        size="sm"
-        className="gap-1.5"
-        onClick={() => setPreviewOpen((prev) => !prev)}
-      >
-        {previewOpen ? (
-          <>
-            <Pencil className="h-4 w-4" />
-            Edit
-          </>
-        ) : (
-          <>
-            <MonitorPlay className="h-4 w-4" />
-            Preview
-          </>
-        )}
-      </Button>
       {stemId != null ? (
         <UcatRowActions
           actions={[
@@ -384,28 +295,19 @@ export function UcatQuestionStemDialog({
       isSaving={loading}
       headerActions={headerActions}
       hideCancel
+      defaultExpanded
     >
-      {previewOpen && previewQuestion ? (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-4 py-3 sm:px-6">
-          <div className="h-full min-h-0 flex-1 overflow-hidden rounded-md border border-border shadow-sm">
-            <UcatTutorStemPreviewExamChrome
-              sectionTitle={previewSectionTitle}
-              questionCount={questionCount}
-              currentQuestionIndex={safePreviewIndex}
-              onQuestionIndexChange={setPreviewQuestionIndex}
-            >
-              <UcatQuestionEnginePreview question={previewQuestion} />
-            </UcatTutorStemPreviewExamChrome>
-          </div>
-        </div>
-      ) : (
-        <UcatQuestionStemFormContent
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <UcatStemEditorShell
+          flush
           form={form}
           sections={sections}
           categories={categories}
           tags={tags}
           stemId={stemId ?? null}
           enableImages
+          sectionTitleOverride={initial?.section_name ?? undefined}
+          displayColumnsFallback={initial?.display_columns ?? undefined}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)
@@ -414,7 +316,7 @@ export function UcatQuestionStemDialog({
             })
           }
         />
-      )}
+      </div>
     </UcatDialogShell>
   )
 }
@@ -423,10 +325,12 @@ export function QuestionTagsSelect({
   questionIndex,
   form,
   tags,
+  compact = false,
 }: {
   questionIndex: number
   form: UseFormReturn<UcatQuestionStemFormValues>
   tags: TagOption[]
+  compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
   const selectedIds = (form.watch(`questions.${questionIndex}.tagIds`) ?? []) as string[]
@@ -442,7 +346,14 @@ export function QuestionTagsSelect({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button type="button" variant="outline" className="w-full justify-start text-left font-normal min-h-9">
+        <Button
+          type="button"
+          variant="outline"
+          className={cn(
+            'justify-start text-left font-normal min-h-9',
+            compact ? 'w-full truncate px-2 text-xs' : 'w-full'
+          )}
+        >
           {selectedTags.length === 0 ? 'Add tags...' : `${selectedTags.length} tag(s) selected`}
         </Button>
       </PopoverTrigger>
@@ -471,628 +382,5 @@ export function QuestionTagsSelect({
         </Command>
       </PopoverContent>
     </Popover>
-  )
-}
-
-export function QuestionOptionsEditor({
-  form,
-  questionIndex,
-  stemType,
-  stemId,
-  enableImages = true,
-  onNewImageFileIds,
-}: {
-  form: UseFormReturn<UcatQuestionStemFormValues>
-  questionIndex: number
-  stemType: 'multiple_choice' | 'syllogism'
-  stemId?: string | null
-  enableImages?: boolean
-  onNewImageFileIds: (fileIds: string[]) => void
-}) {
-  const optionsArray = useFieldArray({ control: form.control, name: `questions.${questionIndex}.options` })
-
-  const isMultipleChoice = stemType === 'multiple_choice'
-  const isSyllogism = stemType === 'syllogism'
-  const optionsLabel = isMultipleChoice ? 'Answer options' : 'Statements'
-
-  const correctIndex = optionsArray.fields.findIndex(
-    (_, i) => form.watch(`questions.${questionIndex}.options.${i}.isAnswer`)
-  )
-  const correctValue = correctIndex >= 0 ? String(correctIndex) : ''
-
-  const setCorrectIndex = (index: number) => {
-    optionsArray.fields.forEach((_, i) => {
-      form.setValue(`questions.${questionIndex}.options.${i}.isAnswer`, i === index, { shouldDirty: true })
-    })
-  }
-
-  return (
-    <div className="rounded border bg-muted/20 p-3 space-y-2">
-      {isMultipleChoice ? (
-        <>
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium">{optionsLabel}</h4>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => optionsArray.append({ answerText: '', answerExplanation: '', isAnswer: false })}
-            >
-              Add
-            </Button>
-          </div>
-          <RadioGroup value={correctValue} onValueChange={(v) => setCorrectIndex(Number(v))}>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Answer options</TableHead>
-                  <TableHead className="w-[80px]">Correct</TableHead>
-                  <TableHead>Answer explanation</TableHead>
-                  <TableHead className="w-[60px]" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {optionsArray.fields.map((option, optionIndex) => (
-                  <TableRow key={option.id}>
-                    <TableCell className="align-top">
-                      <UcatRichTextEditor
-                        value={form.watch(
-                          `questions.${questionIndex}.options.${optionIndex}.answerText`
-                        ) as Json}
-                        onChange={(val) =>
-                          form.setValue(
-                            `questions.${questionIndex}.options.${optionIndex}.answerText`,
-                            val,
-                            { shouldDirty: true }
-                          )
-                        }
-                        minHeight="3rem"
-                        stemId={stemId ?? null}
-                        enableImages={enableImages}
-                        onImageFileIdsChange={(fileIds) => onNewImageFileIds(fileIds)}
-                      />
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <label
-                        htmlFor={`q-${questionIndex}-opt-${optionIndex}-correct`}
-                        className="flex items-center shrink-0 cursor-pointer"
-                      >
-                        <RadioGroupItem
-                          id={`q-${questionIndex}-opt-${optionIndex}-correct`}
-                          value={String(optionIndex)}
-                        />
-                      </label>
-                    </TableCell>
-                    <TableCell className="align-top">
-                      <UcatRichTextEditor
-                        value={form.watch(
-                          `questions.${questionIndex}.options.${optionIndex}.answerExplanation`
-                        ) as Json | null | undefined}
-                        onChange={(val) =>
-                          form.setValue(
-                            `questions.${questionIndex}.options.${optionIndex}.answerExplanation`,
-                            val,
-                            { shouldDirty: true }
-                          )
-                        }
-                        minHeight="3rem"
-                        stemId={stemId ?? null}
-                        enableImages={enableImages}
-                        onImageFileIdsChange={(fileIds) => onNewImageFileIds(fileIds)}
-                      />
-                    </TableCell>
-                    <TableCell className="align-top">
-                      {optionsArray.fields.length > 1 ? (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => {
-                            const optionVal = form.getValues(
-                              `questions.${questionIndex}.options.${optionIndex}`
-                            )
-                            const hasContent =
-                              optionVal &&
-                              (trimTextParagraphs(proseMirrorToPlainText(optionVal.answerText as Json) ?? '') !== '' ||
-                                (optionVal.answerExplanation &&
-                                  trimTextParagraphs(
-                                    proseMirrorToPlainText(optionVal.answerExplanation as Json) ?? ''
-                                  ) !== ''))
-
-                            if (
-                              !hasContent ||
-                              window.confirm(
-                                'This will delete an answer option with content. Changes will be lost. Do you want to continue?'
-                              )
-                            ) {
-                              optionsArray.remove(optionIndex)
-                            }
-                          }}
-                          className="!text-destructive hover:!text-destructive hover:bg-destructive/10"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </RadioGroup>
-        </>
-      ) : (
-        <>
-          <div className="flex items-center justify-between">
-            <h4 className="text-sm font-medium">{optionsLabel}</h4>
-          </div>
-          {optionsArray.fields.map((option, optionIndex) => (
-            <div
-              key={option.id}
-              className="grid gap-2 md:grid-cols-[minmax(0,2fr),auto,minmax(0,2fr),auto] items-start"
-            >
-              <UcatRichTextEditor
-              value={form.watch(
-                `questions.${questionIndex}.options.${optionIndex}.answerText`
-              ) as Json}
-              onChange={(val) =>
-                form.setValue(
-                  `questions.${questionIndex}.options.${optionIndex}.answerText`,
-                  val,
-                  { shouldDirty: true }
-                )
-              }
-              minHeight="3rem"
-              stemId={stemId ?? null}
-              enableImages={enableImages}
-              onImageFileIdsChange={(fileIds) => onNewImageFileIds(fileIds)}
-            />
-            <Tabs
-              value={form.watch(`questions.${questionIndex}.options.${optionIndex}.isAnswer`) ? 'yes' : 'no'}
-              onValueChange={(v) =>
-                form.setValue(`questions.${questionIndex}.options.${optionIndex}.isAnswer`, v === 'yes', {
-                  shouldDirty: true,
-                })
-              }
-            >
-              <TabsList className="h-9">
-                <TabsTrigger value="yes" className="px-3 text-xs">
-                  Yes
-                </TabsTrigger>
-                <TabsTrigger value="no" className="px-3 text-xs">
-                  No
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
-            <UcatRichTextEditor
-              value={form.watch(
-                `questions.${questionIndex}.options.${optionIndex}.answerExplanation`
-              ) as Json | null | undefined}
-              onChange={(val) =>
-                form.setValue(
-                  `questions.${questionIndex}.options.${optionIndex}.answerExplanation`,
-                  val,
-                  { shouldDirty: true }
-                )
-              }
-              minHeight="3rem"
-              stemId={stemId ?? null}
-              enableImages={enableImages}
-              onImageFileIdsChange={(fileIds) => onNewImageFileIds(fileIds)}
-            />
-            {!isSyllogism && optionsArray.fields.length > 1 && (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                onClick={() => {
-                  const option = form.getValues(
-                    `questions.${questionIndex}.options.${optionIndex}`
-                  )
-                  const hasContent =
-                    option &&
-                    (trimTextParagraphs(proseMirrorToPlainText(option.answerText as Json) ?? '') !== '' ||
-                      (option.answerExplanation &&
-                        trimTextParagraphs(
-                          proseMirrorToPlainText(option.answerExplanation as Json) ?? ''
-                        ) !== ''))
-
-                  if (
-                    !hasContent ||
-                    window.confirm(
-                      'This will delete an answer option with content. Changes will be lost. Do you want to continue?'
-                    )
-                  ) {
-                    optionsArray.remove(optionIndex)
-                  }
-                }}
-                className="shrink-0 !text-destructive hover:!text-destructive hover:bg-destructive/10 self-center"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            )}
-            </div>
-          ))}
-        </>
-      )}
-    </div>
-  )
-}
-
-export type UcatQuestionStemFormContentProps = {
-  form: UseFormReturn<UcatQuestionStemFormValues>
-  sections: UcatSectionOption[]
-  categories: CategoryOption[]
-  tags: TagOption[]
-  stemId?: string | null
-  enableImages?: boolean
-  onNewImageFileIds?: (fileIds: string[]) => void
-}
-
-export function UcatQuestionStemFormContent({
-  form,
-  sections,
-  categories,
-  tags,
-  stemId,
-  enableImages = true,
-  onNewImageFileIds,
-}: UcatQuestionStemFormContentProps) {
-  const { toast } = useToast()
-  const { fields, append, remove } = useFieldArray({ control: form.control, name: 'questions' })
-
-  const sectionId = form.watch('sectionId')
-  const categoriesFiltered = useMemo(
-    () => (sectionId ? categories.filter((c) => (c.ucat_section_id ?? null) === sectionId) : []),
-    [categories, sectionId]
-  )
-
-  const stemType = form.watch('questions.0.questionType') as 'multiple_choice' | 'syllogism' | undefined
-
-  useEffect(() => {
-    if (stemType !== 'syllogism') return
-
-    const decisionMakingSection = sections.find((section) => section.name === 'Decision Making')
-    if (decisionMakingSection?.id && form.watch('sectionId') !== decisionMakingSection.id) {
-      form.setValue('sectionId', decisionMakingSection.id, { shouldDirty: true })
-    }
-
-    const sectionIdForCategory = decisionMakingSection?.id ?? form.watch('sectionId')
-    if (!sectionIdForCategory) return
-
-    const syllogismsCategory = categories.find((category) => {
-      const rawName = (category.name ?? '').toLowerCase().trim()
-      const normalizedName = rawName.replace(/\\+$/g, '')
-      return normalizedName.startsWith('syllogism') && (category.ucat_section_id ?? null) === sectionIdForCategory
-    })
-
-    if (syllogismsCategory?.id && form.watch('categoryId') !== syllogismsCategory.id) {
-      form.setValue('categoryId', syllogismsCategory.id, { shouldDirty: true })
-    }
-  }, [stemType, sections, categories, form])
-
-  function setStemType(value: 'multiple_choice' | 'syllogism') {
-    const currentStemType = stemType ?? 'multiple_choice'
-    if (currentStemType === value) return
-
-    if (value === 'syllogism') {
-      const currentQuestions = form.getValues('questions') ?? []
-      const firstQuestion =
-        currentQuestions[0] ?? {
-          questionText: EMPTY_DOC,
-          questionType: 'multiple_choice' as const,
-          difficulty: null,
-          timeBurdenSeconds: '',
-          tagIds: [],
-          options: [...DEFAULT_OPTIONS],
-        }
-
-      const hasQuestionText =
-        trimTextParagraphs(proseMirrorToPlainText(firstQuestion.questionText as Json) ?? '') !== ''
-      const hasOptionContent = (firstQuestion.options ?? []).some(
-        (opt) =>
-          trimTextParagraphs(proseMirrorToPlainText(opt.answerText as Json) ?? '') !== '' ||
-          trimTextParagraphs(
-            opt.answerExplanation ? proseMirrorToPlainText(opt.answerExplanation as Json) ?? '' : ''
-          ) !== ''
-      )
-
-      const otherQuestionsHaveData = currentQuestions.slice(1).some((question) => {
-        const hasOtherQuestionText =
-          trimTextParagraphs(proseMirrorToPlainText(question.questionText as Json) ?? '') !== ''
-        const hasOtherOptionContent = (question.options ?? []).some(
-          (opt) =>
-            trimTextParagraphs(proseMirrorToPlainText(opt.answerText as Json) ?? '') !== '' ||
-            trimTextParagraphs(
-              opt.answerExplanation ? proseMirrorToPlainText(opt.answerExplanation as Json) ?? '' : ''
-            ) !== ''
-        )
-        return hasOtherQuestionText || hasOtherOptionContent
-      })
-
-      const willRemoveData = hasQuestionText || hasOptionContent || otherQuestionsHaveData
-
-      if (willRemoveData) {
-        const confirmed =
-          typeof window !== 'undefined'
-            ? window.confirm(
-                'Switching the type to "Syllogism" will reset questions and statements and remove existing question text and options. Do you want to continue?'
-              )
-            : false
-
-        if (!confirmed) {
-          return
-        }
-      }
-
-      const syllogismTemplateQuestion = {
-        ...firstQuestion,
-        questionType: 'syllogism' as const,
-        questionText: plainTextToProseMirror(
-          'Place ‘Yes’ if the conclusion does follow. Place ‘No’ if the conclusion does not follow.'
-        ) as Json,
-        options: Array.from({ length: 5 }, () => ({
-          answerText: EMPTY_DOC,
-          answerExplanation: null,
-          isAnswer: false,
-        })),
-      }
-
-      form.setValue('questions', [syllogismTemplateQuestion], { shouldDirty: true })
-      return
-    }
-
-    const currentQuestions = form.getValues('questions') ?? []
-    currentQuestions.forEach((_, i) => {
-      form.setValue(`questions.${i}.questionType`, value, { shouldDirty: true })
-    })
-  }
-
-  const handleNewImageFileIds = (fileIds: string[]) => {
-    if (!onNewImageFileIds || !enableImages || fileIds.length === 0) return
-    onNewImageFileIds(fileIds)
-  }
-
-  return (
-    <div className="h-full overflow-y-auto">
-      <form className="flex flex-col" onSubmit={(e) => e.preventDefault()}>
-        {/* Row 1: Stem text (left) | Properties (right) */}
-        <div className="flex border-b">
-          <section className="flex-1 min-w-0 p-6">
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium">Stem text</span>
-              <UcatRichTextEditor
-                value={form.watch('stemText') as Json}
-                onChange={(val) => form.setValue('stemText', val, { shouldDirty: true })}
-                minHeight="12rem"
-                stemId={enableImages ? stemId ?? null : null}
-                enableImages={enableImages}
-                onImageFileIdsChange={handleNewImageFileIds}
-              />
-            </label>
-          </section>
-          <aside className="w-80 flex-shrink-0 border-l p-6 space-y-4">
-            <h2 className="font-semibold">Properties</h2>
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium">Section</span>
-              <SearchableSelect<{ id: string | null; name: string | null }>
-                items={sections}
-                value={sections.find((s) => (s.id ?? '') === form.watch('sectionId')) ?? null}
-                onValueChange={(section) => {
-                  if (stemType === 'syllogism') {
-                    toast({
-                      description: 'Section is locked for syllogism stems.',
-                      variant: 'destructive',
-                    })
-                    return
-                  }
-                  form.setValue('sectionId', section?.id ?? '', { shouldDirty: true })
-                  form.setValue('categoryId', null, { shouldDirty: true })
-                }}
-                getItemLabel={(s) => s.name ?? 'Untitled'}
-                getItemId={(s) => s.id ?? ''}
-                placeholder="Select section"
-              />
-            </label>
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium">Category</span>
-              <SearchableSelect<{ id: string; name: string }>
-                items={[
-                  { id: 'none', name: 'No category' },
-                  ...categoriesFiltered.map((c) => ({ id: c.id ?? 'none', name: c.name ?? 'Untitled' })),
-                ]}
-                value={(() => {
-                  const categoryId = form.watch('categoryId')
-                  const opts = [
-                    { id: 'none', name: 'No category' },
-                    ...categoriesFiltered.map((c) => ({ id: c.id ?? 'none', name: c.name ?? 'Untitled' })),
-                  ]
-                  return categoryId === null ? opts[0]! : opts.find((o) => o.id === categoryId) ?? null
-                })()}
-                onValueChange={(item) => {
-                  if (stemType === 'syllogism') {
-                    toast({
-                      description: 'Category is locked for syllogism stems.',
-                      variant: 'destructive',
-                    })
-                    return
-                  }
-                  form.setValue('categoryId', item?.id === 'none' ? null : item?.id ?? null, { shouldDirty: true })
-                }}
-                getItemLabel={(c) => c.name}
-                getItemId={(c) => c.id}
-                placeholder={!sectionId ? 'Select section first' : 'Select category'}
-                disabled={!sectionId}
-              />
-            </label>
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium">Visibility</span>
-              <SearchableSelect<{ value: 'public' | 'private'; label: string }>
-                items={[
-                  { value: 'public', label: 'Public' },
-                  { value: 'private', label: 'Private' },
-                ]}
-                value={
-                  form.watch('isPrivate')
-                    ? { value: 'private', label: 'Private' }
-                    : { value: 'public', label: 'Public' }
-                }
-                onValueChange={(item) => form.setValue('isPrivate', item?.value === 'private', { shouldDirty: true })}
-                getItemLabel={(i) => i.label}
-                getItemId={(i) => i.value}
-              />
-            </label>
-            <label className="block space-y-1 text-sm">
-              <span className="font-medium">Type (all questions)</span>
-              <SearchableSelect<{ value: 'multiple_choice' | 'syllogism'; label: string }>
-                items={[
-                  { value: 'multiple_choice', label: 'Multiple Choice' },
-                  { value: 'syllogism', label: 'Syllogism' },
-                ]}
-                value={
-                  stemType === 'syllogism'
-                    ? { value: 'syllogism', label: 'Syllogism' }
-                    : { value: 'multiple_choice', label: 'Multiple Choice' }
-                }
-                onValueChange={(item) => item && setStemType(item.value)}
-                getItemLabel={(i) => i.label}
-                getItemId={(i) => i.value}
-              />
-            </label>
-          </aside>
-        </div>
-
-        {/* Rows 2..n: Question text + options (left) | tags, difficulty, time (right) */}
-        {fields.map((field, questionIndex) => (
-          <div key={field.id} className="flex border-b">
-            <section className="flex-1 min-w-0 p-6 space-y-3">
-              <h3 className="font-medium">Question {questionIndex + 1}</h3>
-              <label className="block space-y-1 text-sm">
-                <span>Question text</span>
-                <UcatRichTextEditor
-                  value={form.watch(`questions.${questionIndex}.questionText`) as Json}
-                  onChange={(val) =>
-                    form.setValue(`questions.${questionIndex}.questionText`, val, { shouldDirty: true })
-                  }
-                  minHeight="4rem"
-                  stemId={enableImages ? stemId ?? null : null}
-                  enableImages={enableImages}
-                  onImageFileIdsChange={handleNewImageFileIds}
-                />
-              </label>
-              <QuestionOptionsEditor
-                form={form}
-                questionIndex={questionIndex}
-                stemType={stemType ?? 'multiple_choice'}
-                stemId={enableImages ? stemId : null}
-                enableImages={enableImages}
-                onNewImageFileIds={handleNewImageFileIds}
-              />
-            </section>
-            <aside className="w-80 flex-shrink-0 border-l p-6 space-y-3">
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Tags</span>
-                <QuestionTagsSelect questionIndex={questionIndex} form={form} tags={tags} />
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Difficulty (0–1)</span>
-                <Input type="number" step="0.01" {...form.register(`questions.${questionIndex}.difficulty`)} />
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Time burden (mm:ss or seconds)</span>
-                <Input
-                  type="text"
-                  placeholder="e.g. 1:30 or 90"
-                  {...form.register(`questions.${questionIndex}.timeBurdenSeconds`)}
-                />
-              </label>
-              <label className="block space-y-1 text-sm">
-                <span className="font-medium">Answer explanation</span>
-                <Controller
-                  control={form.control}
-                  name={`questions.${questionIndex}.answerExplanation`}
-                  render={({ field }) => (
-                    <UcatRichTextEditor
-                      value={(field.value ?? null) as Json | null | undefined}
-                      onChange={(val) =>
-                        form.setValue(field.name, val, { shouldDirty: true })
-                      }
-                      minHeight="3rem"
-                      stemId={enableImages ? stemId ?? null : null}
-                      enableImages={enableImages}
-                      onImageFileIdsChange={(fileIds) => handleNewImageFileIds(fileIds)}
-                    />
-                  )}
-                />
-              </label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const questions = form.getValues('questions') ?? []
-                  const question = questions[questionIndex]
-
-                  const hasQuestionText =
-                    question &&
-                    trimTextParagraphs(
-                      proseMirrorToPlainText((question.questionText as Json) ?? EMPTY_DOC) ?? ''
-                    ) !== ''
-                  const hasOptionContent =
-                    question &&
-                    (question.options ?? []).some((opt) => {
-                      const answerText = trimTextParagraphs(
-                        proseMirrorToPlainText((opt.answerText as Json) ?? EMPTY_DOC) ?? ''
-                      )
-                      const answerExplanation = opt.answerExplanation
-                        ? trimTextParagraphs(
-                            proseMirrorToPlainText((opt.answerExplanation as Json) ?? EMPTY_DOC) ?? ''
-                          )
-                        : ''
-                      return answerText !== '' || answerExplanation !== ''
-                    })
-
-                  if (!hasQuestionText && !hasOptionContent) {
-                    remove(questionIndex)
-                    return
-                  }
-
-                  if (
-                    window.confirm(
-                      'This will delete a question with content. Changes will be lost. Do you want to continue?'
-                    )
-                  ) {
-                    remove(questionIndex)
-                  }
-                }}
-                className="w-full justify-center border-destructive !text-destructive hover:!text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete question
-              </Button>
-            </aside>
-          </div>
-        ))}
-
-        <div className="p-6 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() =>
-              append({
-                questionText: EMPTY_DOC,
-                questionType: stemType ?? 'multiple_choice',
-                answerExplanation: null,
-                difficulty: null,
-                timeBurdenSeconds: '',
-                tagIds: [],
-                options: [...DEFAULT_OPTIONS],
-              })
-            }
-          >
-            Add Question
-          </Button>
-        </div>
-      </form>
-    </div>
   )
 }

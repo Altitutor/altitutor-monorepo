@@ -40,8 +40,16 @@ export function stemFormValuesToEnginePreviewQuestion(
     id: `preview-opt-${questionIndex}-${index}`,
     index,
     text: proseMirrorToPlainText(opt.answerText)?.trim() ?? '',
+    answerJson:
+      opt.answerText != null && typeof opt.answerText === 'object'
+        ? (opt.answerText as Record<string, unknown>)
+        : null,
     isAnswer: opt.isAnswer,
     answerExplanation: cleanRichExplanationPlain(opt.answerExplanation ?? null),
+    answerExplanationJson:
+      opt.answerExplanation != null && typeof opt.answerExplanation === 'object'
+        ? (opt.answerExplanation as Record<string, unknown>)
+        : null,
   }))
 
   const syllogismPattern = (q as { syllogismAnswerPattern?: string | null }).syllogismAnswerPattern ?? null
@@ -57,6 +65,7 @@ export function stemFormValuesToEnginePreviewQuestion(
 
   return {
     id: `preview-q-${questionIndex}`,
+    questionNumber: questionIndex + 1,
     sectionDisplayColumns,
     stemText: proseMirrorToPlainText(values.stemText)?.trim() ?? '',
     stemJson,
@@ -65,5 +74,9 @@ export function stemFormValuesToEnginePreviewQuestion(
     questionType: q.questionType,
     options: resolvedOptions,
     answerExplanation: cleanRichExplanationPlain(q.answerExplanation ?? null),
+    answerExplanationJson:
+      q.answerExplanation != null && typeof q.answerExplanation === 'object'
+        ? (q.answerExplanation as Record<string, unknown>)
+        : null,
   }
 }

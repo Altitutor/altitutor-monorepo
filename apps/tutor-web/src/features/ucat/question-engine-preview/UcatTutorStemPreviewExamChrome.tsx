@@ -17,6 +17,8 @@ type UcatTutorStemPreviewExamChromeProps = {
   /** 0-based index of the question shown in the preview body. */
   currentQuestionIndex: number
   onQuestionIndexChange: (index: number) => void
+  /** When false, hides the in-chrome Navigator button and overlay (stem editor uses right-column nav). */
+  showNavigator?: boolean
   children: React.ReactNode
 }
 
@@ -29,6 +31,7 @@ export function UcatTutorStemPreviewExamChrome({
   questionCount,
   currentQuestionIndex,
   onQuestionIndexChange,
+  showNavigator = true,
   children,
 }: UcatTutorStemPreviewExamChromeProps) {
   const [navigatorOpen, setNavigatorOpen] = useState(false)
@@ -56,7 +59,7 @@ export function UcatTutorStemPreviewExamChrome({
   const hasNext = questionCount > 1 && safeIndex < questionCount - 1
 
   const navigatorOverlay =
-    navigatorOpen && questionCount > 0 ? (
+    showNavigator && navigatorOpen && questionCount > 0 ? (
       <div
         role="presentation"
         className="flex h-full w-full items-center justify-center bg-black/20 p-4"
@@ -118,6 +121,7 @@ export function UcatTutorStemPreviewExamChrome({
     ) : null
 
   return (
+    <div className="flex h-full min-h-0 flex-1 flex-col">
     <UcatExamShell
       sectionTitle={sectionTitle.trim() || 'UCAT'}
       sectionTitleRight={questionTitleRight}
@@ -162,15 +166,17 @@ export function UcatTutorStemPreviewExamChrome({
                 </span>
               </UcatExamActionButton>
             ) : null}
-            <UcatExamActionButton
-              type="button"
-              onClick={() => setNavigatorOpen(true)}
-              icon={<Navigation className="h-4 w-4" />}
-            >
-              <span className="text-[14pt]">
-                Na<span className="underline">v</span>igator
-              </span>
-            </UcatExamActionButton>
+            {showNavigator ? (
+              <UcatExamActionButton
+                type="button"
+                onClick={() => setNavigatorOpen(true)}
+                icon={<Navigation className="h-4 w-4" />}
+              >
+                <span className="text-[14pt]">
+                  Na<span className="underline">v</span>igator
+                </span>
+              </UcatExamActionButton>
+            ) : null}
             {hasNext ? (
               <UcatExamActionButton
                 type="button"
@@ -191,5 +197,6 @@ export function UcatTutorStemPreviewExamChrome({
     >
       {children}
     </UcatExamShell>
+    </div>
   )
 }

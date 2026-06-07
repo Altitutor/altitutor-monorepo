@@ -25,9 +25,8 @@ import {
   EMPTY_DOC,
   type CategoryOption,
   type TagOption,
-  UcatQuestionStemFormContent,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 
 type UcatQuestionStemDetailPageProps = {
   stemId: string
@@ -206,20 +205,27 @@ export function UcatQuestionStemDetailPage({ stemId, mode = 'default' }: UcatQue
         }
       />
 
-      <div className={tutorCardCn('mt-4 overflow-hidden')}>
-        <UcatQuestionStemFormContent
+      <div className="mt-4 flex min-h-[min(72vh,900px)] overflow-hidden rounded-lg border bg-card shadow-sm">
+        <UcatStemEditorShell
           form={form}
-          sections={sections.map((section) => ({ id: section.id, name: section.name }))}
+          sections={sections.map((section) => ({
+            id: section.id,
+            name: section.name,
+            display_columns: section.display_columns,
+          }))}
           categories={
-            (categories.map((c) => ({
+            categories.map((c) => ({
               id: c.id,
               name: c.name,
               ucat_section_id: c.ucat_section_id,
-            })) as CategoryOption[])
+            })) as CategoryOption[]
           }
-          tags={(tags.map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[])}
+          tags={tags.map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
           stemId={stemId}
           enableImages
+          sectionTitleOverride={initial?.section_name ?? undefined}
+          displayColumnsFallback={initial?.display_columns ?? undefined}
+          className="flex min-h-0 flex-1 overflow-hidden"
         />
       </div>
     </div>

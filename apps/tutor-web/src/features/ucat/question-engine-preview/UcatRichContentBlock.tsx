@@ -1,17 +1,21 @@
 'use client'
 
 import { RichTextEditor } from '@altitutor/ui'
+import type { Json } from '@altitutor/shared'
 import { useRefreshedUcatContent } from '@/features/ucat/question-engine-preview/hooks/useRefreshedUcatContent'
+import {
+  UCAT_ENGINE_READONLY_EDITOR_CLASSNAME,
+  UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME,
+} from '@/features/ucat/shared/UcatRichTextEditor'
+import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 import { cn } from '@/shared/utils'
 
-const ENGINE_RICH_TEXT =
-  'text-black [color-scheme:light] dark:text-black [&_.ProseMirror]:!text-black [&_p]:!text-black [&_li]:!text-black [&_h1]:!text-black [&_h2]:!text-black [&_h3]:!text-black'
-
-function hasContent(json: Record<string, unknown> | null | undefined): boolean {
-  if (!json || typeof json !== 'object') return false
-  const content = json.content
-  return Array.isArray(content) && content.length > 0
-}
+const ENGINE_RICH_TEXT = cn(
+  'text-black [color-scheme:light] dark:text-black',
+  '[&_.tiptap]:!text-black [&_.ProseMirror]:!text-black',
+  '[&_p]:!text-black [&_li]:!text-black [&_h1]:!text-black [&_h2]:!text-black [&_h3]:!text-black',
+  UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
+)
 
 type UcatRichContentBlockProps = {
   json?: Record<string, unknown> | null
@@ -30,8 +34,9 @@ export function UcatRichContentBlock({
   const { content, isLoading } = useRefreshedUcatContent(preloadedContent != null ? undefined : json)
 
   const displayContent = preloadedContent ?? content
+  const richJson = json as Json | null | undefined
 
-  if (hasContent(json)) {
+  if (hasRichTextContent(richJson)) {
     if (displayContent == null || (preloadedContent == null && isLoading)) {
       return (
         <p className={cn('whitespace-pre-line', ENGINE_RICH_TEXT, className)}>
@@ -44,13 +49,9 @@ export function UcatRichContentBlock({
         <RichTextEditor
           content={displayContent}
           editable={false}
+          omitTypography
           minHeight="auto"
-          className={cn(
-            'min-h-0 text-black [&_.ProseMirror]:min-h-0 [&_.ProseMirror]:p-0 [&_.ProseMirror]:!text-black',
-            '[&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse',
-            '[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted',
-            '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top'
-          )}
+          className={UCAT_ENGINE_READONLY_EDITOR_CLASSNAME}
         />
       </div>
     )

@@ -3,8 +3,11 @@
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import type { Json } from '@altitutor/shared'
 import { Button, Label, RadioGroup, RadioGroupItem } from '@altitutor/ui'
+import { Plus, Trash2 } from 'lucide-react'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
+import { cn } from '@/shared/utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import { EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 
 const EXPLANATION_MUTED_STYLE = { color: '#5a6c7d' } as const
@@ -12,16 +15,29 @@ const EXPLANATION_MUTED_STYLE = { color: '#5a6c7d' } as const
 const ENGINE_LIGHT_TEXT =
   'bg-white text-black [color-scheme:light] dark:bg-white dark:text-black'
 
+const ENGINE_MUTED_LABEL = 'text-[10pt] font-normal text-[#9ba9bd]'
+
+/** Pin control chrome on white UCAT engine shells when the app is in dark mode. */
+const ENGINE_CHROME_OUTLINE_BUTTON =
+  'border border-[#9ba9bd] bg-white text-black hover:bg-[#f3f4f6] dark:border-[#9ba9bd] dark:bg-white dark:text-black dark:hover:bg-[#f3f4f6] dark:hover:text-black'
+
 const RTE = { forceLightChrome: true as const }
 
 type OptionsState = NonNullable<UcatQuestionStemFormValues['questions'][number]['options']>
 
-type ResultsMcQuestionBlockProps = {
+type RichEditorImageProps = {
+  stemId?: string | null
+  enableImages?: boolean
+  onImageFileIdsChange?: (fileIds: string[]) => void
+}
+
+export type ResultsMcQuestionBlockProps = {
   includeStem: boolean
   stemText: Json | null | undefined
   setStemText: (v: Json | null | undefined) => void
   questionText: Json | null | undefined
   setQuestionText: (v: Json | null | undefined) => void
+  questionNumber?: number
   options: OptionsState
   setOptions: Dispatch<SetStateAction<OptionsState>>
   correctOptionIndex: number
@@ -29,9 +45,12 @@ type ResultsMcQuestionBlockProps = {
   answerExplanation: Json | null | undefined
   setAnswerExplanation: (v: Json | null | undefined) => void
   optionLabel: (index: number) => string
-}
+  showOptionExplanations?: boolean
+  showQuestionExplanation?: boolean
+  allowOptionAddRemove?: boolean
+} & RichEditorImageProps
 
-function ResultsMcQuestionBlock({
+export function ResultsMcQuestionBlock({
   includeStem,
   stemText,
   setStemText,
@@ -44,14 +63,26 @@ function ResultsMcQuestionBlock({
   answerExplanation,
   setAnswerExplanation,
   optionLabel,
+  questionNumber,
+  showOptionExplanations = true,
+  showQuestionExplanation = true,
+  allowOptionAddRemove = false,
+  stemId = null,
+  enableImages = false,
+  onImageFileIdsChange,
 }: ResultsMcQuestionBlockProps) {
+  const imageProps = enableImages
+    ? { stemId, enableImages: true as const, onImageFileIdsChange }
+    : {}
+
   return (
     <div className="space-y-3 px-1">
       {includeStem ? (
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-[#5a6c7d]">Stem</Label>
+          <span className={ENGINE_MUTED_LABEL}>Stem</span>
           <UcatRichTextEditor
             {...RTE}
+            {...imageProps}
             value={stemText}
             onChange={(v) => setStemText(v)}
             minHeight="120px"
@@ -59,16 +90,41 @@ function ResultsMcQuestionBlock({
           />
         </div>
       ) : null}
-      <div className="font-medium text-[12pt]">
-        <UcatRichTextEditor
-          {...RTE}
-          value={questionText}
-          onChange={(v) => setQuestionText(v)}
-          minHeight="4rem"
-          pasteTableBehavior="keep"
-        />
+      <div className="flex items-start gap-2 text-[12pt]">
+        {questionNumber != null ? (
+          <span className={cn('inline-block w-8 shrink-0', ENGINE_MUTED_LABEL)}>{questionNumber}.</span>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <UcatRichTextEditor
+            {...RTE}
+            {...imageProps}
+            value={questionText}
+            onChange={(v) => setQuestionText(v)}
+            minHeight="4rem"
+            pasteTableBehavior="keep"
+          />
+        </div>
       </div>
       <div className="space-y-2">
+        {allowOptionAddRemove ? (
+          <div className="flex justify-end pl-6">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={cn('h-8 gap-1', ENGINE_CHROME_OUTLINE_BUTTON)}
+              onClick={() =>
+                setOptions((prev) => [
+                  ...prev,
+                  { answerText: EMPTY_DOC, answerExplanation: null, isAnswer: false },
+                ])
+              }
+            >
+              <Plus className="h-3.5 w-3.5" />
+              Add option
+            </Button>
+          </div>
+        ) : null}
         {options.map((opt, index) => {
           const optionIsCorrect = index === correctOptionIndex && options.length > 0
           const letter = optionLabel(index)
@@ -77,77 +133,97 @@ function ResultsMcQuestionBlock({
           return (
             <div key={index} className="space-y-0.5">
               <div className={`flex items-start gap-2 rounded py-1 pl-6 pr-3 ${bgClass}`}>
-                <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2">
-                  <input
-                    type="radio"
-                    name="bulk-import-correct-mc"
-                    checked={correctOptionIndex === index}
-                    onChange={() => setCorrectOptionIndex(index)}
-                    className="mt-1 h-4 w-4 shrink-0"
+                <input
+                  type="radio"
+                  name="bulk-import-correct-mc"
+                  checked={correctOptionIndex === index}
+                  onChange={() => setCorrectOptionIndex(index)}
+                  className="mt-1 h-4 w-4 shrink-0 cursor-pointer"
+                  aria-label={`Mark option ${letter} as correct`}
+                />
+                <span className={cn('inline-block w-8 shrink-0', ENGINE_MUTED_LABEL)}>{letter}.</span>
+                <div className="min-w-0 flex-1">
+                  <UcatRichTextEditor
+                    {...RTE}
+                    {...imageProps}
+                    value={opt.answerText}
+                    onChange={(v) => {
+                      setOptions((prev) => {
+                        const next = [...prev]
+                        next[index] = { ...opt, answerText: v }
+                        return next
+                      })
+                    }}
+                    minHeight="48px"
+                    pasteTableBehavior="keep"
                   />
-                  <span className="inline-block w-8 shrink-0">{letter}.</span>
-                  <div className="min-w-0 flex-1">
-                    <UcatRichTextEditor
-                      {...RTE}
-                      value={opt.answerText}
-                      onChange={(v) => {
-                        setOptions((prev) => {
-                          const next = [...prev]
-                          next[index] = { ...opt, answerText: v }
-                          return next
-                        })
-                      }}
-                      minHeight="48px"
-                      pasteTableBehavior="keep"
-                    />
-                  </div>
-                </label>
+                </div>
                 {optionIsCorrect ? (
                   <span className="shrink-0 pr-2 text-[10pt] font-medium text-green-700">
                     Correct
                   </span>
                 ) : null}
+                {allowOptionAddRemove && options.length > 1 ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 !text-destructive hover:!text-destructive hover:bg-destructive/10"
+                    onClick={() =>
+                      setOptions((prev) => prev.filter((_, optionIndex) => optionIndex !== index))
+                    }
+                    aria-label={`Remove option ${letter}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                ) : null}
               </div>
-              <div className="ml-6 pl-8">
-                <UcatRichTextEditor
-                  {...RTE}
-                  value={opt.answerExplanation ?? null}
-                  onChange={(v) => {
-                    setOptions((prev) => {
-                      const next = [...prev]
-                      next[index] = { ...opt, answerExplanation: v }
-                      return next
-                    })
-                  }}
-                  minHeight="36px"
-                  pasteTableBehavior="keep"
-                />
-                <div className="mt-0.5 text-[10pt]" style={EXPLANATION_MUTED_STYLE}>
-                  Option explanation (optional)
+              {showOptionExplanations ? (
+                <div className="ml-6 pl-8">
+                  <UcatRichTextEditor
+                    {...RTE}
+                    {...imageProps}
+                    value={opt.answerExplanation ?? null}
+                    onChange={(v) => {
+                      setOptions((prev) => {
+                        const next = [...prev]
+                        next[index] = { ...opt, answerExplanation: v }
+                        return next
+                      })
+                    }}
+                    minHeight="36px"
+                    pasteTableBehavior="keep"
+                  />
+                  <div className="mt-0.5 text-[10pt]" style={EXPLANATION_MUTED_STYLE}>
+                    Option explanation (optional)
+                  </div>
                 </div>
-              </div>
+              ) : null}
             </div>
           )
         })}
       </div>
-      <div
-        className="mt-3 space-y-2 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
-        style={EXPLANATION_MUTED_STYLE}
-      >
-        <Label className="text-[11pt] font-medium">Question answer explanation</Label>
-        <UcatRichTextEditor
-          {...RTE}
-          value={answerExplanation}
-          onChange={(v) => setAnswerExplanation(v)}
-          minHeight="60px"
-          pasteTableBehavior="keep"
-        />
-      </div>
+      {showQuestionExplanation ? (
+        <div
+          className="mt-3 space-y-2 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+          style={EXPLANATION_MUTED_STYLE}
+        >
+          <Label className="text-[11pt] font-medium">Question answer explanation</Label>
+          <UcatRichTextEditor
+            {...RTE}
+            {...imageProps}
+            value={answerExplanation}
+            onChange={(v) => setAnswerExplanation(v)}
+            minHeight="60px"
+            pasteTableBehavior="keep"
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
 
-type ResultsSyllogismQuestionBlockProps = {
+export type ResultsSyllogismQuestionBlockProps = {
   includeStem: boolean
   stemText: Json | null | undefined
   setStemText: (v: Json | null | undefined) => void
@@ -159,9 +235,11 @@ type ResultsSyllogismQuestionBlockProps = {
   setSyllogismPattern: (v: string) => void
   answerExplanation: Json | null | undefined
   setAnswerExplanation: (v: Json | null | undefined) => void
-}
+  questionNumber?: number
+  showQuestionExplanation?: boolean
+} & RichEditorImageProps
 
-function ResultsSyllogismQuestionBlock({
+export function ResultsSyllogismQuestionBlock({
   includeStem,
   stemText,
   setStemText,
@@ -173,14 +251,24 @@ function ResultsSyllogismQuestionBlock({
   setSyllogismPattern,
   answerExplanation,
   setAnswerExplanation,
+  questionNumber,
+  showQuestionExplanation = true,
+  stemId = null,
+  enableImages = false,
+  onImageFileIdsChange,
 }: ResultsSyllogismQuestionBlockProps) {
+  const imageProps = enableImages
+    ? { stemId, enableImages: true as const, onImageFileIdsChange }
+    : {}
+
   return (
     <div className="space-y-3 px-1">
       {includeStem ? (
         <div className="space-y-2">
-          <Label className="text-xs font-medium text-[#5a6c7d]">Stem</Label>
+          <span className={ENGINE_MUTED_LABEL}>Stem</span>
           <UcatRichTextEditor
             {...RTE}
+            {...imageProps}
             value={stemText}
             onChange={(v) => setStemText(v)}
             minHeight="120px"
@@ -188,14 +276,20 @@ function ResultsSyllogismQuestionBlock({
           />
         </div>
       ) : null}
-      <div className="font-medium text-[12pt]">
-        <UcatRichTextEditor
-          {...RTE}
-          value={questionText}
-          onChange={(v) => setQuestionText(v)}
-          minHeight="4rem"
-          pasteTableBehavior="keep"
-        />
+      <div className="flex items-start gap-2 text-[12pt]">
+        {questionNumber != null ? (
+          <span className={cn('inline-block w-8 shrink-0', ENGINE_MUTED_LABEL)}>{questionNumber}.</span>
+        ) : null}
+        <div className="min-w-0 flex-1">
+          <UcatRichTextEditor
+            {...RTE}
+            {...imageProps}
+            value={questionText}
+            onChange={(v) => setQuestionText(v)}
+            minHeight="4rem"
+            pasteTableBehavior="keep"
+          />
+        </div>
       </div>
       <div className="mt-3 space-y-1.5">
         <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)] gap-x-1 gap-y-0.5 pl-4 pr-3 text-[10pt] font-medium text-[#4b5563]">
@@ -213,6 +307,7 @@ function ResultsSyllogismQuestionBlock({
                     <div className="flex min-h-[50px] w-full flex-col gap-1 rounded border border-[#000000] bg-white px-2 py-1">
                       <UcatRichTextEditor
                         {...RTE}
+                        {...imageProps}
                         value={opt.answerText}
                         onChange={(v) => {
                           setOptions((prev) => {
@@ -248,15 +343,11 @@ function ResultsSyllogismQuestionBlock({
                     >
                       <div className="flex items-center gap-1">
                         <RadioGroupItem value="Y" id={`rs-y-${index}`} />
-                        <Label htmlFor={`rs-y-${index}`} className="cursor-pointer text-[10pt]">
-                          Yes
-                        </Label>
+                        <span className={ENGINE_MUTED_LABEL}>Yes</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <RadioGroupItem value="N" id={`rs-n-${index}`} />
-                        <Label htmlFor={`rs-n-${index}`} className="cursor-pointer text-[10pt]">
-                          No
-                        </Label>
+                        <span className={ENGINE_MUTED_LABEL}>No</span>
                       </div>
                     </RadioGroup>
                   </div>
@@ -264,6 +355,7 @@ function ResultsSyllogismQuestionBlock({
                 <div className="col-span-full mt-1 max-w-[calc(100%-2rem)] pl-4 pr-3">
                   <UcatRichTextEditor
                     {...RTE}
+                    {...imageProps}
                     value={opt.answerExplanation ?? null}
                     onChange={(v) => {
                       setOptions((prev) => {
@@ -284,19 +376,22 @@ function ResultsSyllogismQuestionBlock({
           })}
         </div>
       </div>
-      <div
-        className="mt-3 space-y-2 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
-        style={EXPLANATION_MUTED_STYLE}
-      >
-        <Label className="font-medium">Question answer explanation</Label>
-        <UcatRichTextEditor
-          {...RTE}
-          value={answerExplanation}
-          onChange={(v) => setAnswerExplanation(v)}
-          minHeight="60px"
-          pasteTableBehavior="keep"
-        />
-      </div>
+      {showQuestionExplanation ? (
+        <div
+          className="mt-3 space-y-2 border-t border-[#9ba9bd] pt-3 text-[11pt] leading-relaxed"
+          style={EXPLANATION_MUTED_STYLE}
+        >
+          <Label className="font-medium">Question answer explanation</Label>
+          <UcatRichTextEditor
+            {...RTE}
+            {...imageProps}
+            value={answerExplanation}
+            onChange={(v) => setAnswerExplanation(v)}
+            minHeight="60px"
+            pasteTableBehavior="keep"
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -409,7 +504,7 @@ export function UcatResultsStyleQuestionEditor({
             style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
           >
             <div className="space-y-2 px-3">
-              <Label className="text-xs font-medium text-[#5a6c7d]">Stem</Label>
+              <span className={ENGINE_MUTED_LABEL}>Stem</span>
               <UcatRichTextEditor
                 {...RTE}
                 value={stemText}
@@ -443,7 +538,7 @@ export function UcatResultsStyleQuestionEditor({
           style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
         >
           <div className="space-y-2 px-3">
-            <Label className="text-xs font-medium text-[#5a6c7d]">Stem</Label>
+            <span className={ENGINE_MUTED_LABEL}>Stem</span>
             <UcatRichTextEditor
               {...RTE}
               value={stemText}
