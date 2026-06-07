@@ -244,6 +244,11 @@ Secrets for **production environment**.
 - **Sender email:** `noreply@altitutor.com` (configured in `config.toml`)
 - **Sender name:** `Altitutor`
 
+**Auth email rate limits** (via `supabase/config.toml`, deployed by `deploy-config.sh`):
+- **Development:** 200 auth emails/hour (with Resend SMTP enabled)
+- **Production:** 100 auth emails/hour
+- Without custom SMTP, Supabase built-in email stays at ~2/hour regardless of this setting
+
 ## 🔧 Customizing Secret Filters
 
 By default, the scripts use patterns to determine which secrets go where:

@@ -49,6 +49,15 @@ echo "✅ Enabled SMTP for production"
 SUPABASE_CONFIG_ENV="${SUPABASE_CONFIG_ENV:-production}"
 echo "🔧 SUPABASE_CONFIG_ENV=$SUPABASE_CONFIG_ENV"
 
+# Custom SMTP unlocks configurable email limits (built-in provider stays at ~2/hour).
+if [ "$SUPABASE_CONFIG_ENV" = "development" ]; then
+  AUTH_EMAIL_SENT_LIMIT="${AUTH_EMAIL_SENT_LIMIT:-200}"
+else
+  AUTH_EMAIL_SENT_LIMIT="${AUTH_EMAIL_SENT_LIMIT:-100}"
+fi
+sed -i.bak "s|^email_sent = .*|email_sent = $AUTH_EMAIL_SENT_LIMIT|g" "$TEMP_CONFIG"
+echo "✅ Set auth.rate_limit.email_sent to $AUTH_EMAIL_SENT_LIMIT for $SUPABASE_CONFIG_ENV"
+
 # Portal base URLs: use GitHub Environment variables when hosts differ from defaults.
 # development defaults match *.development.altitutor.com; production defaults match prod.
 if [ "$SUPABASE_CONFIG_ENV" = "development" ]; then
