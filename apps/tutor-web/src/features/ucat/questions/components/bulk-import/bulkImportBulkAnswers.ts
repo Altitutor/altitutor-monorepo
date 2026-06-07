@@ -16,7 +16,7 @@ import {
   parseDecisionMakingAnswersFromDoc,
 } from '@/features/ucat/questions/lib/parseAnswersFromDoc'
 import { answerDocToPlainTsv } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { hasRichTextContent, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 export type QuestionAnswerPreview = {
   row: FlatQuestionRef
@@ -112,7 +112,7 @@ export function buildQuestionAnswerPreviews(
           hasExplanation:
             firstExplanation.length > 0 ||
             optionExplanations.some((e) => (e ?? '').trim().length > 0) ||
-            optionExplanationDocs.some((doc) => (proseMirrorToPlainText(doc)?.trim() ?? '').length > 0),
+            optionExplanationDocs.some((doc) => hasRichTextContent(doc)),
           isParsed: true,
         }
       }
@@ -130,7 +130,7 @@ export function buildQuestionAnswerPreviews(
           syllogismPattern: null,
           explanationPreview: explanationPlain ? truncatePreview(explanationPlain, 120) : null,
           explanationPreviewDoc: explanationDoc,
-          hasExplanation: explanationPlain.length > 0,
+          hasExplanation: explanationPlain.length > 0 || hasRichTextContent(explanationDoc),
           isParsed: true,
         }
       }
@@ -145,6 +145,7 @@ export function buildQuestionAnswerPreviews(
     if (!answer) return emptyPreview(stems, row)
     const explanation =
       proseMirrorToPlainText(answer.explanationDoc)?.trim() || answer.explanation.trim()
+    const explanationDoc = answer.explanationDoc ?? null
     return {
       row,
       questionText: questionTextForRow(stems, row),
@@ -152,8 +153,8 @@ export function buildQuestionAnswerPreviews(
       answerLetter: answer.letter.toUpperCase(),
       syllogismPattern: null,
       explanationPreview: explanation ? truncatePreview(explanation, 120) : null,
-      explanationPreviewDoc: answer.explanationDoc ?? null,
-      hasExplanation: explanation.length > 0,
+      explanationPreviewDoc: explanationDoc,
+      hasExplanation: explanation.length > 0 || hasRichTextContent(explanationDoc),
       isParsed: true,
     }
   })

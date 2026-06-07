@@ -654,6 +654,7 @@ export function BulkImportQuestionStemsModal({
         <StepAnswers
           bulkAnswersJson={pastedAnswersJson}
           onBulkAnswersChange={setPastedAnswersJson}
+          onImageFileIdsChange={handleStep2ImageFileIds}
           stems={wizard.state.stems}
           isDecisionMakingSection={isDecisionMakingSection}
           answerParsingOptions={answerParsingOptions}

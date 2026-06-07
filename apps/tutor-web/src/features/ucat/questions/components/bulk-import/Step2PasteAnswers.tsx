@@ -15,6 +15,7 @@ import type { AnswerParsingOptions } from '@/features/ucat/questions/components/
 type Step2PasteAnswersProps = {
   value: Json | null
   onChange: (value: Json) => void
+  onImageFileIdsChange?: (fileIds: string[]) => void
   /** When set, fills a parent flex column and scrolls only the editor region. */
   layout?: 'default' | 'split'
   /** When true, omits the step heading (used inside {@link StepAnswers} split layout). */
@@ -31,6 +32,7 @@ function separatorPlaceholderExample(separator: AnswerFieldSeparator): string {
 export function Step2PasteAnswers({
   value,
   onChange,
+  onImageFileIdsChange,
   layout = 'default',
   embedded = false,
   answerParsingOptions,
@@ -61,7 +63,8 @@ export function Step2PasteAnswers({
           placeholder={separatorPlaceholderExample(fieldSeparator)}
           minHeight={isSplit ? '200px' : '280px'}
           stemId={null}
-          enableImages={false}
+          enableImages
+          onImageFileIdsChange={onImageFileIdsChange}
           pasteTableBehavior={pasteTableBehavior}
           {...BULK_IMPORT_RTE_PASTE}
           pasteStripFormatting={false}

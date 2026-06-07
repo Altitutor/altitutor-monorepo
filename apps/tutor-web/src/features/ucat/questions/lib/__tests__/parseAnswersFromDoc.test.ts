@@ -136,4 +136,85 @@ describe('parseAnswersTableFromDoc', () => {
     expect(explanationDoc?.content?.[0]?.type).toBe('table')
     expect(proseMirrorToPlainText(parsed[0]?.explanationDoc)).toContain('Row 1')
   })
+
+  it('preserves inline images in paragraph TSV rows', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [
+            { type: 'text', text: '1' },
+            { type: 'text', text: '\t' },
+            { type: 'text', text: 'A' },
+            { type: 'text', text: '\t' },
+            { type: 'text', text: 'See diagram ' },
+            {
+              type: 'image',
+              attrs: { fileId: 'img-1', src: 'https://example.com/diagram.png' },
+            },
+          ],
+        },
+      ],
+    }
+
+    const parsed = parseAnswersTableFromDoc(doc)
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0]?.letter).toBe('A')
+    const paragraph = (parsed[0]?.explanationDoc as { content?: unknown[] })?.content?.[0] as {
+      content?: Array<{ type?: string; attrs?: { fileId?: string } }>
+    }
+    expect(paragraph?.content?.[1]?.type).toBe('image')
+    expect(paragraph?.content?.[1]?.attrs?.fileId).toBe('img-1')
+  })
+
+  it('preserves images in table explanation cells', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: '1' }] }],
+                },
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'D' }] }],
+                },
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'paragraph',
+                      content: [
+                        {
+                          type: 'image',
+                          attrs: { fileId: 'img-2', src: 'https://example.com/chart.png' },
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+
+    const parsed = parseAnswersTableFromDoc(doc)
+    expect(parsed).toHaveLength(1)
+    expect(parsed[0]?.letter).toBe('D')
+    const explanationDoc = parsed[0]?.explanationDoc as { content?: Array<{ type?: string }> }
+    const paragraph = explanationDoc?.content?.[0] as {
+      content?: Array<{ type?: string; attrs?: { fileId?: string } }>
+    }
+    expect(paragraph?.content?.[0]?.type).toBe('image')
+    expect(paragraph?.content?.[0]?.attrs?.fileId).toBe('img-2')
+  })
 })

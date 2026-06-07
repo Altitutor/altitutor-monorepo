@@ -124,6 +124,8 @@ function addLineClassDecoration(
 
 function roleClassQuestion(role: ParseLineHighlightRole): string {
   switch (role) {
+    case 'stem':
+      return 'ucat-parse-hl-q-stem'
     case 'question':
       return 'ucat-parse-hl-q-question'
     case 'option':
@@ -176,6 +178,10 @@ function buildQuestionDecorations(
     if (!range) continue
     const docLineText = doc.textBetween(range.from, range.to, undefined, '\n')
     const classifiedRole = roles[i] ?? 'none'
+    if (classifiedRole === 'stem' && !questionsOnly) {
+      addLineClassDecoration(doc, range.from, range.to, roleClassQuestion('stem'), decos)
+      continue
+    }
     const highlightRole = resolveQuestionHighlightRole(docLineText, classifiedRole, cfg.classify)
     if (!highlightRole) continue
     const spans = buildQuestionPasteSpansForLine(docLineText, highlightRole, cfg.classify)

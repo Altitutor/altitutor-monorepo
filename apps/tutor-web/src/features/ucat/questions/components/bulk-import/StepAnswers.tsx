@@ -55,6 +55,7 @@ export function answerParsingOptionsToParseOptions(
 type StepAnswersProps = {
   bulkAnswersJson: Json | null
   onBulkAnswersChange: (value: Json) => void
+  onImageFileIdsChange?: (fileIds: string[]) => void
   stems: BulkImportStemDraft[]
   isDecisionMakingSection: boolean
   answerParsingOptions: AnswerParsingOptions
@@ -64,6 +65,7 @@ type StepAnswersProps = {
 export function StepAnswers({
   bulkAnswersJson,
   onBulkAnswersChange,
+  onImageFileIdsChange,
   stems,
   isDecisionMakingSection,
   answerParsingOptions,
@@ -202,6 +204,7 @@ export function StepAnswers({
           <Step2PasteAnswers
             value={bulkAnswersJson}
             onChange={onBulkAnswersChange}
+            onImageFileIdsChange={onImageFileIdsChange}
             layout="split"
             embedded
             answerParsingOptions={answerParsingOptions}

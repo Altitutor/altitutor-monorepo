@@ -173,8 +173,11 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
     for (let i = 0; i < n.childCount; i += 1) {
       const it = n.child(i)
       const pIt = beforeChild(n, pBefore, i)
+      // Mirror collectLogicalLinesFromNode: prefix list item text with "N. "
+      st.prefixForNextLine = `${i + 1}. `
       walkVrDmSj(it, pIt, st)
     }
+    st.prefixForNextLine = undefined
     return
   }
 
@@ -390,8 +393,10 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
 
   if (t === 'orderedList') {
     for (let i = 0; i < n.childCount; i += 1) {
+      st.prefixForNextLine = `${i + 1}. `
       walkQrNode(n.child(i), beforeChild(n, pBefore, i), st)
     }
+    st.prefixForNextLine = undefined
     return
   }
 

@@ -17,8 +17,12 @@ import {
   answerDocToPlainTsv,
   getAnswerDocPlainLinesFromJson,
 } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
-import { type PMNode } from '@/features/ucat/questions/lib/parsers/core'
-import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { nodeToText, type PMNode } from '@/features/ucat/questions/lib/parsers/core'
+import {
+  hasRichTextContent,
+  tokenizedPlainTextToProseMirror,
+  proseMirrorToPlainText,
+} from '@/features/ucat/shared/lib/rich-text'
 
 export type ParsedAnswerRowRich = ParsedAnswerRow & {
   explanationDoc: Json | null
@@ -28,7 +32,9 @@ type AnswerRowSource =
   | { kind: 'table'; cells: PMNode[]; plainLine: string }
   | { kind: 'block'; block: PMNode; plainLine: string }
 
-type InlinePiece = { text: string; marks?: PMNode['marks'] }
+type ContentPiece =
+  | { kind: 'text'; text: string; marks?: PMNode['marks'] }
+  | { kind: 'image'; node: PMNode; token: string }
 
 function isTableCellNode(node: PMNode): boolean {
   return node.type === 'tableCell' || node.type === 'tableHeader'
@@ -53,26 +59,43 @@ function tableCellsToExplanationDoc(cells: PMNode[]): Json | null {
   return { type: 'doc', content: blocks } as Json
 }
 
-function collectInlinePieces(node: PMNode): InlinePiece[] {
+function collectContentPieces(node: PMNode): ContentPiece[] {
   if (!node?.type) return []
-  if (node.type === 'text' && typeof node.text === 'string') {
-    return [{ text: node.text, marks: node.marks }]
+  if (node.type === 'image') {
+    const token = nodeToText(node)
+    if (!token) return []
+    return [{ kind: 'image', node: { type: 'image', attrs: node.attrs }, token }]
   }
-  if (node.type === 'hardBreak') return [{ text: '\n' }]
+  if (node.type === 'text' && typeof node.text === 'string') {
+    return [{ kind: 'text', text: node.text, marks: node.marks }]
+  }
+  if (node.type === 'hardBreak') return [{ kind: 'text', text: '\n' }]
   if (!Array.isArray(node.content) || node.content.length === 0) return []
-  return node.content.flatMap((child) => collectInlinePieces(child as PMNode))
+  return node.content.flatMap((child) => collectContentPieces(child as PMNode))
 }
 
-function sliceInlinePieces(pieces: InlinePiece[], start: number, end: number): PMNode[] {
+function contentPieceLength(piece: ContentPiece): number {
+  return piece.kind === 'text' ? piece.text.length : piece.token.length
+}
+
+function sliceContentPieces(pieces: ContentPiece[], start: number, end: number): PMNode[] {
   const out: PMNode[] = []
   let pos = 0
   for (const piece of pieces) {
     const pieceStart = pos
-    const pieceEnd = pos + piece.text.length
+    const pieceEnd = pos + contentPieceLength(piece)
     pos = pieceEnd
     const overlapStart = Math.max(start, pieceStart)
     const overlapEnd = Math.min(end, pieceEnd)
     if (overlapStart >= overlapEnd) continue
+
+    if (piece.kind === 'image') {
+      if (overlapStart <= pieceStart && overlapEnd >= pieceEnd) {
+        out.push(piece.node)
+      }
+      continue
+    }
+
     const sliceText = piece.text.slice(overlapStart - pieceStart, overlapEnd - pieceStart)
     if (!sliceText) continue
     if (sliceText.includes('\n')) {
@@ -125,7 +148,7 @@ function extractExplanationDocFromBlock(
   const explanationSpan = spans.find((span) => span.kind === 'explanation')
   if (!explanationSpan) return null
   const inlineNodes = trimInlineNodes(
-    sliceInlinePieces(collectInlinePieces(block), explanationSpan.start, explanationSpan.end)
+    sliceContentPieces(collectContentPieces(block), explanationSpan.start, explanationSpan.end)
   )
   if (inlineNodes.length === 0) return null
   return { type: 'doc', content: [{ type: 'paragraph', content: inlineNodes }] } as Json
@@ -194,17 +217,14 @@ function collectAnswerRowSources(doc: Json | null | undefined): AnswerRowSource[
 function explanationDocFromPlainFallback(explanation: string): Json | null {
   const trimmed = explanation.trim()
   if (!trimmed) return null
-  return plainTextToProseMirror(trimmed) as Json
+  return tokenizedPlainTextToProseMirror(trimmed) as Json
 }
 
 function resolveExplanationDoc(
   richDoc: Json | null,
   plainExplanation: string
 ): Json | null {
-  if (richDoc) {
-    const plainFromRich = proseMirrorToPlainText(richDoc)?.trim() ?? ''
-    if (plainFromRich.length > 0) return richDoc
-  }
+  if (richDoc && hasRichTextContent(richDoc)) return richDoc
   return explanationDocFromPlainFallback(plainExplanation)
 }
 
