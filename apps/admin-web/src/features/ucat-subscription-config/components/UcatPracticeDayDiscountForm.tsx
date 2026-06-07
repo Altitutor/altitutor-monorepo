@@ -12,14 +12,9 @@ import {
   Label,
 } from '@altitutor/ui';
 import {
-  ucatPlanPricesApi,
-  type UcatPlanPriceRow,
-} from '../api/ucat-plan-prices';
-
-const TIER_LABELS: Record<string, string> = {
-  unlimited: 'UCAT Unlimited',
-  pro: 'UCAT Pro',
-};
+  ucatPracticeDayDiscountConfigApi,
+  type UcatPracticeDayDiscountConfigRow,
+} from '../api/ucat-practice-day-discount-config';
 
 const INTERVAL_LABELS: Record<string, string> = {
   week: 'Weekly',
@@ -27,20 +22,26 @@ const INTERVAL_LABELS: Record<string, string> = {
   year: 'Yearly',
 };
 
-type EditableRow = UcatPlanPriceRow & {
-  basePriceInput: string;
-  stripePriceInput: string;
+const CAP_LIMITS: Record<string, number> = {
+  week: 7,
+  month: 30,
+  year: 365,
 };
 
-function toEditable(row: UcatPlanPriceRow): EditableRow {
+type EditableRow = UcatPracticeDayDiscountConfigRow & {
+  discountInput: string;
+  maxDiscountsInput: string;
+};
+
+function toEditable(row: UcatPracticeDayDiscountConfigRow): EditableRow {
   return {
     ...row,
-    basePriceInput: String(row.base_price_cents),
-    stripePriceInput: row.stripe_price_id ?? '',
+    discountInput: String(row.discount_per_day_cents),
+    maxDiscountsInput: String(row.max_discounts_per_period),
   };
 }
 
-export function UcatPlanPricesForm() {
+export function UcatPracticeDayDiscountForm() {
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -50,10 +51,10 @@ export function UcatPlanPricesForm() {
     setLoading(true);
     setError(null);
     try {
-      const data = await ucatPlanPricesApi.list();
+      const data = await ucatPracticeDayDiscountConfigApi.list();
       setRows(data.map(toEditable));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load plan prices');
+      setError(e instanceof Error ? e.message : 'Failed to load discount config');
     } finally {
       setLoading(false);
     }
@@ -68,48 +69,55 @@ export function UcatPlanPricesForm() {
   };
 
   const handleSaveRow = async (row: EditableRow) => {
-    const base = parseInt(row.basePriceInput, 10);
-    if (!Number.isFinite(base) || base < 0) {
-      setError('Base price (cents) must be 0 or greater');
+    const discount = parseInt(row.discountInput, 10);
+    const maxDiscounts = parseInt(row.maxDiscountsInput, 10);
+    const capLimit = CAP_LIMITS[row.billing_interval] ?? 365;
+
+    if (!Number.isFinite(discount) || discount < 0) {
+      setError('Discount per day (cents) must be 0 or greater');
       return;
     }
-    const stripePriceId = row.stripePriceInput.trim() || null;
+    if (!Number.isFinite(maxDiscounts) || maxDiscounts < 1 || maxDiscounts > capLimit) {
+      setError(`Max discounts for ${INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval} must be between 1 and ${capLimit}`);
+      return;
+    }
+
     setSavingId(row.id);
     setError(null);
     try {
-      await ucatPlanPricesApi.update(row.id, {
-        base_price_cents: base,
-        stripe_price_id: stripePriceId,
+      await ucatPracticeDayDiscountConfigApi.update(row.id, {
+        discount_per_day_cents: discount,
+        max_discounts_per_period: maxDiscounts,
       });
       setRows((prev) =>
         prev.map((r) =>
           r.id === row.id
             ? toEditable({
                 ...r,
-                base_price_cents: base,
-                stripe_price_id: stripePriceId,
+                discount_per_day_cents: discount,
+                max_discounts_per_period: maxDiscounts,
               })
             : r,
         ),
       );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to save plan price');
+      setError(e instanceof Error ? e.message : 'Failed to save discount config');
     } finally {
       setSavingId(null);
     }
   };
 
   if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading plan prices…</p>;
+    return <p className="text-sm text-muted-foreground">Loading practice-day discounts…</p>;
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Plan prices</CardTitle>
+        <CardTitle>Practice-day discounts</CardTitle>
         <CardDescription>
-          List price and Stripe price ID for each paid tier and billing interval. Checkout is
-          enabled when the tier&apos;s Stripe product ID is set and the interval has a price ID.
+          Discount amount per qualifying day and maximum discounts per billing period,
+          configured per interval (shared across Unlimited and Pro).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -120,29 +128,31 @@ export function UcatPlanPricesForm() {
           >
             <div>
               <p className="text-sm font-semibold">
-                {TIER_LABELS[row.plan_tier] ?? row.plan_tier}
+                {INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval}
               </p>
               <p className="text-xs text-muted-foreground">
-                {INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval}
+                Cap max {CAP_LIMITS[row.billing_interval] ?? '—'}
               </p>
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`base-${row.id}`}>Base price (cents)</Label>
+              <Label htmlFor={`discount-${row.id}`}>Discount per day (cents)</Label>
               <Input
-                id={`base-${row.id}`}
+                id={`discount-${row.id}`}
                 type="number"
                 min={0}
-                value={row.basePriceInput}
-                onChange={(e) => updateRow(row.id, { basePriceInput: e.target.value })}
+                value={row.discountInput}
+                onChange={(e) => updateRow(row.id, { discountInput: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor={`price-${row.id}`}>Stripe price ID</Label>
+              <Label htmlFor={`max-${row.id}`}>Max discounts per period</Label>
               <Input
-                id={`price-${row.id}`}
-                value={row.stripePriceInput}
-                onChange={(e) => updateRow(row.id, { stripePriceInput: e.target.value })}
-                placeholder="price_..."
+                id={`max-${row.id}`}
+                type="number"
+                min={1}
+                max={CAP_LIMITS[row.billing_interval]}
+                value={row.maxDiscountsInput}
+                onChange={(e) => updateRow(row.id, { maxDiscountsInput: e.target.value })}
               />
             </div>
             <div className="flex items-end">

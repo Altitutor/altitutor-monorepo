@@ -59,3 +59,23 @@ export function periodCentsToPerWeekCents(
   const days = ucatBillingPeriodDays(interval);
   return Math.round((periodCents * 7) / days);
 }
+
+export type UcatPracticeDayDiscountRule = {
+  interval: UcatBillingInterval;
+  discountPerDayCents: number;
+  maxDiscountsPerPeriod: number;
+};
+
+/** Upper bound for admin validation of practice-day discount cap. */
+export function ucatPracticeDayDiscountCapLimit(
+  interval: UcatBillingInterval,
+): number {
+  return ucatBillingPeriodDays(interval);
+}
+
+export function maxPracticeDayDiscountCents(
+  discountPerDayCents: number,
+  maxDiscountsPerPeriod: number,
+): number {
+  return discountPerDayCents * maxDiscountsPerPeriod;
+}

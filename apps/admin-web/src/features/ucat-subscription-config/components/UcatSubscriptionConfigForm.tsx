@@ -23,7 +23,6 @@ interface UcatSubscriptionConfigFormProps {
 
 export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptionConfigFormProps) {
   const [minQuestionsPerDay, setMinQuestionsPerDay] = useState(String(initial.min_questions_per_day));
-  const [discountPerDayCents, setDiscountPerDayCents] = useState(String(initial.discount_per_day_cents));
   const [trialDays, setTrialDays] = useState(String(initial.trial_days));
   const [currency, setCurrency] = useState(initial.currency);
   const [unlimitedStripeProductId, setUnlimitedStripeProductId] = useState(
@@ -37,7 +36,6 @@ export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptio
 
   useEffect(() => {
     setMinQuestionsPerDay(String(initial.min_questions_per_day));
-    setDiscountPerDayCents(String(initial.discount_per_day_cents));
     setTrialDays(String(initial.trial_days));
     setCurrency(initial.currency);
     setUnlimitedStripeProductId(initial.unlimited_stripe_product_id ?? '');
@@ -47,14 +45,9 @@ export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptio
   const handleSave = async () => {
     setError(null);
     const minQ = parseInt(minQuestionsPerDay, 10);
-    const disc = parseInt(discountPerDayCents, 10);
     const trial = parseInt(trialDays, 10);
     if (!Number.isFinite(minQ) || minQ < 1) {
       setError('Min questions per day must be at least 1');
-      return;
-    }
-    if (!Number.isFinite(disc) || disc < 0) {
-      setError('Discount per day (cents) must be 0 or greater');
       return;
     }
     if (!Number.isFinite(trial) || trial < 0) {
@@ -71,7 +64,6 @@ export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptio
     try {
       await ucatSubscriptionConfigApi.update(initial.id, {
         min_questions_per_day: minQ,
-        discount_per_day_cents: disc,
         trial_days: trial,
         currency: cur,
         unlimited_stripe_product_id: unlimitedStripeProductId.trim() || null,
@@ -90,8 +82,9 @@ export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptio
       <CardHeader>
         <CardTitle>UCAT subscription settings</CardTitle>
         <CardDescription>
-          Unlimited trial length, practice-day discount rules, currency, and Stripe product IDs.
-          Per-tier prices are configured below. UCAT Free quotas are under Settings → UCAT Free tier.
+          Unlimited trial length, practice-day qualification threshold, currency, and Stripe
+          product IDs. Per-interval discount amounts are configured below. UCAT Free quotas are
+          under Settings → UCAT Free tier.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -117,30 +110,18 @@ export function UcatSubscriptionConfigForm({ initial, onSaved }: UcatSubscriptio
           </div>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="min-questions">Min questions per day (practice discount)</Label>
-            <Input
-              id="min-questions"
-              type="number"
-              min={1}
-              value={minQuestionsPerDay}
-              onChange={(e) => setMinQuestionsPerDay(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="discount-cents">Discount per qualifying day (cents)</Label>
-            <Input
-              id="discount-cents"
-              type="number"
-              min={0}
-              value={discountPerDayCents}
-              onChange={(e) => setDiscountPerDayCents(e.target.value)}
-            />
-            <p className="text-xs text-muted-foreground">
-              Shared across Unlimited and Pro; penalty base uses each tier&apos;s plan price.
-            </p>
-          </div>
+        <div className="space-y-2 sm:max-w-xs">
+          <Label htmlFor="min-questions">Min questions per day (practice discount)</Label>
+          <Input
+            id="min-questions"
+            type="number"
+            min={1}
+            value={minQuestionsPerDay}
+            onChange={(e) => setMinQuestionsPerDay(e.target.value)}
+          />
+          <p className="text-xs text-muted-foreground">
+            Global threshold for all billing intervals and paid tiers.
+          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">

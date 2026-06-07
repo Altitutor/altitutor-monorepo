@@ -3,7 +3,10 @@
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
-import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
+import {
+  defaultPublicSubscriptionConfig,
+  getPublicPracticeDayDiscount,
+} from "@/features/subscription/types/public-subscription-config";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-picker";
 import { PlanPickerCheckIcon } from "@/features/subscription/components/plan-picker/plan-picker-check-icon";
@@ -40,6 +43,7 @@ export function SubscribePage() {
   const unlimitedTrialEligible = access.unlimitedTrialEligible;
   const freeIsCurrentPlan =
     access.onlineTier === "free" && !access.isLoading && access.onboardingCompleted;
+  const monthlyPracticeDiscount = getPublicPracticeDayDiscount(cfg, "month");
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-marketing-cream">
@@ -139,7 +143,9 @@ export function SubscribePage() {
                 {
                   icon: "✦",
                   title: "Standard price",
-                  desc: `Complete ${cfg.minQuestionsPerDay}+ questions in a day and earn ${formatMoneyFromMinorUnits(cfg.discountPerDayCents, cfg.currency)} off your next bill.`,
+                  desc: monthlyPracticeDiscount
+                    ? `Complete ${cfg.minQuestionsPerDay}+ questions in a day and earn ${formatMoneyFromMinorUnits(monthlyPracticeDiscount.discountPerDayCents, cfg.currency)} off your bill (up to ${monthlyPracticeDiscount.maxDiscountsPerPeriod} days per billing period on monthly).`
+                    : `Complete ${cfg.minQuestionsPerDay}+ questions in a day to earn discounts off your bill.`,
                   accent: true,
                 },
                 {

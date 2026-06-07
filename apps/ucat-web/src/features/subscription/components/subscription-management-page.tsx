@@ -18,6 +18,7 @@ import {
 import {
   formatMoneyFromMinorUnits,
 } from "@/features/subscription/lib/format-subscription-copy";
+import { fetchPracticeDiscountProgress } from "@/features/subscription/api/fetch-practice-discount-progress";
 import { computePracticeDiscountPricing } from "@/features/subscription/lib/pricing";
 import {
   getSubscriptionEndDateIso,
@@ -45,12 +46,26 @@ export function SubscriptionManagementPage() {
   const [pricingConfig, setPricingConfig] = useState(
     defaultPublicSubscriptionConfig,
   );
+  const [discountProgress, setDiscountProgress] = useState<{
+    earned: number;
+    cap: number;
+  } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const cfg = await fetchPublicSubscriptionConfig();
-      if (!cancelled) setPricingConfig(cfg);
+      const [cfg, progress] = await Promise.all([
+        fetchPublicSubscriptionConfig(),
+        fetchPracticeDiscountProgress(),
+      ]);
+      if (!cancelled) {
+        setPricingConfig(cfg);
+        if (progress && progress.cap > 0) {
+          setDiscountProgress({ earned: progress.earned, cap: progress.cap });
+        } else {
+          setDiscountProgress(null);
+        }
+      }
     })();
     return () => {
       cancelled = true;
@@ -186,14 +201,24 @@ export function SubscriptionManagementPage() {
                         pricing.minimumPriceCents,
                         pricingConfig.currency,
                       )}{" "}
-                      / {pricing.billingIntervalNoun} if you hit your target
-                      every day ({pricing.billingPeriodDays} days ×{" "}
+                      / {pricing.billingIntervalNoun} if you earn the maximum{" "}
+                      {pricing.maxDiscountsPerPeriod} practice discounts (
+                      {pricing.maxDiscountsPerPeriod} ×{" "}
                       {formatMoneyFromMinorUnits(
                         pricing.discountPerDayCents,
                         pricingConfig.currency,
                       )}
                       )
                     </p>
+                    {discountProgress ? (
+                      <p>
+                        <span className="font-medium text-foreground">
+                          This billing period:{" "}
+                        </span>
+                        {discountProgress.earned} / {discountProgress.cap}{" "}
+                        practice discounts earned
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
 

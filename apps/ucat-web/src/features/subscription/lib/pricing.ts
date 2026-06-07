@@ -1,6 +1,8 @@
 import type { UcatBillingInterval } from "@altitutor/shared";
+import { maxPracticeDayDiscountCents } from "@altitutor/shared";
 import {
   getPublicPlanPrice,
+  getPublicPracticeDayDiscount,
   type PublicUcatSubscriptionConfig,
 } from "@/features/subscription/types/public-subscription-config";
 import { billingIntervalNoun } from "@/features/subscription/lib/format-subscription-copy";
@@ -10,7 +12,7 @@ export type PracticeDiscountPricing = {
   standardPriceCents: number;
   discountPerDayCents: number;
   minQuestionsPerDay: number;
-  billingPeriodDays: number;
+  maxDiscountsPerPeriod: number;
   maxDiscountCents: number;
   minimumPriceCents: number;
   billingFrequencyLabel: string;
@@ -28,30 +30,6 @@ function intervalFromFrequencyLabel(label: string): UcatBillingInterval {
   if (label === "Monthly") return "month";
   if (label === "Yearly") return "year";
   return "week";
-}
-
-function getBillingPeriodDayCount(
-  periodStart: string | null,
-  periodEnd: string | null,
-  interval: UcatBillingInterval,
-): number {
-  if (periodStart && periodEnd) {
-    const start = new Date(periodStart).getTime();
-    const end = new Date(periodEnd).getTime();
-    if (Number.isFinite(start) && Number.isFinite(end) && end > start) {
-      return Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)));
-    }
-  }
-
-  switch (interval) {
-    case "year":
-      return 365;
-    case "month":
-      return 30;
-    case "week":
-    default:
-      return 7;
-  }
 }
 
 function getStandardPriceCents(
@@ -73,34 +51,40 @@ function getStandardPriceCents(
 export function computePracticeDiscountPricing(
   config: PublicUcatSubscriptionConfig,
   subscription: {
-    current_period_start: string | null;
-    current_period_end: string | null;
+    current_period_start?: string | null;
+    current_period_end?: string | null;
     plan_tier?: string | null;
     billing_interval?: string | null;
   },
 ): PracticeDiscountPricing {
-  const billingFrequencyLabel = inferBillingFrequency(subscription);
+  const billingFrequencyLabel = inferBillingFrequency({
+    current_period_start: subscription.current_period_start ?? null,
+    current_period_end: subscription.current_period_end ?? null,
+  });
   const interval =
     parseBillingInterval(subscription.billing_interval) ??
     intervalFromFrequencyLabel(billingFrequencyLabel);
-  const billingPeriodDays = getBillingPeriodDayCount(
-    subscription.current_period_start,
-    subscription.current_period_end,
-    interval,
-  );
   const standardPriceCents = getStandardPriceCents(
     config,
     subscription,
     billingFrequencyLabel,
   );
-  const maxDiscountCents = billingPeriodDays * config.discountPerDayCents;
+  const discountRule =
+    getPublicPracticeDayDiscount(config, interval) ??
+    config.practiceDayDiscounts[0];
+  const discountPerDayCents = discountRule?.discountPerDayCents ?? 0;
+  const maxDiscountsPerPeriod = discountRule?.maxDiscountsPerPeriod ?? 0;
+  const maxDiscountCents = maxPracticeDayDiscountCents(
+    discountPerDayCents,
+    maxDiscountsPerPeriod,
+  );
   const minimumPriceCents = Math.max(0, standardPriceCents - maxDiscountCents);
 
   return {
     standardPriceCents,
-    discountPerDayCents: config.discountPerDayCents,
+    discountPerDayCents,
     minQuestionsPerDay: config.minQuestionsPerDay,
-    billingPeriodDays,
+    maxDiscountsPerPeriod,
     maxDiscountCents,
     minimumPriceCents,
     billingFrequencyLabel,

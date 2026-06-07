@@ -7,6 +7,7 @@ import {
   syncSubscriptionInvoiceFromStripe,
   retrieveInvoiceWithLines,
 } from './shared/subscription-invoice-sync.ts';
+import { forfeitPracticeDayCreditsForStudent } from './shared/forfeit-practice-day-credits.ts';
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
@@ -928,6 +929,23 @@ Deno.serve(async (req: Request) => {
 
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as { id: string };
+
+        const { data: endedSub } = await supabase
+          .from('student_subscriptions')
+          .select('student_id, subject_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .maybeSingle();
+
+        if (endedSub?.student_id) {
+          const ucatSubjectId = await getUcatSubjectId(supabase);
+          if (ucatSubjectId && endedSub.subject_id === ucatSubjectId) {
+            await forfeitPracticeDayCreditsForStudent(
+              supabase,
+              stripe,
+              endedSub.student_id,
+            );
+          }
+        }
 
         await supabase
           .from('student_subscriptions')

@@ -226,7 +226,7 @@ export function PlanPicker({
               your daily targets to keep costs low.
             </p>
 
-            {unlimitedTierOffered && unlimitedPricing ? (
+            {unlimitedPricing ? (
               <PaidTierPriceBlock
                 pricing={unlimitedPricing}
                 formatMoney={formatMoney}
@@ -241,8 +241,13 @@ export function PlanPicker({
               </p>
             )}
 
+            <p
+              className={`mt-6 text-sm font-semibold text-marketing-charcoal/80 ${typo.secondarySans}`}
+            >
+              Everything in Free, plus
+            </p>
             <ul
-              className={`mt-6 space-y-2.5 text-sm text-marketing-charcoal/70 ${typo.secondarySans}`}
+              className={`mt-3 space-y-2.5 text-sm text-marketing-charcoal/70 ${typo.secondarySans}`}
             >
               {onlineFeatures.map((f) => (
                 <li
@@ -306,7 +311,7 @@ export function PlanPicker({
               monthly 1-1 performance reviews.
             </p>
 
-            {proTierOffered && proPricing ? (
+            {proPricing ? (
               <PaidTierPriceBlock
                 pricing={proPricing}
                 formatMoney={formatMoney}
@@ -322,7 +327,12 @@ export function PlanPicker({
               </p>
             )}
 
-            <ul className={`mt-6 space-y-2.5 text-sm ${typo.secondarySans}`}>
+            <p
+              className={`mt-6 text-sm font-semibold text-marketing-cream/80 ${typo.secondarySans}`}
+            >
+              Everything in Unlimited, plus
+            </p>
+            <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>
               {proFeatures.map((f) => (
                 <li
                   key={f}

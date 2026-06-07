@@ -1,6 +1,7 @@
 import type {
   UcatBillingInterval,
   UcatPaidPlanTier,
+  UcatPracticeDayDiscountRule,
 } from "@altitutor/shared";
 import type { UcatFreeQuotaConfig } from "@/lib/ucat/quota/config";
 import { DEFAULT_FREE_QUOTA_CONFIG } from "@/lib/ucat/quota/config";
@@ -12,13 +13,15 @@ export type PublicUcatPlanPrice = {
   available: boolean;
 };
 
+export type PublicUcatPracticeDayDiscount = UcatPracticeDayDiscountRule;
+
 export type PublicUcatSubscriptionConfig = {
   trialDays: number;
   minQuestionsPerDay: number;
-  discountPerDayCents: number;
   currency: string;
   freeQuotas: UcatFreeQuotaConfig;
   planPrices: PublicUcatPlanPrice[];
+  practiceDayDiscounts: PublicUcatPracticeDayDiscount[];
   unlimitedProductConfigured: boolean;
   proProductConfigured: boolean;
 };
@@ -27,13 +30,24 @@ export type PublicUcatSubscriptionConfig = {
 export const defaultPublicSubscriptionConfig: PublicUcatSubscriptionConfig = {
   trialDays: 7,
   minQuestionsPerDay: 20,
-  discountPerDayCents: 1000,
   currency: "aud",
   freeQuotas: DEFAULT_FREE_QUOTA_CONFIG,
   planPrices: [],
+  practiceDayDiscounts: [
+    { interval: "week", discountPerDayCents: 1000, maxDiscountsPerPeriod: 7 },
+    { interval: "month", discountPerDayCents: 1000, maxDiscountsPerPeriod: 30 },
+    { interval: "year", discountPerDayCents: 1000, maxDiscountsPerPeriod: 365 },
+  ],
   unlimitedProductConfigured: false,
   proProductConfigured: false,
 };
+
+export function getPublicPracticeDayDiscount(
+  config: PublicUcatSubscriptionConfig,
+  interval: UcatBillingInterval,
+): PublicUcatPracticeDayDiscount | undefined {
+  return config.practiceDayDiscounts.find((row) => row.interval === interval);
+}
 
 export function getPublicPlanPrice(
   config: PublicUcatSubscriptionConfig,

@@ -1,11 +1,9 @@
 "use client";
 
-import { MARKETING_TOKENS } from "@altitutor/shared";
 import type { UcatBillingInterval } from "@altitutor/shared";
-import { cn } from "@/lib/utils";
+import { SegmentedControl } from "@/features/progress/components/segmented-control";
 import { billingIntervalLabel } from "@/features/subscription/lib/marketing-plan-pricing";
-
-const { typography: typo } = MARKETING_TOKENS;
+import { cn } from "@/lib/utils";
 
 const INTERVALS: UcatBillingInterval[] = ["week", "month", "year"];
 
@@ -21,34 +19,16 @@ export function BillingIntervalSelector({
   className,
 }: BillingIntervalSelectorProps) {
   return (
-    <div
-      className={cn(
-        "mx-auto flex w-full max-w-md rounded-full bg-white p-1 shadow-md ring-1 ring-black/5",
-        className,
-      )}
-      role="tablist"
-      aria-label="Billing interval"
-    >
-      {INTERVALS.map((interval) => {
-        const selected = value === interval;
-        return (
-          <button
-            key={interval}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            className={cn(
-              `flex-1 rounded-full px-4 py-2.5 text-sm font-semibold transition-all ${typo.secondarySans}`,
-              selected
-                ? "bg-marketing-primary text-white shadow-sm"
-                : "text-marketing-charcoal/60 hover:text-marketing-charcoal",
-            )}
-            onClick={() => onChange(interval)}
-          >
-            {billingIntervalLabel(interval)}
-          </button>
-        );
-      })}
+    <div className={cn("flex justify-center", className)}>
+      <SegmentedControl
+        value={value}
+        onValueChange={onChange}
+        options={INTERVALS.map((interval) => ({
+          value: interval,
+          label: billingIntervalLabel(interval),
+        }))}
+        className="text-sm sm:text-base [&_button]:!px-5 [&_button]:!py-2.5 sm:[&_button]:!px-8 sm:[&_button]:!py-3"
+      />
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
 } from '@/features/ucat-subscription-config/api/ucat-subscription-config';
 import { UcatSubscriptionConfigForm } from '@/features/ucat-subscription-config/components/UcatSubscriptionConfigForm';
 import { UcatPlanPricesForm } from '@/features/ucat-subscription-config/components/UcatPlanPricesForm';
+import { UcatPracticeDayDiscountForm } from '@/features/ucat-subscription-config/components/UcatPracticeDayDiscountForm';
 
 export default function UcatSubscriptionSettingsPage() {
   const router = useRouter();
@@ -70,6 +71,7 @@ export default function UcatSubscriptionSettingsPage() {
       ) : null}
 
       {config ? <UcatSubscriptionConfigForm initial={config} onSaved={load} /> : null}
+      <UcatPracticeDayDiscountForm />
       <UcatPlanPricesForm />
     </div>
   );

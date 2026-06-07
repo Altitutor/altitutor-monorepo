@@ -1,6 +1,7 @@
 import {
   defaultPublicSubscriptionConfig,
   type PublicUcatPlanPrice,
+  type PublicUcatPracticeDayDiscount,
   type PublicUcatSubscriptionConfig,
 } from "@/features/subscription/types/public-subscription-config";
 import type { UcatFreeQuotaConfig } from "@/lib/ucat/quota/config";
@@ -48,6 +49,30 @@ function parsePlanPrices(value: unknown): PublicUcatPlanPrice[] {
   });
 }
 
+function parsePracticeDayDiscounts(
+  value: unknown,
+): PublicUcatPracticeDayDiscount[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const r = row as Record<string, unknown>;
+    if (
+      !isUcatBillingInterval(r.interval) ||
+      typeof r.discountPerDayCents !== "number" ||
+      typeof r.maxDiscountsPerPeriod !== "number"
+    ) {
+      return [];
+    }
+    return [
+      {
+        interval: r.interval,
+        discountPerDayCents: r.discountPerDayCents,
+        maxDiscountsPerPeriod: r.maxDiscountsPerPeriod,
+      },
+    ];
+  });
+}
+
 export async function fetchPublicSubscriptionConfig(): Promise<PublicUcatSubscriptionConfig> {
   try {
     const res = await fetch("/api/ucat/subscription-config", {
@@ -58,15 +83,16 @@ export async function fetchPublicSubscriptionConfig(): Promise<PublicUcatSubscri
     const data = (await res.json()) as Partial<PublicUcatSubscriptionConfig>;
     if (
       typeof data.trialDays !== "number" ||
-      typeof data.minQuestionsPerDay !== "number" ||
-      typeof data.discountPerDayCents !== "number"
+      typeof data.minQuestionsPerDay !== "number"
     ) {
       return defaultPublicSubscriptionConfig;
     }
+    const practiceDayDiscounts = parsePracticeDayDiscounts(
+      data.practiceDayDiscounts,
+    );
     return {
       trialDays: data.trialDays,
       minQuestionsPerDay: data.minQuestionsPerDay,
-      discountPerDayCents: data.discountPerDayCents,
       currency: (typeof data.currency === "string"
         ? data.currency
         : defaultPublicSubscriptionConfig.currency
@@ -75,6 +101,10 @@ export async function fetchPublicSubscriptionConfig(): Promise<PublicUcatSubscri
         ? data.freeQuotas
         : DEFAULT_FREE_QUOTA_CONFIG,
       planPrices: parsePlanPrices(data.planPrices),
+      practiceDayDiscounts:
+        practiceDayDiscounts.length > 0
+          ? practiceDayDiscounts
+          : defaultPublicSubscriptionConfig.practiceDayDiscounts,
       unlimitedProductConfigured: data.unlimitedProductConfigured === true,
       proProductConfigured: data.proProductConfigured === true,
     };

@@ -1,6 +1,5 @@
 import {
   periodCentsToPerWeekCents,
-  ucatBillingPeriodDays,
   type UcatBillingInterval,
 } from "@altitutor/shared";
 
@@ -19,9 +18,9 @@ export function computeMarketingPlanPricing(
   penaltyPeriodCents: number,
   interval: UcatBillingInterval,
   discountPerDayCents: number,
+  maxDiscountsPerPeriod: number,
 ): MarketingPlanPricing {
-  const billingPeriodDays = ucatBillingPeriodDays(interval);
-  const maxDiscountCents = billingPeriodDays * discountPerDayCents;
+  const maxDiscountCents = discountPerDayCents * maxDiscountsPerPeriod;
   const idealPeriodCents = Math.max(0, penaltyPeriodCents - maxDiscountCents);
 
   return {

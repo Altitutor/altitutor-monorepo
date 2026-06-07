@@ -12,6 +12,7 @@ import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch
 import {
   defaultPublicSubscriptionConfig,
   getPublicPlanPrice,
+  getPublicPracticeDayDiscount,
   isPlanCheckoutAvailable,
   isTierOffered,
 } from "@/features/subscription/types/public-subscription-config";
@@ -36,7 +37,6 @@ const ONLINE_FEATURES = [
 ] as const;
 
 const PRO_FEATURES = [
-  "Everything in UCAT Unlimited",
   "1 online training workshop per month",
   "On-demand help from tutors",
   "1-1 performance review each month",
@@ -108,25 +108,32 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     access.onlineTier === "unlimited_trial" ||
     access.onlineTier === "pro";
 
+  const practiceDiscount = useMemo(
+    () => getPublicPracticeDayDiscount(cfg, billingInterval),
+    [cfg, billingInterval],
+  );
+
   const unlimitedPricing = useMemo(() => {
     const row = getPublicPlanPrice(cfg, "unlimited", billingInterval);
-    if (!row) return null;
+    if (!row || !practiceDiscount) return null;
     return computeMarketingPlanPricing(
       row.basePriceCents,
       billingInterval,
-      cfg.discountPerDayCents,
+      practiceDiscount.discountPerDayCents,
+      practiceDiscount.maxDiscountsPerPeriod,
     );
-  }, [cfg, billingInterval]);
+  }, [cfg, billingInterval, practiceDiscount]);
 
   const proPricing = useMemo(() => {
     const row = getPublicPlanPrice(cfg, "pro", billingInterval);
-    if (!row) return null;
+    if (!row || !practiceDiscount) return null;
     return computeMarketingPlanPricing(
       row.basePriceCents,
       billingInterval,
-      cfg.discountPerDayCents,
+      practiceDiscount.discountPerDayCents,
+      practiceDiscount.maxDiscountsPerPeriod,
     );
-  }, [cfg, billingInterval]);
+  }, [cfg, billingInterval, practiceDiscount]);
 
   const unlimitedAvailable = isPlanCheckoutAvailable(
     cfg,

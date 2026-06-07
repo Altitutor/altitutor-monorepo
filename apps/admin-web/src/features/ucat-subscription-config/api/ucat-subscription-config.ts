@@ -25,7 +25,6 @@ export type UcatSubscriptionConfigUpdate = Partial<
   Pick<
     UcatSubscriptionConfigRow,
     | 'min_questions_per_day'
-    | 'discount_per_day_cents'
     | 'trial_days'
     | 'currency'
     | 'unlimited_stripe_product_id'
