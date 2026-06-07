@@ -15,6 +15,7 @@ import {
   useToast,
 } from '@altitutor/ui'
 import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -177,26 +178,15 @@ export function UcatStemEditorPropertiesPanel({
       <div className="space-y-4">
         <div className={tutorCardCn('space-y-4 p-3')}>
           <PropertyRow label="Mode">
-            <div className="inline-flex w-full rounded-md bg-muted/60 p-0.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className={cn('h-8 flex-1', editorMode === 'edit' && 'bg-background shadow-sm')}
-                onClick={() => onEditorModeChange('edit')}
-              >
-                Edit
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className={cn('h-8 flex-1', editorMode === 'view' && 'bg-background shadow-sm')}
-                onClick={() => onEditorModeChange('view')}
-              >
-                View
-              </Button>
-            </div>
+            <SegmentedControl
+              fullWidth
+              value={editorMode}
+              onValueChange={onEditorModeChange}
+              options={[
+                { value: 'edit', label: 'Edit' },
+                { value: 'view', label: 'View' },
+              ]}
+            />
           </PropertyRow>
           {editorMode === 'view' ? (
             <PropertyRow label="Answer">

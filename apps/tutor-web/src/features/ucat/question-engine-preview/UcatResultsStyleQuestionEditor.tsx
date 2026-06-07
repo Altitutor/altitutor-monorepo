@@ -2,9 +2,10 @@
 
 import { useState, type Dispatch, type ReactNode, type SetStateAction } from 'react'
 import type { Json } from '@altitutor/shared'
-import { Button, Label, RadioGroup, RadioGroupItem } from '@altitutor/ui'
+import { Button, Label } from '@altitutor/ui'
 import { Plus, Trash2 } from 'lucide-react'
 import { UCAT_COLORS, UCAT_FONTS } from '@altitutor/ui/components/ucat/ucat-theme'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 import { cn } from '@/shared/utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
@@ -291,89 +292,74 @@ export function ResultsSyllogismQuestionBlock({
           />
         </div>
       </div>
-      <div className="mt-3 space-y-1.5">
-        <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)] gap-x-1 gap-y-0.5 pl-4 pr-3 text-[10pt] font-medium text-[#4b5563]">
-          <div>Statement</div>
-          <div className="text-center">Your answers</div>
-          <div className="text-center">Correct answers</div>
+      <div className="mt-3 space-y-2">
+        <div className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,2.5fr)] items-center gap-x-3 pl-4 pr-3">
+          <span className={ENGINE_MUTED_LABEL}>Statement</span>
+          <span className={cn(ENGINE_MUTED_LABEL, 'text-center')}>Answer</span>
+          <span className={cn(ENGINE_MUTED_LABEL, 'text-center')}>Explanation</span>
         </div>
-        <div className="space-y-1">
-          {options.map((opt, index) => {
-            const correctYes = syllogismPattern.charAt(index).toUpperCase() === 'Y'
-            return (
-              <div key={index}>
-                <div className="grid grid-cols-[minmax(0,3fr)_minmax(0,1.4fr)_minmax(0,1.4fr)] gap-x-1 gap-y-1 items-stretch pl-4 pr-3">
-                  <div className="flex items-center">
-                    <div className="flex min-h-[50px] w-full flex-col gap-1 rounded border border-[#000000] bg-white px-2 py-1">
-                      <UcatRichTextEditor
-                        {...RTE}
-                        {...imageProps}
-                        value={opt.answerText}
-                        onChange={(v) => {
-                          setOptions((prev) => {
-                            const next = [...prev]
-                            next[index] = { ...opt, answerText: v }
-                            return next
-                          })
-                        }}
-                        minHeight="44px"
-                        pasteTableBehavior="keep"
-                      />
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-center">
-                    <div className="flex h-9 w-20 items-center justify-center rounded border border-dashed border-[#9ca3af] bg-white text-[11pt] text-[#9ca3af]">
-                      —
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-center justify-center gap-1 py-1">
-                    <div className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium">
-                      {correctYes ? 'Yes' : 'No'}
-                    </div>
-                    <RadioGroup
-                      value={syllogismPattern.charAt(index) === 'Y' ? 'Y' : 'N'}
-                      onValueChange={(v) => {
-                        const arr = syllogismPattern.split('')
-                        arr[index] = v
-                        setSyllogismPattern(
-                          arr.join('').padEnd(options.length, 'N').slice(0, options.length)
-                        )
-                      }}
-                      className="flex gap-2"
-                    >
-                      <div className="flex items-center gap-1">
-                        <RadioGroupItem value="Y" id={`rs-y-${index}`} />
-                        <span className={ENGINE_MUTED_LABEL}>Yes</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <RadioGroupItem value="N" id={`rs-n-${index}`} />
-                        <span className={ENGINE_MUTED_LABEL}>No</span>
-                      </div>
-                    </RadioGroup>
-                  </div>
-                </div>
-                <div className="col-span-full mt-1 max-w-[calc(100%-2rem)] pl-4 pr-3">
+        <div className="space-y-3">
+          {options.map((opt, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-[minmax(0,2.5fr)_minmax(0,1fr)_minmax(0,2.5fr)] items-start gap-x-3 pl-4 pr-3"
+            >
+              <div className="flex min-w-0 items-start gap-2">
+                <span className={cn(ENGINE_MUTED_LABEL, 'mt-1 shrink-0 leading-none')}>•</span>
+                <div className="min-w-0 flex-1">
                   <UcatRichTextEditor
                     {...RTE}
                     {...imageProps}
-                    value={opt.answerExplanation ?? null}
+                    value={opt.answerText}
                     onChange={(v) => {
                       setOptions((prev) => {
                         const next = [...prev]
-                        next[index] = { ...opt, answerExplanation: v }
+                        next[index] = { ...opt, answerText: v }
                         return next
                       })
                     }}
-                    minHeight="36px"
+                    minHeight="44px"
                     pasteTableBehavior="keep"
                   />
-                  <div className="text-[10pt]" style={EXPLANATION_MUTED_STYLE}>
-                    Statement explanation (optional)
-                  </div>
                 </div>
               </div>
-            )
-          })}
+              <div className="flex items-start justify-center pt-1">
+                <SegmentedControl
+                  variant="light"
+                  size="sm"
+                  aria-label={`Correct answer for statement ${index + 1}`}
+                  value={syllogismPattern.charAt(index) === 'Y' ? 'Y' : 'N'}
+                  onValueChange={(answerValue) => {
+                    const arr = syllogismPattern.split('')
+                    arr[index] = answerValue
+                    setSyllogismPattern(
+                      arr.join('').padEnd(options.length, 'N').slice(0, options.length)
+                    )
+                  }}
+                  options={[
+                    { value: 'Y', label: 'Yes' },
+                    { value: 'N', label: 'No' },
+                  ]}
+                />
+              </div>
+              <div className="min-w-0">
+                <UcatRichTextEditor
+                  {...RTE}
+                  {...imageProps}
+                  value={opt.answerExplanation ?? null}
+                  onChange={(v) => {
+                    setOptions((prev) => {
+                      const next = [...prev]
+                      next[index] = { ...opt, answerExplanation: v }
+                      return next
+                    })
+                  }}
+                  minHeight="44px"
+                  pasteTableBehavior="keep"
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
       {showQuestionExplanation ? (

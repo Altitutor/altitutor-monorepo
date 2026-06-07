@@ -115,10 +115,12 @@ function SyllogismPreviewBody({
   question,
   preloadedContent,
   showAnswerExplanations,
+  interactive = true,
 }: {
   question: UcatEnginePreviewQuestion
   preloadedContent?: { stem?: Record<string, unknown> | null; question?: Record<string, unknown> | null } | null
   showAnswerExplanations?: boolean
+  interactive?: boolean
 }) {
   const isTwoColumn = question.sectionDisplayColumns === 2
 
@@ -177,6 +179,8 @@ function SyllogismPreviewBody({
         <div className="flex-1 space-y-3">
           {question.options.map((option) => {
             const choice = answers[option.id] ?? null
+            const correctYes = Boolean(option.isAnswer)
+            const showCorrectAnswer = showAnswerExplanations && !interactive
             return (
               <div key={option.id} className="space-y-1">
                 <div className="flex flex-row items-stretch gap-4">
@@ -191,22 +195,34 @@ function SyllogismPreviewBody({
                   </div>
                   <div
                     className="flex h-12 w-24 items-center justify-center rounded border border-dashed border-[#4b5563] bg-slate-50 text-[11pt]"
-                    onDrop={makeHandleDrop(option.id)}
-                    onDragOver={handleDragOver}
-                    role="button"
-                    tabIndex={0}
-                    aria-label="Drop Yes or No here"
-                    onClick={() => handleAssign(option.id, choice === 'yes' ? 'no' : 'yes')}
+                    onDrop={interactive ? makeHandleDrop(option.id) : undefined}
+                    onDragOver={interactive ? handleDragOver : undefined}
+                    role={interactive ? 'button' : undefined}
+                    tabIndex={interactive ? 0 : undefined}
+                    aria-label={interactive ? 'Drop Yes or No here' : undefined}
+                    onClick={
+                      interactive
+                        ? () => handleAssign(option.id, choice === 'yes' ? 'no' : 'yes')
+                        : undefined
+                    }
                   >
-                    {choice ? (
+                    {showCorrectAnswer ? (
+                      <div className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium">
+                        {correctYes ? 'Yes' : 'No'}
+                      </div>
+                    ) : choice ? (
                       <div
                         className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
-                        draggable
-                        onDragStart={(event) => {
-                          event.dataTransfer.setData('ucat-syllogism-choice', choice)
-                          event.dataTransfer.setData('ucat-syllogism-source', option.id)
-                          event.dataTransfer.effectAllowed = 'move'
-                        }}
+                        draggable={interactive}
+                        onDragStart={
+                          interactive
+                            ? (event) => {
+                                event.dataTransfer.setData('ucat-syllogism-choice', choice)
+                                event.dataTransfer.setData('ucat-syllogism-source', option.id)
+                                event.dataTransfer.effectAllowed = 'move'
+                              }
+                            : undefined
+                        }
                       >
                         {choice === 'yes' ? 'Yes' : 'No'}
                       </div>
@@ -230,29 +246,37 @@ function SyllogismPreviewBody({
         <div className="mt-1 w-[139px] rounded border border-black bg-[#dfdfdf] px-2 py-2">
           <div
             className="flex h-full w-full flex-col items-center justify-start gap-2"
-            onDrop={handleTokenAreaDrop}
-            onDragOver={handleDragOver}
+            onDrop={interactive ? handleTokenAreaDrop : undefined}
+            onDragOver={interactive ? handleDragOver : undefined}
           >
             <button
               type="button"
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData('ucat-syllogism-choice', 'yes')
-                event.dataTransfer.setData('ucat-syllogism-source', '')
-                event.dataTransfer.effectAllowed = 'copy'
-              }}
+              draggable={interactive}
+              onDragStart={
+                interactive
+                  ? (event) => {
+                      event.dataTransfer.setData('ucat-syllogism-choice', 'yes')
+                      event.dataTransfer.setData('ucat-syllogism-source', '')
+                      event.dataTransfer.effectAllowed = 'copy'
+                    }
+                  : undefined
+              }
               className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
               Yes
             </button>
             <button
               type="button"
-              draggable
-              onDragStart={(event) => {
-                event.dataTransfer.setData('ucat-syllogism-choice', 'no')
-                event.dataTransfer.setData('ucat-syllogism-source', '')
-                event.dataTransfer.effectAllowed = 'copy'
-              }}
+              draggable={interactive}
+              onDragStart={
+                interactive
+                  ? (event) => {
+                      event.dataTransfer.setData('ucat-syllogism-choice', 'no')
+                      event.dataTransfer.setData('ucat-syllogism-source', '')
+                      event.dataTransfer.effectAllowed = 'copy'
+                    }
+                  : undefined
+              }
               className="flex h-9 w-20 items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
             >
               No
@@ -457,6 +481,7 @@ export function UcatQuestionEnginePreview({
         question={question}
         preloadedContent={preloaded}
         showAnswerExplanations={showAnswerExplanations}
+        interactive={interactive}
       />,
       interactive
     )
