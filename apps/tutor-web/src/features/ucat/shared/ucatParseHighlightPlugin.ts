@@ -12,6 +12,7 @@ import { collectQuestionLineTextRanges } from '@/features/ucat/questions/lib/pmB
 import {
   buildAnswerPasteSpansForLine,
   getAnswerLineRowKindsFromLines,
+  type AnswerFieldSeparator,
 } from '@/features/ucat/questions/lib/parseAnswersTable'
 import {
   collectAnswerLineTextRanges,
@@ -51,7 +52,7 @@ export type UcatParseHighlightConfig =
       /** When true, classify lines like questions-only paste (per-stem editors). */
       questionsOnly?: boolean
     }
-  | { mode: 'answer'; includeExplanations: boolean }
+  | { mode: 'answer'; includeExplanations: boolean; fieldSeparator?: AnswerFieldSeparator }
   | {
       mode: 'stem_split'
       splitLineIndices: number[]
@@ -209,8 +210,10 @@ function kindClassAnswer(
 
 function buildAnswerDecorations(
   doc: Node,
-  includeExplanations: boolean
+  includeExplanations: boolean,
+  fieldSeparator?: AnswerFieldSeparator
 ): DecorationSet {
+  const answerParseOptions = fieldSeparator ? { fieldSeparator } : undefined
   const j = doc.toJSON() as unknown as Json
   const lineStrings = getAnswerDocPlainLinesFromJson(j)
   if (lineStrings.length === 0 || !lineStrings.some((l) => l.trim())) {
@@ -218,7 +221,7 @@ function buildAnswerDecorations(
   }
   const ranges = collectAnswerLineTextRanges(doc)
   if (ranges == null) return DecorationSet.empty
-  const lineKinds = getAnswerLineRowKindsFromLines(lineStrings)
+  const lineKinds = getAnswerLineRowKindsFromLines(lineStrings, answerParseOptions)
   const decos: Decoration[] = []
   for (let i = 0; i < lineStrings.length; i += 1) {
     const row = lineKinds[i] ?? 'empty'
@@ -228,7 +231,8 @@ function buildAnswerDecorations(
     if (!R) continue
     const spans = buildAnswerPasteSpansForLine(
       line,
-      row === 'header' ? 'header' : 'data'
+      row === 'header' ? 'header' : 'data',
+      answerParseOptions
     )
     for (const sp of spans) {
       const cls = kindClassAnswer(sp.kind, includeExplanations)
@@ -317,7 +321,7 @@ function buildDecorationsSet(doc: Node, getConfig: GetCfg): DecorationSet {
   if (c.mode === 'stem_split') {
     return buildStemSplitDecorations(doc, c)
   }
-  return buildAnswerDecorations(doc, c.includeExplanations)
+  return buildAnswerDecorations(doc, c.includeExplanations, c.fieldSeparator)
 }
 
 /**

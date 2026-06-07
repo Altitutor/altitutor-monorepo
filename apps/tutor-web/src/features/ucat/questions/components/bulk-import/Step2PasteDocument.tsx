@@ -18,6 +18,7 @@ import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { cn } from '@/shared/utils'
 import { BulkImportParseInfoButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseInfoButton'
 import { BulkImportParseLegendButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseLegendButton'
+import { ParsedDocumentPreviewPanel } from '@/features/ucat/questions/components/bulk-import/ParsedDocumentPreviewPanel'
 import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
 import { computeQuestionPasteStats } from '@/features/ucat/questions/components/bulk-import/bulkImportPasteStats'
 import type { BulkImportParseSection } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
@@ -172,6 +173,7 @@ export function Step2PasteDocument({
   const opts = parsingOptions
   const setOpts = onParsingOptionsChange ?? (() => {})
   const isSplit = layout === 'split'
+  const showParsedPreview = isSplit && liveParseSection != null
 
   const classify = useMemo(() => parsingOptionsToClassify(opts), [opts])
 
@@ -357,25 +359,63 @@ export function Step2PasteDocument({
         </div>
       </div>
 
-      <div
-        className={cn(
-          'rounded-md border bg-muted/40 p-3',
-          isSplit ? 'min-h-0 flex-1 overflow-y-auto' : 'min-h-[360px]'
-        )}
-      >
-        <UcatRichTextEditor
-          value={value}
-          onChange={onChange}
-          placeholder={placeholder}
-          minHeight={isSplit ? '200px' : '320px'}
-          stemId={null}
-          enableImages={true}
-          onImageFileIdsChange={onImageFileIdsChange}
-          pasteTableBehavior={pasteTableBehavior}
-          {...BULK_IMPORT_RTE_PASTE}
-          ucatParseHighlight={ucatQHighlight}
-        />
-      </div>
+      {showParsedPreview ? (
+        <div className="grid shrink-0 gap-3 border-b border-border pb-2 lg:grid-cols-2">
+          <Label className="text-xs font-medium text-muted-foreground">Paste document</Label>
+          <Label className="text-xs font-medium text-muted-foreground">Parsed preview</Label>
+        </div>
+      ) : null}
+
+      {showParsedPreview ? (
+        <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-2">
+          <div
+            className={cn(
+              'rounded-md border bg-muted/40 p-3',
+              'min-h-0 overflow-y-auto'
+            )}
+          >
+            <UcatRichTextEditor
+              value={value}
+              onChange={onChange}
+              placeholder={placeholder}
+              minHeight="200px"
+              stemId={null}
+              enableImages={true}
+              onImageFileIdsChange={onImageFileIdsChange}
+              pasteTableBehavior={pasteTableBehavior}
+              {...BULK_IMPORT_RTE_PASTE}
+              ucatParseHighlight={ucatQHighlight}
+            />
+          </div>
+          <div className="min-h-0 min-w-0 overflow-hidden">
+            <ParsedDocumentPreviewPanel
+              value={value}
+              section={liveParseSection}
+              parsingOptions={opts}
+            />
+          </div>
+        </div>
+      ) : (
+        <div
+          className={cn(
+            'rounded-md border bg-muted/40 p-3',
+            isSplit ? 'min-h-0 flex-1 overflow-y-auto' : 'min-h-[360px]'
+          )}
+        >
+          <UcatRichTextEditor
+            value={value}
+            onChange={onChange}
+            placeholder={placeholder}
+            minHeight={isSplit ? '200px' : '320px'}
+            stemId={null}
+            enableImages={true}
+            onImageFileIdsChange={onImageFileIdsChange}
+            pasteTableBehavior={pasteTableBehavior}
+            {...BULK_IMPORT_RTE_PASTE}
+            ucatParseHighlight={ucatQHighlight}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -16,6 +16,11 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
 import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
 import { parseQuestionsOnlyForSection } from '@/features/ucat/questions/components/bulk-import/bulkImportParseSection'
+import {
+  detectAlternativeParsingIndicators,
+  formatAlternativeParsingIndicatorHint,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportParsingIndicatorHints'
+import { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parsers/core'
 
 type StepPerStemQuestionsProps = {
   stemTexts: string[]
@@ -62,6 +67,15 @@ function PerStemQuestionRow({
     () => parseQuestionsOnlyForSection(value, section, parsingOptions),
     [value, section, parsingOptions]
   )
+
+  const indicatorHint = useMemo(() => {
+    if (parseState.questions.length > 0) return null
+    const lines = collectLogicalLinesFromDoc(value, {
+      detectNestedQuestionTables: section !== 'quantitative_reasoning',
+    })
+    const hints = detectAlternativeParsingIndicators(lines, parsingOptions)
+    return formatAlternativeParsingIndicatorHint(hints)
+  }, [parseState.questions.length, value, section, parsingOptions])
 
   const ucatParseHighlight = useMemo(
     () => ({
@@ -134,7 +148,11 @@ function PerStemQuestionRow({
           Parsed questions · Stem {index + 1}
         </Label>
         {parseState.questions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No questions detected yet.</p>
+          indicatorHint ? (
+            <p className="text-sm text-amber-700 dark:text-amber-400">{indicatorHint}</p>
+          ) : (
+            <p className="text-sm text-muted-foreground">No questions detected yet.</p>
+          )
         ) : (
           <div className="flex w-full flex-col gap-2">
             {parseState.questions.map((question, questionIndex) => {

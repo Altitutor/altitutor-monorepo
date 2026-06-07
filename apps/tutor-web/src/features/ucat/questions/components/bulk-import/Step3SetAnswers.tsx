@@ -3,7 +3,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { cn } from '@/shared/utils'
 import type { Json } from '@altitutor/shared'
-import { Eye, EyeOff } from 'lucide-react'
 import {
   Table,
   TableBody,
@@ -24,9 +23,9 @@ import {
 } from '@/features/ucat/question-engine-preview/mapStemFormToEnginePreview'
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
-const QUESTION_TEXT_MAX = 80
-const OPTION_TEXT_MAX = 50
-const EXPLANATION_TRUNCATE = 60
+const QUESTION_TEXT_MAX = 60
+const OPTION_TEXT_MAX = 36
+const EXPLANATION_TRUNCATE = 48
 
 function truncateOneLine(text: string, maxLen: number): string {
   const oneLine = text.replace(/\s+/g, ' ').trim()
@@ -133,7 +132,7 @@ export function Step3SetAnswers({
     [rows]
   )
   const optionLabelsToShow = OPTION_LABELS.slice(0, maxOptionCount)
-  const totalCols = 5 + maxOptionCount + 3 // Stem + # + Question + Category + A..E + Correct + Explanation + Actions
+  const totalCols = 4 + maxOptionCount + 2 // Stem + Q# + Question + Category + options + Correct + Explanation
 
   const toggleExpanded = useCallback((key: string) => {
     setExpandedRowKey((current) => (current === key ? null : key))
@@ -175,27 +174,22 @@ export function Step3SetAnswers({
     <div className="space-y-4">
       <div>
         <h2 className="text-base font-semibold">Review</h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Review correct answers and explanations. For syllogisms, Correct shows the Y/N pattern.
-          Expand a row to preview the question engine layout. Use View for a read-only preview or Edit to change answers and explanations (same layout as question review, without response statistics).
-        </p>
       </div>
       <div className="rounded-md border">
-        <Table>
+        <Table className="w-full table-fixed text-xs">
           <TableHeader>
             <TableRow>
-              <TableHead className="w-14">Stem</TableHead>
-              <TableHead className="w-14">Q#</TableHead>
-              <TableHead className="min-w-[200px]">Question</TableHead>
-              <TableHead className="min-w-[120px]">Category</TableHead>
+              <TableHead className="w-[3rem] px-2">Stem</TableHead>
+              <TableHead className="w-[2.5rem] px-2">#</TableHead>
+              <TableHead className="w-[22%] px-2">Question</TableHead>
+              <TableHead className="w-[12%] px-2">Category</TableHead>
               {optionLabelsToShow.map((label) => (
-                <TableHead key={label} className="min-w-[100px]">
+                <TableHead key={label} className="px-2">
                   {label}
                 </TableHead>
               ))}
-              <TableHead className="w-20">Correct</TableHead>
-              <TableHead className="min-w-[140px]">Answer explanation</TableHead>
-              <TableHead className="w-20">Actions</TableHead>
+              <TableHead className="w-[3rem] px-2">Ans</TableHead>
+              <TableHead className="px-2">Explanation</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -222,56 +216,40 @@ export function Step3SetAnswers({
 
               return (
                 <Fragment key={rowKey}>
-                  <TableRow>
-                    <TableCell className="font-mono text-muted-foreground">
+                  <TableRow
+                    className={cn(
+                      'cursor-pointer',
+                      isExpanded && 'bg-muted/30 hover:bg-muted/30'
+                    )}
+                    onClick={() => toggleExpanded(rowKey)}
+                  >
+                    <TableCell className="px-2 font-mono text-muted-foreground">
                       {row.stemIndex + 1}
                     </TableCell>
-                    <TableCell className="font-mono text-muted-foreground">
+                    <TableCell className="px-2 font-mono text-muted-foreground">
                       {row.globalQuestionNumber}
                     </TableCell>
-                    <TableCell className="max-w-[200px] truncate" title={row.questionText}>
+                    <TableCell className="truncate px-2" title={row.questionText}>
                       {row.questionText}
                     </TableCell>
-                    <TableCell className="max-w-[120px] truncate text-muted-foreground">
+                    <TableCell className="truncate px-2 text-muted-foreground" title={row.categoryName}>
                       {row.categoryName}
                     </TableCell>
                     {optionLabelsToShow.map((label, idx) => (
                       <TableCell
                         key={label}
-                        className="max-w-[100px] truncate"
+                        className="truncate px-2"
                         title={row.optionTexts[idx]}
                       >
                         {idx < row.optionCount ? row.optionTexts[idx] : '—'}
                       </TableCell>
                     ))}
-                    <TableCell className="font-medium font-mono">{correctDisplay}</TableCell>
+                    <TableCell className="px-2 font-medium font-mono">{correctDisplay}</TableCell>
                     <TableCell
-                      className="max-w-[140px] truncate"
+                      className="truncate px-2"
                       title={row.answerExplanationPlain || undefined}
                     >
                       {row.answerExplanationTruncated || '—'}
-                    </TableCell>
-                    <TableCell className="p-1">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5"
-                        aria-label={isExpanded ? 'Hide question' : 'View question'}
-                        onClick={() => toggleExpanded(rowKey)}
-                      >
-                        {isExpanded ? (
-                          <>
-                            <EyeOff className="h-4 w-4" />
-                            Hide
-                          </>
-                        ) : (
-                          <>
-                            <Eye className="h-4 w-4" />
-                            View
-                          </>
-                        )}
-                      </Button>
                     </TableCell>
                   </TableRow>
                   {isExpanded && stem && question && (
@@ -291,7 +269,10 @@ export function Step3SetAnswers({
                                   'h-8 px-3',
                                   expandedDetailMode === 'view' && 'bg-background shadow-sm'
                                 )}
-                                onClick={() => setExpandedDetailMode('view')}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  setExpandedDetailMode('view')
+                                }}
                               >
                                 View
                               </Button>
@@ -303,7 +284,10 @@ export function Step3SetAnswers({
                                   'h-8 px-3',
                                   expandedDetailMode === 'edit' && 'bg-background shadow-sm'
                                 )}
-                                onClick={() => onUpdateStem && setExpandedDetailMode('edit')}
+                                onClick={(event) => {
+                                  event.stopPropagation()
+                                  onUpdateStem && setExpandedDetailMode('edit')
+                                }}
                                 disabled={!onUpdateStem}
                               >
                                 Edit

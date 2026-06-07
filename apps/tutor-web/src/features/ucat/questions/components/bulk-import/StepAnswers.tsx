@@ -1,258 +1,213 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { Json } from '@altitutor/shared'
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
   Label,
-  RadioGroup,
-  RadioGroupItem,
-  Switch,
+  SearchableSelect,
 } from '@altitutor/ui'
-import { cn } from '@/shared/utils'
+import { Settings2 } from 'lucide-react'
+import { CollapsibleAnswerQuestionCard } from '@/features/ucat/questions/components/bulk-import/CollapsibleAnswerQuestionCard'
+import { BulkImportParseLegendButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseLegendButton'
 import { Step2PasteAnswers } from '@/features/ucat/questions/components/bulk-import/Step2PasteAnswers'
-import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
-import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { buildQuestionAnswerPreviews } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
-import {
-  type FlatQuestionRef,
-  type PerQuestionAnswerDraft,
-  flattenBulkImportQuestions,
-} from '@/features/ucat/questions/components/bulk-import/bulkImportPerQuestionAnswers'
+import type {
+  AnswerFieldSeparator,
+  AnswerParseOptions,
+} from '@/features/ucat/questions/lib/parseAnswersTable'
+import type { PasteTableBehavior } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
 
-export type AnswersInputMode = 'bulk' | 'per_question'
+export type AnswerParsingOptions = {
+  fieldSeparator: AnswerFieldSeparator
+  pasteTableBehavior: PasteTableBehavior
+}
+
+export const DEFAULT_ANSWER_PARSING_OPTIONS: AnswerParsingOptions = {
+  fieldSeparator: 'tab',
+  pasteTableBehavior: 'keep',
+}
+
+const ANSWER_FIELD_SEPARATOR_OPTIONS: { value: AnswerFieldSeparator; label: string }[] = [
+  { value: 'tab', label: 'Tab' },
+  { value: 'comma', label: 'Comma (,)' },
+  { value: 'semicolon', label: 'Semicolon (;)' },
+  { value: 'pipe', label: 'Pipe (|)' },
+]
+
+const ANSWER_PASTE_TABLE_BEHAVIOR_OPTIONS: { value: PasteTableBehavior; label: string }[] = [
+  { value: 'keep', label: 'None (keep formatting)' },
+  { value: 'strip_outside', label: 'Strip outside tables only' },
+  { value: 'strip_all', label: 'Strip all tables' },
+]
+
+export function answerParsingOptionsToParseOptions(
+  options: AnswerParsingOptions
+): AnswerParseOptions {
+  return { fieldSeparator: options.fieldSeparator }
+}
 
 type StepAnswersProps = {
-  mode: AnswersInputMode
-  onModeChange: (mode: AnswersInputMode) => void
   bulkAnswersJson: Json | null
   onBulkAnswersChange: (value: Json) => void
   stems: BulkImportStemDraft[]
-  perQuestionAnswers: PerQuestionAnswerDraft[]
-  onPerQuestionAnswersChange: (drafts: PerQuestionAnswerDraft[]) => void
-}
-
-const RTE = { forceLightChrome: true as const, pasteTableBehavior: 'keep' as const }
-
-function PerQuestionRow({
-  row,
-  draft,
-  onChange,
-}: {
-  row: FlatQuestionRef
-  draft: PerQuestionAnswerDraft
-  onChange: (next: PerQuestionAnswerDraft) => void
-}) {
-  const questionPreview = useMemo(() => {
-    const stem = row
-    return stem.label
-  }, [row])
-
-  return (
-    <div className="space-y-3 rounded-lg border p-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm font-semibold">{questionPreview}</div>
-        <div className="flex items-center gap-2 text-xs">
-          <Label htmlFor={`expl-scope-${row.globalIndex}`} className="text-muted-foreground">
-            {draft.explanationScope === 'per_option' ? 'Per-option explanations' : 'Question explanation'}
-          </Label>
-          <Switch
-            id={`expl-scope-${row.globalIndex}`}
-            checked={draft.explanationScope === 'per_option'}
-            onCheckedChange={(checked) =>
-              onChange({
-                ...draft,
-                explanationScope: checked ? 'per_option' : 'question',
-              })
-            }
-          />
-        </div>
-      </div>
-
-      {row.isSyllogism ? (
-        <div className="space-y-2">
-          {Array.from({ length: row.optionCount }).map((_, optIndex) => (
-            <div key={optIndex} className="flex flex-wrap items-center gap-3">
-              <span className="w-8 text-xs font-medium">Stmt {optIndex + 1}</span>
-              <RadioGroup
-                value={draft.syllogismPattern?.charAt(optIndex) === 'Y' ? 'Y' : 'N'}
-                onValueChange={(v) => {
-                  const arr = (draft.syllogismPattern ?? '').split('')
-                  arr[optIndex] = v
-                  onChange({
-                    ...draft,
-                    syllogismPattern: arr
-                      .join('')
-                      .padEnd(row.optionCount, 'N')
-                      .slice(0, row.optionCount),
-                  })
-                }}
-                className="flex gap-3"
-              >
-                <div className="flex items-center gap-1">
-                  <RadioGroupItem value="Y" id={`sy-${row.globalIndex}-${optIndex}-y`} />
-                  <Label htmlFor={`sy-${row.globalIndex}-${optIndex}-y`} className="text-xs">
-                    Yes
-                  </Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <RadioGroupItem value="N" id={`sy-${row.globalIndex}-${optIndex}-n`} />
-                  <Label htmlFor={`sy-${row.globalIndex}-${optIndex}-n`} className="text-xs">
-                    No
-                  </Label>
-                </div>
-              </RadioGroup>
-              {draft.explanationScope === 'per_option' ? (
-                <div className="min-w-[200px] flex-1">
-                  <UcatRichTextEditor
-                    {...RTE}
-                    {...BULK_IMPORT_RTE_PASTE}
-                    value={draft.optionExplanations[optIndex] ?? null}
-                    onChange={(v) => {
-                      const optionExplanations = [...draft.optionExplanations]
-                      optionExplanations[optIndex] = v
-                      onChange({ ...draft, optionExplanations })
-                    }}
-                    minHeight="48px"
-                    stemId={null}
-                  />
-                </div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {Array.from({ length: row.optionCount }).map((_, optIndex) => (
-              <label
-                key={optIndex}
-                className={cn(
-                  'flex cursor-pointer items-center gap-1.5 rounded border px-2 py-1 text-xs',
-                  draft.correctOptionIndex === optIndex && 'border-primary bg-primary/5'
-                )}
-              >
-                <input
-                  type="radio"
-                  name={`correct-${row.globalIndex}`}
-                  checked={draft.correctOptionIndex === optIndex}
-                  onChange={() => onChange({ ...draft, correctOptionIndex: optIndex })}
-                />
-                {String.fromCharCode(65 + optIndex)}
-              </label>
-            ))}
-          </div>
-          {draft.explanationScope === 'per_option' ? (
-            <div className="space-y-2">
-              {Array.from({ length: row.optionCount }).map((_, optIndex) => (
-                <div key={optIndex} className="space-y-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Option {String.fromCharCode(65 + optIndex)} explanation
-                  </Label>
-                  <UcatRichTextEditor
-                    {...RTE}
-                    {...BULK_IMPORT_RTE_PASTE}
-                    value={draft.optionExplanations[optIndex] ?? null}
-                    onChange={(v) => {
-                      const optionExplanations = [...draft.optionExplanations]
-                      optionExplanations[optIndex] = v
-                      onChange({ ...draft, optionExplanations })
-                    }}
-                    minHeight="48px"
-                    stemId={null}
-                  />
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      )}
-
-      {draft.explanationScope === 'question' ? (
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Explanation</Label>
-          <UcatRichTextEditor
-            {...RTE}
-            {...BULK_IMPORT_RTE_PASTE}
-            value={draft.questionExplanation}
-            onChange={(v) => onChange({ ...draft, questionExplanation: v })}
-            minHeight="64px"
-            stemId={null}
-          />
-        </div>
-      ) : null}
-    </div>
-  )
+  isDecisionMakingSection: boolean
+  answerParsingOptions: AnswerParsingOptions
+  onAnswerParsingOptionsChange: (options: AnswerParsingOptions) => void
 }
 
 export function StepAnswers({
-  mode,
-  onModeChange,
   bulkAnswersJson,
   onBulkAnswersChange,
   stems,
-  perQuestionAnswers,
-  onPerQuestionAnswersChange,
+  isDecisionMakingSection,
+  answerParsingOptions,
+  onAnswerParsingOptionsChange,
 }: StepAnswersProps) {
-  const flat = useMemo(() => flattenBulkImportQuestions(stems), [stems])
+  const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<Set<string>>(() => new Set())
+  const parseOptions = useMemo(
+    () => answerParsingOptionsToParseOptions(answerParsingOptions),
+    [answerParsingOptions]
+  )
+
+  const previews = useMemo(
+    () =>
+      buildQuestionAnswerPreviews(
+        stems,
+        bulkAnswersJson,
+        isDecisionMakingSection,
+        parseOptions
+      ),
+    [stems, bulkAnswersJson, isDecisionMakingSection, parseOptions]
+  )
+
+  const toggleQuestionExpanded = useCallback((key: string) => {
+    setExpandedQuestionKeys((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }, [])
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-4">
-      <div className="flex shrink-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex h-full min-h-0 flex-col gap-3">
+      <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h2 className="text-base font-semibold">Answers</h2>
+          <h2 className="text-base font-semibold">Paste answers</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Explanations are required for every question.
+            Paste one answers document for all questions. Explanations are required for every question.
           </p>
         </div>
-        <div className="flex rounded-md border p-0.5">
-          <Button
-            type="button"
-            size="sm"
-            variant={mode === 'bulk' ? 'default' : 'ghost'}
-            onClick={() => onModeChange('bulk')}
-          >
-            Paste answers document
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant={mode === 'per_question' ? 'default' : 'ghost'}
-            onClick={() => onModeChange('per_question')}
-          >
-            Per question
-          </Button>
+        <div className="flex shrink-0 items-center gap-2">
+          <BulkImportParseLegendButton variant="answers" includeExplanationsOnImport />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                aria-label="Answer parsing settings"
+              >
+                <Settings2 className="h-3.5 w-3.5" />
+                Answer settings
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              className="w-72 max-w-[min(18rem,92vw)] p-2"
+              align="end"
+            >
+              <DropdownMenuLabel className="px-0 text-xs">Field separator</DropdownMenuLabel>
+              <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
+                Character between question number, answer option, and explanation columns.
+              </p>
+              <SearchableSelect<{ value: AnswerFieldSeparator; label: string }>
+                items={ANSWER_FIELD_SEPARATOR_OPTIONS}
+                value={
+                  ANSWER_FIELD_SEPARATOR_OPTIONS.find(
+                    (o) => o.value === answerParsingOptions.fieldSeparator
+                  ) ?? ANSWER_FIELD_SEPARATOR_OPTIONS[0]!
+                }
+                onValueChange={(item) =>
+                  item &&
+                  onAnswerParsingOptionsChange({
+                    ...answerParsingOptions,
+                    fieldSeparator: item.value,
+                  })
+                }
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.value}
+                triggerClassName="w-full"
+              />
+              <DropdownMenuLabel className="mt-3 px-0 text-xs">Table paste handling</DropdownMenuLabel>
+              <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
+                How pasted tables are converted when importing from Word, Google Docs, or Excel.
+              </p>
+              <SearchableSelect<{ value: PasteTableBehavior; label: string }>
+                items={ANSWER_PASTE_TABLE_BEHAVIOR_OPTIONS}
+                value={
+                  ANSWER_PASTE_TABLE_BEHAVIOR_OPTIONS.find(
+                    (o) => o.value === answerParsingOptions.pasteTableBehavior
+                  ) ?? ANSWER_PASTE_TABLE_BEHAVIOR_OPTIONS[0]!
+                }
+                onValueChange={(item) =>
+                  item &&
+                  onAnswerParsingOptionsChange({
+                    ...answerParsingOptions,
+                    pasteTableBehavior: item.value,
+                  })
+                }
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.value}
+                triggerClassName="w-full"
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
 
-      {mode === 'bulk' ? (
-        <div className="min-h-0 flex-1">
-          <Step2PasteAnswers value={bulkAnswersJson} onChange={onBulkAnswersChange} layout="default" />
+      <div className="grid shrink-0 gap-3 border-b border-border pb-2 lg:grid-cols-2">
+        <Label className="text-xs font-medium text-muted-foreground">Questions</Label>
+        <Label className="text-xs font-medium text-muted-foreground">Paste answers document</Label>
+      </div>
+
+      <div className="grid min-h-0 flex-1 gap-4 overflow-hidden lg:grid-cols-2">
+        <div className="min-h-0 overflow-y-auto pr-1">
+          {previews.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No questions to match answers against.</p>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {previews.map((preview) => {
+                const key = `${preview.row.stemId}:${preview.row.questionIndex}`
+                return (
+                  <CollapsibleAnswerQuestionCard
+                    key={key}
+                    preview={preview}
+                    expanded={expandedQuestionKeys.has(key)}
+                    onToggle={() => toggleQuestionExpanded(key)}
+                  />
+                )
+              })}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-          {flat.map((row, index) => (
-            <PerQuestionRow
-              key={`${row.stemId}-${row.questionIndex}`}
-              row={row}
-              draft={
-                perQuestionAnswers[index] ?? {
-                  correctOptionIndex: null,
-                  syllogismPattern: null,
-                  explanationScope: row.isSyllogism ? 'per_option' : 'question',
-                  questionExplanation: null,
-                  optionExplanations: [],
-                }
-              }
-              onChange={(next) => {
-                const copies = [...perQuestionAnswers]
-                copies[index] = next
-                onPerQuestionAnswersChange(copies)
-              }}
-            />
-          ))}
+
+        <div className="flex min-h-0 min-w-0 flex-col">
+          <Step2PasteAnswers
+            value={bulkAnswersJson}
+            onChange={onBulkAnswersChange}
+            layout="split"
+            embedded
+            answerParsingOptions={answerParsingOptions}
+          />
         </div>
-      )}
+      </div>
     </div>
   )
 }

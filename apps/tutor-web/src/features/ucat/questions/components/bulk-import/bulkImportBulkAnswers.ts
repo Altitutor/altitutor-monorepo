@@ -2,12 +2,136 @@ import type { Json } from '@altitutor/shared'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
+  flattenBulkImportQuestions,
+  type FlatQuestionRef,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportPerQuestionAnswers'
+import {
   parseAnswersTable,
   letterToOptionIndex,
   parseDecisionMakingAnswers,
+  type AnswerParseOptions,
 } from '@/features/ucat/questions/lib/parseAnswersTable'
+import {
+  parseAnswersTableFromDoc,
+  parseDecisionMakingAnswersFromDoc,
+} from '@/features/ucat/questions/lib/parseAnswersFromDoc'
 import { answerDocToPlainTsv } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
-import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+
+export type QuestionAnswerPreview = {
+  row: FlatQuestionRef
+  questionText: string
+  answerLetter: string | null
+  syllogismPattern: string | null
+  explanationPreview: string | null
+  hasExplanation: boolean
+  isParsed: boolean
+}
+
+function truncatePreview(text: string, maxLen: number): string {
+  const oneLine = text.replace(/\s+/g, ' ').trim()
+  if (oneLine.length <= maxLen) return oneLine
+  return `${oneLine.slice(0, maxLen)}…`
+}
+
+function questionTextForRow(stems: BulkImportStemDraft[], row: FlatQuestionRef): string {
+  const stem = stems.find((s) => s.id === row.stemId)
+  const q = stem?.values.questions?.[row.questionIndex]
+  return proseMirrorToPlainText(q?.questionText ?? null)?.trim() ?? ''
+}
+
+function emptyPreview(stems: BulkImportStemDraft[], row: FlatQuestionRef): QuestionAnswerPreview {
+  return {
+    row,
+    questionText: questionTextForRow(stems, row),
+    answerLetter: null,
+    syllogismPattern: null,
+    explanationPreview: null,
+    hasExplanation: false,
+    isParsed: false,
+  }
+}
+
+/** Live preview of parsed bulk answers aligned to wizard questions (paste order). */
+export function buildQuestionAnswerPreviews(
+  stems: BulkImportStemDraft[],
+  pastedAnswersJson: Json | null | undefined,
+  isDecisionMakingSection: boolean,
+  answerParseOptions?: AnswerParseOptions
+): QuestionAnswerPreview[] {
+  const flat = flattenBulkImportQuestions(stems)
+  const plain = answerDocToPlainTsv(pastedAnswersJson)?.trim() ?? ''
+
+  if (!plain) {
+    return flat.map((row) => emptyPreview(stems, row))
+  }
+
+  if (isDecisionMakingSection) {
+    const questionTypes = flat.map((row) =>
+      row.isSyllogism ? ('syllogism' as const) : ('multiple_choice' as const)
+    )
+    const parsed = parseDecisionMakingAnswersFromDoc(
+      pastedAnswersJson,
+      questionTypes,
+      answerParseOptions
+    )
+    return flat.map((row, index) => {
+      const answer = parsed[index]
+      if (!answer) return emptyPreview(stems, row)
+
+      if (row.isSyllogism && answer.pattern) {
+        const optionExplanations = answer.optionExplanations ?? []
+        const firstExplanation =
+          (answer.explanation ?? '').trim() ||
+          optionExplanations.map((e) => (e ?? '').trim()).find((e) => e.length > 0) ||
+          ''
+        return {
+          row,
+          questionText: questionTextForRow(stems, row),
+          answerLetter: null,
+          syllogismPattern: answer.pattern.split('').join(' · '),
+          explanationPreview: firstExplanation ? truncatePreview(firstExplanation, 120) : null,
+          hasExplanation:
+            firstExplanation.length > 0 ||
+            optionExplanations.some((e) => (e ?? '').trim().length > 0),
+          isParsed: true,
+        }
+      }
+
+      if (answer.letter) {
+        const explanation = answer.explanation?.trim() ?? ''
+        return {
+          row,
+          questionText: questionTextForRow(stems, row),
+          answerLetter: answer.letter.toUpperCase(),
+          syllogismPattern: null,
+          explanationPreview: explanation ? truncatePreview(explanation, 120) : null,
+          hasExplanation: explanation.length > 0,
+          isParsed: true,
+        }
+      }
+
+      return emptyPreview(stems, row)
+    })
+  }
+
+  const parsed = parseAnswersTableFromDoc(pastedAnswersJson, answerParseOptions)
+  return flat.map((row, index) => {
+    const answer = parsed[index]
+    if (!answer) return emptyPreview(stems, row)
+    const explanation =
+      proseMirrorToPlainText(answer.explanationDoc)?.trim() || answer.explanation.trim()
+    return {
+      row,
+      questionText: questionTextForRow(stems, row),
+      answerLetter: answer.letter.toUpperCase(),
+      syllogismPattern: null,
+      explanationPreview: explanation ? truncatePreview(explanation, 120) : null,
+      hasExplanation: explanation.length > 0,
+      isParsed: true,
+    }
+  })
+}
 
 export function countFlatQuestions(stems: BulkImportStemDraft[]): number {
   return stems.reduce((sum, stem) => sum + (stem.values.questions?.length ?? 0), 0)
@@ -16,7 +140,8 @@ export function countFlatQuestions(stems: BulkImportStemDraft[]): number {
 export function validateBulkAnswersDocument(
   pastedAnswersJson: Json | null | undefined,
   stems: BulkImportStemDraft[],
-  isDecisionMakingSection: boolean
+  isDecisionMakingSection: boolean,
+  answerParseOptions?: AnswerParseOptions
 ): { ok: true } | { ok: false; message: string } {
   const totalQuestions = countFlatQuestions(stems)
   if (totalQuestions === 0) {
@@ -40,7 +165,7 @@ export function validateBulkAnswersDocument(
         })
       })
     })
-    const parsed = parseDecisionMakingAnswers(plain, flat.map((f) => f.questionType))
+    const parsed = parseDecisionMakingAnswers(plain, flat.map((f) => f.questionType), answerParseOptions)
     if (parsed.length !== totalQuestions) {
       return {
         ok: false,
@@ -60,7 +185,7 @@ export function validateBulkAnswersDocument(
     return { ok: true }
   }
 
-  const parsed = parseAnswersTable(plain)
+  const parsed = parseAnswersTable(plain, answerParseOptions)
   if (parsed.length !== totalQuestions) {
     return {
       ok: false,
@@ -78,7 +203,8 @@ export function applyBulkAnswersToStems(
   pastedAnswersJson: Json | null | undefined,
   stems: BulkImportStemDraft[],
   isDecisionMakingSection: boolean,
-  updateStem: (stemId: string, values: UcatQuestionStemFormValues) => void
+  updateStem: (stemId: string, values: UcatQuestionStemFormValues) => void,
+  answerParseOptions?: AnswerParseOptions
 ): void {
   const flat: { stemId: string; questionIndex: number }[] = []
   stems.forEach((stem) => {
@@ -88,7 +214,6 @@ export function applyBulkAnswersToStems(
   if (flat.length === 0) return
 
   const updatesByStem = new Map<string, UcatQuestionStemFormValues>()
-  const pastedAnswersPlain = answerDocToPlainTsv(pastedAnswersJson)
 
   if (isDecisionMakingSection) {
     const questionTypes = flat.map(({ stemId, questionIndex }) => {
@@ -98,7 +223,11 @@ export function applyBulkAnswersToStems(
         | 'syllogism'
         | 'multiple_choice'
     })
-    const dmParsed = parseDecisionMakingAnswers(pastedAnswersPlain, questionTypes)
+    const dmParsed = parseDecisionMakingAnswersFromDoc(
+      pastedAnswersJson,
+      questionTypes,
+      answerParseOptions
+    )
     dmParsed.forEach((answer, i) => {
       if (i >= flat.length) return
       const { stemId, questionIndex } = flat[i]!
@@ -116,9 +245,8 @@ export function applyBulkAnswersToStems(
           ...opt,
           isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
           answerExplanation:
-            answer.optionExplanations?.[j]?.trim()
-              ? (plainTextToProseMirror(answer.optionExplanations[j]!) as Json)
-              : null,
+            answer.optionExplanationDocs?.[j] ??
+            null,
         }))
         questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
       } else if (answer.letter) {
@@ -127,20 +255,17 @@ export function applyBulkAnswersToStems(
           ...opt,
           isAnswer: j === optionIndex,
         }))
-        const explanationText = answer.explanation?.trim() ?? ''
         questions[questionIndex] = {
           ...q,
           options,
-          answerExplanation: explanationText
-            ? (plainTextToProseMirror(explanationText) as Json)
-            : null,
+          answerExplanation: answer.explanationDoc ?? null,
         }
       }
       nextValues = { ...nextValues, questions }
       updatesByStem.set(stemId, nextValues)
     })
   } else {
-    const parsed = parseAnswersTable(pastedAnswersPlain)
+    const parsed = parseAnswersTableFromDoc(pastedAnswersJson, answerParseOptions)
     parsed.forEach((row, i) => {
       if (i >= flat.length) return
       const { stemId, questionIndex } = flat[i]!
@@ -156,13 +281,10 @@ export function applyBulkAnswersToStems(
         ...opt,
         isAnswer: j === optionIndex,
       }))
-      const explanationBody = row.explanation.trim()
       questions[questionIndex] = {
         ...q,
         options,
-        answerExplanation: explanationBody
-          ? (plainTextToProseMirror(explanationBody) as Json)
-          : null,
+        answerExplanation: row.explanationDoc ?? null,
       }
       nextValues = { ...nextValues, questions }
       updatesByStem.set(stemId, nextValues)

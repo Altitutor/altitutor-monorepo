@@ -41,10 +41,7 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/Step4CreateSet'
 import { StepPasteStems } from '@/features/ucat/questions/components/bulk-import/StepPasteStems'
 import { StepPerStemQuestions } from '@/features/ucat/questions/components/bulk-import/StepPerStemQuestions'
-import {
-  StepAnswers,
-  type AnswersInputMode,
-} from '@/features/ucat/questions/components/bulk-import/StepAnswers'
+import { StepAnswers, DEFAULT_ANSWER_PARSING_OPTIONS, type AnswerParsingOptions, answerParsingOptionsToParseOptions } from '@/features/ucat/questions/components/bulk-import/StepAnswers'
 import { BulkImportConfirmDialog } from '@/features/ucat/questions/components/bulk-import/BulkImportConfirmDialog'
 import {
   getBulkImportStepKind,
@@ -67,13 +64,6 @@ import {
   applyBulkAnswersToStems,
   validateBulkAnswersDocument,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
-import {
-  applyPerQuestionAnswersToStems,
-  createDefaultPerQuestionAnswers,
-  flattenBulkImportQuestions,
-  isPerQuestionAnswerComplete,
-  type PerQuestionAnswerDraft,
-} from '@/features/ucat/questions/components/bulk-import/bulkImportPerQuestionAnswers'
 
 export type BulkImportSubmitArgs = {
   sectionId: string
@@ -91,7 +81,6 @@ type BulkImportQuestionStemsModalProps = {
 type PendingConfirm =
   | { type: 'toggle_separate_stem'; nextValue: boolean }
   | { type: 'back_to_stems' }
-  | { type: 'switch_answers_mode'; nextMode: AnswersInputMode }
   | { type: 'close_modal' }
   | null
 
@@ -119,8 +108,9 @@ export function BulkImportQuestionStemsModal({
   const [parsedStemTexts, setParsedStemTexts] = useState<string[]>([])
   const [perStemQuestionDocs, setPerStemQuestionDocs] = useState<Array<Json | null>>([])
   const [pastedAnswersJson, setPastedAnswersJson] = useState<Json | null>(null)
-  const [answersInputMode, setAnswersInputMode] = useState<AnswersInputMode>('bulk')
-  const [perQuestionAnswers, setPerQuestionAnswers] = useState<PerQuestionAnswerDraft[]>([])
+  const [answerParsingOptions, setAnswerParsingOptions] = useState<AnswerParsingOptions>(
+    DEFAULT_ANSWER_PARSING_OPTIONS
+  )
   const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
   const [addToSetEnabled, setAddToSetEnabled] = useState(false)
   const [addToSetConfig, setAddToSetConfig] = useState<AddToSetConfig | null>(null)
@@ -173,7 +163,6 @@ export function BulkImportQuestionStemsModal({
     setParsedStemTexts([])
     setPerStemQuestionDocs([])
     setPastedAnswersJson(null)
-    setPerQuestionAnswers([])
     wizard.reset()
   }, [wizard])
 
@@ -198,8 +187,7 @@ export function BulkImportQuestionStemsModal({
       setParsedStemTexts([])
       setPerStemQuestionDocs([])
       setPastedAnswersJson(null)
-      setAnswersInputMode('bulk')
-      setPerQuestionAnswers([])
+      setAnswerParsingOptions(DEFAULT_ANSWER_PARSING_OPTIONS)
       setPasteTableBehavior('strip_outside')
       setAddToSetEnabled(false)
       setAddToSetConfig(null)
@@ -229,8 +217,7 @@ export function BulkImportQuestionStemsModal({
       pastedContent != null ||
       pastedStemDoc != null ||
       wizard.state.stems.length > 0 ||
-      pastedAnswersJson != null ||
-      perQuestionAnswers.length > 0,
+      pastedAnswersJson != null,
     [
       parsedStemTexts.length,
       perStemQuestionDocs,
@@ -238,7 +225,6 @@ export function BulkImportQuestionStemsModal({
       pastedStemDoc,
       wizard.state.stems.length,
       pastedAnswersJson,
-      perQuestionAnswers.length,
     ]
   )
 
@@ -267,6 +253,11 @@ export function BulkImportQuestionStemsModal({
 
   const canGoPrevious = step > 0 && status !== 'submitting'
 
+  const answerParseOptions = useMemo(
+    () => answerParsingOptionsToParseOptions(answerParsingOptions),
+    [answerParsingOptions]
+  )
+
   const canGoNext = useMemo(() => {
     if (status === 'submitting') return false
     if (stepKind === 'section') return !!sectionId
@@ -278,18 +269,13 @@ export function BulkImportQuestionStemsModal({
     if (stepKind === 'paste_document') return true
     if (stepKind === 'answers') {
       if (wizard.state.stems.length === 0) return false
-      if (answersInputMode === 'bulk') {
-        const validation = validateBulkAnswersDocument(
-          pastedAnswersJson,
-          wizard.state.stems,
-          isDecisionMakingSection
-        )
-        return validation.ok
-      }
-      const flat = flattenBulkImportQuestions(wizard.state.stems)
-      return flat.every((row, i) =>
-        isPerQuestionAnswerComplete(row, perQuestionAnswers[i] ?? createDefaultPerQuestionAnswers([row])[0]!)
+      const validation = validateBulkAnswersDocument(
+        pastedAnswersJson,
+        wizard.state.stems,
+        isDecisionMakingSection,
+        answerParseOptions
       )
+      return validation.ok
     }
     if (step >= totalStepsResolved - 1) return false
     return true
@@ -301,10 +287,9 @@ export function BulkImportQuestionStemsModal({
     stemSplitOptions,
     allPerStemQuestionsParsed,
     wizard.state.stems,
-    answersInputMode,
     pastedAnswersJson,
     isDecisionMakingSection,
-    perQuestionAnswers,
+    answerParseOptions,
     step,
     totalStepsResolved,
   ])
@@ -422,7 +407,6 @@ export function BulkImportQuestionStemsModal({
     if (stepKind === 'paste_document') {
       const result = parseCombinedDocument()
       if (!result.ok) return
-      setPerQuestionAnswers(createDefaultPerQuestionAnswers(flattenBulkImportQuestions(result.drafts)))
     }
 
     if (stepKind === 'paste_stems') {
@@ -439,36 +423,27 @@ export function BulkImportQuestionStemsModal({
     if (stepKind === 'per_stem_questions') {
       const result = buildStemsFromSeparateFlow()
       if (!result.ok) return
-      const flat = flattenBulkImportQuestions(result.drafts)
-      setPerQuestionAnswers(createDefaultPerQuestionAnswers(flat))
     }
 
     if (stepKind === 'answers') {
       const stems = wizard.state.stems
-      if (answersInputMode === 'bulk') {
-        const validation = validateBulkAnswersDocument(
-          pastedAnswersJson,
-          stems,
-          isDecisionMakingSection
-        )
-        if (!validation.ok) {
-          setParseError(validation.message)
-          return
-        }
-        applyBulkAnswersToStems(
-          pastedAnswersJson,
-          stems,
-          isDecisionMakingSection,
-          wizard.updateStemForm
-        )
-      } else {
-        applyPerQuestionAnswersToStems(
-          stems,
-          flattenBulkImportQuestions(stems),
-          perQuestionAnswers,
-          wizard.updateStemForm
-        )
+      const validation = validateBulkAnswersDocument(
+        pastedAnswersJson,
+        stems,
+        isDecisionMakingSection,
+        answerParseOptions
+      )
+      if (!validation.ok) {
+        setParseError(validation.message)
+        return
       }
+      applyBulkAnswersToStems(
+        pastedAnswersJson,
+        stems,
+        isDecisionMakingSection,
+        wizard.updateStemForm,
+        answerParseOptions
+      )
       setParseError(null)
     }
 
@@ -497,22 +472,6 @@ export function BulkImportQuestionStemsModal({
     }
   }
 
-  function handleAnswersModeChange(nextMode: AnswersInputMode) {
-    if (nextMode === answersInputMode) return
-    const hasBulk = pastedAnswersJson != null
-    const hasPerQuestion = perQuestionAnswers.some(
-      (d) =>
-        d.correctOptionIndex != null ||
-        d.questionExplanation != null ||
-        d.optionExplanations.some((e) => e != null)
-    )
-    if ((nextMode === 'bulk' && hasPerQuestion) || (nextMode === 'per_question' && hasBulk)) {
-      queueConfirm({ type: 'switch_answers_mode', nextMode })
-      return
-    }
-    setAnswersInputMode(nextMode)
-  }
-
   function resolvePendingConfirm() {
     if (!pendingConfirm) return
     if (pendingConfirm.type === 'toggle_separate_stem') {
@@ -523,18 +482,6 @@ export function BulkImportQuestionStemsModal({
     if (pendingConfirm.type === 'back_to_stems') {
       wipeDownstreamFromStems()
       setStep((s) => Math.max(0, s - 1))
-    }
-    if (pendingConfirm.type === 'switch_answers_mode') {
-      setAnswersInputMode(pendingConfirm.nextMode)
-      if (pendingConfirm.nextMode === 'bulk') {
-        setPerQuestionAnswers([])
-      } else {
-        setPastedAnswersJson(null)
-        const flat = flattenBulkImportQuestions(wizard.state.stems)
-        setPerQuestionAnswers(createDefaultPerQuestionAnswers(flat))
-      }
-      clearPendingConfirm()
-      return
     }
     if (pendingConfirm.type === 'close_modal') {
       clearPendingConfirm()
@@ -705,13 +652,12 @@ export function BulkImportQuestionStemsModal({
     if (stepKind === 'answers') {
       return (
         <StepAnswers
-          mode={answersInputMode}
-          onModeChange={handleAnswersModeChange}
           bulkAnswersJson={pastedAnswersJson}
           onBulkAnswersChange={setPastedAnswersJson}
           stems={wizard.state.stems}
-          perQuestionAnswers={perQuestionAnswers}
-          onPerQuestionAnswersChange={setPerQuestionAnswers}
+          isDecisionMakingSection={isDecisionMakingSection}
+          answerParsingOptions={answerParsingOptions}
+          onAnswerParsingOptionsChange={setAnswerParsingOptions}
         />
       )
     }
@@ -767,11 +713,7 @@ export function BulkImportQuestionStemsModal({
         confirmLabel: 'Exit without saving',
       }
     }
-    return {
-      title: 'Switch answers input mode?',
-      description: 'Switching mode will clear answers entered in the current mode.',
-      confirmLabel: 'Continue',
-    }
+    return null
   })()
 
   const description =

@@ -14,6 +14,65 @@ export type ParsedAnswerRow = {
   explanation: string
 }
 
+export type AnswerFieldSeparator = 'tab' | 'comma' | 'semicolon' | 'pipe'
+
+export type AnswerParseOptions = {
+  fieldSeparator?: AnswerFieldSeparator
+}
+
+export const DEFAULT_ANSWER_FIELD_SEPARATOR: AnswerFieldSeparator = 'tab'
+
+export function answerFieldSeparatorChar(separator: AnswerFieldSeparator = DEFAULT_ANSWER_FIELD_SEPARATOR): string {
+  switch (separator) {
+    case 'comma':
+      return ','
+    case 'semicolon':
+      return ';'
+    case 'pipe':
+      return '|'
+    default:
+      return '\t'
+  }
+}
+
+function resolveFieldSeparator(options?: AnswerParseOptions): AnswerFieldSeparator {
+  return options?.fieldSeparator ?? DEFAULT_ANSWER_FIELD_SEPARATOR
+}
+
+function textUsesFieldSeparator(text: string, separator: AnswerFieldSeparator): boolean {
+  return text.includes(answerFieldSeparatorChar(separator))
+}
+
+function splitAnswerLine(line: string, separator: AnswerFieldSeparator): string[] {
+  const delim = answerFieldSeparatorChar(separator)
+  if (separator === 'tab') {
+    return line.split(/\t/).map((c) => c.trim())
+  }
+  return line.split(delim).map((c) => c.trim())
+}
+
+function extractRowsFromDelimitedText(text: string, separator: AnswerFieldSeparator): string[][] {
+  return text
+    .trim()
+    .split(/\r\n|\n|\r/)
+    .map((line) => splitAnswerLine(line, separator))
+    .filter((cells) => cells.some((c) => c.length > 0))
+}
+
+function extractAnswerRowsFromInput(input: string, options?: AnswerParseOptions): string[][] {
+  const separator = resolveFieldSeparator(options)
+  const raw = input.trim()
+  if (!raw.length) return []
+
+  if (raw.startsWith('<') && raw.includes('<table')) {
+    return extractRowsFromHtml(raw)
+  }
+  if (!textUsesFieldSeparator(raw, separator)) {
+    return parseLooseAnswerRowsFromText(raw)
+  }
+  return extractRowsFromDelimitedText(raw, separator)
+}
+
 const HEADER_LIKE = /^(answer|explanation|correct|#|number|no\.?)$/i
 const OPTION_LETTER = /^[A-Ea-e]$/
 const QUESTION_NUMBER_LINE = /^\s*(?:q(?:uestion)?\s*)?(\d{1,3})[\.\)]?\s*$/i
@@ -26,37 +85,30 @@ function isHeaderRow(cells: string[]): boolean {
   return trimmed.every((c) => c === '' || HEADER_LIKE.test(c) || /^answer|explanation|correct/.test(c))
 }
 
-function parseRowToAnswer(cells: string[]): ParsedAnswerRow | null {
+function parseRowToAnswer(cells: string[], joinChar = '\t'): ParsedAnswerRow | null {
   const trimmed = cells.map((c) => c.trim())
   if (trimmed.length >= 3) {
     const [first, second, ...rest] = trimmed
     const num = first ? Number.parseInt(first, 10) : NaN
     if (!Number.isNaN(num) && num >= 1 && num <= 999) {
       const letter = (second ?? '').charAt(0).toUpperCase()
-      const explanation = rest.join('\t').trim()
+      const explanation = rest.join(joinChar).trim()
       if (OPTION_LETTER.test(letter)) return { letter, explanation }
       return null
     }
     if (OPTION_LETTER.test((first ?? '').charAt(0))) {
       return {
         letter: (first ?? '').charAt(0).toUpperCase(),
-        explanation: trimmed.slice(2).join('\t').trim() || (trimmed[1] ?? ''),
+        explanation: trimmed.slice(2).join(joinChar).trim() || (trimmed[1] ?? ''),
       }
     }
   }
   if (trimmed.length >= 2) {
     const letter = (trimmed[0] ?? '').charAt(0).toUpperCase()
-    const explanation = trimmed.slice(1).join('\t').trim()
+    const explanation = trimmed.slice(1).join(joinChar).trim()
     if (OPTION_LETTER.test(letter)) return { letter, explanation }
   }
   return null
-}
-
-function extractRowsFromPlainText(text: string): string[][] {
-  const lines = text.trim().split(/\r\n|\n|\r/)
-  return lines
-    .map((line) => line.split(/\t/).map((c) => c.trim()))
-    .filter((cells) => cells.some((c) => c.length > 0))
 }
 
 function isIgnorableLooseAnswerLine(line: string): boolean {
@@ -170,47 +222,27 @@ function extractRowsFromHtml(html: string): string[][] {
  * Parse a pasted string (plain text TSV or HTML table) into an array of answer rows.
  * Skips a leading header row if it looks like "Answer" / "Explanation".
  */
-export function parseAnswersTable(input: string): ParsedAnswerRow[] {
+export function parseAnswersTable(input: string, options?: AnswerParseOptions): ParsedAnswerRow[] {
   if (!input || typeof input !== 'string') return []
-  const raw = input.trim()
-  if (!raw.length) return []
-
-  let rows: string[][]
-  if (raw.startsWith('<') && raw.includes('<table')) {
-    rows = extractRowsFromHtml(raw)
-  } else if (!raw.includes('\t')) {
-    rows = parseLooseAnswerRowsFromText(raw)
-  } else {
-    rows = extractRowsFromPlainText(raw)
-  }
-
+  const separator = resolveFieldSeparator(options)
+  const joinChar = answerFieldSeparatorChar(separator)
+  const rows = extractAnswerRowsFromInput(input, options)
   if (rows.length === 0) return []
   const startIndex = isHeaderRow(rows[0]) ? 1 : 0
   const result: ParsedAnswerRow[] = []
   for (let i = startIndex; i < rows.length; i++) {
     const row = rows[i]
     if (!row) continue
-    const parsed = parseRowToAnswer(row)
+    const parsed = parseRowToAnswer(row, joinChar)
     if (parsed) result.push(parsed)
   }
   return result
 }
 
 /** Data rows after the same optional header skip as {@link parseAnswersTable}. */
-export function getAnswersTableDataRows(input: string): string[][] {
+export function getAnswersTableDataRows(input: string, options?: AnswerParseOptions): string[][] {
   if (!input || typeof input !== 'string') return []
-  const raw = input.trim()
-  if (!raw.length) return []
-
-  let rows: string[][]
-  if (raw.startsWith('<') && raw.includes('<table')) {
-    rows = extractRowsFromHtml(raw)
-  } else if (!raw.includes('\t')) {
-    rows = parseLooseAnswerRowsFromText(raw)
-  } else {
-    rows = extractRowsFromPlainText(raw)
-  }
-
+  const rows = extractAnswerRowsFromInput(input, options)
   if (rows.length === 0) return []
   const startIndex = isHeaderRow(rows[0]) ? 1 : 0
   return rows.slice(startIndex)
@@ -252,8 +284,9 @@ function isYnToken(s: string): boolean {
  * Structural stats + per-question coverage for the pasted answers sheet (TSV / HTML table).
  * Groups rows by leading question number when present; otherwise assigns `#1`, `#2`, … in order.
  */
-export function analyzeAnswersPaste(input: string): AnswersPasteAnalysis {
-  const dataRows = getAnswersTableDataRows(input)
+export function analyzeAnswersPaste(input: string, options?: AnswerParseOptions): AnswersPasteAnalysis {
+  const dataRows = getAnswersTableDataRows(input, options)
+  const joinChar = answerFieldSeparatorChar(resolveFieldSeparator(options))
   let seq = 0
 
   type Group = {
@@ -291,7 +324,7 @@ export function analyzeAnswersPaste(input: string): AnswersPasteAnalysis {
   let syllogismTokenRows = 0
 
   for (const cells of dataRows) {
-    const mcq = parseRowToAnswer(cells)
+    const mcq = parseRowToAnswer(cells, joinChar)
     if (mcq) {
       getGroup(cells).mcqRows.push(mcq)
       continue
@@ -357,7 +390,7 @@ export function analyzeAnswersPaste(input: string): AnswersPasteAnalysis {
   coverage.sort((a, b) => a.sortKey - b.sortKey)
 
   const totalMcqAnswerRows = dataRows.reduce(
-    (acc, cells) => acc + (parseRowToAnswer(cells) ? 1 : 0),
+    (acc, cells) => acc + (parseRowToAnswer(cells, joinChar) ? 1 : 0),
     0
   )
 
@@ -381,9 +414,13 @@ export type AnswerPasteSpanKind =
 
 export type AnswerPasteSpan = { start: number; end: number; kind: AnswerPasteSpanKind }
 
-/** Exported for mapping TSV character offsets to ProseMirror positions in pasted tables. */
-export function splitLineWithTabOffsets(line: string): { text: string; start: number; end: number }[] {
-  const parts = line.split('\t')
+/** Exported for mapping delimited line character offsets to ProseMirror positions in pasted tables. */
+export function splitLineWithFieldOffsets(
+  line: string,
+  separator: AnswerFieldSeparator = DEFAULT_ANSWER_FIELD_SEPARATOR
+): { text: string; start: number; end: number }[] {
+  const delim = answerFieldSeparatorChar(separator)
+  const parts = separator === 'tab' ? line.split('\t') : line.split(delim)
   const out: { text: string; start: number; end: number }[] = []
   let pos = 0
   for (let i = 0; i < parts.length; i += 1) {
@@ -396,15 +433,23 @@ export function splitLineWithTabOffsets(line: string): { text: string; start: nu
   return out
 }
 
+/** @deprecated Use {@link splitLineWithFieldOffsets} */
+export function splitLineWithTabOffsets(line: string): { text: string; start: number; end: number }[] {
+  return splitLineWithFieldOffsets(line, 'tab')
+}
+
 /**
- * Build highlight spans for one TSV line of pasted answers (same row semantics as {@link parseAnswersTable}).
+ * Build highlight spans for one delimited line of pasted answers (same row semantics as {@link parseAnswersTable}).
  */
 export function buildAnswerPasteSpansForLine(
   line: string,
-  rowKind: 'header' | 'data' | 'empty'
+  rowKind: 'header' | 'data' | 'empty',
+  options?: AnswerParseOptions
 ): AnswerPasteSpan[] {
   if (rowKind === 'empty' || line.length === 0) return []
-  const cells = splitLineWithTabOffsets(line)
+  const separator = resolveFieldSeparator(options)
+  const joinChar = answerFieldSeparatorChar(separator)
+  const cells = splitLineWithFieldOffsets(line, separator)
   const spans: AnswerPasteSpan[] = []
 
   if (rowKind === 'header') {
@@ -422,7 +467,7 @@ export function buildAnswerPasteSpansForLine(
   }
 
   const cellTexts = cells.map((c) => c.text)
-  const parsed = parseRowToAnswer(cellTexts)
+  const parsed = parseRowToAnswer(cellTexts, joinChar)
 
   const pushRange = (start: number, end: number, kind: AnswerPasteSpanKind): void => {
     if (end > start) spans.push({ start, end, kind })
@@ -504,12 +549,16 @@ export function isAnswersHeaderRowCells(cells: string[]): boolean {
  * Prefer this over joining lines into a string and calling {@link getAnswerTsvLineRowKinds},
  * which can disagree when a logical row embeds newline characters.
  */
-export function getAnswerLineRowKindsFromLines(lines: readonly string[]): ('header' | 'data' | 'empty')[] {
+export function getAnswerLineRowKindsFromLines(
+  lines: readonly string[],
+  options?: AnswerParseOptions
+): ('header' | 'data' | 'empty')[] {
+  const separator = resolveFieldSeparator(options)
   let headerLine: number | null = null
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? ''
     if (!line.trim()) continue
-    const cells = line.split('\t').map((c) => c.trim())
+    const cells = splitAnswerLine(line, separator)
     if (isHeaderRow(cells)) headerLine = i
     break
   }
@@ -559,15 +608,17 @@ function isAthroughE(s: string): boolean {
  */
 export function parseDecisionMakingAnswers(
   input: string,
-  questionTypes: ('syllogism' | 'multiple_choice')[]
+  questionTypes: ('syllogism' | 'multiple_choice')[],
+  options?: AnswerParseOptions
 ): { letter?: string; pattern?: string; explanation?: string; optionExplanations?: string[] }[] {
   if (!input || typeof input !== 'string' || questionTypes.length === 0)
     return []
   const trimmed = input.trim()
   if (!trimmed.length) return []
 
-  const rows = trimmed.includes('\t')
-    ? extractRowsFromPlainText(trimmed)
+  const separator = resolveFieldSeparator(options)
+  const rows = textUsesFieldSeparator(trimmed, separator)
+    ? extractRowsFromDelimitedText(trimmed, separator)
     : trimmed.split(/\r\n|\n|\r/).map((l) => [l.trim()])
   const nonEmpty = rows.filter((cells) => cells.some((c) => c.length > 0))
   if (nonEmpty.length === 0) return []

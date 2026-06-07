@@ -72,5 +72,10 @@ export function getBulkImportStepTitle(kind: BulkImportStepKind): string {
 
 /** Steps that use full-height paste layout (no outer scroll). */
 export function isBulkImportFullHeightPasteStep(kind: BulkImportStepKind): boolean {
-  return kind === 'paste_document' || kind === 'paste_stems' || kind === 'per_stem_questions'
+  return (
+    kind === 'paste_document' ||
+    kind === 'paste_stems' ||
+    kind === 'per_stem_questions' ||
+    kind === 'answers'
+  )
 }
