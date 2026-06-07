@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { isUcatOnlineTier } from "@altitutor/shared";
 import type {
   UcatOnlineTier,
   UcatQuotaArea,
@@ -46,69 +47,33 @@ export async function resolveStudentQuotaContext(
   supabase: AdminClient,
   studentId: string,
 ): Promise<StudentQuotaContext | null> {
-  const { data: student, error } = await supabase
-    .from("students")
-    .select(
-      "id, timezone, ucat_online_tier_override, ucat_onboarding_completed_at, ucat_unlimited_trial_consumed_at",
-    )
-    .eq("id", studentId)
-    .maybeSingle();
+  const [
+    { data: student, error: studentError },
+    { data: onlineTierRaw, error: tierError },
+    { data: isQuotaExempt, error: exemptError },
+  ] = await Promise.all([
+    supabase
+      .from("students")
+      .select(
+        "timezone, ucat_onboarding_completed_at, ucat_unlimited_trial_consumed_at",
+      )
+      .eq("id", studentId)
+      .maybeSingle(),
+    supabase.rpc("get_student_ucat_online_tier", { p_student_id: studentId }),
+    supabase.rpc("is_ucat_online_quota_exempt", { p_student_id: studentId }),
+  ]);
 
-  if (error || !student) return null;
-
-  const ucatSubjectId = await getUcatSubjectId(supabase);
-  const { data: subscription } = ucatSubjectId
-    ? await supabase
-        .from("student_subscriptions")
-        .select("status, plan_tier")
-        .eq("student_id", studentId)
-        .eq("subject_id", ucatSubjectId)
-        .in("status", ["trialing", "active"])
-        .maybeSingle()
-    : { data: null };
-
-  const onlineTier = resolveOnlineTier(
-    student.ucat_online_tier_override,
-    subscription?.status ?? null,
-    subscription?.plan_tier ?? null,
-  );
+  if (studentError || tierError || exemptError || !student) return null;
+  if (!isUcatOnlineTier(onlineTierRaw)) return null;
 
   return {
     studentId,
     timezone: student.timezone ?? "Australia/Adelaide",
-    onlineTier,
-    isQuotaExempt:
-      onlineTier === "unlimited" ||
-      onlineTier === "unlimited_trial" ||
-      onlineTier === "pro",
+    onlineTier: onlineTierRaw,
+    isQuotaExempt: Boolean(isQuotaExempt),
     unlimitedTrialEligible: student.ucat_unlimited_trial_consumed_at == null,
     onboardingCompleted: student.ucat_onboarding_completed_at != null,
   };
-}
-
-function resolveOnlineTier(
-  override: string,
-  subscriptionStatus: string | null,
-  planTier: string | null,
-): UcatOnlineTier {
-  if (override === "force_free") return "free";
-  if (override === "force_unlimited") return "unlimited";
-  if (override === "force_pro") return "pro";
-  if (subscriptionStatus === "trialing") return "unlimited_trial";
-  if (subscriptionStatus === "active" && planTier === "pro") return "pro";
-  if (subscriptionStatus === "active") return "unlimited";
-  return "free";
-}
-
-async function getUcatSubjectId(
-  supabase: AdminClient,
-): Promise<string | null> {
-  const { data } = await supabase
-    .from("subjects")
-    .select("id")
-    .eq("name", "UCAT")
-    .maybeSingle();
-  return data?.id ?? null;
 }
 
 export async function countQuotaUsage(

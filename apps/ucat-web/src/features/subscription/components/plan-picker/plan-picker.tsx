@@ -4,11 +4,14 @@ import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
+import { Skeleton } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
 import { BillingIntervalSelector } from "./billing-interval-selector";
 import { PaidTierPriceBlock } from "./paid-tier-price-block";
 import { PlanPickerCheckIcon } from "./plan-picker-check-icon";
 import { PlanPickerCta } from "./plan-picker-cta";
+import { PlanPickerPriceSkeleton } from "./plan-picker-price-skeleton";
+import { PlanUpgradeConfirmDialog } from "./plan-upgrade-confirm-dialog";
 import {
   planPickerCardMotionProps,
 } from "./plan-picker-dialog-shell";
@@ -16,15 +19,19 @@ import {
   planPickerSurface,
   type PlanPickerSurfaceTheme,
 } from "./plan-picker-surface-theme";
+import type { PlanPickerTier } from "@/features/subscription/lib/plan-tier-rank";
 import { usePlanPicker } from "./use-plan-picker";
 
 const { typography: typo } = MARKETING_TOKENS;
+
+const ALL_PLAN_PICKER_TIERS: PlanPickerTier[] = ["free", "unlimited", "pro"];
 
 type PlanPickerProps = {
   variant?: "page" | "dialog" | "onboarding";
   className?: string;
   onContinueFree?: () => void;
   onCheckoutStart?: () => void;
+  onDowngradeNavigate?: () => void;
   /** Light selector for cream marketing backgrounds */
   selectorTheme?: "app" | "light";
   /** App surfaces follow theme tokens (dark mode); marketing uses fixed cream/charcoal */
@@ -32,6 +39,9 @@ type PlanPickerProps = {
   /** Landing page: CTAs route to signup */
   audience?: "app" | "marketing";
   checkoutReturnContext?: "signup_onboarding" | "subscribe";
+  /** Subset of tiers to render (e.g. upgrade upsell on plan page) */
+  visibleTiers?: PlanPickerTier[];
+  layout?: "default" | "horizontal";
 };
 
 function TrialBadge({
@@ -73,10 +83,12 @@ function paidCtaLabel(
 function PlanPickerCard({
   animate,
   className,
+  layoutClassName,
   children,
 }: {
   animate: boolean;
   className: string;
+  layoutClassName?: string;
   children: ReactNode;
 }) {
   const reduceMotion = useReducedMotion();
@@ -84,11 +96,17 @@ function PlanPickerCard({
     <div className={className}>{children}</div>
   );
 
-  if (!animate) return card;
+  if (!animate) {
+    return layoutClassName ? (
+      <div className={layoutClassName}>{card}</div>
+    ) : (
+      card
+    );
+  }
 
   return (
     <motion.div
-      className="h-full"
+      className={cn("h-full", layoutClassName)}
       variants={planPickerCardMotionProps(reduceMotion ?? false).variants}
     >
       {card}
@@ -101,10 +119,13 @@ export function PlanPicker({
   className,
   onContinueFree,
   onCheckoutStart,
+  onDowngradeNavigate,
   selectorTheme,
   surfaceTheme = "marketing",
   audience = "app",
   checkoutReturnContext = "subscribe",
+  visibleTiers,
+  layout = "default",
 }: PlanPickerProps) {
   const reduceMotion = useReducedMotion();
   const surface = planPickerSurface(surfaceTheme);
@@ -115,6 +136,7 @@ export function PlanPicker({
   const picker = usePlanPicker({
     onContinueFree,
     onCheckoutStart,
+    onDowngradeNavigate,
     audience,
     checkoutReturnContext,
   });
@@ -124,6 +146,8 @@ export function PlanPicker({
     loadingPlan,
     billingInterval,
     setBillingInterval,
+    showBillingIntervalSelector,
+    isPricingLoading,
     freeIsCurrentPlan,
     isOnPaid,
     isOnUnlimited,
@@ -143,24 +167,53 @@ export function PlanPicker({
     formatFreeQuotaLine,
     handleFreePlanAction,
     handleOnlineSubscribe,
+    canDowngradeTo,
+    handleDowngrade,
+    upgradeConfirmOpen,
+    setUpgradeConfirmOpen,
+    upgradePreview,
+    upgradePreviewLoading,
+    upgradePreviewError,
+    upgradeConfirming,
+    confirmUpgradeToPro,
+    omitAudPrefix,
   } = picker;
+
+  const tiersToShow = visibleTiers ?? ALL_PLAN_PICKER_TIERS;
+  const showFree = tiersToShow.includes("free");
+  const showUnlimited = tiersToShow.includes("unlimited");
+  const showPro = tiersToShow.includes("pro");
+  const isHorizontal = layout === "horizontal";
+  const cardLayoutClass = isHorizontal ? "min-w-0 flex-1" : undefined;
 
   const discountRule = practiceDiscount ?? {
     discountPerDayCents: 0,
     maxDiscountsPerPeriod: 0,
   };
 
-  const gridClass =
-    variant === "dialog" || variant === "onboarding"
+  const gridClass = isHorizontal
+    ? "flex flex-col items-stretch gap-4 sm:flex-row"
+    : variant === "dialog" || variant === "onboarding"
       ? "grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3"
       : "grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3";
 
   const cardPadding =
-    variant === "dialog" || variant === "onboarding"
+    isHorizontal || variant === "dialog" || variant === "onboarding"
       ? "p-6 md:p-7"
       : "p-8 md:p-10";
 
+  const intervalSelectorClass = isHorizontal ? "mb-6" : "mb-10";
+
   const unlimitedIsCurrentPlan = isOnUnlimited && !isOnPro;
+  const freeIsDowngrade =
+    audience === "app" && canDowngradeTo("free") && !freeIsCurrentPlan;
+  const unlimitedIsDowngrade =
+    audience === "app" &&
+    canDowngradeTo("unlimited") &&
+    !unlimitedIsCurrentPlan;
+  const showFreeCta =
+    showFree &&
+    (freeIsDowngrade || !(isOnPaid && audience === "app"));
 
   const cardGridVariants = useMemo(
     () => ({
@@ -186,12 +239,14 @@ export function PlanPicker({
 
   return (
     <div className={className}>
-      <BillingIntervalSelector
-        value={billingInterval}
-        onChange={setBillingInterval}
-        theme={resolvedSelectorTheme}
-        className="mb-10"
-      />
+      {showBillingIntervalSelector ? (
+        <BillingIntervalSelector
+          value={billingInterval}
+          onChange={setBillingInterval}
+          theme={resolvedSelectorTheme}
+          className={intervalSelectorClass}
+        />
+      ) : null}
 
       {error ? (
         <div
@@ -207,8 +262,10 @@ export function PlanPicker({
 
       <Grid className={gridClass} {...gridMotionProps}>
         {/* UCAT Free */}
+        {showFree ? (
         <PlanPickerCard
           animate={animateCards}
+          layoutClassName={cardLayoutClass}
           className={cn(
             "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] ring-1 transition-all duration-300",
             cardPadding,
@@ -279,48 +336,69 @@ export function PlanPicker({
               </p>
             </div>
 
-            <ul className={`mt-6 space-y-2.5 text-sm ${typo.secondarySans}`}>
-              {freeQuotaAreas.map((area) => {
-                const quota = cfg.freeQuotas[area];
-                return (
-                  <li
-                    key={area}
-                    className={cn("flex items-start gap-2", surface.featureItem)}
-                  >
-                    <PlanPickerCheckIcon />
-                    <span className={surface.featureText}>
-                      {formatFreeQuotaLine(area, quota.limit, quota.period)}
-                    </span>
+            {isPricingLoading ? (
+              <ul className="mt-6 space-y-2.5" aria-hidden>
+                {freeQuotaAreas.map((area) => (
+                  <li key={area}>
+                    <Skeleton className="h-5 w-full max-w-[16rem] rounded-md" />
                   </li>
-                );
-              })}
-            </ul>
+                ))}
+              </ul>
+            ) : (
+              <ul className={`mt-6 space-y-2.5 text-sm ${typo.secondarySans}`}>
+                {freeQuotaAreas.map((area) => {
+                  const quota = cfg.freeQuotas[area];
+                  return (
+                    <li
+                      key={area}
+                      className={cn(
+                        "flex items-start gap-2",
+                        surface.featureItem,
+                      )}
+                    >
+                      <PlanPickerCheckIcon />
+                      <span className={surface.featureText}>
+                        {formatFreeQuotaLine(area, quota.limit, quota.period)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </div>
 
-          {isOnPaid && audience === "app" ? null : (
+          {showFreeCta ? (
             <PlanPickerCta
               variant="free"
               surfaceTheme={surfaceTheme}
               isCurrentPlan={freeIsCurrentPlan}
-              disabled={loadingPlan !== null}
-              onClick={() => void handleFreePlanAction()}
+              isDowngrade={freeIsDowngrade}
+              disabled={!freeIsDowngrade && loadingPlan !== null}
+              onClick={() =>
+                void (freeIsDowngrade
+                  ? handleDowngrade("free")
+                  : handleFreePlanAction())
+              }
             >
               {freeIsCurrentPlan
                 ? "Your current plan"
-                : loadingPlan === "free"
-                  ? "Saving…"
-                  : audience === "marketing"
-                    ? "Sign up free"
-                    : checkoutReturnContext === "signup_onboarding"
-                      ? "Continue with Free"
+                : freeIsDowngrade
+                  ? "Downgrade"
+                  : loadingPlan === "free"
+                    ? "Saving…"
+                    : audience === "marketing"
+                      ? "Sign up free"
                       : "Continue with Free"}
             </PlanPickerCta>
-          )}
+          ) : null}
         </PlanPickerCard>
+        ) : null}
 
         {/* UCAT Unlimited */}
+        {showUnlimited ? (
         <PlanPickerCard
           animate={animateCards}
+          layoutClassName={cardLayoutClass}
           className={cn(
             "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] ring-1 transition-all duration-300",
             cardPadding,
@@ -368,7 +446,9 @@ export function PlanPicker({
               your daily targets to keep costs low.
             </p>
 
-            {unlimitedPricing ? (
+            {isPricingLoading ? (
+              <PlanPickerPriceSkeleton />
+            ) : unlimitedPricing ? (
               <PaidTierPriceBlock
                 pricing={unlimitedPricing}
                 formatMoney={formatMoney}
@@ -414,29 +494,45 @@ export function PlanPicker({
             variant="proAccent"
             surfaceTheme={surfaceTheme}
             isCurrentPlan={unlimitedIsCurrentPlan}
+            isDowngrade={unlimitedIsDowngrade}
             disabled={
-              loadingPlan !== null || !unlimitedTierOffered || !unlimitedAvailable
+              !unlimitedIsDowngrade &&
+              (isPricingLoading ||
+                loadingPlan !== null ||
+                !unlimitedTierOffered ||
+                !unlimitedAvailable)
             }
-            onClick={() => void handleOnlineSubscribe("unlimited")}
+            onClick={() =>
+              void (unlimitedIsDowngrade
+                ? handleDowngrade("unlimited")
+                : handleOnlineSubscribe("unlimited"))
+            }
           >
             {unlimitedIsCurrentPlan
               ? "Your current plan"
-              : paidCtaLabel(
-                  unlimitedTierOffered,
-                  unlimitedAvailable,
-                  loadingPlan === "unlimited",
-                  audience === "marketing" ? "Sign up" : trialCta,
-                )}
+              : unlimitedIsDowngrade
+                ? "Downgrade"
+                : isPricingLoading
+                  ? "Loading…"
+                  : paidCtaLabel(
+                      unlimitedTierOffered,
+                      unlimitedAvailable,
+                      loadingPlan === "unlimited",
+                      audience === "marketing" ? "Sign up" : trialCta,
+                    )}
           </PlanPickerCta>
         </PlanPickerCard>
+        ) : null}
 
         {/* UCAT Pro */}
+        {showPro ? (
         <PlanPickerCard
           animate={animateCards}
+          layoutClassName={cardLayoutClass}
           className={cn(
             "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] bg-marketing-primary shadow-2xl ring-2 ring-marketing-accent/40 transition-all duration-300 hover:ring-marketing-accent/70",
             cardPadding,
-            variant === "page" ? "md:scale-[1.03]" : "",
+            variant === "page" && !isHorizontal ? "md:scale-[1.03]" : "",
           )}
         >
           <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
@@ -464,7 +560,9 @@ export function PlanPicker({
               monthly 1-1 performance reviews.
             </p>
 
-            {proPricing ? (
+            {isPricingLoading ? (
+              <PlanPickerPriceSkeleton featured />
+            ) : proPricing ? (
               <PaidTierPriceBlock
                 pricing={proPricing}
                 formatMoney={formatMoney}
@@ -505,20 +603,43 @@ export function PlanPicker({
             variant="monthlyFeatured"
             surfaceTheme={surfaceTheme}
             isCurrentPlan={isOnPro}
-            disabled={loadingPlan !== null || !proTierOffered || !proAvailable}
+            disabled={
+              isPricingLoading ||
+              loadingPlan !== null ||
+              !proTierOffered ||
+              !proAvailable
+            }
             onClick={() => void handleOnlineSubscribe("pro")}
           >
             {isOnPro
               ? "Your current plan"
-              : paidCtaLabel(
-                  proTierOffered,
-                  proAvailable,
-                  loadingPlan === "pro",
-                  audience === "marketing" ? "Sign up" : trialCta,
-                )}
+              : isPricingLoading
+                ? "Loading…"
+                : isOnUnlimited && audience === "app"
+                  ? "Upgrade to Pro"
+                  : paidCtaLabel(
+                      proTierOffered,
+                      proAvailable,
+                      loadingPlan === "pro",
+                      audience === "marketing" ? "Sign up" : trialCta,
+                    )}
           </PlanPickerCta>
         </PlanPickerCard>
+        ) : null}
       </Grid>
+
+      {audience === "app" ? (
+        <PlanUpgradeConfirmDialog
+          open={upgradeConfirmOpen}
+          onOpenChange={setUpgradeConfirmOpen}
+          preview={upgradePreview}
+          previewLoading={upgradePreviewLoading}
+          previewError={upgradePreviewError}
+          confirming={upgradeConfirming}
+          omitAudPrefix={omitAudPrefix}
+          onConfirm={() => void confirmUpgradeToPro()}
+        />
+      ) : null}
     </div>
   );
 }

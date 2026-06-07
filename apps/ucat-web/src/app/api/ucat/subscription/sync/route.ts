@@ -2,15 +2,7 @@ import { NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import {
-  getStudentIdForUser,
-  getUcatSubscriptionForStudent,
-} from "@/lib/ucat/ucat-subscription";
-import {
-  subscriptionCancelFields,
-  subscriptionPeriodFields,
-  type StripeSubscriptionSnapshot,
-} from "@/lib/ucat/stripe-subscription-fields";
+import { syncUcatSubscriptionForUser } from "@/lib/ucat/subscription/sync-ucat-subscription";
 
 /**
  * GET /api/ucat/subscription/sync
@@ -40,54 +32,10 @@ export async function GET() {
     return NextResponse.json({ synced: false });
   }
 
-  const studentId = await getStudentIdForUser(supabaseAdmin, user.id);
-  if (!studentId) {
-    return NextResponse.json({ synced: false });
-  }
-
-  const subscription = await getUcatSubscriptionForStudent(
-    supabaseAdmin,
-    studentId,
-  );
-  if (!subscription) {
-    return NextResponse.json({ synced: false });
-  }
-
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2025-12-15.clover",
   });
 
-  try {
-    const stripeSub = (await stripe.subscriptions.retrieve(
-      subscription.stripe_subscription_id,
-      { expand: ["items.data"] },
-    )) as unknown as StripeSubscriptionSnapshot;
-    const cancelFields = subscriptionCancelFields(stripeSub);
-    const periodFields = subscriptionPeriodFields(stripeSub);
-
-    const { error: updateError } = await supabaseAdmin
-      .from("student_subscriptions")
-      .update({
-        status: stripeSub.status ?? subscription.status,
-        ...periodFields,
-        ...cancelFields,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", subscription.id);
-
-    if (updateError) {
-      console.error("[ucat subscription sync] DB update failed:", updateError);
-      return NextResponse.json({ synced: false });
-    }
-
-    return NextResponse.json({
-      synced: true,
-      ...cancelFields,
-      ...periodFields,
-    });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    console.error("[ucat subscription sync] Stripe error:", msg);
-    return NextResponse.json({ synced: false });
-  }
+  const result = await syncUcatSubscriptionForUser(supabase, user.id, stripe);
+  return NextResponse.json(result);
 }

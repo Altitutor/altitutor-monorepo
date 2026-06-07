@@ -25,6 +25,7 @@ export function PlanPickerDialog() {
         surfaceTheme="app"
         onContinueFree={closePlanPicker}
         onCheckoutStart={closePlanPicker}
+        onDowngradeNavigate={closePlanPicker}
       />
     </PlanPickerDialogShell>
   );

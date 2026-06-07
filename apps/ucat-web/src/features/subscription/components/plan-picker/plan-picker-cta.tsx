@@ -6,6 +6,7 @@ import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
   planPickerCtaClass,
   planPickerCurrentPlanCtaClass,
+  planPickerDowngradeCtaClass,
   planPickerFeaturedCurrentPlanCtaClass,
   type PlanPickerSurfaceTheme,
 } from "@/features/subscription/components/plan-picker/plan-picker-surface-theme";
@@ -20,6 +21,7 @@ type PlanPickerCtaProps = {
   children: ReactNode;
   disabled?: boolean;
   isCurrentPlan?: boolean;
+  isDowngrade?: boolean;
   onClick?: () => void;
   className?: string;
   surfaceTheme?: PlanPickerSurfaceTheme;
@@ -30,6 +32,7 @@ export function PlanPickerCta({
   children,
   disabled,
   isCurrentPlan = false,
+  isDowngrade = false,
   onClick,
   className,
   surfaceTheme = "marketing",
@@ -43,7 +46,12 @@ export function PlanPickerCta({
           ? variant === "monthlyFeatured"
             ? planPickerFeaturedCurrentPlanCtaClass()
             : planPickerCurrentPlanCtaClass(surfaceTheme)
-          : planPickerCtaClass(variant, surfaceTheme),
+          : isDowngrade
+            ? planPickerDowngradeCtaClass(
+                surfaceTheme,
+                variant === "monthlyFeatured",
+              )
+            : planPickerCtaClass(variant, surfaceTheme),
         typo.headingSans,
         className,
       )}

@@ -37,6 +37,7 @@ export function QuotaLimitModal() {
         surfaceTheme="app"
         onContinueFree={closeQuotaLimit}
         onCheckoutStart={closeQuotaLimit}
+        onDowngradeNavigate={closeQuotaLimit}
       />
     </PlanPickerDialogShell>
   );

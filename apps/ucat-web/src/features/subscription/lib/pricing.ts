@@ -19,7 +19,7 @@ export type PracticeDiscountPricing = {
   billingIntervalNoun: string;
 };
 
-function parseBillingInterval(
+export function parseBillingInterval(
   value: string | null | undefined,
 ): UcatBillingInterval | null {
   if (value === "week" || value === "month" || value === "year") return value;

@@ -86,6 +86,19 @@ export function planPickerFeaturedCurrentPlanCtaClass(): string {
   return "cursor-not-allowed border border-marketing-cream/20 bg-marketing-cream/10 text-marketing-cream/50 shadow-none hover:bg-marketing-cream/10";
 }
 
+export function planPickerDowngradeCtaClass(
+  theme: PlanPickerSurfaceTheme,
+  featured = false,
+): string {
+  if (featured) {
+    return "border border-marketing-cream/30 bg-transparent text-marketing-cream/80 hover:bg-marketing-cream/10";
+  }
+  if (theme === "marketing") {
+    return "border border-marketing-charcoal/25 bg-transparent text-marketing-charcoal/70 hover:bg-marketing-charcoal/5";
+  }
+  return "border border-border bg-transparent text-muted-foreground hover:bg-muted";
+}
+
 export function planPickerCtaClass(
   variant: "free" | "proAccent" | "monthlyFeatured",
   theme: PlanPickerSurfaceTheme,
