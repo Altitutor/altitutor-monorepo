@@ -90,7 +90,10 @@ export async function POST(request: NextRequest) {
 
   const { error: updateError } = await supabaseAdmin
     .from("students")
-    .update({ ucat_onboarding_completed_at: new Date().toISOString() })
+    .update({
+      ucat_onboarding_completed_at: new Date().toISOString(),
+      ucat_signup_step: 4,
+    })
     .eq("id", student.id);
 
   if (updateError) {

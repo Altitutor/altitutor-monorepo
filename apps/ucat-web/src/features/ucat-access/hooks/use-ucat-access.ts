@@ -12,7 +12,11 @@ export type UcatAccessFlags = {
   hasUcatAccess: boolean;
   onlineTier: UcatOnlineTier | null;
   isQuotaExempt: boolean;
+  /** Plan choice recorded (step 3). */
   onboardingCompleted: boolean;
+  /** Full signup wizard finished. */
+  signupCompleted: boolean;
+  signupStep: number;
   unlimitedTrialEligible: boolean;
   isLoading: boolean;
 };
@@ -24,6 +28,8 @@ type VstudentUcatMyAccessRow = {
   online_tier: string | null;
   is_quota_exempt: boolean | null;
   ucat_onboarding_completed_at: string | null;
+  ucat_signup_step: number | null;
+  ucat_signup_completed_at: string | null;
   unlimited_trial_eligible: boolean | null;
   /** @deprecated pre-migration column name */
   pro_trial_eligible?: boolean | null;
@@ -36,6 +42,8 @@ const EMPTY_FLAGS: Omit<UcatAccessFlags, "isLoading"> = {
   onlineTier: null,
   isQuotaExempt: false,
   onboardingCompleted: false,
+  signupCompleted: false,
+  signupStep: 1,
   unlimitedTrialEligible: false,
 };
 
@@ -53,6 +61,8 @@ function mapAccessRow(
     onlineTier: parseOnlineTier(data.online_tier),
     isQuotaExempt: Boolean(data.is_quota_exempt),
     onboardingCompleted: Boolean(data.ucat_onboarding_completed_at),
+    signupCompleted: Boolean(data.ucat_signup_completed_at),
+    signupStep: data.ucat_signup_step ?? 1,
     unlimitedTrialEligible: Boolean(
       data.unlimited_trial_eligible ?? data.pro_trial_eligible,
     ),

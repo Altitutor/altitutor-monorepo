@@ -7619,10 +7619,13 @@ export type Database = {
           timezone: string
           ucat_onboarding_completed_at: string | null
           ucat_online_tier_override: string
+          ucat_signup_completed_at: string | null
+          ucat_signup_step: number
           ucat_target_score_s1: number | null
           ucat_target_score_s2: number | null
           ucat_target_score_s3: number | null
           ucat_test_date: string | null
+          ucat_test_year: number | null
           ucat_unlimited_trial_consumed_at: string | null
           updated_at: string | null
           user_id: string | null
@@ -7656,10 +7659,13 @@ export type Database = {
           timezone?: string
           ucat_onboarding_completed_at?: string | null
           ucat_online_tier_override?: string
+          ucat_signup_completed_at?: string | null
+          ucat_signup_step?: number
           ucat_target_score_s1?: number | null
           ucat_target_score_s2?: number | null
           ucat_target_score_s3?: number | null
           ucat_test_date?: string | null
+          ucat_test_year?: number | null
           ucat_unlimited_trial_consumed_at?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -7693,10 +7699,13 @@ export type Database = {
           timezone?: string
           ucat_onboarding_completed_at?: string | null
           ucat_online_tier_override?: string
+          ucat_signup_completed_at?: string | null
+          ucat_signup_step?: number
           ucat_target_score_s1?: number | null
           ucat_target_score_s2?: number | null
           ucat_target_score_s3?: number | null
           ucat_test_date?: string | null
+          ucat_test_year?: number | null
           ucat_unlimited_trial_consumed_at?: string | null
           updated_at?: string | null
           user_id?: string | null
@@ -12026,6 +12035,8 @@ export type Database = {
           is_quota_exempt: boolean | null
           online_tier: string | null
           ucat_onboarding_completed_at: string | null
+          ucat_signup_completed_at: string | null
+          ucat_signup_step: number | null
           unlimited_trial_eligible: boolean | null
         }
         Relationships: []

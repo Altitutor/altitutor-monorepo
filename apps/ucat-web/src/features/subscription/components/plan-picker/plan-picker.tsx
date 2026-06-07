@@ -3,6 +3,7 @@
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { cn } from "@/lib/utils";
 import { BillingIntervalSelector } from "./billing-interval-selector";
+import { PaidTierPriceBlock } from "./paid-tier-price-block";
 import { PlanPickerCheckIcon } from "./plan-picker-check-icon";
 import { PlanPickerCta } from "./plan-picker-cta";
 import { usePlanPicker } from "./use-plan-picker";
@@ -10,47 +11,48 @@ import { usePlanPicker } from "./use-plan-picker";
 const { typography: typo } = MARKETING_TOKENS;
 
 type PlanPickerProps = {
-  variant?: "page" | "dialog";
+  variant?: "page" | "dialog" | "onboarding";
   className?: string;
   onContinueFree?: () => void;
   onCheckoutStart?: () => void;
+  /** Light selector for cream marketing backgrounds */
+  selectorTheme?: "app" | "light";
+  /** Landing page: CTAs route to signup */
+  audience?: "app" | "marketing";
+  checkoutReturnContext?: "signup_onboarding" | "subscribe";
 };
 
-function PaidTierPriceBlock({
-  pricing,
-  formatMoney,
-  billedAt,
-  trialHint,
+function TrialBadge({
+  trialDays,
   dark = false,
 }: {
-  pricing: NonNullable<ReturnType<typeof usePlanPicker>["unlimitedPricing"]>;
-  formatMoney: (cents: number) => string;
-  billedAt: (cents: number) => string;
-  trialHint: string;
+  trialDays: number;
   dark?: boolean;
 }) {
-  const muted = dark ? "text-marketing-cream/50" : "text-marketing-charcoal/50";
-  const strike = dark ? "text-marketing-cream/40" : "text-marketing-charcoal/40";
-  const body = dark ? "text-marketing-cream" : "text-marketing-charcoal";
-  const accent = dark ? "text-marketing-accent" : "text-marketing-primary";
-
+  if (trialDays <= 0) return null;
   return (
-    <div className="mt-6 space-y-1">
-      <p className={`text-sm line-through ${strike} ${typo.dataMono}`}>
-        {formatMoney(pricing.penaltyWeeklyCents)}/wk penalty
-      </p>
-      <div className="flex items-end gap-2">
-        <span className={`text-4xl font-bold ${body} ${typo.headingSans}`}>
-          {formatMoney(pricing.idealWeeklyCents)}
-        </span>
-        <span className={`mb-1 ${muted} ${typo.secondarySans}`}>/wk</span>
-      </div>
-      <p className={`text-xs ${muted} ${typo.secondarySans}`}>
-        {billedAt(pricing.idealPeriodCents)} with daily practice discounts
-      </p>
-      <p className={`text-xs ${accent} ${typo.dataMono}`}>{trialHint}</p>
-    </div>
+    <span
+      className={cn(
+        `rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${typo.dataMono}`,
+        dark
+          ? "bg-marketing-accent text-marketing-charcoal"
+          : "bg-marketing-primary/10 text-marketing-primary",
+      )}
+    >
+      {trialDays}-day free trial
+    </span>
   );
+}
+
+function paidCtaLabel(
+  tierOffered: boolean,
+  available: boolean,
+  loading: boolean,
+  trialCta: string,
+): string {
+  if (!tierOffered || !available) return "Coming soon";
+  if (loading) return "Redirecting…";
+  return trialCta;
 }
 
 export function PlanPicker({
@@ -58,8 +60,16 @@ export function PlanPicker({
   className,
   onContinueFree,
   onCheckoutStart,
+  selectorTheme = "app",
+  audience = "app",
+  checkoutReturnContext = "subscribe",
 }: PlanPickerProps) {
-  const picker = usePlanPicker({ onContinueFree, onCheckoutStart });
+  const picker = usePlanPicker({
+    onContinueFree,
+    onCheckoutStart,
+    audience,
+    checkoutReturnContext,
+  });
   const {
     cfg,
     error,
@@ -69,15 +79,14 @@ export function PlanPicker({
     freeIsCurrentPlan,
     isOnPaid,
     trialCta,
-    trialHint,
     unlimitedPricing,
     proPricing,
     unlimitedAvailable,
     proAvailable,
     unlimitedTierOffered,
     proTierOffered,
+    practiceDiscount,
     formatMoney,
-    billedAt,
     onlineFeatures,
     proFeatures,
     freeQuotaAreas,
@@ -86,18 +95,27 @@ export function PlanPicker({
     handleOnlineSubscribe,
   } = picker;
 
+  const discountRule = practiceDiscount ?? {
+    discountPerDayCents: 0,
+    maxDiscountsPerPeriod: 0,
+  };
+
   const gridClass =
-    variant === "dialog"
+    variant === "dialog" || variant === "onboarding"
       ? "grid grid-cols-1 items-stretch gap-4 lg:grid-cols-3"
       : "grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3";
 
-  const cardPadding = variant === "dialog" ? "p-6 md:p-7" : "p-8 md:p-10";
+  const cardPadding =
+    variant === "dialog" || variant === "onboarding"
+      ? "p-6 md:p-7"
+      : "p-8 md:p-10";
 
   return (
     <div className={className}>
       <BillingIntervalSelector
         value={billingInterval}
         onChange={setBillingInterval}
+        theme={selectorTheme}
         className="mb-10"
       />
 
@@ -155,7 +173,7 @@ export function PlanPicker({
                 <span
                   className={`mb-1 text-marketing-charcoal/50 ${typo.secondarySans}`}
                 >
-                  forever
+                  free forever
                 </span>
               </div>
               <p className={`text-xs text-marketing-charcoal/50 ${typo.dataMono}`}>
@@ -183,7 +201,7 @@ export function PlanPicker({
             </ul>
           </div>
 
-          {isOnPaid ? null : (
+          {isOnPaid && audience === "app" ? null : (
             <PlanPickerCta
               variant="free"
               disabled={loadingPlan !== null}
@@ -195,7 +213,11 @@ export function PlanPicker({
                   : "Back to dashboard"
                 : loadingPlan === "free"
                   ? "Saving…"
-                  : "Continue with Free"}
+                  : audience === "marketing"
+                    ? "Sign up free"
+                    : checkoutReturnContext === "signup_onboarding"
+                      ? "Continue with Free"
+                      : "Continue with Free"}
             </PlanPickerCta>
           )}
         </div>
@@ -207,6 +229,11 @@ export function PlanPicker({
             cardPadding,
           )}
         >
+          {cfg.trialDays > 0 ? (
+            <div className="absolute right-6 top-6">
+              <TrialBadge trialDays={cfg.trialDays} />
+            </div>
+          ) : null}
           <div className="absolute right-0 top-0 h-28 w-28 rounded-bl-full bg-marketing-primary/8 blur-2xl" />
           <div>
             <span
@@ -230,8 +257,10 @@ export function PlanPicker({
               <PaidTierPriceBlock
                 pricing={unlimitedPricing}
                 formatMoney={formatMoney}
-                billedAt={billedAt}
-                trialHint={trialHint}
+                billingInterval={billingInterval}
+                minQuestionsPerDay={cfg.minQuestionsPerDay}
+                discountPerDayCents={discountRule.discountPerDayCents}
+                maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
               />
             ) : (
               <p
@@ -263,16 +292,17 @@ export function PlanPicker({
 
           <PlanPickerCta
             variant="proAccent"
-            disabled={loadingPlan !== null || !unlimitedAvailable}
+            disabled={
+              loadingPlan !== null || !unlimitedTierOffered || !unlimitedAvailable
+            }
             onClick={() => void handleOnlineSubscribe("unlimited")}
           >
-            {!unlimitedTierOffered
-              ? "Coming soon"
-              : !unlimitedAvailable
-                ? "Unavailable"
-                : loadingPlan === "unlimited"
-                  ? "Redirecting…"
-                  : trialCta}
+            {paidCtaLabel(
+              unlimitedTierOffered,
+              unlimitedAvailable,
+              loadingPlan === "unlimited",
+              audience === "marketing" ? "Sign up" : trialCta,
+            )}
           </PlanPickerCta>
         </div>
 
@@ -284,12 +314,10 @@ export function PlanPicker({
             variant === "page" ? "md:scale-[1.03]" : "",
           )}
         >
-          <div className="absolute right-6 top-6">
-            <span
-              className={`rounded-full bg-marketing-accent px-3 py-1 text-xs font-bold uppercase tracking-wider text-marketing-charcoal ${typo.dataMono}`}
-            >
-              Best support
-            </span>
+          <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
+            {cfg.trialDays > 0 ? (
+              <TrialBadge trialDays={cfg.trialDays} dark />
+            ) : null}
           </div>
           <div className="absolute left-0 top-0 h-40 w-40 rounded-br-full bg-marketing-accent/10 blur-3xl" />
 
@@ -315,8 +343,10 @@ export function PlanPicker({
               <PaidTierPriceBlock
                 pricing={proPricing}
                 formatMoney={formatMoney}
-                billedAt={billedAt}
-                trialHint={trialHint}
+                billingInterval={billingInterval}
+                minQuestionsPerDay={cfg.minQuestionsPerDay}
+                discountPerDayCents={discountRule.discountPerDayCents}
+                maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
                 dark
               />
             ) : (
@@ -347,16 +377,15 @@ export function PlanPicker({
 
           <PlanPickerCta
             variant="monthlyFeatured"
-            disabled={loadingPlan !== null || !proAvailable}
+            disabled={loadingPlan !== null || !proTierOffered || !proAvailable}
             onClick={() => void handleOnlineSubscribe("pro")}
           >
-            {!proTierOffered
-              ? "Coming soon"
-              : !proAvailable
-                ? "Unavailable"
-                : loadingPlan === "pro"
-                  ? "Redirecting…"
-                  : trialCta}
+            {paidCtaLabel(
+              proTierOffered,
+              proAvailable,
+              loadingPlan === "pro",
+              audience === "marketing" ? "Sign up" : trialCta,
+            )}
           </PlanPickerCta>
         </div>
       </div>

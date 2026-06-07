@@ -26,7 +26,6 @@ const ONLINE_FEATURES = [
 
 export function SubscribePage() {
   const access = useUcatAccess();
-  const needsOnboarding = !access.isLoading && !access.onboardingCompleted;
   const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
 
   useEffect(() => {
@@ -42,7 +41,7 @@ export function SubscribePage() {
 
   const unlimitedTrialEligible = access.unlimitedTrialEligible;
   const freeIsCurrentPlan =
-    access.onlineTier === "free" && !access.isLoading && access.onboardingCompleted;
+    access.onlineTier === "free" && !access.isLoading && access.signupCompleted;
   const monthlyPracticeDiscount = getPublicPracticeDayDiscount(cfg, "month");
 
   return (
@@ -62,15 +61,6 @@ export function SubscribePage() {
           >
             Back to dashboard
           </Link>
-        </div>
-      ) : null}
-
-      {needsOnboarding ? (
-        <div
-          className={`sticky top-0 z-20 border-b border-marketing-primary/20 bg-marketing-primary/10 px-4 py-3 text-center text-sm text-marketing-charcoal shadow-sm backdrop-blur-md ${typo.secondarySans}`}
-          role="status"
-        >
-          Choose UCAT Free or start an Unlimited trial to continue into the app.
         </div>
       ) : null}
 

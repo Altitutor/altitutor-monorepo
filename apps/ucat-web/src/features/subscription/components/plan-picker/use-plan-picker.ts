@@ -67,6 +67,7 @@ type UsePlanPickerOptions = {
   onCheckoutStart?: () => void;
   /** Marketing surfaces send users to signup instead of checkout */
   audience?: "app" | "marketing";
+  checkoutReturnContext?: "signup_onboarding" | "subscribe";
 };
 
 export function usePlanPicker(options: UsePlanPickerOptions = {}) {
@@ -156,7 +157,10 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     setError(null);
     options.onCheckoutStart?.();
     try {
-      const { url } = await createUcatCheckoutSession(selection);
+      const { url } = await createUcatCheckoutSession({
+        ...selection,
+        returnContext: options.checkoutReturnContext ?? "subscribe",
+      });
       window.location.href = url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start checkout");

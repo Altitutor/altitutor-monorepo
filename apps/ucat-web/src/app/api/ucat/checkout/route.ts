@@ -5,7 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUcatSubjectId } from "@/lib/ucat/ucat-subject-id";
 import { getUcatPlanPrice } from "@/lib/ucat/plan-price-lookup";
 import {
-  isUcatCheckoutSelection,
+  parseUcatCheckoutRequest,
   type UcatCheckoutSelection,
 } from "@/lib/ucat/subscription-plan";
 
@@ -23,10 +23,13 @@ export async function POST(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   let selection: UcatCheckoutSelection = { tier: "unlimited", interval: "week" };
+  let returnContext: "signup_onboarding" | "subscribe" = "subscribe";
   try {
     const body = (await request.clone().json()) as unknown;
-    if (isUcatCheckoutSelection(body)) {
-      selection = body;
+    const parsed = parseUcatCheckoutRequest(body);
+    if (parsed) {
+      selection = parsed;
+      returnContext = parsed.returnContext ?? "subscribe";
     }
   } catch {
     // No body or invalid JSON — default to Unlimited weekly
@@ -133,6 +136,11 @@ export async function POST(request: NextRequest) {
     subscriptionData.trial_period_days = trialDays;
   }
 
+  const checkoutReturnBase =
+    returnContext === "signup_onboarding"
+      ? `${origin}/signup/complete`
+      : `${origin}/dashboard`;
+
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
     payment_method_types: ["card"],
@@ -150,8 +158,14 @@ export async function POST(request: NextRequest) {
       ucat_plan_tier: selection.tier,
       ucat_billing_interval: selection.interval,
     },
-    success_url: `${origin}/dashboard`,
-    cancel_url: `${origin}/subscribe?canceled=1`,
+    success_url:
+      returnContext === "signup_onboarding"
+        ? `${checkoutReturnBase}?checkout=success`
+        : checkoutReturnBase,
+    cancel_url:
+      returnContext === "signup_onboarding"
+        ? `${origin}/signup/complete?checkout=canceled`
+        : `${origin}/subscribe?canceled=1`,
     allow_promotion_codes: true,
   };
 

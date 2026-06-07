@@ -4,12 +4,12 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 
-/** Paths reachable before the student completes UCAT plan onboarding on /subscribe. */
-const ALLOWED_BEFORE_ONBOARDING = ["/subscribe"];
+/** Paths reachable before the student completes signup onboarding. */
+const ALLOWED_BEFORE_SIGNUP_COMPLETE = ["/signup/complete"];
 
 /**
- * Redirects authenticated students who have not chosen Free vs Pro to /subscribe.
- * Replaces the former onboarding modal — /subscribe is the single plan-picker surface.
+ * Redirects authenticated students who have not finished signup onboarding
+ * to /signup/complete (resumes persisted step server-side).
  */
 export function OnboardingGateRedirect() {
   const router = useRouter();
@@ -18,20 +18,15 @@ export function OnboardingGateRedirect() {
 
   useEffect(() => {
     if (access.isLoading) return;
-    if (access.onboardingCompleted) return;
+    if (access.signupCompleted) return;
 
-    const allowed = ALLOWED_BEFORE_ONBOARDING.some(
+    const allowed = ALLOWED_BEFORE_SIGNUP_COMPLETE.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
     );
     if (allowed) return;
 
-    router.replace("/subscribe");
-  }, [
-    access.isLoading,
-    access.onboardingCompleted,
-    pathname,
-    router,
-  ]);
+    router.replace("/signup/complete");
+  }, [access.isLoading, access.signupCompleted, pathname, router]);
 
   return null;
 }

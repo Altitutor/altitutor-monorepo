@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
+import { Suspense } from "react";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
-import { SignupCompleteForm } from "@/features/auth";
-import {
-  isProfileSetupComplete,
-  loadSignupProfileInitial,
-} from "@/features/auth/lib/signup-profile";
+import { SignupOnboardingWizard } from "@/features/signup-onboarding/components/signup-onboarding-wizard";
+import { loadSignupOnboardingInitial } from "@/features/signup-onboarding/lib/load-signup-onboarding-initial";
+import { resolveSignupStateForUser } from "@/features/signup-onboarding/lib/resolve-signup-state";
 
 export default async function SignupCompletePage() {
   const supabase = await getSupabaseServerClient();
@@ -16,19 +15,16 @@ export default async function SignupCompletePage() {
     redirect("/signup");
   }
 
-  if (isProfileSetupComplete(user.user_metadata)) {
-    redirect("/subscribe");
+  const state = await resolveSignupStateForUser(user);
+  if (state.signupCompleted) {
+    redirect("/dashboard");
   }
 
-  const initialProfile = await loadSignupProfileInitial(user.id);
+  const initial = await loadSignupOnboardingInitial(user);
 
   return (
-    <SignupCompleteForm
-      email={user.email ?? ""}
-      redirectTo="/subscribe"
-      initialFirstName={initialProfile.firstName}
-      initialLastName={initialProfile.lastName}
-      initialPhone={initialProfile.phone}
-    />
+    <Suspense fallback={null}>
+      <SignupOnboardingWizard initial={initial} />
+    </Suspense>
   );
 }

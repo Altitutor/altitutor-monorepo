@@ -92,7 +92,10 @@ export async function POST(request: NextRequest) {
   if (existing) {
     const { error: updateError } = await supabaseAdmin
       .from("students")
-      .update(profileUpdate)
+      .update({
+        ...profileUpdate,
+        ucat_signup_step: 2,
+      })
       .eq("id", existing.id);
 
     if (updateError) {
@@ -117,6 +120,7 @@ export async function POST(request: NextRequest) {
         .update({
           user_id: user.id,
           ...profileUpdate,
+          ucat_signup_step: 2,
         })
         .eq("id", byEmail.id);
 
@@ -139,6 +143,7 @@ export async function POST(request: NextRequest) {
         phone: hasPhoneField ? (normalizedPhone ?? null) : null,
         status: "ACTIVE",
         timezone: "Australia/Adelaide",
+        ucat_signup_step: 2,
       });
 
       if (insertError) {

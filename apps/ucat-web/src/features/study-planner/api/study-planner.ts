@@ -13,6 +13,7 @@ export async function getStudyPlannerSettings(): Promise<StudyPlannerSettings> {
 }
 
 export async function patchStudyPlannerSettings(input: {
+  testYear?: number | null;
   testDate?: string | null;
   targetScores?: {
     s1?: number | null;

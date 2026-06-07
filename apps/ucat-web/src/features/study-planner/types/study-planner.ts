@@ -2,6 +2,7 @@ import type { TrajectoryStatus, ProjectionWarning } from "@/features/study-plann
 import type { ProjectionBand } from "@/features/study-planner/lib/score-projection";
 
 export type StudyPlannerSettings = {
+  testYear: number | null;
   testDate: string | null;
   targetScores: {
     s1: number | null;
