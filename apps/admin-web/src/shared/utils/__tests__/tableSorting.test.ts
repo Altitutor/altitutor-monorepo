@@ -49,6 +49,9 @@ describe('sortStudentsByStatus', () => {
       ucat_onboarding_completed_at: null,
       ucat_online_tier_override: 'default',
       ucat_unlimited_trial_consumed_at: null,
+      ucat_signup_completed_at: null,
+      ucat_signup_step: 0,
+      ucat_test_year: null,
     },
     {
       id: 'student-2',
@@ -86,6 +89,9 @@ describe('sortStudentsByStatus', () => {
       ucat_onboarding_completed_at: null,
       ucat_online_tier_override: 'default',
       ucat_unlimited_trial_consumed_at: null,
+      ucat_signup_completed_at: null,
+      ucat_signup_step: 0,
+      ucat_test_year: null,
     },
     {
       id: 'student-3',
@@ -123,6 +129,9 @@ describe('sortStudentsByStatus', () => {
       ucat_onboarding_completed_at: null,
       ucat_online_tier_override: 'default',
       ucat_unlimited_trial_consumed_at: null,
+      ucat_signup_completed_at: null,
+      ucat_signup_step: 0,
+      ucat_test_year: null,
     },
   ];
 

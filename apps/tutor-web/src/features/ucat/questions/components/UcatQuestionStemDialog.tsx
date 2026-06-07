@@ -135,8 +135,6 @@ export function UcatQuestionStemDialog({
     }
   }, [initial, sections])
 
-  // Type instantiation is excessively deep due to recursive Json in schema; runtime is validated by Zod.
-  // @ts-expect-error TS2589 - Type instantiation is deep but safe for this validated form.
   const form = useForm<UcatQuestionStemFormValues>({
     resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
     defaultValues,

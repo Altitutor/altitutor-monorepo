@@ -34,6 +34,7 @@ export function BulkImportReviewStemEditor({
   onUpdateStem,
   onNewImageFileIds,
 }: BulkImportReviewStemEditorProps) {
+  // @ts-expect-error TS2589 - recursive Json in schema; runtime validated by Zod.
   const form = useForm<UcatQuestionStemFormValues>({
     resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
     defaultValues: values,

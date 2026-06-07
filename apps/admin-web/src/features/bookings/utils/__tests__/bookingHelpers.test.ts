@@ -50,6 +50,9 @@ describe('formatStudentDisplay', () => {
       ucat_onboarding_completed_at: null,
       ucat_online_tier_override: 'default',
       ucat_unlimited_trial_consumed_at: null,
+      ucat_signup_completed_at: null,
+      ucat_signup_step: 0,
+      ucat_test_year: null,
     };
     
     expect(formatStudentDisplay(student)).toBe('John Doe (john@example.com)');
@@ -92,6 +95,9 @@ describe('formatStudentDisplay', () => {
       ucat_onboarding_completed_at: null,
       ucat_online_tier_override: 'default',
       ucat_unlimited_trial_consumed_at: null,
+      ucat_signup_completed_at: null,
+      ucat_signup_step: 0,
+      ucat_test_year: null,
     };
     
     expect(formatStudentDisplay(student)).toBe('Jane Smith');

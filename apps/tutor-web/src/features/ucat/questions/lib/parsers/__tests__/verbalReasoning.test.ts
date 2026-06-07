@@ -26,7 +26,7 @@ a) A
 b) B
 c) C`
 
-    const stems = parseVerbalReasoningPlainText(input)
+    const stems = parseVerbalReasoningPlainText(input, { answerOptionIndicator: 'paren' })
 
     expect(stems).toHaveLength(1)
     expect(stems[0]?.stemText).toContain('2. This is also part of the passage.')

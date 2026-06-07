@@ -158,6 +158,12 @@ export const UCAT_PRIMARY_ACTION_BUTTON = cn(
   "disabled:pointer-events-none disabled:opacity-60 disabled:active:scale-100",
 );
 
+/** Smaller primary CTA (quota cards, inline upsells). */
+export const UCAT_PRIMARY_ACTION_BUTTON_SM = cn(
+  UCAT_PRIMARY_ACTION_BUTTON,
+  "!h-9 px-3 text-xs",
+);
+
 /** Card-style surfaces that lift slightly on hover */
 export const UCAT_CARD_RAISED_HOVER = cn(
   UCAT_PRESSABLE_SURFACE_HOVER,

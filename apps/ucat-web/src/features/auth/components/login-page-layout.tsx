@@ -18,7 +18,7 @@ export function LoginPageLayout({
   redirectTo?: string;
   title?: string;
   subtitle?: string;
-  footer?: React.ReactNode;
+  footer?: React.ReactNode | null;
 }) {
   return (
     <div className="relative flex min-h-dvh flex-col bg-background text-foreground">
@@ -46,7 +46,7 @@ export function LoginPageLayout({
             <p className={cn("mt-3 text-muted-foreground", typo.secondarySans)}>{subtitle}</p>
           </div>
           {children}
-          {footer ?? (
+          {footer === null ? null : footer ?? (
             <p
               className={cn(
                 "mt-6 text-center text-sm text-muted-foreground",

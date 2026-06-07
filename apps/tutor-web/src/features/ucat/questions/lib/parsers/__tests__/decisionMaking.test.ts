@@ -43,7 +43,7 @@ a) Option A
 b) Option B
 c) Option C`;
 
-    const stems = parseDecisionMakingPlainText(input);
+    const stems = parseDecisionMakingPlainText(input, { answerOptionIndicator: 'paren' });
     expect(stems).toHaveLength(1);
     expect(stems[0]?.stemText).toContain('Stem passage');
     expect(stems[0]?.questions).toHaveLength(1);
@@ -75,7 +75,7 @@ a) A
 b) B
 c) C`;
 
-    const stems = parseDecisionMakingPlainText(input);
+    const stems = parseDecisionMakingPlainText(input, { answerOptionIndicator: 'paren' });
     expect(stems[0]?.questions[0]?.questionType).toBe('multiple_choice');
   });
 });

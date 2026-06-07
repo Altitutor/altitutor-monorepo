@@ -12,6 +12,11 @@ beforeAll(() => {
   global.fetch = jest.fn().mockResolvedValue({}) as typeof fetch
 })
 
+/** Paren-style options (a) b) c)) used in many UCAT paste fixtures. */
+const PAREN_OPTION_CONFIG = {
+  answerOptionIndicator: 'paren' as const,
+}
+
 /** Layout used when question numbers and A./B. options are each on their own line. */
 const OWN_LINE_PARSER_CONFIG = {
   questionsOnly: true,
@@ -80,7 +85,7 @@ a) First option
 b) Second option
 c) Third option`
 
-    const stems = parseVerbalReasoningPlainText(input)
+    const stems = parseVerbalReasoningPlainText(input, PAREN_OPTION_CONFIG)
 
     expect(stems).toHaveLength(1)
     expect(stems[0]?.stemText).toContain('1. The author lists this as a passage point.')
@@ -103,7 +108,7 @@ a) 11
 b) 21
 c) 31`
 
-    const stems = parseFromLines(input.split(/\r?\n/u))
+    const stems = parseFromLines(input.split(/\r?\n/u), PAREN_OPTION_CONFIG)
 
     expect(stems).toHaveLength(2)
     expect(stems[0]?.questions).toHaveLength(1)
@@ -126,6 +131,7 @@ a) opt G
 b) opt H`
 
     const stems = parseFromLines(input.split(/\r?\n/u), {
+      ...PAREN_OPTION_CONFIG,
       questionsOnly: true,
       enforceSequentialQuestionNumbers: false,
     })
@@ -152,6 +158,7 @@ a) opt I
 b) opt J`
 
     const stems = parseFromLines(input.split(/\r?\n/u), {
+      ...PAREN_OPTION_CONFIG,
       questionsOnly: true,
       enforceSequentialQuestionNumbers: true,
     })
@@ -286,7 +293,7 @@ Can't Tell`
       'b) No',
     ]
 
-    expect(classifyParseLineRoles(lines)).toEqual([
+    expect(classifyParseLineRoles(lines, PAREN_OPTION_CONFIG)).toEqual([
       'stem',
       'stem',
       'stem',
@@ -416,7 +423,7 @@ a) 4
 b) 5
 c) 6`
 
-    const stems = parseQuantitativeReasoningPlainText(input)
+    const stems = parseQuantitativeReasoningPlainText(input, PAREN_OPTION_CONFIG)
 
     expect(stems).toHaveLength(1)
     expect(stems[0]?.questions).toHaveLength(2)
@@ -434,7 +441,7 @@ a) 10
 b) 20
 c) 30`
 
-    const stems = parseQuantitativeReasoningPlainText(input)
+    const stems = parseQuantitativeReasoningPlainText(input, PAREN_OPTION_CONFIG)
 
     expect(stems).toHaveLength(1)
     expect(stems[0]?.questions).toHaveLength(1)
