@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
@@ -79,9 +80,17 @@ export function LoginForm({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-sm font-medium text-foreground/90">
-          Password
-        </Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="password" className="text-sm font-medium text-foreground/90">
+            Password
+          </Label>
+          <Link
+            href="/forgot-password"
+            className="text-sm font-medium text-primary underline-offset-2 transition-colors hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"

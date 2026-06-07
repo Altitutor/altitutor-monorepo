@@ -10,9 +10,15 @@ const { typography: typo } = MARKETING_TOKENS;
 export function LoginPageLayout({
   children,
   redirectTo = "/dashboard",
+  title = "Log in",
+  subtitle = "Ready to continue practicing? Log in below.",
+  footer,
 }: {
   children: React.ReactNode;
   redirectTo?: string;
+  title?: string;
+  subtitle?: string;
+  footer?: React.ReactNode;
 }) {
   return (
     <div className="relative flex min-h-dvh flex-col bg-background text-foreground">
@@ -35,27 +41,27 @@ export function LoginPageLayout({
                 typo.headingSans,
               )}
             >
-              Log in
+              {title}
             </h1>
-            <p className={cn("mt-3 text-muted-foreground", typo.secondarySans)}>
-              Ready to continue practicing? Log in below.
-            </p>
+            <p className={cn("mt-3 text-muted-foreground", typo.secondarySans)}>{subtitle}</p>
           </div>
           {children}
-          <p
-            className={cn(
-              "mt-6 text-center text-sm text-muted-foreground",
-              typo.secondarySans,
-            )}
-          >
-            Don&apos;t have an account?{" "}
-            <Link
-              href={`/signup?redirect=${encodeURIComponent(redirectTo)}`}
-              className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
+          {footer ?? (
+            <p
+              className={cn(
+                "mt-6 text-center text-sm text-muted-foreground",
+                typo.secondarySans,
+              )}
             >
-              Sign up
-            </Link>
-          </p>
+              Don&apos;t have an account?{" "}
+              <Link
+                href={`/signup?redirect=${encodeURIComponent(redirectTo)}`}
+                className="font-medium text-primary underline-offset-2 transition-colors hover:underline"
+              >
+                Sign up
+              </Link>
+            </p>
+          )}
         </div>
       </main>
     </div>
