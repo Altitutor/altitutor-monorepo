@@ -5,7 +5,14 @@ import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
 
-export default function ForgotPasswordPage() {
+type PageProps = {
+  searchParams: Promise<{ error?: string }>;
+};
+
+export default async function ForgotPasswordPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const initialError = params.error?.trim() || null;
+
   return (
     <LoginPageLayout
       title="Reset password"
@@ -27,7 +34,7 @@ export default function ForgotPasswordPage() {
         </p>
       }
     >
-      <ForgotPasswordForm />
+      <ForgotPasswordForm initialError={initialError} />
     </LoginPageLayout>
   );
 }

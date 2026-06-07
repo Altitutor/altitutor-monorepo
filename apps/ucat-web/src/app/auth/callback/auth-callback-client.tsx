@@ -21,7 +21,11 @@ function AuthCallbackInner() {
 
     const finish = (errorMessage: string) => {
       setMessage(errorMessage);
-      router.replace(`/signup?error=${encodeURIComponent(errorMessage)}`);
+      const errorPath =
+        next === "/reset-password"
+          ? `/forgot-password?error=${encodeURIComponent(errorMessage)}`
+          : `/signup?error=${encodeURIComponent(errorMessage)}`;
+      router.replace(errorPath);
     };
 
     const supabase = getSupabaseBrowserClient();

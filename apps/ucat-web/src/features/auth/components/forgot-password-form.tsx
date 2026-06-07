@@ -10,9 +10,9 @@ import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
 
-export function ForgotPasswordForm() {
+export function ForgotPasswordForm({ initialError = null }: { initialError?: string | null }) {
   const [email, setEmail] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   const [success, setSuccess] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
