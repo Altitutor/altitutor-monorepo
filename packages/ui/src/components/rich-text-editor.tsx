@@ -19,7 +19,6 @@ import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { cn } from '../lib/cn';
-import { TableInsertHandles } from './table-insert-handles';
 import { sanitizePastedHtml, transformPastedHtmlForBulkImport } from '../lib/sanitize-pasted-html';
 
 const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
@@ -1123,11 +1122,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }}
     >
       <EditorContent editor={editor} className="min-h-0 flex-1 overflow-visible" />
-      <TableInsertHandles editor={editor} editable={editable} />
     </div>
   );
 });
 
 RichTextEditor.displayName = 'RichTextEditor';
-
-export { TableInsertHandles } from './table-insert-handles';
