@@ -16,15 +16,12 @@ export function AuthPageHeader() {
         aria-label="Back to landing page"
         className={cn(
           typo.secondarySans,
-          "group inline-flex items-center gap-0.5 text-sm tracking-wide",
-          "text-muted-foreground opacity-80 transition-all duration-200 ease-out",
-          "hover:-translate-y-px hover:text-primary hover:opacity-100",
+          "inline-flex items-center gap-0.5 text-sm tracking-wide",
+          "text-muted-foreground opacity-80 transition-colors duration-200 ease-out",
+          "hover:text-primary hover:opacity-100",
         )}
       >
-        <ChevronLeft
-          className="h-4 w-4 shrink-0 transition-transform duration-200 ease-out group-hover:-translate-x-1"
-          aria-hidden
-        />
+        <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
         Home
       </Link>
       <ThemeToggle />

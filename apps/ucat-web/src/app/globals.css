@@ -49,6 +49,9 @@
     --motion-duration-snappy: 150ms;
     --motion-duration-subtle: 220ms;
     --motion-duration-enter: 280ms;
+
+    /* Filled-button hover wash: light overlay on dark navy primary (light mode) */
+    --ucat-btn-fill-rise-wash: hsl(0 0% 100% / 0.15);
   }
 
   .dark {
@@ -89,6 +92,9 @@
 
     --secondary: 0 0% 17%;
     --secondary-foreground: 0 0% 96%;
+
+    /* Dark overlay on light accent fills (dark mode) */
+    --ucat-btn-fill-rise-wash: hsl(0 0% 0% / 0.15);
   }
 }
 
@@ -153,6 +159,24 @@
   animation: set-highlight-fade 2s ease-out forwards;
 }
 
+/* Auth screens: single subtle fade-up (replaces GSAP stagger) */
+@keyframes ucat-auth-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 6px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .auth-entrance {
+    animation: ucat-auth-enter var(--motion-duration-enter) var(--motion-ease-standard) both;
+  }
+}
+
 /**
  * Bottom-up hover wash (same motion language as marketing `MagneticButton`).
  * Overlay sits above the solid `bg-*` fill and below label content.
@@ -173,14 +197,19 @@
   position: absolute;
   inset: 0;
   z-index: 0;
-  background-color: hsl(0 0% 0% / 0.12);
+  background-color: var(--ucat-btn-fill-rise-wash);
   transform: translateY(100%);
   transition: transform 500ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   pointer-events: none;
 }
 
-.dark .ucat-btn-accent-fill-rise::before {
-  background-color: hsl(0 0% 0% / 0.18);
+/* Light fills (e.g. secondary) — dark wash reads better than white on pale gray */
+.ucat-btn-accent-fill-rise.bg-secondary::before {
+  --ucat-btn-fill-rise-wash: hsl(0 0% 0% / 0.07);
+}
+
+.dark .ucat-btn-accent-fill-rise.bg-secondary::before {
+  --ucat-btn-fill-rise-wash: hsl(0 0% 0% / 0.22);
 }
 
 @media (prefers-reduced-motion: no-preference) {
