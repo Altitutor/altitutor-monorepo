@@ -35,13 +35,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ exists: true });
   }
 
-  const { data: authLink, error: authLinkError } =
-    await supabaseAdmin.auth.admin.generateLink({
-      type: "magiclink",
-      email: emailTrimmed,
-    });
+  const { data: authExists, error: authRpcError } = await supabaseAdmin.rpc(
+    "auth_user_exists_by_email",
+    { p_email: emailTrimmed },
+  );
 
-  const authUserExists = !authLinkError && Boolean(authLink?.user);
+  if (authRpcError) {
+    console.error(
+      "[check-email] auth_user_exists_by_email failed:",
+      authRpcError.message,
+    );
+    return NextResponse.json({ exists: false });
+  }
 
-  return NextResponse.json({ exists: authUserExists });
+  return NextResponse.json({ exists: Boolean(authExists) });
 }
