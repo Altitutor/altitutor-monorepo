@@ -7,6 +7,7 @@ import type { Node } from '@tiptap/pm/model'
 import { getBulkImportLogicalLines } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import type { BulkImportParseSection } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import {
+  collectLogicalLinesFromDoc,
   type PMNode,
   extractOptionLinesFromTable,
   extractQuestionRowFromNestedTable,
@@ -47,27 +48,35 @@ export function inner(n: Node, pBefore: number): { from: number; to: number } {
 }
 
 /**
- * Ranges for each `getBulkImport` line, or `null` if the PM walk could not
+ * Ranges for each logical import line, or `null` if the PM walk could not
  * match the same lines (then skip in-editor question highlights).
  */
 export function collectQuestionLineTextRanges(
   root: Node,
-  section: BulkImportParseSection
+  section: BulkImportParseSection,
+  options?: { questionsOnly?: boolean }
 ): { from: number; to: number }[] | null {
   if (root.type.name !== 'doc' || !root.isBlock) {
     return null
   }
+  const questionsOnly = options?.questionsOnly === true
   const j = root.toJSON() as unknown as Json
-  const expect = getBulkImportLogicalLines(j, section)
+  const expect = questionsOnly
+    ? collectLogicalLinesFromDoc(j, {
+        detectNestedQuestionTables: section !== 'quantitative_reasoning',
+      })
+    : getBulkImportLogicalLines(j, section)
   if (expect.length === 0) return []
 
   const st: RSt = {
     lines: [],
     ranges: [],
-    detectNested: section === 'verbal_reasoning' || section === 'situational_judgement',
+    detectNested: questionsOnly
+      ? section !== 'quantitative_reasoning'
+      : section === 'verbal_reasoning' || section === 'situational_judgement',
   }
 
-  if (section === 'quantitative_reasoning') {
+  if (!questionsOnly && section === 'quantitative_reasoning') {
     runQrFromDoc(root, st)
   } else {
     walkVrDmSj(root, 0, st)
@@ -131,15 +140,11 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
         }
         continue
       }
-      const cell1 = (rowJ.content as PMNode[] | undefined)?.[0] as PMNode
-      const cell2 = (rowJ.content as PMNode[] | undefined)?.[1] as PMNode
-      const cell1Text = (cell1 ? nodeToText(cell1).trim() : '')
-      const cell2Text = (cell2 ? nodeToText(cell2).trim() : '')
-      if (cell1Text.length === 0 && cell2Text.length > 0) {
-        st.lines.push((st.prefixForNextLine ?? '') + cell2Text)
-        const c1 = rowPm.childCount > 1 ? rowPm.child(1) : rowPm.child(0)
-        st.ranges.push(inner(c1, beforeChild(rowPm, pRow, c1 === rowPm.child(1) ? 1 : 0)))
-        st.prefixForNextLine = undefined
+      const cells = Array.isArray(rowJ?.content) ? rowJ.content : []
+      for (let ci = 0; ci < rowPm.childCount; ci += 1) {
+        const cellPm = rowPm.child(ci)
+        const cellJ = cells[ci] as PMNode | undefined
+        appendPmLinesFromTableCell(cellPm, cellJ, beforeChild(rowPm, pRow, ci), st)
       }
     }
     return
@@ -185,6 +190,63 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
 
   for (let i = 0; i < n.childCount; i += 1) {
     walkVrDmSj(n.child(i), beforeChild(n, pBefore, i), st)
+  }
+}
+
+/** Mirror {@link appendLinesFromTableCell} so PM ranges stay aligned with logical lines. */
+function appendPmLinesFromTableCell(
+  cellPm: Node,
+  cellJ: PMNode | undefined,
+  pCell: number,
+  st: RSt
+): void {
+  if (!cellJ) {
+    const tx = cellPm.textContent.trim()
+    if (tx.length > 0) {
+      st.lines.push((st.prefixForNextLine ?? '') + tx)
+      st.ranges.push(inner(cellPm, pCell))
+      st.prefixForNextLine = undefined
+    }
+    return
+  }
+
+  if (cellJ.type === 'table') {
+    walkVrDmSj(cellPm, pCell, st)
+    return
+  }
+
+  const content = Array.isArray(cellJ.content) ? cellJ.content : []
+  let pushed = false
+  for (let i = 0; i < content.length; i += 1) {
+    const cJ = content[i] as PMNode
+    if (i >= cellPm.childCount) break
+    const cPm = cellPm.child(i)
+    const pChild = beforeChild(cellPm, pCell, i)
+
+    if (cJ.type === 'table') {
+      walkVrDmSj(cPm, pChild, st)
+      pushed = true
+    } else if (cJ.type === 'paragraph') {
+      const tx = nodeToText(cJ).trim()
+      if (tx.length > 0) {
+        st.lines.push((st.prefixForNextLine ?? '') + tx)
+        st.ranges.push(inner(cPm, pChild))
+        st.prefixForNextLine = undefined
+        pushed = true
+      }
+    } else if (Array.isArray(cJ.content) && cJ.content.length > 0) {
+      appendPmLinesFromTableCell(cPm, cJ, pChild, st)
+      pushed = true
+    }
+  }
+
+  if (!pushed) {
+    const tx = nodeToText(cellJ).trim()
+    if (tx.length > 0) {
+      st.lines.push((st.prefixForNextLine ?? '') + tx)
+      st.ranges.push(inner(cellPm, pCell))
+      st.prefixForNextLine = undefined
+    }
   }
 }
 

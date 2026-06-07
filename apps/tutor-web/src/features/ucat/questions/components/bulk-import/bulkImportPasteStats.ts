@@ -17,7 +17,11 @@ import {
 
 export type QuestionPasteClassify = Pick<
   ParserConfig,
-  'questionIndicator' | 'answerOptionIndicator' | 'questionNumberOnOwnLine' | 'answerOptionOnOwnLine'
+  | 'questionIndicator'
+  | 'answerOptionIndicator'
+  | 'questionNumberOnOwnLine'
+  | 'answerOptionOnOwnLine'
+  | 'enforceSequentialQuestionNumbers'
 >
 
 export type QuestionStemBreakdown = {

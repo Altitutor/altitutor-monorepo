@@ -12,9 +12,10 @@ import {
   Label,
   SearchableSelect,
 } from '@altitutor/ui'
-import { cn } from '@/shared/utils'
 import { Settings2 } from 'lucide-react'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
+import { CollapsibleStemCard } from '@/features/ucat/questions/components/bulk-import/CollapsibleStemCard'
+import { BulkImportParseLegendButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseLegendButton'
 import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
 import {
   splitStemDocumentFromDoc,
@@ -36,74 +37,6 @@ const STEM_NUMBER_INDICATOR_OPTIONS: {
   { value: 'dot', label: '1. 2. 3.' },
   { value: 'paren', label: '1) 2) 3)' },
 ]
-
-const PREVIEW_LINE_LIMIT = 4
-
-function getStemLines(text: string): string[] {
-  return text.trim().split('\n')
-}
-
-function stemNeedsExpand(text: string): boolean {
-  const trimmed = text.trim()
-  if (trimmed.length === 0) return false
-  const lines = getStemLines(text)
-  return (
-    lines.length > PREVIEW_LINE_LIMIT ||
-    trimmed.replace(/\s+/g, ' ').length > 160
-  )
-}
-
-function DetectedStemCard({
-  index,
-  stem,
-  expanded,
-  onToggle,
-}: {
-  index: number
-  stem: string
-  expanded: boolean
-  onToggle: () => void
-}) {
-  const trimmedStem = stem.trim()
-  if (trimmedStem.length === 0) return null
-
-  const canExpand = stemNeedsExpand(stem)
-  const showExpandHint = !expanded && canExpand
-
-  return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={onToggle}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') {
-          event.preventDefault()
-          onToggle()
-        }
-      }}
-      className={cn(
-        'w-full shrink-0 cursor-pointer rounded-md border bg-background px-3 py-2 text-left text-xs transition-colors',
-        'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-      )}
-      aria-expanded={expanded}
-    >
-      <div className="flex items-baseline justify-between gap-2">
-        <span className="font-medium text-muted-foreground">Stem {index + 1}</span>
-        {showExpandHint ? (
-          <span className="shrink-0 text-[10px] text-muted-foreground">Click to expand</span>
-        ) : null}
-      </div>
-      <div
-        className={cn(
-          'mt-1 whitespace-pre-wrap font-sans leading-relaxed text-foreground/90',
-          !expanded && canExpand && 'line-clamp-4'
-        )}
-      >
-        {trimmedStem}
-      </div>
-    </div>
-  )
-}
 
 type StepPasteStemsProps = {
   value: Json | null
@@ -143,8 +76,10 @@ export function StepPasteStems({
     () => ({
       mode: 'stem_split' as const,
       splitLineIndices: splitResult.splitLineIndices,
+      discardedLineIndices: splitResult.discardedLineIndices,
+      discardedLineSpans: splitResult.discardedLineSpans,
     }),
-    [splitResult.splitLineIndices]
+    [splitResult.splitLineIndices, splitResult.discardedLineIndices, splitResult.discardedLineSpans]
   )
 
   return (
@@ -152,12 +87,10 @@ export function StepPasteStems({
       <div className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-base font-semibold">Paste stems</h2>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Paste passages on the left. Detected stems appear on the right; purple lines mark
-            where the next stem begins.
-          </p>
         </div>
-        <DropdownMenu>
+        <div className="flex shrink-0 items-center gap-2">
+          <BulkImportParseLegendButton variant="stem_split" />
+          <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button type="button" variant="outline" size="sm" className="shrink-0 gap-1.5">
               <Settings2 className="h-3.5 w-3.5" />
@@ -237,7 +170,8 @@ export function StepPasteStems({
               ) : null}
             </div>
           </DropdownMenuContent>
-        </DropdownMenu>
+          </DropdownMenu>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden md:flex-row md:gap-0">
@@ -284,7 +218,7 @@ export function StepPasteStems({
             ) : (
               <div className="flex w-full flex-col gap-2">
                 {splitResult.stems.map((stem, index) => (
-                  <DetectedStemCard
+                  <CollapsibleStemCard
                     key={index}
                     index={index}
                     stem={stem}

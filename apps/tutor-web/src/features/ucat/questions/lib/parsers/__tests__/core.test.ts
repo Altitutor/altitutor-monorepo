@@ -1,5 +1,7 @@
 import {
+  buildQuestionPasteSpansForLine,
   classifyParseLineRoles,
+  collectLogicalLinesFromDoc,
   mergeConsecutiveStemsWithSameText,
   parseFromLines,
 } from '../core'
@@ -107,6 +109,55 @@ c) 31`
     expect(stems[0]?.questions).toHaveLength(1)
     expect(stems[1]?.stemText).toContain('2024. This line belongs to the next setup')
     expect(stems[1]?.questions[0]?.number).toBe(2)
+  })
+
+  it('accepts non-consecutive question numbers when consecutive numbering is not required', () => {
+    const input = `1. First question
+a) opt A
+b) opt B
+4. Fourth question
+a) opt C
+b) opt D
+2. Second question
+a) opt E
+b) opt F
+88. Eighty-eighth question
+a) opt G
+b) opt H`
+
+    const stems = parseFromLines(input.split(/\r?\n/u), {
+      questionsOnly: true,
+      enforceSequentialQuestionNumbers: false,
+    })
+
+    const numbers = stems.flatMap((s) => s.questions.map((q) => q.number))
+    expect(numbers).toEqual([1, 4, 2, 88])
+  })
+
+  it('skips non-consecutive question numbers when consecutive numbering is required', () => {
+    const input = `1. First question
+a) opt A
+b) opt B
+4. Out of sequence — skipped
+a) opt C
+b) opt D
+2. Next consecutive question
+a) opt E
+b) opt F
+5. Out of sequence — skipped
+a) opt G
+b) opt H
+3. Next consecutive question
+a) opt I
+b) opt J`
+
+    const stems = parseFromLines(input.split(/\r?\n/u), {
+      questionsOnly: true,
+      enforceSequentialQuestionNumbers: true,
+    })
+
+    const numbers = stems.flatMap((s) => s.questions.map((q) => q.number))
+    expect(numbers).toEqual([1, 2, 3])
   })
 
   it('parses ordered-list Prompt 2 with questions starting at 5', () => {
@@ -243,6 +294,107 @@ Can't Tell`
       'option',
       'option',
     ])
+  })
+})
+
+describe('buildQuestionPasteSpansForLine', () => {
+  it('highlights only inline question text, not the number marker', () => {
+    const spans = buildQuestionPasteSpansForLine('1. What is the answer?', 'question', {
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'paren',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+    })
+    expect(spans).toEqual([{ start: 3, end: 22, kind: 'question' }])
+  })
+
+  it('skips question-number-only lines when number is on its own line', () => {
+    const spans = buildQuestionPasteSpansForLine('1.', 'question', {
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'paren',
+      questionNumberOnOwnLine: true,
+      answerOptionOnOwnLine: false,
+    })
+    expect(spans).toEqual([])
+  })
+
+  it('highlights only inline option text, not the letter marker', () => {
+    const spans = buildQuestionPasteSpansForLine('a) First option', 'option', {
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'paren',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+    })
+    expect(spans).toEqual([{ start: 3, end: 15, kind: 'option' }])
+  })
+
+  it('returns no spans for stem lines', () => {
+    expect(
+      buildQuestionPasteSpansForLine('Passage text.', 'stem', {
+        questionIndicator: 'dot',
+        answerOptionIndicator: 'paren',
+        questionNumberOnOwnLine: false,
+        answerOptionOnOwnLine: false,
+      })
+    ).toEqual([])
+  })
+})
+
+describe('table-backed question paste', () => {
+  it('collects lines from every non-empty table cell when nested question rows are absent', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Option A text' }] }],
+                },
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A.' }] }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(collectLogicalLinesFromDoc(doc, { detectNestedQuestionTables: true })).toEqual([
+      'Option A text',
+      'A.',
+    ])
+  })
+
+  it('parses consecutive questions when option labels have no text on the following line', () => {
+    const lines = [
+      '5.',
+      'Question five?',
+      'A.',
+      'B.',
+      'C.',
+      '6.',
+      'Question six?',
+      'A.',
+      'B.',
+      'C.',
+    ]
+    const stems = parseFromLines(lines, {
+      questionsOnly: true,
+      answerOptionIndicator: 'dot',
+      questionIndicator: 'dot',
+    })
+    const questions = stems.flatMap((s) => s.questions)
+    expect(questions).toHaveLength(2)
+    expect(questions.map((q) => q.number)).toEqual([5, 6])
+    expect(questions[0]?.options.map((o) => o.label)).toEqual(['A', 'B', 'C'])
+    expect(questions[1]?.options.map((o) => o.label)).toEqual(['A', 'B', 'C'])
   })
 })
 

@@ -19,10 +19,15 @@ import {
   mapAnswerPasteSpanToDocRanges,
 } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
 import {
+  buildOptionRegexes,
+  buildQuestionPasteSpansForLine,
+  buildQuestionRegexes,
   classifyParseLineRoles,
+  collectLogicalLinesFromDoc,
   type ParseLineHighlightRole,
   type ParserConfig,
 } from '@/features/ucat/questions/lib/parsers/core'
+import type { StemSplitDiscardLineSpan } from '@/features/ucat/questions/lib/parsers/splitStemDocument'
 import { collectStemLogicalLineRanges } from '@/features/ucat/questions/lib/pmStemDocLineRanges'
 
 /** Transaction meta key: refresh parse decorations (options / section changed). */
@@ -37,11 +42,22 @@ export type UcatParseHighlightConfig =
       section: BulkImportParseSection
       classify: Pick<
         ParserConfig,
-        'questionIndicator' | 'answerOptionIndicator' | 'questionNumberOnOwnLine' | 'answerOptionOnOwnLine'
+        | 'questionIndicator'
+        | 'answerOptionIndicator'
+        | 'questionNumberOnOwnLine'
+        | 'answerOptionOnOwnLine'
+        | 'enforceSequentialQuestionNumbers'
       >
+      /** When true, classify lines like questions-only paste (per-stem editors). */
+      questionsOnly?: boolean
     }
   | { mode: 'answer'; includeExplanations: boolean }
-  | { mode: 'stem_split'; splitLineIndices: number[] }
+  | {
+      mode: 'stem_split'
+      splitLineIndices: number[]
+      discardedLineIndices: number[]
+      discardedLineSpans: StemSplitDiscardLineSpan[]
+    }
 
 /** Classes live in globals.css (stable vs Tailwind / typography on generated spans). */
 
@@ -107,8 +123,6 @@ function addLineClassDecoration(
 
 function roleClassQuestion(role: ParseLineHighlightRole): string {
   switch (role) {
-    case 'stem':
-      return 'ucat-parse-hl-q-stem'
     case 'question':
       return 'ucat-parse-hl-q-question'
     case 'option':
@@ -118,26 +132,57 @@ function roleClassQuestion(role: ParseLineHighlightRole): string {
   }
 }
 
+function resolveQuestionHighlightRole(
+  docLineText: string,
+  classifiedRole: ParseLineHighlightRole,
+  classify: Pick<
+    ParserConfig,
+    'questionIndicator' | 'answerOptionIndicator' | 'questionNumberOnOwnLine' | 'answerOptionOnOwnLine'
+  >
+): ParseLineHighlightRole | null {
+  if (classifiedRole === 'question' || classifiedRole === 'option') return classifiedRole
+
+  const qRe = buildQuestionRegexes(classify.questionIndicator ?? 'dot')
+  const oRe = buildOptionRegexes(classify.answerOptionIndicator ?? 'paren')
+  if (oRe.inline.test(docLineText)) return 'option'
+  if (qRe.inline.test(docLineText)) return 'question'
+  return null
+}
+
 function buildQuestionDecorations(
   doc: Node,
   cfg: Extract<UcatParseHighlightConfig, { mode: 'question' }>
 ): DecorationSet {
   const j = doc.toJSON() as unknown as Json
-  const lines = getBulkImportLogicalLines(j, cfg.section)
+  const questionsOnly = cfg.questionsOnly === true
+  const lines = questionsOnly
+    ? collectLogicalLinesFromDoc(j, {
+        detectNestedQuestionTables: cfg.section !== 'quantitative_reasoning',
+      })
+    : getBulkImportLogicalLines(j, cfg.section)
   if (lines.length === 0) return DecorationSet.empty
-  const ranges = collectQuestionLineTextRanges(doc, cfg.section)
+  const ranges = collectQuestionLineTextRanges(doc, cfg.section, { questionsOnly })
   if (ranges == null) return DecorationSet.empty
-  const roles = classifyParseLineRoles(lines, {
+  const parserCfg = {
     ...cfg.classify,
     acceptSyllogismOptions: bulkImportParserAcceptSyllogism(cfg.section),
-  })
+    questionsOnly: cfg.questionsOnly === true,
+  }
+  const roles = classifyParseLineRoles(lines, parserCfg)
   const decos: Decoration[] = []
   for (let i = 0; i < roles.length; i += 1) {
-    const role = roles[i] ?? 'none'
-    if (role === 'none') continue
     const range = ranges[i]
     if (!range) continue
-    addLineClassDecoration(doc, range.from, range.to, roleClassQuestion(role), decos)
+    const docLineText = doc.textBetween(range.from, range.to, undefined, '\n')
+    const classifiedRole = roles[i] ?? 'none'
+    const highlightRole = resolveQuestionHighlightRole(docLineText, classifiedRole, cfg.classify)
+    if (!highlightRole) continue
+    const spans = buildQuestionPasteSpansForLine(docLineText, highlightRole, cfg.classify)
+    for (const sp of spans) {
+      const from = range.from + sp.start
+      const to = range.from + sp.end
+      addLineClassDecoration(doc, from, to, roleClassQuestion(highlightRole), decos)
+    }
   }
   return DecorationSet.create(doc, decos)
 }
@@ -198,12 +243,53 @@ function buildAnswerDecorations(
 
 type GetCfg = () => UcatParseHighlightConfig
 
-function buildStemSplitDecorations(doc: Node, splitLineIndices: number[]): DecorationSet {
+function mapStemLineSpanToDocRange(
+  lineRange: { from: number; to: number },
+  line: string,
+  span: { start: number; end: number }
+): { from: number; to: number } | null {
+  const ss = Math.max(0, span.start)
+  const se = Math.min(line.length, span.end)
+  if (ss >= se) return null
+  const from = lineRange.from + ss
+  const to = lineRange.from + se
+  if (from >= to) return null
+  return { from, to }
+}
+
+function buildStemSplitDecorations(
+  doc: Node,
+  cfg: Extract<UcatParseHighlightConfig, { mode: 'stem_split' }>
+): DecorationSet {
   const ranges = collectStemLogicalLineRanges(doc)
   if (ranges == null || ranges.length === 0) return DecorationSet.empty
 
+  const j = doc.toJSON() as unknown as Json
+  const lines = collectLogicalLinesFromDoc(j, {
+    detectNestedQuestionTables: false,
+    preserveBlankLines: true,
+  })
+
   const decos: Decoration[] = []
-  for (const lineIndex of splitLineIndices) {
+  const fullLineDiscard = new Set(cfg.discardedLineIndices)
+
+  for (const lineIndex of cfg.discardedLineIndices) {
+    const R = ranges[lineIndex]
+    if (!R) continue
+    addLineClassDecoration(doc, R.from, R.to, 'ucat-parse-hl-discard', decos)
+  }
+
+  for (const span of cfg.discardedLineSpans) {
+    if (fullLineDiscard.has(span.lineIndex)) continue
+    const R = ranges[span.lineIndex]
+    const line = lines[span.lineIndex] ?? ''
+    if (!R) continue
+    const mapped = mapStemLineSpanToDocRange(R, line, span)
+    if (!mapped) continue
+    addLineClassDecoration(doc, mapped.from, mapped.to, 'ucat-parse-hl-discard', decos)
+  }
+
+  for (const lineIndex of cfg.splitLineIndices) {
     const R = ranges[lineIndex]
     if (!R) continue
     decos.push(
@@ -229,7 +315,7 @@ function buildDecorationsSet(doc: Node, getConfig: GetCfg): DecorationSet {
     return buildQuestionDecorations(doc, c)
   }
   if (c.mode === 'stem_split') {
-    return buildStemSplitDecorations(doc, c.splitLineIndices)
+    return buildStemSplitDecorations(doc, c)
   }
   return buildAnswerDecorations(doc, c.includeExplanations)
 }

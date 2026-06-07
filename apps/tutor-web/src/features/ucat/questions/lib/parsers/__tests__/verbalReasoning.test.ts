@@ -53,6 +53,7 @@ describe('parseQuestionsOnlyForSection', () => {
       answerOptionIndicator: 'paren',
       questionNumberOnOwnLine: false,
       answerOptionOnOwnLine: false,
+      requireConsecutiveQuestionNumbers: true,
     })
 
     expect(questions).toHaveLength(2)

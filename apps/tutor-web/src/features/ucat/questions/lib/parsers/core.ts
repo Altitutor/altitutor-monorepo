@@ -89,7 +89,7 @@ function encodeImageToken(attrs: Record<string, unknown> | undefined): string | 
   return `[[IMG:${parts.join(';')}]]`
 }
 
-function buildQuestionRegexes(kind: QuestionIndicatorKind): {
+export function buildQuestionRegexes(kind: QuestionIndicatorKind): {
   inline: RegExp
   numberOnly: RegExp
 } {
@@ -100,7 +100,7 @@ function buildQuestionRegexes(kind: QuestionIndicatorKind): {
   }
 }
 
-function buildOptionRegexes(kind: AnswerOptionIndicatorKind): {
+export function buildOptionRegexes(kind: AnswerOptionIndicatorKind): {
   inline: RegExp
   labelOnly: RegExp
 } {
@@ -284,6 +284,44 @@ type CollectState = {
   preserveBlankLines?: boolean
 }
 
+/** Emit one logical line per paragraph (or nested table) inside a table cell. */
+function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectState): void {
+  if (!cell) return
+
+  if (cell.type === 'table') {
+    collectLogicalLinesFromNode(cell, lines, st)
+    return
+  }
+
+  const content = Array.isArray(cell.content) ? cell.content : []
+  let pushed = false
+  for (const child of content) {
+    const c = child as PMNode
+    if (c.type === 'table') {
+      collectLogicalLinesFromNode(c, lines, st)
+      pushed = true
+    } else if (c.type === 'paragraph') {
+      const t = nodeToText(c).trim()
+      if (t.length > 0) {
+        lines.push((st.prefixForNextLine ?? '') + t)
+        st.prefixForNextLine = undefined
+        pushed = true
+      }
+    } else if (Array.isArray(c.content) && c.content.length > 0) {
+      appendLinesFromTableCell(c, lines, st)
+      pushed = true
+    }
+  }
+
+  if (!pushed) {
+    const text = nodeToText(cell).trim()
+    if (text.length > 0) {
+      lines.push((st.prefixForNextLine ?? '') + text)
+      st.prefixForNextLine = undefined
+    }
+  }
+}
+
 function collectLogicalLinesFromNode(
   node: PMNode,
   lines: string[],
@@ -316,11 +354,8 @@ function collectLogicalLinesFromNode(
           continue
         }
         const cells = Array.isArray(row?.content) ? row.content : []
-        const cell1Text = (cells[0] ? nodeToText(cells[0] as PMNode).trim() : '')
-        const cell2Text = (cells[1] ? nodeToText(cells[1] as PMNode).trim() : '')
-        if (cell1Text.length === 0 && cell2Text.length > 0) {
-          lines.push((st.prefixForNextLine ?? '') + cell2Text)
-          st.prefixForNextLine = undefined
+        for (const cell of cells) {
+          appendLinesFromTableCell(cell as PMNode, lines, st)
         }
       }
       return
@@ -602,6 +637,28 @@ function hasNearbyAnswerOptionEvidence(
   return false
 }
 
+function lineLooksLikeQuestionStart(
+  line: string,
+  qRe: ReturnType<typeof buildQuestionRegexes>,
+  questionNumberOnOwnLine: boolean,
+  lastQuestionNumber: number | null,
+  enforceSequential: boolean
+): boolean {
+  const questionMatch = getQuestionMatch(line, qRe, questionNumberOnOwnLine)
+  return (
+    questionMatch != null &&
+    isPlausibleQuestionNumber(questionMatch.number, lastQuestionNumber, enforceSequential)
+  )
+}
+
+function lineLooksLikeOptionStart(
+  line: string,
+  oRe: ReturnType<typeof buildOptionRegexes>,
+  answerOptionOnOwnLine: boolean
+): boolean {
+  return !!(answerOptionOnOwnLine ? oRe.labelOnly.exec(line) : oRe.inline.exec(line) || oRe.labelOnly.exec(line))
+}
+
 /**
  * Core line-based parser: stem text, numbered questions, and a) b) c) or (when
  * acceptSyllogismOptions) 5 unlabelled lines as syllogism options. New stem when
@@ -668,11 +725,29 @@ export function parseFromLines(
       if (isBlank(trimmed)) {
         continue
       }
-      currentOptionLines = [line]
-      flushCurrentOption()
-      haveSeenOptionForCurrentQuestion = true
-      expectingOptionTextLine = false
-      continue
+      const enforceSequential = config.enforceSequentialQuestionNumbers !== false
+      const nextIsQuestion = lineLooksLikeQuestionStart(
+        line,
+        qRe,
+        config.questionNumberOnOwnLine === true,
+        lastQuestionNumber,
+        enforceSequential
+      )
+      const nextIsOption = lineLooksLikeOptionStart(
+        line,
+        oRe,
+        config.answerOptionOnOwnLine === true
+      )
+      if (nextIsQuestion || nextIsOption) {
+        flushCurrentOption()
+        expectingOptionTextLine = false
+      } else {
+        currentOptionLines = [line]
+        flushCurrentOption()
+        haveSeenOptionForCurrentQuestion = true
+        expectingOptionTextLine = false
+        continue
+      }
     }
 
     const questionNumberOnOwnLine = config.questionNumberOnOwnLine === true
@@ -903,12 +978,30 @@ export function classifyParseLineRoles(
       if (isBlank(trimmed)) {
         continue
       }
-      roles[idx] = 'option'
-      currentOptionLines = [line]
-      flushCurrentOption()
-      haveSeenOptionForCurrentQuestion = true
-      expectingOptionTextLine = false
-      continue
+      const enforceSequential = config.enforceSequentialQuestionNumbers !== false
+      const nextIsQuestion = lineLooksLikeQuestionStart(
+        line,
+        qRe,
+        config.questionNumberOnOwnLine === true,
+        lastQuestionNumber,
+        enforceSequential
+      )
+      const nextIsOption = lineLooksLikeOptionStart(
+        line,
+        oRe,
+        config.answerOptionOnOwnLine === true
+      )
+      if (nextIsQuestion || nextIsOption) {
+        flushCurrentOption()
+        expectingOptionTextLine = false
+      } else {
+        roles[idx] = 'option'
+        currentOptionLines = [line]
+        flushCurrentOption()
+        haveSeenOptionForCurrentQuestion = true
+        expectingOptionTextLine = false
+        continue
+      }
     }
 
     const questionNumberOnOwnLine = config.questionNumberOnOwnLine === true
@@ -993,9 +1086,14 @@ export function classifyParseLineRoles(
       !(inlineOptionMatch || labelOnlyMatch)
     ) {
       flushCurrentQuestion()
-      finaliseStem()
-      roles[idx] = 'stem'
-      stemLines.push(line)
+      if (config.questionsOnly) {
+        roles[idx] = 'none'
+        stemLines.push(line)
+      } else {
+        finaliseStem()
+        roles[idx] = 'stem'
+        stemLines.push(line)
+      }
       continue
     }
 
@@ -1047,4 +1145,71 @@ export function classifyParseLineRoles(
   finaliseStem()
 
   return roles
+}
+
+export type QuestionPasteSpanKind = 'question' | 'option'
+
+export type QuestionPasteSpan = {
+  start: number
+  end: number
+  kind: QuestionPasteSpanKind
+}
+
+/**
+ * Character spans within one logical line to highlight parsed question or option text only
+ * (excludes question numbers, option labels, and stem lines).
+ */
+export function buildQuestionPasteSpansForLine(
+  line: string,
+  role: ParseLineHighlightRole,
+  config: Pick<
+    ParserConfig,
+    'questionIndicator' | 'answerOptionIndicator' | 'questionNumberOnOwnLine' | 'answerOptionOnOwnLine'
+  >
+): QuestionPasteSpan[] {
+  if (role === 'none' || role === 'stem') return []
+
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'paren')
+  const questionNumberOnOwnLine = config.questionNumberOnOwnLine === true
+  const answerOptionOnOwnLine = config.answerOptionOnOwnLine === true
+
+  const trimmedSpan = (kind: QuestionPasteSpanKind): QuestionPasteSpan[] => {
+    const trimmed = line.trim()
+    if (trimmed.length === 0) return []
+    const start = line.indexOf(trimmed)
+    if (start < 0) return []
+    return [{ start, end: start + trimmed.length, kind }]
+  }
+
+  const inlineTextSpan = (
+    match: RegExpExecArray,
+    kind: QuestionPasteSpanKind
+  ): QuestionPasteSpan[] => {
+    const textPart = match[2] ?? ''
+    if (textPart.length === 0) return []
+    const textOffsetInMatch = match[0].indexOf(textPart)
+    if (textOffsetInMatch < 0) return []
+    const textStart = (match.index ?? 0) + textOffsetInMatch
+    return [{ start: textStart, end: textStart + textPart.length, kind }]
+  }
+
+  if (role === 'question') {
+    const inlineMatch = qRe.inline.exec(line)
+    if (inlineMatch) return inlineTextSpan(inlineMatch, 'question')
+    if (questionNumberOnOwnLine && qRe.numberOnly.test(line)) return []
+    if (qRe.numberOnly.test(line)) return []
+    return trimmedSpan('question')
+  }
+
+  if (role === 'option') {
+    const inlineMatch = oRe.inline.exec(line)
+    const labelOnlyMatch = oRe.labelOnly.exec(line)
+    if (inlineMatch) return inlineTextSpan(inlineMatch, 'option')
+    if (answerOptionOnOwnLine && labelOnlyMatch) return []
+    if (labelOnlyMatch) return []
+    return trimmedSpan('option')
+  }
+
+  return []
 }

@@ -45,6 +45,7 @@ function parserConfigFromOptions(
     answerOptionIndicator: parsingOptions.answerOptionIndicator,
     questionNumberOnOwnLine: parsingOptions.questionNumberOnOwnLine,
     answerOptionOnOwnLine: parsingOptions.answerOptionOnOwnLine,
+    enforceSequentialQuestionNumbers: parsingOptions.requireConsecutiveQuestionNumbers,
     acceptSyllogismOptions: section === 'decision_making',
     questionsOnly,
   }

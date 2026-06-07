@@ -33,6 +33,8 @@ export type ParsingOptions = {
   answerOptionIndicator: AnswerOptionIndicatorKind
   questionNumberOnOwnLine: boolean
   answerOptionOnOwnLine: boolean
+  /** When true (default), question numbers must increase by 1; when false, any number is accepted. */
+  requireConsecutiveQuestionNumbers: boolean
 }
 
 const DEFAULT_PARSING_OPTIONS: ParsingOptions = {
@@ -40,6 +42,7 @@ const DEFAULT_PARSING_OPTIONS: ParsingOptions = {
   answerOptionIndicator: 'paren',
   questionNumberOnOwnLine: false,
   answerOptionOnOwnLine: false,
+  requireConsecutiveQuestionNumbers: true,
 }
 
 const QUESTION_INDICATOR_OPTIONS: { value: QuestionIndicatorKind; label: string }[] = [
@@ -57,6 +60,76 @@ const PASTE_TABLE_BEHAVIOR_OPTIONS: { value: PasteTableBehavior; label: string }
   { value: 'strip_outside', label: 'Strip outside tables only' },
   { value: 'keep', label: 'Keep formatting' },
 ]
+
+export function parsingOptionsToClassify(opts: ParsingOptions) {
+  return {
+    questionIndicator: opts.questionIndicator,
+    answerOptionIndicator: opts.answerOptionIndicator,
+    questionNumberOnOwnLine: opts.questionNumberOnOwnLine,
+    answerOptionOnOwnLine: opts.answerOptionOnOwnLine,
+    enforceSequentialQuestionNumbers: opts.requireConsecutiveQuestionNumbers,
+  }
+}
+
+function ParserCheckboxOptions({
+  idPrefix,
+  opts,
+  setOpts,
+}: {
+  idPrefix: string
+  opts: ParsingOptions
+  setOpts: (options: ParsingOptions) => void
+}) {
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id={`${idPrefix}-question-on-own-line`}
+          checked={opts.questionNumberOnOwnLine}
+          onCheckedChange={(checked) =>
+            setOpts({ ...opts, questionNumberOnOwnLine: checked === true })
+          }
+        />
+        <Label
+          htmlFor={`${idPrefix}-question-on-own-line`}
+          className="text-xs font-normal leading-snug cursor-pointer"
+        >
+          Question number must be on its own line
+        </Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id={`${idPrefix}-option-on-own-line`}
+          checked={opts.answerOptionOnOwnLine}
+          onCheckedChange={(checked) =>
+            setOpts({ ...opts, answerOptionOnOwnLine: checked === true })
+          }
+        />
+        <Label
+          htmlFor={`${idPrefix}-option-on-own-line`}
+          className="text-xs font-normal leading-snug cursor-pointer"
+        >
+          Answer option letter must be on its own line
+        </Label>
+      </div>
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id={`${idPrefix}-require-consecutive-question-numbers`}
+          checked={opts.requireConsecutiveQuestionNumbers}
+          onCheckedChange={(checked) =>
+            setOpts({ ...opts, requireConsecutiveQuestionNumbers: checked === true })
+          }
+        />
+        <Label
+          htmlFor={`${idPrefix}-require-consecutive-question-numbers`}
+          className="text-xs font-normal leading-snug cursor-pointer"
+        >
+          Require consecutive question numbers
+        </Label>
+      </div>
+    </>
+  )
+}
 
 type Step2PasteDocumentProps = {
   value: Json | null
@@ -77,6 +150,8 @@ type Step2PasteDocumentProps = {
   liveParseSection?: BulkImportParseSection | null
   /** When true, only render the parser settings control (no editor). */
   settingsOnly?: boolean
+  /** With settingsOnly, render only the legend + settings actions (no title row wrapper). */
+  settingsOnlyActionsOnly?: boolean
 }
 
 export function Step2PasteDocument({
@@ -92,25 +167,13 @@ export function Step2PasteDocument({
   layout = 'default',
   liveParseSection = null,
   settingsOnly = false,
+  settingsOnlyActionsOnly = false,
 }: Step2PasteDocumentProps) {
   const opts = parsingOptions
   const setOpts = onParsingOptionsChange ?? (() => {})
   const isSplit = layout === 'split'
 
-  const classify = useMemo(
-    () => ({
-      questionIndicator: opts.questionIndicator,
-      answerOptionIndicator: opts.answerOptionIndicator,
-      questionNumberOnOwnLine: opts.questionNumberOnOwnLine,
-      answerOptionOnOwnLine: opts.answerOptionOnOwnLine,
-    }),
-    [
-      opts.answerOptionIndicator,
-      opts.answerOptionOnOwnLine,
-      opts.questionIndicator,
-      opts.questionNumberOnOwnLine,
-    ]
-  )
+  const classify = useMemo(() => parsingOptionsToClassify(opts), [opts])
 
   const ucatQHighlight = useMemo(() => {
     if (!liveParseSection) return { mode: 'off' as const }
@@ -127,12 +190,10 @@ export function Step2PasteDocument({
   )
 
   if (settingsOnly) {
-    return (
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-base font-semibold">Question parsing options</h2>
-        <div className="flex shrink-0 items-center gap-2">
-          <BulkImportParseLegendButton variant="questions" />
-          <DropdownMenu>
+    const settingsActions = (
+      <div className="flex shrink-0 items-center gap-2">
+        <BulkImportParseLegendButton variant="questions" />
+        <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
               type="button"
@@ -184,40 +245,19 @@ export function Step2PasteDocument({
                   triggerClassName="w-full"
                 />
               </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="question-on-own-line-settings-only"
-                  checked={opts.questionNumberOnOwnLine}
-                  onCheckedChange={(checked) =>
-                    setOpts({ ...opts, questionNumberOnOwnLine: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="question-on-own-line-settings-only"
-                  className="text-xs font-normal leading-snug cursor-pointer"
-                >
-                  Question number must be on its own line
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="option-on-own-line-settings-only"
-                  checked={opts.answerOptionOnOwnLine}
-                  onCheckedChange={(checked) =>
-                    setOpts({ ...opts, answerOptionOnOwnLine: checked === true })
-                  }
-                />
-                <Label
-                  htmlFor="option-on-own-line-settings-only"
-                  className="text-xs font-normal leading-snug cursor-pointer"
-                >
-                  Answer option letter must be on its own line
-                </Label>
-              </div>
+              <ParserCheckboxOptions idPrefix="settings-only" opts={opts} setOpts={setOpts} />
             </div>
           </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
+        </DropdownMenu>
+      </div>
+    )
+
+    if (settingsOnlyActionsOnly) return settingsActions
+
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">Question parsing options</h2>
+        {settingsActions}
       </div>
     )
   }
@@ -292,36 +332,7 @@ export function Step2PasteDocument({
                     triggerClassName="w-full"
                   />
                 </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="question-on-own-line"
-                    checked={opts.questionNumberOnOwnLine}
-                    onCheckedChange={(checked) =>
-                      setOpts({ ...opts, questionNumberOnOwnLine: checked === true })
-                    }
-                  />
-                  <Label
-                    htmlFor="question-on-own-line"
-                    className="text-xs font-normal leading-snug cursor-pointer"
-                  >
-                    Question number must be on its own line
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="option-on-own-line"
-                    checked={opts.answerOptionOnOwnLine}
-                    onCheckedChange={(checked) =>
-                      setOpts({ ...opts, answerOptionOnOwnLine: checked === true })
-                    }
-                  />
-                  <Label
-                    htmlFor="option-on-own-line"
-                    className="text-xs font-normal leading-snug cursor-pointer"
-                  >
-                    Answer option letter must be on its own line
-                  </Label>
-                </div>
+                <ParserCheckboxOptions idPrefix="paste-document" opts={opts} setOpts={setOpts} />
                 <DropdownMenuSeparator />
                 <div className="space-y-1.5">
                   <Label className="text-xs">Table paste handling</Label>

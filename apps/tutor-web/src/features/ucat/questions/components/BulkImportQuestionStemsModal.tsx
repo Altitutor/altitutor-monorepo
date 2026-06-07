@@ -130,6 +130,7 @@ export function BulkImportQuestionStemsModal({
     answerOptionIndicator: 'paren',
     questionNumberOnOwnLine: false,
     answerOptionOnOwnLine: false,
+    requireConsecutiveQuestionNumbers: true,
   })
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null)
   const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
@@ -207,6 +208,7 @@ export function BulkImportQuestionStemsModal({
         answerOptionIndicator: 'paren',
         questionNumberOnOwnLine: false,
         answerOptionOnOwnLine: false,
+        requireConsecutiveQuestionNumbers: true,
       })
       suppressDialogCloseRef.current = false
       setPendingConfirm(null)
