@@ -1,16 +1,72 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Database } from "@altitutor/shared";
 import { validateOptionalPhoneE164 } from "@altitutor/ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
-function phoneUpdateErrorMessage(message: string): string {
+type StudentUpdate = Database["public"]["Tables"]["students"]["Update"];
+type StudentInsert = Database["public"]["Tables"]["students"]["Insert"];
+
+function dbErrorMessage(message: string): string {
   if (message.includes("Invalid phone number format")) {
     return "Please enter a valid Australian mobile number.";
   }
   if (message.includes("already associated with")) {
     return "This phone number is already linked to another account.";
   }
+  if (
+    message.includes("ucat_signup_step") &&
+    message.includes("does not exist")
+  ) {
+    return "Database update pending — please wait a minute and try again.";
+  }
+  if (process.env.NODE_ENV === "development") {
+    return message;
+  }
   return "Failed to save your details. Please try again.";
+}
+
+async function updateStudentWithSignupStepFallback(
+  studentId: string,
+  payload: StudentUpdate,
+): Promise<{ error: { message: string } | null }> {
+  let result = await supabaseAdmin!
+    .from("students")
+    .update(payload)
+    .eq("id", studentId);
+
+  if (
+    result.error &&
+    payload.ucat_signup_step !== undefined &&
+    result.error.message.includes("ucat_signup_step") &&
+    result.error.message.includes("does not exist")
+  ) {
+    const { ucat_signup_step: _step, ...withoutStep } = payload;
+    result = await supabaseAdmin!
+      .from("students")
+      .update(withoutStep)
+      .eq("id", studentId);
+  }
+
+  return { error: result.error };
+}
+
+async function insertStudentWithSignupStepFallback(
+  payload: StudentInsert,
+): Promise<{ error: { message: string } | null }> {
+  let result = await supabaseAdmin!.from("students").insert(payload);
+
+  if (
+    result.error &&
+    payload.ucat_signup_step !== undefined &&
+    result.error.message.includes("ucat_signup_step") &&
+    result.error.message.includes("does not exist")
+  ) {
+    const { ucat_signup_step: _step, ...withoutStep } = payload;
+    result = await supabaseAdmin!.from("students").insert(withoutStep);
+  }
+
+  return { error: result.error };
 }
 
 /**
@@ -90,18 +146,15 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    const { error: updateError } = await supabaseAdmin
-      .from("students")
-      .update({
-        ...profileUpdate,
-        ucat_signup_step: 2,
-      })
-      .eq("id", existing.id);
+    const { error: updateError } = await updateStudentWithSignupStepFallback(
+      existing.id,
+      { ...profileUpdate, ucat_signup_step: 2 },
+    );
 
     if (updateError) {
       console.error("[signup complete] Failed to update student:", updateError);
       return NextResponse.json(
-        { error: phoneUpdateErrorMessage(updateError.message) },
+        { error: dbErrorMessage(updateError.message) },
         { status: 400 },
       );
     }
@@ -115,26 +168,26 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (byEmail) {
-      const { error: linkError } = await supabaseAdmin
-        .from("students")
-        .update({
+      const { error: linkError } = await updateStudentWithSignupStepFallback(
+        byEmail.id,
+        {
           user_id: user.id,
           ...profileUpdate,
           ucat_signup_step: 2,
-        })
-        .eq("id", byEmail.id);
+        },
+      );
 
       if (linkError) {
         console.error("[signup complete] Failed to link student:", linkError);
         return NextResponse.json(
-          { error: phoneUpdateErrorMessage(linkError.message) },
+          { error: dbErrorMessage(linkError.message) },
           { status: 400 },
         );
       }
       studentId = byEmail.id;
     } else {
       const newStudentId = crypto.randomUUID();
-      const { error: insertError } = await supabaseAdmin.from("students").insert({
+      const { error: insertError } = await insertStudentWithSignupStepFallback({
         id: newStudentId,
         user_id: user.id,
         email,
@@ -149,7 +202,7 @@ export async function POST(request: NextRequest) {
       if (insertError) {
         console.error("[signup complete] Failed to create student:", insertError);
         return NextResponse.json(
-          { error: phoneUpdateErrorMessage(insertError.message) },
+          { error: dbErrorMessage(insertError.message) },
           { status: 400 },
         );
       }
