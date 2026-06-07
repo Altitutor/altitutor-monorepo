@@ -17230,6 +17230,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_student_ucat_online_tier: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       get_subjects_for_student: {
         Args: { p_curriculum: string; p_year_level: number }
         Returns: {
@@ -17257,6 +17261,7 @@ export type Database = {
         Args: { file_path: string }
         Returns: string
       }
+      get_ucat_subject_id: { Args: never; Returns: string }
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
@@ -17267,6 +17272,10 @@ export type Database = {
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       is_ucat_in_person_student: { Args: never; Returns: boolean }
+      is_ucat_online_quota_exempt: {
+        Args: { p_student_id: string }
+        Returns: boolean
+      }
       is_ucat_online_student: { Args: never; Returns: boolean }
       is_ucat_student: { Args: never; Returns: boolean }
       is_ucat_tutor: { Args: never; Returns: boolean }
@@ -17542,6 +17551,7 @@ export type Database = {
         Returns: string
       }
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
+      standardize_phone_e164: { Args: { phone_input: string }; Returns: string }
       student_complete_onboarding_tour: {
         Args: { p_tour_id: string; p_version?: number }
         Returns: Json
@@ -17549,6 +17559,10 @@ export type Database = {
       student_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
+      }
+      student_has_ucat_pro_subscription: {
+        Args: { p_student_id: string }
+        Returns: boolean
       }
       student_reset_onboarding_progress: { Args: never; Returns: Json }
       student_reset_onboarding_tour: {
@@ -17687,6 +17701,10 @@ export type Database = {
           p_stem_id: string
           p_stem_text: Json
         }
+        Returns: string
+      }
+      ucat_quota_period_start: {
+        Args: { p_at?: string; p_period: string; p_timezone: string }
         Returns: string
       }
       ucat_recompute_question_set_timing: {
