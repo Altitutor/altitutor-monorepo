@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import type { Json } from '@altitutor/shared'
-import type { Resolver, UseFormReturn } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
@@ -135,8 +135,13 @@ export function UcatQuestionStemDialog({
     }
   }, [initial, sections])
 
-  const form = useForm<UcatQuestionStemFormValues>({
-    resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
+  const createForm = useForm as unknown as (props: {
+    resolver: unknown
+    defaultValues: UcatQuestionStemFormValues
+  }) => UseFormReturn<UcatQuestionStemFormValues>
+
+  const form = createForm({
+    resolver: zodResolver(ucatQuestionStemSchema),
     defaultValues,
   })
 

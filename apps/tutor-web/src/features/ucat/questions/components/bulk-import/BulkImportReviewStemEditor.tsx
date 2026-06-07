@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import type { Resolver } from 'react-hook-form'
+import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -34,15 +34,23 @@ export function BulkImportReviewStemEditor({
   onUpdateStem,
   onNewImageFileIds,
 }: BulkImportReviewStemEditorProps) {
-  // @ts-expect-error TS2589 - recursive Json in schema; runtime validated by Zod.
-  const form = useForm<UcatQuestionStemFormValues>({
-    resolver: zodResolver(ucatQuestionStemSchema) as Resolver<UcatQuestionStemFormValues>,
+  const createForm = useForm as unknown as (props: {
+    resolver: unknown
+    defaultValues: UcatQuestionStemFormValues
+  }) => UseFormReturn<UcatQuestionStemFormValues>
+
+  const form = createForm({
+    resolver: zodResolver(ucatQuestionStemSchema),
     defaultValues: values,
   })
 
   useEffect(() => {
-    const subscription = form.watch((nextValues) => {
-      onUpdateStem(stemId, nextValues as UcatQuestionStemFormValues)
+    const watchAll = form.watch as (
+      callback: (values: UcatQuestionStemFormValues) => void
+    ) => { unsubscribe: () => void }
+
+    const subscription = watchAll((nextValues) => {
+      onUpdateStem(stemId, nextValues)
     })
     return () => subscription.unsubscribe()
   }, [form, onUpdateStem, stemId])
