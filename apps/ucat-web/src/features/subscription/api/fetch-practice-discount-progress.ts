@@ -1,9 +1,6 @@
-export type PracticeDiscountProgress = {
-  earned: number;
-  cap: number;
-  discountPerDayCents: number;
-  billingInterval: string;
-};
+import type { PracticeDiscountDashboardStatus } from "@/lib/ucat/practice-day-discount-dashboard";
+
+export type PracticeDiscountProgress = PracticeDiscountDashboardStatus;
 
 export async function fetchPracticeDiscountProgress(): Promise<PracticeDiscountProgress | null> {
   try {
@@ -12,7 +9,7 @@ export async function fetchPracticeDiscountProgress(): Promise<PracticeDiscountP
       credentials: "same-origin",
     });
     if (!res.ok) return null;
-    const data = (await res.json()) as PracticeDiscountProgress;
+    const data = (await res.json()) as PracticeDiscountDashboardStatus;
     if (typeof data.earned !== "number" || typeof data.cap !== "number") {
       return null;
     }

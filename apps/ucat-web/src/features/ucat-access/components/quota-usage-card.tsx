@@ -23,7 +23,7 @@ type QuotaUsageCardProps = {
   className?: string;
 };
 
-function QuotaProgressBar({
+export function QuotaProgressBar({
   used,
   limit,
   atLimit,
