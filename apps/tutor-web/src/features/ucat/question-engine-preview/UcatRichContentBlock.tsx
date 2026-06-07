@@ -17,11 +17,23 @@ const ENGINE_RICH_TEXT = cn(
   UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
 )
 
+const THEME_RICH_TEXT = cn(
+  'text-foreground',
+  '[&_.tiptap]:text-foreground [&_.ProseMirror]:text-foreground',
+  '[&_p]:text-foreground [&_li]:text-foreground [&_strong]:text-foreground [&_em]:text-foreground [&_u]:text-foreground',
+  '[&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground',
+  '[&_.ProseMirror_span[style*="color"]]:!text-foreground',
+  '[&_.ProseMirror_span[style*="background"]]:!bg-transparent',
+  UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
+)
+
 type UcatRichContentBlockProps = {
   json?: Record<string, unknown> | null
   plainText: string
   preloadedContent?: Record<string, unknown> | null
   className?: string
+  /** Engine chrome uses fixed black text; theme follows app foreground (e.g. bulk import previews). */
+  textTone?: 'engine' | 'theme'
 }
 
 /** Renders rich content when JSON is available (parity with ucat-web RichContentBlock). */
@@ -30,22 +42,24 @@ export function UcatRichContentBlock({
   plainText,
   preloadedContent,
   className,
+  textTone = 'engine',
 }: UcatRichContentBlockProps) {
   const { content, isLoading } = useRefreshedUcatContent(preloadedContent != null ? undefined : json)
 
   const displayContent = preloadedContent ?? content
   const richJson = json as Json | null | undefined
+  const toneClass = textTone === 'theme' ? THEME_RICH_TEXT : ENGINE_RICH_TEXT
 
   if (hasRichTextContent(richJson)) {
     if (displayContent == null || (preloadedContent == null && isLoading)) {
       return (
-        <p className={cn('whitespace-pre-line', ENGINE_RICH_TEXT, className)}>
+        <p className={cn('whitespace-pre-line', toneClass, className)}>
           {plainText || '\u00A0'}
         </p>
       )
     }
     return (
-      <div className={cn(ENGINE_RICH_TEXT, className)}>
+      <div className={cn(toneClass, className)}>
         <RichTextEditor
           content={displayContent}
           editable={false}
@@ -57,7 +71,7 @@ export function UcatRichContentBlock({
     )
   }
   return (
-    <p className={cn('whitespace-pre-line', ENGINE_RICH_TEXT, className)}>
+    <p className={cn('whitespace-pre-line', toneClass, className)}>
       {plainText || '\u00A0'}
     </p>
   )

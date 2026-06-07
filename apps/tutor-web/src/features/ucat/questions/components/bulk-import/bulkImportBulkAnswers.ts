@@ -18,10 +18,17 @@ import {
 import { answerDocToPlainTsv } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
 import { hasRichTextContent, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
+export type QuestionOptionPreview = {
+  label: string
+  answerTextDoc: Json | null
+  isAnswer: boolean
+}
+
 export type QuestionAnswerPreview = {
   row: FlatQuestionRef
   questionText: string
   questionTextDoc: Json | null
+  options: QuestionOptionPreview[]
   answerLetter: string | null
   syllogismPattern: string | null
   explanationPreview: string | null
@@ -48,11 +55,27 @@ function questionTextDocForRow(stems: BulkImportStemDraft[], row: FlatQuestionRe
   return (q?.questionText ?? null) as Json | null
 }
 
+function optionLabelForIndex(index: number): string {
+  return String.fromCharCode(97 + index)
+}
+
+function optionsForRow(stems: BulkImportStemDraft[], row: FlatQuestionRef): QuestionOptionPreview[] {
+  const stem = stems.find((s) => s.id === row.stemId)
+  const q = stem?.values.questions?.[row.questionIndex]
+  const options = q?.options ?? []
+  return options.map((opt, index) => ({
+    label: optionLabelForIndex(index),
+    answerTextDoc: (opt.answerText ?? null) as Json | null,
+    isAnswer: opt.isAnswer === true,
+  }))
+}
+
 function emptyPreview(stems: BulkImportStemDraft[], row: FlatQuestionRef): QuestionAnswerPreview {
   return {
     row,
     questionText: questionTextForRow(stems, row),
     questionTextDoc: questionTextDocForRow(stems, row),
+    options: optionsForRow(stems, row),
     answerLetter: null,
     syllogismPattern: null,
     explanationPreview: null,
@@ -105,6 +128,7 @@ export function buildQuestionAnswerPreviews(
           row,
           questionText: questionTextForRow(stems, row),
           questionTextDoc: questionTextDocForRow(stems, row),
+          options: optionsForRow(stems, row),
           answerLetter: null,
           syllogismPattern: answer.pattern.split('').join(' · '),
           explanationPreview: firstExplanation ? truncatePreview(firstExplanation, 120) : null,
@@ -126,6 +150,7 @@ export function buildQuestionAnswerPreviews(
           row,
           questionText: questionTextForRow(stems, row),
           questionTextDoc: questionTextDocForRow(stems, row),
+          options: optionsForRow(stems, row),
           answerLetter: answer.letter.toUpperCase(),
           syllogismPattern: null,
           explanationPreview: explanationPlain ? truncatePreview(explanationPlain, 120) : null,
@@ -150,6 +175,7 @@ export function buildQuestionAnswerPreviews(
       row,
       questionText: questionTextForRow(stems, row),
       questionTextDoc: questionTextDocForRow(stems, row),
+      options: optionsForRow(stems, row),
       answerLetter: answer.letter.toUpperCase(),
       syllogismPattern: null,
       explanationPreview: explanation ? truncatePreview(explanation, 120) : null,

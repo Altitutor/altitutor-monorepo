@@ -68,6 +68,7 @@ export function BulkImportRichTextPreview({
         json={json as Record<string, unknown> | null}
         plainText={plainText}
         preloadedContent={json as Record<string, unknown> | null}
+        textTone="theme"
         className={cn(
           COMPACT_RICH_CLASS,
           !singleLine && TABLE_RICH_CLASS,

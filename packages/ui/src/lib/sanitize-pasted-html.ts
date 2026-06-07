@@ -1,4 +1,4 @@
-const INLINE_KEEP = new Set(['STRONG', 'B', 'EM', 'I', 'BR']);
+const INLINE_KEEP = new Set(['STRONG', 'B', 'EM', 'I', 'U', 'BR']);
 const TABLE_KEEP = new Set([
   'TABLE',
   'TBODY',
@@ -20,6 +20,10 @@ function isItalicStyle(style: string): boolean {
   return /font-style:\s*italic/i.test(style);
 }
 
+function isUnderlineStyle(style: string): boolean {
+  return /text-decoration(?:-line)?:\s*underline/i.test(style);
+}
+
 function sanitizeChildren(parent: Element, doc: Document, out: Node): void {
   for (const child of Array.from(parent.childNodes)) {
     const sanitized = sanitizeNode(child, doc);
@@ -38,9 +42,15 @@ function wrapWithMarks(
   doc: Document,
   content: DocumentFragment,
   bold: boolean,
-  italic: boolean
+  italic: boolean,
+  underline: boolean
 ): Node {
   let node: Node = content;
+  if (underline) {
+    const u = doc.createElement('u');
+    u.appendChild(node);
+    node = u;
+  }
   if (italic) {
     const em = doc.createElement('em');
     em.appendChild(node);
@@ -69,11 +79,12 @@ function sanitizeNode(node: Node, doc: Document): Node | DocumentFragment | null
     const style = el.getAttribute('style') ?? '';
     const bold = isBoldStyle(style);
     const italic = isItalicStyle(style);
+    const underline = isUnderlineStyle(style);
     const fragment = doc.createDocumentFragment();
     sanitizeChildren(el, doc, fragment);
     if (!fragment.hasChildNodes()) return null;
-    if (bold || italic) {
-      return wrapWithMarks(doc, fragment, bold, italic);
+    if (bold || italic || underline) {
+      return wrapWithMarks(doc, fragment, bold, italic, underline);
     }
     return fragment;
   }
@@ -143,7 +154,7 @@ function sanitizeNode(node: Node, doc: Document): Node | DocumentFragment | null
 
 /**
  * Strips rich-text paste noise (font size, color, highlight, classes) while keeping
- * bold, italic, paragraph structure, and table markup.
+ * bold, italic, underline, images, paragraph structure, and table markup.
  */
 export function sanitizePastedHtml(html: string): string {
   if (!html.trim()) return html;

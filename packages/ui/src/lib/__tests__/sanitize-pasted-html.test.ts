@@ -32,12 +32,15 @@ describe('sanitizePastedHtml', () => {
     expect(output).not.toMatch(/background/i);
   });
 
-  it('unwraps underline and highlight markup', () => {
-    const input = '<p><u>under</u><mark style="background: yellow">hi</mark></p>';
+  it('preserves underline and strips highlight markup', () => {
+    const input =
+      '<p><u>under</u><mark style="background: yellow">hi</mark><span style="text-decoration: underline">also</span></p>';
     const output = sanitizePastedHtml(input);
-    expect(output).toContain('under');
+    expect(output).toContain('<u>under</u>');
+    expect(output).toContain('<u>also</u>');
     expect(output).toContain('hi');
-    expect(output).not.toMatch(/<u>|<mark/i);
+    expect(output).not.toMatch(/<mark/i);
+    expect(output).not.toMatch(/background/i);
   });
 
   it('preserves image tags and upload placeholders', () => {

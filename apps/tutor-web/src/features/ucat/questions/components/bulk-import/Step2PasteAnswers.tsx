@@ -67,7 +67,6 @@ export function Step2PasteAnswers({
           onImageFileIdsChange={onImageFileIdsChange}
           pasteTableBehavior={pasteTableBehavior}
           {...BULK_IMPORT_RTE_PASTE}
-          pasteStripFormatting={false}
           ucatParseHighlight={answerParseHighlight}
         />
       </div>

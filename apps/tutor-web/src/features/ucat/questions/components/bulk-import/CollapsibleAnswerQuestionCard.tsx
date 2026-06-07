@@ -6,8 +6,15 @@ import type { QuestionAnswerPreview } from '@/features/ucat/questions/components
 
 const PREVIEW_LINE_LIMIT = 2
 
+function formatOptionLabel(label: string): string {
+  const trimmed = label.trim()
+  if (trimmed.length === 0) return '?'
+  return trimmed.toUpperCase()
+}
+
 function questionNeedsExpand(preview: QuestionAnswerPreview): boolean {
   const trimmed = preview.questionText.trim()
+  if (preview.options.length > 0) return true
   if (trimmed.length === 0) return preview.isParsed
   const lines = trimmed.split('\n').filter((line) => line.trim().length > 0)
   return (
@@ -32,6 +39,7 @@ export function CollapsibleAnswerQuestionCard({
     row,
     questionText,
     questionTextDoc,
+    options,
     answerLetter,
     syllogismPattern,
     explanationPreviewDoc,
@@ -108,6 +116,31 @@ export function CollapsibleAnswerQuestionCard({
           ) : null}
         </div>
       </div>
+
+      {expanded && options.length > 0 ? (
+        <ul className="mt-2 space-y-1.5 border-t border-border/60 pt-2">
+          {options.map((option) => (
+            <li key={option.label} className="leading-relaxed">
+              <span className="font-medium text-muted-foreground">
+                {formatOptionLabel(option.label)})
+              </span>{' '}
+              <BulkImportRichTextPreview
+                json={option.answerTextDoc}
+                emptyFallback={
+                  <span className="italic text-muted-foreground">Empty option</span>
+                }
+                className="inline"
+              />
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {expanded && options.length === 0 ? (
+        <p className="mt-2 border-t border-border/60 pt-2 text-muted-foreground italic">
+          No answer options
+        </p>
+      ) : null}
 
       {expanded && isParsed && (explanationPreviewDoc || hasExplanation) ? (
         <div className="mt-2 border-t border-border/60 pt-2">
