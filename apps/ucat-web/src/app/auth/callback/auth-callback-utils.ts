@@ -24,7 +24,10 @@ export function otpTypeFromParam(raw: string | null): EmailOtpType[] {
 }
 
 /** Only allow same-origin relative redirects after auth. */
-export function safeNextPath(next: string | null): string {
+export function safeNextPath(next: string | null, type: string | null = null): string {
+  if (type === "recovery") {
+    return "/reset-password";
+  }
   if (next?.startsWith("/") && !next.startsWith("//")) {
     return next;
   }

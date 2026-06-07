@@ -79,9 +79,11 @@ else
     echo "✅ Successfully extracted ${#SUBJECTS[@]} email template subject(s)"
 fi
 
-# Build the mailer_templates JSON payload
+# Build flat Management API payload (mailer_subjects_* + mailer_templates_*_content).
+# Nested { mailer_templates: { ... } } is ignored by the API — subjects appeared to deploy
+# but HTML bodies were never updated.
 TEMPLATES_DIR="$(dirname "$0")/../templates"
-PAYLOAD_TEMPLATES="{}"
+PAYLOAD="{}"
 TEMPLATES_PREPARED=0
 
 echo "📦 Preparing email templates..."
@@ -90,6 +92,8 @@ for template_name in "${!TEMPLATES[@]}"; do
     template_file="${TEMPLATES[$template_name]}"
     template_path="$TEMPLATES_DIR/$template_file"
     subject="${SUBJECTS[$template_name]}"
+    subject_key="mailer_subjects_${template_name}"
+    content_key="mailer_templates_${template_name}_content"
     
     if [ ! -f "$template_path" ]; then
         echo "⚠️  Warning: Template file not found: $template_path"
@@ -107,17 +111,12 @@ for template_name in "${!TEMPLATES[@]}"; do
         continue
     fi
     
-    # Build template JSON object
-    if ! template_json=$(jq -n \
+    if ! PAYLOAD=$(echo "$PAYLOAD" | jq \
+        --arg subject_key "$subject_key" \
         --arg subject "$subject" \
+        --arg content_key "$content_key" \
         --argjson content "$content" \
-        '{subject: $subject, content: $content}'); then
-        echo "❌ Error: Failed to build JSON for template: $template_name"
-        continue
-    fi
-    
-    # Add to payload
-    if ! PAYLOAD_TEMPLATES=$(echo "$PAYLOAD_TEMPLATES" | jq --arg name "$template_name" --argjson template "$template_json" '.[$name] = $template'); then
+        '. + { ($subject_key): $subject, ($content_key): $content }'); then
         echo "❌ Error: Failed to add template to payload: $template_name"
         continue
     fi
@@ -137,16 +136,10 @@ fi
 
 echo "✅ Prepared $TEMPLATES_PREPARED template(s) for deployment"
 
-# Build final payload
-if ! PAYLOAD=$(jq -n --argjson templates "$PAYLOAD_TEMPLATES" '{mailer_templates: $templates}'); then
-    echo "❌ Error: Failed to build final payload"
-    exit 1
-fi
-
 # Deploy templates via Management API
 echo "🚀 Uploading templates to Supabase..."
-echo "📋 Payload summary:"
-echo "$PAYLOAD" | jq '.mailer_templates | keys' 2>/dev/null || echo "   (unable to parse payload)"
+echo "📋 Payload keys:"
+echo "$PAYLOAD" | jq 'keys' 2>/dev/null || echo "   (unable to parse payload)"
 
 RESPONSE=$(curl -s -w "\n%{http_code}" -X PATCH \
     "https://api.supabase.com/v1/projects/$PROJECT_REF/config/auth" \
@@ -161,16 +154,29 @@ if [ "$HTTP_CODE" -ge 200 ] && [ "$HTTP_CODE" -lt 300 ]; then
     echo "🎉 Email templates deployed successfully!"
     echo "📊 Verifying deployment..."
     
-    # Extract and show the deployed template subjects for verification
     if command -v jq >/dev/null 2>&1; then
         echo "$BODY" | jq -r '
-            .mailer_subjects_confirmation // empty | "  ✅ Confirmation: " + .,
-            .mailer_subjects_invite // empty | "  ✅ Invite: " + .,
-            .mailer_subjects_magic_link // empty | "  ✅ Magic Link: " + .,
-            .mailer_subjects_recovery // empty | "  ✅ Recovery: " + .,
-            .mailer_subjects_email_change // empty | "  ✅ Email Change: " + .,
-            .mailer_subjects_reauthentication // empty | "  ✅ Reauthentication: " + .
+            .mailer_subjects_confirmation // empty | "  ✅ Confirmation subject: " + .,
+            .mailer_subjects_invite // empty | "  ✅ Invite subject: " + .,
+            .mailer_subjects_magic_link // empty | "  ✅ Magic Link subject: " + .,
+            .mailer_subjects_recovery // empty | "  ✅ Recovery subject: " + .,
+            .mailer_subjects_email_change // empty | "  ✅ Email Change subject: " + .,
+            .mailer_subjects_reauthentication // empty | "  ✅ Reauthentication subject: " + .
         ' 2>/dev/null || true
+
+        recovery_content=$(echo "$BODY" | jq -r '.mailer_templates_recovery_content // empty' 2>/dev/null || true)
+        if [ -n "$recovery_content" ] && echo "$recovery_content" | grep -q 'token_hash'; then
+            echo "  ✅ Recovery content: includes token_hash (cross-browser reset link)"
+        elif [ -n "$recovery_content" ]; then
+            echo "  ⚠️  Recovery content: deployed but missing token_hash — check recovery.html"
+        else
+            echo "  ⚠️  Recovery content: not returned in API response (re-run or check dashboard)"
+        fi
+
+        confirmation_content=$(echo "$BODY" | jq -r '.mailer_templates_confirmation_content // empty' 2>/dev/null || true)
+        if [ -n "$confirmation_content" ] && echo "$confirmation_content" | grep -q 'token_hash'; then
+            echo "  ✅ Confirmation content: includes token_hash (cross-browser signup link)"
+        fi
     fi
 else
     echo "❌ Error deploying templates. HTTP $HTTP_CODE"

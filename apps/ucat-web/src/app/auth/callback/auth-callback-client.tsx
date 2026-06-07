@@ -17,7 +17,8 @@ function AuthCallbackInner() {
     const code = searchParams.get("code");
     const tokenHash = searchParams.get("token_hash");
     const typeParam = searchParams.get("type");
-    const next = safeNextPath(searchParams.get("next"));
+    const next = safeNextPath(searchParams.get("next"), typeParam);
+    const isRecoveryFlow = typeParam === "recovery" || next === "/reset-password";
 
     const finish = (errorMessage: string) => {
       setMessage(errorMessage);
@@ -66,7 +67,9 @@ function AuthCallbackInner() {
             .includes("code verifier");
           finish(
             isPkceVerifierMissing
-              ? "This sign-in link only works in the same browser where you requested it. Use the main button in your email (not the long supabase.co link), or enter the 6-digit code on the signup page."
+              ? isRecoveryFlow
+                ? "This reset link only works in the same browser where you requested it. Request a new reset email and use the Reset Password button in that email (not the long supabase.co link)."
+                : "This sign-in link only works in the same browser where you requested it. Use the main button in your email (not the long supabase.co link), or enter the 6-digit code on the signup page."
               : error.message,
           );
           return;
