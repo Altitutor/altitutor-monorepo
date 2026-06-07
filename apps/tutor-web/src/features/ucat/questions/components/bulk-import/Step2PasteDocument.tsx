@@ -16,11 +16,9 @@ import {
 import { Settings2 } from 'lucide-react'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { cn } from '@/shared/utils'
-import { BulkImportParseInfoButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseInfoButton'
 import { BulkImportParseLegendButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseLegendButton'
 import { ParsedDocumentPreviewPanel } from '@/features/ucat/questions/components/bulk-import/ParsedDocumentPreviewPanel'
 import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
-import { computeQuestionPasteStats } from '@/features/ucat/questions/components/bulk-import/bulkImportPasteStats'
 import type { BulkImportParseSection } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import type {
   AnswerOptionIndicatorKind,
@@ -186,11 +184,6 @@ export function Step2PasteDocument({
     }
   }, [classify, liveParseSection])
 
-  const questionPasteStats = useMemo(
-    () => computeQuestionPasteStats(value, liveParseSection, classify),
-    [value, liveParseSection, classify]
-  )
-
   if (settingsOnly) {
     const settingsActions = (
       <div className="flex shrink-0 items-center gap-2">
@@ -271,14 +264,7 @@ export function Step2PasteDocument({
       <div
         className="flex shrink-0 flex-col gap-1 sm:flex-row sm:items-start sm:justify-between sm:gap-3"
       >
-        <div className="flex min-w-0 items-center gap-0.5">
-          <h2 className="text-base font-semibold">{title}</h2>
-          <BulkImportParseInfoButton
-            variant="questions"
-            stats={questionPasteStats}
-            sectionKnown={liveParseSection != null}
-          />
-        </div>
+        <h2 className="text-base font-semibold">{title}</h2>
         <div className="flex shrink-0 items-center gap-2 self-start sm:pt-0.5">
           <BulkImportParseLegendButton variant="questions" />
           <DropdownMenu>

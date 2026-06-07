@@ -343,9 +343,17 @@ export function UcatRichTextEditor({
           }
           let html: string = pastedHtml
           for (let i = 0; i < signedUrls.length; i += 1) {
-            if (signedUrls[i]) {
-              html = html.replace(`__UPLOAD_${i}__`, signedUrls[i])
-            }
+            const url = signedUrls[i]
+            const fileId = collectedFileIds[i]
+            if (!url || !fileId) continue
+            const placeholder = `__UPLOAD_${i}__`
+            html = html.replace(
+              new RegExp(
+                `(<img\\b[^>]*\\bsrc\\s*=\\s*["'])${placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(["'])`,
+                'gi'
+              ),
+              `$1${url}$2 data-file-id="${fileId}"`
+            )
           }
           editor
             .chain()

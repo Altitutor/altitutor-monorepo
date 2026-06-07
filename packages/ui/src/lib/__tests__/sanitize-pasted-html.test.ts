@@ -39,4 +39,13 @@ describe('sanitizePastedHtml', () => {
     expect(output).toContain('hi');
     expect(output).not.toMatch(/<u>|<mark/i);
   });
+
+  it('preserves image tags and upload placeholders', () => {
+    const input =
+      '<p>See diagram <img src="__UPLOAD_0__" alt="chart" data-file-id="abc-123"></p>';
+    const output = sanitizePastedHtml(input);
+    expect(output).toContain('src="__UPLOAD_0__"');
+    expect(output).toContain('alt="chart"');
+    expect(output).toContain('data-file-id="abc-123"');
+  });
 });

@@ -668,8 +668,16 @@ export function BulkImportQuestionStemsModal({
         <Step3SetAnswers
           stems={wizard.state.stems}
           categories={categories}
-          sections={sections.map((s) => ({ id: s.id, display_columns: s.display_columns }))}
+          sections={sections.map((s) => ({
+            id: s.id,
+            name: s.name,
+            display_columns: s.display_columns,
+          }))}
+          tags={(tagsQuery.data ?? [])
+            .filter((tag): tag is typeof tag & { id: string } => typeof tag.id === 'string' && tag.id.length > 0)
+            .map((tag) => ({ id: tag.id, name: tag.name ?? '' }))}
           onUpdateStem={wizard.updateStemForm}
+          onNewImageFileIds={handleStep2ImageFileIds}
         />
       )
     }

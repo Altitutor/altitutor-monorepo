@@ -78,6 +78,20 @@ function sanitizeNode(node: Node, doc: Document): Node | DocumentFragment | null
     return fragment;
   }
 
+  if (tag === 'IMG') {
+    const src = el.getAttribute('src') ?? '';
+    if (!src) return null;
+    const clone = doc.createElement('img');
+    clone.setAttribute('src', src);
+    const alt = el.getAttribute('alt');
+    if (alt) clone.setAttribute('alt', alt);
+    const title = el.getAttribute('title');
+    if (title) clone.setAttribute('title', title);
+    const fileId = el.getAttribute('data-file-id');
+    if (fileId) clone.setAttribute('data-file-id', fileId);
+    return clone;
+  }
+
   if (INLINE_KEEP.has(tag)) {
     const clone = doc.createElement(tag.toLowerCase());
     sanitizeChildren(el, doc, clone);

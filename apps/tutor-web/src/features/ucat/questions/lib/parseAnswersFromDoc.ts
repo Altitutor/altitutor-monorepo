@@ -21,7 +21,6 @@ import { nodeToText, type PMNode } from '@/features/ucat/questions/lib/parsers/c
 import {
   hasRichTextContent,
   tokenizedPlainTextToProseMirror,
-  proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 
 export type ParsedAnswerRowRich = ParsedAnswerRow & {
