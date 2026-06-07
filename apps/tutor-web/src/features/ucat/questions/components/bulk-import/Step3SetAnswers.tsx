@@ -15,6 +15,7 @@ import {
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { BulkImportRichTextPreview } from '@/features/ucat/questions/components/bulk-import/BulkImportRichTextPreview'
 import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
 import { UcatResultsStyleQuestionEditor } from '@/features/ucat/question-engine-preview/UcatResultsStyleQuestionEditor'
 import {
@@ -25,7 +26,6 @@ import {
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
 const QUESTION_TEXT_MAX = 60
 const OPTION_TEXT_MAX = 36
-const EXPLANATION_TRUNCATE = 48
 
 function truncateOneLine(text: string, maxLen: number): string {
   const oneLine = text.replace(/\s+/g, ' ').trim()
@@ -41,16 +41,18 @@ export type AnswerRow = {
   questionIndex: number
   globalQuestionNumber: number
   questionText: string
+  questionTextJson: Json | null
   categoryName: string
   optionCount: number
   optionTexts: string[]
+  optionTextJsons: Array<Json | null>
   correctOptionIndex: number
   correctLetter: string
   /** For syllogism: Y/N pattern e.g. 'YYNNY'; null for MC or when not set */
   isSyllogism: boolean
   syllogismPattern: string | null
   answerExplanationPlain: string
-  answerExplanationTruncated: string
+  answerExplanationJson: Json | null
 }
 
 function buildAnswerRows(
@@ -69,6 +71,7 @@ function buildAnswerRows(
     questions.forEach((q, questionIndex) => {
       globalNumber += 1
       const options = q.options ?? []
+      const optionTextJsons = options.map((opt) => (opt.answerText ?? null) as Json | null)
       const optionTexts = options.map((opt) =>
         truncateOneLine(
           proseMirrorToPlainText(opt.answerText ?? null)?.trim() ?? '',
@@ -90,15 +93,17 @@ function buildAnswerRows(
           proseMirrorToPlainText(q.questionText ?? null)?.trim() ?? '',
           QUESTION_TEXT_MAX
         ),
+        questionTextJson: (q.questionText ?? null) as Json | null,
         categoryName,
         optionCount: options.length,
         optionTexts,
+        optionTextJsons,
         correctOptionIndex: resolvedCorrect,
         correctLetter: OPTION_LABELS[resolvedCorrect] ?? 'A',
         isSyllogism,
         syllogismPattern,
         answerExplanationPlain: explanationPlain,
-        answerExplanationTruncated: truncateOneLine(explanationPlain, EXPLANATION_TRUNCATE),
+        answerExplanationJson: (q.answerExplanation ?? null) as Json | null,
       })
     })
   })
@@ -229,27 +234,35 @@ export function Step3SetAnswers({
                     <TableCell className="px-2 font-mono text-muted-foreground">
                       {row.globalQuestionNumber}
                     </TableCell>
-                    <TableCell className="truncate px-2" title={row.questionText}>
-                      {row.questionText}
+                    <TableCell className="max-w-0 px-2">
+                      <BulkImportRichTextPreview
+                        json={row.questionTextJson}
+                        lineClamp={2}
+                        emptyFallback={<span className="text-muted-foreground">—</span>}
+                      />
                     </TableCell>
                     <TableCell className="truncate px-2 text-muted-foreground" title={row.categoryName}>
                       {row.categoryName}
                     </TableCell>
                     {optionLabelsToShow.map((label, idx) => (
-                      <TableCell
-                        key={label}
-                        className="truncate px-2"
-                        title={row.optionTexts[idx]}
-                      >
-                        {idx < row.optionCount ? row.optionTexts[idx] : '—'}
+                      <TableCell key={label} className="max-w-0 px-2">
+                        {idx < row.optionCount ? (
+                          <BulkImportRichTextPreview
+                            json={row.optionTextJsons[idx] ?? null}
+                            lineClamp={2}
+                          />
+                        ) : (
+                          '—'
+                        )}
                       </TableCell>
                     ))}
                     <TableCell className="px-2 font-medium font-mono">{correctDisplay}</TableCell>
-                    <TableCell
-                      className="truncate px-2"
-                      title={row.answerExplanationPlain || undefined}
-                    >
-                      {row.answerExplanationTruncated || '—'}
+                    <TableCell className="max-w-0 px-2">
+                      <BulkImportRichTextPreview
+                        json={row.answerExplanationJson}
+                        lineClamp={2}
+                        emptyFallback={<span className="text-muted-foreground">—</span>}
+                      />
                     </TableCell>
                   </TableRow>
                   {isExpanded && stem && question && (

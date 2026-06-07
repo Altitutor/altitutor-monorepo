@@ -21,9 +21,11 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 export type QuestionAnswerPreview = {
   row: FlatQuestionRef
   questionText: string
+  questionTextDoc: Json | null
   answerLetter: string | null
   syllogismPattern: string | null
   explanationPreview: string | null
+  explanationPreviewDoc: Json | null
   hasExplanation: boolean
   isParsed: boolean
 }
@@ -40,13 +42,21 @@ function questionTextForRow(stems: BulkImportStemDraft[], row: FlatQuestionRef):
   return proseMirrorToPlainText(q?.questionText ?? null)?.trim() ?? ''
 }
 
+function questionTextDocForRow(stems: BulkImportStemDraft[], row: FlatQuestionRef): Json | null {
+  const stem = stems.find((s) => s.id === row.stemId)
+  const q = stem?.values.questions?.[row.questionIndex]
+  return (q?.questionText ?? null) as Json | null
+}
+
 function emptyPreview(stems: BulkImportStemDraft[], row: FlatQuestionRef): QuestionAnswerPreview {
   return {
     row,
     questionText: questionTextForRow(stems, row),
+    questionTextDoc: questionTextDocForRow(stems, row),
     answerLetter: null,
     syllogismPattern: null,
     explanationPreview: null,
+    explanationPreviewDoc: null,
     hasExplanation: false,
     isParsed: false,
   }
@@ -81,32 +91,46 @@ export function buildQuestionAnswerPreviews(
 
       if (row.isSyllogism && answer.pattern) {
         const optionExplanations = answer.optionExplanations ?? []
+        const optionExplanationDocs = answer.optionExplanationDocs ?? []
+        const firstExplanationDoc =
+          answer.explanationDoc ??
+          optionExplanationDocs.find((doc) => (proseMirrorToPlainText(doc)?.trim() ?? '').length > 0) ??
+          null
         const firstExplanation =
           (answer.explanation ?? '').trim() ||
           optionExplanations.map((e) => (e ?? '').trim()).find((e) => e.length > 0) ||
+          proseMirrorToPlainText(firstExplanationDoc)?.trim() ||
           ''
         return {
           row,
           questionText: questionTextForRow(stems, row),
+          questionTextDoc: questionTextDocForRow(stems, row),
           answerLetter: null,
           syllogismPattern: answer.pattern.split('').join(' · '),
           explanationPreview: firstExplanation ? truncatePreview(firstExplanation, 120) : null,
+          explanationPreviewDoc: firstExplanationDoc,
           hasExplanation:
             firstExplanation.length > 0 ||
-            optionExplanations.some((e) => (e ?? '').trim().length > 0),
+            optionExplanations.some((e) => (e ?? '').trim().length > 0) ||
+            optionExplanationDocs.some((doc) => (proseMirrorToPlainText(doc)?.trim() ?? '').length > 0),
           isParsed: true,
         }
       }
 
       if (answer.letter) {
         const explanation = answer.explanation?.trim() ?? ''
+        const explanationDoc = answer.explanationDoc ?? null
+        const explanationPlain =
+          explanation || proseMirrorToPlainText(explanationDoc)?.trim() || ''
         return {
           row,
           questionText: questionTextForRow(stems, row),
+          questionTextDoc: questionTextDocForRow(stems, row),
           answerLetter: answer.letter.toUpperCase(),
           syllogismPattern: null,
-          explanationPreview: explanation ? truncatePreview(explanation, 120) : null,
-          hasExplanation: explanation.length > 0,
+          explanationPreview: explanationPlain ? truncatePreview(explanationPlain, 120) : null,
+          explanationPreviewDoc: explanationDoc,
+          hasExplanation: explanationPlain.length > 0,
           isParsed: true,
         }
       }
@@ -124,9 +148,11 @@ export function buildQuestionAnswerPreviews(
     return {
       row,
       questionText: questionTextForRow(stems, row),
+      questionTextDoc: questionTextDocForRow(stems, row),
       answerLetter: answer.letter.toUpperCase(),
       syllogismPattern: null,
       explanationPreview: explanation ? truncatePreview(explanation, 120) : null,
+      explanationPreviewDoc: answer.explanationDoc ?? null,
       hasExplanation: explanation.length > 0,
       isParsed: true,
     }

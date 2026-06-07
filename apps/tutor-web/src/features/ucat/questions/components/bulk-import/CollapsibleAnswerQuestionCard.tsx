@@ -1,6 +1,7 @@
 'use client'
 
 import { cn } from '@/shared/utils'
+import { BulkImportRichTextPreview } from '@/features/ucat/questions/components/bulk-import/BulkImportRichTextPreview'
 import type { QuestionAnswerPreview } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
 
 const PREVIEW_LINE_LIMIT = 2
@@ -27,12 +28,20 @@ export function CollapsibleAnswerQuestionCard({
   expanded,
   onToggle,
 }: CollapsibleAnswerQuestionCardProps) {
-  const { row, questionText, answerLetter, syllogismPattern, explanationPreview, hasExplanation, isParsed } =
-    preview
+  const {
+    row,
+    questionText,
+    questionTextDoc,
+    answerLetter,
+    syllogismPattern,
+    explanationPreviewDoc,
+    hasExplanation,
+    isParsed,
+  } = preview
   const title = `Q${row.globalIndex + 1} · Stem ${row.stemIndex + 1} Q${row.questionIndex + 1}`
   const canExpand = questionNeedsExpand(preview)
   const showExpandHint = !expanded && canExpand
-  const trimmedText = questionText.trim()
+  const hasQuestionText = questionText.trim().length > 0 || questionTextDoc != null
 
   const answerLabel = isParsed
     ? answerLetter != null
@@ -69,15 +78,12 @@ export function CollapsibleAnswerQuestionCard({
             ) : null}
           </div>
 
-          {trimmedText.length > 0 ? (
-            <div
-              className={cn(
-                'mt-1 whitespace-pre-wrap font-sans leading-relaxed text-foreground/90',
-                !expanded && canExpand && 'line-clamp-2'
-              )}
-            >
-              {trimmedText}
-            </div>
+          {hasQuestionText ? (
+            <BulkImportRichTextPreview
+              json={questionTextDoc}
+              lineClamp={!expanded && canExpand ? 2 : undefined}
+              className="mt-1"
+            />
           ) : (
             <p className="mt-1 text-muted-foreground italic">No question text</p>
           )}
@@ -103,15 +109,14 @@ export function CollapsibleAnswerQuestionCard({
         </div>
       </div>
 
-      {expanded && isParsed && explanationPreview ? (
-        <p className="mt-2 border-t border-border/60 pt-2 leading-relaxed text-foreground/90">
-          {explanationPreview}
-        </p>
-      ) : null}
-      {expanded && isParsed && !explanationPreview ? (
-        <p className="mt-2 border-t border-border/60 pt-2 text-muted-foreground italic">
-          No explanation text detected
-        </p>
+      {expanded && isParsed && (explanationPreviewDoc || hasExplanation) ? (
+        <div className="mt-2 border-t border-border/60 pt-2">
+          {explanationPreviewDoc ? (
+            <BulkImportRichTextPreview json={explanationPreviewDoc} />
+          ) : (
+            <p className="text-muted-foreground italic">No explanation text detected</p>
+          )}
+        </div>
       ) : null}
     </div>
   )

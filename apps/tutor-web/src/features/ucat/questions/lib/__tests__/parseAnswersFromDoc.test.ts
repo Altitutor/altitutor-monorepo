@@ -77,4 +77,63 @@ describe('parseAnswersTableFromDoc', () => {
     }
     expect(paragraph?.content?.[1]?.marks?.[0]?.type).toBe('italic')
   })
+
+  it('preserves nested tables in explanation cells', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: '1' }] }],
+                },
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A' }] }],
+                },
+                {
+                  type: 'tableCell',
+                  content: [
+                    {
+                      type: 'table',
+                      content: [
+                        {
+                          type: 'tableRow',
+                          content: [
+                            {
+                              type: 'tableCell',
+                              content: [
+                                { type: 'paragraph', content: [{ type: 'text', text: 'Row 1' }] },
+                              ],
+                            },
+                            {
+                              type: 'tableCell',
+                              content: [
+                                { type: 'paragraph', content: [{ type: 'text', text: 'Value' }] },
+                              ],
+                            },
+                          ],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+
+    const parsed = parseAnswersTableFromDoc(doc)
+    expect(parsed).toHaveLength(1)
+    const explanationDoc = parsed[0]?.explanationDoc as { content?: Array<{ type?: string }> }
+    expect(explanationDoc?.content?.[0]?.type).toBe('table')
+    expect(proseMirrorToPlainText(parsed[0]?.explanationDoc)).toContain('Row 1')
+  })
 })

@@ -45,7 +45,12 @@ export function UcatRichContentBlock({
           content={displayContent}
           editable={false}
           minHeight="auto"
-          className="min-h-0 text-black [&_.ProseMirror]:min-h-0 [&_.ProseMirror]:p-0 [&_.ProseMirror]:!text-black"
+          className={cn(
+            'min-h-0 text-black [&_.ProseMirror]:min-h-0 [&_.ProseMirror]:p-0 [&_.ProseMirror]:!text-black',
+            '[&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse',
+            '[&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted',
+            '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top'
+          )}
         />
       </div>
     )
