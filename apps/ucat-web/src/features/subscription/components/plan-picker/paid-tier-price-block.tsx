@@ -14,6 +14,10 @@ import {
   billingIntervalLabel,
   billingIntervalShort,
 } from "@/features/subscription/lib/marketing-plan-pricing";
+import {
+  paidTierPriceClasses,
+  type PlanPickerSurfaceTheme,
+} from "@/features/subscription/components/plan-picker/plan-picker-surface-theme";
 import type { usePlanPicker } from "./use-plan-picker";
 
 const { typography: typo } = MARKETING_TOKENS;
@@ -25,7 +29,8 @@ type PaidTierPriceBlockProps = {
   minQuestionsPerDay: number;
   discountPerDayCents: number;
   maxDiscountsPerPeriod: number;
-  dark?: boolean;
+  featured?: boolean;
+  surfaceTheme?: PlanPickerSurfaceTheme;
 };
 
 export function PaidTierPriceBlock({
@@ -35,11 +40,10 @@ export function PaidTierPriceBlock({
   minQuestionsPerDay,
   discountPerDayCents,
   maxDiscountsPerPeriod,
-  dark = false,
+  featured = false,
+  surfaceTheme = "marketing",
 }: PaidTierPriceBlockProps) {
-  const muted = dark ? "text-marketing-cream/50" : "text-marketing-charcoal/50";
-  const body = dark ? "text-marketing-cream" : "text-marketing-charcoal";
-  const accent = dark ? "text-marketing-accent" : "text-marketing-primary";
+  const { muted, body, accent } = paidTierPriceClasses(surfaceTheme, featured);
   const intervalShort = billingIntervalShort(billingInterval);
   const intervalLabel = billingIntervalLabel(billingInterval).toLowerCase();
   const maxDiscountCents = maxPracticeDayDiscountCents(

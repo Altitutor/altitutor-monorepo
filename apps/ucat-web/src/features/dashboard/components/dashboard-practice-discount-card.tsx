@@ -21,6 +21,10 @@ import { usePracticeDiscountDashboard } from "@/features/subscription/hooks/use-
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
+  UCAT_ONLINE_TIER_LABELS,
+  UCAT_PLAN_TIER_BADGE_CLASS,
+} from "@/features/subscription/lib/plan-tier-display";
+import {
   UCAT_CARD_CHROME,
   UCAT_PRESSABLE_LIFT_HOVER,
   UCAT_SURFACE_MOTION,
@@ -111,8 +115,9 @@ export function DashboardPracticeDiscountCard() {
               <CardTitle className="text-base font-medium">
                 Practice day discounts
               </CardTitle>
-              <Badge variant="secondary" className="text-[10px]">
-                Accountability pricing
+              <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>
+                {UCAT_ONLINE_TIER_LABELS[access.onlineTier ?? ""] ??
+                  "UCAT Unlimited"}
               </Badge>
             </div>
             <p className="text-sm font-normal text-muted-foreground">

@@ -3,46 +3,51 @@
 import type { ReactNode } from "react";
 import { MagneticButton } from "@/features/landing/components/marketing/magnetic-button";
 import { MARKETING_TOKENS } from "@altitutor/shared";
+import {
+  planPickerCtaClass,
+  planPickerCurrentPlanCtaClass,
+  planPickerFeaturedCurrentPlanCtaClass,
+  type PlanPickerSurfaceTheme,
+} from "@/features/subscription/components/plan-picker/plan-picker-surface-theme";
 import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
 
 type PlanPickerCtaVariant = "free" | "proAccent" | "monthlyFeatured";
 
-/** Matches landing hero “Sign up for in-person” (outline) vs filled accent CTAs. */
-const VARIANT_CLASS: Record<PlanPickerCtaVariant, string> = {
-  free: "border border-marketing-charcoal/30 bg-transparent text-marketing-charcoal hover:bg-marketing-charcoal/5",
-  proAccent:
-    "bg-marketing-accent text-marketing-charcoal shadow-lg shadow-marketing-accent/30",
-  monthlyFeatured:
-    "bg-marketing-accent text-marketing-charcoal shadow-lg shadow-marketing-accent/30",
-};
-
 type PlanPickerCtaProps = {
   variant: PlanPickerCtaVariant;
   children: ReactNode;
   disabled?: boolean;
+  isCurrentPlan?: boolean;
   onClick?: () => void;
   className?: string;
+  surfaceTheme?: PlanPickerSurfaceTheme;
 };
 
 export function PlanPickerCta({
   variant,
   children,
   disabled,
+  isCurrentPlan = false,
   onClick,
   className,
+  surfaceTheme = "marketing",
 }: PlanPickerCtaProps) {
   return (
     <MagneticButton
-      disabled={disabled}
+      disabled={disabled || isCurrentPlan}
       className={cn(
         "mt-10 w-full px-6 py-4 text-base font-semibold tracking-wide",
-        VARIANT_CLASS[variant],
+        isCurrentPlan
+          ? variant === "monthlyFeatured"
+            ? planPickerFeaturedCurrentPlanCtaClass()
+            : planPickerCurrentPlanCtaClass(surfaceTheme)
+          : planPickerCtaClass(variant, surfaceTheme),
         typo.headingSans,
         className,
       )}
-      onClick={onClick}
+      onClick={isCurrentPlan ? undefined : onClick}
     >
       {children}
     </MagneticButton>

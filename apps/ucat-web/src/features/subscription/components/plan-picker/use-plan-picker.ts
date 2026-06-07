@@ -99,7 +99,12 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     formatMoneyFromMinorUnits(cents, cfg.currency, { omitAudPrefix });
 
   const unlimitedTrialEligible = access.unlimitedTrialEligible;
-  const trialCta = unlimitedTrialEligible ? "Free trial" : "Subscribe";
+  const trialCta =
+    options.checkoutReturnContext === "signup_onboarding"
+      ? "Start free trial"
+      : unlimitedTrialEligible
+        ? "Free trial"
+        : "Subscribe";
   const trialHint = unlimitedTrialEligible
     ? `${cfg.trialDays}-day trial — you won't be charged until day ${cfg.trialDays + 1}`
     : "Subscribe for unlimited access";
@@ -192,10 +197,6 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       return;
     }
     if (freeIsCurrentPlan) {
-      options.onContinueFree?.();
-      if (!options.onContinueFree) {
-        router.push("/dashboard");
-      }
       return;
     }
     await handleContinueFree();

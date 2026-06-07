@@ -15,6 +15,11 @@ import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { formatQuotaUsageLabel } from "@/features/ucat-access/lib/format-quota-period";
 import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
+import {
+  UCAT_ONLINE_TIER_LABELS,
+  UCAT_PLAN_TIER_BADGE_CLASS,
+} from "@/features/subscription/lib/plan-tier-display";
+import { UCAT_PRIMARY_ACTION_BUTTON_SM } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 type QuotaUsageCardProps = {
@@ -110,9 +115,8 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
           </div>
           <Button
             type="button"
-            variant={entry.atLimit ? "default" : "outline"}
             size="sm"
-            className="shrink-0"
+            className={cn(UCAT_PRIMARY_ACTION_BUTTON_SM, "shrink-0")}
             onClick={handleUpsell}
           >
             {entry.atLimit ? "Upgrade to Unlimited" : "View plans"}
@@ -133,7 +137,9 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
               basis.
             </CardDescription>
           </div>
-          <Badge variant="secondary">Free plan</Badge>
+          <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>
+            {UCAT_ONLINE_TIER_LABELS.free}
+          </Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -158,7 +164,12 @@ export function QuotaUsageCard({ area, className }: QuotaUsageCardProps) {
           })}
         </ul>
         <div className="flex flex-wrap gap-2 pt-1">
-          <Button type="button" size="sm" onClick={handleUpsell}>
+          <Button
+            type="button"
+            size="sm"
+            className={UCAT_PRIMARY_ACTION_BUTTON_SM}
+            onClick={handleUpsell}
+          >
             {anyAtLimit ? "Upgrade to Unlimited" : "View plans"}
           </Button>
           <Button

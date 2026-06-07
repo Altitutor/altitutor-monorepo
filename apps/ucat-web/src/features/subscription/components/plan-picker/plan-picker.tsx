@@ -1,11 +1,21 @@
 "use client";
 
+import type { ReactNode } from "react";
+import { useMemo } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { cn } from "@/lib/utils";
 import { BillingIntervalSelector } from "./billing-interval-selector";
 import { PaidTierPriceBlock } from "./paid-tier-price-block";
 import { PlanPickerCheckIcon } from "./plan-picker-check-icon";
 import { PlanPickerCta } from "./plan-picker-cta";
+import {
+  planPickerCardMotionProps,
+} from "./plan-picker-dialog-shell";
+import {
+  planPickerSurface,
+  type PlanPickerSurfaceTheme,
+} from "./plan-picker-surface-theme";
 import { usePlanPicker } from "./use-plan-picker";
 
 const { typography: typo } = MARKETING_TOKENS;
@@ -17,6 +27,8 @@ type PlanPickerProps = {
   onCheckoutStart?: () => void;
   /** Light selector for cream marketing backgrounds */
   selectorTheme?: "app" | "light";
+  /** App surfaces follow theme tokens (dark mode); marketing uses fixed cream/charcoal */
+  surfaceTheme?: PlanPickerSurfaceTheme;
   /** Landing page: CTAs route to signup */
   audience?: "app" | "marketing";
   checkoutReturnContext?: "signup_onboarding" | "subscribe";
@@ -24,19 +36,22 @@ type PlanPickerProps = {
 
 function TrialBadge({
   trialDays,
-  dark = false,
+  featured = false,
+  surfaceTheme = "marketing",
 }: {
   trialDays: number;
-  dark?: boolean;
+  featured?: boolean;
+  surfaceTheme?: PlanPickerSurfaceTheme;
 }) {
   if (trialDays <= 0) return null;
+  const surface = planPickerSurface(surfaceTheme);
   return (
     <span
       className={cn(
         `rounded-full px-3 py-1 text-xs font-bold uppercase tracking-wider ${typo.dataMono}`,
-        dark
+        featured
           ? "bg-marketing-accent text-marketing-charcoal"
-          : "bg-marketing-primary/10 text-marketing-primary",
+          : surface.trialBadge,
       )}
     >
       {trialDays}-day free trial
@@ -55,15 +70,48 @@ function paidCtaLabel(
   return trialCta;
 }
 
+function PlanPickerCard({
+  animate,
+  className,
+  children,
+}: {
+  animate: boolean;
+  className: string;
+  children: ReactNode;
+}) {
+  const reduceMotion = useReducedMotion();
+  const card = (
+    <div className={className}>{children}</div>
+  );
+
+  if (!animate) return card;
+
+  return (
+    <motion.div
+      className="h-full"
+      variants={planPickerCardMotionProps(reduceMotion ?? false).variants}
+    >
+      {card}
+    </motion.div>
+  );
+}
+
 export function PlanPicker({
   variant = "page",
   className,
   onContinueFree,
   onCheckoutStart,
-  selectorTheme = "app",
+  selectorTheme,
+  surfaceTheme = "marketing",
   audience = "app",
   checkoutReturnContext = "subscribe",
 }: PlanPickerProps) {
+  const reduceMotion = useReducedMotion();
+  const surface = planPickerSurface(surfaceTheme);
+  const resolvedSelectorTheme =
+    selectorTheme ?? (surfaceTheme === "marketing" ? "light" : "app");
+  const animateCards = variant === "dialog";
+
   const picker = usePlanPicker({
     onContinueFree,
     onCheckoutStart,
@@ -78,6 +126,8 @@ export function PlanPicker({
     setBillingInterval,
     freeIsCurrentPlan,
     isOnPaid,
+    isOnUnlimited,
+    isOnPro,
     trialCta,
     unlimitedPricing,
     proPricing,
@@ -110,54 +160,96 @@ export function PlanPicker({
       ? "p-6 md:p-7"
       : "p-8 md:p-10";
 
+  const unlimitedIsCurrentPlan = isOnUnlimited && !isOnPro;
+
+  const cardGridVariants = useMemo(
+    () => ({
+      hidden: {},
+      show: {
+        transition: {
+          staggerChildren: (reduceMotion ?? false) ? 0 : 0.07,
+          delayChildren: (reduceMotion ?? false) ? 0 : 0.05,
+        },
+      },
+    }),
+    [reduceMotion],
+  );
+
+  const Grid = animateCards ? motion.div : "div";
+  const gridMotionProps = animateCards
+    ? {
+        variants: cardGridVariants,
+        initial: (reduceMotion ?? false) ? false : ("hidden" as const),
+        animate: "show" as const,
+      }
+    : {};
+
   return (
     <div className={className}>
       <BillingIntervalSelector
         value={billingInterval}
         onChange={setBillingInterval}
-        theme={selectorTheme}
+        theme={resolvedSelectorTheme}
         className="mb-10"
       />
 
       {error ? (
         <div
-          className={`mx-auto mb-6 max-w-md rounded-2xl bg-red-500/10 p-4 text-center text-sm text-red-600 ${typo.secondarySans}`}
+          className={cn(
+            "mx-auto mb-6 max-w-md rounded-2xl p-4 text-center text-sm",
+            surface.error,
+            typo.secondarySans,
+          )}
         >
           {error}
         </div>
       ) : null}
 
-      <div className={gridClass}>
+      <Grid className={gridClass} {...gridMotionProps}>
         {/* UCAT Free */}
-        <div
+        <PlanPickerCard
+          animate={animateCards}
           className={cn(
-            "relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] bg-white shadow-lg ring-1 transition-all duration-300",
+            "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] ring-1 transition-all duration-300",
             cardPadding,
+            surface.freeCard,
             freeIsCurrentPlan
-              ? "ring-2 ring-marketing-primary/30"
-              : "ring-black/5 hover:shadow-xl",
+              ? "ring-2 ring-primary/30"
+              : surface.freeCardRing,
           )}
         >
           <div>
             {freeIsCurrentPlan ? (
               <span
-                className={`inline-block rounded-full bg-marketing-primary/10 px-3 py-1 text-xs font-semibold text-marketing-primary ${typo.dataMono}`}
+                className={cn(
+                  `inline-block rounded-full px-3 py-1 text-xs font-semibold ${typo.dataMono}`,
+                  surface.currentPlanBadge,
+                )}
               >
                 Current plan
               </span>
             ) : null}
             <span
-              className={`mt-2 block text-xs font-bold uppercase tracking-widest text-marketing-charcoal/50 ${typo.dataMono}`}
+              className={cn(
+                `mt-2 block text-xs font-bold uppercase tracking-widest ${typo.dataMono}`,
+                surface.tierLabelMuted,
+              )}
             >
               Free
             </span>
             <h3
-              className={`mt-3 text-2xl font-bold text-marketing-charcoal ${typo.headingSans}`}
+              className={cn(
+                `mt-3 text-2xl font-bold ${typo.headingSans}`,
+                surface.heading,
+              )}
             >
               UCAT Free
             </h3>
             <p
-              className={`mt-3 text-sm text-marketing-charcoal/60 ${typo.secondarySans}`}
+              className={cn(
+                `mt-3 text-sm ${typo.secondarySans}`,
+                surface.description,
+              )}
             >
               Get started at no cost with limited access to every area of the
               platform.
@@ -166,33 +258,37 @@ export function PlanPicker({
             <div className="mt-6 space-y-1">
               <div className="flex items-end gap-2">
                 <span
-                  className={`text-4xl font-bold text-marketing-charcoal ${typo.headingSans}`}
+                  className={cn(
+                    `text-4xl font-bold ${typo.headingSans}`,
+                    surface.price,
+                  )}
                 >
                   $0
                 </span>
                 <span
-                  className={`mb-1 text-marketing-charcoal/50 ${typo.secondarySans}`}
+                  className={cn(
+                    `mb-1 ${typo.secondarySans}`,
+                    surface.priceMuted,
+                  )}
                 >
                   free forever
                 </span>
               </div>
-              <p className={`text-xs text-marketing-charcoal/50 ${typo.dataMono}`}>
+              <p className={cn(`text-xs ${typo.dataMono}`, surface.priceCaption)}>
                 Quotas reset daily, weekly, or monthly
               </p>
             </div>
 
-            <ul
-              className={`mt-6 space-y-2.5 text-sm text-marketing-charcoal/70 ${typo.secondarySans}`}
-            >
+            <ul className={`mt-6 space-y-2.5 text-sm ${typo.secondarySans}`}>
               {freeQuotaAreas.map((area) => {
                 const quota = cfg.freeQuotas[area];
                 return (
                   <li
                     key={area}
-                    className="flex items-start gap-2 text-marketing-primary"
+                    className={cn("flex items-start gap-2", surface.featureItem)}
                   >
                     <PlanPickerCheckIcon />
-                    <span className="text-marketing-charcoal/70">
+                    <span className={surface.featureText}>
                       {formatFreeQuotaLine(area, quota.limit, quota.period)}
                     </span>
                   </li>
@@ -204,13 +300,13 @@ export function PlanPicker({
           {isOnPaid && audience === "app" ? null : (
             <PlanPickerCta
               variant="free"
+              surfaceTheme={surfaceTheme}
+              isCurrentPlan={freeIsCurrentPlan}
               disabled={loadingPlan !== null}
               onClick={() => void handleFreePlanAction()}
             >
               {freeIsCurrentPlan
-                ? onContinueFree
-                  ? "Close"
-                  : "Back to dashboard"
+                ? "Your current plan"
                 : loadingPlan === "free"
                   ? "Saving…"
                   : audience === "marketing"
@@ -220,34 +316,53 @@ export function PlanPicker({
                       : "Continue with Free"}
             </PlanPickerCta>
           )}
-        </div>
+        </PlanPickerCard>
 
         {/* UCAT Unlimited */}
-        <div
+        <PlanPickerCard
+          animate={animateCards}
           className={cn(
-            "relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] bg-white shadow-lg ring-1 ring-black/5 transition-all duration-300 hover:shadow-xl hover:ring-marketing-primary/20",
+            "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] ring-1 transition-all duration-300",
             cardPadding,
+            surface.unlimitedCard,
           )}
         >
           {cfg.trialDays > 0 ? (
             <div className="absolute right-6 top-6">
-              <TrialBadge trialDays={cfg.trialDays} />
+              <TrialBadge
+                trialDays={cfg.trialDays}
+                surfaceTheme={surfaceTheme}
+              />
             </div>
           ) : null}
-          <div className="absolute right-0 top-0 h-28 w-28 rounded-bl-full bg-marketing-primary/8 blur-2xl" />
+          <div
+            className={cn(
+              "absolute right-0 top-0 h-28 w-28 rounded-bl-full blur-2xl",
+              surface.unlimitedGlow,
+            )}
+          />
           <div>
             <span
-              className={`text-xs font-bold uppercase tracking-widest text-marketing-primary ${typo.dataMono}`}
+              className={cn(
+                `text-xs font-bold uppercase tracking-widest ${typo.dataMono}`,
+                surface.tierLabelAccent,
+              )}
             >
               Online
             </span>
             <h3
-              className={`mt-3 text-2xl font-bold text-marketing-charcoal ${typo.headingSans}`}
+              className={cn(
+                `mt-3 text-2xl font-bold ${typo.headingSans}`,
+                surface.heading,
+              )}
             >
               UCAT Unlimited
             </h3>
             <p
-              className={`mt-3 text-sm text-marketing-charcoal/60 ${typo.secondarySans}`}
+              className={cn(
+                `mt-3 text-sm ${typo.secondarySans}`,
+                surface.description,
+              )}
             >
               Unlimited online practice with accountability pricing — complete
               your daily targets to keep costs low.
@@ -261,30 +376,35 @@ export function PlanPicker({
                 minQuestionsPerDay={cfg.minQuestionsPerDay}
                 discountPerDayCents={discountRule.discountPerDayCents}
                 maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
+                surfaceTheme={surfaceTheme}
               />
             ) : (
               <p
-                className={`mt-6 text-sm text-marketing-charcoal/50 ${typo.secondarySans}`}
+                className={cn(
+                  `mt-6 text-sm ${typo.secondarySans}`,
+                  surface.comingSoon,
+                )}
               >
                 Coming soon
               </p>
             )}
 
             <p
-              className={`mt-6 text-sm font-semibold text-marketing-charcoal/80 ${typo.secondarySans}`}
+              className={cn(
+                `mt-6 text-sm font-semibold ${typo.secondarySans}`,
+                surface.featureHeader,
+              )}
             >
               Everything in Free, plus
             </p>
-            <ul
-              className={`mt-3 space-y-2.5 text-sm text-marketing-charcoal/70 ${typo.secondarySans}`}
-            >
+            <ul className={`mt-3 space-y-2.5 text-sm ${typo.secondarySans}`}>
               {onlineFeatures.map((f) => (
                 <li
                   key={f}
-                  className="flex items-start gap-2 text-marketing-primary"
+                  className={cn("flex items-start gap-2", surface.featureItem)}
                 >
                   <PlanPickerCheckIcon />
-                  <span className="text-marketing-charcoal/70">{f}</span>
+                  <span className={surface.featureText}>{f}</span>
                 </li>
               ))}
             </ul>
@@ -292,31 +412,36 @@ export function PlanPicker({
 
           <PlanPickerCta
             variant="proAccent"
+            surfaceTheme={surfaceTheme}
+            isCurrentPlan={unlimitedIsCurrentPlan}
             disabled={
               loadingPlan !== null || !unlimitedTierOffered || !unlimitedAvailable
             }
             onClick={() => void handleOnlineSubscribe("unlimited")}
           >
-            {paidCtaLabel(
-              unlimitedTierOffered,
-              unlimitedAvailable,
-              loadingPlan === "unlimited",
-              audience === "marketing" ? "Sign up" : trialCta,
-            )}
+            {unlimitedIsCurrentPlan
+              ? "Your current plan"
+              : paidCtaLabel(
+                  unlimitedTierOffered,
+                  unlimitedAvailable,
+                  loadingPlan === "unlimited",
+                  audience === "marketing" ? "Sign up" : trialCta,
+                )}
           </PlanPickerCta>
-        </div>
+        </PlanPickerCard>
 
         {/* UCAT Pro */}
-        <div
+        <PlanPickerCard
+          animate={animateCards}
           className={cn(
-            "relative flex flex-col justify-between overflow-hidden rounded-[2.5rem] bg-marketing-primary shadow-2xl ring-2 ring-marketing-accent/40 transition-all duration-300 hover:ring-marketing-accent/70",
+            "relative flex h-full flex-col justify-between overflow-hidden rounded-[2.5rem] bg-marketing-primary shadow-2xl ring-2 ring-marketing-accent/40 transition-all duration-300 hover:ring-marketing-accent/70",
             cardPadding,
             variant === "page" ? "md:scale-[1.03]" : "",
           )}
         >
           <div className="absolute right-6 top-6 flex flex-col items-end gap-2">
             {cfg.trialDays > 0 ? (
-              <TrialBadge trialDays={cfg.trialDays} dark />
+              <TrialBadge trialDays={cfg.trialDays} featured />
             ) : null}
           </div>
           <div className="absolute left-0 top-0 h-40 w-40 rounded-br-full bg-marketing-accent/10 blur-3xl" />
@@ -347,7 +472,8 @@ export function PlanPicker({
                 minQuestionsPerDay={cfg.minQuestionsPerDay}
                 discountPerDayCents={discountRule.discountPerDayCents}
                 maxDiscountsPerPeriod={discountRule.maxDiscountsPerPeriod}
-                dark
+                featured
+                surfaceTheme={surfaceTheme}
               />
             ) : (
               <p
@@ -377,18 +503,22 @@ export function PlanPicker({
 
           <PlanPickerCta
             variant="monthlyFeatured"
+            surfaceTheme={surfaceTheme}
+            isCurrentPlan={isOnPro}
             disabled={loadingPlan !== null || !proTierOffered || !proAvailable}
             onClick={() => void handleOnlineSubscribe("pro")}
           >
-            {paidCtaLabel(
-              proTierOffered,
-              proAvailable,
-              loadingPlan === "pro",
-              audience === "marketing" ? "Sign up" : trialCta,
-            )}
+            {isOnPro
+              ? "Your current plan"
+              : paidCtaLabel(
+                  proTierOffered,
+                  proAvailable,
+                  loadingPlan === "pro",
+                  audience === "marketing" ? "Sign up" : trialCta,
+                )}
           </PlanPickerCta>
-        </div>
-      </div>
+        </PlanPickerCard>
+      </Grid>
     </div>
   );
 }

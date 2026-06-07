@@ -34,7 +34,7 @@ export function PlanPage() {
             cannot be changed later.
           </p>
         </div>
-        <PlanPicker variant="page" />
+        <PlanPicker variant="page" surfaceTheme="app" />
       </section>
 
       {isLoading ? (

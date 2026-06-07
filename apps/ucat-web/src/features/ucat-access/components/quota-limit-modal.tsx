@@ -1,16 +1,10 @@
 "use client";
 
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@altitutor/ui";
 import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { formatQuotaPeriodLabel } from "@/features/ucat-access/lib/format-quota-period";
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
 import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-picker";
+import { PlanPickerDialogShell } from "@/features/subscription/components/plan-picker/plan-picker-dialog-shell";
 
 export function QuotaLimitModal() {
   const { open, payload, closeQuotaLimit } = useQuotaLimitModal();
@@ -30,25 +24,20 @@ export function QuotaLimitModal() {
     : `You've used ${payload.used} of ${payload.limit} ${areaLabel.toLowerCase()} ${periodLabel} on UCAT Free. Upgrade to UCAT Unlimited for unlimited access.`;
 
   return (
-    <Dialog
+    <PlanPickerDialogShell
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) closeQuotaLimit();
       }}
+      title={title}
+      description={description}
     >
-      <DialogContent className="max-h-[90dvh] max-w-6xl overflow-y-auto border-0 bg-marketing-cream p-4 sm:p-6">
-        <DialogHeader className="text-left">
-          <DialogTitle className="text-marketing-charcoal">{title}</DialogTitle>
-          <DialogDescription className="text-marketing-charcoal/70">
-            {description}
-          </DialogDescription>
-        </DialogHeader>
-        <PlanPicker
-          variant="dialog"
-          onContinueFree={closeQuotaLimit}
-          onCheckoutStart={closeQuotaLimit}
-        />
-      </DialogContent>
-    </Dialog>
+      <PlanPicker
+        variant="dialog"
+        surfaceTheme="app"
+        onContinueFree={closeQuotaLimit}
+        onCheckoutStart={closeQuotaLimit}
+      />
+    </PlanPickerDialogShell>
   );
 }

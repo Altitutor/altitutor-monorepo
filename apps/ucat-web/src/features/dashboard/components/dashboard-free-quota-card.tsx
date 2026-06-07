@@ -18,8 +18,13 @@ import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { formatQuotaUsageLabel } from "@/features/ucat-access/lib/format-quota-period";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
+  UCAT_ONLINE_TIER_LABELS,
+  UCAT_PLAN_TIER_BADGE_CLASS,
+} from "@/features/subscription/lib/plan-tier-display";
+import {
   UCAT_CARD_CHROME,
   UCAT_PRESSABLE_LIFT_HOVER,
+  UCAT_PRIMARY_ACTION_BUTTON_SM,
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -80,8 +85,8 @@ export function DashboardFreeQuotaCard() {
               <CardTitle className="text-base font-medium">
                 Your free quotas
               </CardTitle>
-              <Badge variant="secondary" className="text-[10px]">
-                UCAT Free
+              <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>
+                {UCAT_ONLINE_TIER_LABELS.free}
               </Badge>
             </div>
             <p className="text-sm font-normal text-muted-foreground">
@@ -125,7 +130,12 @@ export function DashboardFreeQuotaCard() {
           ))}
         </ul>
         <div className="flex flex-wrap gap-2 pt-1">
-          <Button type="button" size="sm" onClick={handleUpsell}>
+          <Button
+            type="button"
+            size="sm"
+            className={UCAT_PRIMARY_ACTION_BUTTON_SM}
+            onClick={handleUpsell}
+          >
             {anyAtLimit ? "Upgrade to Unlimited" : "View plans"}
           </Button>
           <Button type="button" size="sm" variant="outline" asChild>
