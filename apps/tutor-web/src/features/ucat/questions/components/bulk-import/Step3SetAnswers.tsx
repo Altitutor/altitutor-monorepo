@@ -223,7 +223,7 @@ export function Step3SetAnswers({
                 <Fragment key={rowKey}>
                   <TableRow
                     className={cn(
-                      'cursor-pointer',
+                      'h-9 max-h-9 cursor-pointer',
                       isExpanded && 'bg-muted/30 hover:bg-muted/30'
                     )}
                     onClick={() => toggleExpanded(rowKey)}
@@ -234,10 +234,10 @@ export function Step3SetAnswers({
                     <TableCell className="px-2 font-mono text-muted-foreground">
                       {row.globalQuestionNumber}
                     </TableCell>
-                    <TableCell className="max-w-0 px-2">
+                    <TableCell className="max-w-0 overflow-hidden px-2">
                       <BulkImportRichTextPreview
                         json={row.questionTextJson}
-                        lineClamp={2}
+                        singleLine
                         emptyFallback={<span className="text-muted-foreground">—</span>}
                       />
                     </TableCell>
@@ -245,11 +245,11 @@ export function Step3SetAnswers({
                       {row.categoryName}
                     </TableCell>
                     {optionLabelsToShow.map((label, idx) => (
-                      <TableCell key={label} className="max-w-0 px-2">
+                      <TableCell key={label} className="max-w-0 overflow-hidden px-2">
                         {idx < row.optionCount ? (
                           <BulkImportRichTextPreview
                             json={row.optionTextJsons[idx] ?? null}
-                            lineClamp={2}
+                            singleLine
                           />
                         ) : (
                           '—'
@@ -257,10 +257,10 @@ export function Step3SetAnswers({
                       </TableCell>
                     ))}
                     <TableCell className="px-2 font-medium font-mono">{correctDisplay}</TableCell>
-                    <TableCell className="max-w-0 px-2">
+                    <TableCell className="max-w-0 overflow-hidden px-2">
                       <BulkImportRichTextPreview
                         json={row.answerExplanationJson}
-                        lineClamp={2}
+                        singleLine
                         emptyFallback={<span className="text-muted-foreground">—</span>}
                       />
                     </TableCell>

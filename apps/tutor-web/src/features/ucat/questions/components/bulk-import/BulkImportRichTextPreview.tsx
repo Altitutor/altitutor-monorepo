@@ -15,6 +15,8 @@ type BulkImportRichTextPreviewProps = {
   className?: string
   /** Clamp visible lines when collapsed (e.g. card preview). Ignored when content includes a table. */
   lineClamp?: 1 | 2 | 3 | 4
+  /** Force a single truncated line (e.g. review table cells). Tables fall back to plain-text ellipsis. */
+  singleLine?: boolean
   emptyFallback?: ReactNode
 }
 
@@ -28,31 +30,50 @@ export function BulkImportRichTextPreview({
   json,
   className,
   lineClamp,
+  singleLine = false,
   emptyFallback = null,
 }: BulkImportRichTextPreviewProps) {
   if (!hasRichTextContent(json)) return emptyFallback
 
   const plainText = proseMirrorToPlainText(json)?.trim() ?? ''
   const hasTable = proseMirrorHasBlockTable(json)
-  const useLineClamp = lineClamp != null && !hasTable
+
+  if (singleLine && hasTable) {
+    const oneLine = plainText.replace(/\s+/g, ' ').trim()
+    return (
+      <span className={cn('block truncate', className)} title={oneLine || undefined}>
+        {oneLine || '—'}
+      </span>
+    )
+  }
+
+  const useLineClamp = (singleLine ? 1 : lineClamp) != null && !hasTable
+  const clampLines = singleLine ? 1 : lineClamp
 
   return (
     <div
       className={cn(
-        'pointer-events-none select-none',
-        useLineClamp && lineClamp === 1 && 'line-clamp-1',
-        useLineClamp && lineClamp === 2 && 'line-clamp-2',
-        useLineClamp && lineClamp === 3 && 'line-clamp-3',
-        useLineClamp && lineClamp === 4 && 'line-clamp-4',
-        hasTable && 'overflow-x-auto',
+        'pointer-events-none min-w-0 select-none',
+        singleLine && 'truncate overflow-hidden whitespace-nowrap',
+        useLineClamp && clampLines === 1 && 'line-clamp-1',
+        useLineClamp && clampLines === 2 && 'line-clamp-2',
+        useLineClamp && clampLines === 3 && 'line-clamp-3',
+        useLineClamp && clampLines === 4 && 'line-clamp-4',
+        !singleLine && hasTable && 'overflow-x-auto',
         className
       )}
+      title={singleLine ? plainText.replace(/\s+/g, ' ').trim() || undefined : undefined}
     >
       <UcatRichContentBlock
         json={json as Record<string, unknown> | null}
         plainText={plainText}
         preloadedContent={json as Record<string, unknown> | null}
-        className={cn(COMPACT_RICH_CLASS, TABLE_RICH_CLASS)}
+        className={cn(
+          COMPACT_RICH_CLASS,
+          !singleLine && TABLE_RICH_CLASS,
+          singleLine &&
+            'inline [&_.ProseMirror]:inline [&_.ProseMirror_p]:inline [&_.ProseMirror_p]:whitespace-nowrap'
+        )}
       />
     </div>
   )
