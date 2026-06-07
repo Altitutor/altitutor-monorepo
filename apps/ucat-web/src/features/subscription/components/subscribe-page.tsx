@@ -203,7 +203,7 @@ export function SubscribePage() {
             </p>
           </div>
 
-          <PlanPicker variant="page" />
+          <PlanPicker variant="page" selectorTheme="light" />
 
           <p
             className={`mt-10 text-center text-sm text-marketing-charcoal/40 ${typo.secondarySans}`}

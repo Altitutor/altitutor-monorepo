@@ -13,6 +13,7 @@ import {
 } from "@/features/ucat-access/lib/route-access";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
+import { DashboardFreeQuotaCard } from "@/features/dashboard/components/dashboard-free-quota-card";
 import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
 import { useStudyPlannerProjection } from "@/features/study-planner/hooks/use-study-planner-projection";
@@ -77,6 +78,7 @@ export function DashboardPage() {
       {access.hasOnlineAccess ? (
         <ReviewHeatmapCard showViewAllProgressLink />
       ) : null}
+      <DashboardFreeQuotaCard />
 
       <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StudyPlannerTestDateCard testDate={settingsQuery.data?.testDate ?? null} />

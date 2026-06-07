@@ -44,6 +44,7 @@ export function UcatPlanPricesForm() {
   const [rows, setRows] = useState<EditableRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -65,6 +66,39 @@ export function UcatPlanPricesForm() {
 
   const updateRow = (id: string, patch: Partial<EditableRow>) => {
     setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
+  };
+
+  const handleSyncFromStripe = async (row: EditableRow) => {
+    const stripePriceId = row.stripePriceInput.trim();
+    if (!stripePriceId) {
+      setError('Enter a Stripe price ID before syncing');
+      return;
+    }
+    setSyncingId(row.id);
+    setError(null);
+    try {
+      if (stripePriceId !== (row.stripe_price_id ?? '')) {
+        await ucatPlanPricesApi.update(row.id, { stripe_price_id: stripePriceId });
+      }
+      const { base_price_cents } = await ucatPlanPricesApi.syncBasePriceFromStripe(row.id);
+      setRows((prev) =>
+        prev.map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                base_price_cents,
+                stripe_price_id: stripePriceId,
+                basePriceInput: String(base_price_cents),
+                stripePriceInput: stripePriceId,
+              }
+            : r,
+        ),
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to sync from Stripe');
+    } finally {
+      setSyncingId(null);
+    }
   };
 
   const handleSaveRow = async (row: EditableRow) => {
@@ -145,11 +179,19 @@ export function UcatPlanPricesForm() {
                 placeholder="price_..."
               />
             </div>
-            <div className="flex items-end">
+            <div className="flex flex-col items-stretch justify-end gap-2 sm:flex-row sm:items-end">
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={syncingId === row.id || savingId === row.id}
+                onClick={() => void handleSyncFromStripe(row)}
+              >
+                {syncingId === row.id ? 'Syncing…' : 'Sync from Stripe'}
+              </Button>
               <Button
                 type="button"
                 variant="outline"
-                disabled={savingId === row.id}
+                disabled={savingId === row.id || syncingId === row.id}
                 onClick={() => void handleSaveRow(row)}
               >
                 {savingId === row.id ? 'Saving…' : 'Save'}

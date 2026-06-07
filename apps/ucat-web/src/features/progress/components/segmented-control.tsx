@@ -31,6 +31,8 @@ type SegmentedControlProps<T extends string> = {
   onValueChange: (value: T) => void;
   options: SegmentedControlOption<T>[];
   className?: string;
+  /** Fixed light chrome for marketing surfaces — ignores system dark mode */
+  variant?: "default" | "light";
 };
 
 type IndicatorRect = {
@@ -57,12 +59,19 @@ const indicatorChrome = cn(
 );
 
 /** Matches the set generator page tab selector style. */
+const lightIndicatorChrome = cn(
+  "pointer-events-none absolute z-0 rounded-ucatControl bg-white shadow-md",
+  "ring-1 ring-black/10",
+);
+
 export function SegmentedControl<T extends string>({
   value,
   onValueChange,
   options,
   className,
+  variant = "default",
 }: SegmentedControlProps<T>) {
+  const isLight = variant === "light";
   const reduceMotion = useReducedMotion();
   const containerRef = useRef<HTMLDivElement>(null);
   const segmentRefs = useRef(new Map<string, HTMLElement>());
@@ -121,9 +130,12 @@ export function SegmentedControl<T extends string>({
       <div
         ref={containerRef}
         className={cn(
-          "relative inline-flex rounded-ucatControl border-0 bg-muted p-0.5 text-xs ring-1 ring-[hsl(0_0%_0%/0.04)] dark:ring-[hsl(0_0%_100%/0.06)]",
+          "relative inline-flex rounded-ucatControl border-0 p-0.5 text-xs",
           "transition-[box-shadow,ring-color] duration-200",
           UCAT_INTERACTION_EASE,
+          isLight
+            ? "bg-neutral-200/80 ring-1 ring-black/10"
+            : "bg-muted ring-1 ring-[hsl(0_0%_0%/0.04)] dark:ring-[hsl(0_0%_100%/0.06)]",
           className,
         )}
         role="tablist"
@@ -131,7 +143,7 @@ export function SegmentedControl<T extends string>({
         {indicator ? (
           <motion.div
             aria-hidden
-            className={indicatorChrome}
+            className={isLight ? lightIndicatorChrome : indicatorChrome}
             initial={false}
             animate={{
               left: indicator.left,
@@ -155,7 +167,11 @@ export function SegmentedControl<T extends string>({
                 ref={setSegmentRef(option.value)}
                 className={cn(
                   "group relative z-10 inline-flex items-stretch overflow-hidden rounded-ucatControl",
-                  isActive ? "text-foreground" : "text-foreground",
+                  isLight
+                    ? isActive
+                      ? "text-marketing-charcoal"
+                      : "text-marketing-charcoal/60"
+                    : "text-foreground",
                 )}
               >
                 <button
@@ -166,7 +182,8 @@ export function SegmentedControl<T extends string>({
                   className={cn(
                     segmentTabPadding,
                     "rounded-l-md rounded-r-none",
-                    !isActive && "hover:bg-muted/80",
+                    !isActive &&
+                      (isLight ? "hover:bg-black/5" : "hover:bg-muted/80"),
                   )}
                 >
                   {option.label}
@@ -210,9 +227,13 @@ export function SegmentedControl<T extends string>({
               className={cn(
                 UCAT_SEGMENTED_TAB,
                 "relative z-10 transition-[color] duration-200",
-                isActive
-                  ? "text-foreground"
-                  : "text-foreground hover:bg-muted/80",
+                isLight
+                  ? isActive
+                    ? "text-marketing-charcoal"
+                    : "text-marketing-charcoal/60 hover:bg-black/5"
+                  : isActive
+                    ? "text-foreground"
+                    : "text-foreground hover:bg-muted/80",
               )}
             >
               {option.label}

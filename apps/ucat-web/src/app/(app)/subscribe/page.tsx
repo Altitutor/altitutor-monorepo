@@ -22,7 +22,7 @@ export default async function Page() {
         studentId,
       );
       if (subscription) {
-        redirect("/settings/subscription");
+        redirect("/settings/plan");
       }
     }
   }

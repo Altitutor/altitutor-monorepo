@@ -65,6 +65,8 @@ type LoadingKey = UcatPaidPlanTier | "free";
 type UsePlanPickerOptions = {
   onContinueFree?: () => void;
   onCheckoutStart?: () => void;
+  /** Marketing surfaces send users to signup instead of checkout */
+  audience?: "app" | "marketing";
 };
 
 export function usePlanPicker(options: UsePlanPickerOptions = {}) {
@@ -145,6 +147,10 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   const proTierOffered = isTierOffered(cfg, "pro");
 
   const handleOnlineSubscribe = async (tier: UcatPaidPlanTier) => {
+    if (options.audience === "marketing") {
+      router.push("/signup");
+      return;
+    }
     const selection: UcatCheckoutSelection = { tier, interval: billingInterval };
     setLoadingPlan(tier);
     setError(null);
@@ -177,6 +183,10 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
   };
 
   const handleFreePlanAction = async () => {
+    if (options.audience === "marketing") {
+      router.push("/signup");
+      return;
+    }
     if (freeIsCurrentPlan) {
       options.onContinueFree?.();
       if (!options.onContinueFree) {
@@ -209,6 +219,8 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     proAvailable,
     unlimitedTierOffered,
     proTierOffered,
+    practiceDiscount,
+    unlimitedTrialEligible,
     formatMoney,
     billedAt,
     onlineFeatures: ONLINE_FEATURES,

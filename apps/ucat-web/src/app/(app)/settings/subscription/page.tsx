@@ -1,5 +1,5 @@
-import { SubscriptionManagementPage } from "@/features/subscription";
+import { redirect } from "next/navigation";
 
 export default function Page() {
-  return <SubscriptionManagementPage />;
+  redirect("/settings/plan");
 }

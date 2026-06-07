@@ -22,9 +22,9 @@ const LINKS = [
     icon: User,
   },
   {
-    href: "/settings/subscription",
-    label: "Subscription",
-    description: "Your plan, billing history, and Stripe management.",
+    href: "/settings/plan",
+    label: "Plan",
+    description: "Your plan, benefits, billing, and upgrade options.",
     icon: CreditCard,
   },
   {

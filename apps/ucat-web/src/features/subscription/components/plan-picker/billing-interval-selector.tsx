@@ -11,18 +11,22 @@ type BillingIntervalSelectorProps = {
   value: UcatBillingInterval;
   onChange: (interval: UcatBillingInterval) => void;
   className?: string;
+  /** Light marketing surfaces (cream background) — fixed colors regardless of OS dark mode */
+  theme?: "app" | "light";
 };
 
 export function BillingIntervalSelector({
   value,
   onChange,
   className,
+  theme = "app",
 }: BillingIntervalSelectorProps) {
   return (
     <div className={cn("flex justify-center", className)}>
       <SegmentedControl
         value={value}
         onValueChange={onChange}
+        variant={theme === "light" ? "light" : "default"}
         options={INTERVALS.map((interval) => ({
           value: interval,
           label: billingIntervalLabel(interval),
