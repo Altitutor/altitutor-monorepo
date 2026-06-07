@@ -1,4 +1,5 @@
 import {
+  splitStemDocumentFromDoc,
   splitStemDocumentLines,
   detectStemLikeContentInQuestionPaste,
 } from '../splitStemDocument'
@@ -16,6 +17,7 @@ describe('splitStemDocumentLines', () => {
       mode: 'keyword',
       lineBreakThreshold: 2,
       keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
     })
     expect(result.stems).toHaveLength(2)
     expect(result.stems[0]).toContain('whales')
@@ -29,9 +31,54 @@ describe('splitStemDocumentLines', () => {
       mode: 'line_breaks',
       lineBreakThreshold: 2,
       keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
     })
     expect(result.stems).toHaveLength(1)
     expect(result.warnings.some((w) => w.includes('Only 1 stem'))).toBe(true)
+  })
+
+  it('splits on at least two consecutive blank lines (default threshold)', () => {
+    const lines = [
+      'First passage about whales.',
+      'More from passage one.',
+      '',
+      '',
+      'Second passage about parliament.',
+    ]
+    const result = splitStemDocumentLines(lines, {
+      mode: 'line_breaks',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
+    })
+    expect(result.stems).toHaveLength(2)
+    expect(result.stems[0]).toContain('whales')
+    expect(result.stems[1]).toContain('parliament')
+    expect(result.splitLineIndices).toEqual([2])
+  })
+
+  it('splits when more than threshold consecutive blank lines are present', () => {
+    const lines = ['Stem A', '', '', '', 'Stem B']
+    const result = splitStemDocumentLines(lines, {
+      mode: 'line_breaks',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
+    })
+    expect(result.stems).toHaveLength(2)
+    expect(result.stems[0]).toBe('Stem A')
+    expect(result.stems[1]).toBe('Stem B')
+  })
+
+  it('does not split on a single blank line when threshold is 2', () => {
+    const lines = ['Stem A', '', 'Stem B']
+    const result = splitStemDocumentLines(lines, {
+      mode: 'line_breaks',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
+    })
+    expect(result.stems).toHaveLength(1)
   })
 
   it('splits on stem number markers at line start', () => {
@@ -40,10 +87,54 @@ describe('splitStemDocumentLines', () => {
       mode: 'stem_numbers',
       lineBreakThreshold: 2,
       keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
     })
     expect(result.stems).toHaveLength(2)
     expect(result.stems[0]).toBe('First stem body.')
     expect(result.stems[1]).toBe('Second stem body.')
+  })
+
+  it('only splits on the configured stem number marker style', () => {
+    const lines = ['1)', 'First stem body.', '2)', 'Second stem body.']
+    const parenResult = splitStemDocumentLines(lines, {
+      mode: 'stem_numbers',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'paren',
+    })
+    expect(parenResult.stems).toHaveLength(2)
+
+    const dotResult = splitStemDocumentLines(lines, {
+      mode: 'stem_numbers',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
+    })
+    expect(dotResult.stems).toHaveLength(0)
+    expect(dotResult.warnings.some((w) => w.includes('No stem markers found'))).toBe(true)
+  })
+})
+
+describe('splitStemDocumentFromDoc', () => {
+  it('preserves empty paragraphs as blank lines for line-break splitting', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Stem one.' }] },
+        { type: 'paragraph' },
+        { type: 'paragraph' },
+        { type: 'paragraph', content: [{ type: 'text', text: 'Stem two.' }] },
+      ],
+    }
+    const result = splitStemDocumentFromDoc(doc, {
+      mode: 'line_breaks',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Prompt',
+      stemNumberIndicator: 'dot',
+    })
+    expect(result.stems).toHaveLength(2)
+    expect(result.stems[0]).toBe('Stem one.')
+    expect(result.stems[1]).toBe('Stem two.')
   })
 })
 

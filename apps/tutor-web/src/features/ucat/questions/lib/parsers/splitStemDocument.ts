@@ -3,18 +3,23 @@ import { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parser
 
 export type StemSplitMode = 'line_breaks' | 'stem_numbers' | 'keyword'
 
+export type StemNumberIndicator = 'dot' | 'paren'
+
 export type StemSplitOptions = {
   mode: StemSplitMode
   /** Consecutive blank lines (whitespace-only counts) before a new stem. Default 2. */
   lineBreakThreshold: number
   /** Keyword prefix for keyword mode, e.g. "Prompt" or "Stem". */
   keywordPrefix: string
+  /** Stem number marker style for stem_numbers mode. */
+  stemNumberIndicator: StemNumberIndicator
 }
 
 export const DEFAULT_STEM_SPLIT_OPTIONS: StemSplitOptions = {
   mode: 'line_breaks',
   lineBreakThreshold: 2,
   keywordPrefix: 'Prompt',
+  stemNumberIndicator: 'dot',
 }
 
 export type SplitStemDocumentResult = {
@@ -37,8 +42,9 @@ function buildKeywordMarkerRegex(prefix: string): RegExp {
   return new RegExp(`^\\s*${escaped}\\s+(\\d+)\\b[\\s:.\\-]*(.*)$`, 'i')
 }
 
-function buildStemNumberMarkerRegex(): RegExp {
-  return /^\s*(\d+)([.)])\s*(.*)$/
+function buildStemNumberMarkerRegex(indicator: StemNumberIndicator): RegExp {
+  const suffix = indicator === 'dot' ? '\\.' : '\\)'
+  return new RegExp(`^\\s*(\\d+)${suffix}\\s*(.*)$`)
 }
 
 function splitByLineBreaks(
@@ -150,9 +156,10 @@ export function splitStemDocumentLines(
   lines: string[],
   options: StemSplitOptions
 ): SplitStemDocumentResult {
-  const threshold = Math.max(1, options.lineBreakThreshold)
+  const resolved = { ...DEFAULT_STEM_SPLIT_OPTIONS, ...options }
+  const threshold = Math.max(1, resolved.lineBreakThreshold)
 
-  if (options.mode === 'line_breaks') {
+  if (resolved.mode === 'line_breaks') {
     const { blocks, splitLineIndices, warnings } = splitByLineBreaks(lines, threshold)
     return {
       stems: blocksToStemTexts(blocks),
@@ -161,17 +168,17 @@ export function splitStemDocumentLines(
     }
   }
 
-  if (options.mode === 'stem_numbers') {
-    const keywordRe = buildStemNumberMarkerRegex()
+  if (resolved.mode === 'stem_numbers') {
+    const stemNumberRe = buildStemNumberMarkerRegex(resolved.stemNumberIndicator)
     const { blocks, splitLineIndices, warnings } = splitByMarkers(lines, (line) => {
-      const match = keywordRe.exec(line.trim())
+      const match = stemNumberRe.exec(line.trim())
       if (!match) return { isMarker: false, remainder: '' }
-      return { isMarker: true, remainder: (match[3] ?? '').trim() }
+      return { isMarker: true, remainder: (match[2] ?? '').trim() }
     })
     return { stems: blocksToStemTexts(blocks), warnings, splitLineIndices }
   }
 
-  const prefix = options.keywordPrefix.trim()
+  const prefix = resolved.keywordPrefix.trim()
   if (prefix.length === 0) {
     return {
       stems: [],
@@ -193,7 +200,10 @@ export function splitStemDocumentFromDoc(
   doc: Json | null | undefined,
   options: StemSplitOptions
 ): SplitStemDocumentResult {
-  const lines = collectLogicalLinesFromDoc(doc, { detectNestedQuestionTables: false })
+  const lines = collectLogicalLinesFromDoc(doc, {
+    detectNestedQuestionTables: false,
+    preserveBlankLines: true,
+  })
   return splitStemDocumentLines(lines, options)
 }
 

@@ -23,7 +23,7 @@ import {
   type ParseLineHighlightRole,
   type ParserConfig,
 } from '@/features/ucat/questions/lib/parsers/core'
-import { collectPlainDocParagraphRanges } from '@/features/ucat/questions/lib/pmStemDocLineRanges'
+import { collectStemLogicalLineRanges } from '@/features/ucat/questions/lib/pmStemDocLineRanges'
 
 /** Transaction meta key: refresh parse decorations (options / section changed). */
 export const UCAT_PARSE_DECO_META = 'ucatParseDeco'
@@ -199,12 +199,12 @@ function buildAnswerDecorations(
 type GetCfg = () => UcatParseHighlightConfig
 
 function buildStemSplitDecorations(doc: Node, splitLineIndices: number[]): DecorationSet {
-  const ranges = collectPlainDocParagraphRanges(doc)
+  const ranges = collectStemLogicalLineRanges(doc)
+  if (ranges == null || ranges.length === 0) return DecorationSet.empty
+
   const decos: Decoration[] = []
-  const splitSet = new Set(splitLineIndices)
-  for (let i = 0; i < ranges.length; i += 1) {
-    if (!splitSet.has(i)) continue
-    const R = ranges[i]
+  for (const lineIndex of splitLineIndices) {
+    const R = ranges[lineIndex]
     if (!R) continue
     decos.push(
       Decoration.widget(
@@ -215,7 +215,7 @@ function buildStemSplitDecorations(doc: Node, splitLineIndices: number[]): Decor
           line.setAttribute('aria-hidden', 'true')
           return line
         },
-        { side: -1, key: `stem-split-${i}` }
+        { side: -1, key: `stem-split-${lineIndex}` }
       )
     )
   }

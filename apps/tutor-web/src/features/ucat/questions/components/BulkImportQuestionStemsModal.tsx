@@ -92,6 +92,7 @@ type PendingConfirm =
   | { type: 'toggle_separate_stem'; nextValue: boolean }
   | { type: 'back_to_stems' }
   | { type: 'switch_answers_mode'; nextMode: AnswersInputMode }
+  | { type: 'close_modal' }
   | null
 
 export function BulkImportQuestionStemsModal({
@@ -223,6 +224,17 @@ export function BulkImportQuestionStemsModal({
     ]
   )
 
+  const hasUnsavedBulkImportWork = useMemo(() => {
+    if (status === 'success') return false
+    return (
+      step > 0 ||
+      sectionId != null ||
+      separateStemDocument ||
+      addToSetEnabled ||
+      hasDownstreamPasteWork
+    )
+  }, [status, step, sectionId, separateStemDocument, addToSetEnabled, hasDownstreamPasteWork])
+
   const allPerStemQuestionsParsed = useMemo(() => {
     if (!resolvedBulkImportSection || parsedStemTexts.length === 0) return false
     return parsedStemTexts.every((_, index) => {
@@ -284,7 +296,7 @@ export function BulkImportQuestionStemsModal({
   const hasErrorMeta =
     sectionsQuery.isError || categoriesQuery.isError || tagsQuery.isError
 
-  function handleRequestClose() {
+  function performClose() {
     if (status === 'submitting') return
     const ids = Array.from(step2NewImageFileIdsRef.current)
     if (ids.length > 0 && status !== 'success') {
@@ -297,6 +309,31 @@ export function BulkImportQuestionStemsModal({
       })
     }
     onClose()
+  }
+
+  function handleRequestClose() {
+    if (status === 'submitting') return
+    if (hasUnsavedBulkImportWork) {
+      setPendingConfirm({ type: 'close_modal' })
+      return
+    }
+    performClose()
+  }
+
+  function handleDismissAttempt(event: Event) {
+    const target = event.target as HTMLElement | null
+    if (target?.closest('[data-toast-container]')) {
+      event.preventDefault()
+      return
+    }
+    if (status === 'submitting') {
+      event.preventDefault()
+      return
+    }
+    if (hasUnsavedBulkImportWork) {
+      event.preventDefault()
+      setPendingConfirm({ type: 'close_modal' })
+    }
   }
 
   function parseCombinedDocument(): { ok: true; drafts: BulkImportStemDraft[] } | { ok: false } {
@@ -473,6 +510,13 @@ export function BulkImportQuestionStemsModal({
         const flat = flattenBulkImportQuestions(wizard.state.stems)
         setPerQuestionAnswers(createDefaultPerQuestionAnswers(flat))
       }
+      setPendingConfirm(null)
+      return
+    }
+    if (pendingConfirm.type === 'close_modal') {
+      setPendingConfirm(null)
+      performClose()
+      return
     }
     setPendingConfirm(null)
   }
@@ -682,6 +726,7 @@ export function BulkImportQuestionStemsModal({
         title: 'Change stem document mode?',
         description:
           'Changing this setting will clear all pasted content and parsed data. You will return to step 1.',
+        confirmLabel: 'Continue',
       }
     }
     if (pendingConfirm.type === 'back_to_stems') {
@@ -689,11 +734,20 @@ export function BulkImportQuestionStemsModal({
         title: 'Go back to paste stems?',
         description:
           'Going back will clear per-stem questions and answers. Your stem document will be kept.',
+        confirmLabel: 'Continue',
+      }
+    }
+    if (pendingConfirm.type === 'close_modal') {
+      return {
+        title: 'Exit bulk import?',
+        description: 'You have unsaved work. Exiting will discard your progress.',
+        confirmLabel: 'Exit without saving',
       }
     }
     return {
       title: 'Switch answers input mode?',
       description: 'Switching mode will clear answers entered in the current mode.',
+      confirmLabel: 'Continue',
     }
   })()
 
@@ -717,6 +771,8 @@ export function BulkImportQuestionStemsModal({
             EXPANDABLE_DIALOG_TRANSITION,
             expanded && EXPANDED_DIALOG_CONTENT_CLASS
           )}
+          onInteractOutside={handleDismissAttempt}
+          onEscapeKeyDown={handleDismissAttempt}
         >
           <div className="flex-shrink-0 border-b bg-background">
             <DialogHeader className="px-6 pb-4 pt-6">
@@ -763,7 +819,7 @@ export function BulkImportQuestionStemsModal({
 
           <div className="min-h-0 flex-1 overflow-hidden">
             {useFullHeightLayout ? (
-              <div className="flex h-full min-h-0 flex-col px-6 py-6">
+              <div className="flex h-full min-h-0 flex-col px-6">
                 <div className="min-h-0 flex-1 overflow-hidden">{renderBody()}</div>
                 {parseError ? (
                   <div className="mt-3 shrink-0 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -778,7 +834,7 @@ export function BulkImportQuestionStemsModal({
               </div>
             ) : (
               <div className="h-full overflow-y-auto">
-                <div className="p-6">
+                <div className="px-6">
                   {renderBody()}
                   {parseError ? (
                     <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
@@ -839,6 +895,7 @@ export function BulkImportQuestionStemsModal({
           open={pendingConfirm != null}
           title={confirmCopy.title}
           description={confirmCopy.description}
+          confirmLabel={confirmCopy.confirmLabel}
           onConfirm={resolvePendingConfirm}
           onCancel={() => setPendingConfirm(null)}
         />

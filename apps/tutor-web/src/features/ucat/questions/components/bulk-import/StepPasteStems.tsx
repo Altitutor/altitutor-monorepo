@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { Json } from '@altitutor/shared'
 import {
   Button,
@@ -12,6 +12,7 @@ import {
   Label,
   SearchableSelect,
 } from '@altitutor/ui'
+import { cn } from '@/shared/utils'
 import { Settings2 } from 'lucide-react'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
@@ -24,16 +25,62 @@ import type { PasteTableBehavior } from '@/features/ucat/questions/components/bu
 
 const STEM_SPLIT_MODE_OPTIONS: { value: StemSplitMode; label: string }[] = [
   { value: 'line_breaks', label: 'Line breaks' },
-  { value: 'stem_numbers', label: 'Stem numbers (1. / 1))' },
+  { value: 'stem_numbers', label: 'Stem numbers' },
   { value: 'keyword', label: 'Keyword prefix' },
+]
+
+const STEM_NUMBER_INDICATOR_OPTIONS: {
+  value: StemSplitOptions['stemNumberIndicator']
+  label: string
+}[] = [
+  { value: 'dot', label: '1. 2. 3.' },
+  { value: 'paren', label: '1) 2) 3)' },
 ]
 
 const PREVIEW_LINE_LIMIT = 4
 
-function truncateStemPreview(text: string): string {
-  const lines = text.split('\n').filter((l) => l.trim().length > 0)
-  if (lines.length <= PREVIEW_LINE_LIMIT) return lines.join('\n')
-  return `${lines.slice(0, PREVIEW_LINE_LIMIT).join('\n')}\n…`
+function DetectedStemCard({
+  index,
+  stem,
+  expanded,
+  onToggle,
+}: {
+  index: number
+  stem: string
+  expanded: boolean
+  onToggle: () => void
+}) {
+  const lineCount = stem.split('\n').length
+  const canCollapse =
+    lineCount > PREVIEW_LINE_LIMIT || stem.replace(/\s+/g, ' ').trim().length > 160
+  const showCollapsed = !expanded && canCollapse
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className={cn(
+        'w-full rounded-md border bg-background px-3 py-2 text-left text-xs transition-colors',
+        'hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+      )}
+      aria-expanded={expanded}
+    >
+      <div className="flex items-baseline justify-between gap-2">
+        <span className="font-medium text-muted-foreground">Stem {index + 1}</span>
+        {showCollapsed ? (
+          <span className="shrink-0 text-[10px] text-muted-foreground">Click to expand</span>
+        ) : null}
+      </div>
+      <div
+        className={cn(
+          'mt-1 whitespace-pre-wrap font-sans text-foreground/90',
+          showCollapsed && 'line-clamp-4'
+        )}
+      >
+        {stem}
+      </div>
+    </button>
+  )
 }
 
 type StepPasteStemsProps = {
@@ -54,10 +101,21 @@ export function StepPasteStems({
   pasteTableBehavior,
   onImageFileIdsChange,
 }: StepPasteStemsProps) {
+  const [expandedStemIndices, setExpandedStemIndices] = useState<Set<number>>(() => new Set())
+
   const splitResult = useMemo(
     () => splitStemDocumentFromDoc(value, stemSplitOptions),
     [value, stemSplitOptions]
   )
+
+  const toggleStemExpanded = useCallback((index: number) => {
+    setExpandedStemIndices((prev) => {
+      const next = new Set(prev)
+      if (next.has(index)) next.delete(index)
+      else next.add(index)
+      return next
+    })
+  }, [])
 
   const stemHighlight = useMemo(
     () => ({
@@ -102,7 +160,7 @@ export function StepPasteStems({
               />
               {stemSplitOptions.mode === 'line_breaks' ? (
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Consecutive blank lines</Label>
+                  <Label className="text-xs">At least this many consecutive blank lines</Label>
                   <Input
                     type="number"
                     min={1}
@@ -114,6 +172,29 @@ export function StepPasteStems({
                         lineBreakThreshold: Math.max(1, Number.parseInt(e.target.value, 10) || 2),
                       })
                     }
+                  />
+                </div>
+              ) : null}
+              {stemSplitOptions.mode === 'stem_numbers' ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Stem number format</Label>
+                  <SearchableSelect<(typeof STEM_NUMBER_INDICATOR_OPTIONS)[number]>
+                    items={STEM_NUMBER_INDICATOR_OPTIONS}
+                    value={
+                      STEM_NUMBER_INDICATOR_OPTIONS.find(
+                        (o) => o.value === stemSplitOptions.stemNumberIndicator
+                      ) ?? STEM_NUMBER_INDICATOR_OPTIONS[0]
+                    }
+                    onValueChange={(item) =>
+                      item &&
+                      onStemSplitOptionsChange({
+                        ...stemSplitOptions,
+                        stemNumberIndicator: item.value,
+                      })
+                    }
+                    getItemLabel={(i) => i.label}
+                    getItemId={(i) => i.value}
+                    triggerClassName="w-full"
                   />
                 </div>
               ) : null}
@@ -170,7 +251,7 @@ export function StepPasteStems({
               {splitResult.stems.length} stem{splitResult.stems.length === 1 ? '' : 's'}
             </span>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto rounded-md border bg-muted/20 p-3">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {splitResult.warnings.map((warning) => (
               <p key={warning} className="mb-2 text-xs text-amber-700 dark:text-amber-400">
                 {warning}
@@ -179,22 +260,15 @@ export function StepPasteStems({
             {splitResult.stems.length === 0 ? (
               <p className="text-sm text-muted-foreground">No stems detected yet.</p>
             ) : (
-              <div className="space-y-0">
+              <div className="space-y-2">
                 {splitResult.stems.map((stem, index) => (
-                  <div key={index}>
-                    {index > 0 ? (
-                      <div
-                        className="my-3 border-t-2 border-purple-500/50"
-                        aria-hidden
-                      />
-                    ) : null}
-                    <div className="rounded border bg-background px-2 py-2 text-xs">
-                      <div className="font-medium text-muted-foreground">Stem {index + 1}</div>
-                      <pre className="mt-1 whitespace-pre-wrap font-sans text-foreground/90">
-                        {truncateStemPreview(stem)}
-                      </pre>
-                    </div>
-                  </div>
+                  <DetectedStemCard
+                    key={index}
+                    index={index}
+                    stem={stem}
+                    expanded={expandedStemIndices.has(index)}
+                    onToggle={() => toggleStemExpanded(index)}
+                  />
                 ))}
               </div>
             )}

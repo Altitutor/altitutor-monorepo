@@ -280,6 +280,8 @@ type CollectState = {
   prefixForNextLine?: string
   /** When true (Verbal Reasoning), detect nested question tables and emit structured lines. */
   detectNestedQuestionTables?: boolean
+  /** When true, empty paragraphs emit blank logical lines (for stem line-break splitting). */
+  preserveBlankLines?: boolean
 }
 
 function collectLogicalLinesFromNode(
@@ -353,6 +355,9 @@ function collectLogicalLinesFromNode(
     if (text.length > 0) {
       lines.push((st.prefixForNextLine ?? '') + text)
       st.prefixForNextLine = undefined
+    } else if (st.preserveBlankLines) {
+      lines.push('')
+      st.prefixForNextLine = undefined
     }
     return
   }
@@ -367,6 +372,8 @@ function collectLogicalLinesFromNode(
 export type CollectLogicalLinesOptions = {
   /** When true (Verbal Reasoning), detect nested question tables and emit structured lines. */
   detectNestedQuestionTables?: boolean
+  /** When true, empty paragraphs emit blank logical lines (for stem line-break splitting). */
+  preserveBlankLines?: boolean
 }
 
 /**
@@ -382,6 +389,7 @@ export function collectLogicalLinesFromDoc(
   const lines: string[] = []
   const state: CollectState = {
     detectNestedQuestionTables: options?.detectNestedQuestionTables,
+    preserveBlankLines: options?.preserveBlankLines,
   }
 
   if (root.type === 'doc' && Array.isArray(root.content)) {
