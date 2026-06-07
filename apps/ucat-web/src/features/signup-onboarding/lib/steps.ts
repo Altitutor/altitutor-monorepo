@@ -35,3 +35,27 @@ export function ucatTestYearOptions(now = new Date()): number[] {
 
 export const LOW_TARGET_SCORE_THRESHOLD = 1800;
 export const DEFAULT_TARGET_SCORE = 800;
+export const MIN_TARGET_SCORE = 300;
+export const MAX_TARGET_SCORE = 800;
+export const TARGET_SCORE_STEP = 10;
+
+export function snapTargetScore(value: number): number {
+  const clamped = Math.min(
+    MAX_TARGET_SCORE,
+    Math.max(MIN_TARGET_SCORE, value),
+  );
+  return Math.round(clamped / TARGET_SCORE_STEP) * TARGET_SCORE_STEP;
+}
+
+export function validateTargetScoreValue(value: string): string | null {
+  if (!value.trim()) return null;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return "Target scores must be numbers.";
+  if (num < MIN_TARGET_SCORE || num > MAX_TARGET_SCORE) {
+    return `Target scores must be between ${MIN_TARGET_SCORE} and ${MAX_TARGET_SCORE}.`;
+  }
+  if (num % TARGET_SCORE_STEP !== 0) {
+    return `Target scores must be in increments of ${TARGET_SCORE_STEP}.`;
+  }
+  return null;
+}

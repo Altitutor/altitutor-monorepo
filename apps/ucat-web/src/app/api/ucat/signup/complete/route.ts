@@ -26,6 +26,14 @@ function dbErrorMessage(message: string): string {
   return "Failed to save your details. Please try again.";
 }
 
+function omitSignupStep<T extends { ucat_signup_step?: number }>(
+  payload: T,
+): Omit<T, "ucat_signup_step"> {
+  const next = { ...payload };
+  delete next.ucat_signup_step;
+  return next;
+}
+
 async function updateStudentWithSignupStepFallback(
   studentId: string,
   payload: StudentUpdate,
@@ -41,10 +49,9 @@ async function updateStudentWithSignupStepFallback(
     result.error.message.includes("ucat_signup_step") &&
     result.error.message.includes("does not exist")
   ) {
-    const { ucat_signup_step: _step, ...withoutStep } = payload;
     result = await supabaseAdmin!
       .from("students")
-      .update(withoutStep)
+      .update(omitSignupStep(payload))
       .eq("id", studentId);
   }
 
@@ -62,8 +69,7 @@ async function insertStudentWithSignupStepFallback(
     result.error.message.includes("ucat_signup_step") &&
     result.error.message.includes("does not exist")
   ) {
-    const { ucat_signup_step: _step, ...withoutStep } = payload;
-    result = await supabaseAdmin!.from("students").insert(withoutStep);
+    result = await supabaseAdmin!.from("students").insert(omitSignupStep(payload));
   }
 
   return { error: result.error };

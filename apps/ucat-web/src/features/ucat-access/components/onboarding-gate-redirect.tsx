@@ -2,6 +2,10 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import {
+  clearSignupJustCompleted,
+  isSignupJustCompleted,
+} from "@/features/signup-onboarding/lib/signup-tour-flag";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 
 /** Paths reachable before the student completes signup onboarding. */
@@ -18,7 +22,13 @@ export function OnboardingGateRedirect() {
 
   useEffect(() => {
     if (access.isLoading) return;
-    if (access.signupCompleted) return;
+
+    if (access.signupCompleted) {
+      clearSignupJustCompleted();
+      return;
+    }
+
+    if (isSignupJustCompleted()) return;
 
     const allowed = ALLOWED_BEFORE_SIGNUP_COMPLETE.some(
       (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),

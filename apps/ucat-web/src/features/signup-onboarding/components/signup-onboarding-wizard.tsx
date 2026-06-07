@@ -18,13 +18,18 @@ import { motion, useReducedMotion } from "motion/react";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import { SignupStepIndicator } from "@/features/signup-onboarding/components/signup-step-indicator";
 import { patchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
-import { markSignupOnboardingTourPending } from "@/features/signup-onboarding/lib/signup-tour-flag";
+import { markSignupOnboardingTourPending, markSignupJustCompleted } from "@/features/signup-onboarding/lib/signup-tour-flag";
 import {
   DEFAULT_TARGET_SCORE,
   LOW_TARGET_SCORE_THRESHOLD,
+  MAX_TARGET_SCORE,
+  MIN_TARGET_SCORE,
   SIGNUP_STEP,
+  snapTargetScore,
+  TARGET_SCORE_STEP,
   ucatTestDateBounds,
   ucatTestYearOptions,
+  validateTargetScoreValue,
 } from "@/features/signup-onboarding/lib/steps";
 import type { SignupOnboardingInitial, SignupOnboardingStep } from "@/features/signup-onboarding/types";
 import { SignupCompleteDetailsStep } from "@/features/signup-onboarding/components/steps/details-step";
@@ -128,6 +133,21 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
     setError(null);
   };
 
+  const navigateAfterSignupComplete = async () => {
+    markSignupOnboardingTourPending();
+    markSignupJustCompleted();
+    await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
+    await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
+    router.replace("/dashboard");
+  };
+
+  const handleTargetBlur = (value: string, setter: (next: string) => void) => {
+    if (!value.trim()) return;
+    const num = Number(value);
+    if (!Number.isFinite(num)) return;
+    setter(String(snapTargetScore(num)));
+  };
+
   const totalTarget = useMemo(() => {
     const vals = [s1, s2, s3].map((v) => (v.trim() ? Number(v) : 0));
     if (vals.some((v) => !Number.isFinite(v))) return null;
@@ -191,29 +211,22 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
     setError(null);
     try {
       if (saveTargets) {
+        for (const value of [s1, s2, s3]) {
+          const validationError = validateTargetScoreValue(value);
+          if (validationError) {
+            setError(validationError);
+            return;
+          }
+        }
         const parsed = [s1, s2, s3].map((value) =>
-          value.trim() ? Number(value) : null,
+          value.trim() ? snapTargetScore(Number(value)) : null,
         );
-        if (parsed.some((value) => value !== null && !Number.isFinite(value))) {
-          setError("Target scores must be numbers.");
-          return;
-        }
-        if (
-          parsed.some(
-            (value) => value !== null && (value < 300 || value > 900),
-          )
-        ) {
-          setError("Target scores must be between 300 and 900.");
-          return;
-        }
         await patchStudyPlannerSettings({
           targetScores: { s1: parsed[0], s2: parsed[1], s3: parsed[2] },
         });
       }
       await patchSignupProgress({ complete: true });
-      markSignupOnboardingTourPending();
-      router.push("/dashboard");
-      router.refresh();
+      await navigateAfterSignupComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -226,9 +239,7 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
     setError(null);
     try {
       await patchSignupProgress({ complete: true });
-      markSignupOnboardingTourPending();
-      router.push("/dashboard");
-      router.refresh();
+      await navigateAfterSignupComplete();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
@@ -479,10 +490,12 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
                         <input
                           id={`signup-target-${key}`}
                           type="number"
-                          min={300}
-                          max={900}
+                          min={MIN_TARGET_SCORE}
+                          max={MAX_TARGET_SCORE}
+                          step={TARGET_SCORE_STEP}
                           value={value}
                           onChange={(e) => setter(e.target.value)}
+                          onBlur={() => handleTargetBlur(value, setter)}
                           className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream outline-none focus:border-marketing-accent/50 ${typo.secondarySans}`}
                         />
                       </div>
