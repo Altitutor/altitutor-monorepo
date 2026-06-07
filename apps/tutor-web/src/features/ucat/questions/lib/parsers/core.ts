@@ -61,7 +61,7 @@ export type ParserConfig = {
 const DEFAULT_CONFIG: ParserConfig = {
   maxConsecutiveBlankLines: 2,
   questionIndicator: 'dot',
-  answerOptionIndicator: 'paren',
+  answerOptionIndicator: 'dot',
   enforceSequentialQuestionNumbers: true,
   questionLookaheadLimit: 24,
 }
@@ -670,7 +670,7 @@ export function parseFromLines(
 ): ParsedStem[] {
   const config: ParserConfig = { ...DEFAULT_CONFIG, ...configOverrides }
   const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
-  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'paren')
+  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'dot')
 
   const stems: ParsedStem[] = []
   let stemLines: string[] = []
@@ -923,7 +923,7 @@ export function classifyParseLineRoles(
   const roles: ParseLineHighlightRole[] = Array.from({ length: rawLines.length }, () => 'none')
   const config: ParserConfig = { ...DEFAULT_CONFIG, ...configOverrides }
   const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
-  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'paren')
+  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'dot')
 
   let stemLines: string[] = []
   let questions: ParsedQuestion[] = []
@@ -1170,7 +1170,7 @@ export function buildQuestionPasteSpansForLine(
   if (role === 'none' || role === 'stem') return []
 
   const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
-  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'paren')
+  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'dot')
   const questionNumberOnOwnLine = config.questionNumberOnOwnLine === true
   const answerOptionOnOwnLine = config.answerOptionOnOwnLine === true
 

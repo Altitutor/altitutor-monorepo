@@ -146,7 +146,7 @@ function resolveQuestionHighlightRole(
   if (classifiedRole === 'question' || classifiedRole === 'option') return classifiedRole
 
   const qRe = buildQuestionRegexes(classify.questionIndicator ?? 'dot')
-  const oRe = buildOptionRegexes(classify.answerOptionIndicator ?? 'paren')
+  const oRe = buildOptionRegexes(classify.answerOptionIndicator ?? 'dot')
   if (oRe.inline.test(docLineText)) return 'option'
   if (qRe.inline.test(docLineText)) return 'question'
   return null

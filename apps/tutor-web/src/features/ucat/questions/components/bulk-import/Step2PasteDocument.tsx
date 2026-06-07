@@ -38,7 +38,7 @@ export type ParsingOptions = {
 
 const DEFAULT_PARSING_OPTIONS: ParsingOptions = {
   questionIndicator: 'dot',
-  answerOptionIndicator: 'paren',
+  answerOptionIndicator: 'dot',
   questionNumberOnOwnLine: false,
   answerOptionOnOwnLine: false,
   requireConsecutiveQuestionNumbers: true,

@@ -117,7 +117,7 @@ export function BulkImportQuestionStemsModal({
   const [expanded, setExpanded] = useState(false)
   const [parsingOptions, setParsingOptions] = useState<ParsingOptions>({
     questionIndicator: 'dot',
-    answerOptionIndicator: 'paren',
+    answerOptionIndicator: 'dot',
     questionNumberOnOwnLine: false,
     answerOptionOnOwnLine: false,
     requireConsecutiveQuestionNumbers: true,
@@ -193,7 +193,7 @@ export function BulkImportQuestionStemsModal({
       setAddToSetConfig(null)
       setParsingOptions({
         questionIndicator: 'dot',
-        answerOptionIndicator: 'paren',
+        answerOptionIndicator: 'dot',
         questionNumberOnOwnLine: false,
         answerOptionOnOwnLine: false,
         requireConsecutiveQuestionNumbers: true,
