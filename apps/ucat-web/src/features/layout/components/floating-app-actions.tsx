@@ -1,6 +1,7 @@
 "use client";
 
-import { Button, AnimatedHamburgerIcon } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { ProfileDropdown } from "@/features/layout/components/profile-dropdown";
 import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";

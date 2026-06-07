@@ -149,6 +149,22 @@
  * Defined here (not only as Tailwind utilities) so highlights always paint: JIT may miss
  * classes used only on PM-generated spans, and Typography/prose can override inline spans.
  */
+.ucat-parse-hl-stem-split {
+  /* Legacy inline highlight — stem splits use widget lines instead. */
+  display: none;
+}
+
+.ucat-parse-stem-split-line {
+  height: 0;
+  margin: 0.75rem 0;
+  border: 0;
+  border-top: 2px solid rgba(126, 34, 206, 0.55);
+  pointer-events: none;
+}
+.dark .ucat-parse-stem-split-line {
+  border-top-color: rgba(192, 132, 252, 0.55);
+}
+
 .ucat-parse-hl-q-stem {
   background-color: rgba(245, 158, 11, 0.18);
   border-left: 2px solid rgba(217, 119, 6, 0.45);

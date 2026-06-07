@@ -20,7 +20,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("ucat_subscription_config")
     .select(
-      "trial_days, min_questions_per_day, discount_per_day_cents, base_price_cents, currency, billing_interval, free_practice_limit, free_practice_period, free_sets_limit, free_sets_period, free_mocks_limit, free_mocks_period, free_learn_limit, free_learn_period, free_skill_trainer_limit, free_skill_trainer_period",
+      "trial_days, min_questions_per_day, discount_per_day_cents, base_price_cents, monthly_base_price_cents, monthly_stripe_price_id, currency, billing_interval, stripe_price_id, free_practice_limit, free_practice_period, free_sets_limit, free_sets_period, free_mocks_limit, free_mocks_period, free_learn_limit, free_learn_period, free_skill_trainer_limit, free_skill_trainer_period",
     )
     .order("created_at", { ascending: true })
     .limit(1)
@@ -42,11 +42,21 @@ export async function GET() {
     ? (data.billing_interval as PublicUcatSubscriptionConfig["billingInterval"])
     : "week";
 
+  const monthlyPlanAvailable =
+    Boolean(process.env.UCAT_STRIPE_MONTHLY_PRICE_ID?.trim()) ||
+    Boolean(data.monthly_stripe_price_id?.trim());
+  const weeklyPlanAvailable =
+    Boolean(process.env.UCAT_STRIPE_PRICE_ID?.trim()) ||
+    Boolean(data.stripe_price_id?.trim());
+
   const body: PublicUcatSubscriptionConfig = {
     trialDays: data.trial_days ?? 7,
     minQuestionsPerDay: data.min_questions_per_day ?? 20,
     discountPerDayCents: data.discount_per_day_cents ?? 1000,
     basePriceCents: data.base_price_cents ?? 0,
+    monthlyBasePriceCents: data.monthly_base_price_cents ?? 0,
+    monthlyPlanAvailable,
+    weeklyPlanAvailable,
     currency: (data.currency ?? "aud").toLowerCase(),
     billingInterval,
     freeQuotas: mapQuotaConfigRow(data),

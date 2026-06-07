@@ -1,9 +1,9 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 import React from "react";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
-import { Button } from "@altitutor/ui";
 import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
 
 export function ThemeToggle() {

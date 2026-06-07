@@ -1,8 +1,8 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { Button } from "@altitutor/ui";
 import { UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 

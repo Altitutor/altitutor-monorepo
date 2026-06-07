@@ -105,17 +105,23 @@ export default function SettingsPage() {
           href: '/settings/stripe-sync',
           icon: Link2,
         },
-        {
-          title: 'UCAT subscription',
-          description: 'UCAT online trial, pricing, practice-day discounts, Free quotas, and Stripe price IDs',
-          href: '/settings/ucat-subscription',
-          icon: GraduationCap,
-        },
       ],
     },
     {
       title: 'UCAT',
       items: [
+        {
+          title: 'UCAT subscription',
+          description: 'Pro trial, weekly and monthly pricing, practice-day discounts, and Stripe price IDs',
+          href: '/settings/ucat-subscription',
+          icon: GraduationCap,
+        },
+        {
+          title: 'UCAT Free tier',
+          description: 'Per-area usage limits for UCAT Free students (practice, sets, mocks, learn, skill trainer)',
+          href: '/settings/ucat-free-tier',
+          icon: GraduationCap,
+        },
         {
           title: 'Score predictor model',
           description: 'Configure cold-start constants for UCAT section score projections',

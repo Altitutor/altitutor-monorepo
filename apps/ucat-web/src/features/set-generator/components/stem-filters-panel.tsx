@@ -1,15 +1,7 @@
 "use client";
 
-import {
-  Button,
-  Label,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-  SearchableSelect,
-  SearchableSelectInline,
-  Slider,
-} from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { Label, Popover, PopoverContent, PopoverTrigger, SearchableSelect, SearchableSelectInline, Slider } from "@altitutor/ui";
 import { ChevronDown } from "lucide-react";
 import { SegmentedControl } from "@/features/progress/components/segmented-control";
 import type {

@@ -23,6 +23,7 @@ import {
   type ParseLineHighlightRole,
   type ParserConfig,
 } from '@/features/ucat/questions/lib/parsers/core'
+import { collectPlainDocParagraphRanges } from '@/features/ucat/questions/lib/pmStemDocLineRanges'
 
 /** Transaction meta key: refresh parse decorations (options / section changed). */
 export const UCAT_PARSE_DECO_META = 'ucatParseDeco'
@@ -40,6 +41,7 @@ export type UcatParseHighlightConfig =
       >
     }
   | { mode: 'answer'; includeExplanations: boolean }
+  | { mode: 'stem_split'; splitLineIndices: number[] }
 
 /** Classes live in globals.css (stable vs Tailwind / typography on generated spans). */
 
@@ -196,11 +198,38 @@ function buildAnswerDecorations(
 
 type GetCfg = () => UcatParseHighlightConfig
 
+function buildStemSplitDecorations(doc: Node, splitLineIndices: number[]): DecorationSet {
+  const ranges = collectPlainDocParagraphRanges(doc)
+  const decos: Decoration[] = []
+  const splitSet = new Set(splitLineIndices)
+  for (let i = 0; i < ranges.length; i += 1) {
+    if (!splitSet.has(i)) continue
+    const R = ranges[i]
+    if (!R) continue
+    decos.push(
+      Decoration.widget(
+        R.from,
+        () => {
+          const line = document.createElement('div')
+          line.className = 'ucat-parse-stem-split-line'
+          line.setAttribute('aria-hidden', 'true')
+          return line
+        },
+        { side: -1, key: `stem-split-${i}` }
+      )
+    )
+  }
+  return DecorationSet.create(doc, decos)
+}
+
 function buildDecorationsSet(doc: Node, getConfig: GetCfg): DecorationSet {
   const c = getConfig()
   if (c.mode === 'off') return DecorationSet.empty
   if (c.mode === 'question') {
     return buildQuestionDecorations(doc, c)
+  }
+  if (c.mode === 'stem_split') {
+    return buildStemSplitDecorations(doc, c.splitLineIndices)
   }
   return buildAnswerDecorations(doc, c.includeExplanations)
 }

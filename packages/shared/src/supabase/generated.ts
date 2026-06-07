@@ -16907,6 +16907,7 @@ export type Database = {
         }
         Returns: string
       }
+      auth_user_exists_by_email: { Args: { p_email: string }; Returns: boolean }
       batch_update_topic_file_indices: {
         Args: { updates: Json }
         Returns: undefined

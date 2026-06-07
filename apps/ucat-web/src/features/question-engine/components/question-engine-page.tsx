@@ -13,12 +13,8 @@ import {
   Search,
   X,
 } from "lucide-react";
-import {
-  Button,
-  UcatExamActionButton,
-  UcatExamShell,
-  useToast,
-} from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { UcatExamActionButton, UcatExamShell, useToast } from "@altitutor/ui";
 import { UCAT_COLORS } from "@altitutor/ui/components/ucat/ucat-theme";
 import { useQuestionEngineData } from "@/features/question-engine/hooks/use-question-engine-data";
 import { useQuestionEngineState } from "@/features/question-engine/hooks/use-question-engine-state";

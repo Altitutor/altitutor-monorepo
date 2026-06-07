@@ -20,6 +20,7 @@ import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { cn } from '../lib/cn';
 import { TableInsertHandles } from './table-insert-handles';
+import { sanitizePastedHtml, transformPastedHtmlForBulkImport } from '../lib/sanitize-pasted-html';
 
 const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
 const UPLOAD_PLACEHOLDER_SUFFIX = '__';
@@ -172,6 +173,11 @@ export interface RichTextEditorProps {
    */
   pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
   /**
+   * When true, pasted HTML is sanitized before insert: keeps bold, italic, paragraphs, and tables;
+   * strips font size, color, highlight, and other styling. Respects {@link pasteTableBehavior}.
+   */
+  pasteStripFormatting?: boolean;
+  /**
    * Additional TipTap extensions to add to the editor (e.g. JumpHighlightExtension for note TOC).
    */
   extensions?: import('@tiptap/core').AnyExtension[];
@@ -259,6 +265,25 @@ function htmlToPlainTextWithStructure(html: string): string {
   }
 }
 
+function applyPasteHtmlTransforms(
+  html: string,
+  options: {
+    pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
+    pasteStripFormatting?: boolean;
+  }
+): string {
+  if (options.pasteStripFormatting) {
+    return transformPastedHtmlForBulkImport(html, {
+      pasteTableBehavior: options.pasteTableBehavior,
+    });
+  }
+  let result = html;
+  if (options.pasteTableBehavior === 'strip_outside') {
+    result = stripOuterTablesFromHtml(result);
+  }
+  return result;
+}
+
 /** Replace top-level tables (not nested inside another table) with divs containing each cell's innerHTML; nested tables are preserved. */
 function stripOuterTablesFromHtml(html: string): string {
   if (!html.trim()) return html;
@@ -310,6 +335,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   onPasteImages,
   pastePlainTextAsParagraphs = false,
   pasteTableBehavior,
+  pasteStripFormatting = false,
   extensions: extraExtensions,
   omitTypography = false,
   slashMenuSuggestions,
@@ -630,7 +656,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             const behavior = behaviorFromCapture;
             const text = pastedHtml ? htmlToPlainTextWithStructure(pastedHtml) : pastedText;
             const lines = text.split(/\r?\n/);
-            if (behavior === 'strip_all' && (lines.length > 1 || !pastedHtml)) {
+            if (behavior === 'strip_all' && pasteStripFormatting && pastedHtml) {
+              const transformed = transformPastedHtmlForBulkImport(pastedHtml, {
+                pasteTableBehavior: 'strip_all',
+              });
+              editor.chain().deleteSelection().insertContent(transformed).focus().run();
+            } else if (behavior === 'strip_all' && (lines.length > 1 || !pastedHtml)) {
               const content = lines.map((line) => ({
                 type: 'paragraph',
                 content: line.length > 0 ? [{ type: 'text', text: line }] : [],
@@ -638,10 +669,17 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               const pos = editor.state.selection.from;
               editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
             } else if (behavior === 'strip_outside' && pastedHtml) {
-              const transformed = stripOuterTablesFromHtml(pastedHtml);
+              const transformed = applyPasteHtmlTransforms(pastedHtml, {
+                pasteTableBehavior: behavior,
+                pasteStripFormatting,
+              });
               editor.chain().deleteSelection().insertContent(transformed).focus().run();
             } else if (behavior === 'keep' && pastedHtml) {
-              editor.chain().deleteSelection().insertContent(pastedHtml).focus().run();
+              const transformed = applyPasteHtmlTransforms(pastedHtml, {
+                pasteTableBehavior: behavior,
+                pasteStripFormatting,
+              });
+              editor.chain().deleteSelection().insertContent(transformed).focus().run();
             } else if (behavior === 'strip_outside' || behavior === 'keep') {
               editor.chain().deleteSelection().insertContent(pastedText).focus().run();
             } else {
@@ -678,7 +716,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               const t = text ?? '';
               const resolvedText = h ? htmlToPlainTextWithStructure(h) : t;
               const lines = resolvedText.split(/\r?\n/);
-              if (behavior === 'strip_all') {
+              if (behavior === 'strip_all' && pasteStripFormatting && h) {
+                const transformed = transformPastedHtmlForBulkImport(h, {
+                  pasteTableBehavior: 'strip_all',
+                });
+                editor.chain().deleteSelection().insertContent(transformed).focus().run();
+              } else if (behavior === 'strip_all') {
                 const content = lines.map((line) => ({
                   type: 'paragraph',
                   content: line.length > 0 ? [{ type: 'text', text: line }] : [],
@@ -686,10 +729,17 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 const pos = editor.state.selection.from;
                 editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
               } else if (behavior === 'strip_outside' && h) {
-                const transformed = stripOuterTablesFromHtml(h);
+                const transformed = applyPasteHtmlTransforms(h, {
+                  pasteTableBehavior: behavior,
+                  pasteStripFormatting,
+                });
                 editor.chain().deleteSelection().insertContent(transformed).focus().run();
               } else if (behavior === 'keep' && h) {
-                editor.chain().deleteSelection().insertContent(h).focus().run();
+                const transformed = applyPasteHtmlTransforms(h, {
+                  pasteTableBehavior: behavior,
+                  pasteStripFormatting,
+                });
+                editor.chain().deleteSelection().insertContent(transformed).focus().run();
               } else {
                 editor.chain().deleteSelection().insertContent(t || resolvedText).focus().run();
               }
@@ -703,8 +753,15 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         if (behavior && (pastedText || pastedHtml) && editor) {
           event.preventDefault();
 
-          // strip_all: convert everything to plain text lines (tables/images removed).
+          // strip_all: plain text when no HTML; otherwise sanitize and drop tables.
           if (behavior === 'strip_all') {
+            if (pasteStripFormatting && pastedHtml) {
+              const transformed = transformPastedHtmlForBulkImport(pastedHtml, {
+                pasteTableBehavior: 'strip_all',
+              });
+              editor.chain().deleteSelection().insertContent(transformed).focus().run();
+              return true;
+            }
             const text = pastedHtml ? htmlToPlainTextWithStructure(pastedHtml) : pastedText;
             const lines = text.split(/\r?\n/);
             const content = lines.map((line) => ({
@@ -719,10 +776,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           // strip_outside / keep: preserve HTML (with tables optionally flattened) and still
           // allow image uploads for embedded data/blob images when onPasteImages is provided.
           if (pastedHtml) {
-            const rawHtml =
-              behavior === 'strip_outside'
-                ? stripOuterTablesFromHtml(pastedHtml)
-                : pastedHtml;
+            const rawHtml = applyPasteHtmlTransforms(pastedHtml, {
+              pasteTableBehavior: behavior,
+              pasteStripFormatting,
+            });
 
             if (
               onPasteImages &&
@@ -770,6 +827,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             const pos = editor.state.selection.from;
             editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
           }
+          return true;
+        }
+
+        if (pasteStripFormatting && pastedHtml && editor && !behavior) {
+          event.preventDefault();
+          const transformed = sanitizePastedHtml(pastedHtml);
+          editor.chain().deleteSelection().insertContent(transformed).focus().run();
           return true;
         }
 

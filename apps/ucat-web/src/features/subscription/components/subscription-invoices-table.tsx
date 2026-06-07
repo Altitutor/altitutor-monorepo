@@ -1,16 +1,7 @@
 "use client";
 
-import {
-  Badge,
-  Button,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  PAID_INVOICE_BADGE_VARIANT,
-} from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { Badge, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, PAID_INVOICE_BADGE_VARIANT } from "@altitutor/ui";
 import { ExternalLink } from "lucide-react";
 import type { UcatSubscriptionInvoice } from "@/features/subscription/types/ucat-subscription-billing";
 import {

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Button, Input, Label } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import { useSections } from "@/features/progress/hooks/use-sections";
 import {

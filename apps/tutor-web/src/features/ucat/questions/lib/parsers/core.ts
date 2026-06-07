@@ -51,6 +51,11 @@ export type ParserConfig = {
   enforceSequentialQuestionNumbers?: boolean
   /** Non-blank logical lines to scan after a numbered candidate for answer options. */
   questionLookaheadLimit?: number
+  /**
+   * When true, never start a new stem mid-document. Used when questions are pasted
+   * separately from stem text in bulk import.
+   */
+  questionsOnly?: boolean
 }
 
 const DEFAULT_CONFIG: ParserConfig = {
@@ -736,6 +741,10 @@ export function parseFromLines(
       !(inlineOptionMatch || labelOnlyMatch)
     ) {
       flushCurrentQuestion()
+      if (config.questionsOnly) {
+        stemLines.push(line)
+        continue
+      }
       finaliseStem()
       stemLines.push(line)
       continue
@@ -784,6 +793,11 @@ export function parseFromLines(
 
   flushCurrentQuestion()
   finaliseStem()
+
+  if (config.questionsOnly && stems.length > 1) {
+    const allQuestions = stems.flatMap((s) => s.questions)
+    return [{ stemText: '', questions: allQuestions }]
+  }
 
   return stems
 }

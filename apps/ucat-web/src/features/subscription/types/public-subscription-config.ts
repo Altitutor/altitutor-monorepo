@@ -6,6 +6,9 @@ export type PublicUcatSubscriptionConfig = {
   minQuestionsPerDay: number;
   discountPerDayCents: number;
   basePriceCents: number;
+  monthlyBasePriceCents: number;
+  monthlyPlanAvailable: boolean;
+  weeklyPlanAvailable: boolean;
   currency: string;
   billingInterval: "week" | "fortnight" | "month";
   freeQuotas: UcatFreeQuotaConfig;
@@ -17,6 +20,9 @@ export const defaultPublicSubscriptionConfig: PublicUcatSubscriptionConfig = {
   minQuestionsPerDay: 20,
   discountPerDayCents: 1000,
   basePriceCents: 7500,
+  monthlyBasePriceCents: 22500,
+  monthlyPlanAvailable: false,
+  weeklyPlanAvailable: false,
   currency: "aud",
   billingInterval: "week",
   freeQuotas: DEFAULT_FREE_QUOTA_CONFIG,

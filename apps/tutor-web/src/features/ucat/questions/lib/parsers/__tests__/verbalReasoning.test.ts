@@ -1,7 +1,5 @@
-import {
-  parseVerbalReasoningPlainText,
-  parseVerbalReasoningWithSeparateStemDoc,
-} from '../verbalReasoning'
+import { parseVerbalReasoningPlainText } from '../verbalReasoning'
+import { parseQuestionsOnlyForSection } from '@/features/ucat/questions/components/bulk-import/bulkImportParseSection'
 
 beforeAll(() => {
   global.fetch = jest.fn().mockResolvedValue({}) as typeof fetch
@@ -16,75 +14,6 @@ function docFromLines(lines: string[]) {
     })),
   }
 }
-
-describe('parseVerbalReasoningWithSeparateStemDoc', () => {
-  it('pairs Prompt N stem blocks with parsed question groups by order', () => {
-    const stemsDoc = docFromLines([
-      'VR - Mock 7',
-      'Prompt 1',
-      'The first passage is about whale markings.',
-      'It has numbered facts such as 1. dorsal fin shape.',
-      'Prompt 2',
-      'The second passage is about parliamentary procedure.',
-    ])
-    const questionsDoc = docFromLines([
-      '1. Which statement follows from the passage?',
-      'a) True',
-      'b) False',
-      "c) Can't Tell",
-      '',
-      '2. The author would most likely agree that...',
-      'a) True',
-      'b) False',
-      "c) Can't Tell",
-      '',
-      '3. Which statement follows from the passage?',
-      'a) True',
-      'b) False',
-      "c) Can't Tell",
-      '',
-      '4. The author would most likely agree that...',
-      'a) True',
-      'b) False',
-      "c) Can't Tell",
-    ])
-
-    const stems = parseVerbalReasoningWithSeparateStemDoc(questionsDoc, stemsDoc)
-
-    expect(stems).toHaveLength(2)
-    expect(stems[0]?.stemText).toContain('whale markings')
-    expect(stems[0]?.questions.map((q) => q.number)).toEqual([1, 2])
-    expect(stems[1]?.stemText).toContain('parliamentary procedure')
-    expect(stems[1]?.questions.map((q) => q.number)).toEqual([3, 4])
-  })
-
-  it('replaces parsed stem text when question document already contains grouped stems', () => {
-    const stemsDoc = docFromLines([
-      'Prompt 1',
-      'Canonical first passage.',
-      'Prompt 2',
-      'Canonical second passage.',
-    ])
-    const questionsDoc = docFromLines([
-      'Old first passage.',
-      '1. Question one?',
-      'a) A',
-      'b) B',
-      'c) C',
-      'Old second passage.',
-      '2. Question two?',
-      'a) A',
-      'b) B',
-      'c) C',
-    ])
-
-    const stems = parseVerbalReasoningWithSeparateStemDoc(questionsDoc, stemsDoc)
-
-    expect(stems).toHaveLength(2)
-    expect(stems[0]?.stemText).toBe('Canonical first passage.')
-    expect(stems[1]?.stemText).toBe('Canonical second passage.')
-  })
-})
 
 describe('parseVerbalReasoningPlainText', () => {
   it('keeps inline numbered prose inside the passage when option evidence belongs to later questions', () => {
@@ -102,5 +31,31 @@ c) C`
     expect(stems).toHaveLength(1)
     expect(stems[0]?.stemText).toContain('2. This is also part of the passage.')
     expect(stems[0]?.questions).toHaveLength(1)
+  })
+})
+
+describe('parseQuestionsOnlyForSection', () => {
+  it('parses questions without starting a new stem mid-document', () => {
+    const questionsDoc = docFromLines([
+      '1. Which statement follows?',
+      'a) True',
+      'b) False',
+      "c) Can't Tell",
+      'Accidental passage line',
+      '2. Another question?',
+      'a) True',
+      'b) False',
+      "c) Can't Tell",
+    ])
+
+    const { questions, stemLikeWarning } = parseQuestionsOnlyForSection(questionsDoc, 'verbal_reasoning', {
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'paren',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+    })
+
+    expect(questions).toHaveLength(2)
+    expect(stemLikeWarning).toBe(false)
   })
 })

@@ -51,6 +51,10 @@ export async function fetchPublicSubscriptionConfig(): Promise<PublicUcatSubscri
       typeof data.basePriceCents === "number"
         ? data.basePriceCents
         : defaultPublicSubscriptionConfig.basePriceCents;
+    const monthlyBasePriceCents =
+      typeof data.monthlyBasePriceCents === "number"
+        ? data.monthlyBasePriceCents
+        : defaultPublicSubscriptionConfig.monthlyBasePriceCents;
     const billingInterval = isBillingInterval(data.billingInterval)
       ? data.billingInterval
       : defaultPublicSubscriptionConfig.billingInterval;
@@ -59,6 +63,9 @@ export async function fetchPublicSubscriptionConfig(): Promise<PublicUcatSubscri
       minQuestionsPerDay: data.minQuestionsPerDay,
       discountPerDayCents: data.discountPerDayCents,
       basePriceCents,
+      monthlyBasePriceCents,
+      monthlyPlanAvailable: data.monthlyPlanAvailable === true,
+      weeklyPlanAvailable: data.weeklyPlanAvailable === true,
       currency: (typeof data.currency === "string"
         ? data.currency
         : defaultPublicSubscriptionConfig.currency

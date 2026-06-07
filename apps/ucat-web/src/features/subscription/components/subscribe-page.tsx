@@ -14,12 +14,9 @@ import { NoiseOverlay } from "@/features/landing/components/marketing/noise-over
 import { getTrialBookingUrl } from "@/features/landing/lib/trial-booking-url";
 import type { UcatQuotaArea } from "@/features/ucat-access/types/quota";
 import { UCAT_QUOTA_AREA_LABELS } from "@/features/ucat-access/types/quota";
+import type { UcatCheckoutPlan } from "@/lib/ucat/subscription-plan";
 
 const { typography: typo } = MARKETING_TOKENS;
-
-const MONTHLY_PRICE_ID = "price_1TUoHxKMw7Xacevsm4h5ulH8";
-
-type PlanId = "weekly" | "monthly";
 
 function CheckIcon() {
   return (
@@ -73,7 +70,7 @@ export function SubscribePage() {
   const access = useUcatAccess();
   const needsOnboarding = !access.isLoading && !access.onboardingCompleted;
   const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
-  const [loadingPlan, setLoadingPlan] = useState<PlanId | "free" | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<UcatCheckoutPlan | "free" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -87,12 +84,11 @@ export function SubscribePage() {
     };
   }, []);
 
-  const handleOnlineSubscribe = async (plan: PlanId) => {
+  const handleOnlineSubscribe = async (plan: UcatCheckoutPlan) => {
     setLoadingPlan(plan);
     setError(null);
     try {
-      const priceId = plan === "monthly" ? MONTHLY_PRICE_ID : undefined;
-      const { url } = await createUcatCheckoutSession(priceId);
+      const { url } = await createUcatCheckoutSession(plan);
       window.location.href = url;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to start checkout");
@@ -125,9 +121,17 @@ export function SubscribePage() {
     : "Subscribe for unlimited access";
 
   const weeklyPrice = formatMoneyFromMinorUnits(cfg.basePriceCents, cfg.currency);
-  // Monthly display: ~25% discount vs weekly * 4 (approx monthly commitment benefit)
-  const monthlyBaseCents = Math.round((cfg.basePriceCents * 4) * 0.75);
-  const monthlyPrice = formatMoneyFromMinorUnits(monthlyBaseCents, cfg.currency);
+  const monthlyPrice = formatMoneyFromMinorUnits(cfg.monthlyBasePriceCents, cfg.currency);
+  const weeklyMonthlyEquivalent = cfg.basePriceCents * 4;
+  const monthlySavingsPercent =
+    weeklyMonthlyEquivalent > 0
+      ? Math.max(
+          0,
+          Math.round(
+            (1 - cfg.monthlyBasePriceCents / weeklyMonthlyEquivalent) * 100,
+          ),
+        )
+      : 0;
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-marketing-cream">
@@ -391,10 +395,14 @@ export function SubscribePage() {
               <button
                 type="button"
                 onClick={() => void handleOnlineSubscribe("weekly")}
-                disabled={loadingPlan !== null}
+                disabled={loadingPlan !== null || !cfg.weeklyPlanAvailable}
                 className={`mt-10 w-full rounded-full border-2 border-marketing-primary py-4 text-base font-semibold text-marketing-primary transition-all hover:bg-marketing-primary hover:text-marketing-cream disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
               >
-                {loadingPlan === "weekly" ? "Redirecting…" : proTrialCta}
+                {!cfg.weeklyPlanAvailable
+                  ? "Unavailable"
+                  : loadingPlan === "weekly"
+                    ? "Redirecting…"
+                    : proTrialCta}
               </button>
             </div>
 
@@ -449,20 +457,28 @@ export function SubscribePage() {
                       <span className="text-marketing-cream/70">{f}</span>
                     </li>
                   ))}
-                  <li className="flex items-start gap-2 text-marketing-accent">
-                    <CheckIcon />
-                    <span className="text-marketing-cream/70">Save ~25% vs weekly billing</span>
-                  </li>
+                  {monthlySavingsPercent > 0 ? (
+                    <li className="flex items-start gap-2 text-marketing-accent">
+                      <CheckIcon />
+                      <span className="text-marketing-cream/70">
+                        Save ~{monthlySavingsPercent}% vs weekly billing
+                      </span>
+                    </li>
+                  ) : null}
                 </ul>
               </div>
 
               <button
                 type="button"
                 onClick={() => void handleOnlineSubscribe("monthly")}
-                disabled={loadingPlan !== null}
+                disabled={loadingPlan !== null || !cfg.monthlyPlanAvailable}
                 className={`mt-10 w-full rounded-full bg-marketing-accent py-4 text-base font-semibold text-marketing-charcoal shadow-lg shadow-marketing-accent/30 transition-all hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
               >
-                {loadingPlan === "monthly" ? "Redirecting…" : proTrialCta}
+                {!cfg.monthlyPlanAvailable
+                  ? "Unavailable"
+                  : loadingPlan === "monthly"
+                    ? "Redirecting…"
+                    : proTrialCta}
               </button>
             </div>
 

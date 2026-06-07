@@ -3,6 +3,10 @@ import Stripe from "stripe";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { getUcatSubjectId } from "@/lib/ucat/ucat-subject-id";
+import {
+  isUcatCheckoutPlan,
+  type UcatCheckoutPlan,
+} from "@/lib/ucat/subscription-plan";
 
 /**
  * POST /api/ucat/checkout
@@ -17,15 +21,14 @@ export async function POST(request: NextRequest) {
     error: authError,
   } = await supabase.auth.getUser();
 
-  // Optional priceId override from request body
-  let bodyPriceId: string | null = null;
+  let plan: UcatCheckoutPlan = "weekly";
   try {
-    const body = (await request.clone().json()) as { priceId?: string };
-    if (typeof body.priceId === "string" && body.priceId.trim()) {
-      bodyPriceId = body.priceId.trim();
+    const body = (await request.clone().json()) as { plan?: unknown };
+    if (isUcatCheckoutPlan(body.plan)) {
+      plan = body.plan;
     }
   } catch {
-    // No body or invalid JSON — fall through to config lookup
+    // No body or invalid JSON — default to weekly
   }
 
   if (authError) {
@@ -44,10 +47,7 @@ export async function POST(request: NextRequest) {
   }
 
   const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  const priceId =
-    bodyPriceId ??
-    process.env.UCAT_STRIPE_PRICE_ID ??
-    (await getConfigPriceId(supabaseAdmin));
+  const priceId = await resolveCheckoutPriceId(supabaseAdmin, plan);
 
   if (!stripeSecretKey || !priceId) {
     return NextResponse.json(
@@ -84,7 +84,6 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Check if already has active UCAT subscription
   const { data: existingSub } = await supabaseAdmin
     .from("student_subscriptions")
     .select("id")
@@ -127,19 +126,20 @@ export async function POST(request: NextRequest) {
       trial_period_days: trialDays,
       metadata: {
         student_id: student.id,
+        ucat_plan: plan,
       },
     },
     payment_method_collection: "always",
     customer_email: student.email ?? undefined,
     metadata: {
       student_id: student.id,
+      ucat_plan: plan,
     },
     success_url: `${origin}/dashboard`,
     cancel_url: `${origin}/subscribe?canceled=1`,
     allow_promotion_codes: true,
   };
 
-  // Use existing Stripe customer if student has one (from students_billing)
   const { data: billing } = await supabaseAdmin
     .from("students_billing")
     .select("stripe_customer_id")
@@ -172,9 +172,27 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function getConfigPriceId(
+async function resolveCheckoutPriceId(
   supabase: NonNullable<typeof supabaseAdmin>,
+  plan: UcatCheckoutPlan,
 ): Promise<string | null> {
+  if (plan === "monthly") {
+    const envMonthly = process.env.UCAT_STRIPE_MONTHLY_PRICE_ID?.trim();
+    if (envMonthly) return envMonthly;
+
+    const { data } = await supabase
+      .from("ucat_subscription_config")
+      .select("monthly_stripe_price_id")
+      .not("monthly_stripe_price_id", "is", null)
+      .limit(1)
+      .maybeSingle();
+
+    return data?.monthly_stripe_price_id ?? null;
+  }
+
+  const envWeekly = process.env.UCAT_STRIPE_PRICE_ID?.trim();
+  if (envWeekly) return envWeekly;
+
   const { data } = await supabase
     .from("ucat_subscription_config")
     .select("stripe_price_id")

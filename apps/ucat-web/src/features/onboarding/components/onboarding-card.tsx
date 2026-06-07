@@ -1,7 +1,7 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 import type { CardComponentProps } from "nextstepjs";
-import { Button } from "@altitutor/ui";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { UCAT_SURFACE_CARD } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";

@@ -1,9 +1,9 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
-import { Button } from "@altitutor/ui";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useAuth } from "@/features/auth";
 import {

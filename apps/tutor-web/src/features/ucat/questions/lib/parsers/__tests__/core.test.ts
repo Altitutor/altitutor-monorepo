@@ -10,7 +10,58 @@ beforeAll(() => {
   global.fetch = jest.fn().mockResolvedValue({}) as typeof fetch
 })
 
+const MINACK_OWN_LINE_OPTIONS = `1.
+
+According to the passage, for five months over the summer, the theatre:
+
+A.
+
+has a visitor centre.
+
+B.
+
+hosts shows of different styles.
+
+C.
+
+opens to the public.
+
+D.
+
+moves to being open air.
+
+2.
+
+According to the passage, the financial situation of the Minack theatre:
+
+A.
+
+has been continually challenged.
+
+B.
+
+has improved over time.
+
+C.
+
+is unsustainable going forward.
+
+D.
+
+was unsustainable in the past.`
+
 describe('parseFromLines', () => {
+  it('parses questions with number and option letters on their own lines (A. / B. layout)', () => {
+    const stems = parseFromLines(MINACK_OWN_LINE_OPTIONS.split(/\r?\n/u), {
+      questionsOnly: true,
+    })
+
+    expect(stems.flatMap((s) => s.questions)).toHaveLength(2)
+    expect(stems[0]?.questions[0]?.options).toHaveLength(4)
+    expect(stems[0]?.questions[0]?.text).toContain('five months over the summer')
+    expect(stems[0]?.questions[1]?.options[0]?.text).toContain('continually challenged')
+  })
+
   it('does not treat numbered passage lines as questions when another question candidate appears first', () => {
     const input = `A historical passage begins.
 1. The author lists this as a passage point.
@@ -50,6 +101,122 @@ c) 31`
     expect(stems[0]?.questions).toHaveLength(1)
     expect(stems[1]?.stemText).toContain('2024. This line belongs to the next setup')
     expect(stems[1]?.questions[0]?.number).toBe(2)
+  })
+
+  it('parses ordered-list Prompt 2 with questions starting at 5', () => {
+    const input = `1. Prompt 2
+5.
+Robert the Bruce went into hiding between 1306 and 1307.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+6.
+Robert the Bruce secured control of much of Scotland after a number of military victories.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+7.
+Peace was concluded between Scotland and England under the rule of Edward II.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+8.
+The re-establishment of an independent Scottish kingdom would not have occurred without the Battle of Bannockburn.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell`
+
+    const stems = parseFromLines(input.split(/\r?\n/u), { questionsOnly: true })
+    const questions = stems.flatMap((s) => s.questions)
+
+    expect(questions).toHaveLength(4)
+    expect(questions.map((q) => q.number)).toEqual([5, 6, 7, 8])
+  })
+
+  it('does not treat ordered-list prompt labels as question 1 when questions start at 9', () => {
+    const input = `1. Prompt 3
+9.
+George Huntington was the first doctor to develop a cure for Huntington's disease.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+10.
+White blood cells are cells that help the body resolve infection.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+11.
+Some other question text here.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+12.
+Another question text here.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell`
+
+    const stems = parseFromLines(input.split(/\r?\n/u), { questionsOnly: true })
+    const questions = stems.flatMap((s) => s.questions)
+
+    expect(questions).toHaveLength(4)
+    expect(questions.map((q) => q.number)).toEqual([9, 10, 11, 12])
+    expect(questions[0]?.text).toContain('George Huntington')
+    expect(questions[0]?.number).not.toBe(1)
   })
 
   it('keeps live highlight classification aligned with conservative question detection', () => {

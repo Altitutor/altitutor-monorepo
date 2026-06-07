@@ -17,6 +17,7 @@ import { Settings2 } from 'lucide-react'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { cn } from '@/shared/utils'
 import { BulkImportParseInfoButton } from '@/features/ucat/questions/components/bulk-import/BulkImportParseInfoButton'
+import { BULK_IMPORT_RTE_PASTE } from '@/features/ucat/questions/components/bulk-import/bulkImportRichTextDefaults'
 import { computeQuestionPasteStats } from '@/features/ucat/questions/components/bulk-import/bulkImportPasteStats'
 import type { BulkImportParseSection } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import type {
@@ -73,6 +74,8 @@ type Step2PasteDocumentProps = {
    * (Former `liveParseSection` — the preview panel below the editor is removed.)
    */
   liveParseSection?: BulkImportParseSection | null
+  /** When true, only render the parser settings control (no editor). */
+  settingsOnly?: boolean
 }
 
 export function Step2PasteDocument({
@@ -87,6 +90,7 @@ export function Step2PasteDocument({
   onPasteTableBehaviorChange,
   layout = 'default',
   liveParseSection = null,
+  settingsOnly = false,
 }: Step2PasteDocumentProps) {
   const opts = parsingOptions
   const setOpts = onParsingOptionsChange ?? (() => {})
@@ -120,6 +124,99 @@ export function Step2PasteDocument({
     () => computeQuestionPasteStats(value, liveParseSection, classify),
     [value, liveParseSection, classify]
   )
+
+  if (settingsOnly) {
+    return (
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-base font-semibold">Question parsing options</h2>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              aria-label="Parser settings for pasted questions"
+            >
+              <Settings2 className="h-3.5 w-3.5" />
+              Question settings
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            className="w-80 max-h-[min(24rem,70vh)] max-w-[min(20rem,92vw)] overflow-y-auto p-2"
+            align="end"
+          >
+            <DropdownMenuLabel className="px-0 text-xs">Parser</DropdownMenuLabel>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-xs">Question indicator</Label>
+                <SearchableSelect<{ value: QuestionIndicatorKind; label: string }>
+                  items={QUESTION_INDICATOR_OPTIONS}
+                  value={
+                    QUESTION_INDICATOR_OPTIONS.find((i) => i.value === opts.questionIndicator) ??
+                    QUESTION_INDICATOR_OPTIONS[0]
+                  }
+                  onValueChange={(item) =>
+                    item && setOpts({ ...opts, questionIndicator: item.value })
+                  }
+                  getItemLabel={(i) => i.label}
+                  getItemId={(i) => i.value}
+                  triggerClassName="w-full"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs">Answer option indicator</Label>
+                <SearchableSelect<{ value: AnswerOptionIndicatorKind; label: string }>
+                  items={ANSWER_OPTION_INDICATOR_OPTIONS}
+                  value={
+                    ANSWER_OPTION_INDICATOR_OPTIONS.find(
+                      (i) => i.value === opts.answerOptionIndicator
+                    ) ?? ANSWER_OPTION_INDICATOR_OPTIONS[0]
+                  }
+                  onValueChange={(item) =>
+                    item && setOpts({ ...opts, answerOptionIndicator: item.value })
+                  }
+                  getItemLabel={(i) => i.label}
+                  getItemId={(i) => i.value}
+                  triggerClassName="w-full"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="question-on-own-line-settings-only"
+                  checked={opts.questionNumberOnOwnLine}
+                  onCheckedChange={(checked) =>
+                    setOpts({ ...opts, questionNumberOnOwnLine: checked === true })
+                  }
+                />
+                <Label
+                  htmlFor="question-on-own-line-settings-only"
+                  className="text-xs font-normal leading-snug cursor-pointer"
+                >
+                  Question number must be on its own line
+                </Label>
+              </div>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="option-on-own-line-settings-only"
+                  checked={opts.answerOptionOnOwnLine}
+                  onCheckedChange={(checked) =>
+                    setOpts({ ...opts, answerOptionOnOwnLine: checked === true })
+                  }
+                />
+                <Label
+                  htmlFor="option-on-own-line-settings-only"
+                  className="text-xs font-normal leading-snug cursor-pointer"
+                >
+                  Answer option letter must be on its own line
+                </Label>
+              </div>
+            </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    )
+  }
 
   return (
     <div
@@ -259,6 +356,7 @@ export function Step2PasteDocument({
           enableImages={true}
           onImageFileIdsChange={onImageFileIdsChange}
           pasteTableBehavior={pasteTableBehavior}
+          {...BULK_IMPORT_RTE_PASTE}
           ucatParseHighlight={ucatQHighlight}
         />
       </div>

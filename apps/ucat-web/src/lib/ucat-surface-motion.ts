@@ -137,7 +137,9 @@ export const UCAT_LIST_ROW_LINK = cn(
 );
 
 /**
- * Bottom-up hover wash; pair with `bg-primary text-primary-foreground dark:bg-accent dark:text-primary-foreground`.
+ * Bottom-up hover wash (marketing `MagneticButton` motion language).
+ * Applied by default on filled `@/components/ui/button` variants (`default`, `destructive`, `secondary`).
+ * For native `<button>` / `<a>` CTAs, add this class with a solid `bg-*` fill.
  * Styles live in `globals.css` (`.ucat-btn-accent-fill-rise`).
  */
 export const UCAT_ACCENT_FILL_RISE = "ucat-btn-accent-fill-rise" as const;
@@ -148,8 +150,9 @@ export const UCAT_ACCENT_FILL_RISE = "ucat-btn-accent-fill-rise" as const;
  */
 export const UCAT_PRIMARY_ACTION_BUTTON = cn(
   UCAT_ACCENT_FILL_RISE,
-  "inline-flex h-10 items-center justify-center rounded-ucatControl bg-primary px-4 text-sm font-medium text-primary-foreground dark:bg-accent dark:text-primary-foreground",
-  "hover:shadow-md motion-safe:hover:scale-[1.02]",
+  "relative z-0 inline-flex h-10 items-center justify-center rounded-ucatControl bg-primary px-4 text-sm font-medium text-primary-foreground dark:bg-accent dark:text-primary-foreground",
+  "hover:bg-primary hover:shadow-md dark:hover:bg-accent",
+  "motion-safe:hover:scale-[1.02]",
   "active:scale-[0.98]",
   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   "disabled:pointer-events-none disabled:opacity-60 disabled:active:scale-100",

@@ -1,15 +1,16 @@
+import type { UcatCheckoutPlan } from "@/lib/ucat/subscription-plan";
+
 /**
  * Creates a Stripe Checkout Session for UCAT subscription.
- * Pass an optional `priceId` to override the default configured price.
  * Returns the redirect URL to Stripe hosted checkout.
  */
 export async function createUcatCheckoutSession(
-  priceId?: string,
+  plan: UcatCheckoutPlan = "weekly",
 ): Promise<{ url: string }> {
   const res = await fetch("/api/ucat/checkout", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(priceId ? { priceId } : {}),
+    body: JSON.stringify({ plan }),
   });
 
   if (!res.ok) {

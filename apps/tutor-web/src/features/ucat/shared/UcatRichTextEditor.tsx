@@ -43,6 +43,8 @@ export interface UcatRichTextEditorProps {
   pastePlainTextAsParagraphs?: boolean
   /** When set, controls how pasted table content is handled. See RichTextEditor pasteTableBehavior. */
   pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep'
+  /** When true, pasted HTML keeps only bold, italic, and tables. See RichTextEditor pasteStripFormatting. */
+  pasteStripFormatting?: boolean
   /**
    * Bulk import: in-editor parse highlights. Defaults to `mode: 'off'`. Read from a ref internally;
    * dispatch a no-op tr with {@link UCAT_PARSE_DECO_META} when this changes without a doc change.
@@ -87,6 +89,7 @@ export function UcatRichTextEditor({
   onImageFileIdsChange,
   pastePlainTextAsParagraphs,
   pasteTableBehavior,
+  pasteStripFormatting,
   ucatParseHighlight: ucatParseHighlightProp,
   additionalExtensions,
   onEditorReady: onEditorReadyProp,
@@ -372,6 +375,7 @@ export function UcatRichTextEditor({
         minHeight={minHeight}
         pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
         pasteTableBehavior={pasteTableBehavior}
+        pasteStripFormatting={pasteStripFormatting}
         extensions={mergedExtraExtensions}
         omitTypography={omitTypography}
         onEditorReady={(ed) => {

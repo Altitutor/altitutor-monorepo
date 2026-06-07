@@ -36,7 +36,8 @@ export type QuestionPasteStats = {
 export function computeQuestionPasteStats(
   docJson: Json | null | undefined,
   section: BulkImportParseSection | null,
-  classify: QuestionPasteClassify
+  classify: QuestionPasteClassify,
+  options?: { questionsOnly?: boolean }
 ): QuestionPasteStats {
   if (!section) {
     return { totalStems: 0, totalQuestions: 0, totalOptions: 0, stemBreakdown: [] }
@@ -46,6 +47,7 @@ export function computeQuestionPasteStats(
     ...classify,
     acceptSyllogismOptions: bulkImportParserAcceptSyllogism(section),
     questionLookaheadLimit: section === 'quantitative_reasoning' ? 160 : undefined,
+    questionsOnly: options?.questionsOnly,
   })
   const stems =
     section === 'quantitative_reasoning'
