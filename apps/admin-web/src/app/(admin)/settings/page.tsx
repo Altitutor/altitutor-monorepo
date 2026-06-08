@@ -123,6 +123,12 @@ export default function SettingsPage() {
           icon: GraduationCap,
         },
         {
+          title: 'UCAT skill trainers',
+          description: 'Enable trainers and configure timing, scoring, and cooldowns',
+          href: '/settings/ucat-skill-trainers',
+          icon: GraduationCap,
+        },
+        {
           title: 'Score predictor model',
           description: 'Configure cold-start constants for UCAT section score projections',
           href: '/settings/ucat-model-config',

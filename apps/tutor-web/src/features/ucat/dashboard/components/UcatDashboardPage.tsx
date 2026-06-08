@@ -11,6 +11,7 @@ import {
   School,
   ScrollText,
   Tag,
+  Target,
   type LucideIcon,
   Users,
 } from 'lucide-react'
@@ -61,6 +62,13 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
         href: '/ucat/reconciliation',
         icon: GitMerge,
         accentClass: 'bg-orange-500/10 text-orange-800 dark:text-orange-300',
+      },
+      {
+        title: 'Skill trainer',
+        description: 'Author skill trainer drill items for student timed exercises',
+        href: '/ucat/skill-trainer',
+        icon: Target,
+        accentClass: 'bg-violet-500/10 text-violet-800 dark:text-violet-300',
       },
     ],
   },

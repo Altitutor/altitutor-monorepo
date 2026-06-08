@@ -95,9 +95,25 @@ export async function countQuotaUsage(
     case "mocks":
       return countMockStarts(supabase, ctx.studentId, periodStart);
     case "learn":
-    case "skill_trainer":
       return 0;
+    case "skill_trainer":
+      return countSkillTrainerStarts(supabase, ctx.studentId, periodStart);
   }
+}
+
+async function countSkillTrainerStarts(
+  supabase: AdminClient,
+  studentId: string,
+  periodStart: string,
+): Promise<number> {
+  const { count, error } = await supabase
+    .from("student_skill_trainer_attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("student_id", studentId)
+    .gte("started_at", periodStart);
+
+  if (error) throw new Error(error.message);
+  return count ?? 0;
 }
 
 async function countPracticeUsage(

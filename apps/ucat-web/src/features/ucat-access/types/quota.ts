@@ -42,5 +42,5 @@ export const UCAT_QUOTA_AREA_LABELS: Record<UcatQuotaArea, string> = {
   sets: "Sets",
   mocks: "Mocks",
   learn: "Learning modules",
-  skill_trainer: "Skill trainer sessions",
+  skill_trainer: "Skill trainer attempts",
 };
