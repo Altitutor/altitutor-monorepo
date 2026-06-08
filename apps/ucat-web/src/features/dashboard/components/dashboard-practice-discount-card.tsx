@@ -16,6 +16,7 @@ import {
 } from "@altitutor/ui";
 import type { PracticeDiscountDayEntry } from "@/lib/ucat/practice-day-discount-dashboard";
 import { QuotaProgressBar } from "@/features/ucat-access/components/quota-usage-card";
+import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { usePracticeDiscountDashboard } from "@/features/subscription/hooks/use-practice-discount-dashboard";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
@@ -84,27 +85,40 @@ function WeekDayCell({ day }: { day: PracticeDiscountDayEntry }) {
 
 export function DashboardPracticeDiscountCard() {
   const access = useUcatAccess();
+  const {
+    data: quotaData,
+    isLoading: quotaLoading,
+    isError: quotaError,
+  } = useQuotaUsage();
   const { data, isLoading, isError } = usePracticeDiscountDashboard();
 
-  const isPaidTier =
+  const accessIndicatesPaid =
     !access.isLoading &&
     access.isQuotaExempt &&
     access.onlineTier !== null &&
     access.onlineTier !== "free";
+  const quotaIndicatesPaid =
+    !quotaLoading &&
+    !quotaError &&
+    quotaData?.isQuotaExempt &&
+    quotaData.onlineTier !== "free";
+  const isPaidTier = accessIndicatesPaid || quotaIndicatesPaid;
+  const displayTier = access.onlineTier ?? quotaData?.onlineTier ?? null;
 
-  if (!access.isLoading && !isPaidTier) {
+  if (!access.isLoading && !quotaLoading && !isPaidTier) {
     return null;
   }
 
-  if (access.isLoading || isLoading) {
+  if (access.isLoading || quotaLoading || isLoading) {
     return <Skeleton className="h-[280px] rounded-ucatShell" />;
   }
 
-  if (isError || !data?.eligible) {
+  if (isError || !data) {
     return null;
   }
 
   const { today } = data;
+  const showInvoiceDiscount = data.eligible && data.cap > 0;
 
   return (
     <Card className={UCAT_CARD_CHROME}>
@@ -116,8 +130,7 @@ export function DashboardPracticeDiscountCard() {
                 Practice day discounts
               </CardTitle>
               <Badge className={UCAT_PLAN_TIER_BADGE_CLASS}>
-                {UCAT_ONLINE_TIER_LABELS[access.onlineTier ?? ""] ??
-                  "UCAT Unlimited"}
+                {UCAT_ONLINE_TIER_LABELS[displayTier ?? ""] ?? "UCAT Unlimited"}
               </Badge>
             </div>
             <p className="text-sm font-normal text-muted-foreground">
@@ -145,7 +158,7 @@ export function DashboardPracticeDiscountCard() {
               <Badge variant="default" className="text-[10px]">
                 Discount earned
               </Badge>
-            ) : data.periodCapReached ? (
+            ) : showInvoiceDiscount && data.periodCapReached ? (
               <span className="text-xs text-muted-foreground">
                 Period cap reached ({data.earned} / {data.cap})
               </span>
@@ -155,7 +168,7 @@ export function DashboardPracticeDiscountCard() {
               </span>
             )}
           </div>
-          {!today.earnedCredit && !data.periodCapReached ? (
+          {!today.earnedCredit && !(showInvoiceDiscount && data.periodCapReached) ? (
             <>
               <QuotaProgressBar
                 used={today.questionsDone}
@@ -170,7 +183,7 @@ export function DashboardPracticeDiscountCard() {
                     : `${today.remainingQuestions} more questions to earn today's discount.`}
               </p>
             </>
-          ) : today.earnedCredit ? (
+          ) : today.earnedCredit && showInvoiceDiscount ? (
             <p className="text-xs text-muted-foreground">
               You&apos;ve earned{" "}
               {formatMoneyFromMinorUnits(
@@ -193,15 +206,17 @@ export function DashboardPracticeDiscountCard() {
           </TooltipProvider>
         </div>
 
-        <div className="rounded-ucatControl border border-border/60 bg-muted/30 px-4 py-3">
-          <p className="text-sm text-muted-foreground">Next invoice discount</p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-            {formatMoneyFromMinorUnits(data.totalDiscountCents, data.currency)}
-            <span className="ml-2 text-sm font-normal text-muted-foreground">
-              ({data.earned} / {data.cap} days this period)
-            </span>
-          </p>
-        </div>
+        {showInvoiceDiscount ? (
+          <div className="rounded-ucatControl border border-border/60 bg-muted/30 px-4 py-3">
+            <p className="text-sm text-muted-foreground">Next invoice discount</p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
+              {formatMoneyFromMinorUnits(data.totalDiscountCents, data.currency)}
+              <span className="ml-2 text-sm font-normal text-muted-foreground">
+                ({data.earned} / {data.cap} days this period)
+              </span>
+            </p>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

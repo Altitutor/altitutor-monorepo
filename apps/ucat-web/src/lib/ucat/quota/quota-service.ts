@@ -112,7 +112,13 @@ async function countSkillTrainerStarts(
     .eq("student_id", studentId)
     .gte("started_at", periodStart);
 
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Skill trainer schema may not be deployed yet; do not fail other quota areas.
+    if (error.code === "42P01" || error.code === "PGRST205") {
+      return 0;
+    }
+    throw new Error(error.message);
+  }
   return count ?? 0;
 }
 

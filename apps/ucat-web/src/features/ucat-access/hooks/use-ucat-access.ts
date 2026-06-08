@@ -55,7 +55,7 @@ function mapAccessRow(
   data: VstudentUcatMyAccessRow,
 ): Omit<UcatAccessFlags, "isLoading"> {
   return {
-    hasOnlineAccess: true,
+    hasOnlineAccess: Boolean(data.has_online_access),
     hasInPersonAccess: Boolean(data.has_in_person_access),
     hasUcatAccess: Boolean(data.has_ucat_access),
     onlineTier: parseOnlineTier(data.online_tier),
