@@ -1,4 +1,10 @@
-export type StaffPayTierRequirementKind = 'TENURE_DAYS' | 'TENURE_MONTHS' | 'SESSION_COUNT';
+export type StaffPayTierRequirementKind =
+  | 'TENURE_DAYS'
+  | 'TENURE_MONTHS'
+  | 'TIME_SINCE_LAST_PROMOTION'
+  | 'SESSION_COUNT';
+
+export type TimeUnit = 'days' | 'weeks' | 'months';
 
 export type StaffTierPromotionOutcome = 'approved' | 'deferred' | 'not_ready';
 
@@ -9,9 +15,14 @@ export interface StaffPayTier {
   currency: string;
 }
 
-export interface TenureRequirementParams {
+export interface TimeRequirementParams {
   min: number;
+  unit?: TimeUnit;
 }
+
+export interface TenureRequirementParams extends TimeRequirementParams {}
+
+export interface TimeSincePromotionRequirementParams extends TimeRequirementParams {}
 
 export interface SessionCountRequirementParams {
   min: number;
@@ -19,7 +30,10 @@ export interface SessionCountRequirementParams {
   attendance_types?: string[];
 }
 
-export type RequirementParams = TenureRequirementParams | SessionCountRequirementParams;
+export type RequirementParams =
+  | TenureRequirementParams
+  | TimeSincePromotionRequirementParams
+  | SessionCountRequirementParams;
 
 export interface StaffPayTierRequirement {
   id: string;
@@ -80,7 +94,9 @@ export interface PayTierCheckIn {
   /** Pay tier at check-in time (admin staff view). */
   tierAtCheckIn?: number;
   tierName?: string | null;
-  /** Other staff on the check-in (excludes the viewing tutor). */
+  /** Staff conducting the check-in (hosts). */
+  conductingStaff?: PayTierCheckInStaffMember[];
+  /** @deprecated Use conductingStaff */
   otherStaff?: PayTierCheckInStaffMember[];
 }
 
@@ -95,6 +111,8 @@ export interface StaffTierProgress {
   tierDetails: PayTierTierDetail[];
   requirementsForNextTier: RequirementProgress[];
   isEligibleForReview: boolean;
+  /** Highest tier achievable in one approval (equals current tier when not eligible to advance). */
+  highestEligiblePromotionTier: number;
   promotions: StaffTierPromotionRecord[];
   lastCheckIn: LastCheckInInfo | null;
   checkIns: PayTierCheckIn[];

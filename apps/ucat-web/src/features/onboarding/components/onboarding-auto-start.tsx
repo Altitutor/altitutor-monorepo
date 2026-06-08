@@ -4,9 +4,13 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { useNextStep } from "nextstepjs";
 import { useAuth } from "@/features/auth";
-import { getTourForPathname } from "@/features/onboarding/config/tour-steps";
+import {
+  getTourForPathname,
+  UCAT_ONBOARDING_TOUR,
+} from "@/features/onboarding/config/tour-steps";
 import { consumeOnboardingAutoStartSuppression } from "@/features/onboarding/lib/suppress-next-auto-tour";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { consumeSignupOnboardingTourPending } from "@/features/signup-onboarding/lib/signup-tour-flag";
 
 /**
  * Mounts inside `OnboardingProvider` and auto-starts the appropriate tour
@@ -34,6 +38,16 @@ export function OnboardingAutoStart() {
 
     const tourId = getTourForPathname(pathname);
     if (!tourId) return;
+    if (
+      tourId === UCAT_ONBOARDING_TOUR &&
+      consumeSignupOnboardingTourPending()
+    ) {
+      lastStartedRef.current = tourId;
+      const timer = window.setTimeout(() => {
+        startNextStep(tourId);
+      }, 600);
+      return () => window.clearTimeout(timer);
+    }
     if (consumeOnboardingAutoStartSuppression(tourId)) {
       lastStartedRef.current = tourId;
       return;

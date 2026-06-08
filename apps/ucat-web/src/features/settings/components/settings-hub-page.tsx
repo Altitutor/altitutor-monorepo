@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
-import { ChevronRight, Monitor, Palette, User } from "lucide-react";
+import { ChevronRight, CreditCard, Monitor, Palette, User } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
 import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
@@ -20,6 +20,12 @@ const LINKS = [
     label: "My profile",
     description: "Email, your name, and password.",
     icon: User,
+  },
+  {
+    href: "/settings/plan",
+    label: "Plan",
+    description: "Your plan, benefits, billing, and upgrade options.",
+    icon: CreditCard,
   },
   {
     href: "/settings/study-planner",

@@ -49,7 +49,8 @@ export function hasAccessForPath(
   const config = getUpsellConfigForPath(path);
   if (!config) return true;
 
-  if (config.requiredAccess === "online") return access.hasOnlineAccess;
+  // Online routes are open to all signed-up students (freemium quotas apply at action time).
+  if (config.requiredAccess === "online") return true;
   return access.hasInPersonAccess;
 }
 

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
+import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
 import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
 import { ListChecks, Sparkles } from "lucide-react";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
@@ -18,6 +19,7 @@ export function SetsLandingPage() {
         title="Sets"
         description="Choose a section to browse and practice question sets."
       />
+      <QuotaUsageCard area="sets" />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {SECTIONS.map((num) => {
           const label = SECTION_NUMBER_TO_NAME[num] ?? `Section ${num}`;

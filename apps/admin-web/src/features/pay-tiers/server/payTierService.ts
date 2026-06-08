@@ -5,8 +5,11 @@ import {
   type StaffTierProgress,
   type StaffPayTier,
   type StaffTierPromotionRecord,
+  isCheckInHostRole,
+  isCheckInReceiverRole,
   type LastCheckInInfo,
   type PayTierCheckIn,
+  type PayTierCheckInStaffMember,
 } from '@altitutor/shared/pay-tiers';
 import type { Database } from '@altitutor/shared';
 
@@ -47,9 +50,10 @@ export async function fetchLastCheckInForStaff(
 ): Promise<LastCheckInInfo | null> {
   const { data, error } = await admin
     .from('sessions')
-    .select('id, start_at, long_name, sessions_staff!inner(staff_id)')
+    .select('id, start_at, long_name, sessions_staff!inner(staff_id, type)')
     .eq('type', 'CHECK_IN')
     .eq('sessions_staff.staff_id', staffId)
+    .in('sessions_staff.type', ['CHECK_IN_RECEIVER', 'MAIN_TUTOR'])
     .order('start_at', { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -76,13 +80,15 @@ export async function fetchLastCheckInForStaff(
       ),
       tutor_logs_staff_attendance!inner (
         staff_id,
-        attended
+        attended,
+        type
       )
     `
     )
     .eq('session_type', 'CHECK_IN')
     .eq('tutor_logs_staff_attendance.staff_id', staffId)
     .eq('tutor_logs_staff_attendance.attended', true)
+    .in('tutor_logs_staff_attendance.type', ['CHECK_IN_RECEIVER', 'MAIN_TUTOR'])
     .order('id', { ascending: false })
     .limit(50);
 
@@ -149,6 +155,7 @@ export async function fetchStaffTierProgress(
     displayName: row.longName,
     tierAtCheckIn: row.tierAtCheckIn,
     tierName: row.tierName,
+    conductingStaff: row.conductingStaff,
     linkedPromotion: row.linkedPromotion
       ? {
           id: row.linkedPromotion.id,
@@ -261,6 +268,7 @@ export interface StaffCheckInRecord {
   longName: string | null;
   tierAtCheckIn: number;
   tierName: string | null;
+  conductingStaff: PayTierCheckInStaffMember[];
   linkedPromotion: {
     id: string;
     outcome: string;
@@ -294,11 +302,23 @@ function tierAtDate(
 
 type SessionCheckInLogEmbed = {
   id: string;
-  tutor_logs_staff_attendance: Array<{ staff_id: string; attended: boolean | null }> | null;
+  tutor_logs_staff_attendance: Array<{
+    staff_id: string;
+    attended: boolean | null;
+    type?: string | null;
+  }> | null;
 };
 
 type SessionCheckInStaffEmbed = {
   staff_id: string;
+  type?: string | null;
+  staff?: {
+    first_name: string | null;
+    last_name: string | null;
+  } | {
+    first_name: string | null;
+    last_name: string | null;
+  }[] | null;
 };
 
 type SessionCheckInRow = {
@@ -338,10 +358,14 @@ async function fetchStaffCheckInSessionsPage(
         start_at,
         end_at,
         long_name,
-        sessions_staff!inner (staff_id),
+        sessions_staff!inner (
+          staff_id,
+          type,
+          staff:staff_id (first_name, last_name)
+        ),
         tutor_logs (
           id,
-          tutor_logs_staff_attendance (staff_id, attended)
+          tutor_logs_staff_attendance (staff_id, attended, type)
         )
       `
       : `
@@ -351,7 +375,12 @@ async function fetchStaffCheckInSessionsPage(
         long_name,
         tutor_logs!inner (
           id,
-          tutor_logs_staff_attendance!inner (staff_id, attended)
+          tutor_logs_staff_attendance!inner (staff_id, attended, type)
+        ),
+        sessions_staff (
+          staff_id,
+          type,
+          staff:staff_id (first_name, last_name)
         )
       `;
 
@@ -363,9 +392,14 @@ async function fetchStaffCheckInSessionsPage(
     .range(from, from + pageSize - 1);
 
   if (source === 'sessions_staff') {
-    query = query.eq('sessions_staff.staff_id', staffId);
+    query = query
+      .eq('sessions_staff.staff_id', staffId)
+      .in('sessions_staff.type', ['CHECK_IN_RECEIVER', 'MAIN_TUTOR']);
   } else {
-    query = query.eq('tutor_logs.tutor_logs_staff_attendance.staff_id', staffId);
+    query = query
+      .eq('tutor_logs.tutor_logs_staff_attendance.staff_id', staffId)
+      .eq('tutor_logs.tutor_logs_staff_attendance.attended', true)
+      .in('tutor_logs.tutor_logs_staff_attendance.type', ['CHECK_IN_RECEIVER', 'MAIN_TUTOR']);
   }
 
   const { data, error } = await query;
@@ -425,16 +459,54 @@ async function fetchStaffCheckInSessions(
   return mergeStaffCheckInSessions(booked, logged);
 }
 
-function staffAttendedCheckIn(session: SessionCheckInRow, staffId: string): boolean {
-  if (normalizeSessionsStaff(session.sessions_staff).some((s) => s.staff_id === staffId)) {
+function staffIsCheckInReceiver(session: SessionCheckInRow, staffId: string): boolean {
+  if (
+    normalizeSessionsStaff(session.sessions_staff).some(
+      (s) => s.staff_id === staffId && isCheckInReceiverRole(s.type)
+    )
+  ) {
     return true;
   }
   for (const log of normalizeTutorLogs(session.tutor_logs)) {
     for (const att of log.tutor_logs_staff_attendance ?? []) {
-      if (att.staff_id === staffId && att.attended === true) return true;
+      if (att.staff_id === staffId && att.attended === true && isCheckInReceiverRole(att.type)) {
+        return true;
+      }
     }
   }
   return false;
+}
+
+function staffEmbedName(
+  embed: SessionCheckInStaffEmbed['staff']
+): { firstName: string | null; lastName: string | null } {
+  const row = Array.isArray(embed) ? embed[0] : embed;
+  return {
+    firstName: row?.first_name ?? null,
+    lastName: row?.last_name ?? null,
+  };
+}
+
+function conductingStaffOnSession(session: SessionCheckInRow): PayTierCheckInStaffMember[] {
+  const hosts: PayTierCheckInStaffMember[] = [];
+  const seen = new Set<string>();
+
+  for (const row of normalizeSessionsStaff(session.sessions_staff)) {
+    if (!isCheckInHostRole(row.type) || seen.has(row.staff_id)) continue;
+    seen.add(row.staff_id);
+    const { firstName, lastName } = staffEmbedName(row.staff);
+    hosts.push({ staffId: row.staff_id, firstName, lastName });
+  }
+
+  for (const log of normalizeTutorLogs(session.tutor_logs)) {
+    for (const att of log.tutor_logs_staff_attendance ?? []) {
+      if (!isCheckInHostRole(att.type) || !att.attended || seen.has(att.staff_id)) continue;
+      seen.add(att.staff_id);
+      hosts.push({ staffId: att.staff_id, firstName: null, lastName: null });
+    }
+  }
+
+  return hosts;
 }
 
 export async function fetchStaffCheckIns(
@@ -473,7 +545,7 @@ export async function fetchStaffCheckIns(
 
   const rows: StaffCheckInRecord[] = [];
   for (const session of sessions) {
-    if (!session.start_at || !staffAttendedCheckIn(session, staffId)) continue;
+    if (!session.start_at || !staffIsCheckInReceiver(session, staffId)) continue;
 
     const linked = promoBySession.get(session.id);
     const tierNumber = linked
@@ -490,6 +562,7 @@ export async function fetchStaffCheckIns(
       longName: session.long_name,
       tierAtCheckIn: tierNumber,
       tierName: tierMeta?.name ?? null,
+      conductingStaff: conductingStaffOnSession(session),
       linkedPromotion: linked
         ? {
             id: linked.id,

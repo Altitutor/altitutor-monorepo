@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
-import { Button, SearchableSelect } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { SearchableSelect } from "@altitutor/ui";
 import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
 import { UCAT_TOUR_REPLAY_OPTIONS, useOnboardingTour } from "@/features/onboarding";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";

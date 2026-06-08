@@ -39,6 +39,7 @@ import {
   tutorTableShell,
 } from '@/shared/lib/tutor-visual';
 import { cn } from '@/shared/utils';
+import { formatCheckInStaffRole } from '@altitutor/shared/pay-tiers';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -248,6 +249,7 @@ export function SessionModal({
                     <TableHeader className="[&_tr]:border-b-0">
                       <TableRow className={tutorTableHeaderRow}>
                         <TableHead>Staff</TableHead>
+                        {isCheckIn ? <TableHead>Role</TableHead> : null}
                         <TableHead>Planned</TableHead>
                         <TableHead>Actual</TableHead>
                         {!isCheckIn && <TableHead>Tutor Log</TableHead>}
@@ -259,13 +261,28 @@ export function SessionModal({
                           <TableCell className="font-medium">
                             {data.staff.first_name} {data.staff.last_name}
                           </TableCell>
+                          {isCheckIn ? (
+                            <TableCell>
+                              <Badge variant="outline">
+                                {formatCheckInStaffRole(data.sessionsStaffType) ?? '—'}
+                              </Badge>
+                            </TableCell>
+                          ) : null}
                           <TableCell>
                             <AttendanceCell status={data.plannedStatus} />
                           </TableCell>
                           <TableCell>
                             <AttendanceCell
                               status={data.actualStatus}
-                              staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined}
+                              staffType={
+                                isCheckIn
+                                  ? undefined
+                                  : (data.staffType as
+                                      | 'MAIN_TUTOR'
+                                      | 'SECONDARY_TUTOR'
+                                      | 'TRIAL_TUTOR'
+                                      | undefined)
+                              }
                             />
                           </TableCell>
                           {!isCheckIn && (

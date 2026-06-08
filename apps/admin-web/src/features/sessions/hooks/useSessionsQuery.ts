@@ -219,8 +219,15 @@ export function useAssignStaffToSession() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ sessionId, staffId, type }: { sessionId: string; staffId: string; type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' }) =>
-      sessionsApi.assignStaffToSession(sessionId, staffId, type),
+    mutationFn: ({
+      sessionId,
+      staffId,
+      type,
+    }: {
+      sessionId: string;
+      staffId: string;
+      type?: import('../utils/sessionDataProcessing').SessionStaffRole;
+    }) => sessionsApi.assignStaffToSession(sessionId, staffId, type),
     onSuccess: (_, { sessionId }) => {
       // Invalidate session details to refetch with new staff
       queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });

@@ -3,14 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { LogOut, LayoutDashboard, User } from "lucide-react";
-import {
-  Button,
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@altitutor/ui";
 import { useAuth } from "@/features/auth";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
 import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";

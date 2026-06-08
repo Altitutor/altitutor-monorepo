@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
 import type { Json } from '@altitutor/shared';
-type RequirementKind = 'TENURE_DAYS' | 'TENURE_MONTHS' | 'SESSION_COUNT';
+
+type RequirementKind =
+  | 'TENURE_DAYS'
+  | 'TENURE_MONTHS'
+  | 'TIME_SINCE_LAST_PROMOTION'
+  | 'SESSION_COUNT';
 
 const TENURE_KINDS: RequirementKind[] = ['TENURE_DAYS', 'TENURE_MONTHS'];
 
@@ -58,6 +63,23 @@ export async function POST(
     }
   }
 
+  if (body.requirement_kind === 'TIME_SINCE_LAST_PROMOTION') {
+    const { data: existingTimeSince, error: timeSinceCheckError } = await auth.admin
+      .from('staff_pay_tier_requirements')
+      .select('id')
+      .eq('tier_number', tierNumber)
+      .eq('requirement_kind', 'TIME_SINCE_LAST_PROMOTION');
+    if (timeSinceCheckError) {
+      return NextResponse.json({ error: timeSinceCheckError.message }, { status: 500 });
+    }
+    if (existingTimeSince && existingTimeSince.length > 0) {
+      return NextResponse.json(
+        { error: 'This tier already has a time-since-promotion requirement. Edit the existing one.' },
+        { status: 400 }
+      );
+    }
+  }
+
   const { data, error } = await auth.admin
     .from('staff_pay_tier_requirements')
     .insert({
@@ -104,6 +126,24 @@ export async function PATCH(
     if (otherTenure && otherTenure.length > 0) {
       return NextResponse.json(
         { error: 'Only one tenure requirement is allowed per tier' },
+        { status: 400 }
+      );
+    }
+  }
+
+  if (body.requirement_kind === 'TIME_SINCE_LAST_PROMOTION') {
+    const { data: otherTimeSince, error: timeSinceCheckError } = await auth.admin
+      .from('staff_pay_tier_requirements')
+      .select('id')
+      .eq('tier_number', tierNumber)
+      .eq('requirement_kind', 'TIME_SINCE_LAST_PROMOTION')
+      .neq('id', body.id);
+    if (timeSinceCheckError) {
+      return NextResponse.json({ error: timeSinceCheckError.message }, { status: 500 });
+    }
+    if (otherTimeSince && otherTimeSince.length > 0) {
+      return NextResponse.json(
+        { error: 'Only one time-since-promotion requirement is allowed per tier' },
         { status: 400 }
       );
     }

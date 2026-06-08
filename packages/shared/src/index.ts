@@ -6,6 +6,7 @@ export * from "./types/helpers";
 export * from "./types/quick-filters";
 export * from "./types/data-table";
 export * from "./types/ucat-progress";
+export * from "./types/ucat-subscription";
 export * from "./utils/quick-filters";
 export * from "./utils/session-format";
 export * from "./external-url/embed";

@@ -1,8 +1,10 @@
 "use client";
 
 import { FormEvent, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button, Input, Label } from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@altitutor/ui";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -11,12 +13,16 @@ const { typography: typo } = MARKETING_TOKENS;
 
 export function LoginForm({
   redirectTo = "/dashboard",
+  initialEmail = "",
+  accountExists = false,
 }: {
   redirectTo?: string;
+  initialEmail?: string;
+  accountExists?: boolean;
 }) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,10 +51,18 @@ export function LoginForm({
     <form
       onSubmit={onSubmit}
       className={cn(
-        "auth-entrance space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
+        "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm backdrop-blur-sm",
         typo.secondarySans,
       )}
     >
+      {accountExists ? (
+        <p
+          className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground"
+          role="status"
+        >
+          An account with this email already exists. Sign in below.
+        </p>
+      ) : null}
       <div className="space-y-1.5">
         <Label htmlFor="email" className="text-sm font-medium text-foreground/90">
           Email address
@@ -66,9 +80,17 @@ export function LoginForm({
         />
       </div>
       <div className="space-y-1.5">
-        <Label htmlFor="password" className="text-sm font-medium text-foreground/90">
-          Password
-        </Label>
+        <div className="flex items-center justify-between gap-2">
+          <Label htmlFor="password" className="text-sm font-medium text-foreground/90">
+            Password
+          </Label>
+          <Link
+            href="/forgot-password"
+            className="text-sm font-medium text-primary underline-offset-2 transition-colors hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="password"
           type="password"

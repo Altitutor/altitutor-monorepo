@@ -1,25 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { Badge } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import { useComingSoon } from "@/features/layout/context/coming-soon-context";
-import { AccessUpsellModal } from "@/features/ucat-access/components/access-upsell-modal";
+import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import {
   getUpsellConfigForPath,
   hasAccessForPath,
-  type RequiredUcatAccess,
 } from "@/features/ucat-access/lib/route-access";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { dashboardCards } from "@/features/dashboard/config/dashboard-cards";
+import { DashboardFreeQuotaCard } from "@/features/dashboard/components/dashboard-free-quota-card";
+import { DashboardPracticeDiscountCard } from "@/features/dashboard/components/dashboard-practice-discount-card";
 import { TodaySessionCard } from "@/features/dashboard/components/today-session-card";
 import { ReviewHeatmapCard } from "@/features/progress/components/review-heatmap-card";
-import { useStudyPlannerProjection } from "@/features/study-planner/hooks/use-study-planner-projection";
-import { useStudyPlannerSettings } from "@/features/study-planner/hooks/use-study-planner-settings";
-import { StudyPlannerTestDateCard } from "@/features/study-planner/components/study-planner-test-date-card";
-import { StudyPlannerSummaryCard } from "@/features/study-planner/components/study-planner-summary-card";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import { ucatDashboardNavTileClassName } from "@/lib/ucat-surface-motion";
 
@@ -27,17 +24,12 @@ export function DashboardPage() {
   const reduceMotion = useReducedMotion();
   const { showComingSoonModal } = useComingSoon();
   const access = useUcatAccess();
-  const settingsQuery = useStudyPlannerSettings();
-  const projectionQuery = useStudyPlannerProjection(access.hasOnlineAccess);
-  const [upsellOpen, setUpsellOpen] = useState(false);
-  const [upsellRequiredAccess, setUpsellRequiredAccess] =
-    useState<RequiredUcatAccess | null>(null);
+  const { openInPersonUpsell } = useUpsellDialog();
 
   const openUpsellForPath = (path: string) => {
     const config = getUpsellConfigForPath(path);
-    if (!config) return;
-    setUpsellRequiredAccess(config.requiredAccess);
-    setUpsellOpen(true);
+    if (!config || config.requiredAccess !== "inPerson") return;
+    openInPersonUpsell();
   };
 
   const cardGridVariants = useMemo(
@@ -81,14 +73,8 @@ export function DashboardPage() {
       {access.hasOnlineAccess ? (
         <ReviewHeatmapCard showViewAllProgressLink />
       ) : null}
-
-      <div className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <StudyPlannerTestDateCard testDate={settingsQuery.data?.testDate ?? null} />
-        <StudyPlannerSummaryCard
-          projection={projectionQuery.data ?? null}
-          isLoading={projectionQuery.isLoading}
-        />
-      </div>
+      <DashboardFreeQuotaCard />
+      <DashboardPracticeDiscountCard />
 
       <motion.div
         className="grid items-stretch gap-4 sm:grid-cols-2 lg:grid-cols-3"
@@ -176,14 +162,6 @@ export function DashboardPage() {
           );
         })}
       </motion.div>
-      <AccessUpsellModal
-        open={upsellOpen}
-        requiredAccess={upsellRequiredAccess}
-        onOpenChange={(open) => {
-          setUpsellOpen(open);
-          if (!open) setUpsellRequiredAccess(null);
-        }}
-      />
     </div>
   );
 }

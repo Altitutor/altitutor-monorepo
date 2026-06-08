@@ -10,4 +10,10 @@ export { StudentCard } from './StudentCard';
 export { StaffCard } from './StaffCard';
 
 // Logout confirmation modal
-export { LogoutConfirmationModal } from './logout-confirmation-modal'; 
+export { LogoutConfirmationModal } from './logout-confirmation-modal';
+
+export {
+  SegmentedControl,
+  type SegmentedControlOption,
+  type SegmentedControlProps,
+} from './segmented-control'; 

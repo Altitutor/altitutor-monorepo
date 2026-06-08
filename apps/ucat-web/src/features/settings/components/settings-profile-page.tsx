@@ -3,11 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import {
-  Button,
-  Input,
-  Label,
-} from "@altitutor/ui";
+import { Button } from "@/components/ui/button";
+import { Input, Label } from "@altitutor/ui";
 import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
 import { useAuth } from "@/features/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";

@@ -48,6 +48,12 @@ configure_smtp() {
     fi
     
     TOTAL_COUNT=$((TOTAL_COUNT + 1))
+
+    # Match deploy-config.sh defaults: higher on dev for auth-flow testing.
+    local email_sent_limit=100
+    if [ "$environment" = "development" ]; then
+        email_sent_limit=200
+    fi
     
     # Configure SMTP via Management API
     local response=$(curl -s -w "\n%{http_code}" -X PATCH \
@@ -63,7 +69,9 @@ configure_smtp() {
             \"smtp_port\": 587,
             \"smtp_user\": \"resend\",
             \"smtp_pass\": \"$resend_api_key\",
-            \"smtp_sender_name\": \"${sender_name:-Altitutor}\"
+            \"smtp_sender_name\": \"${sender_name:-Altitutor}\",
+            \"rate_limit_email_sent\": $email_sent_limit,
+            \"rate_limit_otp\": $email_sent_limit
         }")
     
     local http_code=$(echo "$response" | tail -n1)

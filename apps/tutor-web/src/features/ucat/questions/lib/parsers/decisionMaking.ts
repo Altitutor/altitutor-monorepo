@@ -85,9 +85,12 @@ export function parseDecisionMakingFromDoc(
   return parseDecisionMakingFromLines(logicalLines, configOverrides)
 }
 
-export function parseDecisionMakingPlainText(input: string): ParsedDecisionMakingStem[] {
+export function parseDecisionMakingPlainText(
+  input: string,
+  configOverrides?: Partial<ParserConfig>
+): ParsedDecisionMakingStem[] {
   const rawLines = input.split(/\r?\n/u)
-  return parseDecisionMakingFromLines(rawLines)
+  return parseDecisionMakingFromLines(rawLines, configOverrides)
 }
 
 function toRichText(text: string): Json {

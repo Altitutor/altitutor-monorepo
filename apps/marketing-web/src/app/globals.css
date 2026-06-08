@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -14,7 +16,8 @@ body {
   margin: 0;
   background: #fff;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    Montserrat, Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
 }
 
 .legacy-site-header {
@@ -134,6 +137,73 @@ body {
   display: none;
 }
 
+.legacy-wordpress-page .hiddensection1 {
+  display: none !important;
+}
+
+.legacy-wordpress-page .hiddensection1.legacy-expanded {
+  display: block !important;
+}
+
+.legacy-wordpress-page .opened svg {
+  transform: rotate(90deg);
+  transition: transform 0.34s ease;
+}
+
+.legacy-wordpress-page .elementor-star-rating {
+  display: inline-flex;
+  gap: 2px;
+  color: #ccd6df;
+  font-family: Arial, sans-serif;
+  line-height: 1;
+}
+
+.legacy-wordpress-page .elementor-star-rating i {
+  position: relative;
+  display: inline-block;
+  width: 1em;
+  overflow: hidden;
+  color: #ccd6df;
+  font-style: normal;
+}
+
+.legacy-wordpress-page .elementor-star-rating i::before {
+  content: "★";
+  color: #f0ad4e;
+}
+
+.legacy-wordpress-page .elementor-star-rating i[class*="elementor-star-"]:not(.elementor-star-full)::before {
+  position: absolute;
+  left: 0;
+  width: 85%;
+  overflow: hidden;
+}
+
+.legacy-wordpress-page .elementor-widget-testimonial-carousel .swiper-pagination {
+  position: static;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.legacy-wordpress-page .elementor-widget-testimonial-carousel .swiper-pagination-bullet {
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #c7c7c7;
+  padding: 0;
+  cursor: pointer;
+  opacity: 1;
+}
+
+.legacy-wordpress-page .elementor-widget-testimonial-carousel .swiper-pagination-bullet-active {
+  background: #0a2941;
+}
+
 .legacy-site-footer {
   background: #0a2941;
   color: #e3e3e3;
@@ -174,14 +244,30 @@ body {
 .legacy-site-footer__socials {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 14px;
+  gap: 10px;
   margin-top: 22px;
 }
 
-.legacy-site-footer__socials a,
 .legacy-site-footer__nav a {
   color: #bdbdbd;
   text-decoration: none;
+}
+
+.legacy-site-footer__socials a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  color: #bdbdbd;
+  text-decoration: none;
+}
+
+.legacy-site-footer__socials svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
 }
 
 .legacy-site-footer__socials a:hover,

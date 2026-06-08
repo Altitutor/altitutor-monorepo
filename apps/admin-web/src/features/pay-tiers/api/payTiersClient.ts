@@ -166,6 +166,7 @@ export const payTiersClient = {
       outcome: 'approved' | 'deferred' | 'not_ready';
       check_in_session_id?: string | null;
       notes?: string | null;
+      to_tier_number?: number;
     }
   ): Promise<{ progress: StaffTierProgress; quickbooksReminder?: string }> {
     const res = await fetch(`/api/pay-tiers/staff/${staffId}/promotions`, {
@@ -182,6 +183,7 @@ export const payTiersClient = {
     payload: {
       outcome: 'approved' | 'deferred' | 'not_ready';
       notes?: string | null;
+      to_tier_number?: number;
     }
   ): Promise<{ progress: StaffTierProgress; quickbooksReminder?: string }> {
     const res = await fetch(

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
   Dialog,
@@ -20,6 +20,7 @@ import {
 import { Loader2, X } from 'lucide-react';
 import {
   formatPayRate,
+  getPromotionTierOptions,
   type PayTierCheckIn,
   type StaffTierPromotionOutcome,
   type StaffTierProgress,
@@ -51,21 +52,28 @@ export function PayTierCheckInReviewDialog({
 
   const [outcome, setOutcome] = useState<StaffTierPromotionOutcome>('deferred');
   const [notes, setNotes] = useState('');
+  const [promoteToTier, setPromoteToTier] = useState<number | null>(null);
+
+  const fromTier = isEdit ? existing!.from_tier_number : progress.currentTierNumber;
+  const promotionOptions = useMemo(
+    () => getPromotionTierOptions(fromTier, progress.highestEligiblePromotionTier),
+    [fromTier, progress.highestEligiblePromotionTier]
+  );
+  const canApprove = promotionOptions.length > 0;
 
   useEffect(() => {
     if (!open || !checkIn) return;
     setOutcome(existing?.outcome ?? 'deferred');
     setNotes(existing?.notes ?? '');
-  }, [open, checkIn, existing?.outcome, existing?.notes]);
+    const defaultTier =
+      existing?.outcome === 'approved'
+        ? existing.to_tier_number
+        : promotionOptions[0] ?? null;
+    setPromoteToTier(defaultTier);
+  }, [open, checkIn, existing?.outcome, existing?.notes, existing?.to_tier_number, promotionOptions]);
 
   const handleClose = () => onOpenChange(false);
 
-  const promoteToTier = isEdit
-    ? existing!.from_tier_number + 1
-    : progress.nextTierNumber;
-  const canApprove = promoteToTier
-    ? progress.tiers.some((t) => t.tier_number === promoteToTier)
-    : false;
   const nextTierMeta = promoteToTier
     ? progress.tiers.find((t) => t.tier_number === promoteToTier)
     : undefined;
@@ -102,14 +110,6 @@ export function PayTierCheckInReviewDialog({
         </div>
 
         <div className="px-6 py-4 space-y-4">
-          {promoteToTier && (
-            <p className="text-xs text-muted-foreground">
-              Promote to tier: {promoteToTier}
-              {nextTierMeta
-                ? ` — ${formatPayRate(nextTierMeta.base_pay_rate_cents, nextTierMeta.currency)}/hr`
-                : ''}
-            </p>
-          )}
           <div className="space-y-2">
             <Label>Outcome</Label>
             <Select
@@ -121,15 +121,46 @@ export function PayTierCheckInReviewDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="approved" disabled={!canApprove}>
-                  {canApprove
-                    ? `Approved — promote to tier ${promoteToTier}`
-                    : 'Approved — no higher tier'}
+                  {canApprove ? 'Approved — promote' : 'Approved — no higher tier'}
                 </SelectItem>
                 <SelectItem value="deferred">Deferred</SelectItem>
                 <SelectItem value="not_ready">Not ready</SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {outcome === 'approved' && canApprove && promoteToTier != null && (
+            <div className="space-y-2">
+              <Label>Promote to tier</Label>
+              <Select
+                value={String(promoteToTier)}
+                onValueChange={(v) => setPromoteToTier(Number(v))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {promotionOptions.map((tierNumber) => {
+                    const meta = progress.tiers.find((t) => t.tier_number === tierNumber);
+                    return (
+                      <SelectItem key={tierNumber} value={String(tierNumber)}>
+                        Tier {tierNumber}
+                        {meta
+                          ? ` — ${formatPayRate(meta.base_pay_rate_cents, meta.currency)}/hr`
+                          : ''}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+              {nextTierMeta && promotionOptions.length > 1 ? (
+                <p className="text-xs text-muted-foreground">
+                  Eligible up to tier {progress.highestEligiblePromotionTier} based on current requirements.
+                </p>
+              ) : null}
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label>Notes</Label>
             <Textarea
@@ -147,7 +178,7 @@ export function PayTierCheckInReviewDialog({
           </Button>
           <Button
             type="button"
-            disabled={isPending || !checkIn}
+            disabled={isPending || !checkIn || (outcome === 'approved' && !canApprove)}
             onClick={async () => {
               if (!checkIn) return;
               try {
@@ -155,12 +186,21 @@ export function PayTierCheckInReviewDialog({
                   outcome,
                   check_in_session_id: checkIn.sessionId,
                   notes: notes.trim() || null,
+                  ...(outcome === 'approved' && promoteToTier != null
+                    ? { to_tier_number: promoteToTier }
+                    : {}),
                 };
                 const result = isEdit
                   ? await updatePromotion.mutateAsync({
                       staffId,
                       promotionId: existing.id,
-                      payload: { outcome, notes: payload.notes },
+                      payload: {
+                        outcome,
+                        notes: payload.notes,
+                        ...(outcome === 'approved' && promoteToTier != null
+                          ? { to_tier_number: promoteToTier }
+                          : {}),
+                      },
                     })
                   : await recordPromotion.mutateAsync({ staffId, payload });
                 toast({

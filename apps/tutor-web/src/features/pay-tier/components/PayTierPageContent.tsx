@@ -8,6 +8,7 @@ import { useCurrentStaff } from '@/features/staff/hooks/useStaffQuery';
 import { usePayTierProgress } from '../hooks/usePayTierProgress';
 import { PayTierTierCards } from './PayTierTierCards';
 import { PayTierCheckInsTable } from './PayTierCheckInsTable';
+import { PayTierProgressFlowchart } from './PayTierProgressFlowchart';
 
 export function PayTierPageContent() {
   const { data: staff } = useCurrentStaff();
@@ -55,6 +56,8 @@ export function PayTierPageContent() {
             Your current pay tier. Fulfil the requirements of your tier, then request a check in with us to advance to the next tier.
           </p>
         </header>
+
+        <PayTierProgressFlowchart />
 
         <PayTierTierCards progress={progress} />
         <PayTierCheckInsTable checkIns={progress.checkIns} onOpenSession={handleOpenSession} />

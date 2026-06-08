@@ -1,5 +1,7 @@
 import {
+  buildQuestionPasteSpansForLine,
   classifyParseLineRoles,
+  collectLogicalLinesFromDoc,
   mergeConsecutiveStemsWithSameText,
   parseFromLines,
 } from '../core'
@@ -10,7 +12,69 @@ beforeAll(() => {
   global.fetch = jest.fn().mockResolvedValue({}) as typeof fetch
 })
 
+/** Paren-style options (a) b) c)) used in many UCAT paste fixtures. */
+const PAREN_OPTION_CONFIG = {
+  answerOptionIndicator: 'paren' as const,
+}
+
+/** Layout used when question numbers and A./B. options are each on their own line. */
+const OWN_LINE_PARSER_CONFIG = {
+  questionsOnly: true,
+  questionNumberOnOwnLine: true,
+  answerOptionOnOwnLine: true,
+  answerOptionIndicator: 'dot' as const,
+}
+
+const MINACK_OWN_LINE_OPTIONS = `1.
+
+According to the passage, for five months over the summer, the theatre:
+
+A.
+
+has a visitor centre.
+
+B.
+
+hosts shows of different styles.
+
+C.
+
+opens to the public.
+
+D.
+
+moves to being open air.
+
+2.
+
+According to the passage, the financial situation of the Minack theatre:
+
+A.
+
+has been continually challenged.
+
+B.
+
+has improved over time.
+
+C.
+
+is unsustainable going forward.
+
+D.
+
+was unsustainable in the past.`
+
 describe('parseFromLines', () => {
+  it('parses questions with number and option letters on their own lines (A. / B. layout)', () => {
+    const stems = parseFromLines(MINACK_OWN_LINE_OPTIONS.split(/\r?\n/u), OWN_LINE_PARSER_CONFIG)
+
+    expect(stems.flatMap((s) => s.questions)).toHaveLength(2)
+    expect(stems[0]?.questions[0]?.options).toHaveLength(4)
+    expect(stems[0]?.questions[0]?.text).toContain('five months over the summer')
+    expect(stems[0]?.questions[1]?.options[0]?.text).toContain('continually challenged')
+  })
+
   it('does not treat numbered passage lines as questions when another question candidate appears first', () => {
     const input = `A historical passage begins.
 1. The author lists this as a passage point.
@@ -21,7 +85,7 @@ a) First option
 b) Second option
 c) Third option`
 
-    const stems = parseVerbalReasoningPlainText(input)
+    const stems = parseVerbalReasoningPlainText(input, PAREN_OPTION_CONFIG)
 
     expect(stems).toHaveLength(1)
     expect(stems[0]?.stemText).toContain('1. The author lists this as a passage point.')
@@ -44,12 +108,179 @@ a) 11
 b) 21
 c) 31`
 
-    const stems = parseFromLines(input.split(/\r?\n/u))
+    const stems = parseFromLines(input.split(/\r?\n/u), PAREN_OPTION_CONFIG)
 
     expect(stems).toHaveLength(2)
     expect(stems[0]?.questions).toHaveLength(1)
     expect(stems[1]?.stemText).toContain('2024. This line belongs to the next setup')
     expect(stems[1]?.questions[0]?.number).toBe(2)
+  })
+
+  it('accepts non-consecutive question numbers when consecutive numbering is not required', () => {
+    const input = `1. First question
+a) opt A
+b) opt B
+4. Fourth question
+a) opt C
+b) opt D
+2. Second question
+a) opt E
+b) opt F
+88. Eighty-eighth question
+a) opt G
+b) opt H`
+
+    const stems = parseFromLines(input.split(/\r?\n/u), {
+      ...PAREN_OPTION_CONFIG,
+      questionsOnly: true,
+      enforceSequentialQuestionNumbers: false,
+    })
+
+    const numbers = stems.flatMap((s) => s.questions.map((q) => q.number))
+    expect(numbers).toEqual([1, 4, 2, 88])
+  })
+
+  it('skips non-consecutive question numbers when consecutive numbering is required', () => {
+    const input = `1. First question
+a) opt A
+b) opt B
+4. Out of sequence — skipped
+a) opt C
+b) opt D
+2. Next consecutive question
+a) opt E
+b) opt F
+5. Out of sequence — skipped
+a) opt G
+b) opt H
+3. Next consecutive question
+a) opt I
+b) opt J`
+
+    const stems = parseFromLines(input.split(/\r?\n/u), {
+      ...PAREN_OPTION_CONFIG,
+      questionsOnly: true,
+      enforceSequentialQuestionNumbers: true,
+    })
+
+    const numbers = stems.flatMap((s) => s.questions.map((q) => q.number))
+    expect(numbers).toEqual([1, 2, 3])
+  })
+
+  it('parses ordered-list Prompt 2 with questions starting at 5', () => {
+    const input = `1. Prompt 2
+5.
+Robert the Bruce went into hiding between 1306 and 1307.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+6.
+Robert the Bruce secured control of much of Scotland after a number of military victories.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+7.
+Peace was concluded between Scotland and England under the rule of Edward II.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+8.
+The re-establishment of an independent Scottish kingdom would not have occurred without the Battle of Bannockburn.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell`
+
+    const stems = parseFromLines(input.split(/\r?\n/u), OWN_LINE_PARSER_CONFIG)
+    const questions = stems.flatMap((s) => s.questions)
+
+    expect(questions).toHaveLength(4)
+    expect(questions.map((q) => q.number)).toEqual([5, 6, 7, 8])
+  })
+
+  it('does not treat ordered-list prompt labels as question 1 when questions start at 9', () => {
+    const input = `1. Prompt 3
+9.
+George Huntington was the first doctor to develop a cure for Huntington's disease.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+10.
+White blood cells are cells that help the body resolve infection.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+11.
+Some other question text here.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell
+
+12.
+Another question text here.
+
+A.
+True
+
+B.
+False
+
+C.
+Can't Tell`
+
+    const stems = parseFromLines(input.split(/\r?\n/u), OWN_LINE_PARSER_CONFIG)
+    const questions = stems.flatMap((s) => s.questions)
+
+    expect(questions).toHaveLength(4)
+    expect(questions.map((q) => q.number)).toEqual([9, 10, 11, 12])
+    expect(questions[0]?.text).toContain('George Huntington')
+    expect(questions[0]?.number).not.toBe(1)
   })
 
   it('keeps live highlight classification aligned with conservative question detection', () => {
@@ -62,7 +293,7 @@ c) 31`
       'b) No',
     ]
 
-    expect(classifyParseLineRoles(lines)).toEqual([
+    expect(classifyParseLineRoles(lines, PAREN_OPTION_CONFIG)).toEqual([
       'stem',
       'stem',
       'stem',
@@ -70,6 +301,107 @@ c) 31`
       'option',
       'option',
     ])
+  })
+})
+
+describe('buildQuestionPasteSpansForLine', () => {
+  it('highlights only inline question text, not the number marker', () => {
+    const spans = buildQuestionPasteSpansForLine('1. What is the answer?', 'question', {
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'paren',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+    })
+    expect(spans).toEqual([{ start: 3, end: 22, kind: 'question' }])
+  })
+
+  it('skips question-number-only lines when number is on its own line', () => {
+    const spans = buildQuestionPasteSpansForLine('1.', 'question', {
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'paren',
+      questionNumberOnOwnLine: true,
+      answerOptionOnOwnLine: false,
+    })
+    expect(spans).toEqual([])
+  })
+
+  it('highlights only inline option text, not the letter marker', () => {
+    const spans = buildQuestionPasteSpansForLine('a) First option', 'option', {
+      questionIndicator: 'dot',
+      answerOptionIndicator: 'paren',
+      questionNumberOnOwnLine: false,
+      answerOptionOnOwnLine: false,
+    })
+    expect(spans).toEqual([{ start: 3, end: 15, kind: 'option' }])
+  })
+
+  it('returns no spans for stem lines', () => {
+    expect(
+      buildQuestionPasteSpansForLine('Passage text.', 'stem', {
+        questionIndicator: 'dot',
+        answerOptionIndicator: 'paren',
+        questionNumberOnOwnLine: false,
+        answerOptionOnOwnLine: false,
+      })
+    ).toEqual([])
+  })
+})
+
+describe('table-backed question paste', () => {
+  it('collects lines from every non-empty table cell when nested question rows are absent', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'table',
+          content: [
+            {
+              type: 'tableRow',
+              content: [
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Option A text' }] }],
+                },
+                {
+                  type: 'tableCell',
+                  content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A.' }] }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(collectLogicalLinesFromDoc(doc, { detectNestedQuestionTables: true })).toEqual([
+      'Option A text',
+      'A.',
+    ])
+  })
+
+  it('parses consecutive questions when option labels have no text on the following line', () => {
+    const lines = [
+      '5.',
+      'Question five?',
+      'A.',
+      'B.',
+      'C.',
+      '6.',
+      'Question six?',
+      'A.',
+      'B.',
+      'C.',
+    ]
+    const stems = parseFromLines(lines, {
+      questionsOnly: true,
+      answerOptionIndicator: 'dot',
+      questionIndicator: 'dot',
+    })
+    const questions = stems.flatMap((s) => s.questions)
+    expect(questions).toHaveLength(2)
+    expect(questions.map((q) => q.number)).toEqual([5, 6])
+    expect(questions[0]?.options.map((o) => o.label)).toEqual(['A', 'B', 'C'])
+    expect(questions[1]?.options.map((o) => o.label)).toEqual(['A', 'B', 'C'])
   })
 })
 
@@ -91,7 +423,7 @@ a) 4
 b) 5
 c) 6`
 
-    const stems = parseQuantitativeReasoningPlainText(input)
+    const stems = parseQuantitativeReasoningPlainText(input, PAREN_OPTION_CONFIG)
 
     expect(stems).toHaveLength(1)
     expect(stems[0]?.questions).toHaveLength(2)
@@ -109,7 +441,7 @@ a) 10
 b) 20
 c) 30`
 
-    const stems = parseQuantitativeReasoningPlainText(input)
+    const stems = parseQuantitativeReasoningPlainText(input, PAREN_OPTION_CONFIG)
 
     expect(stems).toHaveLength(1)
     expect(stems[0]?.questions).toHaveLength(1)

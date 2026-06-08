@@ -19,11 +19,6 @@ import {
   Table,
   Undo,
   Redo,
-  ArrowUp,
-  ArrowDown,
-  ArrowLeft,
-  ArrowRight,
-  Trash2,
 } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
@@ -31,7 +26,7 @@ interface NoteEditorBottomToolbarProps {
   editor: Editor | null;
 }
 
-type ToolbarMode = 'text-selection' | 'table' | 'default';
+type ToolbarMode = 'text-selection' | 'default';
 
 /** Scrolls horizontally on narrow viewports; centers row when it fits (see documents / daily note). */
 const TOOLBAR_OUTER_CLASS =
@@ -41,7 +36,6 @@ const TOOLBAR_INNER_PAD = 'px-2 sm:px-4 py-2';
 /**
  * Persistent bottom toolbar that changes contextually based on editor state.
  * - Shows inline formatting when text is selected
- * - Shows table controls when cursor is in a table
  * - Shows general formatting options otherwise
  */
 export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps) {
@@ -53,12 +47,8 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
     const updateToolbarState = () => {
       const { selection } = editor.state;
       const hasTextSelection = selection.content().size > 0;
-      const inTable = editor.isActive('table');
 
-      // Determine toolbar mode
-      if (inTable) {
-        setToolbarMode('table');
-      } else if (hasTextSelection) {
+      if (hasTextSelection) {
         setToolbarMode('text-selection');
       } else {
         setToolbarMode('default');
@@ -84,97 +74,6 @@ export function NoteEditorBottomToolbar({ editor }: NoteEditorBottomToolbarProps
 
   if (!editor) {
     return null;
-  }
-
-  // Table toolbar mode
-  if (toolbarMode === 'table') {
-    return (
-      <div className={TOOLBAR_OUTER_CLASS}>
-        <div className={TOOLBAR_INNER_PAD}>
-          <div className="inline-flex min-w-full items-center gap-2 justify-center flex-nowrap">
-            {/* Row controls */}
-            <div className="flex items-center gap-0.5 pr-2 border-r border-border">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().addRowBefore().run()}
-                className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
-                title="Add row above"
-              >
-                <ArrowUp className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().addRowAfter().run()}
-                className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
-                title="Add row below"
-              >
-                <ArrowDown className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().deleteRow().run()}
-                className="h-8 w-8 p-0 text-destructive hover:bg-transparent hover:text-destructive dark:hover:text-destructive"
-                title="Delete row"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-
-            {/* Column controls */}
-            <div className="flex items-center gap-0.5 pr-2 border-r border-border">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().addColumnBefore().run()}
-                className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
-                title="Add column left"
-              >
-                <ArrowLeft className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().addColumnAfter().run()}
-                className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
-                title="Add column right"
-              >
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={() => editor.chain().focus().deleteColumn().run()}
-                className="h-8 w-8 p-0 text-destructive hover:bg-transparent hover:text-destructive dark:hover:text-destructive"
-                title="Delete column"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
-            </div>
-
-            {/* Delete table */}
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().deleteTable().run()}
-              className="h-8 w-8 p-0 text-destructive hover:bg-transparent"
-              title="Delete table"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </div>
-    );
   }
 
   // Text selection toolbar mode

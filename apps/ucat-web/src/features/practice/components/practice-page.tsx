@@ -2,12 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
+import { QuotaUsageCard } from "@/features/ucat-access/components/quota-usage-card";
 import { UcatPageHeader } from "@/features/layout";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { useStemFilters } from "@/features/set-generator/hooks/use-stem-filters";
 import { StemFiltersPanel } from "@/features/set-generator/components/stem-filters-panel";
 import type { SetGeneratorInput } from "@/features/set-generator/model/types";
 import { setPracticeSession } from "@/features/practice/lib/session-storage";
+import { Button } from "@/components/ui/button";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
 
 export function PracticePage() {
@@ -135,7 +137,7 @@ export function PracticePage() {
   }
 
   const actionButton = (
-    <button
+    <Button
       type="button"
       data-tour="practice-start"
       onClick={() => !startMutation.isPending && handleStart()}
@@ -143,7 +145,7 @@ export function PracticePage() {
       className={UCAT_PRIMARY_ACTION_BUTTON}
     >
       {startMutation.isPending ? "Loading…" : "Start practice"}
-    </button>
+    </Button>
   );
 
   return (
@@ -154,6 +156,7 @@ export function PracticePage() {
           description="Pick stems and practice in question stem mode. Answer each stem, see feedback immediately."
         />
       </div>
+      <QuotaUsageCard area="practice" />
       <div id="tour-practice-filters">
         <StemFiltersPanel
         input={filters.input}

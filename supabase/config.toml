@@ -128,8 +128,8 @@ minimum_password_length = 6
 password_requirements = ""
 
 [auth.rate_limit]
-# Number of emails that can be sent per hour. Requires auth.email.smtp to be enabled.
-email_sent = 2
+# Auth emails per hour (signup OTP, password reset, etc.). Requires custom SMTP on remote
+email_sent = 10000
 # Number of SMS messages that can be sent per hour. Requires auth.sms to be enabled.
 sms_sent = 30
 # Number of anonymous sign-ins that can be made per hour per IP address. Requires enable_anonymous_sign_ins = true.

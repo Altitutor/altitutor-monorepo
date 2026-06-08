@@ -8,7 +8,12 @@ import type {
   QuestionEngineState,
   QuestionItem,
 } from "@/features/question-engine/model/types";
+import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
 import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
+import {
+  QuotaExceededError,
+  assertOkOrQuotaExceeded,
+} from "@/lib/ucat/quota/parse-quota-error";
 
 type CreateMockAttemptResponse = {
   id: string;
@@ -146,6 +151,16 @@ export function useQuestionEnginePersistence({
   practiceSessionId?: string | null;
 }) {
   const isStudentEngine = true;
+  const { openQuotaLimit } = useQuotaLimitModal();
+
+  const handleQuotaError = useCallback(
+    (error: unknown) => {
+      if (error instanceof QuotaExceededError) {
+        openQuotaLimit(error.payload);
+      }
+    },
+    [openQuotaLimit],
+  );
 
   const attemptStateRef = useRef<SetAttemptState>({
     mockAttemptId: null,
@@ -174,10 +189,12 @@ export function useQuestionEnginePersistence({
         body: JSON.stringify({ mockId }),
       });
       if (!response.ok) {
+        await assertOkOrQuotaExceeded(response);
         throw new Error("Failed to create mock attempt");
       }
       return response.json();
     },
+    onError: handleQuotaError,
   });
 
   const createSetAttempt = useMutation<
@@ -198,10 +215,12 @@ export function useQuestionEnginePersistence({
         }),
       });
       if (!response.ok) {
+        await assertOkOrQuotaExceeded(response);
         throw new Error("Failed to create set attempt");
       }
       return response.json();
     },
+    onError: handleQuotaError,
   });
 
   const upsertQuestionAttempt = useMutation<
@@ -218,10 +237,12 @@ export function useQuestionEnginePersistence({
         body: JSON.stringify(input),
       });
       if (!response.ok) {
+        await assertOkOrQuotaExceeded(response);
         throw new Error("Failed to upsert question attempt");
       }
       return response.json();
     },
+    onError: handleQuotaError,
   });
 
   type SetAttemptResponse = {

@@ -1,6 +1,79 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { Database } from "@altitutor/shared";
+import { validateOptionalPhoneE164 } from "@altitutor/ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+
+type StudentUpdate = Database["public"]["Tables"]["students"]["Update"];
+type StudentInsert = Database["public"]["Tables"]["students"]["Insert"];
+
+function dbErrorMessage(message: string): string {
+  if (message.includes("Invalid phone number format")) {
+    return "Please enter a valid Australian mobile number.";
+  }
+  if (message.includes("already associated with")) {
+    return "This phone number is already linked to another account.";
+  }
+  if (
+    message.includes("ucat_signup_step") &&
+    message.includes("does not exist")
+  ) {
+    return "Database update pending — please wait a minute and try again.";
+  }
+  if (process.env.NODE_ENV === "development") {
+    return message;
+  }
+  return "Failed to save your details. Please try again.";
+}
+
+function omitSignupStep<T extends { ucat_signup_step?: number }>(
+  payload: T,
+): Omit<T, "ucat_signup_step"> {
+  const next = { ...payload };
+  delete next.ucat_signup_step;
+  return next;
+}
+
+async function updateStudentWithSignupStepFallback(
+  studentId: string,
+  payload: StudentUpdate,
+): Promise<{ error: { message: string } | null }> {
+  let result = await supabaseAdmin!
+    .from("students")
+    .update(payload)
+    .eq("id", studentId);
+
+  if (
+    result.error &&
+    payload.ucat_signup_step !== undefined &&
+    result.error.message.includes("ucat_signup_step") &&
+    result.error.message.includes("does not exist")
+  ) {
+    result = await supabaseAdmin!
+      .from("students")
+      .update(omitSignupStep(payload))
+      .eq("id", studentId);
+  }
+
+  return { error: result.error };
+}
+
+async function insertStudentWithSignupStepFallback(
+  payload: StudentInsert,
+): Promise<{ error: { message: string } | null }> {
+  let result = await supabaseAdmin!.from("students").insert(payload);
+
+  if (
+    result.error &&
+    payload.ucat_signup_step !== undefined &&
+    result.error.message.includes("ucat_signup_step") &&
+    result.error.message.includes("does not exist")
+  ) {
+    result = await supabaseAdmin!.from("students").insert(omitSignupStep(payload));
+  }
+
+  return { error: result.error };
+}
 
 /**
  * POST /api/ucat/signup/complete
@@ -32,7 +105,7 @@ export async function POST(request: NextRequest) {
 
   const firstName = body.firstName?.trim();
   const lastName = body.lastName?.trim();
-  const phone = body.phone?.trim() || null;
+  const hasPhoneField = Object.prototype.hasOwnProperty.call(body, "phone");
 
   if (!firstName || !lastName) {
     return NextResponse.json(
@@ -41,9 +114,33 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let normalizedPhone: string | null | undefined;
+  if (hasPhoneField) {
+    const phoneResult = validateOptionalPhoneE164(body.phone);
+    if (phoneResult.error) {
+      return NextResponse.json({ error: phoneResult.error }, { status: 400 });
+    }
+    normalizedPhone = phoneResult.phone;
+  }
+
   const email = user.email?.trim().toLowerCase();
   if (!email) {
     return NextResponse.json({ error: "No email on account" }, { status: 400 });
+  }
+
+  const profileUpdate: {
+    first_name: string;
+    last_name: string;
+    updated_at: string;
+    phone?: string | null;
+  } = {
+    first_name: firstName,
+    last_name: lastName,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (hasPhoneField) {
+    profileUpdate.phone = normalizedPhone ?? null;
   }
 
   // Check if a student record already exists for this user
@@ -55,18 +152,17 @@ export async function POST(request: NextRequest) {
     .maybeSingle();
 
   if (existing) {
-    const { error: updateError } = await supabaseAdmin
-      .from("students")
-      .update({
-        first_name: firstName,
-        last_name: lastName,
-        phone,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", existing.id);
+    const { error: updateError } = await updateStudentWithSignupStepFallback(
+      existing.id,
+      { ...profileUpdate, ucat_signup_step: 2 },
+    );
 
     if (updateError) {
-      return NextResponse.json({ error: "Failed to update profile" }, { status: 500 });
+      console.error("[signup complete] Failed to update student:", updateError);
+      return NextResponse.json(
+        { error: dbErrorMessage(updateError.message) },
+        { status: 400 },
+      );
     }
     studentId = existing.id;
   } else {
@@ -78,37 +174,43 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
 
     if (byEmail) {
-      const { error: linkError } = await supabaseAdmin
-        .from("students")
-        .update({
+      const { error: linkError } = await updateStudentWithSignupStepFallback(
+        byEmail.id,
+        {
           user_id: user.id,
-          first_name: firstName,
-          last_name: lastName,
-          phone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", byEmail.id);
+          ...profileUpdate,
+          ucat_signup_step: 2,
+        },
+      );
 
       if (linkError) {
-        return NextResponse.json({ error: "Failed to link profile" }, { status: 500 });
+        console.error("[signup complete] Failed to link student:", linkError);
+        return NextResponse.json(
+          { error: dbErrorMessage(linkError.message) },
+          { status: 400 },
+        );
       }
       studentId = byEmail.id;
     } else {
       const newStudentId = crypto.randomUUID();
-      const { error: insertError } = await supabaseAdmin.from("students").insert({
+      const { error: insertError } = await insertStudentWithSignupStepFallback({
         id: newStudentId,
         user_id: user.id,
         email,
         first_name: firstName,
         last_name: lastName,
-        phone,
+        phone: hasPhoneField ? (normalizedPhone ?? null) : null,
         status: "ACTIVE",
         timezone: "Australia/Adelaide",
+        ucat_signup_step: 2,
       });
 
       if (insertError) {
         console.error("[signup complete] Failed to create student:", insertError);
-        return NextResponse.json({ error: "Failed to create profile" }, { status: 500 });
+        return NextResponse.json(
+          { error: dbErrorMessage(insertError.message) },
+          { status: 400 },
+        );
       }
       studentId = newStudentId;
     }

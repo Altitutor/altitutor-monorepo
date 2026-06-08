@@ -1,10 +1,21 @@
-import { evaluateRequirement, evaluateRequirements, isEligibleForReview } from '../evaluate';
+import {
+  evaluateRequirement,
+  evaluateRequirements,
+  getHighestEligiblePromotionTier,
+  getPromotionTierOptions,
+  isEligibleForReview,
+  validateApprovedPromotionTier,
+} from '../evaluate';
 import { METRIC_KEYS } from '../metric-keys';
 
 describe('pay tier requirement evaluation', () => {
   const metrics = {
     [METRIC_KEYS.tenureDays]: 400,
+    [METRIC_KEYS.tenureWeeks]: 57,
     [METRIC_KEYS.tenureMonths]: 13,
+    [METRIC_KEYS.timeSincePromotionDays]: 90,
+    [METRIC_KEYS.timeSincePromotionWeeks]: 12,
+    [METRIC_KEYS.timeSincePromotionMonths]: 3,
     'sessions.CLASS.MAIN_TUTOR': 50,
     'sessions.CLASS.any': 55,
     [METRIC_KEYS.teachingAll]: 80,
@@ -22,6 +33,34 @@ describe('pay tier requirement evaluation', () => {
     );
     expect(result.met).toBe(true);
     expect(result.current).toBe(400);
+  });
+
+  it('evaluates tenure weeks via unit param', () => {
+    const result = evaluateRequirement(
+      {
+        id: '1b',
+        requirement_kind: 'TENURE_DAYS',
+        params: { min: 52, unit: 'weeks' },
+      },
+      metrics
+    );
+    expect(result.met).toBe(true);
+    expect(result.current).toBe(57);
+    expect(result.label).toContain('weeks employed');
+  });
+
+  it('evaluates time since last promotion in months', () => {
+    const result = evaluateRequirement(
+      {
+        id: '1c',
+        requirement_kind: 'TIME_SINCE_LAST_PROMOTION',
+        params: { min: 2, unit: 'months' },
+      },
+      metrics
+    );
+    expect(result.met).toBe(true);
+    expect(result.current).toBe(3);
+    expect(result.label).toContain('since last promotion');
   });
 
   it('evaluates session count with specific role', () => {
@@ -71,5 +110,35 @@ describe('pay tier requirement evaluation', () => {
       metrics
     );
     expect(isEligibleForReview(progress)).toBe(false);
+  });
+
+  it('computes highest eligible promotion tier across multiple tiers', () => {
+    const requirements = [
+      {
+        id: 't1',
+        tier_number: 1,
+        requirement_kind: 'TENURE_DAYS' as const,
+        params: { min: 365 },
+        sort_order: 0,
+      },
+      {
+        id: 't2',
+        tier_number: 2,
+        requirement_kind: 'TENURE_DAYS' as const,
+        params: { min: 500 },
+        sort_order: 0,
+      },
+      {
+        id: 't3',
+        tier_number: 3,
+        requirement_kind: 'TENURE_DAYS' as const,
+        params: { min: 800 },
+        sort_order: 0,
+      },
+    ];
+    expect(getHighestEligiblePromotionTier(1, 3, requirements, metrics)).toBe(2);
+    expect(getPromotionTierOptions(1, 2)).toEqual([2]);
+    expect(validateApprovedPromotionTier(1, 2, 2)).toBeNull();
+    expect(validateApprovedPromotionTier(1, 3, 2)).toMatch(/eligible/);
   });
 });

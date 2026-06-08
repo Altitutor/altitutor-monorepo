@@ -17,6 +17,19 @@ const nextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: "/wp-content/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400",
+          },
+        ],
+      },
+    ];
+  },
   async redirects() {
     return [
       {
@@ -65,6 +78,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/weekly-classes/",
+        destination: "/classes/weekly-classes/",
+        permanent: true,
+      },
+      {
         source: "/english-assignment-drafting/",
         destination: "/classes/english-assignment-drafting/",
         permanent: true,
@@ -98,7 +116,7 @@ const nextConfig = {
         source: "/testimonials/",
         destination: "/about/testimonials/",
         permanent: true,
-      }
+      },
     ];
   },
 };

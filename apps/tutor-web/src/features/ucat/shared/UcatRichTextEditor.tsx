@@ -22,6 +22,33 @@ import {
 const UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME =
   '[&_.tiptap]:!text-neutral-950 [&_.tiptap]:dark:!text-neutral-950 [&_.tiptap_.ProseMirror]:!text-neutral-950 [&_.tiptap_.ProseMirror]:dark:!text-neutral-950 [&_.tiptap_.ProseMirror_li]:marker:!text-neutral-600 [&_.tiptap_.ProseMirror_li]:marker:dark:!text-neutral-600 [&_p.is-empty.is-editor-empty:first-child:before]:!text-neutral-400'
 
+/**
+ * Table borders on the TipTap root (className is merged onto view.dom / `.tiptap.ProseMirror`).
+ * Use `[&_table]` — not `[&_.ProseMirror_table]`, which requires a nested editor node.
+ */
+export const UCAT_ENGINE_TABLE_ROOT_CLASSNAME =
+  '[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:border [&_table]:border-solid [&_table]:!border-[#9ba9bd] [&_th]:border [&_th]:border-solid [&_th]:!border-[#9ba9bd] [&_th]:bg-[#f3f4f6] [&_th]:p-2 [&_th]:text-left [&_td]:border [&_td]:border-solid [&_td]:!border-[#9ba9bd] [&_td]:p-2 [&_td]:align-top'
+
+/**
+ * Table borders when styles live on a wrapper around RichTextEditor (inline edit chrome).
+ */
+export const UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME =
+  '[&_.tiptap_table]:my-2 [&_.tiptap_table]:w-full [&_.tiptap_table]:border-collapse [&_.tiptap_table]:border [&_.tiptap_table]:border-solid [&_.tiptap_table]:!border-[#9ba9bd] [&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-solid [&_.ProseMirror_table]:!border-[#9ba9bd] [&_.tiptap_th]:border [&_.tiptap_th]:border-solid [&_.tiptap_th]:!border-[#9ba9bd] [&_.tiptap_th]:bg-[#f3f4f6] [&_.tiptap_th]:p-2 [&_.tiptap_th]:text-left [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-solid [&_.ProseMirror_th]:!border-[#9ba9bd] [&_.ProseMirror_th]:bg-[#f3f4f6] [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.tiptap_td]:border [&_.tiptap_td]:border-solid [&_.tiptap_td]:!border-[#9ba9bd] [&_.tiptap_td]:p-2 [&_.tiptap_td]:align-top [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-solid [&_.ProseMirror_td]:!border-[#9ba9bd] [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top'
+
+/** @deprecated Use UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME or UCAT_ENGINE_TABLE_ROOT_CLASSNAME */
+export const UCAT_ENGINE_TABLE_CLASSNAME = UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
+
+/** Read-only rich text on white UCAT engine shells (view mode / previews). */
+export const UCAT_ENGINE_READONLY_EDITOR_CLASSNAME = cn(
+  'h-auto min-h-0 text-black',
+  '[&]:min-h-0 [&]:p-0 [&]:pl-0',
+  UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME,
+  UCAT_ENGINE_TABLE_ROOT_CLASSNAME,
+  '[&_strong]:font-bold [&_b]:font-bold',
+  '[&_em]:italic',
+  '[&_p]:my-1'
+)
+
 export type UcatRichTextValue = Json | null | undefined
 
 export interface UcatRichTextEditorProps {
@@ -43,6 +70,8 @@ export interface UcatRichTextEditorProps {
   pastePlainTextAsParagraphs?: boolean
   /** When set, controls how pasted table content is handled. See RichTextEditor pasteTableBehavior. */
   pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep'
+  /** When true, pasted HTML keeps only bold, italic, and tables. See RichTextEditor pasteStripFormatting. */
+  pasteStripFormatting?: boolean
   /**
    * Bulk import: in-editor parse highlights. Defaults to `mode: 'off'`. Read from a ref internally;
    * dispatch a no-op tr with {@link UCAT_PARSE_DECO_META} when this changes without a doc change.
@@ -87,6 +116,7 @@ export function UcatRichTextEditor({
   onImageFileIdsChange,
   pastePlainTextAsParagraphs,
   pasteTableBehavior,
+  pasteStripFormatting,
   ucatParseHighlight: ucatParseHighlightProp,
   additionalExtensions,
   onEditorReady: onEditorReadyProp,
@@ -313,9 +343,17 @@ export function UcatRichTextEditor({
           }
           let html: string = pastedHtml
           for (let i = 0; i < signedUrls.length; i += 1) {
-            if (signedUrls[i]) {
-              html = html.replace(`__UPLOAD_${i}__`, signedUrls[i])
-            }
+            const url = signedUrls[i]
+            const fileId = collectedFileIds[i]
+            if (!url || !fileId) continue
+            const placeholder = `__UPLOAD_${i}__`
+            html = html.replace(
+              new RegExp(
+                `(<img\\b[^>]*\\bsrc\\s*=\\s*["'])${placeholder.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(["'])`,
+                'gi'
+              ),
+              `$1${url}$2 data-file-id="${fileId}"`
+            )
           }
           editor
             .chain()
@@ -354,7 +392,11 @@ export function UcatRichTextEditor({
 
   return (
     <div
-      className={cn(className, forceLightChrome && UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME)}
+      className={cn(
+        className,
+        forceLightChrome && UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME,
+        forceLightChrome && UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
+      )}
       style={{ minHeight }}
       onDragOver={(e) => {
         if (!editable) return
@@ -372,6 +414,7 @@ export function UcatRichTextEditor({
         minHeight={minHeight}
         pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
         pasteTableBehavior={pasteTableBehavior}
+        pasteStripFormatting={pasteStripFormatting}
         extensions={mergedExtraExtensions}
         omitTypography={omitTypography}
         onEditorReady={(ed) => {

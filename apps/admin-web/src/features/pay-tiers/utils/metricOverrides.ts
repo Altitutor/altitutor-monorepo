@@ -1,9 +1,13 @@
 import {
   formatPayTierSessionType,
   formatPayTierStaffAttendanceType,
+  formatTimeMetricOverrideLabel,
+  METRIC_KEYS,
   sessionMetricKey,
+  TIME_UNITS,
   TEACHING_SESSION_TYPES,
   ADMIN_SESSION_TYPES,
+  type TimeUnit,
 } from '@altitutor/shared/pay-tiers';
 
 export const OVERRIDE_SESSION_TYPES = [
@@ -17,6 +21,33 @@ export type SessionOverrideRow = {
   attendanceType: string;
   count: number;
 };
+
+export type TimeOverrideRow = {
+  id: string;
+  metricKey: string;
+  count: number;
+};
+
+const TIME_OVERRIDE_OPTIONS = [
+  { metricKey: METRIC_KEYS.tenureDays, prefix: 'tenure' as const, unit: 'days' as TimeUnit },
+  { metricKey: METRIC_KEYS.tenureWeeks, prefix: 'tenure' as const, unit: 'weeks' as TimeUnit },
+  { metricKey: METRIC_KEYS.tenureMonths, prefix: 'tenure' as const, unit: 'months' as TimeUnit },
+  {
+    metricKey: METRIC_KEYS.timeSincePromotionDays,
+    prefix: 'time_since_promotion' as const,
+    unit: 'days' as TimeUnit,
+  },
+  {
+    metricKey: METRIC_KEYS.timeSincePromotionWeeks,
+    prefix: 'time_since_promotion' as const,
+    unit: 'weeks' as TimeUnit,
+  },
+  {
+    metricKey: METRIC_KEYS.timeSincePromotionMonths,
+    prefix: 'time_since_promotion' as const,
+    unit: 'months' as TimeUnit,
+  },
+] as const;
 
 export function sessionOverridesToRows(overrides: Record<string, number>): SessionOverrideRow[] {
   const rows: SessionOverrideRow[] = [];
@@ -34,6 +65,17 @@ export function sessionOverridesToRows(overrides: Record<string, number>): Sessi
   return rows.sort((a, b) => a.sessionType.localeCompare(b.sessionType));
 }
 
+export function timeOverridesToRows(overrides: Record<string, number>): TimeOverrideRow[] {
+  const rows: TimeOverrideRow[] = [];
+  for (const option of TIME_OVERRIDE_OPTIONS) {
+    const count = overrides[option.metricKey];
+    if (typeof count === 'number' && count !== 0) {
+      rows.push({ id: option.metricKey, metricKey: option.metricKey, count });
+    }
+  }
+  return rows;
+}
+
 export function parseSessionMetricKey(key: string): { sessionType: string; attendanceType: string } | null {
   const parts = key.split('.');
   if (parts[0] !== 'sessions' || parts.length < 3) return null;
@@ -47,17 +89,30 @@ export function sessionOverrideRowToMetricKey(row: SessionOverrideRow): string {
   return sessionMetricKey(row.sessionType, row.attendanceType || null);
 }
 
-export function buildMetricOverridesFromUi(sessionRows: SessionOverrideRow[]): Record<string, number> {
+export function buildMetricOverridesFromUi(
+  sessionRows: SessionOverrideRow[],
+  timeRows: TimeOverrideRow[]
+): Record<string, number> {
   const out: Record<string, number> = {};
   for (const row of sessionRows) {
     if (!row.sessionType.trim() || row.count === 0) continue;
     out[sessionOverrideRowToMetricKey(row)] = row.count;
+  }
+  for (const row of timeRows) {
+    if (!row.metricKey.trim() || row.count === 0) continue;
+    out[row.metricKey] = row.count;
   }
   return out;
 }
 
 export function formatSessionOverrideLabel(row: SessionOverrideRow): string {
   return `${formatPayTierSessionType(row.sessionType)} (${formatPayTierStaffAttendanceType(row.attendanceType || null)})`;
+}
+
+export function formatTimeOverrideLabel(metricKey: string): string {
+  const option = TIME_OVERRIDE_OPTIONS.find((o) => o.metricKey === metricKey);
+  if (!option) return metricKey;
+  return formatTimeMetricOverrideLabel(option.prefix, option.unit);
 }
 
 export function newSessionOverrideRow(): SessionOverrideRow {
@@ -68,3 +123,20 @@ export function newSessionOverrideRow(): SessionOverrideRow {
     count: 0,
   };
 }
+
+export function newTimeOverrideRow(): TimeOverrideRow {
+  return {
+    id: crypto.randomUUID(),
+    metricKey: METRIC_KEYS.timeSincePromotionDays,
+    count: 0,
+  };
+}
+
+export function getTimeOverrideOptions() {
+  return TIME_OVERRIDE_OPTIONS.map((option) => ({
+    metricKey: option.metricKey,
+    label: formatTimeMetricOverrideLabel(option.prefix, option.unit),
+  }));
+}
+
+export { TIME_UNITS };

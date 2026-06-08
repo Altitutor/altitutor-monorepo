@@ -1,9 +1,9 @@
 "use client";
+import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { Button } from "@altitutor/ui";
 import { getBreadcrumbItems } from "@/features/layout/config/breadcrumbs";
 import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";

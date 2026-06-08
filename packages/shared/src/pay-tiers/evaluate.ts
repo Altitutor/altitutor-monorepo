@@ -1,22 +1,24 @@
 import { formatPayTierRequirementLabel } from './labels';
 import {
   getMetricValue,
-  METRIC_KEYS,
   resolveSessionCountMetricKey,
   sessionMetricKey,
 } from './metric-keys';
+import {
+  isTenureRequirementKind,
+  isTimeBasedRequirementKind,
+  parseTimeRequirementParams,
+  resolveTimeUnit,
+  tenureMetricKeyForUnit,
+  timeSincePromotionMetricKeyForUnit,
+} from './time-units';
 import type {
   RequirementParams,
   RequirementProgress,
   SessionCountRequirementParams,
   StaffPayTierRequirement,
   StaffPayTierRequirementKind,
-  TenureRequirementParams,
 } from './types';
-
-function tenureMetricKey(kind: StaffPayTierRequirementKind): string {
-  return kind === 'TENURE_MONTHS' ? METRIC_KEYS.tenureMonths : METRIC_KEYS.tenureDays;
-}
 
 export function evaluateRequirement(
   requirement: Pick<StaffPayTierRequirement, 'id' | 'requirement_kind' | 'params'>,
@@ -25,17 +27,20 @@ export function evaluateRequirement(
   const params = requirement.params;
   let required = 0;
   let current = 0;
-  let metricKey = '';
 
-  if (requirement.requirement_kind === 'TENURE_DAYS' || requirement.requirement_kind === 'TENURE_MONTHS') {
-    const p = params as TenureRequirementParams;
-    required = p.min ?? 0;
-    metricKey = tenureMetricKey(requirement.requirement_kind);
+  if (isTimeBasedRequirementKind(requirement.requirement_kind)) {
+    const timeParams = params as RequirementParams & { min: number };
+    required = timeParams.min ?? 0;
+    const unit = resolveTimeUnit(requirement.requirement_kind, parseTimeRequirementParams(params));
+    const metricKey =
+      requirement.requirement_kind === 'TIME_SINCE_LAST_PROMOTION'
+        ? timeSincePromotionMetricKeyForUnit(unit)
+        : tenureMetricKeyForUnit(unit);
     current = getMetricValue(metrics, metricKey);
   } else {
     const p = params as SessionCountRequirementParams;
     required = p.min ?? 0;
-    metricKey = resolveSessionCountMetricKey({
+    const metricKey = resolveSessionCountMetricKey({
       session_types: p.session_types ?? [],
       attendance_types: p.attendance_types,
     });
@@ -91,13 +96,59 @@ export function isEligibleForReview(requirementProgress: RequirementProgress[]):
   return requirementProgress.every((r) => r.met);
 }
 
+/**
+ * Highest tier number the staff member may be promoted to in one approval,
+ * based on meeting requirements for each intermediate tier (current → target).
+ */
+export function getHighestEligiblePromotionTier(
+  currentTierNumber: number,
+  maxTierNumber: number,
+  requirements: StaffPayTierRequirement[],
+  metrics: Record<string, number>
+): number {
+  let tier = currentTierNumber;
+  while (tier < maxTierNumber) {
+    const reqsForTier = requirements.filter((r) => r.tier_number === tier);
+    const progress = evaluateRequirements(reqsForTier, metrics);
+    if (!isEligibleForReview(progress)) break;
+    tier += 1;
+  }
+  return tier;
+}
+
+export function getPromotionTierOptions(
+  fromTierNumber: number,
+  highestEligibleTier: number
+): number[] {
+  if (highestEligibleTier <= fromTierNumber) return [];
+  const options: number[] = [];
+  for (let t = fromTierNumber + 1; t <= highestEligibleTier; t += 1) {
+    options.push(t);
+  }
+  return options;
+}
+
+export function validateApprovedPromotionTier(
+  fromTierNumber: number,
+  toTierNumber: number,
+  highestEligibleTier: number
+): string | null {
+  if (toTierNumber <= fromTierNumber) {
+    return 'Promotion target must be higher than the current tier';
+  }
+  if (toTierNumber > highestEligibleTier) {
+    return 'Promotion target exceeds the highest tier this staff member is eligible for';
+  }
+  return null;
+}
+
 export function parseRequirementParams(
   kind: StaffPayTierRequirementKind,
   raw: unknown
 ): RequirementParams {
   const p = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
-  if (kind === 'TENURE_DAYS' || kind === 'TENURE_MONTHS') {
-    return { min: Number(p.min ?? 0) };
+  if (isTimeBasedRequirementKind(kind)) {
+    return parseTimeRequirementParams(raw);
   }
   return {
     min: Number(p.min ?? 0),
@@ -118,3 +169,5 @@ export function formatPayRate(cents: number, currency: string): string {
     minimumFractionDigits: 2,
   }).format(amount);
 }
+
+export { isTenureRequirementKind, isTimeBasedRequirementKind };

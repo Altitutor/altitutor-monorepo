@@ -113,6 +113,12 @@ const mockStudents: Tables<'students'>[] = [
     ucat_target_score_s2: null,
     ucat_target_score_s3: null,
     ucat_test_date: null,
+    ucat_onboarding_completed_at: null,
+    ucat_online_tier_override: 'default',
+    ucat_unlimited_trial_consumed_at: null,
+    ucat_signup_completed_at: null,
+    ucat_signup_step: 0,
+    ucat_test_year: null,
   },
   {
     id: 'student-2',
@@ -147,6 +153,12 @@ const mockStudents: Tables<'students'>[] = [
     ucat_target_score_s2: null,
     ucat_target_score_s3: null,
     ucat_test_date: null,
+    ucat_onboarding_completed_at: null,
+    ucat_online_tier_override: 'default',
+    ucat_unlimited_trial_consumed_at: null,
+    ucat_signup_completed_at: null,
+    ucat_signup_step: 0,
+    ucat_test_year: null,
   },
 ];
 

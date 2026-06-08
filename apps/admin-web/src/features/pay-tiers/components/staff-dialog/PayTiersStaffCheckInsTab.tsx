@@ -43,6 +43,14 @@ export function PayTiersStaffCheckInsTab({
   const tierLabel = (tierNumber: number | undefined, name: string | null | undefined) =>
     name ? `Tier ${tierNumber} — ${name}` : `Tier ${tierNumber ?? '—'}`;
 
+  const formatConducting = (row: PayTierCheckIn) => {
+    const hosts = row.conductingStaff ?? row.otherStaff ?? [];
+    if (hosts.length === 0) return '—';
+    return hosts
+      .map((m) => [m.firstName, m.lastName].filter(Boolean).join(' ').trim() || 'Staff')
+      .join(', ');
+  };
+
   const openReviewDialog = (row: PayTierCheckIn) => {
     setReviewCheckIn(row);
     setReviewDialogOpen(true);
@@ -77,6 +85,7 @@ export function PayTiersStaffCheckInsTab({
           <TableHeader>
             <TableRow>
               <TableHead>Date</TableHead>
+              <TableHead>Conducted by</TableHead>
               <TableHead>Tier at check-in</TableHead>
               <TableHead>Review</TableHead>
               <TableHead className="text-right w-[220px]">Actions</TableHead>
@@ -85,7 +94,7 @@ export function PayTiersStaffCheckInsTab({
           <TableBody>
             {checkIns.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={4} className="h-16 text-center text-muted-foreground">
+                <TableCell colSpan={5} className="h-16 text-center text-muted-foreground">
                   No check-ins recorded yet.
                 </TableCell>
               </TableRow>
@@ -96,6 +105,9 @@ export function PayTiersStaffCheckInsTab({
                   <TableRow key={row.sessionId}>
                     <TableCell className="whitespace-nowrap text-sm">
                       {new Date(row.startAt).toLocaleDateString('en-AU', { dateStyle: 'medium' })}
+                    </TableCell>
+                    <TableCell className="text-sm max-w-[200px]">
+                      {formatConducting(row)}
                     </TableCell>
                     <TableCell className="text-sm">
                       {tierLabel(row.tierAtCheckIn, row.tierName)}

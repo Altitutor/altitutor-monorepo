@@ -30,6 +30,7 @@ export function UcatDialogShell({
   isSaving,
   hideCancel = false,
   headerActions,
+  defaultExpanded = false,
 }: {
   open: boolean
   onClose: () => void
@@ -42,12 +43,17 @@ export function UcatDialogShell({
   isSaving?: boolean
   hideCancel?: boolean
   headerActions?: React.ReactNode
+  defaultExpanded?: boolean
 }) {
-  const [expanded, setExpanded] = useState(false)
+  const [expanded, setExpanded] = useState(defaultExpanded)
 
   useEffect(() => {
-    if (!open) setExpanded(false)
-  }, [open])
+    if (open) {
+      setExpanded(defaultExpanded)
+    } else {
+      setExpanded(false)
+    }
+  }, [open, defaultExpanded])
 
   const expandedContentClass = expanded ? EXPANDED_DIALOG_CONTENT_CLASS : ''
 

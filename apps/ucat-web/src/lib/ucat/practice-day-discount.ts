@@ -1,23 +1,73 @@
 import Stripe from "stripe";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { isUcatBillingInterval } from "@altitutor/shared";
 import { getUcatSubjectId } from "@/lib/ucat/ucat-subject-id";
+import {
+  isCreditDateInBillingPeriod,
+  todayLocalDateString,
+} from "@/lib/ucat/practice-day-discount-period";
 
 export type MaybeGrantPracticeDayDiscountResult = {
   earnedDiscount: boolean;
   discountCents: number;
 };
 
+type PracticeDayDiscountRule = {
+  discountPerDayCents: number;
+  maxDiscountsPerPeriod: number;
+};
+
+async function getPracticeDayDiscountRule(
+  supabase: SupabaseClient<Database>,
+  billingInterval: string | null,
+): Promise<PracticeDayDiscountRule | null> {
+  if (!billingInterval || !isUcatBillingInterval(billingInterval)) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("ucat_practice_day_discount_config")
+    .select("discount_per_day_cents, max_discounts_per_period")
+    .eq("billing_interval", billingInterval)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    discountPerDayCents: data.discount_per_day_cents ?? 0,
+    maxDiscountsPerPeriod: data.max_discounts_per_period ?? 1,
+  };
+}
+
+export async function countPracticeDayCreditsInBillingPeriod(
+  supabase: SupabaseClient<Database>,
+  studentId: string,
+  periodStartIso: string | null,
+  periodEndIso: string | null,
+  timezone: string,
+): Promise<number> {
+  const { data, error } = await supabase
+    .from("student_ucat_practice_day_credits")
+    .select("credit_date")
+    .eq("student_id", studentId)
+    .is("forfeited_at", null);
+
+  if (error || !data) return 0;
+
+  return data.filter((row) =>
+    isCreditDateInBillingPeriod(
+      row.credit_date,
+      periodStartIso,
+      periodEndIso,
+      timezone,
+    ),
+  ).length;
+}
+
 /**
  * Checks if the student qualifies for a practice-day discount and grants it if so.
  * Call after submitting question attempts (e.g. completing a set or practice session).
- *
- * Logic:
- * - Count submitted attempts for "today" in student timezone
- * - If count >= min_questions_per_day and no credit for today:
- *   - Create Stripe InvoiceItem (pending, negative amount)
- *   - Insert student_ucat_practice_day_credits
- *   - Return earnedDiscount: true
  */
 export async function maybeGrantPracticeDayDiscount(
   supabase: SupabaseClient<Database>,
@@ -39,23 +89,11 @@ export async function maybeGrantPracticeDayDiscount(
   }
 
   const tz = student.timezone ?? "Australia/Adelaide";
-
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat("en-CA", {
-    timeZone: tz,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  });
-  const parts = formatter.formatToParts(now);
-  const year = parts.find((p) => p.type === "year")?.value ?? "";
-  const month = parts.find((p) => p.type === "month")?.value ?? "";
-  const day = parts.find((p) => p.type === "day")?.value ?? "";
-  const dateStr = `${year}-${month}-${day}`;
+  const dateStr = todayLocalDateString(tz);
 
   const { data: config, error: configErr } = await supabase
     .from("ucat_subscription_config")
-    .select("min_questions_per_day, discount_per_day_cents")
+    .select("min_questions_per_day")
     .limit(1)
     .maybeSingle();
 
@@ -64,7 +102,6 @@ export async function maybeGrantPracticeDayDiscount(
   }
 
   const minQuestions = config.min_questions_per_day ?? 20;
-  const discountCents = config.discount_per_day_cents ?? 1000;
 
   const { data: countData, error: countErr } = await supabase.rpc(
     "count_submitted_attempts_today",
@@ -86,6 +123,7 @@ export async function maybeGrantPracticeDayDiscount(
     .select("id")
     .eq("student_id", studentId)
     .eq("credit_date", dateStr)
+    .is("forfeited_at", null)
     .maybeSingle();
 
   if (existingCredit) {
@@ -99,13 +137,32 @@ export async function maybeGrantPracticeDayDiscount(
 
   const { data: sub } = await supabase
     .from("student_subscriptions")
-    .select("stripe_subscription_id")
+    .select(
+      "stripe_subscription_id, billing_interval, current_period_start, current_period_end",
+    )
     .eq("student_id", studentId)
     .eq("subject_id", ucatSubjectId)
     .in("status", ["trialing", "active"])
     .maybeSingle();
 
   if (!sub?.stripe_subscription_id) {
+    return { earnedDiscount: false, discountCents: 0 };
+  }
+
+  const rule = await getPracticeDayDiscountRule(supabase, sub.billing_interval);
+  if (!rule || rule.discountPerDayCents <= 0) {
+    return { earnedDiscount: false, discountCents: 0 };
+  }
+
+  const earnedInPeriod = await countPracticeDayCreditsInBillingPeriod(
+    supabase,
+    studentId,
+    sub.current_period_start,
+    sub.current_period_end,
+    tz,
+  );
+
+  if (earnedInPeriod >= rule.maxDiscountsPerPeriod) {
     return { earnedDiscount: false, discountCents: 0 };
   }
 
@@ -123,6 +180,8 @@ export async function maybeGrantPracticeDayDiscount(
   const stripe = new Stripe(stripeSecretKey, {
     apiVersion: "2025-12-15.clover",
   });
+
+  const discountCents = rule.discountPerDayCents;
 
   let invoiceItemId: string;
   try {

@@ -13,6 +13,7 @@ export const SEGMENT_LABELS: Record<string, string> = {
   settings: "Settings",
   app: "App settings",
   profile: "My profile",
+  subscription: "Subscription",
   "skill-trainer": "Skill trainer",
   "set-generator": "Set Generator",
   "set-attempts": "Set attempt",
@@ -62,7 +63,9 @@ function isValidPagePath(path: string): boolean {
     case 2:
       return (
         (segments[0] === "settings" &&
-          ["app", "profile"].includes(segments[1])) ||
+          ["app", "profile", "subscription", "study-planner"].includes(
+            segments[1],
+          )) ||
         (segments[0] === "progress" && segments[1] === "mocks") ||
         (segments[0] === "sessions" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sets" && isDynamicSegment(segments[1])) ||

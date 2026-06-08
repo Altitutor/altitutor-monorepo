@@ -19,7 +19,8 @@ import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
 import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
 import { cn } from '../lib/cn';
-import { TableInsertHandles } from './table-insert-handles';
+import { transformPastedHtmlForBulkImport } from '../lib/sanitize-pasted-html';
+import '../styles/prosemirror-tables.css';
 
 const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
 const UPLOAD_PLACEHOLDER_SUFFIX = '__';
@@ -172,6 +173,11 @@ export interface RichTextEditorProps {
    */
   pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
   /**
+   * When true, pasted HTML is sanitized before insert: keeps bold, italic, paragraphs, and tables;
+   * strips font size, color, highlight, and other styling. Respects {@link pasteTableBehavior}.
+   */
+  pasteStripFormatting?: boolean;
+  /**
    * Additional TipTap extensions to add to the editor (e.g. JumpHighlightExtension for note TOC).
    */
   extensions?: import('@tiptap/core').AnyExtension[];
@@ -259,6 +265,95 @@ function htmlToPlainTextWithStructure(html: string): string {
   }
 }
 
+function applyPasteHtmlTransforms(
+  html: string,
+  options: {
+    pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
+    pasteStripFormatting?: boolean;
+  }
+): string {
+  if (options.pasteStripFormatting) {
+    return transformPastedHtmlForBulkImport(html, {
+      pasteTableBehavior: options.pasteTableBehavior,
+    });
+  }
+  let result = html;
+  if (options.pasteTableBehavior === 'strip_outside') {
+    result = stripOuterTablesFromHtml(result);
+  }
+  return result;
+}
+
+function collectClipboardImageFiles(event: ClipboardEvent): File[] {
+  const items = event.clipboardData?.items;
+  if (!items) return [];
+  const files: File[] = [];
+  for (const item of Array.from(items)) {
+    if (item.kind === 'file' && item.type.startsWith('image/')) {
+      const file = item.getAsFile();
+      if (file) files.push(file);
+    }
+  }
+  return files;
+}
+
+function hasEmbeddablePastedImages(html: string): boolean {
+  return /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html);
+}
+
+type PasteHtmlInsertOptions = {
+  pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
+  pasteStripFormatting?: boolean;
+  onPasteImages?: RichTextEditorProps['onPasteImages'];
+};
+
+async function preparePastedHtmlForInsert(
+  pastedHtml: string,
+  options: PasteHtmlInsertOptions
+): Promise<{ html: string; imageFiles: File[] }> {
+  let htmlToTransform = pastedHtml;
+  let imageFiles: File[] = [];
+
+  if (options.onPasteImages && hasEmbeddablePastedImages(pastedHtml)) {
+    const extracted = await extractImagesFromPastedHtml(pastedHtml);
+    if (extracted.files.length > 0) {
+      imageFiles = extracted.files;
+      htmlToTransform = extracted.htmlWithPlaceholders;
+    }
+  }
+
+  const html = applyPasteHtmlTransforms(htmlToTransform, {
+    pasteTableBehavior: options.pasteTableBehavior,
+    pasteStripFormatting: options.pasteStripFormatting,
+  });
+
+  return { html, imageFiles };
+}
+
+function insertPastedHtmlWithOptionalImages(
+  editor: Editor,
+  pastedHtml: string,
+  options: PasteHtmlInsertOptions
+): void {
+  void preparePastedHtmlForInsert(pastedHtml, options)
+    .then(({ html, imageFiles }) => {
+      if (!editor || editor.isDestroyed) return;
+      if (imageFiles.length > 0 && options.onPasteImages) {
+        options.onPasteImages(editor, imageFiles, { pastedHtml: html });
+        return;
+      }
+      editor.chain().deleteSelection().insertContent(html).focus().run();
+    })
+    .catch(() => {
+      if (!editor || editor.isDestroyed) return;
+      const fallback = applyPasteHtmlTransforms(pastedHtml, {
+        pasteTableBehavior: options.pasteTableBehavior,
+        pasteStripFormatting: options.pasteStripFormatting,
+      });
+      editor.chain().deleteSelection().insertContent(fallback).focus().run();
+    });
+}
+
 /** Replace top-level tables (not nested inside another table) with divs containing each cell's innerHTML; nested tables are preserved. */
 function stripOuterTablesFromHtml(html: string): string {
   if (!html.trim()) return html;
@@ -310,6 +405,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   onPasteImages,
   pastePlainTextAsParagraphs = false,
   pasteTableBehavior,
+  pasteStripFormatting = false,
   extensions: extraExtensions,
   omitTypography = false,
   slashMenuSuggestions,
@@ -566,17 +662,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         class: cn(
           omitTypography
             ? [
-                'max-w-none focus:outline-none text-foreground text-sm dark:text-foreground',
+                'max-w-none focus:outline-none text-foreground text-sm dark:text-foreground not-prose',
+                /* [&_.ProseMirror_*] not [&_*]: classes are on view.dom; [&_p] etc. break bulk-import highlight spans */
                 '[&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h3]:text-lg',
                 '[&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:tracking-tight',
                 '[&_.ProseMirror_h1]:mt-7 [&_.ProseMirror_h1]:mb-1.5 [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-1 [&_.ProseMirror_h3]:mt-5 [&_.ProseMirror_h3]:mb-1',
                 '[&_.ProseMirror_p]:my-2 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2',
                 '[&_.ProseMirror_li]:my-1',
-                /* Preflight clears list markers; prose normally restores them — mirror prose-sm lists */
-                '[&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_ol]:pl-[1.625em]',
-                '[&_.ProseMirror_ul]:list-disc [&_.ProseMirror_ul]:pl-[1.625em]',
-                '[&_.ProseMirror_li]:list-item [&_.ProseMirror_li]:marker:text-foreground',
-                '[&_.ProseMirror_ol]:[list-style-position:outside] [&_.ProseMirror_ul]:[list-style-position:outside]',
                 '[&_.ProseMirror_li_ol]:mt-2 [&_.ProseMirror_li_ul]:mt-2',
                 '[&_.ProseMirror_table]:my-4 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted',
                 '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2',
@@ -591,6 +683,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 'prose-h1:mt-7 prose-h1:mb-1.5 prose-h2:mt-6 prose-h2:mb-1 prose-h3:mt-5 prose-h3:mb-1',
                 'prose-p:my-2 prose-ul:my-2 prose-ol:my-2',
                 'prose-li:my-1',
+                'prose-ol:list-decimal prose-ul:list-disc prose-li:list-item',
                 'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
                 'prose-td:border prose-td:border-border prose-td:p-2',
                 '[&_details]:my-4 [&_details]:rounded-lg [&_details]:border [&_details]:border-border [&_details]:bg-card/40',
@@ -599,6 +692,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               ],
           '[&_.ProseMirror]:cursor-text',
           '[&_.ProseMirror]:pl-6',
+          /* Preflight clears list markers; [&_ol]/[&_ul] target view.dom children (tiptap/ProseMirror root) */
+          '[&_ol]:list-decimal [&_ol]:pl-[1.625em] [&_ol]:[list-style-position:outside]',
+          '[&_ul]:list-disc [&_ul]:pl-[1.625em] [&_ul]:[list-style-position:outside]',
+          '[&_li]:list-item [&_li]:marker:text-foreground',
           '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_p.is-empty.is-editor-empty:first-child::before]:text-muted-foreground',
           '[&_p.is-empty.is-editor-empty:first-child::before]:float-left',
@@ -630,7 +727,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             const behavior = behaviorFromCapture;
             const text = pastedHtml ? htmlToPlainTextWithStructure(pastedHtml) : pastedText;
             const lines = text.split(/\r?\n/);
-            if (behavior === 'strip_all' && (lines.length > 1 || !pastedHtml)) {
+            if (behavior === 'strip_all' && pasteStripFormatting && pastedHtml) {
+              insertPastedHtmlWithOptionalImages(editor, pastedHtml, {
+                pasteTableBehavior: 'strip_all',
+                pasteStripFormatting: true,
+                onPasteImages,
+              });
+            } else if (behavior === 'strip_all' && (lines.length > 1 || !pastedHtml)) {
               const content = lines.map((line) => ({
                 type: 'paragraph',
                 content: line.length > 0 ? [{ type: 'text', text: line }] : [],
@@ -638,10 +741,17 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               const pos = editor.state.selection.from;
               editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
             } else if (behavior === 'strip_outside' && pastedHtml) {
-              const transformed = stripOuterTablesFromHtml(pastedHtml);
-              editor.chain().deleteSelection().insertContent(transformed).focus().run();
+              insertPastedHtmlWithOptionalImages(editor, pastedHtml, {
+                pasteTableBehavior: behavior,
+                pasteStripFormatting,
+                onPasteImages,
+              });
             } else if (behavior === 'keep' && pastedHtml) {
-              editor.chain().deleteSelection().insertContent(pastedHtml).focus().run();
+              insertPastedHtmlWithOptionalImages(editor, pastedHtml, {
+                pasteTableBehavior: behavior,
+                pasteStripFormatting,
+                onPasteImages,
+              });
             } else if (behavior === 'strip_outside' || behavior === 'keep') {
               editor.chain().deleteSelection().insertContent(pastedText).focus().run();
             } else {
@@ -678,7 +788,13 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               const t = text ?? '';
               const resolvedText = h ? htmlToPlainTextWithStructure(h) : t;
               const lines = resolvedText.split(/\r?\n/);
-              if (behavior === 'strip_all') {
+              if (behavior === 'strip_all' && pasteStripFormatting && h) {
+                insertPastedHtmlWithOptionalImages(editor, h, {
+                  pasteTableBehavior: 'strip_all',
+                  pasteStripFormatting: true,
+                  onPasteImages,
+                });
+              } else if (behavior === 'strip_all') {
                 const content = lines.map((line) => ({
                   type: 'paragraph',
                   content: line.length > 0 ? [{ type: 'text', text: line }] : [],
@@ -686,10 +802,17 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
                 const pos = editor.state.selection.from;
                 editor.chain().deleteSelection().insertContentAt(pos, content).focus().run();
               } else if (behavior === 'strip_outside' && h) {
-                const transformed = stripOuterTablesFromHtml(h);
-                editor.chain().deleteSelection().insertContent(transformed).focus().run();
+                insertPastedHtmlWithOptionalImages(editor, h, {
+                  pasteTableBehavior: behavior,
+                  pasteStripFormatting,
+                  onPasteImages,
+                });
               } else if (behavior === 'keep' && h) {
-                editor.chain().deleteSelection().insertContent(h).focus().run();
+                insertPastedHtmlWithOptionalImages(editor, h, {
+                  pasteTableBehavior: behavior,
+                  pasteStripFormatting,
+                  onPasteImages,
+                });
               } else {
                 editor.chain().deleteSelection().insertContent(t || resolvedText).focus().run();
               }
@@ -703,8 +826,16 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         if (behavior && (pastedText || pastedHtml) && editor) {
           event.preventDefault();
 
-          // strip_all: convert everything to plain text lines (tables/images removed).
+          // strip_all: plain text when no HTML; otherwise sanitize and drop tables.
           if (behavior === 'strip_all') {
+            if (pasteStripFormatting && pastedHtml) {
+              insertPastedHtmlWithOptionalImages(editor, pastedHtml, {
+                pasteTableBehavior: 'strip_all',
+                pasteStripFormatting: true,
+                onPasteImages,
+              });
+              return true;
+            }
             const text = pastedHtml ? htmlToPlainTextWithStructure(pastedHtml) : pastedText;
             const lines = text.split(/\r?\n/);
             const content = lines.map((line) => ({
@@ -719,46 +850,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           // strip_outside / keep: preserve HTML (with tables optionally flattened) and still
           // allow image uploads for embedded data/blob images when onPasteImages is provided.
           if (pastedHtml) {
-            const rawHtml =
-              behavior === 'strip_outside'
-                ? stripOuterTablesFromHtml(pastedHtml)
-                : pastedHtml;
-
-            if (
-              onPasteImages &&
-              /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(rawHtml)
-            ) {
-              extractImagesFromPastedHtml(rawHtml)
-                .then((result) => {
-                  if (result.files.length > 0) {
-                    onPasteImages(editor, result.files, {
-                      pastedHtml: result.htmlWithPlaceholders,
-                    });
-                  } else {
-                    editor
-                      .chain()
-                      .deleteSelection()
-                      .insertContent(rawHtml)
-                      .focus()
-                      .run();
-                  }
-                })
-                .catch(() => {
-                  editor
-                    .chain()
-                    .deleteSelection()
-                    .insertContent(rawHtml)
-                    .focus()
-                    .run();
-                });
-            } else {
-              editor
-                .chain()
-                .deleteSelection()
-                .insertContent(rawHtml)
-                .focus()
-                .run();
-            }
+            insertPastedHtmlWithOptionalImages(editor, pastedHtml, {
+              pasteTableBehavior: behavior,
+              pasteStripFormatting,
+              onPasteImages,
+            });
           } else {
             // No HTML, fall back to treating text as paragraphs.
             const text = pastedText;
@@ -773,34 +869,34 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           return true;
         }
 
+        if (pasteStripFormatting && pastedHtml && editor && !behavior) {
+          event.preventDefault();
+          insertPastedHtmlWithOptionalImages(editor, pastedHtml, {
+            pasteStripFormatting: true,
+            onPasteImages,
+          });
+          return true;
+        }
+
         // If clipboard contains image files and we have an image paste handler, handle it first.
         const items = event.clipboardData?.items;
         if (items && onPasteImages && editor) {
-          const files: File[] = [];
-          for (const item of Array.from(items)) {
-            if (item.kind === 'file' && item.type.startsWith('image/')) {
-              const file = item.getAsFile();
-              if (file) files.push(file);
-            }
-          }
+          const files = collectClipboardImageFiles(event);
           if (files.length > 0) {
+            event.preventDefault();
             onPasteImages(editor, files);
             return true;
           }
 
           // No image files: check for HTML with embedded images (e.g. paste from Word/Google Docs).
           const html = event.clipboardData?.getData('text/html');
-          if (html && /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html)) {
+          if (html && hasEmbeddablePastedImages(html)) {
             event.preventDefault();
-            extractImagesFromPastedHtml(html)
-              .then((result) => {
-                if (result.files.length > 0) {
-                  onPasteImages(editor, result.files, {
-                    pastedHtml: result.htmlWithPlaceholders,
-                  });
-                }
-              })
-              .catch(() => {});
+            insertPastedHtmlWithOptionalImages(editor, html, {
+              pasteTableBehavior: behavior ?? undefined,
+              pasteStripFormatting,
+              onPasteImages,
+            });
             return true;
           }
         }
@@ -1058,11 +1154,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }}
     >
       <EditorContent editor={editor} className="min-h-0 flex-1 overflow-visible" />
-      <TableInsertHandles editor={editor} editable={editable} />
     </div>
   );
 });
 
 RichTextEditor.displayName = 'RichTextEditor';
-
-export { TableInsertHandles } from './table-insert-handles';

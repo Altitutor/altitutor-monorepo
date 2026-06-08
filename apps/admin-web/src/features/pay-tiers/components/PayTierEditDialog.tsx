@@ -22,6 +22,7 @@ import {
 } from '../hooks';
 import {
   hasTenureRequirement,
+  hasTimeSincePromotionRequirement,
   PayTierRequirementEditor,
 } from './PayTierRequirementEditor';
 
@@ -59,6 +60,7 @@ export function PayTierEditDialog({
   const requirements = requirementsQuery.data ?? [];
   const saving = updateTier.isPending;
   const hasTenure = hasTenureRequirement(requirements);
+  const hasTimeSincePromotion = hasTimeSincePromotionRequirement(requirements);
 
   const handleClose = () => onOpenChange(false);
 
@@ -147,11 +149,27 @@ export function PayTierEditDialog({
                         addRequirement.mutate({
                           tierNumber: tier.tier_number,
                           requirement_kind: 'TENURE_MONTHS',
-                          params: { min: 1 },
+                          params: { min: 1, unit: 'months' },
                         })
                       }
                     >
                       <Plus className="h-3 w-3 mr-1" /> Tenure
+                    </Button>
+                  )}
+                  {!hasTimeSincePromotion && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={addRequirement.isPending}
+                      onClick={() =>
+                        addRequirement.mutate({
+                          tierNumber: tier.tier_number,
+                          requirement_kind: 'TIME_SINCE_LAST_PROMOTION',
+                          params: { min: 3, unit: 'months' },
+                        })
+                      }
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Time since promotion
                     </Button>
                   )}
                   <Button
@@ -174,7 +192,7 @@ export function PayTierEditDialog({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  One tenure rule per tier (months employed). Requirement changes save automatically.
+                  One tenure rule and one time-since-promotion rule per tier. Time requirements support days, weeks, or months. Changes save automatically.
                 </p>
               </div>
             )}

@@ -45,6 +45,17 @@ function normalizeTargetScore(
   return Math.round(value);
 }
 
+function normalizeTestYear(value: unknown): number | null | { error: string } {
+  if (value == null) return null;
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return { error: "testYear must be an integer year" };
+  }
+  if (value < 2020 || value > 2100) {
+    return { error: "testYear is out of range" };
+  }
+  return value;
+}
+
 function normalizeTestDate(value: unknown): string | null | { error: string } {
   if (value == null) return null;
   if (typeof value !== "string" || value.trim().length === 0) {
@@ -95,6 +106,7 @@ export async function GET() {
   const studentId = await resolveStudentId(user.id);
   if (!studentId) {
     return NextResponse.json<StudyPlannerSettings>({
+      testYear: null,
       testDate: null,
       targetScores: { s1: null, s2: null, s3: null },
     });
@@ -103,7 +115,7 @@ export async function GET() {
   const { data, error } = await supabaseAdmin
     .from("students")
     .select(
-      "ucat_test_date, ucat_target_score_s1, ucat_target_score_s2, ucat_target_score_s3",
+      "ucat_test_year, ucat_test_date, ucat_target_score_s1, ucat_target_score_s2, ucat_target_score_s3",
     )
     .eq("id", studentId)
     .maybeSingle();
@@ -111,6 +123,7 @@ export async function GET() {
   if (error) {
     if (isMissingStudyPlannerColumnError(error)) {
       return NextResponse.json<StudyPlannerSettings>({
+        testYear: null,
         testDate: null,
         targetScores: { s1: null, s2: null, s3: null },
       });
@@ -119,6 +132,7 @@ export async function GET() {
   }
 
   const payload: StudyPlannerSettings = {
+    testYear: data?.ucat_test_year ?? null,
     testDate: data?.ucat_test_date ?? null,
     targetScores: {
       s1: data?.ucat_target_score_s1 ?? null,
@@ -148,9 +162,15 @@ export async function PATCH(request: NextRequest) {
   }
 
   const body = (await request.json()) as {
+    testYear?: unknown;
     testDate?: unknown;
     targetScores?: TargetScoresInput;
   };
+
+  const normalizedYear = normalizeTestYear(body.testYear);
+  if (typeof normalizedYear === "object" && normalizedYear?.error) {
+    return NextResponse.json({ error: normalizedYear.error }, { status: 400 });
+  }
 
   const normalizedDate = normalizeTestDate(body.testDate);
   if (typeof normalizedDate === "object" && normalizedDate?.error) {
@@ -171,18 +191,20 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: s3.error }, { status: 400 });
   }
   const safeTestDate = typeof normalizedDate === "string" ? normalizedDate : null;
+  const safeTestYear = typeof normalizedYear === "number" ? normalizedYear : null;
   const safeS1 = typeof s1 === "number" ? s1 : null;
   const safeS2 = typeof s2 === "number" ? s2 : null;
   const safeS3 = typeof s3 === "number" ? s3 : null;
 
   const hasAnyField =
+    body.testYear !== undefined ||
     body.testDate !== undefined ||
     targetScores.s1 !== undefined ||
     targetScores.s2 !== undefined ||
     targetScores.s3 !== undefined;
   if (!hasAnyField) {
     return NextResponse.json(
-      { error: "Provide testDate and/or targetScores to update" },
+      { error: "Provide testYear, testDate, and/or targetScores to update" },
       { status: 400 },
     );
   }
@@ -198,6 +220,7 @@ export async function PATCH(request: NextRequest) {
   const updates: Record<string, string | number | null> = {
     updated_at: new Date().toISOString(),
   };
+  if (body.testYear !== undefined) updates.ucat_test_year = safeTestYear;
   if (body.testDate !== undefined) updates.ucat_test_date = safeTestDate;
   if (targetScores.s1 !== undefined) updates.ucat_target_score_s1 = safeS1;
   if (targetScores.s2 !== undefined) updates.ucat_target_score_s2 = safeS2;
@@ -222,6 +245,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   return NextResponse.json({
+    testYear: body.testYear !== undefined ? safeTestYear : undefined,
     testDate: body.testDate !== undefined ? safeTestDate : undefined,
     targetScores: {
       s1: targetScores.s1 !== undefined ? safeS1 : undefined,

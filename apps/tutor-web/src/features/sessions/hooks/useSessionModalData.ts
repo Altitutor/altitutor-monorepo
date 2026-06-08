@@ -19,6 +19,7 @@ export interface ProcessedStaff {
   plannedStatus: 'attending';
   actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
   staffType?: string;
+  sessionsStaffType?: string | null;
 }
 
 interface TutorLogStudentAttendance {
@@ -446,6 +447,7 @@ export function useSessionModalData({
         plannedStatus,
         actualStatus,
         staffType: actualAttendance?.type,
+        sessionsStaffType: sf.type ?? null,
       };
     });
   }, [sessionsStaff, actualStaffAttendance, hasTutorLog]);

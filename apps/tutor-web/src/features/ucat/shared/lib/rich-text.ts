@@ -210,30 +210,23 @@ export function tokenizedPlainTextToProseMirrorWithLineBreaksAndTables(
 export function proseMirrorToPlainText(value: Json | null | undefined): string {
   if (!value || typeof value !== 'object') return ''
 
-  const asRecord = value as Record<string, unknown>
-  const content = asRecord.content
-  if (!Array.isArray(content)) return ''
+  const walk = (node: unknown): string => {
+    if (!node || typeof node !== 'object') return ''
+    const rec = node as Record<string, unknown>
+    if (typeof rec.text === 'string') return rec.text
+    if (rec.type === 'hardBreak') return '\n'
+    if (!Array.isArray(rec.content)) return ''
 
-  const chunks: string[] = []
+    const type = rec.type
+    const parts = rec.content.map(walk)
 
-  for (const node of content) {
-    if (!node || typeof node !== 'object') continue
-    const nodeRecord = node as Record<string, unknown>
-    const nodeContent = nodeRecord.content
-    if (!Array.isArray(nodeContent)) continue
-
-    const line = nodeContent
-      .map((child) => {
-        if (!child || typeof child !== 'object') return ''
-        const childRecord = child as Record<string, unknown>
-        return typeof childRecord.text === 'string' ? childRecord.text : ''
-      })
-      .join('')
-
-    if (line.length > 0) chunks.push(line)
+    if (type === 'table') return parts.filter(Boolean).join('\n')
+    if (type === 'tableRow') return parts.join('\t')
+    if (type === 'doc') return parts.filter(Boolean).join('\n')
+    return parts.join('')
   }
 
-  return chunks.join('\n')
+  return walk(value).replace(/\n{3,}/g, '\n\n').trim()
 }
 
 function proseMirrorHasImage(value: Json | null | undefined): boolean {
@@ -256,11 +249,36 @@ function proseMirrorHasImage(value: Json | null | undefined): boolean {
   return visit(root)
 }
 
-/** Returns true if the ProseMirror value has non-empty plain text or image content. */
+function proseMirrorHasTable(value: Json | null | undefined): boolean {
+  if (!value || typeof value !== 'object') return false
+  const root = value as Record<string, unknown>
+
+  const visit = (node: unknown): boolean => {
+    if (!node || typeof node !== 'object') return false
+    const rec = node as Record<string, unknown>
+    if (rec.type === 'table') return true
+    const content = rec.content
+    if (Array.isArray(content)) {
+      for (const child of content) {
+        if (visit(child)) return true
+      }
+    }
+    return false
+  }
+
+  return visit(root)
+}
+
+/** Returns true if the ProseMirror value has non-empty plain text, image, or table content. */
 export function hasRichTextContent(value: Json | null | undefined): boolean {
   const plain = proseMirrorToPlainText(value)?.trim() ?? ''
   if (plain.length > 0) return true
-  return proseMirrorHasImage(value)
+  if (proseMirrorHasImage(value)) return true
+  return proseMirrorHasTable(value)
+}
+
+export function proseMirrorHasBlockTable(value: Json | null | undefined): boolean {
+  return proseMirrorHasTable(value)
 }
 
 /**
@@ -268,10 +286,5 @@ export function hasRichTextContent(value: Json | null | undefined): boolean {
  * Use when building API payloads so empty answer options are not submitted.
  */
 export function filterOptionsWithContent<T extends { answerText: Json }>(options: T[]): T[] {
-  return options.filter((opt) => {
-    const plain = proseMirrorToPlainText(opt.answerText)?.trim() ?? ''
-    const hasImage = proseMirrorHasImage(opt.answerText)
-    const keep = plain.length > 0 || hasImage
-    return keep
-  })
+  return options.filter((opt) => hasRichTextContent(opt.answerText))
 }

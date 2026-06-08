@@ -13,6 +13,7 @@ export {
   collectBlocksFromDocForQuantitativeReasoning,
   parseFromLines,
   classifyParseLineRoles,
+  buildQuestionPasteSpansForLine,
   nodeToText,
   extractQuestionRowFromNestedTable,
   isQuestionTableWithNestedOptions,
@@ -25,6 +26,8 @@ export {
   type ParserConfig,
   type QuantitativeReasoningDocBlocks,
   type ParseLineHighlightRole,
+  type QuestionPasteSpan,
+  type QuestionPasteSpanKind,
 } from './core'
 
 export {

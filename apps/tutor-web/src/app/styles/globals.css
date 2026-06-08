@@ -1,4 +1,5 @@
 @import '@altitutor/ui/styles/native-datetime-input.css';
+@import '@altitutor/ui/styles/prosemirror-tables.css';
 
 @tailwind base;
 @tailwind components;
@@ -149,6 +150,43 @@
  * Defined here (not only as Tailwind utilities) so highlights always paint: JIT may miss
  * classes used only on PM-generated spans, and Typography/prose can override inline spans.
  */
+.tiptap [class*='ucat-parse-hl-'],
+.ProseMirror [class*='ucat-parse-hl-'] {
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.ucat-parse-hl-stem-split {
+  /* Legacy inline highlight — stem splits use widget lines instead. */
+  display: none;
+}
+
+.ucat-parse-stem-split-line {
+  display: block;
+  width: 100%;
+  height: 0;
+  margin: 0.75rem 0;
+  border: 0;
+  border-top: 2px solid rgba(126, 34, 206, 0.55);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+.dark .ucat-parse-stem-split-line {
+  border-top-color: rgba(192, 132, 252, 0.55);
+}
+
+.ucat-parse-hl-discard {
+  color: rgb(220 38 38);
+  text-decoration: line-through;
+  text-decoration-color: rgb(220 38 38);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+.dark .ucat-parse-hl-discard {
+  color: rgb(248 113 113);
+  text-decoration-color: rgb(248 113 113);
+}
+
 .ucat-parse-hl-q-stem {
   background-color: rgba(245, 158, 11, 0.18);
   border-left: 2px solid rgba(217, 119, 6, 0.45);

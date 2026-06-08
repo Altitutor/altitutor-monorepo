@@ -14,7 +14,6 @@ import {
   OnboardingProvider,
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
 } from "@/features/onboarding";
-import { StudyPlannerOnboardingModal } from "@/features/study-planner/components/study-planner-onboarding-modal";
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
 import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layout-context";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
@@ -44,14 +43,13 @@ export function AppShell({ children }: AppShellProps) {
     }
   }, [isExamRoute]);
 
-  const isPublicSubscribeRoute = pathname.startsWith("/subscribe");
+  const isSubscribeRoute = pathname.startsWith("/subscribe");
 
   useEffect(() => {
-    if (isPublicSubscribeRoute) return;
     if (!isLoading && !user) {
       router.replace("/login");
     }
-  }, [isLoading, router, user, isPublicSubscribeRoute]);
+  }, [isLoading, router, user]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -80,12 +78,12 @@ export function AppShell({ children }: AppShellProps) {
     setCollapsed((prev) => !prev);
   };
 
-  if (!isPublicSubscribeRoute && (isLoading || !user)) {
+  if (isLoading || !user) {
     return <div className="p-6 text-sm text-muted-foreground">Loading...</div>;
   }
 
   // Subscribe page gets its own full-page marketing layout — no sidebar/nav shell
-  if (isPublicSubscribeRoute) {
+  if (isSubscribeRoute) {
     return <>{children}</>;
   }
 
@@ -103,7 +101,6 @@ export function AppShell({ children }: AppShellProps) {
     >
       <OnboardingProvider>
         <OnboardingAutoStart />
-        <StudyPlannerOnboardingModal />
         {/* nextstepjs portal target: fixed layer so sidebar highlights stay aligned while main content scrolls */}
         <div
           id={UCAT_NEXTSTEP_FIXED_VIEWPORT_ID}

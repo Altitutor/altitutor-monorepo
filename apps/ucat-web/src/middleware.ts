@@ -44,32 +44,44 @@ export async function middleware(request: NextRequest) {
     },
   });
 
+  if (pathname === "/pricing") {
+    return NextResponse.redirect(new URL("/subscribe", origin));
+  }
+
   const publicPaths = [
     "/",
     "/login",
     "/signup",
-    "/signup/flow",
-    "/pricing",
-    "/subscribe",
-    "/subscribe/success",
+    "/forgot-password",
+    "/reset-password",
     "/auth/callback",
   ];
   const isPublicPath =
     publicPaths.includes(pathname) ||
-    pathname.startsWith("/subscribe") ||
     pathname.startsWith("/api/auth") ||
     pathname.startsWith("/auth/") ||
-    pathname === "/api/ucat/subscription-config";
+    pathname === "/api/ucat/subscription-config" ||
+    pathname === "/api/ucat/signup/check-email";
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
+
+  if (!user && pathname.startsWith("/subscribe")) {
+    const signupUrl = new URL("/signup", origin);
+    signupUrl.searchParams.set("redirect", pathname);
+    return NextResponse.redirect(signupUrl);
+  }
 
   if (!user && !isPublicPath) {
     return NextResponse.redirect(new URL("/login", origin));
   }
 
   if (user && pathname === "/") {
+    return NextResponse.redirect(new URL("/dashboard", origin));
+  }
+
+  if (user && pathname === "/forgot-password") {
     return NextResponse.redirect(new URL("/dashboard", origin));
   }
 

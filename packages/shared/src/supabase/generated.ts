@@ -7184,10 +7184,14 @@ export type Database = {
       }
       student_subscriptions: {
         Row: {
+          billing_interval: string | null
+          cancel_at: string | null
+          cancel_at_period_end: boolean
           created_at: string
           current_period_end: string | null
           current_period_start: string | null
           id: string
+          plan_tier: string | null
           status: string
           stripe_price_id: string | null
           stripe_product_id: string | null
@@ -7197,10 +7201,14 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          billing_interval?: string | null
+          cancel_at?: string | null
+          cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          plan_tier?: string | null
           status: string
           stripe_price_id?: string | null
           stripe_product_id?: string | null
@@ -7210,10 +7218,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          billing_interval?: string | null
+          cancel_at?: string | null
+          cancel_at_period_end?: boolean
           created_at?: string
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string
+          plan_tier?: string | null
           status?: string
           stripe_price_id?: string | null
           stripe_product_id?: string | null
@@ -7522,6 +7534,7 @@ export type Database = {
           created_at: string
           credit_date: string
           discount_cents: number
+          forfeited_at: string | null
           id: string
           stripe_invoice_item_id: string
           student_id: string
@@ -7530,6 +7543,7 @@ export type Database = {
           created_at?: string
           credit_date: string
           discount_cents: number
+          forfeited_at?: string | null
           id?: string
           stripe_invoice_item_id: string
           student_id: string
@@ -7538,6 +7552,7 @@ export type Database = {
           created_at?: string
           credit_date?: string
           discount_cents?: number
+          forfeited_at?: string | null
           id?: string
           stripe_invoice_item_id?: string
           student_id?: string
@@ -7607,10 +7622,16 @@ export type Database = {
           school: string | null
           status: string
           timezone: string
+          ucat_onboarding_completed_at: string | null
+          ucat_online_tier_override: string
+          ucat_signup_completed_at: string | null
+          ucat_signup_step: number
           ucat_target_score_s1: number | null
           ucat_target_score_s2: number | null
           ucat_target_score_s3: number | null
           ucat_test_date: string | null
+          ucat_test_year: number | null
+          ucat_unlimited_trial_consumed_at: string | null
           updated_at: string | null
           user_id: string | null
           year_level: number | null
@@ -7641,10 +7662,16 @@ export type Database = {
           school?: string | null
           status: string
           timezone?: string
+          ucat_onboarding_completed_at?: string | null
+          ucat_online_tier_override?: string
+          ucat_signup_completed_at?: string | null
+          ucat_signup_step?: number
           ucat_target_score_s1?: number | null
           ucat_target_score_s2?: number | null
           ucat_target_score_s3?: number | null
           ucat_test_date?: string | null
+          ucat_test_year?: number | null
+          ucat_unlimited_trial_consumed_at?: string | null
           updated_at?: string | null
           user_id?: string | null
           year_level?: number | null
@@ -7675,10 +7702,16 @@ export type Database = {
           school?: string | null
           status?: string
           timezone?: string
+          ucat_onboarding_completed_at?: string | null
+          ucat_online_tier_override?: string
+          ucat_signup_completed_at?: string | null
+          ucat_signup_step?: number
           ucat_target_score_s1?: number | null
           ucat_target_score_s2?: number | null
           ucat_target_score_s3?: number | null
           ucat_test_date?: string | null
+          ucat_test_year?: number | null
+          ucat_unlimited_trial_consumed_at?: string | null
           updated_at?: string | null
           user_id?: string | null
           year_level?: number | null
@@ -9396,6 +9429,63 @@ export type Database = {
           },
         ]
       }
+      ucat_plan_prices: {
+        Row: {
+          base_price_cents: number
+          billing_interval: string
+          created_at: string
+          id: string
+          plan_tier: string
+          stripe_price_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          base_price_cents: number
+          billing_interval: string
+          created_at?: string
+          id?: string
+          plan_tier: string
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          base_price_cents?: number
+          billing_interval?: string
+          created_at?: string
+          id?: string
+          plan_tier?: string
+          stripe_price_id?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ucat_practice_day_discount_config: {
+        Row: {
+          billing_interval: string
+          created_at: string
+          discount_per_day_cents: number
+          id: string
+          max_discounts_per_period: number
+          updated_at: string
+        }
+        Insert: {
+          billing_interval: string
+          created_at?: string
+          discount_per_day_cents: number
+          id?: string
+          max_discounts_per_period: number
+          updated_at?: string
+        }
+        Update: {
+          billing_interval?: string
+          created_at?: string
+          discount_per_day_cents?: number
+          id?: string
+          max_discounts_per_period?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ucat_questions: {
         Row: {
           answer_explanation: Json | null
@@ -9876,42 +9966,66 @@ export type Database = {
       }
       ucat_subscription_config: {
         Row: {
-          base_price_cents: number
           billing_interval: string
           created_at: string
           currency: string
-          discount_per_day_cents: number
+          free_learn_limit: number
+          free_learn_period: string
+          free_mocks_limit: number
+          free_mocks_period: string
+          free_practice_limit: number
+          free_practice_period: string
+          free_sets_limit: number
+          free_sets_period: string
+          free_skill_trainer_limit: number
+          free_skill_trainer_period: string
           id: string
           min_questions_per_day: number
-          stripe_price_id: string | null
-          stripe_product_id: string | null
+          pro_stripe_product_id: string | null
           trial_days: number
+          unlimited_stripe_product_id: string | null
           updated_at: string
         }
         Insert: {
-          base_price_cents?: number
           billing_interval?: string
           created_at?: string
           currency?: string
-          discount_per_day_cents?: number
+          free_learn_limit?: number
+          free_learn_period?: string
+          free_mocks_limit?: number
+          free_mocks_period?: string
+          free_practice_limit?: number
+          free_practice_period?: string
+          free_sets_limit?: number
+          free_sets_period?: string
+          free_skill_trainer_limit?: number
+          free_skill_trainer_period?: string
           id?: string
           min_questions_per_day?: number
-          stripe_price_id?: string | null
-          stripe_product_id?: string | null
+          pro_stripe_product_id?: string | null
           trial_days?: number
+          unlimited_stripe_product_id?: string | null
           updated_at?: string
         }
         Update: {
-          base_price_cents?: number
           billing_interval?: string
           created_at?: string
           currency?: string
-          discount_per_day_cents?: number
+          free_learn_limit?: number
+          free_learn_period?: string
+          free_mocks_limit?: number
+          free_mocks_period?: string
+          free_practice_limit?: number
+          free_practice_period?: string
+          free_sets_limit?: number
+          free_sets_period?: string
+          free_skill_trainer_limit?: number
+          free_skill_trainer_period?: string
           id?: string
           min_questions_per_day?: number
-          stripe_price_id?: string | null
-          stripe_product_id?: string | null
+          pro_stripe_product_id?: string | null
           trial_days?: number
+          unlimited_stripe_product_id?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -11455,10 +11569,14 @@ export type Database = {
       }
       vstudent_subscriptions: {
         Row: {
+          billing_interval: string | null
+          cancel_at: string | null
+          cancel_at_period_end: boolean | null
           created_at: string | null
           current_period_end: string | null
           current_period_start: string | null
           id: string | null
+          plan_tier: string | null
           status: string | null
           stripe_price_id: string | null
           stripe_product_id: string | null
@@ -11468,10 +11586,14 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          billing_interval?: string | null
+          cancel_at?: string | null
+          cancel_at_period_end?: boolean | null
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string | null
+          plan_tier?: string | null
           status?: string | null
           stripe_price_id?: string | null
           stripe_product_id?: string | null
@@ -11481,10 +11603,14 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          billing_interval?: string | null
+          cancel_at?: string | null
+          cancel_at_period_end?: boolean | null
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
           id?: string | null
+          plan_tier?: string | null
           status?: string | null
           stripe_price_id?: string | null
           stripe_product_id?: string | null
@@ -11911,6 +12037,12 @@ export type Database = {
           has_in_person_access: boolean | null
           has_online_access: boolean | null
           has_ucat_access: boolean | null
+          is_quota_exempt: boolean | null
+          online_tier: string | null
+          ucat_onboarding_completed_at: string | null
+          ucat_signup_completed_at: string | null
+          ucat_signup_step: number | null
+          unlimited_trial_eligible: boolean | null
         }
         Relationships: []
       }
@@ -16857,6 +16989,7 @@ export type Database = {
         }
         Returns: string
       }
+      auth_user_exists_by_email: { Args: { p_email: string }; Returns: boolean }
       batch_update_topic_file_indices: {
         Args: { updates: Json }
         Returns: undefined
@@ -17180,6 +17313,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_student_ucat_online_tier: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
       get_subjects_for_student: {
         Args: { p_curriculum: string; p_year_level: number }
         Returns: {
@@ -17207,6 +17344,7 @@ export type Database = {
         Args: { file_path: string }
         Returns: string
       }
+      get_ucat_subject_id: { Args: never; Returns: string }
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
@@ -17217,6 +17355,10 @@ export type Database = {
       is_student: { Args: never; Returns: boolean }
       is_tutor: { Args: never; Returns: boolean }
       is_ucat_in_person_student: { Args: never; Returns: boolean }
+      is_ucat_online_quota_exempt: {
+        Args: { p_student_id: string }
+        Returns: boolean
+      }
       is_ucat_online_student: { Args: never; Returns: boolean }
       is_ucat_student: { Args: never; Returns: boolean }
       is_ucat_tutor: { Args: never; Returns: boolean }
@@ -17492,6 +17634,7 @@ export type Database = {
         Returns: string
       }
       standardize_au_phone: { Args: { phone_input: string }; Returns: string }
+      standardize_phone_e164: { Args: { phone_input: string }; Returns: string }
       student_complete_onboarding_tour: {
         Args: { p_tour_id: string; p_version?: number }
         Returns: Json
@@ -17499,6 +17642,10 @@ export type Database = {
       student_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
+      }
+      student_has_ucat_pro_subscription: {
+        Args: { p_student_id: string }
+        Returns: boolean
       }
       student_reset_onboarding_progress: { Args: never; Returns: Json }
       student_reset_onboarding_tour: {
@@ -17639,6 +17786,10 @@ export type Database = {
         }
         Returns: string
       }
+      ucat_quota_period_start: {
+        Args: { p_at?: string; p_period: string; p_timezone: string }
+        Returns: string
+      }
       ucat_recompute_question_set_timing: {
         Args: { p_question_set_id: string }
         Returns: undefined
@@ -17699,6 +17850,7 @@ export type Database = {
         | "TENURE_DAYS"
         | "TENURE_MONTHS"
         | "SESSION_COUNT"
+        | "TIME_SINCE_LAST_PROMOTION"
       staff_tier_promotion_outcome: "approved" | "deferred" | "not_ready"
       subject_curriculum: "SACE" | "IB" | "PRESACE" | "PRIMARY" | "MEDICINE"
       subject_discipline:
@@ -17865,6 +18017,7 @@ export const Constants = {
         "TENURE_DAYS",
         "TENURE_MONTHS",
         "SESSION_COUNT",
+        "TIME_SINCE_LAST_PROMOTION",
       ],
       staff_tier_promotion_outcome: ["approved", "deferred", "not_ready"],
       subject_curriculum: ["SACE", "IB", "PRESACE", "PRIMARY", "MEDICINE"],

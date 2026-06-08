@@ -7,6 +7,7 @@ import {
   syncSubscriptionInvoiceFromStripe,
   retrieveInvoiceWithLines,
 } from './shared/subscription-invoice-sync.ts';
+import { forfeitPracticeDayCreditsForStudent } from './shared/forfeit-practice-day-credits.ts';
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
@@ -18,6 +19,108 @@ function json(resp: unknown, status = 200) {
 async function getUcatSubjectId(supabase: SupabaseClient): Promise<string | null> {
   const { data } = await supabase.from('subjects').select('id').eq('name', 'UCAT').maybeSingle();
   return data?.id ?? null;
+}
+
+const ACTIVE_SUBSCRIPTION_STATUSES = new Set(['active', 'trialing', 'past_due', 'unpaid']);
+
+function subscriptionPeriodFields(subscription: {
+  current_period_start?: number;
+  current_period_end?: number;
+  items?: { data?: Array<{ current_period_start?: number; current_period_end?: number }> };
+}): { current_period_start: string | null; current_period_end: string | null } {
+  const item = subscription.items?.data?.[0];
+  const start = subscription.current_period_start ?? item?.current_period_start ?? null;
+  const end = subscription.current_period_end ?? item?.current_period_end ?? null;
+  return {
+    current_period_start: start != null ? new Date(start * 1000).toISOString() : null,
+    current_period_end: end != null ? new Date(end * 1000).toISOString() : null,
+  };
+}
+
+function subscriptionCancelFields(subscription: {
+  status?: string;
+  cancel_at_period_end?: boolean;
+  cancel_at?: number | null;
+  current_period_end?: number;
+  items?: { data?: Array<{ current_period_end?: number }> };
+}): { cancel_at_period_end: boolean; cancel_at: string | null } {
+  const cancelAtPeriodEnd = subscription.cancel_at_period_end ?? false;
+  const status = subscription.status ?? 'active';
+  const stillActive = ACTIVE_SUBSCRIPTION_STATUSES.has(status);
+
+  if (subscription.cancel_at) {
+    const cancelAtMs = subscription.cancel_at * 1000;
+    const isScheduled = stillActive && cancelAtMs > Date.now();
+    return {
+      cancel_at_period_end: cancelAtPeriodEnd || isScheduled,
+      cancel_at: new Date(cancelAtMs).toISOString(),
+    };
+  }
+
+  if (cancelAtPeriodEnd) {
+    const periodEnd =
+      subscription.current_period_end ?? subscription.items?.data?.[0]?.current_period_end;
+    if (periodEnd) {
+      return {
+        cancel_at_period_end: true,
+        cancel_at: new Date(periodEnd * 1000).toISOString(),
+      };
+    }
+  }
+
+  return { cancel_at_period_end: cancelAtPeriodEnd, cancel_at: null };
+}
+
+type UcatPlanFields = {
+  plan_tier: 'unlimited' | 'pro' | null;
+  billing_interval: 'week' | 'month' | 'year' | null;
+};
+
+async function resolveUcatPlanFields(
+  supabase: SupabaseClient,
+  priceId: string | null,
+  productId: string | null,
+  metadata?: Record<string, string> | null,
+): Promise<UcatPlanFields> {
+  const metaTier = metadata?.ucat_plan_tier;
+  const metaInterval = metadata?.ucat_billing_interval;
+  if (
+    (metaTier === 'unlimited' || metaTier === 'pro') &&
+    (metaInterval === 'week' || metaInterval === 'month' || metaInterval === 'year')
+  ) {
+    return { plan_tier: metaTier, billing_interval: metaInterval };
+  }
+
+  if (priceId) {
+    const { data } = await supabase
+      .from('ucat_plan_prices')
+      .select('plan_tier, billing_interval')
+      .eq('stripe_price_id', priceId)
+      .maybeSingle();
+    if (data?.plan_tier === 'unlimited' || data?.plan_tier === 'pro') {
+      const interval = data.billing_interval;
+      if (interval === 'week' || interval === 'month' || interval === 'year') {
+        return { plan_tier: data.plan_tier, billing_interval: interval };
+      }
+      return { plan_tier: data.plan_tier, billing_interval: null };
+    }
+  }
+
+  if (productId) {
+    const { data: config } = await supabase
+      .from('ucat_subscription_config')
+      .select('unlimited_stripe_product_id, pro_stripe_product_id')
+      .limit(1)
+      .maybeSingle();
+    if (config?.pro_stripe_product_id === productId) {
+      return { plan_tier: 'pro', billing_interval: null };
+    }
+    if (config?.unlimited_stripe_product_id === productId) {
+      return { plan_tier: 'unlimited', billing_interval: null };
+    }
+  }
+
+  return { plan_tier: null, billing_interval: null };
 }
 
 Deno.serve(async (req: Request) => {
@@ -660,7 +763,11 @@ Deno.serve(async (req: Request) => {
           subscription?: string;
           customer?: string;
           customer_email?: string;
-          metadata?: { student_id?: string };
+          metadata?: {
+            student_id?: string;
+            ucat_plan_tier?: string;
+            ucat_billing_interval?: string;
+          };
         };
 
         if (session.mode !== 'subscription' || !session.subscription) {
@@ -711,6 +818,16 @@ Deno.serve(async (req: Request) => {
               );
             }
 
+            const planFields = await resolveUcatPlanFields(
+              supabase,
+              priceId,
+              productId,
+              {
+                ...(session.metadata ?? {}),
+                ...(subscription.metadata ?? {}),
+              },
+            );
+
             await supabase.from('student_subscriptions').upsert(
               {
                 student_id: studentId,
@@ -718,13 +835,11 @@ Deno.serve(async (req: Request) => {
                 stripe_subscription_id: subscription.id,
                 stripe_price_id: priceId,
                 stripe_product_id: productId,
+                plan_tier: planFields.plan_tier,
+                billing_interval: planFields.billing_interval,
                 status: subscription.status,
-                current_period_start: subscription.current_period_start
-                  ? new Date(subscription.current_period_start * 1000).toISOString()
-                  : null,
-                current_period_end: subscription.current_period_end
-                  ? new Date(subscription.current_period_end * 1000).toISOString()
-                  : null,
+                ...subscriptionPeriodFields(subscription),
+                ...subscriptionCancelFields(subscription),
                 updated_at: new Date().toISOString(),
               },
               { onConflict: 'student_id,subject_id' }
@@ -749,7 +864,15 @@ Deno.serve(async (req: Request) => {
           status: string;
           current_period_start?: number;
           current_period_end?: number;
-          items?: { data?: Array<{ price?: { id?: string } }> };
+          cancel_at_period_end?: boolean;
+          cancel_at?: number | null;
+          items?: {
+            data?: Array<{
+              current_period_start?: number;
+              current_period_end?: number;
+              price?: { id?: string; product?: string | { id?: string } };
+            }>;
+          };
         };
 
         const { data: existing } = await supabase
@@ -776,18 +899,23 @@ Deno.serve(async (req: Request) => {
               ? (productRaw as { id: string }).id
               : null;
 
+        const planFields = await resolveUcatPlanFields(
+          supabase,
+          priceId,
+          productId,
+          (subscription as { metadata?: Record<string, string> }).metadata ?? null,
+        );
+
         await supabase
           .from('student_subscriptions')
           .update({
             status: subscription.status,
             stripe_price_id: priceId,
             stripe_product_id: productId,
-            current_period_start: subscription.current_period_start
-              ? new Date(subscription.current_period_start * 1000).toISOString()
-              : null,
-            current_period_end: subscription.current_period_end
-              ? new Date(subscription.current_period_end * 1000).toISOString()
-              : null,
+            plan_tier: planFields.plan_tier,
+            billing_interval: planFields.billing_interval,
+            ...subscriptionPeriodFields(subscription),
+            ...subscriptionCancelFields(subscription),
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id);
@@ -802,10 +930,29 @@ Deno.serve(async (req: Request) => {
       case 'customer.subscription.deleted': {
         const subscription = event.data.object as { id: string };
 
+        const { data: endedSub } = await supabase
+          .from('student_subscriptions')
+          .select('student_id, subject_id')
+          .eq('stripe_subscription_id', subscription.id)
+          .maybeSingle();
+
+        if (endedSub?.student_id) {
+          const ucatSubjectId = await getUcatSubjectId(supabase);
+          if (ucatSubjectId && endedSub.subject_id === ucatSubjectId) {
+            await forfeitPracticeDayCreditsForStudent(
+              supabase,
+              stripe,
+              endedSub.student_id,
+            );
+          }
+        }
+
         await supabase
           .from('student_subscriptions')
           .update({
             status: 'canceled',
+            cancel_at_period_end: false,
+            cancel_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq('stripe_subscription_id', subscription.id);
