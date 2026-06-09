@@ -14,6 +14,7 @@ export type UcatSessionWithResources = (SessionRow & { session_id: string }) & {
     | { type: 'set'; id: string; set_id: string; name: string; section_index: number; section_name: string; question_count: number; index: number }
     | { type: 'mock'; id: string; mock_id: string; name: string; set_count: number; question_counts: number[]; index: number }
     | { type: 'stem'; id: string; stem_id: string; name: string; index: number }
+    | { type: 'lesson'; id: string; lesson_id: string; name: string; block_count: number; index: number }
   >
 }
 
@@ -47,10 +48,12 @@ export const ucatClassesApi = {
     const setIds = [...new Set(resources.map((r) => r.question_set_id).filter(Boolean))] as string[]
     const mockIds = [...new Set(resources.map((r) => r.ucat_mock_id).filter(Boolean))] as string[]
     const stemIds = [...new Set(resources.map((r) => r.question_stem_id).filter(Boolean))] as string[]
+    const lessonIds = [...new Set(resources.map((r) => r.ucat_learning_module_id).filter(Boolean))] as string[]
 
     const setsMap: Record<string, { name: unknown; sections: unknown; question_count: number }> = {}
     const mocksMap: Record<string, { name: string | null; sets: unknown }> = {}
     const stemsMap: Record<string, { stem_text: unknown }> = {}
+    const lessonsMap: Record<string, { title: string; block_count: number }> = {}
 
     if (setIds.length > 0) {
       const { data: setsData } = await supabase
@@ -85,6 +88,24 @@ export const ucatClassesApi = {
         const r = row as { id: string; stem_text: unknown; deleted_at?: string | null }
         if (r.deleted_at != null) continue
         if (r.id) stemsMap[r.id] = { stem_text: r.stem_text }
+      }
+    }
+
+    if (lessonIds.length > 0) {
+      const { data: lessonsData } = await supabase
+        .from('vtutor_ucat_learning_modules')
+        .select('id, title, block_count, kind, deleted_at')
+        .in('id', lessonIds)
+      for (const row of lessonsData ?? []) {
+        const r = row as {
+          id: string
+          title: string | null
+          block_count: number | null
+          kind: string | null
+          deleted_at?: string | null
+        }
+        if (r.deleted_at != null || r.kind !== 'lesson') continue
+        if (r.id) lessonsMap[r.id] = { title: r.title ?? 'Untitled lesson', block_count: r.block_count ?? 0 }
       }
     }
 
@@ -146,6 +167,17 @@ export const ucatClassesApi = {
             index: r.index ?? 0,
           }
         }
+        if (r.ucat_learning_module_id) {
+          const lessonInfo = lessonsMap[r.ucat_learning_module_id]
+          return {
+            type: 'lesson' as const,
+            id: r.id ?? '',
+            lesson_id: r.ucat_learning_module_id,
+            name: lessonInfo?.title ?? 'Lesson',
+            block_count: lessonInfo?.block_count ?? 0,
+            index: r.index ?? 0,
+          }
+        }
         return null
       })
       return { session: s, resources: mapped.filter(Boolean) as UcatSessionWithResources['resources'] }
@@ -159,11 +191,11 @@ export const ucatClassesApi = {
 
   /**
    * Replace all session resources for the given assignments (batch save).
-   * Payload: { assignments: Array<{ session_id, resources: Array<{ resource_type: 'set'|'mock'|'stem', resource_id, index }> }> }
+   * Payload: { assignments: Array<{ session_id, resources: Array<{ resource_type: 'set'|'mock'|'stem'|'lesson', resource_id, index }> }> }
    */
   async replaceSessionResources(assignments: Array<{
     session_id: string
-    resources: Array<{ resource_type: 'set' | 'mock' | 'stem'; resource_id: string; index: number }>
+    resources: Array<{ resource_type: 'set' | 'mock' | 'stem' | 'lesson'; resource_id: string; index: number }>
   }>): Promise<void> {
     const res = await fetch('/api/ucat/classes/sessions-resources', {
       method: 'PUT',

@@ -3,7 +3,7 @@
  * Students cannot access these routes; they see a "coming soon" modal instead.
  * Add or remove paths here to control which features are gated.
  */
-export const COMING_SOON_PATHS: string[] = ["/learn"];
+export const COMING_SOON_PATHS: string[] = [];
 
 /**
  * Returns true if the given pathname is a coming-soon route (exact or subpath).

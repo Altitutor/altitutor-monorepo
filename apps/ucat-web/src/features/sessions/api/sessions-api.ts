@@ -27,6 +27,11 @@ export type StudentUcatSessionResource =
       id: string;
       type: "stem";
       question_stem_id: string;
+    }
+  | {
+      id: string;
+      type: "lesson";
+      ucat_learning_module_id: string;
     };
 
 type SupabaseClient = ReturnType<typeof getSupabaseBrowserClient>;
@@ -112,7 +117,7 @@ export async function getStudentUcatSessionResources(
   const { data, error } = await supabase
     .from("vstudent_ucat_sessions_resources")
     .select(
-      "id, session_id, question_set_id, ucat_mock_id, question_stem_id, index",
+      "id, session_id, question_set_id, ucat_mock_id, question_stem_id, ucat_learning_module_id, index",
     )
     .eq("session_id", sessionId)
     .order("index", { ascending: true });
@@ -142,6 +147,13 @@ export async function getStudentUcatSessionResources(
           id: row.id ?? "",
           type: "stem",
           question_stem_id: row.question_stem_id,
+        };
+      }
+      if (row.ucat_learning_module_id) {
+        return {
+          id: row.id ?? "",
+          type: "lesson",
+          ucat_learning_module_id: row.ucat_learning_module_id,
         };
       }
       return null;

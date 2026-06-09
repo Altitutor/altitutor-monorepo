@@ -22,6 +22,7 @@ export type { SkillTrainerAttemptState, SubmitActionPayload };
 import {
   applyCorrectScore,
   applyWrongScore,
+  normalizeScoreDelta,
   scoreMentalMathsItem,
   scoreNumpadItem,
 } from "@/lib/ucat/skill-trainer/scoring";
@@ -61,11 +62,34 @@ function parseConfig(snapshot: unknown, trainerKey: UcatSkillTrainerKey): SkillT
     wrong_cooldown_seconds: raw.wrong_cooldown_seconds ?? 2,
     points_correct: raw.points_correct ?? 10,
     points_wrong: raw.points_wrong ?? 5,
-    streak_enabled: raw.streak_enabled ?? false,
+    streak_enabled: raw.streak_enabled ?? true,
     streak_multiplier_steps: raw.streak_multiplier_steps ?? [
       { min_streak: 3, multiplier: 1.5 },
       { min_streak: 5, multiplier: 2 },
     ],
+    trainer_key: trainerKey,
+  };
+}
+
+function buildConfigSnapshot(
+  configRow: {
+    time_limit_seconds: number;
+    wrong_cooldown_seconds: number;
+    points_correct: number;
+    points_wrong: number;
+    streak_enabled: boolean;
+    streak_multiplier_steps: unknown;
+  },
+  trainerKey: UcatSkillTrainerKey,
+): SkillTrainerConfigSnapshot {
+  return {
+    time_limit_seconds: configRow.time_limit_seconds,
+    wrong_cooldown_seconds: configRow.wrong_cooldown_seconds,
+    points_correct: Number(configRow.points_correct),
+    points_wrong: Number(configRow.points_wrong),
+    // All trainer types use streak scoring; multiplier steps still come from admin config.
+    streak_enabled: true,
+    streak_multiplier_steps: (configRow.streak_multiplier_steps ?? []) as SkillTrainerConfigSnapshot["streak_multiplier_steps"],
     trainer_key: trainerKey,
   };
 }
@@ -102,7 +126,7 @@ export async function finalizeAttemptIfExpired(
   const { data, error } = await supabase
     .from("student_skill_trainer_attempts")
     .update({
-      completed_at: attempt.ends_at,
+      completed_at: new Date().toISOString(),
       progress: null,
     })
     .eq("id", attempt.id)
@@ -227,6 +251,80 @@ export async function buildAttemptState(
   };
 }
 
+async function loadSetItemIds(
+  supabase: AdminClient,
+  setId: string,
+): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("ucat_skill_trainer_set_items")
+    .select("skill_trainer_item_id")
+    .eq("skill_trainer_set_id", setId)
+    .order("index", { ascending: true });
+
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((row) => row.skill_trainer_item_id);
+}
+
+export async function startSkillTrainerSetAttempt(
+  supabase: AdminClient,
+  studentId: string,
+  trainerKey: string,
+  skillTrainerSetId: string,
+  learningModuleBlockId: string,
+): Promise<SkillTrainerAttemptState> {
+  const existing = await getActiveAttemptForStudent(supabase, studentId);
+  if (existing && !existing.completed_at && getRemainingSeconds(existing.ends_at) > 0) {
+    return buildAttemptState(supabase, existing);
+  }
+
+  const trainer = await loadTrainerByKey(supabase, trainerKey);
+  if (!trainer) throw new Error("TRAINER_NOT_FOUND");
+
+  const itemIds = await loadSetItemIds(supabase, skillTrainerSetId);
+  if (itemIds.length === 0) throw new Error("NO_ITEMS_AVAILABLE");
+
+  const { data: configRow, error: configError } = await supabase
+    .from("ucat_skill_trainer_config")
+    .select("*")
+    .eq("skill_trainer_id", trainer.id)
+    .maybeSingle();
+  if (configError) throw new Error(configError.message);
+  if (!configRow) throw new Error("TRAINER_CONFIG_NOT_FOUND");
+
+  const configSnapshot = buildConfigSnapshot(configRow, trainer.key);
+
+  const endsAt = new Date(Date.now() + configSnapshot.time_limit_seconds * 1000).toISOString();
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("student_skill_trainer_attempts")
+    .insert({
+      student_id: studentId,
+      skill_trainer_id: trainer.id,
+      item_queue_snapshot: itemIds,
+      current_item_index: 0,
+      progress: defaultProgress(trainer.key),
+      config_snapshot: configSnapshot,
+      ends_at: endsAt,
+      learning_module_block_id: learningModuleBlockId,
+      skill_trainer_set_id: skillTrainerSetId,
+    })
+    .select("*")
+    .maybeSingle();
+
+  if (insertError) {
+    if (insertError.code === "23505") throw new Error("ANOTHER_ATTEMPT_IN_PROGRESS");
+    throw new Error(insertError.message);
+  }
+  if (!inserted) throw new Error("FAILED_TO_START");
+
+  const attempt = mapAttemptRow(
+    { ...(inserted as Record<string, unknown>), item_queue_snapshot: itemIds, config_snapshot: configSnapshot },
+    trainer.key,
+  );
+
+  return buildAttemptState(supabase, attempt);
+}
+
 export async function startSkillTrainerAttempt(
   supabase: AdminClient,
   studentId: string,
@@ -254,15 +352,7 @@ export async function startSkillTrainerAttempt(
   if (configError) throw new Error(configError.message);
   if (!configRow) throw new Error("TRAINER_CONFIG_NOT_FOUND");
 
-  const configSnapshot: SkillTrainerConfigSnapshot = {
-    time_limit_seconds: configRow.time_limit_seconds,
-    wrong_cooldown_seconds: configRow.wrong_cooldown_seconds,
-    points_correct: Number(configRow.points_correct),
-    points_wrong: Number(configRow.points_wrong),
-    streak_enabled: configRow.streak_enabled,
-    streak_multiplier_steps: (configRow.streak_multiplier_steps ?? []) as SkillTrainerConfigSnapshot["streak_multiplier_steps"],
-    trainer_key: trainer.key,
-  };
+  const configSnapshot = buildConfigSnapshot(configRow, trainer.key);
 
   const endsAt = new Date(Date.now() + configSnapshot.time_limit_seconds * 1000).toISOString();
   const queue = buildItemQueue(itemIds);
@@ -336,6 +426,7 @@ async function completeCurrentItem(
     .from("student_skill_trainer_attempts")
     .update({
       score: newScore,
+      streak_count: attempt.streak_count,
       item_queue_snapshot: queue,
       current_item_index: currentIndex,
       progress: defaultProgress(trainerKey),
@@ -379,6 +470,13 @@ export async function submitSkillTrainerAction(
     return buildAttemptState(supabase, attempt);
   }
 
+  if (attempt.progress?.cooldown_until && !isInCooldown(attempt.progress)) {
+    attempt = {
+      ...attempt,
+      progress: { ...attempt.progress, cooldown_until: null },
+    };
+  }
+
   if (isInCooldown(attempt.progress)) {
     throw new Error("COOLDOWN_ACTIVE");
   }
@@ -405,40 +503,59 @@ export async function submitSkillTrainerAction(
       const keyword = content.keywords.find((k) => k.id === payload.keyword_id);
       if (!keyword) throw new Error("INVALID_KEYWORD");
       if (keyword.target_sentence_index !== payload.sentence_index) {
+        newStreak = 0;
+        scoreDelta = normalizeScoreDelta(resolvedTrainerKey, applyWrongScore(config));
         progress = setCooldown({ ...progress, type: "find_word", placed_keyword_ids: progress.type === "find_word" ? progress.placed_keyword_ids : [] }, config.wrong_cooldown_seconds);
         break;
       }
       const placed = progress.type === "find_word" ? [...progress.placed_keyword_ids, payload.keyword_id] : [payload.keyword_id];
-      scoreDelta = config.points_correct || 10;
+      newStreak = attempt.streak_count + 1;
+      scoreDelta = normalizeScoreDelta(
+        resolvedTrainerKey,
+        applyCorrectScore(config.points_correct || 10, config, newStreak),
+      );
       progress = { type: "find_word", placed_keyword_ids: placed };
       if (placed.length >= content.keywords.length) {
         itemCompleted = true;
-        scoreDelta += 20;
+        scoreDelta += normalizeScoreDelta(resolvedTrainerKey, 20);
       }
       break;
     }
     case "find_concept": {
       const content = currentItem.content as unknown as FindConceptItemContent;
+      const occurrences = content.occurrences ?? [];
       if (payload.type === "click_occurrence") {
-        const valid = payload.occurrence_index >= 0 && payload.occurrence_index < content.occurrences.length;
+        const valid = payload.occurrence_index >= 0 && payload.occurrence_index < occurrences.length;
         const found = progress.type === "find_concept" ? progress.found_occurrence_indexes : [];
         if (!valid || found.includes(payload.occurrence_index)) {
+          newStreak = 0;
+          scoreDelta = normalizeScoreDelta(resolvedTrainerKey, applyWrongScore(config));
           progress = setCooldown({ type: "find_concept", found_occurrence_indexes: found }, config.wrong_cooldown_seconds);
           break;
         }
         const nextFound = [...found, payload.occurrence_index];
-        scoreDelta = config.points_correct || 10;
+        newStreak = attempt.streak_count + 1;
+        scoreDelta = normalizeScoreDelta(
+          resolvedTrainerKey,
+          applyCorrectScore(config.points_correct || 10, config, newStreak),
+        );
         progress = { type: "find_concept", found_occurrence_indexes: nextFound };
         break;
       }
       if (payload.type === "submit_concept") {
         const found = progress.type === "find_concept" ? progress.found_occurrence_indexes : [];
-        if (found.length !== content.occurrences.length) {
+        if (found.length !== occurrences.length) {
+          newStreak = 0;
+          scoreDelta = normalizeScoreDelta(resolvedTrainerKey, applyWrongScore(config));
           progress = setCooldown({ type: "find_concept", found_occurrence_indexes: found }, config.wrong_cooldown_seconds);
           break;
         }
         itemCompleted = true;
-        scoreDelta += 20;
+        newStreak = attempt.streak_count + 1;
+        scoreDelta = normalizeScoreDelta(
+          resolvedTrainerKey,
+          applyCorrectScore(20, config, newStreak),
+        );
         break;
       }
       throw new Error("INVALID_ACTION");
@@ -449,10 +566,13 @@ export async function submitSkillTrainerAction(
       const correct = payload.answer === content.answer;
       if (correct) {
         newStreak = attempt.streak_count + 1;
-        scoreDelta = applyCorrectScore(config.points_correct, config, newStreak);
+        scoreDelta = normalizeScoreDelta(
+          resolvedTrainerKey,
+          applyCorrectScore(config.points_correct, config, newStreak),
+        );
       } else {
         newStreak = 0;
-        scoreDelta = applyWrongScore(config);
+        scoreDelta = normalizeScoreDelta(resolvedTrainerKey, applyWrongScore(config));
         progress = setCooldown({ type: "quick_syllogism" }, config.wrong_cooldown_seconds);
       }
       itemCompleted = correct;
@@ -463,9 +583,14 @@ export async function submitSkillTrainerAction(
       if (payload.type !== "numeric_answer") throw new Error("INVALID_ACTION");
       const correct = Math.abs(payload.answer - content.answer) < 0.001;
       if (correct) {
-        scoreDelta = scoreMentalMathsItem(content);
+        newStreak = attempt.streak_count + 1;
+        scoreDelta = normalizeScoreDelta(
+          resolvedTrainerKey,
+          applyCorrectScore(scoreMentalMathsItem(content), config, newStreak),
+        );
       } else {
-        scoreDelta = applyWrongScore(config);
+        newStreak = 0;
+        scoreDelta = normalizeScoreDelta(resolvedTrainerKey, applyWrongScore(config));
       }
       itemCompleted = true;
       break;
@@ -473,15 +598,20 @@ export async function submitSkillTrainerAction(
     case "numpad_speed": {
       const content = currentItem.content as unknown as NumpadSpeedItemContent;
       if (payload.type !== "numpad_sequence") throw new Error("INVALID_ACTION");
+      const expected = content.button_sequence.filter((btn) => btn !== "=");
+      const submitted = payload.sequence.filter((btn) => btn !== "=");
       const correct =
-        payload.sequence.length === content.button_sequence.length &&
-        payload.sequence.every((btn, i) => btn === content.button_sequence[i]);
+        submitted.length === expected.length &&
+        submitted.every((btn, i) => btn === expected[i]);
       if (correct) {
         newStreak = attempt.streak_count + 1;
-        scoreDelta = applyCorrectScore(scoreNumpadItem(content), config, newStreak);
+        scoreDelta = normalizeScoreDelta(
+          resolvedTrainerKey,
+          applyCorrectScore(scoreNumpadItem(content), config, newStreak),
+        );
       } else {
         newStreak = 0;
-        scoreDelta = applyWrongScore(config);
+        scoreDelta = normalizeScoreDelta(resolvedTrainerKey, applyWrongScore(config));
         progress = setCooldown({ type: "numpad_speed" }, config.wrong_cooldown_seconds);
       }
       itemCompleted = correct;
@@ -493,10 +623,13 @@ export async function submitSkillTrainerAction(
       const correct = Math.abs(payload.answer - content.answer) < 0.001;
       if (correct) {
         newStreak = attempt.streak_count + 1;
-        scoreDelta = applyCorrectScore(config.points_correct, config, newStreak);
+        scoreDelta = normalizeScoreDelta(
+          resolvedTrainerKey,
+          applyCorrectScore(config.points_correct, config, newStreak),
+        );
       } else {
         newStreak = 0;
-        scoreDelta = applyWrongScore(config);
+        scoreDelta = normalizeScoreDelta(resolvedTrainerKey, applyWrongScore(config));
         progress = setCooldown({ type: "calculator_maths" }, config.wrong_cooldown_seconds);
       }
       itemCompleted = true;
@@ -541,8 +674,9 @@ export async function submitSkillTrainerAction(
 export async function getLeaderboard(
   supabase: AdminClient,
   trainerKey: string,
-  window: "week" | "all_time",
+  window: "week" | "all_time" | "my_scores",
   studentTimezone: string,
+  studentId?: string,
   limit = 50,
 ): Promise<
   Array<{
@@ -555,6 +689,28 @@ export async function getLeaderboard(
 > {
   const trainer = await loadTrainerByKey(supabase, trainerKey);
   if (!trainer) return [];
+
+  if (window === "my_scores") {
+    if (!studentId) return [];
+    const { data, error } = await supabase
+      .from("student_skill_trainer_attempts")
+      .select("student_id, score, completed_at")
+      .eq("skill_trainer_id", trainer.id)
+      .eq("student_id", studentId)
+      .not("completed_at", "is", null)
+      .order("completed_at", { ascending: false })
+      .limit(limit);
+
+    if (error) throw new Error(error.message);
+
+    return (data ?? []).map((row, index) => ({
+      student_id: row.student_id,
+      display_name: "You",
+      best_score: Number(row.score),
+      achieved_at: row.completed_at as string,
+      rank: index + 1,
+    }));
+  }
 
   let periodStart: string | null = null;
   if (window === "week") {
@@ -583,21 +739,21 @@ export async function getLeaderboard(
   >();
 
   for (const row of data ?? []) {
-    const studentId = row.student_id;
+    const rowStudentId = row.student_id;
     const score = Number(row.score);
     const completedAt = row.completed_at as string;
     const student = row.students as { first_name?: string | null; last_name?: string | null } | null;
     const displayName = [student?.first_name, student?.last_name].filter(Boolean).join(" ") || "Student";
-    const existing = bestByStudent.get(studentId);
+    const existing = bestByStudent.get(rowStudentId);
     if (!existing || score > existing.best_score) {
-      bestByStudent.set(studentId, { best_score: score, achieved_at: completedAt, display_name: displayName });
+      bestByStudent.set(rowStudentId, { best_score: score, achieved_at: completedAt, display_name: displayName });
     } else if (existing && score === existing.best_score && completedAt < existing.achieved_at) {
-      bestByStudent.set(studentId, { ...existing, achieved_at: completedAt });
+      bestByStudent.set(rowStudentId, { ...existing, achieved_at: completedAt });
     }
   }
 
   return [...bestByStudent.entries()]
-    .map(([student_id, value]) => ({ student_id, ...value }))
+    .map(([id, value]) => ({ student_id: id, ...value }))
     .sort((a, b) => {
       if (b.best_score !== a.best_score) return b.best_score - a.best_score;
       return a.achieved_at.localeCompare(b.achieved_at);

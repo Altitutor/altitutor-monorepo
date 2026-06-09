@@ -8,6 +8,7 @@ import {
   buildAttemptState,
   getActiveAttemptForStudent,
   startSkillTrainerAttempt,
+  startSkillTrainerSetAttempt,
 } from "@/lib/ucat/skill-trainer/attempt-service";
 
 export async function GET() {
@@ -31,7 +32,11 @@ export async function POST(request: NextRequest) {
   const auth = await requireStudentAdminClient();
   if (!auth.ok) return auth.response;
 
-  const body = (await request.json()) as { trainerKey?: string };
+  const body = (await request.json()) as {
+    trainerKey?: string;
+    skillTrainerSetId?: string;
+    learningModuleBlockId?: string;
+  };
   if (!body.trainerKey) {
     return NextResponse.json({ error: "Missing trainerKey" }, { status: 400 });
   }
@@ -45,20 +50,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const quotaCheck = await checkQuotaForAction(
-      auth.admin,
-      auth.studentId,
-      "skill_trainer",
-    );
-    if (!quotaCheck.allowed) {
-      return quotaExceededResponse(quotaCheck.payload);
+    const isLearnContext =
+      body.skillTrainerSetId != null && body.learningModuleBlockId != null;
+
+    if (!isLearnContext) {
+      const quotaCheck = await checkQuotaForAction(
+        auth.admin,
+        auth.studentId,
+        "skill_trainer",
+      );
+      if (!quotaCheck.allowed) {
+        return quotaExceededResponse(quotaCheck.payload);
+      }
     }
 
-    const state = await startSkillTrainerAttempt(
-      auth.admin,
-      auth.studentId,
-      body.trainerKey,
-    );
+    const state = isLearnContext
+      ? await startSkillTrainerSetAttempt(
+          auth.admin,
+          auth.studentId,
+          body.trainerKey,
+          body.skillTrainerSetId!,
+          body.learningModuleBlockId!,
+        )
+      : await startSkillTrainerAttempt(
+          auth.admin,
+          auth.studentId,
+          body.trainerKey,
+        );
     return NextResponse.json({ attempt: state });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Failed to start attempt";

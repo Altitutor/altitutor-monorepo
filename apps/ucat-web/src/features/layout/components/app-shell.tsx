@@ -16,6 +16,7 @@ import {
 } from "@/features/onboarding";
 import { UcatLagProvider } from "@/features/question-engine/context/ucat-lag-context";
 import { AppShellLayoutProvider } from "@/features/layout/context/app-shell-layout-context";
+import { SidebarOverrideProvider, useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +24,7 @@ type AppShellProps = {
   children: React.ReactNode;
 };
 
-export function AppShell({ children }: AppShellProps) {
+function AppShellInner({ children }: AppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, isLoading } = useAuth();
@@ -32,6 +33,9 @@ export function AppShell({ children }: AppShellProps) {
   const prevIsMobileRef = useRef<boolean | null>(null);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const sidebarOverride = useSidebarOverride();
+  const effectiveCollapsed = sidebarOverride?.collapsedOverride ?? collapsed;
+  const hideTopBar = sidebarOverride?.hideTopBar ?? false;
 
   const isExamRoute = pathname.startsWith("/exam");
 
@@ -87,7 +91,7 @@ export function AppShell({ children }: AppShellProps) {
     return <>{children}</>;
   }
 
-  const sidebarExpanded = isMobile ? mobileOpen : !collapsed;
+  const sidebarExpanded = isMobile ? mobileOpen : !effectiveCollapsed;
   const comingSoonPath = isComingSoon(pathname);
 
   const handleComingSoonConfirm = () => {
@@ -118,7 +122,7 @@ export function AppShell({ children }: AppShellProps) {
             <UcatFloatingToolbar />
             <div className={cn("flex", "w-screen")}>
               <AppSidebar
-                collapsed={collapsed}
+                collapsed={effectiveCollapsed}
                 mobileOpen={mobileOpen}
                 isMobile={isMobile}
                 onCloseMobile={() => setMobileOpen(false)}
@@ -147,13 +151,15 @@ export function AppShell({ children }: AppShellProps) {
           </UcatLagProvider>
         ) : (
           <>
-            <FloatingAppActions
-              onToggleNav={handleToggleNav}
-              isMenuOpen={sidebarExpanded}
-            />
+            {!hideTopBar ? (
+              <FloatingAppActions
+                onToggleNav={handleToggleNav}
+                isMenuOpen={sidebarExpanded}
+              />
+            ) : null}
             <div className={cn("flex", "mx-auto max-w-[1400px]")}>
               <AppSidebar
-                collapsed={collapsed}
+                collapsed={effectiveCollapsed}
                 mobileOpen={mobileOpen}
                 isMobile={isMobile}
                 onCloseMobile={() => setMobileOpen(false)}
@@ -161,7 +167,7 @@ export function AppShell({ children }: AppShellProps) {
               <main
                 className={cn(
                   "flex-1 min-h-0 min-w-0 transition-[margin] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-                  "min-h-dvh pt-16 p-6 overflow-x-hidden",
+                  hideTopBar ? "min-h-dvh p-4 overflow-x-hidden" : "min-h-dvh pt-16 p-6 overflow-x-hidden",
                   sidebarExpanded ? "md:ml-[240px]" : "ml-0",
                 )}
               >
@@ -185,5 +191,13 @@ export function AppShell({ children }: AppShellProps) {
         </AppShellLayoutProvider>
       </OnboardingProvider>
     </ComingSoonProvider>
+  );
+}
+
+export function AppShell({ children }: AppShellProps) {
+  return (
+    <SidebarOverrideProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </SidebarOverrideProvider>
   );
 }

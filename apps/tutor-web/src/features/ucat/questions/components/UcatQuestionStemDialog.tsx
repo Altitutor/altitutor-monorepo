@@ -75,6 +75,7 @@ export function UcatQuestionStemDialog({
   initial,
   loading,
   onDelete,
+  initialQuestionIndex,
 }: {
   open: boolean
   title: string
@@ -87,6 +88,7 @@ export function UcatQuestionStemDialog({
   initial?: StemDetailRow | null
   loading?: boolean
   onDelete?: () => void
+  initialQuestionIndex?: number
 }) {
   const { toast } = useToast()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
@@ -308,6 +310,7 @@ export function UcatQuestionStemDialog({
           categories={categories}
           tags={tags}
           stemId={stemId ?? null}
+          initialQuestionIndex={initialQuestionIndex}
           enableImages
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}

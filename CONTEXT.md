@@ -20,11 +20,44 @@
 - **Learning module folder** — A learning module that contains only child learning modules in display order. Has no content blocks. Completion progress is derived from its descendants. Browsing or expanding folders does not consume UCAT Free learn quota.
   _Avoid_: Category, module group, container node
 
-- **Learning module lesson** — A learning module that contains only ordered content blocks. Has no child modules. The student lesson view (`/learn/{id}`) applies to lessons only. First open of a lesson in the current quota period consumes one UCAT Free learn quota unit; returning to the same lesson in the same period does not consume again.
+- **Learning module lesson** — A learning module that contains only ordered content blocks. Has no child modules. The student lesson view (`/learn/{id}`) applies to lessons only. First open of a lesson in the current quota period consumes one UCAT Free learn quota unit; returning to the same lesson in the same period does not consume again. Tutors configure **lesson display mode** per lesson: **scroll** (all blocks on one page with TOC anchor jumps) or **stepped** (one block at a time with previous/next navigation). Gating (`require_completion_before_next`) applies in both modes — in scroll mode, TOC jumps to a block are blocked until prior gated blocks are complete.
   _Avoid_: Learning unit, module page, lesson node
 
-- **Learning module block** — One ordered content unit within a learning module lesson. Stored in a dedicated blocks table (not inline JSONB on the lesson). Types: rich text, video, image, file download, question stem, or single question. Each block has display order, an optional `require_completion_before_next` gate (default on), and typed foreign keys where the content references existing UCAT entities (stems, questions, files). Simple payloads (e.g. rich text body, video URL) may live in a small JSONB `content` column on the block row.
+- **Learning module lesson display mode** — Tutor-authored setting on each lesson. **Scroll:** all blocks visible on one scrollable page; table of contents jumps to in-page anchors. **Stepped:** one block visible at a time; footer previous/next moves between blocks. Default for new lessons: stepped.
+  _Avoid_: View mode, layout toggle
+
+- **Learning module block** — One ordered content unit within a learning module lesson. Stored in a dedicated blocks table (not inline JSONB on the lesson). Types: rich text, video, file, question stem, single question, or skill trainer set. Images are embedded in rich text blocks only — there is no separate image block type. Video blocks store an external embed URL (YouTube, Vimeo, Loom, etc.) in block `content` — no uploaded video storage in v1. Each block has display order, an optional `require_completion_before_next` gate (default on), and typed foreign keys where the content references existing UCAT entities (stems, questions, files). Simple payloads (e.g. rich text body, video URL) may live in a small JSONB `content` column on the block row. Tutors may attach either a whole question stem or a single question per block — both block types are supported.
   _Avoid_: Lesson section, content chunk, block JSON
+
+- **Skill trainer set** — A tutor-authored, ordered list of skill trainer items drawn from a single skill trainer type (e.g. five Find the word items). Used as the fixed item queue for a skill trainer set block in a lesson and managed in tutor-web separately from the global trainer item bank shuffle.
+  _Avoid_: Trainer playlist, drill set
+
+- **Learning module video block** — Embeds an external video URL (YouTube, Vimeo, Loom, etc.) stored in block `content`. Block completion when at least 50% has been watched.
+  _Avoid_: Uploaded video, media block
+
+- **Learning module skill trainer block** — A learning module block that references one skill trainer set. The student runs a timed skill trainer attempt using that set's ordered items (not the global bank shuffle). Block completion when that learn-context attempt completes (time expiry or all set items finished). Does not consume UCAT Free skill-trainer quota — only the parent lesson's learn quota applies.
+  _Avoid_: Embedded trainer game, inline drill
+
+- **Learning module question block** — A learning module block that embeds UCAT assessment content. **Stem block:** references a question stem; the student works through all questions on that stem. **Question block:** references one question; stem context is shown when the question belongs to a stem. Answers submitted from learn blocks do not consume UCAT Free practice quota.
+  _Avoid_: Practice embed, inline quiz
+
+- **Learning module block completion** — Per-block progress tracked for the student. **Text:** scrolled to the bottom. **Video:** at least 50% watched. **File:** embedded viewer (iframe / PDF) entered the viewport, or the download/open link was clicked. **Question stem:** every question on the stem has a submitted answer. **Question:** that question has a submitted answer. A student may manually mark an individual block complete (override). Lesson completion is derived only from block completion — there is no separate lesson flag independent of blocks.
+  _Avoid_: Section done, step finished
+
+- **Learning module lesson completion** — A lesson is complete when every block in that lesson is complete (including manually marked blocks). The lesson-level **Mark as complete** control marks all blocks in that lesson complete at once; it does not maintain a separate completion state.
+  _Avoid_: Course finished, module done flag
+
+- **Learning module folder progress** — Completion percentage for a folder is rolled up from its descendant lessons and folders (child module completion feeds parent display progress on `/learn`).
+  _Avoid_: Category progress, folder checkmark
+
+- **Learning module progress** — Per-student progress on the Learn catalog. **Module progress row:** one per `(student, learning module)` — records `started_at` (first lesson open; consumes learn quota when applicable), cached completion percentage, and timestamps. **Block progress row:** one per `(student, learning module block)` — records block completion, manual override, and type-specific interaction state (e.g. video watch percentage). Lesson completion is derived from block rows; folder completion rolls up from descendant module rows. Block rows are created lazily as the student interacts.
+  _Avoid_: Lesson attempt, course enrollment
+
+- **Session-linked learning module** — A learning module lesson attached to a class session via `ucat_sessions_resources` (alongside sets, mocks, and question stems). Only **lessons** may be session-linked — folders are catalog structure only. Students on that session's class roster may open the linked lesson from the session view; access follows the same session-scoping pattern as session-linked question stems.
+  _Avoid_: Session course, assigned module folder
+
+- **Learning module visibility** — Each folder and lesson has an `is_private` flag (same model as question stems). New modules default to **private**. There is no separate `is_active` flag — private vs public is the catalog gate; `deleted_at` retires content entirely. **Public** (`is_private: false`) lessons appear on `/learn` for all UCAT students. **Private** lessons are excluded from the global catalog but remain openable when session-linked for rostered students. A folder appears on `/learn` only if it contains at least one accessible descendant lesson (public, or private via session link for that student).
+  _Avoid_: Published flag, is_active, catalog toggle
 
 - **Skill trainer** — A gamified, timed UCAT drill that targets one narrow skill (e.g. speed reading, mental maths). Separate from exam questions, sets, mocks, and practice — own catalog, content bank, scoring rules, and attempt history. A student picks a trainer type, plays for a configured time limit, and earns a score. Optional passage text may be imported from an existing question stem when authoring VR items; skill trainer play does not count as practice or exam attempts.
   _Avoid_: Mini practice, drill mode, skill game

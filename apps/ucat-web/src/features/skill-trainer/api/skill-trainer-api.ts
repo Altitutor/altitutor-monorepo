@@ -8,6 +8,7 @@ export type SkillTrainerCatalogRow = {
   key: string;
   name: string;
   description: string | null;
+  icon: string | null;
   ucat_section_id: string;
   section_name: string;
   section_number: number;
@@ -54,6 +55,24 @@ export const skillTrainerApi = {
     return json.attempt;
   },
 
+  async startSetAttempt(input: {
+    trainerKey: string;
+    skillTrainerSetId: string;
+    learningModuleBlockId: string;
+  }): Promise<SkillTrainerAttemptState> {
+    const res = await fetch("/api/ucat/skill-trainer-attempts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) {
+      const json = (await res.json()) as { error?: string };
+      throw new Error(json.error ?? "Failed to start set attempt");
+    }
+    const json = (await res.json()) as { attempt: SkillTrainerAttemptState };
+    return json.attempt;
+  },
+
   async getAttempt(attemptId: string): Promise<SkillTrainerAttemptState> {
     const res = await fetch(`/api/ucat/skill-trainer-attempts/${attemptId}`);
     if (!res.ok) throw new Error("Failed to load attempt");
@@ -80,10 +99,10 @@ export const skillTrainerApi = {
 
   async getLeaderboard(
     trainerKey: string,
-    window: "week" | "all_time",
+    window: "week" | "all_time" | "my_scores",
   ): Promise<LeaderboardEntry[]> {
     const res = await fetch(
-      `/api/ucat/skill-trainers/${trainerKey}/leaderboard?window=${window}`,
+      `/api/ucat/skill-trainers/${encodeURIComponent(trainerKey)}/leaderboard?window=${window}`,
     );
     if (!res.ok) throw new Error("Failed to load leaderboard");
     const json = (await res.json()) as { entries: LeaderboardEntry[] };

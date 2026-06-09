@@ -36,6 +36,8 @@ type NavLinkItem = { title: string; href: string; icon: LucideIcon };
 
 const ucatDropdownChildren: NavLink[] = [
   { title: 'Questions', href: '/ucat/questions' },
+  { title: 'Learning modules', href: '/ucat/learning-modules' },
+  { title: 'Skill trainer sets', href: '/ucat/skill-trainer-sets' },
   { title: 'Generated Questions', href: '/ucat/questions/generated' },
   { title: 'Sets', href: '/ucat/sets' },
   { title: 'Mocks', href: '/ucat/mocks' },

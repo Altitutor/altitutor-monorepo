@@ -3,6 +3,14 @@ import { z } from 'zod'
 import type { Database, Json } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+import { plainTextToProseMirrorWithLineBreaks } from '@/features/ucat/shared/lib/rich-text'
+import {
+  type AiGenerationSectionKey,
+  AI_GENERATION_SYSTEM_PROMPT,
+  buildAiGenerationUserPrompt,
+  getAiGenerationSectionPrompt,
+  sectionNameToAiGenerationKey,
+} from '@/features/ucat/questions/lib/ai-generation/prompts'
 
 const GenerateBodySchema = z.object({
   sectionId: z.string().uuid(),
@@ -30,7 +38,7 @@ type GeneratedStemRaw = {
   questions: Array<{
     questionText: string
     questionType: 'multiple_choice' | 'syllogism'
-    answerExplanation?: string | null
+    answerExplanation: string
     options: Array<{
       answerText: string
       answerExplanation?: string | null
@@ -39,16 +47,91 @@ type GeneratedStemRaw = {
   }>
 }
 
-function plainTextToDoc(text: string): Json {
-  return {
-    type: 'doc',
-    content: [
-      {
-        type: 'paragraph',
-        content: [{ type: 'text', text }],
-      },
-    ],
-  }
+const GeneratedOptionSchema = z.object({
+  answerText: z.string().trim().min(1),
+  answerExplanation: z.string().trim().min(1).nullable().optional(),
+  isAnswer: z.boolean(),
+})
+
+const GeneratedQuestionSchema = z
+  .object({
+    questionText: z.string().trim().min(1),
+    questionType: z.enum(['multiple_choice', 'syllogism']).default('multiple_choice'),
+    answerExplanation: z.string().trim().min(1),
+    options: z.array(GeneratedOptionSchema).min(1),
+  })
+  .superRefine((question, ctx) => {
+    if (question.questionType !== 'multiple_choice') return
+    const correctCount = question.options.filter((option) => option.isAnswer).length
+    if (correctCount !== 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'multiple_choice questions must have exactly one correct answer',
+        path: ['options'],
+      })
+    }
+  })
+
+const GeneratedStemSchema = z.object({
+  stemText: z.string().trim().min(1),
+  questions: z.array(GeneratedQuestionSchema).min(1),
+})
+
+const GeneratedResponseSchema = z.object({
+  stems: z.array(GeneratedStemSchema).min(1),
+})
+
+function normalizeOptionText(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z]/g, '')
+}
+
+function isTrueFalseCantTellOptions(options: Array<{ answerText: string }>): boolean {
+  const normalized = options.map((option) => normalizeOptionText(option.answerText)).sort()
+  return normalized.join('|') === ['canttell', 'false', 'true'].sort().join('|')
+}
+
+function validateGeneratedStemsForSection(
+  stems: GeneratedStemRaw[],
+  sectionKey: AiGenerationSectionKey
+): string[] {
+  const issues: string[] = []
+
+  stems.forEach((stem, stemIndex) => {
+    if (sectionKey === 'verbal_reasoning') {
+      if (stem.questions.length !== 4) {
+        issues.push(`Stem ${stemIndex + 1}: Verbal Reasoning stems must have exactly 4 questions.`)
+      }
+
+      const optionModes = stem.questions.map((question) => {
+        if (question.questionType !== 'multiple_choice') return 'invalid'
+        if (isTrueFalseCantTellOptions(question.options)) return 'tfct'
+        if (question.options.length === 4) return 'mcq'
+        return 'invalid'
+      })
+      const uniqueModes = new Set(optionModes)
+      if (uniqueModes.size !== 1 || uniqueModes.has('invalid')) {
+        issues.push(
+          `Stem ${stemIndex + 1}: Verbal Reasoning questions must all be either True/False/Can't Tell or all 4-option multiple choice.`
+        )
+      }
+    }
+
+    if (
+      sectionKey === 'decision_making' ||
+      sectionKey === 'quantitative_reasoning' ||
+      sectionKey === 'situational_judgement'
+    ) {
+      stem.questions.forEach((question, questionIndex) => {
+        if (question.questionType === 'multiple_choice' && (question.options.length < 4 || question.options.length > 5)) {
+          issues.push(
+            `Stem ${stemIndex + 1}, question ${questionIndex + 1}: multiple-choice questions must have 4-5 options.`
+          )
+        }
+      })
+    }
+  })
+
+  return issues
 }
 
 function extractText(value: Json | null | undefined): string {
@@ -94,47 +177,15 @@ async function generateWithOpenAI(params: {
   const baseUrl = process.env.OPENAI_BASE_URL ?? 'https://api.openai.com/v1'
 
   const samplePayload = params.sourceSamples.map(compactStemForPrompt)
-  const systemPrompt = [
-    'You generate high-quality UCAT question stems.',
-    'Return only valid JSON matching the required schema.',
-    'Each generated stem must include at least one question.',
-    'For multiple_choice questions, include 4-6 options and exactly one option with isAnswer=true.',
-    'For syllogism questions, include options/statements with isAnswer mapping to Yes(true)/No(false).',
-    'Do not copy existing stems verbatim; create distinct scenarios with similar difficulty.',
-  ].join(' ')
-
-  const userPrompt = JSON.stringify(
-    {
-      task: 'Generate UCAT question stems from samples',
-      section: params.sectionName,
-      category: params.categoryName,
-      stemCount: params.stemCount,
-      examples: samplePayload,
-      outputShape: {
-        stems: [
-          {
-            stemText: 'string',
-            questions: [
-              {
-                questionText: 'string',
-                questionType: 'multiple_choice|syllogism',
-                answerExplanation: 'string|null',
-                options: [
-                  {
-                    answerText: 'string',
-                    answerExplanation: 'string|null',
-                    isAnswer: true,
-                  },
-                ],
-              },
-            ],
-          },
-        ],
-      },
-    },
-    null,
-    2
-  )
+  const sectionKey = sectionNameToAiGenerationKey(params.sectionName)
+  const sectionPrompt = getAiGenerationSectionPrompt(sectionKey)
+  const userPrompt = buildAiGenerationUserPrompt({
+    sectionName: params.sectionName,
+    sectionPrompt,
+    categoryName: params.categoryName,
+    stemCount: params.stemCount,
+    examples: samplePayload,
+  })
 
   const response = await fetch(`${baseUrl}/chat/completions`, {
     method: 'POST',
@@ -147,7 +198,7 @@ async function generateWithOpenAI(params: {
       temperature: 0.9,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: systemPrompt },
+        { role: 'system', content: AI_GENERATION_SYSTEM_PROMPT },
         { role: 'user', content: userPrompt },
       ],
     }),
@@ -166,11 +217,15 @@ async function generateWithOpenAI(params: {
     throw new Error('AI generation returned empty response')
   }
 
-  const parsed = JSON.parse(content) as { stems?: GeneratedStemRaw[] }
-  if (!Array.isArray(parsed.stems) || parsed.stems.length === 0) {
-    throw new Error('AI generation returned no stems')
+  const parsed = GeneratedResponseSchema.safeParse(JSON.parse(content))
+  if (!parsed.success) {
+    throw new Error(`AI generation output schema mismatch: ${parsed.error.message}`)
   }
-  return parsed.stems
+  const constraintIssues = validateGeneratedStemsForSection(parsed.data.stems, sectionKey)
+  if (constraintIssues.length > 0) {
+    throw new Error(`AI generation violated section constraints: ${constraintIssues.join(' ')}`)
+  }
+  return parsed.data.stems
 }
 
 export async function POST(request: NextRequest) {
@@ -259,25 +314,22 @@ export async function POST(request: NextRequest) {
     const stems = generated.slice(0, body.stemCount).map((stem, stemIndex) => ({
       sectionId: body.sectionId,
       categoryId: body.categoryId ?? null,
-      stemText: plainTextToDoc(stem.stemText.trim()),
+      stemText: plainTextToProseMirrorWithLineBreaks(stem.stemText.trim()),
       isPrivate: true,
       questions: (stem.questions ?? []).map((question, questionIndex) => ({
         index: questionIndex + 1,
-        questionText: plainTextToDoc(question.questionText.trim()),
-        answerExplanation:
-          question.answerExplanation && question.answerExplanation.trim().length > 0
-            ? plainTextToDoc(question.answerExplanation.trim())
-            : null,
+        questionText: plainTextToProseMirrorWithLineBreaks(question.questionText.trim()),
+        answerExplanation: plainTextToProseMirrorWithLineBreaks(question.answerExplanation.trim()),
         difficulty: null,
         timeBurdenSeconds: null,
         questionType: question.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice',
         tagIds: [],
         options: (question.options ?? []).map((option, optionIndex) => ({
           index: optionIndex + 1,
-          answerText: plainTextToDoc(option.answerText.trim()),
+          answerText: plainTextToProseMirrorWithLineBreaks(option.answerText.trim()),
           answerExplanation:
             option.answerExplanation && option.answerExplanation.trim().length > 0
-              ? plainTextToDoc(option.answerExplanation.trim())
+              ? plainTextToProseMirrorWithLineBreaks(option.answerExplanation.trim())
               : null,
           isAnswer: !!option.isAnswer,
         })),
@@ -286,6 +338,8 @@ export async function POST(request: NextRequest) {
         source: 'openai',
         generatedAt: new Date().toISOString(),
         sampleStemIds: samples.map((item) => item.id),
+        promptVersion: 'ucat-ai-generation-v2',
+        sectionRules: sectionNameToAiGenerationKey(section.name ?? null),
         sectionId: body.sectionId,
         categoryId: body.categoryId ?? null,
         requestedStemCount: body.stemCount,

@@ -1,151 +1,257 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import type { DataTableSortOption } from '@altitutor/shared'
-import {
-  Button,
-  DataTableToolbar,
-  Input,
-  SearchableSelect,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Textarea,
-  useToast,
-} from '@altitutor/ui'
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
+import { useCallback, useMemo, useState } from 'react'
+import { Button, Input, SearchableSelect, Textarea, useToast } from '@altitutor/ui'
+import { Search } from 'lucide-react'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import {
   useCreateUcatQuestionTag,
   useDeleteUcatQuestionTag,
   useUcatQuestionTags,
-  useUpdateUcatQuestionTag,
 } from '@/features/ucat/question-tags/hooks/useUcatQuestionTags'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
-import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import { TagHierarchyTree } from '@/features/ucat/question-tags/components/TagHierarchyTree'
+import { UcatQuestionTagDialog } from '@/features/ucat/question-tags/components/UcatQuestionTagDialog'
+import {
+  buildTagTreeNodes,
+  filterTagTreeNodes,
+  getRootTags,
+} from '@/features/ucat/question-tags/lib/build-tag-tree'
+import type {
+  UcatQuestionTagDraft,
+  UcatQuestionTagRow,
+  UcatTagLinkedQuestion,
+} from '@/features/ucat/question-tags/types'
+import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import {
+  useUcatCategories,
+  useUcatQuestionDetail,
+  useUcatSections,
+  useUcatTags,
+  useUpdateUcatQuestionStem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { filterOptionsWithContent } from '@/features/ucat/shared/lib/rich-text'
+import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { useQueryClient } from '@tanstack/react-query'
+import type { Json } from '@altitutor/shared'
 
-type TagRow = {
-  id: string
-  name: string
-  parent_id: string | null
-  description: string
-  question_count: number
-}
-
-type TagDraft = {
-  name: string
-  parentTagId: string
-  description: string
-}
-
-const emptyDraft: TagDraft = {
+const emptyDraft: UcatQuestionTagDraft = {
   name: '',
   parentTagId: 'none',
   description: '',
 }
 
-const tagSortOptions: DataTableSortOption[] = [
-  { key: 'name', label: 'Name' },
-  { key: 'question_count', label: 'Number of questions' },
-]
+function toExplanationNull(value: unknown): Json | null {
+  if (value == null) return null
+  if (typeof value === 'string' && value === 'null') return null
+  return value as Json
+}
 
-function buildTagTree(
-  rows: TagRow[],
-  expanded: Set<string>,
-  parentId: string | null,
-  level: number,
-  sortBy: string | null,
-  sortDirection: 'asc' | 'desc'
-): Array<{ row: TagRow; level: number }> {
-  const out: Array<{ row: TagRow; level: number }> = []
-  let children = rows.filter((r) => (parentId === null ? !r.parent_id : r.parent_id === parentId))
-  children = applySort(children, sortBy, sortDirection, {
-    name: (r) => r.name,
-    question_count: (r) => r.question_count,
-  })
-  for (const row of children) {
-    out.push({ row, level })
-    if (expanded.has(row.id)) {
-      out.push(...buildTagTree(rows, expanded, row.id, level + 1, sortBy, sortDirection))
-    }
+function mapFormValuesToBundlePayload(
+  payload: UcatQuestionStemFormValues,
+  stemId: string
+): UcatQuestionStemBundlePayload {
+  return {
+    stemId,
+    sectionId: payload.sectionId,
+    categoryId: payload.categoryId || null,
+    stemText: payload.stemText,
+    isPrivate: payload.isPrivate,
+    questions: payload.questions.map((question, index) => ({
+      index: index + 1,
+      questionText: question.questionText,
+      questionType: question.questionType,
+      answerExplanation: toExplanationNull(question.answerExplanation),
+      difficulty: question.difficulty,
+      timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
+      tagIds: question.tagIds ?? [],
+      options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
+        index: optionIndex + 1,
+        answerText: option.answerText,
+        answerExplanation: toExplanationNull(option.answerExplanation),
+        isAnswer: option.isAnswer,
+      })),
+    })),
   }
-  return out
+}
+
+function TagCreateForm({
+  draft,
+  setDraft,
+  parentOptions,
+}: {
+  draft: UcatQuestionTagDraft
+  setDraft: React.Dispatch<React.SetStateAction<UcatQuestionTagDraft>>
+  parentOptions: UcatQuestionTagRow[]
+}) {
+  const parentItems = [
+    { id: 'none', name: 'No parent' },
+    ...parentOptions.map((row) => ({ id: row.id, name: row.name })),
+  ]
+  const selectedParent = parentItems.find((item) => item.id === draft.parentTagId) ?? parentItems[0]
+
+  return (
+    <div className="space-y-4">
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Name</span>
+        <Input
+          value={draft.name}
+          onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
+        />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Parent tag</span>
+        <SearchableSelect<{ id: string; name: string }>
+          items={parentItems}
+          value={selectedParent}
+          onValueChange={(item) =>
+            setDraft((prev) => ({ ...prev, parentTagId: item?.id ?? 'none' }))
+          }
+          getItemLabel={(item) => item.name}
+          getItemId={(item) => item.id}
+        />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Description</span>
+        <Textarea
+          className="min-h-24"
+          value={draft.description}
+          onChange={(event) => setDraft((prev) => ({ ...prev, description: event.target.value }))}
+        />
+      </label>
+    </div>
+  )
 }
 
 export function UcatQuestionTagsPage() {
   const access = useUcatAccess()
   const tags = useUcatQuestionTags()
+  const sections = useUcatSections()
+  const categoriesQuery = useUcatCategories()
+  const tagsQuery = useUcatTags()
+  const queryClient = useQueryClient()
   const { toast } = useToast()
   const createTag = useCreateUcatQuestionTag()
-  const updateTag = useUpdateUcatQuestionTag()
   const deleteTag = useDeleteUcatQuestionTag()
-  const tableState = useUcatTableState(['name', 'question_count', 'actions'])
+  const updateStemMutation = useUpdateUcatQuestionStem()
 
+  const [searchQuery, setSearchQuery] = useState('')
   const [createOpen, setCreateOpen] = useState(false)
-  const [editing, setEditing] = useState<TagRow | null>(null)
+  const [editingTagId, setEditingTagId] = useState<string | null>(null)
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null)
-  const [draft, setDraft] = useState<TagDraft>(emptyDraft)
-  const [expandedTags, setExpandedTags] = useState<Set<string>>(new Set())
+  const [draft, setDraft] = useState<UcatQuestionTagDraft>(emptyDraft)
+  const [editingStemId, setEditingStemId] = useState<string | null>(null)
+  const [editingQuestionIndex, setEditingQuestionIndex] = useState<number | null>(null)
 
-  const rows: TagRow[] = useMemo(() => {
+  const rows: UcatQuestionTagRow[] = useMemo(() => {
     const data = tags.data ?? []
     return data.map((tag) => {
-      const t = tag as typeof tag & { question_count?: number }
+      const row = tag as typeof tag & { question_count?: number }
       return {
-        id: t.id ?? '',
-        name: t.name ?? '-',
-        parent_id: t.parent_question_tag_id,
-        description: proseMirrorToPlainText(t.description),
-        question_count: t.question_count ?? 0,
+        id: row.id ?? '',
+        name: row.name ?? '-',
+        parent_id: row.parent_question_tag_id,
+        description: proseMirrorToPlainText(row.description),
+        question_count: row.question_count ?? 0,
       }
     })
   }, [tags.data])
 
-  const filteredRows = useMemo(() => {
-    const search = tableState.state.search.trim().toLowerCase()
-    return rows.filter(
-      (row) =>
-        search.length === 0 || row.name.toLowerCase().includes(search)
+  const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows])
+
+  const editingTag = editingTagId ? (rowById.get(editingTagId) ?? null) : null
+
+  const sectionTrees = useMemo(() => {
+    const sectionList = [...(sections.data ?? [])].sort(
+      (a, b) => (a.section_number ?? 0) - (b.section_number ?? 0)
     )
-  }, [rows, tableState.state.search])
+    const roots = getRootTags(rows)
 
-  const flatTree = useMemo(
-    () =>
-      buildTagTree(
-        filteredRows,
-        expandedTags,
-        null,
-        0,
-        tableState.state.sortBy,
-        tableState.state.sortDirection
-      ),
-    [filteredRows, expandedTags, tableState.state.sortBy, tableState.state.sortDirection]
-  )
-
-  const parentOptions = useMemo(
-    () => rows.filter((r) => r.id !== editing?.id),
-    [rows, editing?.id]
-  )
-
-  const toggleExpanded = (id: string) => {
-    setExpandedTags((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
+    return sectionList.map((section) => {
+      const sectionRoots = roots.filter((root) => root.name === section.name)
+      const rootNodes = sectionRoots.map((root) => {
+        const children = buildTagTreeNodes(rows, root.id)
+        return {
+          id: root.id,
+          name: root.name,
+          description: root.description,
+          parent_id: root.parent_id,
+          question_count: root.question_count,
+          child_count: children.length,
+          children,
+        }
+      })
+      return {
+        sectionId: section.id ?? '',
+        sectionName: section.name ?? 'Unknown section',
+        nodes: filterTagTreeNodes(rootNodes, searchQuery),
+      }
     })
-  }
+  }, [rows, searchQuery, sections.data])
 
-  const hasChildren = (row: TagRow) => filteredRows.some((r) => r.parent_id === row.id)
+  const unsectionedTrees = useMemo(() => {
+    const sectionNames = new Set((sections.data ?? []).map((section) => section.name))
+    const roots = getRootTags(rows).filter((root) => !sectionNames.has(root.name))
+    const rootNodes = roots.map((root) => ({
+      id: root.id,
+      name: root.name,
+      description: root.description,
+      parent_id: root.parent_id,
+      question_count: root.question_count,
+      child_count: buildTagTreeNodes(rows, root.id).length,
+      children: buildTagTreeNodes(rows, root.id),
+    }))
+    return filterTagTreeNodes(rootNodes, searchQuery)
+  }, [rows, searchQuery, sections.data])
 
-  if (access.isLoading || tags.isLoading) return <UcatPageSkeleton rows={8} />
+  const parentOptions = useMemo(() => rows, [rows])
+
+  const stemDetail = useUcatQuestionDetail(editingStemId)
+
+  const openTagDialog = useCallback(
+    (tagId: string) => {
+      const row = rowById.get(tagId)
+      if (!row) return
+      setEditingTagId(tagId)
+      setDraft({
+        name: row.name,
+        parentTagId: row.parent_id ?? 'none',
+        description: row.description,
+      })
+    },
+    [rowById]
+  )
+
+  const handleQuestionClick = useCallback((question: UcatTagLinkedQuestion) => {
+    setEditingTagId(null)
+    setEditingStemId(question.stemId)
+    setEditingQuestionIndex(question.questionIndex - 1)
+  }, [])
+
+  const handleStemUpdate = useCallback(
+    async (payload: UcatQuestionStemFormValues) => {
+      if (!editingStemId) return
+      const mapped = mapFormValuesToBundlePayload(payload, editingStemId)
+      await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
+      setEditingStemId(null)
+      setEditingQuestionIndex(null)
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.tags() })
+      if (editingTagId) {
+        await queryClient.invalidateQueries({ queryKey: ucatKeys.tagQuestions(editingTagId) })
+      }
+    },
+    [editingStemId, editingTagId, queryClient, updateStemMutation]
+  )
+
+  if (access.isLoading || tags.isLoading || sections.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
 
   async function create() {
@@ -155,7 +261,7 @@ export function UcatQuestionTagsPage() {
       parentTagId: draft.parentTagId === 'none' ? null : draft.parentTagId,
     })
     const tagName = draft.name.trim() || 'Untitled'
-    const createdRow: TagRow = {
+    const createdRow: UcatQuestionTagRow = {
       id: result.id,
       name: draft.name,
       parent_id: draft.parentTagId === 'none' ? null : draft.parentTagId,
@@ -169,15 +275,8 @@ export function UcatQuestionTagsPage() {
       description: (
         <button
           type="button"
-          onClick={() => {
-            setEditing(createdRow)
-            setDraft({
-              name: createdRow.name,
-              parentTagId: createdRow.parent_id ?? 'none',
-              description: createdRow.description,
-            })
-          }}
-          className="underline font-medium hover:no-underline text-left"
+          onClick={() => openTagDialog(createdRow.id)}
+          className="text-left font-medium underline hover:no-underline"
         >
           View tag
         </button>
@@ -185,19 +284,10 @@ export function UcatQuestionTagsPage() {
     })
   }
 
-  async function saveEdit() {
-    if (!editing) return
-    await updateTag.mutateAsync({
-      id: editing.id,
-      payload: {
-        name: draft.name,
-        description: draft.description,
-        parentTagId: draft.parentTagId === 'none' ? null : draft.parentTagId,
-      },
-    })
-    setEditing(null)
-    setDraft(emptyDraft)
-  }
+  const hasVisibleTrees =
+    searchQuery.trim().length === 0 ||
+    sectionTrees.some((section) => section.nodes.length > 0) ||
+    unsectionedTrees.length > 0
 
   return (
     <div className="space-y-6 py-8 md:py-10">
@@ -209,98 +299,47 @@ export function UcatQuestionTagsPage() {
         actions={<Button onClick={() => setCreateOpen(true)}>Add Tag</Button>}
       />
 
-      <DataTableToolbar
-        state={tableState.state}
-        onSearchChange={tableState.actions.onSearchChange}
-        onFiltersChange={tableState.actions.onFiltersChange}
-        onSortChange={tableState.actions.onSortChange}
-        onGroupByChange={tableState.actions.onGroupByChange}
-        onVisibleColumnsChange={tableState.actions.onVisibleColumnsChange}
-        onQuickFilterApply={tableState.actions.onQuickFilterApply}
-        onReset={tableState.actions.onReset}
-        columnDefinitions={[
-          { key: 'name', label: 'Name', visibleByDefault: true },
-          { key: 'question_count', label: 'Number of questions', visibleByDefault: true },
-          { key: 'actions', label: 'Actions', visibleByDefault: true },
-        ]}
-        sortOptions={tagSortOptions}
-        searchPlaceholder="Search tags"
-      />
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search tags..."
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          className="pl-8"
+        />
+      </div>
 
-      <div className="pt-3">
-        <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-12" />
-              <TableHead>Name</TableHead>
-              <TableHead>Number of questions</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {flatTree.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center h-24 text-muted-foreground">
-                  No tags match your filters
-                </TableCell>
-              </TableRow>
-            ) : (
-              flatTree.map(({ row, level }) => {
-                const hasKids = hasChildren(row)
-                const isExpanded = expandedTags.has(row.id)
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
-                      {hasKids ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleExpanded(row.id)}
-                          className="p-1 hover:bg-muted rounded"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </button>
-                      ) : null}
-                    </TableCell>
-                    <TableCell style={{ paddingLeft: `${level * 24 + 8}px` }}>{row.name}</TableCell>
-                    <TableCell>{row.question_count}</TableCell>
-                    <TableCell className="w-12">
-                      <div className="flex justify-end">
-                        <UcatRowActions
-                          actions={[
-                            {
-                              label: 'Edit',
-                              icon: <Pencil className="h-4 w-4" />,
-                              onClick: () => {
-                                setEditing(row)
-                                setDraft({
-                                  name: row.name,
-                                  parentTagId: row.parent_id ?? 'none',
-                                  description: row.description,
-                                })
-                              },
-                            },
-                            {
-                              label: 'Delete',
-                              icon: <Trash2 className="h-4 w-4" />,
-                              onClick: () => setDeletingTagId(row.id),
-                              destructive: true,
-                            },
-                          ]}
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-        </div>
+      <div className="space-y-6">
+        {!hasVisibleTrees ? (
+          <div className={tutorCardCn('p-6 text-center text-sm text-muted-foreground')}>
+            No tags match your search
+          </div>
+        ) : (
+          <>
+            {sectionTrees.map((section) => (
+              <section key={section.sectionId} className={tutorCardCn('p-5 sm:p-6')}>
+                <h2 className="mb-4 text-lg font-semibold tracking-tight">{section.sectionName}</h2>
+                <TagHierarchyTree
+                  nodes={section.nodes}
+                  onTagClick={openTagDialog}
+                  searchQuery={searchQuery}
+                />
+              </section>
+            ))}
+
+            {unsectionedTrees.length > 0 ? (
+              <section className={tutorCardCn('p-5 sm:p-6')}>
+                <h2 className="mb-4 text-lg font-semibold tracking-tight">Other tags</h2>
+                <TagHierarchyTree
+                  nodes={unsectionedTrees}
+                  onTagClick={openTagDialog}
+                  searchQuery={searchQuery}
+                />
+              </section>
+            ) : null}
+          </>
+        )}
       </div>
 
       <UcatDialogShell
@@ -316,83 +355,72 @@ export function UcatQuestionTagsPage() {
         saveDisabled={createTag.isPending}
         isSaving={createTag.isPending}
       >
-        <div className="p-6 overflow-y-auto h-full">
-          <TagForm draft={draft} setDraft={setDraft} parentOptions={parentOptions} />
+        <div className="h-full overflow-y-auto p-6">
+          <TagCreateForm draft={draft} setDraft={setDraft} parentOptions={parentOptions} />
         </div>
       </UcatDialogShell>
 
-      <UcatDialogShell
-        open={!!editing}
+      <UcatQuestionTagDialog
+        open={!!editingTag}
+        tag={editingTag}
+        allTags={rows}
+        draft={draft}
+        setDraft={setDraft}
         onClose={() => {
-          setEditing(null)
+          setEditingTagId(null)
           setDraft(emptyDraft)
         }}
-        title="Edit Tag"
-        subtitle="Update tag metadata"
-        onSave={saveEdit}
-        saveDisabled={updateTag.isPending}
-        isSaving={updateTag.isPending}
-      >
-        <div className="p-6 overflow-y-auto h-full">
-          <TagForm draft={draft} setDraft={setDraft} parentOptions={parentOptions} />
-        </div>
-      </UcatDialogShell>
+        onDelete={() => {
+          if (editingTag) setDeletingTagId(editingTag.id)
+        }}
+        onQuestionClick={handleQuestionClick}
+      />
+
       <UcatDeleteConfirmDialog
         open={!!deletingTagId}
         onOpenChange={(open) => !open && setDeletingTagId(null)}
         title="Delete tag?"
         description="This action cannot be undone."
-        onConfirm={async () => { if (deletingTagId) await deleteTag.mutateAsync(deletingTagId) }}
+        onConfirm={async () => {
+          if (!deletingTagId) return
+          await deleteTag.mutateAsync(deletingTagId)
+          if (editingTagId === deletingTagId) {
+            setEditingTagId(null)
+            setDraft(emptyDraft)
+          }
+        }}
         isPending={deleteTag.isPending}
       />
-    </div>
-  )
-}
 
-function TagForm({
-  draft,
-  setDraft,
-  parentOptions,
-}: {
-  draft: TagDraft
-  setDraft: React.Dispatch<React.SetStateAction<TagDraft>>
-  parentOptions: TagRow[]
-}) {
-  return (
-    <div className="space-y-4">
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Name</span>
-        <Input value={draft.name} onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))} />
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Parent Tag</span>
-        {(() => {
-          const parentItems = [
-            { id: 'none', name: 'No parent' },
-            ...parentOptions.map((r) => ({ id: r.id, name: r.name })),
-          ]
-          const selected = parentItems.find((p) => p.id === draft.parentTagId) ?? parentItems[0]
-          return (
-            <SearchableSelect<{ id: string; name: string }>
-              items={parentItems}
-              value={selected}
-              onValueChange={(item) =>
-                setDraft((prev) => ({ ...prev, parentTagId: item?.id ?? 'none' }))
-              }
-              getItemLabel={(p) => p.name}
-              getItemId={(p) => p.id}
-            />
-          )
-        })()}
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Description</span>
-        <Textarea
-          className="min-h-24"
-          value={draft.description}
-          onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
-        />
-      </label>
+      <UcatQuestionStemDialog
+        open={!!editingStemId}
+        title="Edit Question Stem"
+        submitLabel="Save"
+        onClose={() => {
+          setEditingStemId(null)
+          setEditingQuestionIndex(null)
+        }}
+        onSubmit={handleStemUpdate}
+        sections={(sections.data ?? []).map((section) => ({
+          id: section.id,
+          name: section.name,
+          display_columns: section.display_columns,
+        }))}
+        categories={
+          (categoriesQuery.data ?? []).map((category) => ({
+            id: category.id,
+            name: category.name,
+            ucat_section_id: category.ucat_section_id,
+          })) as CategoryOption[]
+        }
+        tags={(tagsQuery.data ?? []).map((tag) => ({
+          id: tag.id ?? '',
+          name: tag.name ?? '',
+        })) as TagOption[]}
+        initial={stemDetail.data}
+        loading={updateStemMutation.isPending || stemDetail.isLoading}
+        initialQuestionIndex={editingQuestionIndex ?? undefined}
+      />
     </div>
   )
 }

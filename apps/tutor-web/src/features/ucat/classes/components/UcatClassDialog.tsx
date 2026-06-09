@@ -22,6 +22,7 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { useUcatClassSessions } from '@/features/ucat/classes/hooks/useUcatClassSessions'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useUcatLearningModules } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import {
@@ -59,6 +60,7 @@ function DroppableSessionWithDraft({
   setLookup,
   mockLookup,
   stemLookup,
+  lessonLookup,
   onRemove,
 }: {
   session: UcatSessionWithResources
@@ -66,6 +68,7 @@ function DroppableSessionWithDraft({
   setLookup: (id: string) => { name: string; section_index: number; section_name: string; question_count: number } | null
   mockLookup: (id: string) => { name: string; set_count: number } | null
   stemLookup: (id: string) => { name: string; question_count: number } | null
+  lessonLookup: (id: string) => { name: string; block_count: number } | null
   onRemove: (sessionId: string, draftId: string) => void
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: `session-${session.session_id}` })
@@ -86,6 +89,7 @@ function DroppableSessionWithDraft({
               setLookup={setLookup}
               mockLookup={mockLookup}
               stemLookup={stemLookup}
+              lessonLookup={lessonLookup}
               onRemove={() => onRemove(session.session_id, r.draftId)}
             />
           ))}
@@ -100,12 +104,14 @@ function DraftResourceRow({
   setLookup,
   mockLookup,
   stemLookup,
+  lessonLookup,
   onRemove,
 }: {
   resource: DraftResource
   setLookup: (id: string) => { name: string; section_index: number; section_name: string; question_count: number } | null
   mockLookup: (id: string) => { name: string; set_count: number } | null
   stemLookup: (id: string) => { name: string; question_count: number } | null
+  lessonLookup: (id: string) => { name: string; block_count: number } | null
   onRemove: () => void
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
@@ -116,6 +122,7 @@ function DraftResourceRow({
   const setInfo = resource.type === 'set' ? setLookup(resource.resource_id) : null
   const mockInfo = resource.type === 'mock' ? mockLookup(resource.resource_id) : null
   const stemInfo = resource.type === 'stem' ? stemLookup(resource.resource_id) : null
+  const lessonInfo = resource.type === 'lesson' ? lessonLookup(resource.resource_id) : null
 
   return (
     <div
@@ -138,6 +145,8 @@ function DraftResourceRow({
           <div>{mockInfo.name}</div>
         ) : resource.type === 'stem' && stemInfo ? (
           <div>{stemInfo.name}</div>
+        ) : resource.type === 'lesson' && lessonInfo ? (
+          <div>{lessonInfo.name}</div>
         ) : (
           <div className="text-muted-foreground">{resource.resource_id}</div>
         )}
@@ -148,6 +157,8 @@ function DraftResourceRow({
         <span className="shrink-0 text-muted-foreground">{mockInfo.set_count} sets</span>
       ) : resource.type === 'stem' && stemInfo ? (
         <span className="shrink-0 text-muted-foreground">{stemInfo.question_count} q</span>
+      ) : resource.type === 'lesson' && lessonInfo ? (
+        <span className="shrink-0 text-muted-foreground">{lessonInfo.block_count} blocks</span>
       ) : null}
       <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onRemove}>
         <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -214,6 +225,27 @@ function DraggableMockItem({ id, name, setCount }: { id: string; name: string; s
   )
 }
 
+function DraggableLessonItem({ id, name, blockCount }: { id: string; name: string; blockCount: number }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `lesson-${id}`,
+    data: { type: 'lesson', lessonId: id },
+  })
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? 'opacity-60' : ''}`}
+    >
+      <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="min-w-0 flex-1">{name}</div>
+      <span className="shrink-0 text-muted-foreground">{blockCount} blocks</span>
+    </div>
+  )
+}
+
 function DraggableStemItem({ id, name, questionCount }: { id: string; name: string; questionCount: number }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `stem-${id}`,
@@ -255,6 +287,7 @@ export function UcatClassDialog({
     queryFn: () => ucatQuestionsApi.list(),
     enabled: open,
   })
+  const { data: lessonsList = [] } = useUcatLearningModules({ kind: 'lesson', enabled: open })
 
   // Only use non-deleted sets/mocks when assigning resources to sessions
   const activeSetsList = useMemo(
@@ -283,6 +316,7 @@ export function UcatClassDialog({
   const [searchSets, setSearchSets] = useState('')
   const [searchMocks, setSearchMocks] = useState('')
   const [searchStems, setSearchStems] = useState('')
+  const [searchLessons, setSearchLessons] = useState('')
   const [filtersSessions, setFiltersSessions] = useState<Record<string, unknown[]>>(() => ({
     from: [format(new Date(), 'yyyy-MM-dd')],
   }))
@@ -422,6 +456,14 @@ export function UcatClassDialog({
     return (id: string) => map.get(id) ?? null
   }, [activeMocksList])
 
+  const lessonLookup = useMemo(() => {
+    const map = new Map<string, { name: string; block_count: number }>()
+    for (const row of lessonsList) {
+      map.set(row.id, { name: row.title, block_count: row.block_count })
+    }
+    return (id: string) => map.get(id) ?? null
+  }, [lessonsList])
+
   const stemLookup = useMemo(() => {
     const map = new Map<string, { name: string; question_count: number }>()
     for (const row of activeStemsList as Array<{
@@ -445,11 +487,12 @@ export function UcatClassDialog({
         (r) =>
           (r.type === 'set' && setLookup(r.resource_id) !== null) ||
           (r.type === 'mock' && mockLookup(r.resource_id) !== null) ||
-          (r.type === 'stem' && stemLookup(r.resource_id) !== null)
+          (r.type === 'stem' && stemLookup(r.resource_id) !== null) ||
+          (r.type === 'lesson' && lessonLookup(r.resource_id) !== null)
       )
     }
     return out
-  }, [draftBySession, setLookup, mockLookup, stemLookup])
+  }, [draftBySession, setLookup, mockLookup, stemLookup, lessonLookup])
 
   const filteredSessions = useMemo(() => {
     let list = sessions
@@ -597,7 +640,10 @@ export function UcatClassDialog({
     }
 
     if (
-      (activeStr.startsWith('set-') || activeStr.startsWith('mock-') || activeStr.startsWith('stem-')) &&
+      (activeStr.startsWith('set-') ||
+        activeStr.startsWith('mock-') ||
+        activeStr.startsWith('stem-') ||
+        activeStr.startsWith('lesson-')) &&
       overStr.startsWith('session-')
     ) {
       const sessionId = overStr.replace('session-', '')
@@ -605,12 +651,16 @@ export function UcatClassDialog({
         ? 'set'
         : activeStr.startsWith('mock-')
           ? 'mock'
-          : 'stem'
+          : activeStr.startsWith('lesson-')
+            ? 'lesson'
+            : 'stem'
       const resource_id = activeStr.startsWith('set-')
         ? activeStr.replace('set-', '')
         : activeStr.startsWith('mock-')
           ? activeStr.replace('mock-', '')
-          : activeStr.replace('stem-', '')
+          : activeStr.startsWith('lesson-')
+            ? activeStr.replace('lesson-', '')
+            : activeStr.replace('stem-', '')
       appendResourceToSession(sessionId, type, resource_id)
     }
   }
@@ -631,7 +681,7 @@ export function UcatClassDialog({
       open={open}
       onClose={onClose}
       title="Edit class sessions"
-      subtitle="Assign sets, mocks, and question stems to sessions. Reorder or remove with the list. Save when done."
+      subtitle="Assign sets, mocks, stems, and lessons to sessions. Reorder or remove with the list. Save when done."
       onSave={handleSave}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
@@ -674,6 +724,7 @@ export function UcatClassDialog({
                     setLookup={setLookup}
                     mockLookup={mockLookup}
                     stemLookup={stemLookup}
+                    lessonLookup={lessonLookup}
                     onRemove={handleRemove}
                   />
                 ))}
@@ -692,6 +743,9 @@ export function UcatClassDialog({
                 </TabsTrigger>
                 <TabsTrigger value="stems" className="flex-1">
                   Stems
+                </TabsTrigger>
+                <TabsTrigger value="lessons" className="flex-1">
+                  Lessons
                 </TabsTrigger>
               </TabsList>
               <TabsContent value="sets" className="mt-3 pt-4 space-y-2 m-0">
@@ -769,6 +823,28 @@ export function UcatClassDialog({
                       />
                     )
                   })}
+                </div>
+              </TabsContent>
+              <TabsContent value="lessons" className="mt-3 pt-4 space-y-2 m-0">
+                <ListToolbar
+                  search={searchLessons}
+                  onSearchChange={setSearchLessons}
+                  searchPlaceholder="Filter lessons"
+                />
+                <div className="space-y-1.5 max-h-96 overflow-auto">
+                  {lessonsList
+                    .filter((row) => {
+                      if (!searchLessons.trim()) return true
+                      return applyCoreStringFilter(row.title, searchLessons)
+                    })
+                    .map((row) => (
+                      <DraggableLessonItem
+                        key={row.id}
+                        id={row.id}
+                        name={row.title}
+                        blockCount={row.block_count}
+                      />
+                    ))}
                 </div>
               </TabsContent>
             </Tabs>

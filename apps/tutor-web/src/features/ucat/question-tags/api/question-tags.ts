@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { UcatTagLinkedQuestion } from '@/features/ucat/question-tags/types'
 
 export type UcatQuestionTagPayload = {
   name: string
@@ -52,5 +53,15 @@ export const ucatQuestionTagsApi = {
       const body = await response.json().catch(() => ({}))
       throw new Error(body.error ?? 'Failed to delete tag')
     }
+  },
+
+  async listLinkedQuestions(tagId: string) {
+    const response = await fetch(`/api/ucat/question-tags/${tagId}/questions`)
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to load linked questions')
+    }
+    const body = (await response.json()) as { questions: UcatTagLinkedQuestion[] }
+    return body.questions
   },
 }

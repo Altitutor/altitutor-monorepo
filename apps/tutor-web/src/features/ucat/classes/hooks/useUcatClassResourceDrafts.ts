@@ -6,7 +6,7 @@ import type { UcatSessionWithResources } from '@/features/ucat/classes/api/class
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 
 export type DraftResource = {
-  type: 'set' | 'mock' | 'stem'
+  type: 'set' | 'mock' | 'stem' | 'lesson'
   resource_id: string
   index: number
   draftId: string
@@ -18,7 +18,14 @@ export function buildDraftFromSessions(sessions: UcatSessionWithResources[]): Dr
   const draft: DraftBySession = {}
   for (const s of sessions) {
     draft[s.session_id] = s.resources.map((r, i) => {
-      const resource_id = r.type === 'set' ? r.set_id : r.type === 'mock' ? r.mock_id : r.stem_id
+      const resource_id =
+        r.type === 'set'
+          ? r.set_id
+          : r.type === 'mock'
+            ? r.mock_id
+            : r.type === 'lesson'
+              ? r.lesson_id
+              : r.stem_id
       return {
         type: r.type,
         resource_id,
@@ -72,17 +79,20 @@ export function useUcatClassResourceDrafts(classId: string | null) {
     })
   }, [])
 
-  const appendResourceToSession = useCallback((sessionId: string, type: 'set' | 'mock' | 'stem', resourceId: string) => {
-    setDraftBySession((prev) => {
-      const list = prev[sessionId] ?? []
-      const draftId = `draft-${sessionId}-${type}-${resourceId}-${Date.now()}`
-      const newResource: DraftResource = { type, resource_id: resourceId, index: list.length, draftId }
-      return {
-        ...prev,
-        [sessionId]: [...list, newResource],
-      }
-    })
-  }, [])
+  const appendResourceToSession = useCallback(
+    (sessionId: string, type: 'set' | 'mock' | 'stem' | 'lesson', resourceId: string) => {
+      setDraftBySession((prev) => {
+        const list = prev[sessionId] ?? []
+        const draftId = `draft-${sessionId}-${type}-${resourceId}-${Date.now()}`
+        const newResource: DraftResource = { type, resource_id: resourceId, index: list.length, draftId }
+        return {
+          ...prev,
+          [sessionId]: [...list, newResource],
+        }
+      })
+    },
+    []
+  )
 
   const saveAssignments = useCallback(async () => {
     if (!classId || !isDirty) return
@@ -101,6 +111,7 @@ export function useUcatClassResourceDrafts(classId: string | null) {
       queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() })
     } finally {
       setIsSaving(false)
     }
