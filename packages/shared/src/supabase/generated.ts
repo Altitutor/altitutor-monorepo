@@ -17889,6 +17889,7 @@ export type Database = {
           name: string | null
           parent_question_tag_id: string | null
           question_count: number | null
+          ucat_section_id: string | null
           updated_at: string | null
           updated_by: string | null
         }
@@ -17900,6 +17901,7 @@ export type Database = {
           name?: string | null
           parent_question_tag_id?: string | null
           question_count?: never
+          ucat_section_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -17911,6 +17913,7 @@ export type Database = {
           name?: string | null
           parent_question_tag_id?: string | null
           question_count?: never
+          ucat_section_id?: string | null
           updated_at?: string | null
           updated_by?: string | null
         }
@@ -17949,6 +17952,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_question_tags"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_my_question_attempts"
+            referencedColumns: ["ucat_section_id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "question_tags_ucat_section_id_fkey"
+            columns: ["ucat_section_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_question_attempts_for_progress"
+            referencedColumns: ["ucat_section_id"]
           },
           {
             foreignKeyName: "question_tags_updated_by_fkey"
