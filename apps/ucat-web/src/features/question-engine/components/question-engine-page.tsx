@@ -334,6 +334,8 @@ export function QuestionEnginePage({
   // Warn before leaving the UCAT exam page (tab close, reload, or navigation)
   const skipBeforeUnloadRef = useRef(false);
   useEffect(() => {
+    if (embeddedInLesson) return;
+
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       if (skipBeforeUnloadRef.current) return;
       event.preventDefault();
@@ -370,7 +372,7 @@ export function QuestionEnginePage({
       window.removeEventListener("beforeunload", handleBeforeUnload);
       window.removeEventListener("click", handleClick, true);
     };
-  }, []);
+  }, [embeddedInLesson]);
 
   const completeExamAndMaybeRedirect = useCallback(async () => {
     const { earnedDiscount, discountCents, redirectHref } =
