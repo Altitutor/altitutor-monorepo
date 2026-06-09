@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@altitutor/ui";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import {
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
+} from '@/shared/components/segmented-tab-panel';
 import { cn } from '@/shared/utils';
 import { tutorSheetContentClass } from '@/shared/lib/tutor-visual';
 import { useClassModalData } from '../../hooks/useClassModalData';
@@ -27,7 +30,7 @@ export function ViewClassModal({
   onClose, 
   onClassUpdated: _onClassUpdated 
 }: ViewClassModalProps) {
-  const [activeTab, setActiveTab] = useState('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'students' | 'staff'>('info');
 
   // Use hook for all class data loading and processing
   const {
@@ -65,19 +68,17 @@ export function ViewClassModal({
         </SheetHeader>
         
         <div className="mt-6">
-          <Tabs 
-            defaultValue="info" 
-            value={activeTab} 
-            onValueChange={setActiveTab}
+          <SegmentedTabPanel
+            value={activeTab}
+            onValueChange={(value) => setActiveTab(value as 'info' | 'students' | 'staff')}
             className="w-full"
+            options={[
+              { value: 'info', label: 'Info' },
+              { value: 'students', label: 'Students' },
+              { value: 'staff', label: 'Staff' },
+            ]}
           >
-            <TabsList className="w-full">
-              <TabsTrigger value="info" className="flex-1">Info</TabsTrigger>
-              <TabsTrigger value="students" className="flex-1">Students</TabsTrigger>
-              <TabsTrigger value="staff" className="flex-1">Staff</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="info" className="mt-4">
+            <SegmentedTabPanelContent when="info" activeTab={activeTab} className="mt-4">
               <ClassInfoTab
                 classData={classData}
                 subject={subject}
@@ -88,9 +89,9 @@ export function ViewClassModal({
                 onCancelEdit={() => {}} // No-op
                 onSubmit={async () => {}} // No-op - tutors can't update classes
               />
-            </TabsContent>
-            
-            <TabsContent value="students" className="mt-4">
+            </SegmentedTabPanelContent>
+
+            <SegmentedTabPanelContent when="students" activeTab={activeTab} className="mt-4">
               <ClassStudentsTab
                 classStudents={students}
                 allStudents={students} // Students come from view only
@@ -98,9 +99,9 @@ export function ViewClassModal({
                 onEnrollStudent={async () => {}} // No-op - tutors can't enroll students
                 onRemoveStudent={async () => {}} // No-op - tutors can't remove students
               />
-            </TabsContent>
-            
-            <TabsContent value="staff" className="mt-4">
+            </SegmentedTabPanelContent>
+
+            <SegmentedTabPanelContent when="staff" activeTab={activeTab} className="mt-4">
               <ClassStaffTab
                 classStaff={staff}
                 allStaff={[]} // Not needed for view-only
@@ -108,8 +109,8 @@ export function ViewClassModal({
                 onAssignStaff={async () => {}} // No-op - tutors can't assign staff
                 onRemoveStaff={async () => {}} // No-op - tutors can't remove staff
               />
-            </TabsContent>
-          </Tabs>
+            </SegmentedTabPanelContent>
+          </SegmentedTabPanel>
         </div>
       </SheetContent>
     </Sheet>

@@ -15,7 +15,11 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { Button, ListToolbar, Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui'
+import { Button, ListToolbar } from '@altitutor/ui'
+import {
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
+} from '@/shared/components/segmented-tab-panel'
 import { GripVertical, Trash2 } from 'lucide-react'
 import { format } from 'date-fns'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -317,6 +321,7 @@ export function UcatClassDialog({
   const [searchMocks, setSearchMocks] = useState('')
   const [searchStems, setSearchStems] = useState('')
   const [searchLessons, setSearchLessons] = useState('')
+  const [resourceTab, setResourceTab] = useState<'sets' | 'mocks' | 'stems' | 'lessons'>('sets')
   const [filtersSessions, setFiltersSessions] = useState<Record<string, unknown[]>>(() => ({
     from: [format(new Date(), 'yyyy-MM-dd')],
   }))
@@ -733,22 +738,19 @@ export function UcatClassDialog({
           </section>
 
           <aside className="w-96 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
-            <Tabs defaultValue="sets">
-              <TabsList className="w-full">
-                <TabsTrigger value="sets" className="flex-1">
-                  Sets
-                </TabsTrigger>
-                <TabsTrigger value="mocks" className="flex-1">
-                  Mocks
-                </TabsTrigger>
-                <TabsTrigger value="stems" className="flex-1">
-                  Stems
-                </TabsTrigger>
-                <TabsTrigger value="lessons" className="flex-1">
-                  Lessons
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="sets" className="mt-3 pt-4 space-y-2 m-0">
+            <SegmentedTabPanel
+              value={resourceTab}
+              onValueChange={(value) =>
+                setResourceTab(value as 'sets' | 'mocks' | 'stems' | 'lessons')
+              }
+              options={[
+                { value: 'sets', label: 'Sets' },
+                { value: 'mocks', label: 'Mocks' },
+                { value: 'stems', label: 'Stems' },
+                { value: 'lessons', label: 'Lessons' },
+              ]}
+            >
+              <SegmentedTabPanelContent when="sets" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
                 <ListToolbar
                   search={searchSets}
                   onSearchChange={setSearchSets}
@@ -780,8 +782,8 @@ export function UcatClassDialog({
                     )
                   })}
                 </div>
-              </TabsContent>
-              <TabsContent value="mocks" className="mt-3 pt-4 space-y-2 m-0">
+              </SegmentedTabPanelContent>
+              <SegmentedTabPanelContent when="mocks" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
                 <ListToolbar
                   search={searchMocks}
                   onSearchChange={setSearchMocks}
@@ -800,8 +802,8 @@ export function UcatClassDialog({
                     />
                   ))}
                 </div>
-              </TabsContent>
-              <TabsContent value="stems" className="mt-3 pt-4 space-y-2 m-0">
+              </SegmentedTabPanelContent>
+              <SegmentedTabPanelContent when="stems" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
                 <ListToolbar
                   search={searchStems}
                   onSearchChange={setSearchStems}
@@ -824,8 +826,8 @@ export function UcatClassDialog({
                     )
                   })}
                 </div>
-              </TabsContent>
-              <TabsContent value="lessons" className="mt-3 pt-4 space-y-2 m-0">
+              </SegmentedTabPanelContent>
+              <SegmentedTabPanelContent when="lessons" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
                 <ListToolbar
                   search={searchLessons}
                   onSearchChange={setSearchLessons}
@@ -846,8 +848,8 @@ export function UcatClassDialog({
                       />
                     ))}
                 </div>
-              </TabsContent>
-            </Tabs>
+              </SegmentedTabPanelContent>
+            </SegmentedTabPanel>
           </aside>
         </div>
       </DndContext>

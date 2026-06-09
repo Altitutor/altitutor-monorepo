@@ -1,6 +1,6 @@
 'use client'
 
-import { SegmentedControl } from './segmented-control'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 
 type GraphTypeTabsProps = {
   value: 'line' | 'bar'

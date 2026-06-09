@@ -8,10 +8,6 @@ import {
   ListToolbar,
   SearchableSelect,
   Switch,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
   Textarea,
 } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -24,6 +20,10 @@ import {
   applyRangeFilter,
 } from '@/features/ucat/shared/hooks/useUcatTableState'
 import { Pencil } from 'lucide-react'
+import {
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
+} from '@/shared/components/segmented-tab-panel'
 
 type SetOption = {
   id: string
@@ -252,20 +252,16 @@ export function Step4CreateSet({
       </div>
 
       {addToSetEnabled && (
-        <Tabs
+        <SegmentedTabPanel
           value={createNewSet ? 'create' : 'existing'}
           onValueChange={(v) => handleCreateNewSetToggle(v === 'create')}
+          selectorClassName="max-w-xs"
+          options={[
+            { value: 'existing', label: 'Select existing set' },
+            { value: 'create', label: 'Create new set' },
+          ]}
         >
-          <TabsList className="w-full max-w-xs">
-            <TabsTrigger value="existing" className="flex-1">
-              Select existing set
-            </TabsTrigger>
-            <TabsTrigger value="create" className="flex-1">
-              Create new set
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="create" className="mt-4 space-y-4">
+          <SegmentedTabPanelContent when="create" activeTab={createNewSet ? 'create' : 'existing'} className="mt-4 space-y-4">
               <h3 className="font-medium">New set details</h3>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Name</span>
@@ -385,9 +381,9 @@ export function Step4CreateSet({
                   getItemId={(i) => i.value}
                 />
               </label>
-          </TabsContent>
+          </SegmentedTabPanelContent>
 
-          <TabsContent value="existing" className="mt-4 space-y-3">
+          <SegmentedTabPanelContent when="existing" activeTab={createNewSet ? 'create' : 'existing'} className="mt-4 space-y-3">
               <ListToolbar
                 search={search}
                 onSearchChange={setSearch}
@@ -442,8 +438,8 @@ export function Step4CreateSet({
                   ))
                 )}
               </div>
-          </TabsContent>
-        </Tabs>
+          </SegmentedTabPanelContent>
+        </SegmentedTabPanel>
       )}
     </div>
   )

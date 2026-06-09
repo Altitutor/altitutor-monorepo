@@ -1,7 +1,6 @@
 'use client'
 
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useCallback, useMemo, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { AlertCircle } from 'lucide-react'
@@ -30,7 +29,7 @@ import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { UcatReconciliationProvider } from '@/features/ucat/reconciliation/components/UcatReconciliationContext'
 import { useReconciliationTabCounts } from '@/features/ucat/reconciliation/hooks/useReconciliationTabCounts'
-import { cn } from '@/shared/utils'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 
 const NAV = [
   { segment: 'questions', href: '/ucat/reconciliation/questions', label: 'Questions' },
@@ -84,6 +83,7 @@ function tabCountForSegment(
 
 export function UcatReconciliationShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const router = useRouter()
   const access = useUcatAccess()
   const queryClient = useQueryClient()
   const tabCounts = useReconciliationTabCounts()
@@ -162,37 +162,20 @@ export function UcatReconciliationShell({ children }: { children: React.ReactNod
           </div>
         )}
 
-        <nav
-          className="grid w-full max-w-3xl grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-muted-foreground"
+        <SegmentedControl
+          fullWidth
+          className="max-w-3xl"
+          value={activeSegment ?? 'questions'}
+          onValueChange={(segment) => {
+            const item = NAV.find((entry) => entry.segment === segment)
+            if (item) router.push(item.href)
+          }}
           aria-label="Reconciliation sections"
-        >
-          {NAV.map(({ segment, href, label }) => {
-            const active = pathname === href || pathname.startsWith(`${href}/`)
-            const badge = formatBadge(segment)
-            return (
-              <Link
-                key={segment}
-                href={href}
-                className={cn(
-                  'inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium ring-offset-background transition-all',
-                  active
-                    ? 'bg-background text-foreground shadow-sm'
-                    : 'hover:bg-background/60 hover:text-foreground',
-                )}
-              >
-                <span>{label}</span>
-                <span
-                  className={cn(
-                    'rounded-md bg-muted-foreground/15 px-1.5 py-0.5 text-xs font-semibold tabular-nums text-muted-foreground',
-                    active && 'bg-primary/10 text-primary',
-                  )}
-                >
-                  {badge}
-                </span>
-              </Link>
-            )
-          })}
-        </nav>
+          options={NAV.map(({ segment, label }) => ({
+            value: segment,
+            label: `${label} (${formatBadge(segment)})`,
+          }))}
+        />
 
         {children}
 

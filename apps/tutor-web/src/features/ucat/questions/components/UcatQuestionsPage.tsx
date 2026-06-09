@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQueryClient, useQueries } from '@tanstack/react-query'
 import type {
   DataTableColumnDefinition,
@@ -78,6 +79,14 @@ import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import {
+  buildTaxonomyPathLookup,
+  categoriesToTaxonomyNodes,
+  mapCategoriesToOptions,
+  mapTagsToOptions,
+  resolveCategoryPathLabel,
+  taxonomyDisplayLabel,
+} from '@/features/ucat/shared/lib/taxonomy-paths'
+import {
   applyBooleanTextFilter,
   applySingleSelectFilter,
   applySort,
@@ -96,6 +105,13 @@ import {
   tutorTableHeaderRow,
   tutorTableShell,
 } from '@/shared/lib/tutor-visual'
+import { SegmentedControl } from '@/shared/components/segmented-control'
+
+type QuestionsTab = 'questions' | 'generated'
+
+function parseQuestionsTab(value: string | null): QuestionsTab {
+  return value === 'generated' ? 'generated' : 'questions'
+}
 
 function truncate(text: string, maxLen: number): string {
   if (!text || text.length <= maxLen) return text ?? ''
@@ -177,11 +193,20 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'approval_status', label: 'Approval status' },
 ]
 
-type UcatQuestionsPageProps = {
-  mode?: 'default' | 'generated'
-}
+export function UcatQuestionsPage() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const activeTab = parseQuestionsTab(searchParams.get('tab'))
+  const mode = activeTab === 'generated' ? 'generated' : 'default'
 
-export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) {
+  const setActiveTab = (tab: QuestionsTab) => {
+    const params = new URLSearchParams(searchParams.toString())
+    if (tab === 'generated') params.set('tab', 'generated')
+    else params.delete('tab')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
   const [createOpen, setCreateOpen] = useState(false)
   const [bulkImportOpen, setBulkImportOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
@@ -210,11 +235,26 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
 
   const stemTypesQuery = useUcatQuestionStemTypes()
   const stemTypes = stemTypesQuery.data ?? {}
-  const initialVisibleColumns =
-    mode === 'generated'
-      ? [...columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), 'approval_status']
-      : columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key)
+  const initialVisibleColumns = useMemo(
+    () =>
+      mode === 'generated'
+        ? [...columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), 'approval_status']
+        : columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
+    [mode],
+  )
   const tableState = useUcatTableState(initialVisibleColumns)
+
+  const previousTabRef = useRef(activeTab)
+  useEffect(() => {
+    if (previousTabRef.current === activeTab) return
+    previousTabRef.current = activeTab
+    tableState.actions.onVisibleColumnsChange(initialVisibleColumns)
+    tableState.actions.onReset()
+    setSelectedStemIds(new Set())
+    setExpandedStemIds(new Set())
+    setExpandedQuestionKeys(new Set())
+    setShowDeleted(false)
+  }, [activeTab, initialVisibleColumns, tableState.actions])
 
   const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
   const detailQueries = useQueries({
@@ -237,6 +277,18 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
   const sections = useUcatSections()
   const categories = useUcatCategories()
   const tags = useUcatTags()
+  const categoryPathLookup = useMemo(
+    () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categories.data ?? [])),
+    [categories.data]
+  )
+  const categoryOptions = useMemo(
+    () => mapCategoriesToOptions(categories.data ?? []) as CategoryOption[],
+    [categories.data]
+  )
+  const tagOptions = useMemo(
+    () => mapTagsToOptions(tags.data ?? []) as TagOption[],
+    [tags.data]
+  )
   const queryClient = useQueryClient()
   const setsQuery = useUcatSets()
   const createSetMutation = useCreateUcatSet()
@@ -357,7 +409,13 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         search.length === 0 ||
         row.stem_text.toLowerCase().includes(search) ||
         row.section_name.toLowerCase().includes(search) ||
-        (row.category_name ?? '').toLowerCase().includes(search)
+        resolveCategoryPathLabel(
+          categoryPathLookup,
+          row.question_stem_category_id,
+          row.category_name
+        )
+          .toLowerCase()
+          .includes(search)
 
       const sectionHit = applySingleSelectFilter(tableState.state, 'section_id', row.section_id)
       const categoryHit = applySingleSelectFilter(tableState.state, 'question_stem_category_id', row.question_stem_category_id)
@@ -381,13 +439,14 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
 
       return searchHit && sectionHit && categoryHit && visibilityHit && typeHit && approvalHit && setHit
     })
-  }, [rows, tableState.state, showDeleted, mode])
+  }, [rows, tableState.state, showDeleted, mode, categoryPathLookup])
 
   const sortedRows = useMemo(
     () =>
       applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
         section_name: (r) => r.section_name,
-        category_name: (r) => r.category_name ?? '',
+        category_name: (r) =>
+          resolveCategoryPathLabel(categoryPathLookup, r.question_stem_category_id, r.category_name),
         stem_text: (r) => r.stem_text,
         question_count: (r) => r.question_count,
         sets: (r) => r.set_names,
@@ -395,7 +454,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         visibility: (r) => (r.is_private ? 'Private' : 'Public'),
         approval_status: (r) => r.approval_status,
       }),
-    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
+    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection, categoryPathLookup]
   )
 
   const { page, pageSize } = tableState.state
@@ -711,7 +770,10 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
       },
       {
         ...filterDefinitions[1],
-        options: (categories.data ?? []).map((c) => ({ label: c.name ?? 'Untitled', value: c.id ?? '' })),
+        options: categoryOptions.map((c) => ({
+          label: taxonomyDisplayLabel(c),
+          value: c.id ?? '',
+        })),
       },
       filterDefinitions[2],
       filterDefinitions[3],
@@ -724,7 +786,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
       },
     ]
     return mode === 'generated' ? [...base, filterDefinitions[4]] : base
-  }, [sections.data, categories.data, setFilterOptions, mode])
+  }, [sections.data, categoryOptions, setFilterOptions, mode])
 
   if (access.isLoading || questions.isLoading || stemTypesQuery.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
@@ -732,17 +794,12 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
   return (
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
-        title={mode === 'generated' ? 'Generated UCAT Questions' : 'UCAT Questions'}
-        description={
-          mode === 'generated'
-            ? 'Review and manage AI-generated question stems'
-            : 'Manage question stems and nested questions'
-        }
+        title="UCAT Questions"
+        description="Manage question stems and review AI-generated drafts"
         backHref="/ucat"
         breadcrumbs={[
           { label: 'UCAT', href: '/ucat' },
           { label: 'Questions', href: '/ucat/questions' },
-          ...(mode === 'generated' ? [{ label: 'Generated' }] : []),
         ]}
         actions={
           <div className="flex items-center gap-2">
@@ -767,6 +824,17 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
             )}
           </div>
         }
+      />
+
+      <SegmentedControl
+        fullWidth
+        className="max-w-md"
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(parseQuestionsTab(value))}
+        options={[
+          { value: 'questions', label: 'Questions' },
+          { value: 'generated', label: 'Generated questions' },
+        ]}
       />
 
       <DataTableToolbar
@@ -873,7 +941,15 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
                       ) : null}
                     </TableCell>
                     {visible('section_name') && <TableCell>{row.section_name}</TableCell>}
-                    {visible('category_name') && <TableCell>{row.category_name ?? '-'}</TableCell>}
+                    {visible('category_name') && (
+                      <TableCell>
+                        {resolveCategoryPathLabel(
+                          categoryPathLookup,
+                          row.question_stem_category_id,
+                          row.category_name
+                        )}
+                      </TableCell>
+                    )}
                     {visible('stem_text') && (
                       <TableCell className="max-w-[200px]" title={row.stem_text}>
                         {truncate(row.stem_text, 80)}
@@ -1027,8 +1103,8 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
         onDelete={() => setBulkDeleteOpen(true)}
         deletePending={deleteMutation.isPending}
       >
-        <SearchableSelect<{ id: string | null; name: string | null }>
-          items={categories.data ?? []}
+        <SearchableSelect<CategoryOption>
+          items={categoryOptions}
           value={null}
           onValueChange={(c) => {
             if (c?.id) {
@@ -1037,8 +1113,8 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
             }
           }}
           getItemId={(c) => c.id ?? ''}
-          getItemLabel={(c) => c.name ?? 'Untitled'}
-          getItemValue={(c) => c.name ?? ''}
+          getItemLabel={(c) => taxonomyDisplayLabel(c)}
+          getItemValue={(c) => taxonomyDisplayLabel(c)}
           placeholder="Category"
           searchPlaceholder="Search categories..."
           emptyMessage="No categories found"
@@ -1141,7 +1217,7 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           <AlertDialogHeader>
             <AlertDialogTitle>Set category for {selectedStemIds.size} stem(s)?</AlertDialogTitle>
             <AlertDialogDescription>
-              Category will be set to &quot;{(categories.data ?? []).find((c) => c.id === bulkCategoryId)?.name ?? ''}&quot; for all selected stems.
+              Category will be set to &quot;{taxonomyDisplayLabel(categoryOptions.find((c) => c.id === bulkCategoryId) ?? { name: '' })}&quot; for all selected stems.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1207,8 +1283,8 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           name: section.name,
           display_columns: section.display_columns,
         }))}
-        categories={(categories.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]}
-        tags={(tags.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
+        categories={categoryOptions}
+        tags={tagOptions}
         loading={createMutation.isPending}
       />
 
@@ -1223,8 +1299,8 @@ export function UcatQuestionsPage({ mode = 'default' }: UcatQuestionsPageProps) 
           name: section.name,
           display_columns: section.display_columns,
         }))}
-        categories={(categories.data ?? []).map((c) => ({ id: c.id, name: c.name, ucat_section_id: c.ucat_section_id })) as CategoryOption[]}
-        tags={(tags.data ?? []).map((t) => ({ id: t.id ?? '', name: t.name ?? '' })) as TagOption[]}
+        categories={categoryOptions}
+        tags={tagOptions}
         initial={detail.data}
         loading={updateMutation.isPending || detail.isLoading}
         onDelete={

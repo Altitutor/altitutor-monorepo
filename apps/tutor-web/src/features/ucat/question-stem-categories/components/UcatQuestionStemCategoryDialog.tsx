@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import type { Json } from '@altitutor/shared'
 import {
   Input,
   SearchableSelect,
@@ -14,52 +15,53 @@ import {
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import type { Json } from '@altitutor/shared'
-import {
-  useUcatTagLinkedQuestions,
-  useUpdateUcatQuestionTag,
-} from '@/features/ucat/question-tags/hooks/useUcatQuestionTags'
-import type {
-  UcatQuestionTagDraft,
-  UcatQuestionTagRow,
-  UcatTagLinkedQuestion,
-} from '@/features/ucat/question-tags/types'
 import {
   buildTaxonomyPathLookup,
-  tagsToTaxonomyNodes,
+  categoriesToTaxonomyNodes,
   taxonomyDisplayLabel,
 } from '@/features/ucat/shared/lib/taxonomy-paths'
+import {
+  useUcatCategoryLinkedStems,
+  useUpdateUcatQuestionStemCategory,
+} from '@/features/ucat/question-stem-categories/hooks/useUcatQuestionStemCategories'
 import { LinkedResourceCatalog } from '@/features/ucat/shared/components/linked-resource-catalog'
+import type {
+  UcatCategoryLinkedStem,
+  UcatQuestionStemCategoryDraft,
+  UcatQuestionStemCategoryRow,
+} from '@/features/ucat/question-stem-categories/types'
 
-type UcatQuestionTagDialogProps = {
+type UcatQuestionStemCategoryDialogProps = {
   open: boolean
-  tag: UcatQuestionTagRow | null
-  allTags: UcatQuestionTagRow[]
+  category: UcatQuestionStemCategoryRow | null
+  allCategories: UcatQuestionStemCategoryRow[]
   sections: Array<{ id: string | null; name: string | null }>
-  draft: UcatQuestionTagDraft
-  setDraft: React.Dispatch<React.SetStateAction<UcatQuestionTagDraft>>
+  draft: UcatQuestionStemCategoryDraft
+  setDraft: React.Dispatch<React.SetStateAction<UcatQuestionStemCategoryDraft>>
   onClose: () => void
   onDelete: () => void
-  onQuestionClick: (question: UcatTagLinkedQuestion) => void
+  onStemClick: (stem: UcatCategoryLinkedStem) => void
 }
 
-function TagEditForm({
+function CategoryEditForm({
   draft,
   setDraft,
   sections,
   parentOptions,
-  tagPathLookup,
+  categoryPathLookup,
+  onSectionChange,
 }: {
-  draft: UcatQuestionTagDraft
-  setDraft: React.Dispatch<React.SetStateAction<UcatQuestionTagDraft>>
+  draft: UcatQuestionStemCategoryDraft
+  setDraft: React.Dispatch<React.SetStateAction<UcatQuestionStemCategoryDraft>>
   sections: Array<{ id: string | null; name: string | null }>
-  parentOptions: UcatQuestionTagRow[]
-  tagPathLookup: Map<string, string>
+  parentOptions: UcatQuestionStemCategoryRow[]
+  categoryPathLookup: Map<string, string>
+  onSectionChange: () => void
 }) {
-  const isRoot = draft.parentTagId === 'none'
+  const sectionSelected = draft.sectionId !== 'none'
   const sectionItems = useMemo(
     () => [
-      { id: 'none', name: 'No section' },
+      { id: 'none', name: 'Select section' },
       ...sections.map((section) => ({ id: section.id ?? '', name: section.name ?? 'Unknown' })),
     ],
     [sections]
@@ -72,16 +74,31 @@ function TagEditForm({
       ...parentOptions.map((row) => ({
         id: row.id,
         name: row.name,
-        label: tagPathLookup.get(row.id) ?? row.name,
+        label: categoryPathLookup.get(row.id) ?? row.name,
       })),
     ],
-    [parentOptions, tagPathLookup]
+    [parentOptions, categoryPathLookup]
   )
   const selectedParent =
-    parentItems.find((item) => item.id === draft.parentTagId) ?? parentItems[0]
+    parentItems.find((item) => item.id === draft.parentCategoryId) ?? parentItems[0]
 
   return (
     <div className="space-y-4">
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Section</span>
+        <SearchableSelect<{ id: string; name: string }>
+          items={sectionItems}
+          value={selectedSection}
+          onValueChange={(item) => {
+            if (item) {
+              setDraft((prev) => ({ ...prev, sectionId: item.id }))
+              onSectionChange()
+            }
+          }}
+          getItemLabel={(section) => section.name}
+          getItemId={(section) => section.id}
+        />
+      </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Name</span>
         <Input
@@ -90,35 +107,19 @@ function TagEditForm({
         />
       </label>
       <label className="block text-sm">
-        <span className="mb-1 block font-medium">Parent tag</span>
+        <span className="mb-1 block font-medium">Parent category</span>
         <SearchableSelect<{ id: string; name: string; label: string }>
           items={parentItems}
           value={selectedParent}
           onValueChange={(item) =>
-            setDraft((prev) => ({
-              ...prev,
-              parentTagId: item?.id ?? 'none',
-              sectionId: item?.id && item.id !== 'none' ? 'none' : prev.sectionId,
-            }))
+            setDraft((prev) => ({ ...prev, parentCategoryId: item?.id ?? 'none' }))
           }
           getItemLabel={(item) => taxonomyDisplayLabel(item)}
           getItemId={(item) => item.id}
+          placeholder={sectionSelected ? undefined : 'Select section first'}
+          disabled={!sectionSelected}
         />
       </label>
-      {isRoot ? (
-        <label className="block text-sm">
-          <span className="mb-1 block font-medium">Section (optional)</span>
-          <SearchableSelect<{ id: string; name: string }>
-            items={sectionItems}
-            value={selectedSection}
-            onValueChange={(item) =>
-              setDraft((prev) => ({ ...prev, sectionId: item?.id ?? 'none' }))
-            }
-            getItemLabel={(section) => section.name}
-            getItemId={(section) => section.id}
-          />
-        </label>
-      ) : null}
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Description</span>
         <Textarea
@@ -131,58 +132,62 @@ function TagEditForm({
   )
 }
 
-export function UcatQuestionTagDialog({
+export function UcatQuestionStemCategoryDialog({
   open,
-  tag,
-  allTags,
+  category,
+  allCategories,
   sections,
   draft,
   setDraft,
   onClose,
   onDelete,
-  onQuestionClick,
-}: UcatQuestionTagDialogProps) {
-  const [activeTab, setActiveTab] = useState<'edit' | 'questions'>('edit')
-  const updateTag = useUpdateUcatQuestionTag()
-  const linkedQuestions = useUcatTagLinkedQuestions(tag?.id ?? null)
+  onStemClick,
+}: UcatQuestionStemCategoryDialogProps) {
+  const [activeTab, setActiveTab] = useState<'edit' | 'stems'>('edit')
+  const updateCategory = useUpdateUcatQuestionStemCategory()
+  const linkedStems = useUcatCategoryLinkedStems(category?.id ?? null)
 
   useEffect(() => {
     if (open) {
       setActiveTab('edit')
     }
-  }, [open, tag?.id])
+  }, [open, category?.id])
 
-  const parentOptions = useMemo(
-    () => allTags.filter((row) => row.id !== tag?.id),
-    [allTags, tag?.id]
-  )
-  const tagPathLookup = useMemo(
+  const parentOptions = useMemo(() => {
+    if (draft.sectionId === 'none') return []
+    return allCategories.filter(
+      (row) => row.section_id === draft.sectionId && row.id !== category?.id
+    )
+  }, [allCategories, category?.id, draft.sectionId])
+
+  const categoryPathLookup = useMemo(
     () =>
       buildTaxonomyPathLookup(
-        tagsToTaxonomyNodes(
-          allTags.map((row) => ({
+        categoriesToTaxonomyNodes(
+          allCategories.map((row) => ({
             id: row.id,
             name: row.name,
-            parent_question_tag_id: row.parent_id,
+            parent_question_stem_category_id: row.parent_id,
           }))
         )
       ),
-    [allTags]
+    [allCategories]
   )
 
-  const dialogTitle = tag ? tagPathLookup.get(tag.id) ?? tag.name : 'Tag'
+  const dialogTitle = category
+    ? categoryPathLookup.get(category.id) ?? category.name
+    : 'Category'
 
   const catalogItems = useMemo(() => {
-    return (linkedQuestions.data ?? []).map((question) => {
-      const preview = proseMirrorToPlainText(question.questionText as Json | undefined)
+    return (linkedStems.data ?? []).map((stem) => {
+      const preview = proseMirrorToPlainText(stem.stemText as Json | undefined)
       return {
-        id: question.questionId,
-        title: preview || `Question ${question.questionIndex}`,
-        subtitle: `Q${question.questionIndex}`,
-        sectionName: question.sectionName,
+        id: stem.stemId,
+        title: preview || stem.stemId,
+        sectionName: stem.sectionName,
       }
     })
-  }, [linkedQuestions.data])
+  }, [linkedStems.data])
 
   const sectionOptions = useMemo(
     () =>
@@ -193,19 +198,14 @@ export function UcatQuestionTagDialog({
   )
 
   async function saveEdit() {
-    if (!tag) return
-    await updateTag.mutateAsync({
-      id: tag.id,
+    if (!category) return
+    await updateCategory.mutateAsync({
+      id: category.id,
       payload: {
         name: draft.name,
         description: draft.description,
-        parentTagId: draft.parentTagId === 'none' ? null : draft.parentTagId,
-        sectionId:
-          draft.parentTagId === 'none'
-            ? draft.sectionId === 'none'
-              ? null
-              : draft.sectionId
-            : null,
+        sectionId: draft.sectionId === 'none' ? null : draft.sectionId,
+        parentCategoryId: draft.parentCategoryId === 'none' ? null : draft.parentCategoryId,
       },
     })
     onClose()
@@ -215,14 +215,14 @@ export function UcatQuestionTagDialog({
     <UcatDialogShell
       open={open}
       onClose={onClose}
-      title={dialogTitle ?? 'Tag'}
-      subtitle="Edit tag details or review linked questions"
+      title={dialogTitle ?? 'Category'}
+      subtitle="Edit category details or review linked question stems"
       onSave={activeTab === 'edit' ? saveEdit : undefined}
       saveLabel="Save"
-      saveDisabled={updateTag.isPending}
-      isSaving={updateTag.isPending}
+      saveDisabled={updateCategory.isPending}
+      isSaving={updateCategory.isPending}
       headerActions={
-        tag ? (
+        category ? (
           <UcatRowActions
             actions={[
               {
@@ -239,14 +239,14 @@ export function UcatQuestionTagDialog({
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden p-6">
         <SegmentedTabPanel
           value={activeTab}
-          onValueChange={(value) => setActiveTab(value as 'edit' | 'questions')}
+          onValueChange={(value) => setActiveTab(value as 'edit' | 'stems')}
           className="min-h-0 flex-1"
           selectorClassName="max-w-sm"
           options={[
             { value: 'edit', label: 'Edit' },
             {
-              value: 'questions',
-              label: tag ? `Questions (${tag.question_count})` : 'Questions',
+              value: 'stems',
+              label: category ? `Stems (${category.question_stem_count})` : 'Stems',
             },
           ]}
         >
@@ -255,31 +255,30 @@ export function UcatQuestionTagDialog({
             activeTab={activeTab}
             className="mt-4 min-h-0 flex-1 overflow-y-auto"
           >
-            <TagEditForm
+            <CategoryEditForm
               draft={draft}
               setDraft={setDraft}
               sections={sections}
               parentOptions={parentOptions}
-              tagPathLookup={tagPathLookup}
+              categoryPathLookup={categoryPathLookup}
+              onSectionChange={() => setDraft((prev) => ({ ...prev, parentCategoryId: 'none' }))}
             />
           </SegmentedTabPanelContent>
 
           <SegmentedTabPanelContent
-            when="questions"
+            when="stems"
             activeTab={activeTab}
             className="mt-4 min-h-0 flex-1 overflow-hidden"
           >
             <LinkedResourceCatalog
               items={catalogItems}
-              isLoading={linkedQuestions.isLoading}
-              emptyMessage="No questions are linked to this tag."
-              searchPlaceholder="Search questions..."
+              isLoading={linkedStems.isLoading}
+              emptyMessage="No question stems are linked to this category."
+              searchPlaceholder="Search stems..."
               sectionOptions={sectionOptions}
-              onItemClick={(questionId) => {
-                const question = (linkedQuestions.data ?? []).find(
-                  (row) => row.questionId === questionId
-                )
-                if (question) onQuestionClick(question)
+              onItemClick={(stemId) => {
+                const stem = (linkedStems.data ?? []).find((row) => row.stemId === stemId)
+                if (stem) onStemClick(stem)
               }}
             />
           </SegmentedTabPanelContent>

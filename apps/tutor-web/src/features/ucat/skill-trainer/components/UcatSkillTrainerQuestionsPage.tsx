@@ -14,9 +14,6 @@ import {
   DataTable,
   DataTableToolbar,
   TablePagination,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   useToast,
 } from '@altitutor/ui'
 import { Pencil } from 'lucide-react'
@@ -35,7 +32,8 @@ import {
   useUcatSkillTrainerItemsTable,
   type SkillTrainerItemTableRow,
 } from '@/features/ucat/skill-trainer/hooks/useUcatSkillTrainerItemsTable'
-import { tutorBtnPrimary, tutorDataTableProps, tutorTabsList, tutorTabsTrigger } from '@/shared/lib/tutor-visual'
+import { tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'summary', label: 'Content', visibleByDefault: true },
@@ -187,27 +185,19 @@ export function UcatSkillTrainerQuestionsPage() {
         }
       />
 
-      <Tabs
+      <SegmentedControl
         value={trainerKeyToSlug(activeTab)}
         onValueChange={(v) => {
           const key = trainerSlugToKey(v)
           if (key) setActiveTab(key)
         }}
-      >
-        <TabsList className={tutorTabsList}>
-          {trainers
-            .filter((t) => t.key)
-            .map((trainer) => (
-              <TabsTrigger
-                key={trainer.key}
-                value={trainerKeyToSlug(trainer.key as UcatSkillTrainerKey)}
-                className={tutorTabsTrigger}
-              >
-                {trainer.name}
-              </TabsTrigger>
-            ))}
-        </TabsList>
-      </Tabs>
+        options={trainers
+          .filter((t): t is typeof t & { key: UcatSkillTrainerKey } => Boolean(t.key))
+          .map((trainer) => ({
+            value: trainerKeyToSlug(trainer.key),
+            label: trainer.name,
+          }))}
+      />
 
       <DataTableToolbar
         state={tableState.state}

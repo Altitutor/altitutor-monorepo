@@ -43,6 +43,21 @@ const INDICATOR_STYLE = {
 const segmentTabPadding = 'inline-flex items-center justify-center gap-1.5 px-3 py-1.5'
 
 /**
+ * Track uses `p-0.5` (0.125rem). Inner radius = outer − inset.
+ * Values must be static strings so Tailwind JIT emits them.
+ */
+const SEGMENTED_RADII = {
+  default: {
+    track: 'overflow-hidden rounded-2xl',
+    inner: 'rounded-[0.875rem]',
+  },
+  light: {
+    track: 'overflow-hidden rounded-md',
+    inner: 'rounded',
+  },
+} as const
+
+/**
  * Segmented tab control aligned with ucat-web SegmentedControl:
  * sliding active indicator, hover only on inactive tabs.
  */
@@ -119,7 +134,7 @@ export function SegmentedControl<T extends string>({
   }, [updateIndicator, options])
 
   const textSizeClass = size === 'sm' ? 'text-[10pt]' : 'text-xs'
-  const tabRadiusClass = size === 'sm' ? 'rounded-md' : 'rounded-lg'
+  const radii = SEGMENTED_RADII[isLight ? 'light' : 'default']
 
   return (
     <TooltipProvider delayDuration={200}>
@@ -130,8 +145,8 @@ export function SegmentedControl<T extends string>({
           textSizeClass,
           fullWidth && 'w-full',
           isLight
-            ? 'rounded-md bg-neutral-200/80 ring-1 ring-black/10'
-            : 'rounded-2xl bg-muted/90 ring-1 ring-black/[0.06] dark:ring-white/10',
+            ? cn(radii.track, 'bg-neutral-200/80 ring-1 ring-black/10')
+            : cn(radii.track, 'bg-muted/90 ring-1 ring-black/[0.06] dark:ring-white/10'),
           className
         )}
         role="tablist"
@@ -142,7 +157,7 @@ export function SegmentedControl<T extends string>({
             aria-hidden
             className={cn(
               'pointer-events-none absolute z-0 shadow-sm',
-              tabRadiusClass,
+              radii.inner,
               isLight
                 ? 'bg-white ring-1 ring-black/10'
                 : 'bg-card ring-1 ring-black/[0.05] dark:ring-white/[0.07]'
@@ -167,7 +182,7 @@ export function SegmentedControl<T extends string>({
                 ref={setSegmentRef(option.value)}
                 className={cn(
                   'group relative z-10 inline-flex items-stretch overflow-hidden',
-                  tabRadiusClass,
+                  radii.inner,
                   fullWidth && 'min-w-0 flex-1',
                   isLight
                     ? isActive
@@ -230,7 +245,7 @@ export function SegmentedControl<T extends string>({
               className={cn(
                 segmentTabPadding,
                 'relative z-10 transition-colors duration-200',
-                tabRadiusClass,
+                radii.inner,
                 fullWidth && 'min-w-0 flex-1',
                 isLight
                   ? isActive
