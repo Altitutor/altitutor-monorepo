@@ -1,19 +1,20 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
+import {
+  UCAT_SKILL_TRAINER_KEYS,
+  trainerKeyToSlug,
+  trainerSlugToKey,
+  type UcatSkillTrainerKey,
+} from '@altitutor/shared'
 import {
   Button,
   DataTable,
   DataTableToolbar,
   Input,
   Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
   TablePagination,
   useToast,
 } from '@altitutor/ui'
@@ -23,21 +24,22 @@ import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { useUcatSkillTrainersCatalog } from '@/features/ucat/skill-trainer/hooks/useUcatSkillTrainerItems'
 import {
   useDeleteUcatSkillTrainerSet,
   useUcatSkillTrainerSets,
-  useUcatSkillTrainers,
   useUpsertUcatSkillTrainerSet,
 } from '@/features/ucat/skill-trainer-sets/hooks/useUcatSkillTrainerSets'
 import {
   useUcatSkillTrainerSetsTable,
   type SkillTrainerSetTableRow,
 } from '@/features/ucat/skill-trainer-sets/hooks/useUcatSkillTrainerSetsTable'
+import { UcatSkillTrainerSetDialog } from '@/features/ucat/skill-trainer-sets/components/UcatSkillTrainerSetDialog'
 import { tutorBtnPrimary, tutorDataTableProps } from '@/shared/lib/tutor-visual'
+import { SegmentedControl } from '@/shared/components/segmented-control'
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
-  { key: 'trainer_name', label: 'Trainer', visibleByDefault: true },
   { key: 'item_count', label: 'Items', visibleByDefault: true },
   { key: 'visibility', label: 'Visibility', visibleByDefault: true },
   { key: 'updated_at', label: 'Updated', visibleByDefault: true },
@@ -46,44 +48,66 @@ const columnDefinitions: DataTableColumnDefinition[] = [
 
 const sortOptions: DataTableSortOption[] = [
   { key: 'name', label: 'Name' },
-  { key: 'trainer_name', label: 'Trainer' },
   { key: 'item_count', label: 'Items' },
   { key: 'visibility', label: 'Visibility' },
   { key: 'updated_at', label: 'Updated' },
 ]
 
+function parseTrainerTab(value: string | null, trainers: Array<{ key: string | null }>): UcatSkillTrainerKey {
+  const fromSlug = value ? trainerSlugToKey(value) : null
+  if (fromSlug) return fromSlug
+  const first = trainers.find((t) => t.key)?.key
+  return (first as UcatSkillTrainerKey | undefined) ?? UCAT_SKILL_TRAINER_KEYS[0]
+}
+
 export function UcatSkillTrainerSetsPage() {
   const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const access = useUcatAccess()
-  const setsQuery = useUcatSkillTrainerSets()
-  const trainersQuery = useUcatSkillTrainers()
+  const trainersQuery = useUcatSkillTrainersCatalog()
+  const trainers = trainersQuery.data ?? []
+
+  const activeTab = parseTrainerTab(searchParams.get('tab'), trainers)
+
+  const setActiveTab = useCallback(
+    (key: UcatSkillTrainerKey) => {
+      const params = new URLSearchParams(searchParams.toString())
+      params.set('tab', trainerKeyToSlug(key))
+      router.replace(`${pathname}?${params.toString()}`, { scroll: false })
+    },
+    [pathname, router, searchParams],
+  )
+
+  const setsQuery = useUcatSkillTrainerSets({ trainerKey: activeTab })
   const upsert = useUpsertUcatSkillTrainerSet()
   const deleteSet = useDeleteUcatSkillTrainerSet()
 
   const [createOpen, setCreateOpen] = useState(false)
+  const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [newName, setNewName] = useState('')
-  const [newTrainerId, setNewTrainerId] = useState('')
   const [deletingSetId, setDeletingSetId] = useState<string | null>(null)
+
+  const handleOpenSet = useCallback((setId: string) => {
+    setEditingSetId(setId)
+  }, [])
 
   const { rows, visibleColumns, tableState } = useUcatSkillTrainerSetsTable({
     data: setsQuery.data,
     initialVisibleColumns: columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key),
+    onOpenSet: handleOpenSet,
   })
 
+  const previousTabRef = useRef(activeTab)
+  useEffect(() => {
+    if (previousTabRef.current === activeTab) return
+    previousTabRef.current = activeTab
+    tableState.actions.onReset()
+  }, [activeTab, tableState.actions])
+
   const filterDefinitions = useMemo((): DataTableFilterDefinition[] => {
-    const trainers = trainersQuery.data ?? []
     return [
-      {
-        key: 'trainer_key',
-        label: 'Trainer',
-        options: [
-          { label: 'All trainers', value: 'all' },
-          ...trainers
-            .filter((t) => t.key)
-            .map((t) => ({ label: t.name ?? t.key ?? 'Trainer', value: t.key as string })),
-        ],
-      },
       {
         key: 'visibility',
         label: 'Visibility',
@@ -100,7 +124,7 @@ export function UcatSkillTrainerSetsPage() {
         maxKey: 'item_count_max',
       },
     ]
-  }, [trainersQuery.data])
+  }, [])
 
   const { page, pageSize } = tableState.state
   const totalRows = rows.length
@@ -108,22 +132,28 @@ export function UcatSkillTrainerSetsPage() {
   const effectivePage = Math.min(page, pageCount)
   const paginatedRows = rows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
+  const activeTrainer = trainers.find((t) => t.key === activeTab)
+  const activeTrainerName = activeTrainer?.name ?? activeTab
+  const activeTrainerId = activeTrainer?.id ?? ''
+
   const handleCreate = async () => {
-    if (!newName.trim() || !newTrainerId) return
+    if (!newName.trim() || !activeTrainerId) return
     try {
       const id = await upsert.mutateAsync({
-        skillTrainerId: newTrainerId,
+        skillTrainerId: activeTrainerId,
         name: newName.trim(),
       })
       setCreateOpen(false)
       setNewName('')
-      router.push(`/ucat/skill-trainer-sets/${id}`)
+      setEditingSetId(id)
     } catch (e) {
       toast({ title: 'Failed to create set', description: String(e), variant: 'destructive' })
     }
   }
 
-  if (access.isLoading || setsQuery.isLoading) return <UcatPageSkeleton rows={8} />
+  if (access.isLoading || setsQuery.isLoading || trainersQuery.isLoading) {
+    return <UcatPageSkeleton rows={8} />
+  }
   if (!access.data) return <UcatAccessDenied />
 
   return (
@@ -137,14 +167,25 @@ export function UcatSkillTrainerSetsPage() {
           <Button
             type="button"
             className={tutorBtnPrimary}
-            onClick={() => {
-              setCreateOpen(true)
-              if (trainersQuery.data?.[0]?.id) setNewTrainerId(trainersQuery.data[0].id)
-            }}
+            onClick={() => setCreateOpen(true)}
           >
-            New set
+            Add skill trainer set
           </Button>
         }
+      />
+
+      <SegmentedControl
+        value={trainerKeyToSlug(activeTab)}
+        onValueChange={(v) => {
+          const key = trainerSlugToKey(v)
+          if (key) setActiveTab(key)
+        }}
+        options={trainers
+          .filter((t): t is typeof t & { key: UcatSkillTrainerKey } => Boolean(t.key))
+          .map((trainer) => ({
+            value: trainerKeyToSlug(trainer.key),
+            label: trainer.name,
+          }))}
       />
 
       <DataTableToolbar
@@ -159,7 +200,7 @@ export function UcatSkillTrainerSetsPage() {
         filterDefinitions={filterDefinitions}
         columnDefinitions={columnDefinitions}
         sortOptions={sortOptions}
-        searchPlaceholder="Search skill trainer sets"
+        searchPlaceholder={`Search ${activeTrainerName} sets`}
       />
 
       <div className="pt-3">
@@ -179,7 +220,7 @@ export function UcatSkillTrainerSetsPage() {
                         {
                           label: 'Edit',
                           icon: <Pencil className="h-4 w-4" />,
-                          onClick: () => router.push(`/ucat/skill-trainer-sets/${r.id}`),
+                          onClick: () => handleOpenSet(r.id),
                         },
                         {
                           label: 'Delete',
@@ -197,6 +238,7 @@ export function UcatSkillTrainerSetsPage() {
           data={paginatedRows}
           pagination="external"
           pageSizeOptions={[10, 20, 50]}
+          onRowClick={(row) => handleOpenSet((row as SkillTrainerSetTableRow).id)}
         />
         <TablePagination
           page={effectivePage}
@@ -212,34 +254,31 @@ export function UcatSkillTrainerSetsPage() {
       <UcatDialogShell
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="New skill trainer set"
-        subtitle="Pick a trainer type, then add items on the detail page."
+        title={`New ${activeTrainerName} set`}
+        subtitle="Name your set, then add questions in the editor."
         onSave={handleCreate}
-        saveDisabled={!newName.trim() || !newTrainerId || upsert.isPending}
+        saveDisabled={!newName.trim() || !activeTrainerId || upsert.isPending}
         isSaving={upsert.isPending}
       >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Trainer</Label>
-            <Select value={newTrainerId} onValueChange={setNewTrainerId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select trainer" />
-              </SelectTrigger>
-              <SelectContent>
-                {(trainersQuery.data ?? []).map((t) => (
-                  <SelectItem key={t.id} value={t.id ?? ''}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Name</Label>
-            <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Set name" />
+        <div className="h-full overflow-y-auto p-6">
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Trainer</Label>
+              <Input value={activeTrainerName} disabled />
+            </div>
+            <div className="space-y-2">
+              <Label>Name</Label>
+              <Input value={newName} onChange={(e) => setNewName(e.target.value)} placeholder="Set name" />
+            </div>
           </div>
         </div>
       </UcatDialogShell>
+
+      <UcatSkillTrainerSetDialog
+        open={!!editingSetId}
+        setId={editingSetId}
+        onClose={() => setEditingSetId(null)}
+      />
 
       <UcatDeleteConfirmDialog
         open={!!deletingSetId}

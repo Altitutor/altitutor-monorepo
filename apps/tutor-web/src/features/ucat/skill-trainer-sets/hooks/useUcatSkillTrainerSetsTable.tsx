@@ -5,7 +5,6 @@ import { Badge, getUcatVisibilityColor } from '@altitutor/ui'
 import {
   applyBooleanTextFilter,
   applyRangeFilter,
-  applySingleSelectFilter,
   applySort,
   useUcatTableState,
   useVisibleColumns,
@@ -27,6 +26,7 @@ export type SkillTrainerSetTableRow = {
 type UseUcatSkillTrainerSetsTableParams = {
   data: UcatSkillTrainerSetRow[] | undefined
   initialVisibleColumns: string[]
+  onOpenSet?: (setId: string) => void
 }
 
 function formatUpdatedAt(value: string): string {
@@ -39,6 +39,7 @@ function formatUpdatedAt(value: string): string {
 export function useUcatSkillTrainerSetsTable({
   data,
   initialVisibleColumns,
+  onOpenSet,
 }: UseUcatSkillTrainerSetsTableParams) {
   const tableState = useUcatTableState(initialVisibleColumns)
 
@@ -65,7 +66,6 @@ export function useUcatSkillTrainerSetsTable({
         row.name.toLowerCase().includes(search) ||
         row.trainer_name.toLowerCase().includes(search) ||
         (row.description ?? '').toLowerCase().includes(search)
-      const trainerHit = applySingleSelectFilter(tableState.state, 'trainer_key', row.trainer_key)
       const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
       const itemCountHit = applyRangeFilter(
         tableState.state,
@@ -73,7 +73,7 @@ export function useUcatSkillTrainerSetsTable({
         'item_count_max',
         row.item_count,
       )
-      return searchHit && trainerHit && visibilityHit && itemCountHit
+      return searchHit && visibilityHit && itemCountHit
     })
   }, [rows, tableState.state])
 
@@ -95,14 +95,23 @@ export function useUcatSkillTrainerSetsTable({
       column: {
         accessorKey: 'name',
         header: 'Name',
-        cell: ({ row }) => (
-          <Link
-            href={`/ucat/skill-trainer-sets/${row.original.id}`}
-            className="font-medium hover:underline"
-          >
-            {row.original.name}
-          </Link>
-        ),
+        cell: ({ row }) =>
+          onOpenSet ? (
+            <button
+              type="button"
+              className="font-medium hover:underline"
+              onClick={() => onOpenSet(row.original.id)}
+            >
+              {row.original.name}
+            </button>
+          ) : (
+            <Link
+              href={`/ucat/skill-trainer-sets/${row.original.id}`}
+              className="font-medium hover:underline"
+            >
+              {row.original.name}
+            </Link>
+          ),
       },
     },
     {

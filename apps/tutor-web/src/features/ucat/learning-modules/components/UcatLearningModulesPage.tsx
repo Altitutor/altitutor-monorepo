@@ -1,70 +1,147 @@
 'use client'
 
-import Link from 'next/link'
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import {
-  Button,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  useToast,
-} from '@altitutor/ui'
-import { UcatAccessDenied, UcatPageHeader } from '@/features/ucat/shared/components'
+import { useCallback, useMemo, useState } from 'react'
+import { Button, Input, useToast } from '@altitutor/ui'
+import { Pencil, Search } from 'lucide-react'
+import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { TutorPageContainer } from '@/shared/components/layouts'
-import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
+import { UcatCreateLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatCreateLearningModuleDialog'
+import { UcatLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleDialog'
 import {
   useUcatLearningModules,
   useUpsertUcatLearningModule,
 } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
-import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
+import type { UcatLearningModuleKind, UcatLearningModuleRow } from '@/features/ucat/learning-modules/types'
+import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { TaxonomySectionDropZone } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
+import type { TaxonomyReparentTarget } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
+import { TaxonomyHierarchyDndProvider } from '@/features/ucat/shared/components/taxonomy-hierarchy-dnd'
+import { isDescendantOf } from '@/features/ucat/shared/lib/taxonomy-reparent'
+import {
+  buildModuleSectionTreeNodes,
+  filterModuleTreeNodes,
+} from '@/features/ucat/learning-modules/lib/build-learning-module-tree'
+import { getNextLearningModuleIndex } from '@/features/ucat/learning-modules/lib/get-next-learning-module-index'
+import { mapLearningModuleTreeToTaxonomyNodes } from '@/features/ucat/learning-modules/lib/map-learning-module-tree'
+import { LearningModuleHierarchyTree } from '@/features/ucat/learning-modules/components/LearningModuleHierarchyTree'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
 
 export function UcatLearningModulesPage() {
-  const router = useRouter()
   const { toast } = useToast()
   const access = useUcatAccess()
-  const hasUcatAccess = Boolean(access.data)
-  const [kindFilter, setKindFilter] = useState<string>('all')
-  const [search, setSearch] = useState('')
+  const modulesQuery = useUcatLearningModules()
+  const sectionsQuery = useUcatSections()
+  const upsert = useUpsertUcatLearningModule()
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [editMode, setEditMode] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
+  const [editModuleId, setEditModuleId] = useState<string | null>(null)
   const [newKind, setNewKind] = useState<UcatLearningModuleKind>('lesson')
   const [newTitle, setNewTitle] = useState('')
 
-  const kind = kindFilter === 'all' ? undefined : (kindFilter as UcatLearningModuleKind)
-  const { data: modules, isLoading } = useUcatLearningModules({ kind })
-  const upsert = useUpsertUcatLearningModule()
+  const rows: UcatLearningModuleRow[] = useMemo(() => modulesQuery.data ?? [], [modulesQuery.data])
+  const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows])
 
-  const folderOptions = useMemo(
-    () => (modules ?? []).filter((m) => m.kind === 'folder'),
-    [modules]
+  const sectionTrees = useMemo(() => {
+    const sectionList = [...(sectionsQuery.data ?? [])].sort(
+      (a, b) => (a.section_number ?? 0) - (b.section_number ?? 0),
+    )
+    return sectionList.map((section) => {
+      const rootNodes = buildModuleSectionTreeNodes(rows, section.id ?? '')
+      const filtered = filterModuleTreeNodes(rootNodes, searchQuery)
+      return {
+        sectionId: section.id ?? '',
+        sectionName: section.name ?? 'Unknown section',
+        nodes: filtered,
+      }
+    })
+  }, [rows, searchQuery, sectionsQuery.data])
+
+  const unsectionedTrees = useMemo(() => {
+    const rootNodes = buildModuleSectionTreeNodes(rows, null)
+    return filterModuleTreeNodes(rootNodes, searchQuery)
+  }, [rows, searchQuery])
+
+  const allHierarchyNodes = useMemo(
+    () => [
+      ...sectionTrees.flatMap((section) => mapLearningModuleTreeToTaxonomyNodes(section.nodes)),
+      ...mapLearningModuleTreeToTaxonomyNodes(unsectionedTrees),
+    ],
+    [sectionTrees, unsectionedTrees],
   )
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return modules ?? []
-    return (modules ?? []).filter(
-      (m) =>
-        m.title.toLowerCase().includes(q) ||
-        (m.section_name ?? '').toLowerCase().includes(q) ||
-        (m.description ?? '').toLowerCase().includes(q)
-    )
-  }, [modules, search])
+  const openModule = useCallback((moduleId: string) => {
+    setEditModuleId(moduleId)
+  }, [])
 
-  const folderTitle = (parentId: string | null) => {
-    if (!parentId) return '—'
-    return folderOptions.find((f) => f.id === parentId)?.title ?? parentId.slice(0, 8)
-  }
+  const handleReparent = useCallback(
+    async (itemId: string, target: TaxonomyReparentTarget) => {
+      const row = rowById.get(itemId)
+      if (!row) return
+
+      const taxonomyRows = rows.map((module) => ({
+        id: module.id,
+        parent_id: module.parent_ucat_learning_module_id,
+        section_id: module.ucat_section_id,
+      }))
+
+      if (target.type === 'node') {
+        if (target.parentId === itemId) return
+        const parent = rowById.get(target.parentId)
+        if (!parent || parent.kind !== 'folder') {
+          toast({
+            title: 'Invalid move',
+            description: 'Modules can only be placed inside folders.',
+            variant: 'destructive',
+          })
+          return
+        }
+        if (isDescendantOf(taxonomyRows, target.parentId, itemId)) {
+          toast({
+            title: 'Invalid move',
+            description: 'Cannot move a module under its own descendant.',
+            variant: 'destructive',
+          })
+          return
+        }
+      }
+
+      try {
+        if (target.type === 'root') {
+          await upsert.mutateAsync({
+            moduleId: itemId,
+            kind: row.kind,
+            title: row.title,
+            description: row.description,
+            ucatSectionId: target.sectionId,
+            parentId: null,
+            index: row.index,
+            isPrivate: row.is_private,
+            displayMode: row.display_mode ?? (row.kind === 'lesson' ? 'stepped' : undefined),
+          })
+        } else {
+          await upsert.mutateAsync({
+            moduleId: itemId,
+            kind: row.kind,
+            title: row.title,
+            description: row.description,
+            parentId: target.parentId,
+            index: row.index,
+            isPrivate: row.is_private,
+            displayMode: row.display_mode ?? (row.kind === 'lesson' ? 'stepped' : undefined),
+          })
+        }
+      } catch (error) {
+        toast({
+          title: 'Could not move module',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        })
+      }
+    },
+    [rowById, rows, toast, upsert],
+  )
 
   const handleCreate = async () => {
     if (!newTitle.trim()) return
@@ -72,118 +149,131 @@ export function UcatLearningModulesPage() {
       const id = await upsert.mutateAsync({
         kind: newKind,
         title: newTitle.trim(),
+        index: getNextLearningModuleIndex(rows, null),
         displayMode: newKind === 'lesson' ? 'stepped' : undefined,
       })
       setCreateOpen(false)
       setNewTitle('')
-      router.push(`/ucat/learning-modules/${id}`)
+      setEditModuleId(id)
     } catch (e) {
       toast({ title: 'Failed to create module', description: String(e), variant: 'destructive' })
     }
   }
 
-  if (access.isLoading) return null
-  if (!hasUcatAccess) return <UcatAccessDenied />
+  if (access.isLoading || modulesQuery.isLoading || sectionsQuery.isLoading) {
+    return <UcatPageSkeleton rows={8} />
+  }
+  if (!access.data) return <UcatAccessDenied />
+
+  const isSearching = searchQuery.trim().length > 0
+  const visibleSectionTrees = isSearching
+    ? sectionTrees.filter((section) => section.nodes.length > 0)
+    : sectionTrees
+  const showUnsectioned = !isSearching || unsectionedTrees.length > 0
+  const hasVisibleTrees =
+    !isSearching || visibleSectionTrees.length > 0 || unsectionedTrees.length > 0
+
+  const sectionContent = (
+    <>
+      {visibleSectionTrees.map((section) => (
+        <TaxonomySectionDropZone
+          key={section.sectionId}
+          sectionId={section.sectionId}
+          sectionName={section.sectionName}
+          editMode={editMode}
+        >
+          <LearningModuleHierarchyTree
+            nodes={section.nodes}
+            onItemClick={openModule}
+            searchQuery={searchQuery}
+            editMode={editMode}
+          />
+        </TaxonomySectionDropZone>
+      ))}
+
+      {showUnsectioned ? (
+        <TaxonomySectionDropZone
+          sectionId={null}
+          sectionName="Unsectioned modules"
+          editMode={editMode}
+        >
+          <LearningModuleHierarchyTree
+            nodes={unsectionedTrees}
+            onItemClick={openModule}
+            searchQuery={searchQuery}
+            editMode={editMode}
+          />
+        </TaxonomySectionDropZone>
+      ) : null}
+    </>
+  )
 
   return (
-    <TutorPageContainer>
-      <div className="space-y-6">
-        <div className="flex flex-wrap items-start justify-between gap-4">
-          <UcatPageHeader
-            title="Learning modules"
-            description="Organise UCAT lessons and folders. Lessons contain blocks students complete in class or online."
-          />
-          <Button type="button" onClick={() => setCreateOpen(true)}>
-            New module
-          </Button>
-        </div>
+    <div className="space-y-6 py-8 md:py-10">
+      <UcatPageHeader
+        title="Learning modules"
+        description="Organise UCAT lessons and folders. Lessons contain blocks students complete in class or online."
+        backHref="/ucat"
+        breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Learning modules' }]}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={editMode ? 'default' : 'outline'}
+              onClick={() => setEditMode((prev) => !prev)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              {editMode ? 'Done reordering' : 'Edit hierarchy'}
+            </Button>
+            <Button type="button" onClick={() => setCreateOpen(true)}>
+              New module
+            </Button>
+          </div>
+        }
+      />
 
-        <div className="flex flex-wrap gap-3">
-          <Input
-            className="max-w-xs"
-            placeholder="Search title or section…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Select value={kindFilter} onValueChange={setKindFilter}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue placeholder="Kind" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All kinds</SelectItem>
-              <SelectItem value="folder">Folders</SelectItem>
-              <SelectItem value="lesson">Lessons</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {isLoading ? <p className="text-sm text-muted-foreground">Loading…</p> : null}
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Title</TableHead>
-              <TableHead>Kind</TableHead>
-              <TableHead>Section</TableHead>
-              <TableHead>Parent folder</TableHead>
-              <TableHead>Contents</TableHead>
-              <TableHead>Private</TableHead>
-              <TableHead>Updated</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((row) => (
-              <TableRow key={row.id}>
-                <TableCell>
-                  <Link href={`/ucat/learning-modules/${row.id}`} className="font-medium hover:underline">
-                    {row.title}
-                  </Link>
-                </TableCell>
-                <TableCell className="capitalize">{row.kind}</TableCell>
-                <TableCell>
-                  {row.section_number != null ? `${row.section_number}. ${row.section_name ?? ''}` : '—'}
-                </TableCell>
-                <TableCell>{folderTitle(row.parent_ucat_learning_module_id)}</TableCell>
-                <TableCell>
-                  {row.kind === 'folder' ? `${row.child_count} children` : `${row.block_count} blocks`}
-                </TableCell>
-                <TableCell>{row.is_private ? 'Yes' : 'No'}</TableCell>
-                <TableCell>{row.updated_at ? new Date(row.updated_at).toLocaleDateString() : '—'}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search modules..."
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          className="pl-8"
+        />
       </div>
 
-      <UcatDialogShell
+      <div className="space-y-6">
+        {!hasVisibleTrees ? (
+          <div className={tutorCardCn('p-6 text-center text-sm text-muted-foreground')}>
+            No modules match your search
+          </div>
+        ) : editMode ? (
+          <TaxonomyHierarchyDndProvider allNodes={allHierarchyNodes} onReparent={handleReparent}>
+            <div className="space-y-6">{sectionContent}</div>
+          </TaxonomyHierarchyDndProvider>
+        ) : (
+          <div className="space-y-6">{sectionContent}</div>
+        )}
+      </div>
+
+      <UcatCreateLearningModuleDialog
         open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        title="New learning module"
-        subtitle="Choose folder or lesson. You can configure section, parent folder, and blocks on the next screen."
-        onSave={handleCreate}
-        saveDisabled={!newTitle.trim() || upsert.isPending}
+        kind={newKind}
+        title={newTitle}
         isSaving={upsert.isPending}
-      >
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Kind</Label>
-            <Select value={newKind} onValueChange={(v) => setNewKind(v as UcatLearningModuleKind)}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="folder">Folder</SelectItem>
-                <SelectItem value="lesson">Lesson</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label>Title</Label>
-            <Input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Module title" />
-          </div>
-        </div>
-      </UcatDialogShell>
-    </TutorPageContainer>
+        onClose={() => setCreateOpen(false)}
+        onSave={handleCreate}
+        onKindChange={setNewKind}
+        onTitleChange={setNewTitle}
+      />
+
+      <UcatLearningModuleDialog
+        open={editModuleId != null}
+        moduleId={editModuleId}
+        onClose={() => setEditModuleId(null)}
+        onDeleted={() => setEditModuleId(null)}
+      />
+    </div>
   )
 }
