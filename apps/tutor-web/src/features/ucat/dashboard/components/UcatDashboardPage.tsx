@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import {
   ArrowRight,
+  BookOpen,
   FileQuestion,
   FolderTree,
   GitMerge,
@@ -12,6 +13,7 @@ import {
   ScrollText,
   Tag,
   Target,
+  Dumbbell,
   type LucideIcon,
   Users,
 } from 'lucide-react'
@@ -31,6 +33,32 @@ type UcatNavCard = {
 }
 
 const sections: { heading: string; cards: UcatNavCard[] }[] = [
+  {
+    heading: 'Learn and practice',
+    cards: [
+      {
+        title: 'Learning modules',
+        description: 'Build structured learning paths with content blocks and drills',
+        href: '/ucat/learning-modules',
+        icon: BookOpen,
+        accentClass: 'bg-violet-500/10 text-violet-800 dark:text-violet-300',
+      },
+      {
+        title: 'Skill trainer questions',
+        description: 'Author drill items for each UCAT skill trainer type',
+        href: '/ucat/skill-trainer-questions',
+        icon: Dumbbell,
+        accentClass: 'bg-fuchsia-500/10 text-fuchsia-800 dark:text-fuchsia-300',
+      },
+      {
+        title: 'Skill trainer sets',
+        description: 'Author timed skill trainer drill sets for student practice',
+        href: '/ucat/skill-trainer-sets',
+        icon: Target,
+        accentClass: 'bg-purple-500/10 text-purple-800 dark:text-purple-300',
+      },
+    ],
+  },
   {
     heading: 'Questions',
     cards: [
@@ -55,20 +83,6 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
         href: '/ucat/mocks',
         icon: ScrollText,
         accentClass: 'bg-amber-500/10 text-amber-800 dark:text-amber-300',
-      },
-      {
-        title: 'Reconciliation',
-        description: 'Fix uncategorized stems and questions missing explanations',
-        href: '/ucat/reconciliation',
-        icon: GitMerge,
-        accentClass: 'bg-orange-500/10 text-orange-800 dark:text-orange-300',
-      },
-      {
-        title: 'Skill trainer',
-        description: 'Author skill trainer drill items for student timed exercises',
-        href: '/ucat/skill-trainer',
-        icon: Target,
-        accentClass: 'bg-violet-500/10 text-violet-800 dark:text-violet-300',
       },
     ],
   },
@@ -95,18 +109,25 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
     heading: 'Settings',
     cards: [
       {
-        title: 'Question Categories',
-        description: 'Organize question stems with section-scoped categories',
-        href: '/ucat/question-stem-categories',
-        icon: FolderTree,
-        accentClass: 'bg-teal-500/10 text-teal-800 dark:text-teal-300',
+        title: 'Reconciliation',
+        description: 'Fix uncategorized stems and questions missing explanations',
+        href: '/ucat/reconciliation',
+        icon: GitMerge,
+        accentClass: 'bg-orange-500/10 text-orange-800 dark:text-orange-300',
       },
       {
-        title: 'Question Tags',
+        title: 'Question tags',
         description: 'Create reusable tags for question-level classification',
         href: '/ucat/question-tags',
         icon: Tag,
         accentClass: 'bg-fuchsia-500/10 text-fuchsia-800 dark:text-fuchsia-300',
+      },
+      {
+        title: 'Question stem categories',
+        description: 'Organize question stems with section-scoped categories',
+        href: '/ucat/question-stem-categories',
+        icon: FolderTree,
+        accentClass: 'bg-teal-500/10 text-teal-800 dark:text-teal-300',
       },
       {
         title: 'Sections',
@@ -127,7 +148,7 @@ export function UcatDashboardPage() {
       <TutorPageContainer className="space-y-8">
         <Skeleton className="h-8 w-36" />
         <Skeleton className="h-4 w-72" />
-        {[4, 2, 3].map((count, sectionIndex) => (
+        {[2, 3, 2, 4].map((count, sectionIndex) => (
           <div key={sectionIndex} className="space-y-4">
             <Skeleton className="h-8 w-40" />
             <ul className="grid gap-4 sm:grid-cols-2">

@@ -1,5 +1,5 @@
-import { UcatSkillTrainerItemsPage } from '@/features/ucat/skill-trainer/components/UcatSkillTrainerItemsPage'
+import { redirect } from 'next/navigation'
 
-export default function UcatSkillTrainerRoute() {
-  return <UcatSkillTrainerItemsPage />
+export default function UcatSkillTrainerLegacyRoute() {
+  redirect('/ucat/skill-trainer-questions')
 }
