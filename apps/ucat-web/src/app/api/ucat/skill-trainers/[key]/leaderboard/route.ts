@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
 import { getLeaderboard } from "@/lib/ucat/skill-trainer/attempt-service";
+import { resolveTrainerKeyParam } from "@/lib/ucat/skill-trainer/resolve-trainer-key";
 
 export async function GET(
   request: NextRequest,
@@ -9,14 +10,26 @@ export async function GET(
   const auth = await requireStudentAdminClient();
   if (!auth.ok) return auth.response;
 
-  const window = request.nextUrl.searchParams.get("window") === "all_time" ? "all_time" : "week";
+  const windowParam = request.nextUrl.searchParams.get("window");
+  const window =
+    windowParam === "all_time"
+      ? "all_time"
+      : windowParam === "my_scores"
+        ? "my_scores"
+        : "week";
+
+  const trainerKey = resolveTrainerKeyParam(params.key);
+  if (!trainerKey) {
+    return NextResponse.json({ error: "Trainer not found" }, { status: 404 });
+  }
 
   try {
     const entries = await getLeaderboard(
       auth.admin,
-      params.key,
+      trainerKey,
       window,
       auth.timezone,
+      auth.studentId,
     );
     return NextResponse.json({ entries, window });
   } catch (error) {

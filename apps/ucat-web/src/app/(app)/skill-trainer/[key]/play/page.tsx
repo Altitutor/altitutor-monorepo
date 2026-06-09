@@ -1,6 +1,6 @@
 import { SkillTrainerPlayPage } from "@/features/skill-trainer/components/skill-trainer-play-page";
-import { isUcatSkillTrainerKey } from "@altitutor/shared";
-import { notFound } from "next/navigation";
+import { trainerKeyToSlug, trainerSlugToKey } from "@altitutor/shared";
+import { notFound, redirect } from "next/navigation";
 
 export default function SkillTrainerPlayRoute({
   params,
@@ -9,11 +9,18 @@ export default function SkillTrainerPlayRoute({
   params: { key: string };
   searchParams: { attemptId?: string };
 }) {
-  if (!isUcatSkillTrainerKey(params.key)) notFound();
-  if (!searchParams.attemptId) notFound();
+  const trainerKey = trainerSlugToKey(params.key);
+  if (!trainerKey || !searchParams.attemptId) notFound();
+  if (params.key.includes("_")) {
+    const slug = trainerKeyToSlug(trainerKey);
+    const query = new URLSearchParams(
+      Object.entries(searchParams).filter((entry): entry is [string, string] => entry[1] != null),
+    );
+    redirect(`/skill-trainer/${slug}/play?${query.toString()}`);
+  }
   return (
     <SkillTrainerPlayPage
-      trainerKey={params.key}
+      trainerKey={trainerKey}
       attemptId={searchParams.attemptId}
     />
   );

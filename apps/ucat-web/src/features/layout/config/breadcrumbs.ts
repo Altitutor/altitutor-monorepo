@@ -70,7 +70,8 @@ function isValidPagePath(path: string): boolean {
         (segments[0] === "sessions" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sets" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sets" && segments[1] === "set-generator") ||
-        (segments[0] === "mocks" && isDynamicSegment(segments[1]))
+        (segments[0] === "mocks" && isDynamicSegment(segments[1])) ||
+        (segments[0] === "skill-trainer" && segments[1] !== "play")
       );
     case 3:
       return (

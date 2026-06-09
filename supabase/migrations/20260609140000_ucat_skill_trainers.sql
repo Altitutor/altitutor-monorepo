@@ -188,7 +188,7 @@ SELECT
     WHEN t.key IN ('find_word', 'find_concept') THEN 0
     ELSE 5
   END,
-  t.key IN ('quick_syllogism', 'numpad_speed', 'calculator_maths')
+  true
 FROM public.ucat_skill_trainers t
 ON CONFLICT (skill_trainer_id) DO NOTHING;
 

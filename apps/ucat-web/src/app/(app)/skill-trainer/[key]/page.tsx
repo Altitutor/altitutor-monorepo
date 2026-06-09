@@ -1,12 +1,16 @@
 import { SkillTrainerDetailPage } from "@/features/skill-trainer/components/skill-trainer-detail-page";
-import { isUcatSkillTrainerKey } from "@altitutor/shared";
-import { notFound } from "next/navigation";
+import { trainerKeyToSlug, trainerSlugToKey } from "@altitutor/shared";
+import { notFound, redirect } from "next/navigation";
 
 export default function SkillTrainerDetailRoute({
   params,
 }: {
   params: { key: string };
 }) {
-  if (!isUcatSkillTrainerKey(params.key)) notFound();
-  return <SkillTrainerDetailPage trainerKey={params.key} />;
+  const trainerKey = trainerSlugToKey(params.key);
+  if (!trainerKey) notFound();
+  if (params.key.includes("_")) {
+    redirect(`/skill-trainer/${trainerKeyToSlug(trainerKey)}`);
+  }
+  return <SkillTrainerDetailPage trainerKey={trainerKey} />;
 }

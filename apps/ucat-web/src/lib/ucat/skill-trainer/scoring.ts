@@ -2,7 +2,30 @@ import type {
   MentalMathsItemContent,
   NumpadSpeedItemContent,
   SkillTrainerConfigSnapshot,
+  UcatSkillTrainerKey,
 } from "@altitutor/shared";
+
+/**
+ * Per-trainer scale so typical high scores land in a similar band (~150–350).
+ * Tuned heuristically from action frequency and base point values.
+ */
+const TRAINER_SCORE_SCALE: Record<UcatSkillTrainerKey, number> = {
+  find_word: 0.45,
+  find_concept: 0.45,
+  quick_syllogism: 1.0,
+  mental_maths: 0.85,
+  numpad_speed: 1.1,
+  calculator_maths: 1.0,
+};
+
+export function normalizeScoreDelta(
+  trainerKey: UcatSkillTrainerKey,
+  delta: number,
+): number {
+  if (delta === 0) return 0;
+  const scaled = delta * TRAINER_SCORE_SCALE[trainerKey];
+  return delta > 0 ? Math.max(1, Math.round(scaled)) : Math.round(scaled);
+}
 
 export function getStreakMultiplier(
   streak: number,

@@ -12,7 +12,7 @@ export function useSkillTrainers() {
 
 export function useSkillTrainerLeaderboard(
   trainerKey: string,
-  window: "week" | "all_time",
+  window: "week" | "all_time" | "my_scores",
 ) {
   return useQuery({
     queryKey: ["skill-trainers", "leaderboard", trainerKey, window],

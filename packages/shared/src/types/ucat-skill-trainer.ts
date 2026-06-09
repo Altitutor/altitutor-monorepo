@@ -64,7 +64,10 @@ export type NumpadSpeedItemContent = {
 };
 
 export type CalculatorMathsItemContent = {
-  expression: string;
+  /** Plain-text fallback when `question` is not set */
+  expression?: string;
+  /** Rich-text question body (TipTap JSON) */
+  question?: Record<string, unknown>;
   answer: number;
 };
 
@@ -103,4 +106,19 @@ export type SkillTrainerAttemptProgress = {
 
 export function isUcatSkillTrainerKey(value: string): value is UcatSkillTrainerKey {
   return (UCAT_SKILL_TRAINER_KEYS as readonly string[]).includes(value);
+}
+
+/** URL slug (kebab-case) for a trainer key. */
+export function trainerKeyToSlug(key: UcatSkillTrainerKey): string {
+  return key.replace(/_/g, "-");
+}
+
+/** Resolve a URL slug to a trainer key, or null if invalid. */
+export function trainerSlugToKey(slug: string): UcatSkillTrainerKey | null {
+  const key = slug.replace(/-/g, "_");
+  return isUcatSkillTrainerKey(key) ? key : null;
+}
+
+export function isUcatSkillTrainerSlug(slug: string): boolean {
+  return trainerSlugToKey(slug) !== null;
 }
