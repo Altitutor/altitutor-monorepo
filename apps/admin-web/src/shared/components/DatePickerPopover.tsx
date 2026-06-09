@@ -1,15 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
-
-/** Normalise ISO or YYYY-MM-DD to YYYY-MM-DD for input[type=date] */
-function toInputValue(value: string | null | undefined): string {
-  if (!value) return '';
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return '';
-  return d.toISOString().split('T')[0];
-}
+import { Input, Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { toDateInputValue } from '@/shared/utils/datetime';
 
 export interface DatePickerPopoverProps {
   /** Trigger element (receives ref + onClick from PopoverTrigger asChild) */
@@ -27,7 +20,7 @@ export interface DatePickerPopoverProps {
 }
 
 /**
- * Standard date picker: Popover with trigger + input[type=date] in content.
+ * Standard date picker: Popover with trigger + date input in content.
  * Closes on outside click and when a date is selected. Use inside dialogs with modal={false}.
  */
 export function DatePickerPopover({
@@ -41,7 +34,7 @@ export function DatePickerPopover({
   stopPropagation = false,
 }: DatePickerPopoverProps) {
   const [open, setOpen] = useState(false);
-  const inputValue = toInputValue(value);
+  const inputValue = toDateInputValue(value);
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={modal}>
@@ -51,7 +44,7 @@ export function DatePickerPopover({
         align={align}
         onClick={stopPropagation ? (e) => e.stopPropagation() : undefined}
       >
-        <input
+        <Input
           type="date"
           name={name}
           onBlur={onBlur}
@@ -61,7 +54,7 @@ export function DatePickerPopover({
             onChange(val ? new Date(val).toISOString() : null);
             setOpen(false);
           }}
-          className="h-8 rounded-md border bg-background px-2 text-sm"
+          className="h-8 w-auto min-w-[10rem]"
         />
       </PopoverContent>
     </Popover>

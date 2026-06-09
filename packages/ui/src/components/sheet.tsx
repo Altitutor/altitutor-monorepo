@@ -6,6 +6,10 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { X } from "lucide-react"
 
 import { cn } from "../lib/cn"
+import {
+  handleModalInteractOutside,
+  useModalNativeDateTimeFocusGuards,
+} from "../lib/modal-interact-outside"
 
 const Sheet = SheetPrimitive.Root
 
@@ -64,21 +68,31 @@ const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
 >(({ side = "right", className, children, hideCloseButton = false, ...props }, ref) => {
+  const setDateTimeFocusRef = useModalNativeDateTimeFocusGuards<HTMLDivElement>();
   const handleInteractOutside = React.useCallback((e: Event) => {
-    const target = e.target as HTMLElement;
-    // Prevent closing sheet when clicking on toast elements
-    if (target?.closest('[data-toast-container]')) {
-      e.preventDefault();
-    }
+    handleModalInteractOutside(e);
   }, []);
+
+  const mergedRef = React.useCallback(
+    (node: HTMLDivElement | null) => {
+      setDateTimeFocusRef(node);
+      if (typeof ref === 'function') {
+        ref(node);
+      } else if (ref) {
+        ref.current = node;
+      }
+    },
+    [ref, setDateTimeFocusRef]
+  );
   
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
-        ref={ref}
+        ref={mergedRef}
         className={cn(sheetVariants({ side }), className)}
         onInteractOutside={handleInteractOutside}
+        onPointerDownOutside={handleInteractOutside}
         {...props}
       >
         {children}

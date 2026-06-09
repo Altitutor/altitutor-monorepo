@@ -59,5 +59,11 @@ export * from './lib/enum-colors';
 export * from './lib/invoice-status';
 export {
   isNativeDateTimeInputType,
+  isTouchIOS,
+  isValidDateValue,
+  isValidTimeValue,
   NATIVE_DATETIME_INPUT_CLASSNAME,
+  normalizeDateInput,
+  normalizeTimeInput,
+  shouldUseTextDateTimeInput,
 } from './lib/native-datetime-input';
