@@ -11001,6 +11001,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          icon: string | null
           id: string
           is_enabled: boolean
           key: string
@@ -11012,6 +11013,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          icon?: string | null
           id?: string
           is_enabled?: boolean
           key: string
@@ -11023,6 +11025,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          icon?: string | null
           id?: string
           is_enabled?: boolean
           key?: string
@@ -14855,6 +14858,7 @@ export type Database = {
       vstudent_ucat_skill_trainers: {
         Row: {
           description: string | null
+          icon: string | null
           id: string | null
           key: string | null
           name: string | null
