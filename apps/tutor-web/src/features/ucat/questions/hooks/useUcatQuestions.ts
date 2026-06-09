@@ -63,6 +63,53 @@ export type UcatStemCatalogItem = {
   questionTypes: ('multiple_choice' | 'syllogism')[]
 }
 
+export type UcatQuestionCatalogItem = {
+  id: string
+  label: string
+  stemId: string
+  sectionName: string
+  questionType: string
+}
+
+export function useUcatQuestionCatalog(enabled: boolean) {
+  return useQuery({
+    queryKey: ucatKeys.questionCatalog(),
+    queryFn: async () => {
+      const rows = await ucatQuestionsApi.getStemCatalog()
+      const items: UcatQuestionCatalogItem[] = []
+
+      for (const row of rows) {
+        if (!row.id) continue
+        const stemText = proseMirrorToPlainText(row.stem_text)
+        const stemPreview = stemText.length > 36 ? `${stemText.slice(0, 33)}…` : stemText
+        const questions = Array.isArray(row.questions)
+          ? (row.questions as Array<{
+              id?: string
+              deleted_at?: string | null
+              question_type?: string | null
+              index?: number | null
+            }>)
+          : []
+
+        for (const question of questions) {
+          if (!question.id || question.deleted_at) continue
+          const questionIndex = (question.index ?? 0) + 1
+          items.push({
+            id: question.id,
+            label: `${stemPreview} · Q${questionIndex} (${question.question_type ?? 'unknown'})`,
+            stemId: row.id,
+            sectionName: row.section_name ?? 'Unknown section',
+            questionType: question.question_type ?? 'unknown',
+          })
+        }
+      }
+
+      return items
+    },
+    enabled,
+  })
+}
+
 export function useUcatStemCatalog(enabled: boolean) {
   return useQuery({
     queryKey: ucatKeys.stemCatalog(),

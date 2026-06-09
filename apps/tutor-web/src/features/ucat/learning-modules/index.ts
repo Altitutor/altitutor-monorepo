@@ -1,5 +1,7 @@
 export { UcatLearningModulesPage } from '@/features/ucat/learning-modules/components/UcatLearningModulesPage'
 export { UcatLearningModuleDetailPage } from '@/features/ucat/learning-modules/components/UcatLearningModuleDetailPage'
+export { UcatLearningModuleDialog } from '@/features/ucat/learning-modules/components/UcatLearningModuleDialog'
+export { UcatLearningModuleEditorShell } from '@/features/ucat/learning-modules/components/UcatLearningModuleEditorShell'
 export { ucatLearningModulesApi } from '@/features/ucat/learning-modules/api/modules'
 export * from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
 export type * from '@/features/ucat/learning-modules/types'

@@ -1,20 +1,22 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button, Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
 import type { Json } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
 import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
 import {
+  learningKeys,
   useLearningLesson,
   useMarkBlockComplete,
   useMarkLessonComplete,
   useStartLesson,
   useUpdateBlockProgress,
 } from "@/features/learning/hooks/use-learning";
+import { LearnQuestionBlock } from "@/features/learning/components/learn-question-block";
+import { LearnSkillTrainerBlock } from "@/features/learning/components/learn-skill-trainer-block";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
-import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
 import { cn } from "@/lib/utils";
 
 type LearningLessonPageProps = {
@@ -141,61 +143,8 @@ function FileBlock({
   );
 }
 
-function QuestionBlock({ block }: { block: LearningModuleBlockRow }) {
-  if (block.block_type === "question_stem" && block.question_stem_id) {
-    return (
-      <Button asChild>
-        <Link href={`/practice/stem/${block.question_stem_id}`}>Open question stem</Link>
-      </Button>
-    );
-  }
-  if (block.block_type === "question" && block.question_id) {
-    return (
-      <Button asChild>
-        <Link href="/practice">Open in practice</Link>
-      </Button>
-    );
-  }
-  return null;
-}
-
-function SkillTrainerSetBlock({
-  block,
-  lessonId,
-}: {
-  block: LearningModuleBlockRow;
-  lessonId: string;
-}) {
-  const [starting, setStarting] = useState(false);
-  const trainerKey = (block.content as { trainerKey?: string } | null)?.trainerKey;
-
-  async function handleStart() {
-    if (!block.id || !block.skill_trainer_set_id || !trainerKey) return;
-    setStarting(true);
-    try {
-      const state = await skillTrainerApi.startSetAttempt({
-        trainerKey,
-        skillTrainerSetId: block.skill_trainer_set_id,
-        learningModuleBlockId: block.id,
-      });
-      const { trainerKeyToSlug, isUcatSkillTrainerKey } = await import("@altitutor/shared");
-      const playSlug = isUcatSkillTrainerKey(trainerKey)
-        ? trainerKeyToSlug(trainerKey)
-        : trainerKey.replace(/_/g, "-");
-      window.location.href = `/skill-trainer/${playSlug}/play?attemptId=${state.attempt.id}&lessonId=${lessonId}&blockId=${block.id}`;
-    } finally {
-      setStarting(false);
-    }
-  }
-
-  return (
-    <Button onClick={handleStart} disabled={starting || !trainerKey}>
-      {starting ? "Starting..." : "Start skill trainer"}
-    </Button>
-  );
-}
-
 export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
+  const queryClient = useQueryClient();
   const { data, isLoading, error } = useLearningLesson(lessonId);
   const startLesson = useStartLesson(lessonId);
   const updateProgress = useUpdateBlockProgress(lessonId);
@@ -250,6 +199,20 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
     [updateProgress],
   );
 
+  const refreshLessonProgress = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
+    void queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+  }, [queryClient, lessonId]);
+
+  const handleSkillTrainerComplete = useCallback(
+    (blockId: string) => {
+      markBlockComplete.mutate(blockId, {
+        onSuccess: refreshLessonProgress,
+      });
+    },
+    [markBlockComplete, refreshLessonProgress],
+  );
+
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading lesson...</p>;
   }
@@ -296,13 +259,19 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
                 />
               ) : null}
               {block.block_type === "question_stem" || block.block_type === "question" ? (
-                <QuestionBlock block={block} />
+                <LearnQuestionBlock block={block} onProgressChange={refreshLessonProgress} />
               ) : null}
               {block.block_type === "skill_trainer_set" && block.id ? (
-                <SkillTrainerSetBlock block={block} lessonId={lessonId} />
+                <LearnSkillTrainerBlock
+                  block={block}
+                  onComplete={() => handleSkillTrainerComplete(block.id!)}
+                />
               ) : null}
 
-              {block.id ? (
+              {block.id &&
+              block.block_type !== "question_stem" &&
+              block.block_type !== "question" &&
+              block.block_type !== "skill_trainer_set" ? (
                 <Button
                   variant="outline"
                   size="sm"

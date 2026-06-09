@@ -83,9 +83,14 @@ function useActionFeedback() {
 export function SkillTrainerPlayPage({
   trainerKey,
   attemptId,
+  embedded = false,
+  onComplete,
 }: {
   trainerKey: UcatSkillTrainerKey;
   attemptId: string;
+  /** In-lesson embed: skip shell chrome and call onComplete when finished. */
+  embedded?: boolean;
+  onComplete?: () => void;
 }) {
   const router = useRouter();
   const slug = trainerKeyToSlug(trainerKey);
@@ -102,7 +107,7 @@ export function SkillTrainerPlayPage({
   const numpadInputRef = useRef<string[]>([]);
   const sidebarOverride = useSidebarOverride();
   const { feedback, trackResult } = useActionFeedback();
-  const inProgress = Boolean(state && !state.isCompleted);
+  const inProgress = Boolean(state && !state.isCompleted && !embedded);
   const { allowLeave } = useLeaveGuard(inProgress, LEAVE_MESSAGE);
 
   const refresh = useCallback(async () => {
@@ -176,7 +181,7 @@ export function SkillTrainerPlayPage({
   }, [numpadInput]);
 
   useEffect(() => {
-    if (!sidebarOverride) return;
+    if (!sidebarOverride || embedded) return;
     const playing = !state?.isCompleted;
     if (playing) {
       sidebarOverride.setCollapsedOverride(true);
@@ -189,13 +194,16 @@ export function SkillTrainerPlayPage({
       sidebarOverride.setCollapsedOverride(null);
       sidebarOverride.setHideTopBar(false);
     };
-  }, [sidebarOverride, state?.isCompleted]);
+  }, [sidebarOverride, state?.isCompleted, embedded]);
 
   useEffect(() => {
     if (state?.isCompleted) {
       void refresh();
+      if (embedded) {
+        onComplete?.();
+      }
     }
-  }, [state?.isCompleted, refresh]);
+  }, [state?.isCompleted, refresh, embedded, onComplete]);
 
   useEffect(() => {
     setAnswerFocus(false);
@@ -229,6 +237,16 @@ export function SkillTrainerPlayPage({
   if (!state) return <p className="text-sm text-destructive">Attempt not found.</p>;
 
   if (state.isCompleted) {
+    if (embedded) {
+      return (
+        <div className="space-y-3 p-4 text-center">
+          <p className="text-lg font-semibold">Skill trainer complete</p>
+          <p className="text-sm text-muted-foreground">
+            Final score: {state.attempt.score}
+          </p>
+        </div>
+      );
+    }
     return (
       <SkillTrainerCompleteScreen
         trainerKey={trainerKey}

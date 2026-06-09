@@ -205,3 +205,100 @@ export async function isBlockCompleteForStudent(
   if (error) throw new Error(error.message);
   return data?.completed_at != null;
 }
+
+async function getRequiredQuestionIdsForBlock(
+  supabase: AdminClient,
+  blockId: string,
+): Promise<string[]> {
+  const { data: block, error: blockError } = await supabase
+    .from("ucat_learning_module_blocks")
+    .select("block_type, question_stem_id, question_id")
+    .eq("id", blockId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (blockError) throw new Error(blockError.message);
+  if (!block) return [];
+
+  if (block.block_type === "question" && block.question_id) {
+    return [block.question_id];
+  }
+
+  if (block.block_type === "question_stem" && block.question_stem_id) {
+    const { data: questions, error: questionsError } = await supabase
+      .from("ucat_questions")
+      .select("id")
+      .eq("question_stem_id", block.question_stem_id)
+      .is("deleted_at", null);
+
+    if (questionsError) throw new Error(questionsError.message);
+    return (questions ?? []).map((row) => row.id);
+  }
+
+  return [];
+}
+
+function attemptHasAnswer(row: {
+  question_answer_option_id: string | null;
+  answer_snapshot: Json | null;
+}): boolean {
+  return row.question_answer_option_id != null || row.answer_snapshot != null;
+}
+
+/** Marks the block complete when every question in a question / stem block has a learn attempt with an answer. */
+export async function maybeAutoCompleteQuestionBlock(
+  supabase: AdminClient,
+  studentId: string,
+  blockId: string,
+): Promise<boolean> {
+  const { data: block, error: blockError } = await supabase
+    .from("ucat_learning_module_blocks")
+    .select("id, learning_module_id, block_type")
+    .eq("id", blockId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (blockError) throw new Error(blockError.message);
+  if (
+    !block ||
+    (block.block_type !== "question" && block.block_type !== "question_stem")
+  ) {
+    return false;
+  }
+
+  const requiredIds = await getRequiredQuestionIdsForBlock(supabase, blockId);
+  if (requiredIds.length === 0) return false;
+
+  const { data: attempts, error: attemptsError } = await supabase
+    .from("student_question_attempts")
+    .select("question_id, question_answer_option_id, answer_snapshot")
+    .eq("student_id", studentId)
+    .eq("learning_module_block_id", blockId)
+    .in("question_id", requiredIds);
+
+  if (attemptsError) throw new Error(attemptsError.message);
+
+  const answeredIds = new Set(
+    (attempts ?? [])
+      .filter((row) => attemptHasAnswer(row))
+      .map((row) => row.question_id),
+  );
+
+  const allAnswered = requiredIds.every((id) => answeredIds.has(id));
+  if (!allAnswered) return false;
+
+  const alreadyComplete = await isBlockCompleteForStudent(
+    supabase,
+    studentId,
+    blockId,
+  );
+  if (alreadyComplete) return false;
+
+  await upsertBlockProgress(supabase, studentId, blockId, { completed: true });
+  await recalculateLessonProgress(
+    supabase,
+    studentId,
+    block.learning_module_id,
+  );
+  return true;
+}

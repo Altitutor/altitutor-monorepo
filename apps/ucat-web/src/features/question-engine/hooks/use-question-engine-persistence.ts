@@ -23,11 +23,12 @@ type CreateSetAttemptResponse = {
   id: string;
 };
 
-type QuestionAttemptMode = "question" | "question_stem" | "set" | "mock";
+type QuestionAttemptMode = "question" | "question_stem" | "set" | "mock" | "learn";
 
 type UpsertQuestionAttemptInput = {
   studentQuestionSetAttemptId: string | null;
   studentPracticeSessionId?: string | null;
+  learningModuleBlockId?: string | null;
   questionId: string;
   questionAnswerOptionId: string | null;
   answerSnapshot?: unknown;
@@ -144,11 +145,15 @@ export function useQuestionEnginePersistence({
   exam,
   state,
   practiceSessionId,
+  learningModuleBlockId,
+  onLearnProgress,
 }: {
   mode: QuestionEngineMode;
   exam: QuestionEngineExam | undefined;
   state: QuestionEngineState;
   practiceSessionId?: string | null;
+  learningModuleBlockId?: string | null;
+  onLearnProgress?: () => void;
 }) {
   const isStudentEngine = true;
   const { openQuotaLimit } = useQuotaLimitModal();
@@ -241,6 +246,11 @@ export function useQuestionEnginePersistence({
         throw new Error("Failed to upsert question attempt");
       }
       return response.json();
+    },
+    onSuccess: () => {
+      if (learningModuleBlockId) {
+        onLearnProgress?.();
+      }
     },
     onError: handleQuotaError,
   });
@@ -444,6 +454,21 @@ export function useQuestionEnginePersistence({
     [exam, isStudentEngine, mode, createSetAttempt, createMockAttempt],
   );
 
+  const withLearnContext = useCallback(
+    (input: UpsertQuestionAttemptInput): UpsertQuestionAttemptInput => {
+      if (!learningModuleBlockId) return input;
+      return {
+        ...input,
+        studentQuestionSetAttemptId: null,
+        studentPracticeSessionId: undefined,
+        learningModuleBlockId,
+        mode: "learn",
+        wasTimed: false,
+      };
+    },
+    [learningModuleBlockId],
+  );
+
   function recordAnswer(
     questionId: string,
     questionAnswerOptionId: string,
@@ -455,14 +480,14 @@ export function useQuestionEnginePersistence({
     const question = findQuestion(exam, questionId);
     const isSyllogism = question?.questionType === "syllogism";
 
-    const inputBase: UpsertQuestionAttemptInput = {
+    const inputBase: UpsertQuestionAttemptInput = withLearnContext({
       studentQuestionSetAttemptId: practiceSessionId ? null : null,
       studentPracticeSessionId: practiceSessionId ?? undefined,
       questionId,
       questionAnswerOptionId: isSyllogism ? null : questionAnswerOptionId,
       answerSnapshot: undefined,
       isFlagged,
-    };
+    });
 
     if (isSyllogism) {
       const snapshot = (
@@ -551,7 +576,7 @@ export function useQuestionEnginePersistence({
         const canRecord =
           (prevAnswerOptionId || hasSyllogismAnswer) &&
           question &&
-          (setAttemptId || practiceSessionId);
+          (setAttemptId || practiceSessionId || learningModuleBlockId);
 
         if (canRecord) {
           const isFlagged = state.flaggedIds.includes(t.currentQuestionId);
@@ -559,7 +584,7 @@ export function useQuestionEnginePersistence({
           const wasTimed = practiceSessionId
             ? false
             : getWasTimedForSet(mode, exam, question);
-          const base: UpsertQuestionAttemptInput = {
+          const base: UpsertQuestionAttemptInput = withLearnContext({
             studentQuestionSetAttemptId: setAttemptId ?? null,
             studentPracticeSessionId: practiceSessionId ?? undefined,
             questionId: t.currentQuestionId,
@@ -571,7 +596,7 @@ export function useQuestionEnginePersistence({
             answerSnapshot: undefined,
             wasTimed,
             mode: toDbMode(mode),
-          };
+          });
           if (isSyllogism && syllogismSnapshot) {
             base.answerSnapshot = {
               type: "syllogism_v1",
@@ -642,14 +667,14 @@ export function useQuestionEnginePersistence({
       const canRecord =
         (prevAnswerOptionId || hasSyllogismAnswer) &&
         question &&
-        (setAttemptId || practiceSessionId);
+        (setAttemptId || practiceSessionId || learningModuleBlockId);
 
       if (canRecord) {
         const isSyllogism = question.questionType === "syllogism";
         const wasTimed = practiceSessionId
           ? false
           : getWasTimedForSet(mode, exam, question);
-        const base: UpsertQuestionAttemptInput = {
+        const base: UpsertQuestionAttemptInput = withLearnContext({
           studentQuestionSetAttemptId: setAttemptId ?? null,
           studentPracticeSessionId: practiceSessionId ?? undefined,
           questionId: timing.currentQuestionId,
@@ -661,7 +686,7 @@ export function useQuestionEnginePersistence({
           answerSnapshot: undefined,
           wasTimed,
           mode: toDbMode(mode),
-        };
+        });
 
         if (isSyllogism && syllogismSnapshot) {
           base.answerSnapshot = {
@@ -691,6 +716,8 @@ export function useQuestionEnginePersistence({
     mode,
     isStudentEngine,
     practiceSessionId,
+    learningModuleBlockId,
+    withLearnContext,
     ensureSetAttemptForQuestion,
     upsertQuestionAttempt,
   ]);

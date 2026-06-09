@@ -68,8 +68,11 @@ import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 import { cn } from "@/lib/utils";
 
 /** App shell: main `pt-16` + vertical `p-6` — cap embedded practice so the engine scrolls inside the viewport. */
-const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
+export const PRACTICE_EMBEDDED_VIEWPORT_CLASS =
   "mx-auto h-[calc(100dvh-7rem)] max-h-[calc(100dvh-7rem)] w-full min-h-0 overflow-hidden";
+
+export const LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS =
+  "mx-auto h-full max-h-full w-full min-h-0 overflow-hidden";
 
 export function QuestionEnginePage({
   mode,
@@ -83,6 +86,9 @@ export function QuestionEnginePage({
   backHref,
   onBack,
   onNeedMoreStems,
+  learningModuleBlockId,
+  onLearnProgress,
+  embeddedInLesson = false,
 }: {
   mode: QuestionEngineMode;
   sourceId?: string;
@@ -104,6 +110,12 @@ export function QuestionEnginePage({
   onNeedMoreStems?: (
     excludeStemIds: string[],
   ) => Promise<QuestionStemWithQuestions[] | null>;
+  /** Learn lesson block: links attempts to this block and skips practice quota. */
+  learningModuleBlockId?: string;
+  /** Called after learn attempts are recorded (e.g. to refresh lesson progress). */
+  onLearnProgress?: () => void;
+  /** Shorter viewport when practice engine is embedded inside a lesson block card. */
+  embeddedInLesson?: boolean;
 }) {
   const query = useQuestionEngineData({
     mode,
@@ -192,6 +204,8 @@ export function QuestionEnginePage({
     exam,
     state,
     practiceSessionId,
+    learningModuleBlockId,
+    onLearnProgress,
   });
 
   const markingOrQuestionIndex =
@@ -1321,7 +1335,11 @@ export function QuestionEnginePage({
     <>
       <div
         className={cn(
-          isPracticeMode ? PRACTICE_EMBEDDED_VIEWPORT_CLASS : "contents",
+          isPracticeMode
+            ? embeddedInLesson
+              ? LEARN_LESSON_EMBEDDED_VIEWPORT_CLASS
+              : PRACTICE_EMBEDDED_VIEWPORT_CLASS
+            : "contents",
         )}
       >
       <UcatExamShell

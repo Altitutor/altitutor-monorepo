@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { maybeAutoCompleteQuestionBlock } from "@/lib/ucat/learning/progress-service";
 import {
   checkQuotaForAction,
   quotaExceededResponse,
@@ -174,6 +175,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
+    const hasAnswer =
+      body.questionAnswerOptionId != null || body.answerSnapshot != null;
+    if (isLearnAttempt && hasAnswer) {
+      try {
+        await maybeAutoCompleteQuestionBlock(
+          supabaseAdmin,
+          student.id,
+          body.learningModuleBlockId!,
+        );
+      } catch {
+        // Progress update is best-effort; attempt is already saved.
+      }
+    }
+
     return NextResponse.json({ id: existing.id });
   }
 
@@ -225,6 +240,20 @@ export async function POST(request: NextRequest) {
       { error: insertError?.message ?? "Failed to insert question attempt" },
       { status: 500 },
     );
+  }
+
+  const hasAnswer =
+    body.questionAnswerOptionId != null || body.answerSnapshot != null;
+  if (isLearnAttempt && hasAnswer) {
+    try {
+      await maybeAutoCompleteQuestionBlock(
+        supabaseAdmin,
+        student.id,
+        body.learningModuleBlockId!,
+      );
+    } catch {
+      // Progress update is best-effort; attempt is already saved.
+    }
   }
 
   return NextResponse.json({ id: inserted.id });
