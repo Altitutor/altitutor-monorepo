@@ -1,7 +1,7 @@
--- Migration: Pay tier time-based requirements
--- Description: Add TIME_SINCE_LAST_PROMOTION requirement kind and time-since-promotion metrics
-
-ALTER TYPE public.staff_pay_tier_requirement_kind ADD VALUE IF NOT EXISTS 'TIME_SINCE_LAST_PROMOTION';
+-- Migration: Restore service_role access for compute_staff_tier_metrics
+-- Description: 20260606120000_pay_tier_time_requirements.sql dropped the service_role
+-- bypass added in 20260530130000_fix_compute_staff_tier_metrics_auth.sql, causing admin-web
+-- pay tier API routes (which call this RPC via supabase service role) to return 500 Forbidden.
 
 CREATE OR REPLACE FUNCTION public.compute_staff_tier_metrics(p_staff_id UUID)
 RETURNS JSONB
