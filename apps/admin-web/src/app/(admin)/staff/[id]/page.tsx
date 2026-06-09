@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from "@altitutor/ui";
 import { Loader2, ArrowLeft } from "lucide-react";
@@ -256,17 +256,20 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="classes">Classes</TabsTrigger>
-          <TabsTrigger value="sessions">Sessions</TabsTrigger>
-          <TabsTrigger value="files">Files</TabsTrigger>
-          <TabsTrigger value="messages">Messages</TabsTrigger>
-          <TabsTrigger value="activity">Activity</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details" className="space-y-6">
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+        options={[
+          { value: 'details', label: 'Details' },
+          { value: 'classes', label: 'Classes' },
+          { value: 'sessions', label: 'Sessions' },
+          { value: 'files', label: 'Files' },
+          { value: 'messages', label: 'Messages' },
+          { value: 'activity', label: 'Activity' },
+        ]}
+      >
+        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
           <StaffDetailsTab
             staffMember={staffMember}
             isEditing={editFlow.isEditing}
@@ -314,26 +317,26 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
               </UIButton>
             </div>
           )}
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="classes" className="space-y-6">
+        <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="space-y-6">
           <ClassesTab
             staff={staffMember}
             onStaffUpdated={handleStaffUpdated}
           />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="sessions" className="space-y-6">
+        <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
           {staffMember && (
             <StaffSessionsTab staff={staffMember} />
           )}
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="files" className="space-y-6">
+        <SegmentedTabPanelContent when="files" activeTab={activeTab} className="space-y-6">
           <StaffFiles staffId={id} />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="messages" className="space-y-6">
+        <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="space-y-6">
           <div className="h-[calc(100dvh-400px)]">
             <MessagesTabContent 
               conversationId={conversationId}
@@ -343,12 +346,12 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
               relatedType="staff"
             />
           </div>
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="activity" className="space-y-6">
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
           <StaffActivityTab staffId={id} isOpen={true} />
-        </TabsContent>
-      </Tabs>
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
 
       {/* Subject Modal */}
       {modals.selectedSubjectId && (

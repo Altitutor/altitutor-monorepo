@@ -51,7 +51,7 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/bulkImportWizardSteps'
 import {
   buildFormValuesFromSeparateStemDocuments,
-  parseCombinedDocumentForSection,
+  parseCombinedDocumentResultForSection,
   parseQuestionsOnlyForSection,
   mapParsedStemsToFormValues,
   splitStemDocumentFromDoc,
@@ -64,6 +64,16 @@ import {
   applyBulkAnswersToStems,
   validateBulkAnswersDocument,
 } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
+import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
+import {
+  StepStemCategories,
+  everyStemHasCategory,
+  type BulkImportCategoryOption,
+} from '@/features/ucat/questions/components/bulk-import/StepStemCategories'
+import {
+  StepQuestionTags,
+  type BulkImportTagOption,
+} from '@/features/ucat/questions/components/bulk-import/StepQuestionTags'
 
 export type BulkImportSubmitArgs = {
   sectionId: string
@@ -141,7 +151,15 @@ export function BulkImportQuestionStemsModal({
   }
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
+  const categoryOptions = useMemo(
+    () => mapCategoriesToOptions(categoriesQuery.data ?? []),
+    [categoriesQuery.data]
+  )
   const categories = categoriesQuery.data ?? []
+  const tagOptions = useMemo(
+    () => mapTagsToOptions(tagsQuery.data ?? []),
+    [tagsQuery.data]
+  )
 
   const selectedSection = useMemo(
     () => sections.find((s) => s.id === sectionId) ?? null,
@@ -277,6 +295,8 @@ export function BulkImportQuestionStemsModal({
       )
       return validation.ok
     }
+    if (stepKind === 'stem_categories') return everyStemHasCategory(wizard.state.stems)
+    if (stepKind === 'question_tags') return wizard.state.stems.length > 0
     if (step >= totalStepsResolved - 1) return false
     return true
   }, [
@@ -347,7 +367,7 @@ export function BulkImportQuestionStemsModal({
   function parseCombinedDocument(): { ok: true; drafts: BulkImportStemDraft[] } | { ok: false } {
     if (!sectionId || !resolvedBulkImportSection) return { ok: false }
     try {
-      const parsed = parseCombinedDocumentForSection(
+      const parsed = parseCombinedDocumentResultForSection(
         pastedContent,
         resolvedBulkImportSection,
         parsingOptions
@@ -356,7 +376,8 @@ export function BulkImportQuestionStemsModal({
         parsed,
         resolvedBulkImportSection,
         sectionId,
-        categories
+        categories,
+        tagsQuery.data ?? []
       )
       if (forms.length === 0) {
         setParseError('No valid stems and questions were detected. Please check the formatting.')
@@ -384,7 +405,8 @@ export function BulkImportQuestionStemsModal({
         resolvedBulkImportSection,
         sectionId,
         parsingOptions,
-        categories
+        categories,
+        tagsQuery.data ?? []
       )
       if (forms.length === 0) {
         setParseError('No valid stems and questions were detected.')
@@ -663,19 +685,49 @@ export function BulkImportQuestionStemsModal({
       )
     }
 
+    if (stepKind === 'stem_categories') {
+      return (
+        <StepStemCategories
+          stems={wizard.state.stems}
+          sectionId={sectionId}
+          categories={categoryOptions.flatMap((category) =>
+            typeof category.id === 'string' && category.id.length > 0
+              ? [
+                  {
+                    id: category.id,
+                    name: category.name,
+                    label: category.label,
+                    ucat_section_id: category.ucat_section_id,
+                  } satisfies BulkImportCategoryOption,
+                ]
+              : []
+          )}
+          onUpdateStem={wizard.updateStemForm}
+        />
+      )
+    }
+
+    if (stepKind === 'question_tags') {
+      return (
+        <StepQuestionTags
+          stems={wizard.state.stems}
+          tags={tagOptions as BulkImportTagOption[]}
+          onUpdateStem={wizard.updateStemForm}
+        />
+      )
+    }
+
     if (stepKind === 'review') {
       return (
         <Step3SetAnswers
           stems={wizard.state.stems}
-          categories={categories}
+          categories={categoryOptions}
           sections={sections.map((s) => ({
             id: s.id,
             name: s.name,
             display_columns: s.display_columns,
           }))}
-          tags={(tagsQuery.data ?? [])
-            .filter((tag): tag is typeof tag & { id: string } => typeof tag.id === 'string' && tag.id.length > 0)
-            .map((tag) => ({ id: tag.id, name: tag.name ?? '' }))}
+          tags={tagOptions}
           onUpdateStem={wizard.updateStemForm}
           onNewImageFileIds={handleStep2ImageFileIds}
         />

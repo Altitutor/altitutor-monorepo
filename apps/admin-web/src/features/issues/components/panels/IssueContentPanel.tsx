@@ -1,7 +1,7 @@
 'use client';
 
-import { useMemo, memo } from 'react';
-import { ScrollArea, ScrollBar, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Skeleton } from '@altitutor/ui';
+import { useMemo, memo, useState } from 'react';
+import { ScrollArea, ScrollBar, Tabs, TabsList, TabsTrigger, TabsContent, Badge, Skeleton, SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { StudentCard } from '@/shared/components/StudentCard';
@@ -17,7 +17,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { ParentCard } from '@/shared/components/ParentCard';
 import type { IssueWithTags, IssueTag } from '../../types';
 import type { Tables } from '@altitutor/shared';
-import { MessageSquare, Tags, User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
+import { User, Users, GraduationCap, Calendar, FileText, BookOpen, MessageCircle } from 'lucide-react';
 import { cn, getSubjectColorStyle } from '@/shared/utils';
 import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
 
@@ -34,6 +34,7 @@ interface IssueContentPanelProps {
 }
 
 export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: propTags, isOpen }: IssueContentPanelProps) {
+  const [activeTab, setActiveTab] = useState<'chat' | 'entities'>('chat');
   const activeTags = useMemo(() => issue?.tags || propTags || [], [issue?.tags, propTags]);
   
   // Get all unique entity IDs from tags
@@ -113,26 +114,21 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: 
 
   return (
     <div className="hidden md:flex w-80 border-l flex-col min-w-0 flex-shrink-0">
-      <Tabs defaultValue="chat" className="flex-1 flex flex-col min-h-0">
+      <div className="flex-1 flex flex-col min-h-0">
         <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10 px-6 pb-4 pt-4">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="chat">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                <span>Chat</span>
-              </div>
-            </TabsTrigger>
-            <TabsTrigger value="entities">
-              <div className="flex items-center gap-2">
-                <Tags className="h-4 w-4" />
-                <span>Tagged</span>
-              </div>
-            </TabsTrigger>
-          </TabsList>
+          <SegmentedControl
+            fullWidth
+            value={activeTab}
+            onValueChange={(v) => setActiveTab(v as 'chat' | 'entities')}
+            options={[
+              { value: 'chat', label: 'Chat' },
+              { value: 'entities', label: 'Tagged' },
+            ]}
+          />
         </div>
 
         <div className="flex-1 min-h-0 overflow-hidden">
-          <TabsContent value="chat" className="h-full min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+          <SegmentedTabPanelContent when="chat" activeTab={activeTab} className="h-full min-h-0 flex flex-col overflow-hidden">
             {isLoadingContacts ? (
               <div className="p-4 space-y-4">
                 <Skeleton className="h-8 w-full" />
@@ -180,17 +176,17 @@ export const IssueContentPanel = memo(function IssueContentPanel({ issue, tags: 
                 <p className="text-sm">No students, staff, or parents tagged. Tag someone to start a chat.</p>
               </div>
             )}
-          </TabsContent>
+          </SegmentedTabPanelContent>
           
-          <TabsContent value="entities" className="h-full m-0 overflow-hidden">
+          <SegmentedTabPanelContent when="entities" activeTab={activeTab} className="h-full overflow-hidden">
             <ScrollArea className="h-full">
               <div className="p-6 space-y-6">
                 <IssueEntitiesList tags={activeTags} />
               </div>
             </ScrollArea>
-          </TabsContent>
+          </SegmentedTabPanelContent>
         </div>
-      </Tabs>
+      </div>
     </div>
   );
 });

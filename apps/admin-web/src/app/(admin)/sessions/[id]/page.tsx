@@ -13,7 +13,7 @@ import { ViewStudentModal } from '@/features/students/components/ViewStudentModa
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import { SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
 import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
 import { SessionDetailsTab } from '@/features/sessions/components/SessionDetailsTab';
 import { SendBookingConfirmationDialog } from '@/features/sessions/components/SendBookingConfirmationDialog';
@@ -184,13 +184,16 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
       </div>
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full">
-          <TabsTrigger value="details" className="flex-1">Details</TabsTrigger>
-          <TabsTrigger value="activity" className="flex-1">Activity</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details" className="space-y-6">
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="space-y-6"
+        options={[
+          { value: 'details', label: 'Details' },
+          { value: 'activity', label: 'Activity' },
+        ]}
+      >
+        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
           <SessionDetailsTab
             session={session}
             studentsData={studentsData}
@@ -209,12 +212,12 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
             onOpenTopic={handleOpenTopic}
             onOpenFile={handleOpenFile}
           />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="activity" className="space-y-6">
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
           <SessionActivityTab sessionId={id} isOpen={true} />
-        </TabsContent>
-      </Tabs>
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
 
       {/* Student Modal */}
       {modals.selectedStudentId && (

@@ -9,10 +9,11 @@ import { pricingApi, type BillingPricingRow } from '@/features/billing/api/prici
 import { subjectPricingOverridesApi, type SubjectPricingOverrideRow } from '@/features/billing/api/subject-pricing-overrides';
 import { billingSettingsApi, type BillingSettingsRow } from '@/features/billing/api/billing-settings';
 import { Loader2, ArrowLeft } from 'lucide-react';
-import { Tabs, TabsContent, TabsList, TabsTrigger, Button } from '@altitutor/ui';
+import { SegmentedTabPanel, SegmentedTabPanelContent, Button } from '@altitutor/ui';
 
 export default function BillingSettingsPage() {
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState('pricing');
   const [pricing, setPricing] = useState<BillingPricingRow[]>([]);
   const [overrides, setOverrides] = useState<SubjectPricingOverrideRow[]>([]);
   const [settings, setSettings] = useState<BillingSettingsRow[]>([]);
@@ -88,13 +89,17 @@ export default function BillingSettingsPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="pricing" className="w-full">
-        <TabsList>
-          <TabsTrigger value="pricing">Base Pricing</TabsTrigger>
-          <TabsTrigger value="overrides">Subject Overrides</TabsTrigger>
-          <TabsTrigger value="settings">Billing Settings</TabsTrigger>
-        </TabsList>
-        <TabsContent value="pricing" className="space-y-4">
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="w-full"
+        options={[
+          { value: 'pricing', label: 'Base Pricing' },
+          { value: 'overrides', label: 'Subject Overrides' },
+          { value: 'settings', label: 'Billing Settings' },
+        ]}
+      >
+        <SegmentedTabPanelContent when="pricing" activeTab={activeTab} className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold mb-4">Base Billing Pricing</h2>
             <p className="text-sm text-muted-foreground mb-4">
@@ -102,8 +107,8 @@ export default function BillingSettingsPage() {
             </p>
             <BillingPricingTable pricing={pricing} onUpdate={loadPricing} />
           </div>
-        </TabsContent>
-        <TabsContent value="overrides" className="space-y-4">
+        </SegmentedTabPanelContent>
+        <SegmentedTabPanelContent when="overrides" activeTab={activeTab} className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold mb-4">Subject Pricing Overrides</h2>
             <p className="text-sm text-muted-foreground mb-4">
@@ -111,8 +116,8 @@ export default function BillingSettingsPage() {
             </p>
             <SubjectPricingOverridesTable overrides={overrides} onUpdate={loadOverrides} />
           </div>
-        </TabsContent>
-        <TabsContent value="settings" className="space-y-4">
+        </SegmentedTabPanelContent>
+        <SegmentedTabPanelContent when="settings" activeTab={activeTab} className="space-y-4">
           <div>
             <h2 className="text-lg font-semibold mb-4">Billing Settings</h2>
             <p className="text-sm text-muted-foreground mb-4">
@@ -120,8 +125,8 @@ export default function BillingSettingsPage() {
             </p>
             <BillingSettingsTable settings={settings} onUpdate={loadSettings} />
           </div>
-        </TabsContent>
-      </Tabs>
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
     </div>
   );
 }

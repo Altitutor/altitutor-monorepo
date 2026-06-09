@@ -184,7 +184,7 @@ export function UcatSkillTrainerSetsPage() {
           .filter((t): t is typeof t & { key: UcatSkillTrainerKey } => Boolean(t.key))
           .map((trainer) => ({
             value: trainerKeyToSlug(trainer.key),
-            label: trainer.name,
+            label: trainer.name ?? trainer.key,
           }))}
       />
 

@@ -24,6 +24,9 @@ import {
 import {
   parseQuantitativeReasoningFromDoc,
   mapParsedQuantitativeReasoningToFormValues,
+  getQuantitativeReasoningStemCategoryName,
+  getQuantitativeReasoningTagPathsForQuestion,
+  type ParseQuantitativeReasoningResult,
 } from '@/features/ucat/questions/lib/parsers/quantitativeReasoning'
 import {
   mapParsedSituationalJudgementToFormValues,
@@ -34,6 +37,16 @@ import { parseVerbalReasoningFromDoc } from '@/features/ucat/questions/lib/parse
 import { parseDecisionMakingFromDoc } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 
 type CategoryRow = { id?: string | null; ucat_section_id?: string | null; name?: string | null }
+type TagRow = {
+  id?: string | null
+  name?: string | null
+  parent_question_tag_id?: string | null
+  ucat_section_id?: string | null
+}
+
+type ParsedSectionResult =
+  | { section: BulkImportParseSection; stems: ParsedStem[] }
+  | { section: 'quantitative_reasoning'; stems: ParsedStem[]; tableMap: Map<string, Json> }
 
 function parserConfigFromOptions(
   section: BulkImportParseSection,
@@ -56,20 +69,39 @@ export function parseCombinedDocumentForSection(
   section: BulkImportParseSection,
   parsingOptions: ParsingOptions
 ): ParsedStem[] {
+  return parseCombinedDocumentResultForSection(doc, section, parsingOptions).stems
+}
+
+export function parseCombinedDocumentResultForSection(
+  doc: Json | null | undefined,
+  section: BulkImportParseSection,
+  parsingOptions: ParsingOptions
+): ParsedSectionResult {
   switch (section) {
     case 'verbal_reasoning':
-      return parseVerbalReasoningFromDoc(doc, parserConfigFromOptions(section, parsingOptions))
+      return {
+        section,
+        stems: parseVerbalReasoningFromDoc(doc, parserConfigFromOptions(section, parsingOptions)),
+      }
     case 'decision_making':
-      return parseDecisionMakingFromDoc(doc, parserConfigFromOptions(section, parsingOptions))
-    case 'quantitative_reasoning':
-      return parseQuantitativeReasoningFromDoc(
+      return {
+        section,
+        stems: parseDecisionMakingFromDoc(doc, parserConfigFromOptions(section, parsingOptions)),
+      }
+    case 'quantitative_reasoning': {
+      const result = parseQuantitativeReasoningFromDoc(
         doc,
         parserConfigFromOptions(section, parsingOptions)
-      ).stems
+      )
+      return { section, stems: result.stems, tableMap: result.tableMap }
+    }
     case 'situational_judgement':
-      return parseSituationalJudgementFromDoc(doc, parserConfigFromOptions(section, parsingOptions))
+      return {
+        section,
+        stems: parseSituationalJudgementFromDoc(doc, parserConfigFromOptions(section, parsingOptions)),
+      }
     default:
-      return []
+      return { section: 'verbal_reasoning', stems: [] }
   }
 }
 
@@ -90,15 +122,18 @@ export function parseQuestionsOnlyForSection(
 }
 
 export function mapParsedStemsToFormValues(
-  stems: ParsedStem[],
+  parsed: ParsedStem[] | ParsedSectionResult,
   section: BulkImportParseSection,
   sectionId: string,
-  categories: CategoryRow[]
+  categories: CategoryRow[],
+  tags: TagRow[] = []
 ): UcatQuestionStemFormValues[] {
+  const stems = Array.isArray(parsed) ? parsed : parsed.stems
   const getCategoryId = (name: string) =>
     categories.find(
       (c) => (c.ucat_section_id ?? null) === sectionId && (c.name ?? '').trim() === name
     )?.id ?? null
+  const getTagIdByPath = buildTagIdByPath(tags, sectionId)
 
   switch (section) {
     case 'verbal_reasoning':
@@ -128,8 +163,19 @@ export function mapParsedStemsToFormValues(
       )
     case 'quantitative_reasoning':
       return mapParsedQuantitativeReasoningToFormValues(
-        { stems, tableMap: new Map() },
-        { sectionId, isPrivate: false }
+        toQuantitativeReasoningResult(parsed, stems),
+        {
+          sectionId,
+          isPrivate: false,
+          getCategoryIdForStem: (stem) => {
+            const name = getQuantitativeReasoningStemCategoryName(stem)
+            return name ? getCategoryId(name) : null
+          },
+          getTagIdsForQuestion: ({ stem, question }) =>
+            getQuantitativeReasoningTagPathsForQuestion({ stem, question })
+              .map((path) => getTagIdByPath(path))
+              .filter((id): id is string => id != null),
+        }
       )
     case 'situational_judgement':
       return mapParsedSituationalJudgementToFormValues(stems, {
@@ -145,13 +191,59 @@ export function mapParsedStemsToFormValues(
   }
 }
 
+function toQuantitativeReasoningResult(
+  parsed: ParsedStem[] | ParsedSectionResult,
+  stems: ParsedStem[]
+): ParseQuantitativeReasoningResult {
+  if (!Array.isArray(parsed) && parsed.section === 'quantitative_reasoning' && 'tableMap' in parsed) {
+    return { stems: parsed.stems, tableMap: parsed.tableMap }
+  }
+  return { stems, tableMap: new Map() }
+}
+
+type ResolvedTagRow = TagRow & { id: string; name: string }
+
+function buildTagIdByPath(tags: TagRow[], sectionId: string): (path: string[]) => string | null {
+  const rows = tags.filter((tag): tag is ResolvedTagRow => {
+    return typeof tag.id === 'string' && tag.id.length > 0 && typeof tag.name === 'string'
+  })
+  const byParent = new Map<string | null, ResolvedTagRow[]>()
+  for (const row of rows) {
+    const parentId = row.parent_question_tag_id ?? null
+    const current = byParent.get(parentId) ?? []
+    current.push(row)
+    byParent.set(parentId, current)
+  }
+
+  return (path: string[]) => {
+    let parentId: string | null = null
+    let matchedId: string | null = null
+    for (let index = 0; index < path.length; index += 1) {
+      const expected = path[index]?.trim().toLowerCase()
+      if (!expected) return null
+      const candidates: ResolvedTagRow[] = byParent.get(parentId) ?? []
+      const match = candidates.find((candidate: ResolvedTagRow) => {
+        const nameMatches = candidate.name.trim().toLowerCase() === expected
+        if (!nameMatches) return false
+        if (index === 0) return (candidate.ucat_section_id ?? null) === sectionId
+        return true
+      })
+      if (!match) return null
+      matchedId = match.id
+      parentId = match.id
+    }
+    return matchedId
+  }
+}
+
 export function buildFormValuesFromSeparateStemDocuments(
   stemTexts: string[],
   perStemQuestionDocs: Array<Json | null | undefined>,
   section: BulkImportParseSection,
   sectionId: string,
   parsingOptions: ParsingOptions,
-  categories: CategoryRow[]
+  categories: CategoryRow[],
+  tags: TagRow[] = []
 ): UcatQuestionStemFormValues[] {
   const parsedStems: ParsedStem[] = stemTexts.map((stemText, index) => {
     const { questions } = parseQuestionsOnlyForSection(
@@ -161,7 +253,7 @@ export function buildFormValuesFromSeparateStemDocuments(
     )
     return { stemText, questions }
   })
-  return mapParsedStemsToFormValues(parsedStems, section, sectionId, categories)
+  return mapParsedStemsToFormValues(parsedStems, section, sectionId, categories, tags)
 }
 
 export { splitStemDocumentFromDoc, type StemSplitOptions }

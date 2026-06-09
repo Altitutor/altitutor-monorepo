@@ -30,12 +30,16 @@ export async function POST(request: NextRequest) {
     const { data: staffId } = await access.userClient.rpc('current_tutor_id')
     const service = getServiceRoleClient()
 
+    const parentTagId = body.parentTagId || null
+    const sectionId = parentTagId ? null : body.sectionId || null
+
     const { data, error } = await service
       .from('question_tags')
       .insert({
         name: body.name,
         description: toRichText(body.description),
-        parent_question_tag_id: body.parentTagId || null,
+        parent_question_tag_id: parentTagId,
+        ucat_section_id: sectionId,
         created_by: staffId,
         updated_by: staffId,
       })

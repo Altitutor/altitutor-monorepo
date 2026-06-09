@@ -28,6 +28,7 @@ import {
   useUcatSections,
   useUcatStemCatalog,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { mapCategoriesToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
 
@@ -139,9 +140,13 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
 
   const categoryOptions = useMemo(
     () =>
-      categories
+      mapCategoriesToOptions(categories)
         .filter((category) => !sectionId || category.ucat_section_id === sectionId)
-        .map((category) => ({ id: category.id ?? '', name: category.name ?? 'Untitled' })),
+        .map((category) => ({
+          id: category.id ?? '',
+          name: taxonomyDisplayLabel(category),
+          label: taxonomyDisplayLabel(category),
+        })),
     [categories, sectionId]
   )
 
@@ -266,7 +271,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                     value={categoryOptions.find((item) => item.id === categoryId) ?? null}
                     onValueChange={(value) => setCategoryId(value?.id ?? null)}
                     getItemId={(item) => item.id}
-                    getItemLabel={(item) => item.name}
+                    getItemLabel={(item) => taxonomyDisplayLabel(item)}
                     placeholder="All categories"
                     searchPlaceholder="Search categories..."
                     emptyMessage="No categories found"

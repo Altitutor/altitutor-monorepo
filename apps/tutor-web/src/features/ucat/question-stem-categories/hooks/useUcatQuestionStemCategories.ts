@@ -30,3 +30,11 @@ export function useDeleteUcatQuestionStemCategory() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.categories() }),
   })
 }
+
+export function useUcatCategoryLinkedStems(categoryId: string | null) {
+  return useQuery({
+    queryKey: ucatKeys.categoryStems(categoryId ?? ''),
+    queryFn: () => ucatQuestionStemCategoriesApi.listLinkedStems(categoryId ?? ''),
+    enabled: Boolean(categoryId),
+  })
+}

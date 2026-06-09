@@ -164,6 +164,7 @@ export async function GET() {
       id: r.id,
       sectionId: r.section_id,
       sectionName: r.section_name ?? '',
+      categoryId: r.question_stem_category_id,
       categoryName: (r as StemDetailWithCategory).category_name ?? null,
       stemText: r.stem_text,
       questions: (r.questions ?? []) as QuestionRow[],

@@ -1,185 +1,347 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import type { DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
-import {
-  Button,
-  DataTableToolbar,
-  Input,
-  SearchableSelect,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Textarea,
-  useToast,
-} from '@altitutor/ui'
-import { ChevronDown, ChevronRight, Pencil, Trash2 } from 'lucide-react'
-import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
+import { useCallback, useMemo, useState } from 'react'
+import { Button, Input, SearchableSelect, Textarea, useToast } from '@altitutor/ui'
+import { Pencil, Search } from 'lucide-react'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { applySingleSelectFilter, applySort, useUcatTableState } from '@/features/ucat/shared/hooks/useUcatTableState'
 import {
   useCreateUcatQuestionStemCategory,
   useDeleteUcatQuestionStemCategory,
-  useUcatQuestionStemCategories,
   useUpdateUcatQuestionStemCategory,
+  useUcatQuestionStemCategories,
 } from '@/features/ucat/question-stem-categories/hooks/useUcatQuestionStemCategories'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
-import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  buildTaxonomyPathLookup,
+  categoriesToTaxonomyNodes,
+  mapCategoriesToOptions,
+  mapTagsToOptions,
+  taxonomyDisplayLabel,
+} from '@/features/ucat/shared/lib/taxonomy-paths'
+import { UcatQuestionStemCategoryDialog } from '@/features/ucat/question-stem-categories/components/UcatQuestionStemCategoryDialog'
+import {
+  TaxonomyHierarchyTree,
+  TaxonomySectionDropZone,
+  type TaxonomyReparentTarget,
+} from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
+import { TaxonomyHierarchyDndProvider } from '@/features/ucat/shared/components/taxonomy-hierarchy-dnd'
+import {
+  flattenTaxonomyHierarchyNodes,
+  mapToTaxonomyHierarchyNodes,
+} from '@/features/ucat/shared/lib/map-taxonomy-tree'
+import { isDescendantOf } from '@/features/ucat/shared/lib/taxonomy-reparent'
+import {
+  buildCategoryTreeNodes,
+  filterCategoryTreeNodes,
+} from '@/features/ucat/question-stem-categories/lib/build-category-tree'
+import type {
+  UcatCategoryLinkedStem,
+  UcatQuestionStemCategoryDraft,
+  UcatQuestionStemCategoryRow,
+} from '@/features/ucat/question-stem-categories/types'
+import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import {
+  useUcatCategories,
+  useUcatQuestionDetail,
+  useUcatSections,
+  useUcatTags,
+  useUpdateUcatQuestionStem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { filterOptionsWithContent } from '@/features/ucat/shared/lib/rich-text'
+import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { useQueryClient } from '@tanstack/react-query'
+import type { Json } from '@altitutor/shared'
 
-type CategoryRow = {
-  id: string
-  name: string
-  section_id: string | null
-  section_name: string
-  parent_id: string | null
-  description: string
-  question_stem_count: number
-}
-
-type CategoryDraft = {
-  name: string
-  sectionId: string
-  parentCategoryId: string
-  description: string
-}
-
-const emptyDraft: CategoryDraft = {
+const emptyDraft: UcatQuestionStemCategoryDraft = {
   name: '',
   sectionId: 'none',
   parentCategoryId: 'none',
   description: '',
 }
 
-const categorySortOptions: DataTableSortOption[] = [
-  { key: 'section_name', label: 'Section' },
-  { key: 'name', label: 'Name' },
-  { key: 'question_stem_count', label: 'Number of stems' },
-]
+function toExplanationNull(value: unknown): Json | null {
+  if (value == null) return null
+  if (typeof value === 'string' && value === 'null') return null
+  return value as Json
+}
 
-function buildCategoryTree(
-  rows: CategoryRow[],
-  expanded: Set<string>,
-  parentId: string | null,
-  level: number,
-  sortBy: string | null,
-  sortDirection: 'asc' | 'desc'
-): Array<{ row: CategoryRow; level: number }> {
-  const out: Array<{ row: CategoryRow; level: number }> = []
-  let children = rows.filter((r) => (parentId === null ? !r.parent_id : r.parent_id === parentId))
-  children = applySort(children, sortBy, sortDirection, {
-    section_name: (r) => r.section_name,
-    name: (r) => r.name,
-    question_stem_count: (r) => r.question_stem_count,
-  })
-  for (const row of children) {
-    out.push({ row, level })
-    if (expanded.has(row.id)) {
-      out.push(...buildCategoryTree(rows, expanded, row.id, level + 1, sortBy, sortDirection))
-    }
+function mapFormValuesToBundlePayload(
+  payload: UcatQuestionStemFormValues,
+  stemId: string
+): UcatQuestionStemBundlePayload {
+  return {
+    stemId,
+    sectionId: payload.sectionId,
+    categoryId: payload.categoryId || null,
+    stemText: payload.stemText,
+    isPrivate: payload.isPrivate,
+    questions: payload.questions.map((question, index) => ({
+      index: index + 1,
+      questionText: question.questionText,
+      questionType: question.questionType,
+      answerExplanation: toExplanationNull(question.answerExplanation),
+      difficulty: question.difficulty,
+      timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
+      tagIds: question.tagIds ?? [],
+      options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
+        index: optionIndex + 1,
+        answerText: option.answerText,
+        answerExplanation: toExplanationNull(option.answerExplanation),
+        isAnswer: option.isAnswer,
+      })),
+    })),
   }
-  return out
+}
+
+function CategoryCreateForm({
+  draft,
+  setDraft,
+  sections,
+  parentOptions,
+  categoryPathLookup,
+  onSectionChange,
+}: {
+  draft: UcatQuestionStemCategoryDraft
+  setDraft: React.Dispatch<React.SetStateAction<UcatQuestionStemCategoryDraft>>
+  sections: Array<{ id: string | null; name: string | null }>
+  parentOptions: UcatQuestionStemCategoryRow[]
+  categoryPathLookup: Map<string, string>
+  onSectionChange: () => void
+}) {
+  const sectionSelected = draft.sectionId !== 'none'
+  const sectionItems = [
+    { id: 'none', name: 'Select section' },
+    ...sections.map((section) => ({ id: section.id ?? '', name: section.name ?? 'Unknown' })),
+  ]
+  const selectedSection =
+    sectionItems.find((section) => section.id === draft.sectionId) ?? sectionItems[0]
+  const parentItems = [
+    { id: 'none', name: 'No parent', label: 'No parent' },
+    ...parentOptions.map((row) => ({
+      id: row.id,
+      name: row.name,
+      label: categoryPathLookup.get(row.id) ?? row.name,
+    })),
+  ]
+  const selectedParent =
+    parentItems.find((item) => item.id === draft.parentCategoryId) ?? parentItems[0]
+
+  return (
+    <div className="space-y-4">
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Section</span>
+        <SearchableSelect<{ id: string; name: string }>
+          items={sectionItems}
+          value={selectedSection}
+          onValueChange={(item) => {
+            if (item) {
+              setDraft((prev) => ({ ...prev, sectionId: item.id }))
+              onSectionChange()
+            }
+          }}
+          getItemLabel={(section) => section.name}
+          getItemId={(section) => section.id}
+        />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Name</span>
+        <Input
+          value={draft.name}
+          onChange={(event) => setDraft((prev) => ({ ...prev, name: event.target.value }))}
+        />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Parent category</span>
+        <SearchableSelect<{ id: string; name: string; label: string }>
+          items={parentItems}
+          value={selectedParent}
+          onValueChange={(item) =>
+            setDraft((prev) => ({ ...prev, parentCategoryId: item?.id ?? 'none' }))
+          }
+          getItemLabel={(item) => taxonomyDisplayLabel(item)}
+          getItemId={(item) => item.id}
+          placeholder={sectionSelected ? undefined : 'Select section first'}
+          disabled={!sectionSelected}
+        />
+      </label>
+      <label className="block text-sm">
+        <span className="mb-1 block font-medium">Description</span>
+        <Textarea
+          className="min-h-24"
+          value={draft.description}
+          onChange={(event) => setDraft((prev) => ({ ...prev, description: event.target.value }))}
+        />
+      </label>
+    </div>
+  )
 }
 
 export function UcatQuestionStemCategoriesPage() {
   const access = useUcatAccess()
   const categories = useUcatQuestionStemCategories()
   const sections = useUcatSections()
+  const categoriesQuery = useUcatCategories()
+  const tagsQuery = useUcatTags()
+  const queryClient = useQueryClient()
   const { toast } = useToast()
   const createCategory = useCreateUcatQuestionStemCategory()
   const updateCategory = useUpdateUcatQuestionStemCategory()
   const deleteCategory = useDeleteUcatQuestionStemCategory()
-  const tableState = useUcatTableState(['section_name', 'name', 'question_stem_count', 'actions'])
+  const updateStemMutation = useUpdateUcatQuestionStem()
 
+  const [searchQuery, setSearchQuery] = useState('')
+  const [editMode, setEditMode] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
-  const [editing, setEditing] = useState<CategoryRow | null>(null)
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null)
   const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
-  const [draft, setDraft] = useState<CategoryDraft>(emptyDraft)
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set())
+  const [draft, setDraft] = useState<UcatQuestionStemCategoryDraft>(emptyDraft)
+  const [editingStemId, setEditingStemId] = useState<string | null>(null)
 
   const sectionNameMap = useMemo(
-    () => new Map((sections.data ?? []).map((s) => [s.id ?? '', s.name ?? '-'])),
+    () => new Map((sections.data ?? []).map((section) => [section.id ?? '', section.name ?? '-'])),
     [sections.data]
   )
 
-  const rows: CategoryRow[] = useMemo(() => {
+  const rows: UcatQuestionStemCategoryRow[] = useMemo(() => {
     const data = categories.data ?? []
     return data.map((category) => {
-      const r = category as typeof category & { question_stem_count?: number }
+      const row = category as typeof category & { question_stem_count?: number }
       return {
-        id: r.id ?? '',
-        name: r.name ?? '-',
-        section_id: r.ucat_section_id,
-        section_name: sectionNameMap.get(r.ucat_section_id ?? '') ?? '-',
-        parent_id: r.parent_question_stem_category_id,
-        description: proseMirrorToPlainText(r.description),
-        question_stem_count: r.question_stem_count ?? 0,
+        id: row.id ?? '',
+        name: row.name ?? '-',
+        section_id: row.ucat_section_id,
+        section_name: sectionNameMap.get(row.ucat_section_id ?? '') ?? '-',
+        parent_id: row.parent_question_stem_category_id,
+        description: proseMirrorToPlainText(row.description),
+        question_stem_count: row.question_stem_count ?? 0,
       }
     })
   }, [categories.data, sectionNameMap])
 
-  const filterDefinitions: DataTableFilterDefinition[] = useMemo(
-    () => [
-      {
-        key: 'section_id',
-        label: 'Section',
-        options: (sections.data ?? []).map((section) => ({
-          label: section.name ?? 'Unknown',
-          value: section.id ?? '',
-        })),
-      },
-    ],
-    [sections.data]
+  const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows])
+  const categoryPathLookup = useMemo(
+    () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categories.data ?? [])),
+    [categories.data]
   )
 
-  const filteredRows = useMemo(() => {
-    const search = tableState.state.search.trim().toLowerCase()
-    return rows.filter((row) => {
-      const searchHit =
-        search.length === 0 ||
-        row.name.toLowerCase().includes(search) ||
-        row.section_name.toLowerCase().includes(search)
-      const sectionHit = applySingleSelectFilter(tableState.state, 'section_id', row.section_id)
-      return searchHit && sectionHit
+  const editingCategory = editingCategoryId ? (rowById.get(editingCategoryId) ?? null) : null
+
+  const sectionTrees = useMemo(() => {
+    const sectionList = [...(sections.data ?? [])].sort(
+      (a, b) => (a.section_number ?? 0) - (b.section_number ?? 0)
+    )
+    return sectionList.map((section) => {
+      const sectionRows = rows.filter((row) => row.section_id === section.id)
+      const rootNodes = buildCategoryTreeNodes(sectionRows, null)
+      const filtered = filterCategoryTreeNodes(rootNodes, searchQuery)
+      return {
+        sectionId: section.id ?? '',
+        sectionName: section.name ?? 'Unknown section',
+        nodes: mapToTaxonomyHierarchyNodes(filtered, 'question_stem_count'),
+      }
     })
-  }, [rows, tableState.state])
+  }, [rows, searchQuery, sections.data])
 
-  const flatTree = useMemo(
-    () =>
-      buildCategoryTree(
-        filteredRows,
-        expandedCategories,
-        null,
-        0,
-        tableState.state.sortBy,
-        tableState.state.sortDirection
-      ),
-    [filteredRows, expandedCategories, tableState.state.sortBy, tableState.state.sortDirection]
+  const allHierarchyNodes = useMemo(
+    () => sectionTrees.flatMap((section) => section.nodes),
+    [sectionTrees]
   )
 
-  const parentOptions = useMemo(() => {
+  const createParentOptions = useMemo(() => {
     if (draft.sectionId === 'none') return []
-    return rows.filter((r) => r.section_id === draft.sectionId && r.id !== editing?.id)
-  }, [rows, draft.sectionId, editing?.id])
+    return rows.filter((row) => row.section_id === draft.sectionId)
+  }, [rows, draft.sectionId])
 
-  const toggleExpanded = (id: string) => {
-    setExpandedCategories((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
+  const stemDetail = useUcatQuestionDetail(editingStemId)
+
+  const openCategoryDialog = useCallback(
+    (categoryId: string) => {
+      const row = rowById.get(categoryId)
+      if (!row) return
+      setEditingCategoryId(categoryId)
+      setDraft({
+        name: row.name,
+        sectionId: row.section_id ?? 'none',
+        parentCategoryId: row.parent_id ?? 'none',
+        description: row.description,
+      })
+    },
+    [rowById]
+  )
+
+  const handleStemClick = useCallback((stem: UcatCategoryLinkedStem) => {
+    setEditingCategoryId(null)
+    setEditingStemId(stem.stemId)
+  }, [])
+
+  const handleStemUpdate = useCallback(
+    async (payload: UcatQuestionStemFormValues) => {
+      if (!editingStemId) return
+      const mapped = mapFormValuesToBundlePayload(payload, editingStemId)
+      await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
+      setEditingStemId(null)
+      await queryClient.invalidateQueries({ queryKey: ucatKeys.categories() })
+      if (editingCategoryId) {
+        await queryClient.invalidateQueries({ queryKey: ucatKeys.categoryStems(editingCategoryId) })
+      }
+    },
+    [editingCategoryId, editingStemId, queryClient, updateStemMutation]
+  )
+
+  const handleReparent = useCallback(
+    async (itemId: string, target: TaxonomyReparentTarget) => {
+      if (target.type === 'node' && isDescendantOf(rows, target.parentId, itemId)) {
+        toast({
+          title: 'Invalid move',
+          description: 'Cannot move a category under its own descendant.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      try {
+        if (target.type === 'root') {
+          await updateCategory.mutateAsync({
+            id: itemId,
+            payload: {
+              reparentOnly: true,
+              parentCategoryId: null,
+              sectionId: target.sectionId,
+            },
+          })
+        } else {
+          const parent = rowById.get(target.parentId)
+          await updateCategory.mutateAsync({
+            id: itemId,
+            payload: {
+              reparentOnly: true,
+              parentCategoryId: target.parentId,
+              sectionId: parent?.section_id ?? null,
+            },
+          })
+        }
+      } catch (error) {
+        toast({
+          title: 'Could not move category',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        })
+      }
+    },
+    [rowById, rows, toast, updateCategory]
+  )
+
+  if (access.isLoading || categories.isLoading || sections.isLoading) {
+    return <UcatPageSkeleton rows={8} />
   }
-
-  const hasChildren = (row: CategoryRow) => filteredRows.some((r) => r.parent_id === row.id)
-
-  if (access.isLoading || categories.isLoading || sections.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
 
   async function create() {
@@ -190,15 +352,6 @@ export function UcatQuestionStemCategoriesPage() {
       parentCategoryId: draft.parentCategoryId === 'none' ? null : draft.parentCategoryId,
     })
     const categoryName = draft.name.trim() || 'Untitled'
-    const createdRow: CategoryRow = {
-      id: result.id,
-      name: draft.name,
-      section_id: draft.sectionId === 'none' ? null : draft.sectionId,
-      section_name: sectionNameMap.get(draft.sectionId === 'none' ? '' : draft.sectionId) ?? '-',
-      parent_id: draft.parentCategoryId === 'none' ? null : draft.parentCategoryId,
-      description: draft.description,
-      question_stem_count: 0,
-    }
     setCreateOpen(false)
     setDraft(emptyDraft)
     toast({
@@ -206,16 +359,8 @@ export function UcatQuestionStemCategoriesPage() {
       description: (
         <button
           type="button"
-          onClick={() => {
-            setEditing(createdRow)
-            setDraft({
-              name: createdRow.name,
-              sectionId: createdRow.section_id ?? 'none',
-              parentCategoryId: createdRow.parent_id ?? 'none',
-              description: createdRow.description,
-            })
-          }}
-          className="underline font-medium hover:no-underline text-left"
+          onClick={() => openCategoryDialog(result.id)}
+          className="text-left font-medium underline hover:no-underline"
         >
           View category
         </button>
@@ -223,20 +368,35 @@ export function UcatQuestionStemCategoriesPage() {
     })
   }
 
-  async function saveEdit() {
-    if (!editing) return
-    await updateCategory.mutateAsync({
-      id: editing.id,
-      payload: {
-        name: draft.name,
-        description: draft.description,
-        sectionId: draft.sectionId === 'none' ? null : draft.sectionId,
-        parentCategoryId: draft.parentCategoryId === 'none' ? null : draft.parentCategoryId,
-      },
-    })
-    setEditing(null)
-    setDraft(emptyDraft)
-  }
+  const isSearching = searchQuery.trim().length > 0
+  const visibleSectionTrees = isSearching
+    ? sectionTrees.filter((section) => section.nodes.length > 0)
+    : sectionTrees
+  const hasVisibleTrees = !isSearching || visibleSectionTrees.length > 0
+
+  const sectionContent = (
+    <>
+      {visibleSectionTrees.map((section) => (
+        <TaxonomySectionDropZone
+          key={section.sectionId}
+          sectionId={section.sectionId}
+          sectionName={section.sectionName}
+          editMode={editMode}
+        >
+          <TaxonomyHierarchyTree
+            nodes={section.nodes}
+            itemCountNoun="stem"
+            onItemClick={openCategoryDialog}
+            searchQuery={searchQuery}
+            editMode={editMode}
+          />
+        </TaxonomySectionDropZone>
+      ))}
+    </>
+  )
+
+  const categoryOptions = mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[]
+  const tagOptions = mapTagsToOptions(tagsQuery.data ?? []) as TagOption[]
 
   return (
     <div className="space-y-6 py-8 md:py-10">
@@ -245,106 +405,47 @@ export function UcatQuestionStemCategoriesPage() {
         description="Create and manage question stem categories"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Question Stem Categories' }]}
-        actions={<Button onClick={() => setCreateOpen(true)}>Add Category</Button>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={editMode ? 'default' : 'outline'}
+              onClick={() => setEditMode((prev) => !prev)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              {editMode ? 'Done reordering' : 'Edit hierarchy'}
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>Add Category</Button>
+          </div>
+        }
       />
 
-      <DataTableToolbar
-        state={tableState.state}
-        onSearchChange={tableState.actions.onSearchChange}
-        onFiltersChange={tableState.actions.onFiltersChange}
-        onSortChange={tableState.actions.onSortChange}
-        onGroupByChange={tableState.actions.onGroupByChange}
-        onVisibleColumnsChange={tableState.actions.onVisibleColumnsChange}
-        onQuickFilterApply={tableState.actions.onQuickFilterApply}
-        onReset={tableState.actions.onReset}
-        filterDefinitions={filterDefinitions}
-        columnDefinitions={[
-          { key: 'section_name', label: 'Section', visibleByDefault: true },
-          { key: 'name', label: 'Name', visibleByDefault: true },
-          { key: 'question_stem_count', label: 'Question stems', visibleByDefault: true },
-          { key: 'actions', label: 'Actions', visibleByDefault: true },
-        ]}
-        sortOptions={categorySortOptions}
-        searchPlaceholder="Search categories"
-      />
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Search categories..."
+          value={searchQuery}
+          onChange={(event) => setSearchQuery(event.target.value)}
+          className="pl-8"
+        />
+      </div>
 
-      <div className="pt-3">
-        <div className={tutorTableShell}>
-        <Table>
-          <TableHeader className="[&_tr]:border-b-0">
-            <TableRow className={tutorTableHeaderRow}>
-              <TableHead className="w-12" />
-              <TableHead>Section</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Question stems</TableHead>
-              <TableHead className="w-12" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {flatTree.length === 0 ? (
-              <TableRow className={tutorTableBodyRow}>
-                <TableCell colSpan={5} className="text-center h-24 text-muted-foreground">
-                  No categories match your filters
-                </TableCell>
-              </TableRow>
-            ) : (
-              flatTree.map(({ row, level }) => {
-                const hasKids = hasChildren(row)
-                const isExpanded = expandedCategories.has(row.id)
-                return (
-                  <TableRow key={row.id} className={tutorTableBodyRow}>
-                    <TableCell className="w-12" onClick={(e) => e.stopPropagation()}>
-                      {hasKids ? (
-                        <button
-                          type="button"
-                          onClick={() => toggleExpanded(row.id)}
-                          className="rounded-lg p-1 hover:bg-muted"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="h-4 w-4" />
-                          ) : (
-                            <ChevronRight className="h-4 w-4" />
-                          )}
-                        </button>
-                      ) : null}
-                    </TableCell>
-                    <TableCell>{row.section_name}</TableCell>
-                    <TableCell style={{ paddingLeft: `${level * 24 + 8}px` }}>{row.name}</TableCell>
-                    <TableCell>{row.question_stem_count}</TableCell>
-                    <TableCell className="w-12">
-                      <div className="flex justify-end">
-                        <UcatRowActions
-                          actions={[
-                            {
-                              label: 'Edit',
-                              icon: <Pencil className="h-4 w-4" />,
-                              onClick: () => {
-                                setEditing(row)
-                                setDraft({
-                                  name: row.name,
-                                  sectionId: row.section_id ?? 'none',
-                                  parentCategoryId: row.parent_id ?? 'none',
-                                  description: row.description,
-                                })
-                              },
-                            },
-                            {
-                              label: 'Delete',
-                              icon: <Trash2 className="h-4 w-4" />,
-                              onClick: () => setDeletingCategoryId(row.id),
-                              destructive: true,
-                            },
-                          ]}
-                        />
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                )
-              })
-            )}
-          </TableBody>
-        </Table>
-        </div>
+      <div className="space-y-6">
+        {!hasVisibleTrees ? (
+          <div className={tutorCardCn('p-6 text-center text-sm text-muted-foreground')}>
+            No categories match your search
+          </div>
+        ) : editMode ? (
+          <TaxonomyHierarchyDndProvider
+            allNodes={flattenTaxonomyHierarchyNodes(allHierarchyNodes)}
+            onReparent={handleReparent}
+          >
+            <div className="space-y-6">{sectionContent}</div>
+          </TaxonomyHierarchyDndProvider>
+        ) : (
+          <div className="space-y-6">{sectionContent}</div>
+        )}
       </div>
 
       <UcatDialogShell
@@ -360,127 +461,67 @@ export function UcatQuestionStemCategoriesPage() {
         saveDisabled={createCategory.isPending}
         isSaving={createCategory.isPending}
       >
-        <div className="p-6 overflow-y-auto h-full">
-          <CategoryForm
+        <div className="h-full overflow-y-auto p-6">
+          <CategoryCreateForm
             draft={draft}
             setDraft={setDraft}
             sections={sections.data ?? []}
-            parentOptions={parentOptions}
-            onSectionChange={() => setDraft((p) => ({ ...p, parentCategoryId: 'none' }))}
+            parentOptions={createParentOptions}
+            categoryPathLookup={categoryPathLookup}
+            onSectionChange={() => setDraft((prev) => ({ ...prev, parentCategoryId: 'none' }))}
           />
         </div>
       </UcatDialogShell>
 
-      <UcatDialogShell
-        open={!!editing}
+      <UcatQuestionStemCategoryDialog
+        open={!!editingCategory}
+        category={editingCategory}
+        allCategories={rows}
+        sections={sections.data ?? []}
+        draft={draft}
+        setDraft={setDraft}
         onClose={() => {
-          setEditing(null)
+          setEditingCategoryId(null)
           setDraft(emptyDraft)
         }}
-        title="Edit Category"
-        subtitle="Update category metadata"
-        onSave={saveEdit}
-        saveDisabled={updateCategory.isPending}
-        isSaving={updateCategory.isPending}
-      >
-        <div className="p-6 overflow-y-auto h-full">
-          <CategoryForm
-            draft={draft}
-            setDraft={setDraft}
-            sections={sections.data ?? []}
-            parentOptions={parentOptions}
-            onSectionChange={() => setDraft((p) => ({ ...p, parentCategoryId: 'none' }))}
-          />
-        </div>
-      </UcatDialogShell>
+        onDelete={() => {
+          if (editingCategory) setDeletingCategoryId(editingCategory.id)
+        }}
+        onStemClick={handleStemClick}
+      />
+
       <UcatDeleteConfirmDialog
         open={!!deletingCategoryId}
         onOpenChange={(open) => !open && setDeletingCategoryId(null)}
         title="Delete category?"
         description="This action cannot be undone."
-        onConfirm={async () => { if (deletingCategoryId) await deleteCategory.mutateAsync(deletingCategoryId) }}
+        onConfirm={async () => {
+          if (!deletingCategoryId) return
+          await deleteCategory.mutateAsync(deletingCategoryId)
+          if (editingCategoryId === deletingCategoryId) {
+            setEditingCategoryId(null)
+            setDraft(emptyDraft)
+          }
+        }}
         isPending={deleteCategory.isPending}
       />
-    </div>
-  )
-}
 
-function CategoryForm({
-  draft,
-  setDraft,
-  sections,
-  parentOptions,
-  onSectionChange,
-}: {
-  draft: CategoryDraft
-  setDraft: React.Dispatch<React.SetStateAction<CategoryDraft>>
-  sections: Array<{ id: string | null; name: string | null }>
-  parentOptions: CategoryRow[]
-  onSectionChange: () => void
-}) {
-  const sectionSelected = draft.sectionId !== 'none'
-
-  return (
-    <div className="space-y-4">
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Section</span>
-        {(() => {
-          const sectionItems = [
-            { id: 'none', name: 'Select section' },
-            ...sections.map((s) => ({ id: s.id ?? '', name: s.name ?? 'Unknown' })),
-          ]
-          const selected = sectionItems.find((s) => s.id === draft.sectionId) ?? sectionItems[0]
-          return (
-            <SearchableSelect<{ id: string; name: string }>
-              items={sectionItems}
-              value={selected}
-              onValueChange={(item) => {
-                if (item) {
-                  setDraft((prev) => ({ ...prev, sectionId: item.id }))
-                  onSectionChange()
-                }
-              }}
-              getItemLabel={(s) => s.name}
-              getItemId={(s) => s.id}
-            />
-          )
-        })()}
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Name</span>
-        <Input value={draft.name} onChange={(e) => setDraft((prev) => ({ ...prev, name: e.target.value }))} />
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Parent Category</span>
-        {(() => {
-          const parentItems = [
-            { id: 'none', name: 'No parent' },
-            ...parentOptions.map((r) => ({ id: r.id, name: r.name })),
-          ]
-          const selected = parentItems.find((p) => p.id === draft.parentCategoryId) ?? parentItems[0]
-          return (
-            <SearchableSelect<{ id: string; name: string }>
-              items={parentItems}
-              value={selected}
-              onValueChange={(item) =>
-                setDraft((prev) => ({ ...prev, parentCategoryId: item?.id ?? 'none' }))
-              }
-              getItemLabel={(p) => p.name}
-              getItemId={(p) => p.id}
-              placeholder={sectionSelected ? undefined : 'Select section first'}
-              disabled={!sectionSelected}
-            />
-          )
-        })()}
-      </label>
-      <label className="block text-sm">
-        <span className="mb-1 block font-medium">Description</span>
-        <Textarea
-          className="min-h-24"
-          value={draft.description}
-          onChange={(e) => setDraft((prev) => ({ ...prev, description: e.target.value }))}
-        />
-      </label>
+      <UcatQuestionStemDialog
+        open={!!editingStemId}
+        title="Edit Question Stem"
+        submitLabel="Save"
+        onClose={() => setEditingStemId(null)}
+        onSubmit={handleStemUpdate}
+        sections={(sections.data ?? []).map((section) => ({
+          id: section.id,
+          name: section.name,
+          display_columns: section.display_columns,
+        }))}
+        categories={categoryOptions}
+        tags={tagOptions}
+        initial={stemDetail.data}
+        loading={updateStemMutation.isPending || stemDetail.isLoading}
+      />
     </div>
   )
 }

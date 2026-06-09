@@ -2,14 +2,16 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import {
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
+} from '@altitutor/ui';
 import { useProfile } from '@/features/profile';
 import { Loader2 } from 'lucide-react';
 import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
 import { AvailabilityTab } from '@/features/profile/components/tabs/AvailabilityTab';
 import { AccountTab } from '@/features/profile/components/tabs/AccountTab';
 import { StudentPageContainer } from '@/shared/components/layouts';
-import { studentTabsList, studentTabsTrigger } from '@/shared/lib/student-visual';
 
 const VALID_TABS = ['details', 'availability', 'account'] as const;
 type TabValue = typeof VALID_TABS[number];
@@ -69,31 +71,28 @@ export default function MyProfilePage() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList className={studentTabsList}>
-          <TabsTrigger className={studentTabsTrigger} value="details">
-            Details
-          </TabsTrigger>
-          <TabsTrigger className={studentTabsTrigger} value="availability">
-            Availability
-          </TabsTrigger>
-          <TabsTrigger className={studentTabsTrigger} value="account">
-            Account
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details" className="mt-8">
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="w-full"
+        options={[
+          { value: 'details', label: 'Details' },
+          { value: 'availability', label: 'Availability' },
+          { value: 'account', label: 'Account' },
+        ]}
+      >
+        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="mt-8">
           <DetailsTab profile={profile} />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="availability" className="mt-8">
+        <SegmentedTabPanelContent when="availability" activeTab={activeTab} className="mt-8">
           <AvailabilityTab profile={profile} />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="account" className="mt-8">
+        <SegmentedTabPanelContent when="account" activeTab={activeTab} className="mt-8">
           <AccountTab profile={profile} />
-        </TabsContent>
-      </Tabs>
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
     </StudentPageContainer>
   );
 }

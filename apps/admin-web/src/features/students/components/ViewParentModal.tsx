@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button } from "@altitutor/ui";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { SegmentedControl, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
@@ -164,7 +164,7 @@ export function ViewParentModal({
               </div>
             </div>
           ) : (
-            <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+            <div className="flex flex-col h-full min-h-0">
               {/* Sticky Header */}
               <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
@@ -223,17 +223,22 @@ export function ViewParentModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-3">
-                    <TabsTrigger value="details">Details</TabsTrigger>
-                    <TabsTrigger value="messages">Messages</TabsTrigger>
-                    <TabsTrigger value="activity">Activity</TabsTrigger>
-                  </TabsList>
+                  <SegmentedControl
+                    fullWidth
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    options={[
+                      { value: 'details', label: 'Details' },
+                      { value: 'messages', label: 'Messages' },
+                      { value: 'activity', label: 'Activity' },
+                    ]}
+                  />
                 </div>
               </div>
 
               {/* Scrollable Content */}
               <div className="flex-1 min-h-0 relative">
-                <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <SegmentedTabPanelContent when="details" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="px-6 pb-6 pt-0">
                     <ParentDetailsTab
                       parent={parent}
@@ -258,9 +263,9 @@ export function ViewParentModal({
                       }
                     />
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
 
-                <TabsContent value="messages" className="absolute inset-0 overflow-hidden m-0 p-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
                   <div className="h-full px-6 pb-6 pt-0">
                     <MessagesTabContent 
                       conversationId={conversationId}
@@ -270,17 +275,17 @@ export function ViewParentModal({
                       relatedType="parent"
                     />
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
 
-                <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     {parentId && (
                       <ParentActivityTab parentId={parentId} isOpen={isOpen} />
                     )}
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
               </div>
-            </Tabs>
+            </div>
           )}
 
           {/* Sticky Footer with Buttons */}

@@ -8,9 +8,7 @@ import { ViewStudentModal } from '@/features/students/components/ViewStudentModa
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
 import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
+  SegmentedControl,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -84,12 +82,14 @@ export default function SessionsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Sessions</h1>
         <div className="flex items-center gap-4">
-          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'table' | 'calendar')}>
-            <TabsList>
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            value={viewParam}
+            onValueChange={(v) => setView(v as 'table' | 'calendar')}
+            options={[
+              { value: 'table', label: 'Table' },
+              { value: 'calendar', label: 'Calendar' },
+            ]}
+          />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button>

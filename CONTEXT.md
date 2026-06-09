@@ -103,7 +103,13 @@
 
 - **Question stem** — The shared prompt, passage, scenario, table, image, or setup that one or more UCAT questions refer to.
 
+- **Question stem category** — A single label describing the presentation format of a UCAT question stem within its UCAT section. Quantitative Reasoning uses flat data-type categories such as tables, bar charts, line graphs, maps, diagrams, and infographics; bar charts are one category regardless of horizontal or vertical orientation.
+  _Avoid_: Topic, tag, data subtype
+
 - **Answer option** — One selectable response for a UCAT question.
+
+- **Question tag** — A question-level content label describing the skill or topic tested by a UCAT question. A question may have multiple tags, and tags may be hierarchical when the domain has meaningful parent-child relationships; root tags may optionally belong to one UCAT section, while child tags inherit their section from their root.
+  _Avoid_: Category, stem type
 
 - **Stem editor** — The tutor-web workflow for creating or updating a question stem and its nested questions. A single split layout replaces the former separate form and preview modes: UCAT engine chrome on the left (view or inline edit) and a properties column on the right (question navigation card, stem fields, per-question fields, view/edit toggle). All content editing — stem text, question text, answer options, correct answer, and explanations — happens inline on the left in edit mode; the right column holds metadata only. Explanation fields are strict by question type: multiple-choice uses question-level explanation only; syllogism uses per–answer-option explanations only (no scope toggle, unlike bulk import). The exam chrome footer (Previous / Next) drives the active question; the right-column navigation card can jump to any question. The in-chrome Navigator overlay is not shown in the stem editor.
   Used in the stem dialog and the full-page stem detail route (`/ucat/questions/[id]`) with the same layout. Opens in **edit mode** by default. **View mode** is read-only engine preview with an optional show/hide-answer toggle in the right column; **edit mode** always shows answers. View/edit and show/hide-answer controls live in the right column, not the dialog header.

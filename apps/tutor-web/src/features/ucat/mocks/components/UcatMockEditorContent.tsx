@@ -273,7 +273,7 @@ export function UcatMockEditorContent({
       <aside className="flex h-full w-96 shrink-0 flex-col overflow-hidden border-l p-6">
         <SegmentedTabPanel
           value={sideTab}
-          onValueChange={setSideTab}
+          onValueChange={(value) => setSideTab(value)}
           className="min-h-0 flex-1"
           options={[
             { value: 'properties', label: 'Properties' },

@@ -3,14 +3,11 @@
 import { useEffect, useState } from 'react';
 import {
   Button,
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
 } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
-import { cn } from '@/shared/utils';
 import { usePayTierStaffProgress, useUpdateStaffTierProfile } from '@/features/pay-tiers/hooks';
 import {
   buildMetricOverridesFromUi,
@@ -89,18 +86,21 @@ export function StaffPayTierTab({
 
   return (
     <div className="space-y-4">
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="progress">Progress</TabsTrigger>
-          <TabsTrigger value="check-ins">Check ins</TabsTrigger>
-          <TabsTrigger value="overrides">Overrides</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="progress" className={cn('mt-4', activeTab !== 'progress' && 'hidden')}>
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={setActiveTab}
+        className="w-full"
+        options={[
+          { value: 'progress', label: 'Progress' },
+          { value: 'check-ins', label: 'Check ins' },
+          { value: 'overrides', label: 'Overrides' },
+        ]}
+      >
+        <SegmentedTabPanelContent when="progress" activeTab={activeTab} className="mt-4">
           <PayTiersStaffProgressTab progress={progress} />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="check-ins" className={cn('mt-4', activeTab !== 'check-ins' && 'hidden')}>
+        <SegmentedTabPanelContent when="check-ins" activeTab={activeTab} className="mt-4">
           <PayTiersStaffCheckInsTab
             staffId={staffId}
             staffFirstName={staffFirstName}
@@ -108,9 +108,9 @@ export function StaffPayTierTab({
             progress={progress}
             onOpenSession={onOpenSession}
           />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="overrides" className={cn('mt-4 space-y-4', activeTab !== 'overrides' && 'hidden')}>
+        <SegmentedTabPanelContent when="overrides" activeTab={activeTab} className="mt-4 space-y-4">
           <PayTiersStaffOverridesTab
             employmentDate={employmentDate}
             onEmploymentDateChange={setEmploymentDate}
@@ -131,8 +131,8 @@ export function StaffPayTierTab({
               )}
             </Button>
           </div>
-        </TabsContent>
-      </Tabs>
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
     </div>
   );
 }

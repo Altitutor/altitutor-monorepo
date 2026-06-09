@@ -7,6 +7,7 @@ import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { UntaggedQuestion } from '../api/reconciliation'
 import { useReconciliationData, useAddQuestionTag } from '../hooks/useReconciliation'
 import { useUcatSections, useUcatTags } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import { tutorTableBodyRow } from '@/shared/lib/tutor-visual'
@@ -110,13 +111,7 @@ export function UntaggedQuestionsTable({
     [addTagMutation, toast, onOpenStemDialog]
   )
 
-  const tags = useMemo(
-    () =>
-      (tagsQuery.data ?? [])
-        .filter((t) => t.id && t.name)
-        .map((t) => ({ id: t.id!, name: t.name! })),
-    [tagsQuery.data]
-  )
+  const tags = useMemo(() => mapTagsToOptions(tagsQuery.data ?? []), [tagsQuery.data])
 
   const toolbar = (
     <DataTableToolbar
@@ -171,13 +166,13 @@ export function UntaggedQuestionsTable({
                 >
                   View stem
                 </Button>
-                <SearchableSelect<{ id: string; name: string }>
+                <SearchableSelect<{ id: string; name: string; label?: string | null }>
                   items={tags}
                   value={null}
                   onValueChange={async (tag) => {
                     if (tag) await handleAddTag(item, tag.id)
                   }}
-                  getItemLabel={(t) => t.name}
+                  getItemLabel={(t) => taxonomyDisplayLabel(t)}
                   getItemId={(t) => t.id}
                   placeholder="Add tag"
                   disabled={addTagMutation.isPending}

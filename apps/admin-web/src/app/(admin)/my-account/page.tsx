@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@altitutor/ui';
+import { SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
 import { useProfile } from '@/features/profile';
 import { Loader2 } from 'lucide-react';
 import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
@@ -67,25 +67,28 @@ export default function MyAccountPage() {
         </p>
       </div>
 
-      <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
-        <TabsList>
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="availability">Availability</TabsTrigger>
-          <TabsTrigger value="account">Account</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="details" className="mt-6">
+      <SegmentedTabPanel
+        value={activeTab}
+        onValueChange={handleTabChange}
+        className="w-full"
+        options={[
+          { value: 'details', label: 'Details' },
+          { value: 'availability', label: 'Availability' },
+          { value: 'account', label: 'Account' },
+        ]}
+      >
+        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="mt-6">
           <DetailsTab profile={profile} />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="availability" className="mt-6">
+        <SegmentedTabPanelContent when="availability" activeTab={activeTab} className="mt-6">
           <AvailabilityTab profile={profile} />
-        </TabsContent>
+        </SegmentedTabPanelContent>
 
-        <TabsContent value="account" className="mt-6">
+        <SegmentedTabPanelContent when="account" activeTab={activeTab} className="mt-6">
           <AccountTab profile={profile} />
-        </TabsContent>
-      </Tabs>
+        </SegmentedTabPanelContent>
+      </SegmentedTabPanel>
     </div>
   );
 }

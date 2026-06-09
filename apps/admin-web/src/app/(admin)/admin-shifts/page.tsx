@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import { AdminShiftsTable, AddAdminShiftModal } from '@/features/admin-shifts';
 import { CalendarView } from '@/features/admin-shifts/components/CalendarView';
-import { Button, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
+import { Button, SegmentedControl } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useAdminShiftsWithDetails } from '@/features/admin-shifts/hooks/useAdminShiftsQuery';
@@ -63,12 +63,14 @@ export default function AdminShiftsPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Admin Shifts</h1>
         <div className="flex items-center gap-4">
-          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'table' | 'calendar')}>
-            <TabsList>
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            value={viewParam}
+            onValueChange={(v) => setView(v as 'table' | 'calendar')}
+            options={[
+              { value: 'table', label: 'Table' },
+              { value: 'calendar', label: 'Calendar' },
+            ]}
+          />
           <Button onClick={() => setIsAddModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Admin Shift

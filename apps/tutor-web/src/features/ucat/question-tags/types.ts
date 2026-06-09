@@ -2,6 +2,7 @@ export type UcatQuestionTagRow = {
   id: string
   name: string
   parent_id: string | null
+  section_id: string | null
   description: string
   question_count: number
 }
@@ -19,6 +20,7 @@ export type UcatQuestionTagTreeNode = {
 export type UcatQuestionTagDraft = {
   name: string
   parentTagId: string
+  sectionId: string
   description: string
 }
 

@@ -3,7 +3,7 @@
 import { Suspense, useState } from 'react';
 import { ClassesTable, ViewClassModal, AddClassModal } from '@/features/classes';
 import { CalendarView } from '@/features/classes/components/CalendarView';
-import { Button, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
+import { Button, SegmentedControl } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useClassesWithDetails } from '@/features/classes/hooks/useClassesQuery';
@@ -62,12 +62,14 @@ export default function ClassesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
         <div className="flex items-center gap-4">
-          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'table' | 'calendar')}>
-            <TabsList>
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            value={viewParam}
+            onValueChange={(v) => setView(v as 'table' | 'calendar')}
+            options={[
+              { value: 'table', label: 'Table' },
+              { value: 'calendar', label: 'Calendar' },
+            ]}
+          />
           <Button onClick={() => setIsAddModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Add Class

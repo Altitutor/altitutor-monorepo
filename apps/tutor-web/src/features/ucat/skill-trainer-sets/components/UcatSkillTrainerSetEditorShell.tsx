@@ -45,6 +45,7 @@ export function UcatSkillTrainerSetEditorShell({ editor }: UcatSkillTrainerSetEd
     toast({ title: 'Saved', description: 'Skill trainer question saved.' })
     setEditingItemId(id)
     await Promise.all([editor.itemsQuery.refetch(), editor.refetchTrainerItems()])
+    return id
   }
 
   async function handleApproval(status: 'approved' | 'pending' | 'rejected') {

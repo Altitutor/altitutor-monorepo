@@ -1,12 +1,14 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { UcatCategoryLinkedStem } from '@/features/ucat/question-stem-categories/types'
 
 export type UcatQuestionStemCategoryPayload = {
-  name: string
+  name?: string
   description?: string
   sectionId?: string | null
   parentCategoryId?: string | null
+  reparentOnly?: boolean
 }
 
 export const ucatQuestionStemCategoriesApi = {
@@ -53,5 +55,15 @@ export const ucatQuestionStemCategoriesApi = {
       const body = await response.json().catch(() => ({}))
       throw new Error(body.error ?? 'Failed to delete category')
     }
+  },
+
+  async listLinkedStems(categoryId: string) {
+    const response = await fetch(`/api/ucat/question-stem-categories/${categoryId}/stems`)
+    if (!response.ok) {
+      const body = await response.json().catch(() => ({}))
+      throw new Error(body.error ?? 'Failed to load linked stems')
+    }
+    const body = (await response.json()) as { stems: UcatCategoryLinkedStem[] }
+    return body.stems
   },
 }

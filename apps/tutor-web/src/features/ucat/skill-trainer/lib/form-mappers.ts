@@ -1,4 +1,4 @@
-import type { UcatSkillTrainerKey } from '@altitutor/shared'
+import type { Json, UcatSkillTrainerKey } from '@altitutor/shared'
 import type { UcatSkillTrainerItemRow } from '@/features/ucat/skill-trainer/api/items'
 import {
   defaultContentForTrainerKey,
@@ -61,12 +61,16 @@ export function mapRowToFormValues(row: UcatSkillTrainerItemRow): UcatSkillTrain
       }
     case 'calculator_maths': {
       const expression = typeof content.expression === 'string' ? content.expression : ''
-      const questionRecord = content.question ? asRecord(content.question) : null
-      const question = questionRecord && hasRichTextContent(questionRecord)
-        ? questionRecord
-        : expression
-          ? plainTextToProseMirror(expression)
-          : EMPTY_DOC
+      const questionJson =
+        content.question && typeof content.question === 'object' && !Array.isArray(content.question)
+          ? (content.question as Json)
+          : null
+      const question =
+        questionJson && hasRichTextContent(questionJson)
+          ? asRecord(questionJson)
+          : expression
+            ? asRecord(plainTextToProseMirror(expression))
+            : asRecord(EMPTY_DOC)
       return {
         ...base,
         question,
@@ -125,7 +129,7 @@ export function mapFormValuesToContent(values: UcatSkillTrainerItemFormValues): 
         ...(values.label?.trim() ? { label: values.label.trim() } : {}),
       }
     case 'calculator_maths': {
-      const question = values.question ?? EMPTY_DOC
+      const question = (values.question ?? EMPTY_DOC) as Json
       const hasQuestion = hasRichTextContent(question)
       return {
         answer: values.answer ?? 0,

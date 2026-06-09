@@ -26,7 +26,12 @@ import type { PrivateStemNotInSet } from '../api/reconciliation'
 import { useReconciliationData } from '../hooks/useReconciliation'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
-import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useUcatCategories, useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  buildTaxonomyPathLookup,
+  categoriesToTaxonomyNodes,
+  resolveCategoryPathLabel,
+} from '@/features/ucat/shared/lib/taxonomy-paths'
 import { useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { useUcatTableState, applyCoreStringFilter, applySingleSelectFilter, applySort } from '@/features/ucat/shared/hooks/useUcatTableState'
@@ -51,6 +56,11 @@ export function PrivateStemsNotInSetTable({
   const { data, isLoading } = useReconciliationData()
   const setsQuery = useUcatSets()
   const sectionsQuery = useUcatSections()
+  const categoriesQuery = useUcatCategories()
+  const categoryPathLookup = useMemo(
+    () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
+    [categoriesQuery.data]
+  )
   const staffSets = useMemo(
     () =>
       (setsQuery.data ?? []).filter(
@@ -91,7 +101,8 @@ export function PrivateStemsNotInSetTable({
 
   const stemAccessors = useMemo(
     () => ({
-      category_name: (s: PrivateStemNotInSet) => s.categoryName ?? '',
+      category_name: (s: PrivateStemNotInSet) =>
+        resolveCategoryPathLabel(categoryPathLookup, s.categoryId, s.categoryName),
       stem_text: (s: PrivateStemNotInSet) =>
         proseMirrorToPlainText(s.stemText as import('@altitutor/shared').Json) ?? '',
       questions: (s: PrivateStemNotInSet) =>
@@ -100,7 +111,7 @@ export function PrivateStemsNotInSetTable({
           .map((q, i) => `${i + 1}. ${truncate(proseMirrorToPlainText(q.question_text as import('@altitutor/shared').Json) ?? '', 60)}`)
           .join(' '),
     }),
-    []
+    [categoryPathLookup]
   )
 
   const filteredStems = useMemo(() => {
@@ -114,7 +125,10 @@ export function PrivateStemsNotInSetTable({
         return (
           applyCoreStringFilter(stemText, search) ||
           applyCoreStringFilter(questionsText, search) ||
-          applyCoreStringFilter(stem.categoryName ?? '', search) ||
+          applyCoreStringFilter(
+            resolveCategoryPathLabel(categoryPathLookup, stem.categoryId, stem.categoryName),
+            search
+          ) ||
           applyCoreStringFilter(stem.sectionName, search)
         )
       })
@@ -122,7 +136,7 @@ export function PrivateStemsNotInSetTable({
     result = result.filter((stem) => applySingleSelectFilter(tableState.state, 'section_id', stem.sectionId))
     result = applySort(result, tableState.state.sortBy, tableState.state.sortDirection, stemAccessors)
     return result
-  }, [data?.privateStemsNotInSet, tableState.state, stemAccessors])
+  }, [data?.privateStemsNotInSet, tableState.state, stemAccessors, categoryPathLookup])
 
   const handleAddToSet = useCallback(
     async (item: PrivateStemNotInSet, setId: string) => {
@@ -261,6 +275,7 @@ export function PrivateStemsNotInSetTable({
             key={item.id}
             item={item}
             sets={staffSets}
+            categoryPathLookup={categoryPathLookup}
             visibleColumnKeys={visibleColumnKeys}
             selection={sel}
             onAddToSet={(setId) => handleAddToSet(item, setId)}
@@ -323,12 +338,14 @@ export function PrivateStemsNotInSetTable({
 function PrivateStemNotInSetRow({
   item,
   sets,
+  categoryPathLookup,
   visibleColumnKeys,
   selection,
   onAddToSet,
 }: {
   item: PrivateStemNotInSet
   sets: Array<{ id: string | null; name: unknown }>
+  categoryPathLookup: Map<string, string>
   visibleColumnKeys: string[]
   selection?: {
     getItemId: (item: PrivateStemNotInSet) => string
@@ -347,7 +364,11 @@ function PrivateStemNotInSetRow({
   }, [item.questions])
 
   const cells: Record<string, React.ReactNode> = {
-    category_name: <TableCell className="whitespace-nowrap">{item.categoryName || '—'}</TableCell>,
+    category_name: (
+      <TableCell className="whitespace-nowrap">
+        {resolveCategoryPathLabel(categoryPathLookup, item.categoryId, item.categoryName)}
+      </TableCell>
+    ),
     stem_text: (
       <TableCell className="max-w-[300px]" title={stemText}>
         {stemTruncated || '—'}

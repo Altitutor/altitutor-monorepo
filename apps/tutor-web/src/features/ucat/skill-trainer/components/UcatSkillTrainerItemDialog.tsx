@@ -129,7 +129,6 @@ export function UcatSkillTrainerItemDialog({
     baseline !== '' && isSnapshotDirty(snapshotSkillTrainerItemFormValues(watchedValues), baseline)
 
   async function handleSave() {
-    // @ts-expect-error TS2589 - Form type is deep; runtime behavior is correct.
     form.handleSubmit(
       async (values) => {
         try {

@@ -4,11 +4,13 @@ export type BulkImportStepKind =
   | 'paste_stems'
   | 'per_stem_questions'
   | 'answers'
+  | 'stem_categories'
+  | 'question_tags'
   | 'review'
   | 'create_set'
 
 export function getBulkImportTotalSteps(separateStemDocument: boolean): number {
-  return separateStemDocument ? 6 : 5
+  return separateStemDocument ? 8 : 7
 }
 
 export function getBulkImportStepKind(
@@ -26,8 +28,12 @@ export function getBulkImportStepKind(
       case 3:
         return 'answers'
       case 4:
-        return 'review'
+        return 'stem_categories'
       case 5:
+        return 'question_tags'
+      case 6:
+        return 'review'
+      case 7:
         return 'create_set'
       default:
         return 'section'
@@ -41,8 +47,12 @@ export function getBulkImportStepKind(
     case 2:
       return 'answers'
     case 3:
-      return 'review'
+      return 'stem_categories'
     case 4:
+      return 'question_tags'
+    case 5:
+      return 'review'
+    case 6:
       return 'create_set'
     default:
       return 'section'
@@ -61,6 +71,10 @@ export function getBulkImportStepTitle(kind: BulkImportStepKind): string {
       return 'Paste questions per stem'
     case 'answers':
       return 'Answers'
+    case 'stem_categories':
+      return 'Stem categories'
+    case 'question_tags':
+      return 'Question tags'
     case 'review':
       return 'Review'
     case 'create_set':

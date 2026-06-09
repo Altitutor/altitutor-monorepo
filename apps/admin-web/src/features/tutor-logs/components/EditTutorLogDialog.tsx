@@ -13,7 +13,7 @@ import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Separator } from '@altitutor/ui';
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@altitutor/ui';
+import { SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
 import { useTutorLog, useUpdateTutorLog } from '../hooks/useTutorLogsQuery';
 import { staffApi } from '@/features/staff/api/staff';
@@ -287,32 +287,28 @@ export function EditTutorLogDialog({
           </div>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="flex flex-col h-full min-h-0">
+        <div className="flex flex-col h-full min-h-0">
           <div className="flex-shrink-0 border-b bg-background">
             <div className="px-6 pb-4">
-              <TabsList className="w-full">
-                <TabsTrigger value="attendance" className="flex-1">
-                  Attendance
-                </TabsTrigger>
-                {isClassSession ? (
-                  <>
-                    <TabsTrigger value="topics" className="flex-1">
-                      Topics
-                    </TabsTrigger>
-                    <TabsTrigger value="files" className="flex-1">
-                      Files
-                    </TabsTrigger>
-                  </>
-                ) : null}
-              </TabsList>
+              <SegmentedControl
+                fullWidth
+                value={activeTab}
+                onValueChange={setActiveTab}
+                options={[
+                  { value: 'attendance', label: 'Attendance' },
+                  ...(isClassSession
+                    ? [
+                        { value: 'topics', label: 'Topics' },
+                        { value: 'files', label: 'Files' },
+                      ]
+                    : []),
+                ]}
+              />
             </div>
           </div>
 
           <div className="flex-1 min-h-0 relative">
-            <TabsContent
-              value="attendance"
-              className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block"
-            >
+            <SegmentedTabPanelContent when="attendance" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
               <div className="p-6 space-y-8">
                 <section className="space-y-3">
                   <h3 className="text-sm font-semibold text-foreground">Created by</h3>
@@ -404,11 +400,11 @@ export function EditTutorLogDialog({
                   </>
                 ) : null}
               </div>
-            </TabsContent>
+            </SegmentedTabPanelContent>
 
             {isClassSession ? (
               <>
-                <TabsContent value="topics" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <SegmentedTabPanelContent when="topics" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6 space-y-4">
                     {sessionId && isFormDataReady && (
                       <>
@@ -425,9 +421,9 @@ export function EditTutorLogDialog({
                       </>
                     )}
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
 
-                <TabsContent value="files" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <SegmentedTabPanelContent when="files" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6 space-y-4">
                     {sessionId && isFormDataReady && (
                       <>
@@ -444,11 +440,11 @@ export function EditTutorLogDialog({
                       </>
                     )}
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
               </>
             ) : null}
           </div>
-        </Tabs>
+        </div>
 
         <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
           <Button

@@ -4,9 +4,11 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatTagLinkedQuestion } from '@/features/ucat/question-tags/types'
 
 export type UcatQuestionTagPayload = {
-  name: string
+  name?: string
   description?: string
   parentTagId?: string | null
+  sectionId?: string | null
+  reparentOnly?: boolean
 }
 
 export const ucatQuestionTagsApi = {

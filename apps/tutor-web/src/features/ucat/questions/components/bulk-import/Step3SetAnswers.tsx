@@ -20,6 +20,7 @@ import type {
   CategoryOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 
 const OPTION_LABELS = ['A', 'B', 'C', 'D', 'E'] as const
 const QUESTION_TEXT_MAX = 60
@@ -31,9 +32,14 @@ function truncateOneLine(text: string, maxLen: number): string {
   return `${oneLine.slice(0, maxLen)}…`
 }
 
-type ReviewCategoryOption = { id?: string | null; name?: string | null; ucat_section_id?: string | null }
+type ReviewCategoryOption = {
+  id?: string | null
+  name?: string | null
+  ucat_section_id?: string | null
+  label?: string | null
+}
 type ReviewSectionOption = { id: string | null; name?: string | null; display_columns?: number | null }
-type ReviewTagOption = { id: string; name: string }
+type ReviewTagOption = { id: string; name: string; label?: string | null }
 
 export type AnswerRow = {
   stemId: string
@@ -65,7 +71,7 @@ function buildAnswerRows(
     const category = categoryId
       ? categories.find((c) => (c.id ?? null) === categoryId)
       : null
-    const categoryName = (category?.name ?? '').trim() || '—'
+    const categoryName = category ? taxonomyDisplayLabel(category).trim() || '—' : '—'
     const questions = stem.values.questions ?? []
     questions.forEach((q, questionIndex) => {
       globalNumber += 1
@@ -144,6 +150,7 @@ export function Step3SetAnswers({
         id: category.id ?? null,
         name: category.name ?? null,
         ucat_section_id: category.ucat_section_id,
+        label: category.label ?? null,
       })),
     [categories]
   )

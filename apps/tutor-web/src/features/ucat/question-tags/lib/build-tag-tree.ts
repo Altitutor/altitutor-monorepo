@@ -1,4 +1,5 @@
 import type { UcatQuestionTagRow, UcatQuestionTagTreeNode } from '@/features/ucat/question-tags/types'
+import { resolveRootSectionId } from '@/features/ucat/shared/lib/taxonomy-reparent'
 
 export function buildTagTreeNodes(
   rows: UcatQuestionTagRow[],
@@ -33,6 +34,32 @@ export function tagTreeNodeMatchesSearch(node: UcatQuestionTagTreeNode, search: 
   if (!query) return true
   if (node.name.toLowerCase().includes(query)) return true
   return node.children.some((child) => tagTreeNodeMatchesSearch(child, query))
+}
+
+export function buildTagSectionTreeNodes(
+  rows: UcatQuestionTagRow[],
+  sectionId: string | null
+): UcatQuestionTagTreeNode[] {
+  const sectionRows = rows.filter(
+    (row) => resolveRootSectionId(rows, row.id) === sectionId
+  )
+  const ids = new Set(sectionRows.map((row) => row.id))
+  const roots = sectionRows
+    .filter((row) => row.parent_id === null || !ids.has(row.parent_id))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return roots.map((row) => {
+    const children = buildTagTreeNodes(sectionRows, row.id)
+    return {
+      id: row.id,
+      name: row.name,
+      description: row.description,
+      parent_id: row.parent_id,
+      question_count: row.question_count,
+      child_count: children.length,
+      children,
+    }
+  })
 }
 
 export function filterTagTreeNodes(

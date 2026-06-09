@@ -4,8 +4,8 @@ import { Suspense, useState } from 'react';
 import { TasksBoard } from '@/features/tasks/components/TasksBoard';
 import { TasksList } from '@/features/tasks/components/TasksList';
 import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
-import { Button, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
-import { Plus, LayoutGrid, List } from 'lucide-react';
+import { Button, SegmentedControl } from '@altitutor/ui';
+import { Plus } from 'lucide-react';
 import { useSearchParams, useRouter } from 'next/navigation';
 
 export default function TasksPage() {
@@ -30,16 +30,14 @@ export default function TasksPage() {
       <div className="flex items-center justify-between flex-shrink-0 px-6 py-4">
         <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
         <div className="flex items-center gap-4">
-          <Tabs value={viewParam} onValueChange={(v) => setView(v as 'kanban' | 'list')}>
-            <TabsList>
-              <TabsTrigger value="kanban" className="px-2">
-                <LayoutGrid className="h-4 w-4" />
-              </TabsTrigger>
-              <TabsTrigger value="list" className="px-2">
-                <List className="h-4 w-4" />
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            value={viewParam}
+            onValueChange={(v) => setView(v as 'kanban' | 'list')}
+            options={[
+              { value: 'kanban', label: 'Board' },
+              { value: 'list', label: 'List' },
+            ]}
+          />
           <Button onClick={() => setIsCreateModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             Create Task

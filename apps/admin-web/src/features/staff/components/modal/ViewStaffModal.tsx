@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@altitutor/ui";
+import { SegmentedControl, SegmentedTabPanelContent } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Button as UIButton } from '@altitutor/ui';
 import { Loader2, X } from 'lucide-react';
@@ -274,12 +274,7 @@ export function ViewStaffModal({
               </div>
             </div>
           ) : (
-            <Tabs 
-              defaultValue="details" 
-              value={activeTab} 
-              onValueChange={setActiveTab}
-              className="flex flex-col h-full min-h-0"
-            >
+            <div className="flex flex-col h-full min-h-0">
               {/* Sticky Header */}
               <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
@@ -320,21 +315,26 @@ export function ViewStaffModal({
                   </div>
                 </SheetHeader>
                 <div className="px-6 pb-4">
-                  <TabsList className="grid w-full grid-cols-7">
-                    <TabsTrigger value="details">Details</TabsTrigger>
-                    <TabsTrigger value="classes">Classes</TabsTrigger>
-                    <TabsTrigger value="pay-tier">Pay tier</TabsTrigger>
-                    <TabsTrigger value="messages">Messages</TabsTrigger>
-                    <TabsTrigger value="sessions">Sessions</TabsTrigger>
-                    <TabsTrigger value="files">Files</TabsTrigger>
-                    <TabsTrigger value="activity">Activity</TabsTrigger>
-                  </TabsList>
+                  <SegmentedControl
+                    fullWidth
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    options={[
+                      { value: 'details', label: 'Details' },
+                      { value: 'classes', label: 'Classes' },
+                      { value: 'pay-tier', label: 'Pay tier' },
+                      { value: 'messages', label: 'Messages' },
+                      { value: 'sessions', label: 'Sessions' },
+                      { value: 'files', label: 'Files' },
+                      { value: 'activity', label: 'Activity' },
+                    ]}
+                  />
                 </div>
               </div>
 
               {/* Scrollable Content */}
               <div className="flex-1 min-h-0 relative">
-                <TabsContent value="details" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <SegmentedTabPanelContent when="details" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     <StaffDetailsTab
                       staffMember={staffMember}
@@ -360,18 +360,18 @@ export function ViewStaffModal({
                       onPasswordResetRequest={handlePasswordResetRequest}
                     />
                   </div>
-                </TabsContent>
-                    
-                <TabsContent value="classes" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                </SegmentedTabPanelContent>
+
+                <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     <ClassesTab
                       staff={staffMember}
                       onStaffUpdated={onStaffUpdated}
                     />
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
 
-                <TabsContent value="pay-tier" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <SegmentedTabPanelContent when="pay-tier" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     {staffId && staffMember && (
                       <StaffPayTierTab
@@ -382,9 +382,9 @@ export function ViewStaffModal({
                       />
                     )}
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
 
-                <TabsContent value="messages" className="absolute inset-0 overflow-hidden m-0 p-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
                   <div className="h-full p-6">
                     <MessagesTabContent 
                       conversationId={conversationId}
@@ -394,9 +394,9 @@ export function ViewStaffModal({
                       relatedType="staff"
                     />
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
 
-                <TabsContent value="sessions" className="absolute inset-0 overflow-hidden m-0 hidden data-[state=active]:flex data-[state=active]:flex-col">
+                <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
                   <div className="h-full p-6">
                     {staffMember && (
                       <StaffSessionsTab 
@@ -407,23 +407,23 @@ export function ViewStaffModal({
                       />
                     )}
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
 
-                <TabsContent value="files" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <SegmentedTabPanelContent when="files" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     {staffId && <StaffFiles staffId={staffId} />}
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
 
-                <TabsContent value="activity" className="absolute inset-0 overflow-y-auto m-0 hidden data-[state=active]:block">
+                <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     {staffId && (
                       <StaffActivityTab staffId={staffId} isOpen={isOpen} />
                     )}
                   </div>
-                </TabsContent>
+                </SegmentedTabPanelContent>
               </div>
-            </Tabs>
+            </div>
           )}
           
           {/* Sticky Footer with Buttons */}

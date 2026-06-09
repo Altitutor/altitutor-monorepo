@@ -2,30 +2,47 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import { Button, Input, SearchableSelect, Textarea, useToast } from '@altitutor/ui'
-import { Search } from 'lucide-react'
+import { Pencil, Search } from 'lucide-react'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import {
   useCreateUcatQuestionTag,
   useDeleteUcatQuestionTag,
+  useUpdateUcatQuestionTag,
   useUcatQuestionTags,
 } from '@/features/ucat/question-tags/hooks/useUcatQuestionTags'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import { TagHierarchyTree } from '@/features/ucat/question-tags/components/TagHierarchyTree'
 import { UcatQuestionTagDialog } from '@/features/ucat/question-tags/components/UcatQuestionTagDialog'
 import {
-  buildTagTreeNodes,
+  buildTagSectionTreeNodes,
   filterTagTreeNodes,
-  getRootTags,
 } from '@/features/ucat/question-tags/lib/build-tag-tree'
+import {
+  TaxonomyHierarchyTree,
+  TaxonomySectionDropZone,
+  type TaxonomyReparentTarget,
+} from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
+import { TaxonomyHierarchyDndProvider } from '@/features/ucat/shared/components/taxonomy-hierarchy-dnd'
+import {
+  flattenTaxonomyHierarchyNodes,
+  mapToTaxonomyHierarchyNodes,
+} from '@/features/ucat/shared/lib/map-taxonomy-tree'
+import { isDescendantOf } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import type {
   UcatQuestionTagDraft,
   UcatQuestionTagRow,
   UcatTagLinkedQuestion,
 } from '@/features/ucat/question-tags/types'
+import {
+  buildTaxonomyPathLookup,
+  mapCategoriesToOptions,
+  mapTagsToOptions,
+  tagsToTaxonomyNodes,
+  taxonomyDisplayLabel,
+} from '@/features/ucat/shared/lib/taxonomy-paths'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
@@ -46,6 +63,7 @@ import type { Json } from '@altitutor/shared'
 const emptyDraft: UcatQuestionTagDraft = {
   name: '',
   parentTagId: 'none',
+  sectionId: 'none',
   description: '',
 }
 
@@ -86,15 +104,30 @@ function mapFormValuesToBundlePayload(
 function TagCreateForm({
   draft,
   setDraft,
+  sections,
   parentOptions,
+  tagPathLookup,
 }: {
   draft: UcatQuestionTagDraft
   setDraft: React.Dispatch<React.SetStateAction<UcatQuestionTagDraft>>
+  sections: Array<{ id: string | null; name: string | null }>
   parentOptions: UcatQuestionTagRow[]
+  tagPathLookup: Map<string, string>
 }) {
+  const isRoot = draft.parentTagId === 'none'
+  const sectionItems = [
+    { id: 'none', name: 'No section' },
+    ...sections.map((section) => ({ id: section.id ?? '', name: section.name ?? 'Unknown' })),
+  ]
+  const selectedSection =
+    sectionItems.find((section) => section.id === draft.sectionId) ?? sectionItems[0]
   const parentItems = [
-    { id: 'none', name: 'No parent' },
-    ...parentOptions.map((row) => ({ id: row.id, name: row.name })),
+    { id: 'none', name: 'No parent', label: 'No parent' },
+    ...parentOptions.map((row) => ({
+      id: row.id,
+      name: row.name,
+      label: tagPathLookup.get(row.id) ?? row.name,
+    })),
   ]
   const selectedParent = parentItems.find((item) => item.id === draft.parentTagId) ?? parentItems[0]
 
@@ -109,16 +142,34 @@ function TagCreateForm({
       </label>
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Parent tag</span>
-        <SearchableSelect<{ id: string; name: string }>
+        <SearchableSelect<{ id: string; name: string; label: string }>
           items={parentItems}
           value={selectedParent}
           onValueChange={(item) =>
-            setDraft((prev) => ({ ...prev, parentTagId: item?.id ?? 'none' }))
+            setDraft((prev) => ({
+              ...prev,
+              parentTagId: item?.id ?? 'none',
+              sectionId: item?.id && item.id !== 'none' ? 'none' : prev.sectionId,
+            }))
           }
-          getItemLabel={(item) => item.name}
+          getItemLabel={(item) => taxonomyDisplayLabel(item)}
           getItemId={(item) => item.id}
         />
       </label>
+      {isRoot ? (
+        <label className="block text-sm">
+          <span className="mb-1 block font-medium">Section (optional)</span>
+          <SearchableSelect<{ id: string; name: string }>
+            items={sectionItems}
+            value={selectedSection}
+            onValueChange={(item) =>
+              setDraft((prev) => ({ ...prev, sectionId: item?.id ?? 'none' }))
+            }
+            getItemLabel={(section) => section.name}
+            getItemId={(section) => section.id}
+          />
+        </label>
+      ) : null}
       <label className="block text-sm">
         <span className="mb-1 block font-medium">Description</span>
         <Textarea
@@ -140,10 +191,12 @@ export function UcatQuestionTagsPage() {
   const queryClient = useQueryClient()
   const { toast } = useToast()
   const createTag = useCreateUcatQuestionTag()
+  const updateTag = useUpdateUcatQuestionTag()
   const deleteTag = useDeleteUcatQuestionTag()
   const updateStemMutation = useUpdateUcatQuestionStem()
 
   const [searchQuery, setSearchQuery] = useState('')
+  const [editMode, setEditMode] = useState(false)
   const [createOpen, setCreateOpen] = useState(false)
   const [editingTagId, setEditingTagId] = useState<string | null>(null)
   const [deletingTagId, setDeletingTagId] = useState<string | null>(null)
@@ -159,6 +212,7 @@ export function UcatQuestionTagsPage() {
         id: row.id ?? '',
         name: row.name ?? '-',
         parent_id: row.parent_question_tag_id,
+        section_id: row.ucat_section_id ?? null,
         description: proseMirrorToPlainText(row.description),
         question_count: row.question_count ?? 0,
       }
@@ -173,46 +227,46 @@ export function UcatQuestionTagsPage() {
     const sectionList = [...(sections.data ?? [])].sort(
       (a, b) => (a.section_number ?? 0) - (b.section_number ?? 0)
     )
-    const roots = getRootTags(rows)
 
     return sectionList.map((section) => {
-      const sectionRoots = roots.filter((root) => root.name === section.name)
-      const rootNodes = sectionRoots.map((root) => {
-        const children = buildTagTreeNodes(rows, root.id)
-        return {
-          id: root.id,
-          name: root.name,
-          description: root.description,
-          parent_id: root.parent_id,
-          question_count: root.question_count,
-          child_count: children.length,
-          children,
-        }
-      })
+      const rootNodes = buildTagSectionTreeNodes(rows, section.id ?? '')
+      const filtered = filterTagTreeNodes(rootNodes, searchQuery)
       return {
         sectionId: section.id ?? '',
         sectionName: section.name ?? 'Unknown section',
-        nodes: filterTagTreeNodes(rootNodes, searchQuery),
+        nodes: mapToTaxonomyHierarchyNodes(filtered, 'question_count'),
       }
     })
   }, [rows, searchQuery, sections.data])
 
   const unsectionedTrees = useMemo(() => {
-    const sectionNames = new Set((sections.data ?? []).map((section) => section.name))
-    const roots = getRootTags(rows).filter((root) => !sectionNames.has(root.name))
-    const rootNodes = roots.map((root) => ({
-      id: root.id,
-      name: root.name,
-      description: root.description,
-      parent_id: root.parent_id,
-      question_count: root.question_count,
-      child_count: buildTagTreeNodes(rows, root.id).length,
-      children: buildTagTreeNodes(rows, root.id),
-    }))
-    return filterTagTreeNodes(rootNodes, searchQuery)
-  }, [rows, searchQuery, sections.data])
+    const rootNodes = buildTagSectionTreeNodes(rows, null)
+    const filtered = filterTagTreeNodes(rootNodes, searchQuery)
+    return mapToTaxonomyHierarchyNodes(filtered, 'question_count')
+  }, [rows, searchQuery])
+
+  const allHierarchyNodes = useMemo(
+    () => [
+      ...sectionTrees.flatMap((section) => section.nodes),
+      ...unsectionedTrees,
+    ],
+    [sectionTrees, unsectionedTrees]
+  )
 
   const parentOptions = useMemo(() => rows, [rows])
+  const tagPathLookup = useMemo(
+    () =>
+      buildTaxonomyPathLookup(
+        tagsToTaxonomyNodes(
+          rows.map((row) => ({
+            id: row.id,
+            name: row.name,
+            parent_question_tag_id: row.parent_id,
+          }))
+        )
+      ),
+    [rows]
+  )
 
   const stemDetail = useUcatQuestionDetail(editingStemId)
 
@@ -224,6 +278,7 @@ export function UcatQuestionTagsPage() {
       setDraft({
         name: row.name,
         parentTagId: row.parent_id ?? 'none',
+        sectionId: row.section_id ?? 'none',
         description: row.description,
       })
     },
@@ -251,6 +306,48 @@ export function UcatQuestionTagsPage() {
     [editingStemId, editingTagId, queryClient, updateStemMutation]
   )
 
+  const handleReparent = useCallback(
+    async (itemId: string, target: TaxonomyReparentTarget) => {
+      if (target.type === 'node' && isDescendantOf(rows, target.parentId, itemId)) {
+        toast({
+          title: 'Invalid move',
+          description: 'Cannot move a tag under its own descendant.',
+          variant: 'destructive',
+        })
+        return
+      }
+
+      try {
+        if (target.type === 'root') {
+          await updateTag.mutateAsync({
+            id: itemId,
+            payload: {
+              reparentOnly: true,
+              parentTagId: null,
+              sectionId: target.sectionId,
+            },
+          })
+        } else {
+          await updateTag.mutateAsync({
+            id: itemId,
+            payload: {
+              reparentOnly: true,
+              parentTagId: target.parentId,
+              sectionId: null,
+            },
+          })
+        }
+      } catch (error) {
+        toast({
+          title: 'Could not move tag',
+          description: error instanceof Error ? error.message : 'Unknown error',
+          variant: 'destructive',
+        })
+      }
+    },
+    [rows, toast, updateTag]
+  )
+
   if (access.isLoading || tags.isLoading || sections.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
 
@@ -259,12 +356,16 @@ export function UcatQuestionTagsPage() {
       name: draft.name,
       description: draft.description,
       parentTagId: draft.parentTagId === 'none' ? null : draft.parentTagId,
+      sectionId:
+        draft.parentTagId === 'none' && draft.sectionId !== 'none' ? draft.sectionId : null,
     })
     const tagName = draft.name.trim() || 'Untitled'
     const createdRow: UcatQuestionTagRow = {
       id: result.id,
       name: draft.name,
       parent_id: draft.parentTagId === 'none' ? null : draft.parentTagId,
+      section_id:
+        draft.parentTagId === 'none' && draft.sectionId !== 'none' ? draft.sectionId : null,
       description: draft.description,
       question_count: 0,
     }
@@ -284,10 +385,52 @@ export function UcatQuestionTagsPage() {
     })
   }
 
+  const isSearching = searchQuery.trim().length > 0
+  const visibleSectionTrees = isSearching
+    ? sectionTrees.filter((section) => section.nodes.length > 0)
+    : sectionTrees
+  const showOtherTags = !isSearching || unsectionedTrees.length > 0
   const hasVisibleTrees =
-    searchQuery.trim().length === 0 ||
-    sectionTrees.some((section) => section.nodes.length > 0) ||
+    !isSearching ||
+    visibleSectionTrees.length > 0 ||
     unsectionedTrees.length > 0
+
+  const sectionContent = (
+    <>
+      {visibleSectionTrees.map((section) => (
+        <TaxonomySectionDropZone
+          key={section.sectionId}
+          sectionId={section.sectionId}
+          sectionName={section.sectionName}
+          editMode={editMode}
+        >
+          <TaxonomyHierarchyTree
+            nodes={section.nodes}
+            itemCountNoun="question"
+            onItemClick={openTagDialog}
+            searchQuery={searchQuery}
+            editMode={editMode}
+          />
+        </TaxonomySectionDropZone>
+      ))}
+
+      {showOtherTags ? (
+        <TaxonomySectionDropZone
+          sectionId={null}
+          sectionName="Other tags"
+          editMode={editMode}
+        >
+          <TaxonomyHierarchyTree
+            nodes={unsectionedTrees}
+            itemCountNoun="question"
+            onItemClick={openTagDialog}
+            searchQuery={searchQuery}
+            editMode={editMode}
+          />
+        </TaxonomySectionDropZone>
+      ) : null}
+    </>
+  )
 
   return (
     <div className="space-y-6 py-8 md:py-10">
@@ -296,7 +439,19 @@ export function UcatQuestionTagsPage() {
         description="Create and manage reusable question tags"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Question Tags' }]}
-        actions={<Button onClick={() => setCreateOpen(true)}>Add Tag</Button>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant={editMode ? 'default' : 'outline'}
+              onClick={() => setEditMode((prev) => !prev)}
+            >
+              <Pencil className="mr-2 h-4 w-4" />
+              {editMode ? 'Done reordering' : 'Edit hierarchy'}
+            </Button>
+            <Button onClick={() => setCreateOpen(true)}>Add Tag</Button>
+          </div>
+        }
       />
 
       <div className="relative">
@@ -315,30 +470,15 @@ export function UcatQuestionTagsPage() {
           <div className={tutorCardCn('p-6 text-center text-sm text-muted-foreground')}>
             No tags match your search
           </div>
+        ) : editMode ? (
+          <TaxonomyHierarchyDndProvider
+            allNodes={flattenTaxonomyHierarchyNodes(allHierarchyNodes)}
+            onReparent={handleReparent}
+          >
+            <div className="space-y-6">{sectionContent}</div>
+          </TaxonomyHierarchyDndProvider>
         ) : (
-          <>
-            {sectionTrees.map((section) => (
-              <section key={section.sectionId} className={tutorCardCn('p-5 sm:p-6')}>
-                <h2 className="mb-4 text-lg font-semibold tracking-tight">{section.sectionName}</h2>
-                <TagHierarchyTree
-                  nodes={section.nodes}
-                  onTagClick={openTagDialog}
-                  searchQuery={searchQuery}
-                />
-              </section>
-            ))}
-
-            {unsectionedTrees.length > 0 ? (
-              <section className={tutorCardCn('p-5 sm:p-6')}>
-                <h2 className="mb-4 text-lg font-semibold tracking-tight">Other tags</h2>
-                <TagHierarchyTree
-                  nodes={unsectionedTrees}
-                  onTagClick={openTagDialog}
-                  searchQuery={searchQuery}
-                />
-              </section>
-            ) : null}
-          </>
+          <div className="space-y-6">{sectionContent}</div>
         )}
       </div>
 
@@ -356,7 +496,13 @@ export function UcatQuestionTagsPage() {
         isSaving={createTag.isPending}
       >
         <div className="h-full overflow-y-auto p-6">
-          <TagCreateForm draft={draft} setDraft={setDraft} parentOptions={parentOptions} />
+          <TagCreateForm
+            draft={draft}
+            setDraft={setDraft}
+            sections={sections.data ?? []}
+            parentOptions={parentOptions}
+            tagPathLookup={tagPathLookup}
+          />
         </div>
       </UcatDialogShell>
 
@@ -364,6 +510,7 @@ export function UcatQuestionTagsPage() {
         open={!!editingTag}
         tag={editingTag}
         allTags={rows}
+        sections={sections.data ?? []}
         draft={draft}
         setDraft={setDraft}
         onClose={() => {
@@ -406,17 +553,8 @@ export function UcatQuestionTagsPage() {
           name: section.name,
           display_columns: section.display_columns,
         }))}
-        categories={
-          (categoriesQuery.data ?? []).map((category) => ({
-            id: category.id,
-            name: category.name,
-            ucat_section_id: category.ucat_section_id,
-          })) as CategoryOption[]
-        }
-        tags={(tagsQuery.data ?? []).map((tag) => ({
-          id: tag.id ?? '',
-          name: tag.name ?? '',
-        })) as TagOption[]}
+        categories={mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[]}
+        tags={mapTagsToOptions(tagsQuery.data ?? []) as TagOption[]}
         initial={stemDetail.data}
         loading={updateStemMutation.isPending || stemDetail.isLoading}
         initialQuestionIndex={editingQuestionIndex ?? undefined}

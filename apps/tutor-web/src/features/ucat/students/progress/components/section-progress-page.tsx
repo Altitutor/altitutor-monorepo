@@ -22,6 +22,12 @@ import type {
   QuestionAttemptRow,
   SetAttemptRow,
 } from '@altitutor/shared'
+import { useUcatCategories } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  buildTaxonomyPathLookup,
+  categoriesToTaxonomyNodes,
+  resolveCategoryPathLabel,
+} from '@/features/ucat/shared/lib/taxonomy-paths'
 
 type SectionProgressPageProps = {
   studentId: string
@@ -109,7 +115,11 @@ export function SectionProgressPage({
 }: SectionProgressPageProps) {
   const { data, isLoading, error } = useProgress(studentId)
   const progressMode = useProgressMode()
-
+  const categoriesQuery = useUcatCategories()
+  const categoryPathLookup = useMemo(
+    () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
+    [categoriesQuery.data]
+  )
   const filteredData = useMemo(() => {
     if (!data) return null
     return applyAttemptFilterToProgress(data, progressMode.attemptFilter)
@@ -276,6 +286,7 @@ export function SectionProgressPage({
       filteredQuestionAttempts={filteredQuestionAttempts}
       filteredSetAttempts={filteredSetAttempts}
       categoryProgress={categoryProgress}
+      categoryPathLookup={categoryPathLookup}
       progressMode={progressMode}
       sharedDateRange={sharedDateRange}
       basePath={basePath}
@@ -296,6 +307,7 @@ function SectionProgressContent({
   filteredQuestionAttempts,
   filteredSetAttempts,
   categoryProgress,
+  categoryPathLookup,
   progressMode,
   sharedDateRange,
   basePath,
@@ -311,6 +323,7 @@ function SectionProgressContent({
   filteredQuestionAttempts: QuestionAttemptRow[]
   filteredSetAttempts: SetAttemptRow[]
   categoryProgress: SectionCategoryProgress[]
+  categoryPathLookup: ReturnType<typeof buildTaxonomyPathLookup>
   progressMode: ReturnType<typeof useProgressMode>
   sharedDateRange?: ReturnType<typeof getSharedDateRange>
   basePath: string
@@ -473,7 +486,11 @@ function SectionProgressContent({
                                 Worst
                               </span>
                             )}
-                            {cat.categoryName}
+                            {resolveCategoryPathLabel(
+                              categoryPathLookup,
+                              cat.categoryId,
+                              cat.categoryName
+                            )}
                           </span>
                           <span className="shrink-0">
                             {cat.maxScore > 0
@@ -530,7 +547,11 @@ function SectionProgressContent({
                         className="flex justify-between text-sm tabular-nums"
                       >
                         <span className="text-muted-foreground truncate mr-2">
-                          {cat.categoryName}
+                          {resolveCategoryPathLabel(
+                            categoryPathLookup,
+                            cat.categoryId,
+                            cat.categoryName
+                          )}
                         </span>
                         <span className="shrink-0">
                           {cat.totalPublicQuestions != null

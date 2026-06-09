@@ -47,8 +47,8 @@ export function useSkillTrainerSetEditor(setId: string | null) {
   )
 
   const { data: availableItems, refetch: refetchTrainerItems } = useQuery({
-    queryKey: ucatKeys.skillTrainerItems(trainerKey),
-    queryFn: () => ucatSkillTrainerItemsApi.list({ trainerKey }),
+    queryKey: ucatKeys.skillTrainerItems(trainerKey ?? undefined),
+    queryFn: () => ucatSkillTrainerItemsApi.list({ trainerKey: trainerKey ?? undefined }),
     enabled: !!setId && !!trainerKey,
   })
 

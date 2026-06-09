@@ -7,6 +7,12 @@ import { useMockAttemptDetail } from '../hooks/useMockAttemptDetail'
 import { SetAttemptAnalysisChart } from './set-attempt-analysis-chart'
 import { Card, CardContent, CardHeader, CardTitle } from '@altitutor/ui'
 import { cn } from '@/shared/utils'
+import { useUcatCategories } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  buildTaxonomyPathLookup,
+  categoriesToTaxonomyNodes,
+  resolveCategoryPathLabel,
+} from '@/features/ucat/shared/lib/taxonomy-paths'
 
 type SetAttemptDetailPageProps = {
   studentId: string
@@ -25,6 +31,11 @@ export function SetAttemptDetailPage({
   mockAttemptId,
 }: SetAttemptDetailPageProps) {
   const { data, isLoading, error } = useSetAttemptDetail(studentId, attemptId)
+  const categoriesQuery = useUcatCategories()
+  const categoryPathLookup = useMemo(
+    () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
+    [categoriesQuery.data]
+  )
   const { data: mockData } = useMockAttemptDetail(
     studentId,
     mockAttemptId ?? null
@@ -38,7 +49,11 @@ export function SetAttemptDetailPage({
     >()
     for (const q of attempts) {
       const catKey = q.questionStemCategoryId ?? '__uncategorized__'
-      const catName = q.categoryName ?? 'Uncategorized'
+      const catName = resolveCategoryPathLabel(
+        categoryPathLookup,
+        q.questionStemCategoryId,
+        q.categoryName ?? 'Uncategorized'
+      )
       const maxScore = q.questionType === 'syllogism' ? 2 : 1
       const score = q.score ?? 0
       const entry = byCategory.get(catKey)
@@ -52,7 +67,7 @@ export function SetAttemptDetailPage({
     return [...byCategory.entries()]
       .map(([, v]) => v)
       .sort((a, b) => a.name.localeCompare(b.name))
-  }, [data?.questionAttempts])
+  }, [categoryPathLookup, data?.questionAttempts])
 
   const progressRoot = basePath.replace(/\/sets\/[^/]+$/, '').replace(/\/mocks\/[^/]+\/sets\/[^/]+$/, '')
   const backHref = mockAttemptId

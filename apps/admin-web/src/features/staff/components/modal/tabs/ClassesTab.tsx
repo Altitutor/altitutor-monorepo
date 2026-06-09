@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Tables } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
 import { ScrollArea } from "@altitutor/ui";
-import { Tabs, TabsList, TabsTrigger } from "@altitutor/ui";
+import { SegmentedControl } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Plus, Pencil, X } from "lucide-react";
@@ -450,12 +450,14 @@ export function ClassesTab({
         
         <div className="flex items-center gap-2">
           {/* View Mode Selector */}
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-            <TabsList>
-              <TabsTrigger value="table">Table</TabsTrigger>
-              <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            value={viewMode}
+            onValueChange={(v) => setViewMode(v as ViewMode)}
+            options={[
+              { value: 'table', label: 'Table' },
+              { value: 'calendar', label: 'Calendar' },
+            ]}
+          />
           
           <Button 
             variant="outline" 

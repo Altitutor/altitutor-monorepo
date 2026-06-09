@@ -158,6 +158,7 @@ export function UcatSkillTrainerQuestionsPage() {
     setCreateOpen(false)
     setEditingItemId(id)
     await itemsQuery.refetch()
+    return id
   }
 
   const handleApproval = async (status: 'approved' | 'pending' | 'rejected') => {
@@ -195,7 +196,7 @@ export function UcatSkillTrainerQuestionsPage() {
           .filter((t): t is typeof t & { key: UcatSkillTrainerKey } => Boolean(t.key))
           .map((trainer) => ({
             value: trainerKeyToSlug(trainer.key),
-            label: trainer.name,
+            label: trainer.name ?? trainer.key,
           }))}
       />
 

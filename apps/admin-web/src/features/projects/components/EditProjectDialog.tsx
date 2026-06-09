@@ -24,10 +24,8 @@ import {
   CardContent,
   ScrollArea,
   Separator,
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  TabsContent,
+  SegmentedControl,
+  SegmentedTabPanelContent,
   Input,
   type RichTextEditorRef,
 } from '@altitutor/ui';
@@ -121,6 +119,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'properties' | 'documents'>('properties');
 
   useEffect(() => {
     if (!isOpen) setExpanded(false);
@@ -441,31 +440,28 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                   </div>
 
                   <div className="hidden md:flex w-80 min-w-[320px] flex-col overflow-hidden border-l">
-                    <Tabs defaultValue="properties" className="flex-1 flex flex-col min-h-0">
+                    <div className="flex-1 flex flex-col min-h-0">
                       <div className="flex-shrink-0 border-b bg-background px-6 pb-4 pt-4">
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="properties">
-                            <div className="flex items-center gap-2">
-                              <span>Properties</span>
-                            </div>
-                          </TabsTrigger>
-                          <TabsTrigger value="documents">
-                            <div className="flex items-center gap-2">
-                              <span>Documents</span>
-                            </div>
-                          </TabsTrigger>
-                        </TabsList>
+                        <SegmentedControl
+                          fullWidth
+                          value={sidebarTab}
+                          onValueChange={(v) => setSidebarTab(v as 'properties' | 'documents')}
+                          options={[
+                            { value: 'properties', label: 'Properties' },
+                            { value: 'documents', label: 'Documents' },
+                          ]}
+                        />
                       </div>
 
                       <div className="flex-1 min-h-0 overflow-hidden">
-                        <TabsContent value="properties" className="h-full min-h-0 m-0 data-[state=active]:flex flex-col overflow-hidden">
+                        <SegmentedTabPanelContent when="properties" activeTab={sidebarTab} className="h-full min-h-0 flex flex-col overflow-hidden">
                           <ScrollArea className="flex-1">
                             <div className="p-6">
                               <ProjectPropertiesFields form={form} />
                             </div>
                           </ScrollArea>
-                        </TabsContent>
-                        <TabsContent value="documents" className="h-full m-0 overflow-hidden data-[state=active]:flex flex-col">
+                        </SegmentedTabPanelContent>
+                        <SegmentedTabPanelContent when="documents" activeTab={sidebarTab} className="h-full overflow-hidden flex flex-col">
                           <ScrollArea className="flex-1 min-h-0">
                             <div className="p-2 space-y-0.5">
                               {projectNotes.map((doc) => (
@@ -516,9 +512,9 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
                               </div>
                             </div>
                           </ScrollArea>
-                        </TabsContent>
+                        </SegmentedTabPanelContent>
                       </div>
-                    </Tabs>
+                    </div>
                   </div>
                 </form>
               </Form>

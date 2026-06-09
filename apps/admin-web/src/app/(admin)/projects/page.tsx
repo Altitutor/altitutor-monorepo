@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Tabs, TabsList, TabsTrigger } from '@altitutor/ui';
-import { LayoutGrid, List, Plus } from 'lucide-react';
+import { Button, SegmentedControl } from '@altitutor/ui';
+import { Plus } from 'lucide-react';
 import { ProjectsBoard } from '@/features/projects/components/ProjectsBoard';
 import { ProjectsList } from '@/features/projects/components/ProjectsList';
 import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
@@ -19,16 +19,14 @@ export default function ProjectsPage() {
       <div className="flex items-center justify-between flex-shrink-0 px-6 py-4">
         <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
         <div className="flex items-center gap-4">
-          <Tabs value={view} onValueChange={(v) => setView(v as 'kanban' | 'list')}>
-            <TabsList>
-              <TabsTrigger value="kanban" className="px-2">
-                <LayoutGrid className="h-4 w-4" />
-              </TabsTrigger>
-              <TabsTrigger value="list" className="px-2">
-                <List className="h-4 w-4" />
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+          <SegmentedControl
+            value={view}
+            onValueChange={(v) => setView(v as 'kanban' | 'list')}
+            options={[
+              { value: 'kanban', label: 'Board' },
+              { value: 'list', label: 'List' },
+            ]}
+          />
           <Button onClick={() => setIsCreateDialogOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             New Project
