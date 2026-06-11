@@ -170,7 +170,10 @@ function buildQuestionDecorations(
       })
     : getBulkImportLogicalLines(j, cfg.section, cfg.classify)
   if (lines.length === 0) return DecorationSet.empty
-  const ranges = collectQuestionLineTextRanges(doc, cfg.section, { questionsOnly })
+  const ranges = collectQuestionLineTextRanges(doc, cfg.section, {
+    questionsOnly,
+    parsingOptions: cfg.classify,
+  })
   if (ranges == null) return DecorationSet.empty
   const parserCfg = {
     ...cfg.classify,

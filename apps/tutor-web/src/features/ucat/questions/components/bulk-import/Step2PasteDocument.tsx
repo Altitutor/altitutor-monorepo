@@ -34,6 +34,10 @@ export type ParsingOptions = {
   answerOptionOnOwnLine: boolean
   /** When true (default), question numbers must increase by 1; when false, any number is accepted. */
   requireConsecutiveQuestionNumbers: boolean
+  /** Decision Making only: where source document question numbers are placed. */
+  decisionMakingQuestionNumberPlacement: 'question' | 'item_stem'
+  /** Quantitative Reasoning only: where source document question numbers are placed. */
+  quantitativeReasoningQuestionNumberPlacement: 'question' | 'item_stem'
 }
 
 const DEFAULT_PARSING_OPTIONS: ParsingOptions = {
@@ -42,6 +46,8 @@ const DEFAULT_PARSING_OPTIONS: ParsingOptions = {
   questionNumberOnOwnLine: false,
   answerOptionOnOwnLine: false,
   requireConsecutiveQuestionNumbers: true,
+  decisionMakingQuestionNumberPlacement: 'question',
+  quantitativeReasoningQuestionNumberPlacement: 'question',
 }
 
 const QUESTION_INDICATOR_OPTIONS: { value: QuestionIndicatorKind; label: string }[] = [
@@ -60,6 +66,22 @@ const PASTE_TABLE_BEHAVIOR_OPTIONS: { value: PasteTableBehavior; label: string }
   { value: 'keep', label: 'Keep formatting' },
 ]
 
+const DM_NUMBER_PLACEMENT_OPTIONS: {
+  value: ParsingOptions['decisionMakingQuestionNumberPlacement']
+  label: string
+}[] = [
+  { value: 'question', label: 'Numbers mark questions' },
+  { value: 'item_stem', label: 'Numbers mark item stems' },
+]
+
+const QR_NUMBER_PLACEMENT_OPTIONS: {
+  value: ParsingOptions['quantitativeReasoningQuestionNumberPlacement']
+  label: string
+}[] = [
+  { value: 'question', label: 'Numbers mark questions' },
+  { value: 'item_stem', label: 'Numbers mark repeated stems' },
+]
+
 export function parsingOptionsToClassify(opts: ParsingOptions) {
   return {
     questionIndicator: opts.questionIndicator,
@@ -67,6 +89,10 @@ export function parsingOptionsToClassify(opts: ParsingOptions) {
     questionNumberOnOwnLine: opts.questionNumberOnOwnLine,
     answerOptionOnOwnLine: opts.answerOptionOnOwnLine,
     enforceSequentialQuestionNumbers: opts.requireConsecutiveQuestionNumbers,
+    questionNumberPlacement:
+      opts.quantitativeReasoningQuestionNumberPlacement === 'item_stem'
+        ? opts.quantitativeReasoningQuestionNumberPlacement
+        : opts.decisionMakingQuestionNumberPlacement,
   }
 }
 
@@ -172,6 +198,8 @@ export function Step2PasteDocument({
   const setOpts = onParsingOptionsChange ?? (() => {})
   const isSplit = layout === 'split'
   const showParsedPreview = isSplit && liveParseSection != null
+  const showDecisionMakingOptions = liveParseSection === 'decision_making'
+  const showQuantitativeReasoningOptions = liveParseSection === 'quantitative_reasoning'
 
   const classify = useMemo(() => parsingOptionsToClassify(opts), [opts])
 
@@ -241,6 +269,58 @@ export function Step2PasteDocument({
                 />
               </div>
               <ParserCheckboxOptions idPrefix="settings-only" opts={opts} setOpts={setOpts} />
+              {showDecisionMakingOptions ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Decision Making numbering</Label>
+                  <SearchableSelect<{
+                    value: ParsingOptions['decisionMakingQuestionNumberPlacement']
+                    label: string
+                  }>
+                    items={DM_NUMBER_PLACEMENT_OPTIONS}
+                    value={
+                      DM_NUMBER_PLACEMENT_OPTIONS.find(
+                        (i) => i.value === opts.decisionMakingQuestionNumberPlacement
+                      ) ?? DM_NUMBER_PLACEMENT_OPTIONS[0]
+                    }
+                    onValueChange={(item) =>
+                      item &&
+                      setOpts({
+                        ...opts,
+                        decisionMakingQuestionNumberPlacement: item.value,
+                      })
+                    }
+                    getItemLabel={(i) => i.label}
+                    getItemId={(i) => i.value}
+                    triggerClassName="w-full"
+                  />
+                </div>
+              ) : null}
+              {showQuantitativeReasoningOptions ? (
+                <div className="space-y-1.5">
+                  <Label className="text-xs">Quantitative Reasoning numbering</Label>
+                  <SearchableSelect<{
+                    value: ParsingOptions['quantitativeReasoningQuestionNumberPlacement']
+                    label: string
+                  }>
+                    items={QR_NUMBER_PLACEMENT_OPTIONS}
+                    value={
+                      QR_NUMBER_PLACEMENT_OPTIONS.find(
+                        (i) => i.value === opts.quantitativeReasoningQuestionNumberPlacement
+                      ) ?? QR_NUMBER_PLACEMENT_OPTIONS[0]
+                    }
+                    onValueChange={(item) =>
+                      item &&
+                      setOpts({
+                        ...opts,
+                        quantitativeReasoningQuestionNumberPlacement: item.value,
+                      })
+                    }
+                    getItemLabel={(i) => i.label}
+                    getItemId={(i) => i.value}
+                    triggerClassName="w-full"
+                  />
+                </div>
+              ) : null}
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -321,6 +401,58 @@ export function Step2PasteDocument({
                   />
                 </div>
                 <ParserCheckboxOptions idPrefix="paste-document" opts={opts} setOpts={setOpts} />
+                {showDecisionMakingOptions ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Decision Making numbering</Label>
+                    <SearchableSelect<{
+                      value: ParsingOptions['decisionMakingQuestionNumberPlacement']
+                      label: string
+                    }>
+                      items={DM_NUMBER_PLACEMENT_OPTIONS}
+                      value={
+                        DM_NUMBER_PLACEMENT_OPTIONS.find(
+                          (i) => i.value === opts.decisionMakingQuestionNumberPlacement
+                        ) ?? DM_NUMBER_PLACEMENT_OPTIONS[0]
+                      }
+                      onValueChange={(item) =>
+                        item &&
+                        setOpts({
+                          ...opts,
+                          decisionMakingQuestionNumberPlacement: item.value,
+                        })
+                      }
+                      getItemLabel={(i) => i.label}
+                      getItemId={(i) => i.value}
+                      triggerClassName="w-full"
+                    />
+                  </div>
+                ) : null}
+                {showQuantitativeReasoningOptions ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Quantitative Reasoning numbering</Label>
+                    <SearchableSelect<{
+                      value: ParsingOptions['quantitativeReasoningQuestionNumberPlacement']
+                      label: string
+                    }>
+                      items={QR_NUMBER_PLACEMENT_OPTIONS}
+                      value={
+                        QR_NUMBER_PLACEMENT_OPTIONS.find(
+                          (i) => i.value === opts.quantitativeReasoningQuestionNumberPlacement
+                        ) ?? QR_NUMBER_PLACEMENT_OPTIONS[0]
+                      }
+                      onValueChange={(item) =>
+                        item &&
+                        setOpts({
+                          ...opts,
+                          quantitativeReasoningQuestionNumberPlacement: item.value,
+                        })
+                      }
+                      getItemLabel={(i) => i.label}
+                      getItemId={(i) => i.value}
+                      triggerClassName="w-full"
+                    />
+                  </div>
+                ) : null}
                 <DropdownMenuSeparator />
                 <div className="space-y-1.5">
                   <Label className="text-xs">Table paste handling</Label>

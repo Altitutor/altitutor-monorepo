@@ -7,7 +7,10 @@ import type { Node } from '@tiptap/pm/model'
 import { getBulkImportLogicalLines } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import type { BulkImportParseSection } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
 import {
+  buildOptionRegexes,
+  buildQuestionRegexes,
   collectLogicalLinesFromDoc,
+  type ParserConfig,
   type PMNode,
   extractOptionLinesFromTable,
   extractQuestionRowFromNestedTable,
@@ -22,6 +25,8 @@ type RSt = {
   prefixForNextLine?: string
   detectNested?: boolean
 }
+
+type LineRange = { line: string; range: { from: number; to: number } }
 
 function isBlank(s: string): boolean {
   return s.trim().length === 0
@@ -54,7 +59,7 @@ export function inner(n: Node, pBefore: number): { from: number; to: number } {
 export function collectQuestionLineTextRanges(
   root: Node,
   section: BulkImportParseSection,
-  options?: { questionsOnly?: boolean }
+  options?: { questionsOnly?: boolean; parsingOptions?: Partial<ParserConfig> }
 ): { from: number; to: number }[] | null {
   if (root.type.name !== 'doc' || !root.isBlock) {
     return null
@@ -65,7 +70,7 @@ export function collectQuestionLineTextRanges(
     ? collectLogicalLinesFromDoc(j, {
         detectNestedQuestionTables: section !== 'quantitative_reasoning',
       })
-    : getBulkImportLogicalLines(j, section)
+    : getBulkImportLogicalLines(j, section, options?.parsingOptions)
   if (expect.length === 0) return []
 
   const st: RSt = {
@@ -82,11 +87,145 @@ export function collectQuestionLineTextRanges(
     walkVrDmSj(root, 0, st)
   }
 
+  if (
+    !questionsOnly &&
+    (section === 'decision_making' || section === 'quantitative_reasoning') &&
+    options?.parsingOptions?.questionNumberPlacement === 'item_stem'
+  ) {
+    const transformed = transformDecisionMakingItemStemRanges(
+      st.lines.map((line, index) => ({ line, range: st.ranges[index]! })),
+      options.parsingOptions
+    )
+    st.lines = transformed.map((item) => item.line)
+    st.ranges = transformed.map((item) => item.range)
+  }
+
   if (st.lines.length !== expect.length) return null
   for (let i = 0; i < expect.length; i += 1) {
     if (st.lines[i] !== expect[i]) return null
   }
   return st.ranges
+}
+
+function isDmQuestionNumberLine(line: string, config: Partial<ParserConfig>): boolean {
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  return qRe.numberOnly.test(line) || qRe.inline.test(line)
+}
+
+function splitDmQuestionNumberLine(
+  line: string,
+  config: Partial<ParserConfig>
+): { numberText: string; inlineText: string } | null {
+  const qRe = buildQuestionRegexes(config.questionIndicator ?? 'dot')
+  const inlineMatch = qRe.inline.exec(line)
+  if (inlineMatch) return { numberText: inlineMatch[1] ?? '', inlineText: inlineMatch[2] ?? '' }
+  const numberOnlyMatch = qRe.numberOnly.exec(line)
+  if (numberOnlyMatch) return { numberText: numberOnlyMatch[1] ?? '', inlineText: '' }
+  return null
+}
+
+function isDmAnswerOptionLine(line: string, config: Partial<ParserConfig>): boolean {
+  const oRe = buildOptionRegexes(config.answerOptionIndicator ?? 'dot')
+  return oRe.labelOnly.test(line) || oRe.inline.test(line)
+}
+
+function isDmSyllogismQuestionText(line: string): boolean {
+  const n = line
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, '')
+    .replace(/[^\w]/g, '')
+  if (!n) return false
+  return (
+    (n.includes('yes') && n.includes('conclusion') && n.includes('follow')) ||
+    (n.includes('no') && n.includes('conclusion') && n.includes('follow')) ||
+    ((n.includes('doesnot') || n.includes('doesnt')) && n.includes('follow')) ||
+    (n.includes('conclusion') && n.includes('follow'))
+  )
+}
+
+function findLastNonBlankItemIndex(items: LineRange[], endExclusive: number): number {
+  for (let i = endExclusive - 1; i >= 0; i -= 1) {
+    if ((items[i]?.line ?? '').trim().length > 0) return i
+  }
+  return -1
+}
+
+function findDmItemStemOptionStart(items: LineRange[], config: Partial<ParserConfig>): number {
+  for (let i = 0; i < items.length; i += 1) {
+    if (isDmAnswerOptionLine(items[i]?.line ?? '', config)) return i
+  }
+
+  for (let i = 1; i < items.length; i += 1) {
+    if (
+      /^\s*\[\[IMG:[^\]]+\]\]\s*$/.test(items[i]?.line ?? '') &&
+      isDmSyllogismQuestionText(items[findLastNonBlankItemIndex(items, i)]?.line ?? '')
+    ) {
+      return i
+    }
+  }
+
+  for (let i = 0; i < items.length; i += 1) {
+    if (!isDmSyllogismQuestionText(items[i]?.line ?? '')) continue
+    const trailingNonBlank = items.slice(i + 1).filter((item) => item.line.trim().length > 0)
+    if (trailingNonBlank.length >= 5) return i + 1
+  }
+
+  return -1
+}
+
+function transformDecisionMakingItemStemRanges(
+  items: LineRange[],
+  config: Partial<ParserConfig>
+): LineRange[] {
+  const blocks: Array<{ marker: LineRange; numberText: string; items: LineRange[] }> = []
+  const intro: LineRange[] = []
+  let current: { marker: LineRange; numberText: string; items: LineRange[] } | null = null
+
+  for (const item of items) {
+    const marker = isDmQuestionNumberLine(item.line, config)
+      ? splitDmQuestionNumberLine(item.line, config)
+      : null
+    if (marker) {
+      if (current) blocks.push(current)
+      current = {
+        marker: item,
+        numberText: marker.numberText,
+        items: marker.inlineText.trim().length > 0
+          ? [{ line: marker.inlineText, range: item.range }]
+          : [],
+      }
+      continue
+    }
+
+    if (current) current.items.push(item)
+    else intro.push(item)
+  }
+  if (current) blocks.push(current)
+  if (blocks.length === 0) return items
+
+  const separator = (config.questionIndicator ?? 'dot') === 'paren' ? ')' : '.'
+  const result: LineRange[] = [...intro]
+
+  for (const block of blocks) {
+    const optionStart = findDmItemStemOptionStart(block.items, config)
+    const questionIndex = optionStart >= 0 ? findLastNonBlankItemIndex(block.items, optionStart) : -1
+
+    if (optionStart < 0 || questionIndex < 0) {
+      result.push(block.marker, ...block.items)
+      continue
+    }
+
+    result.push(...block.items.slice(0, questionIndex))
+    const question = block.items[questionIndex]!
+    result.push({
+      line: `${block.numberText}${separator} ${question.line.trim()}`,
+      range: question.range,
+    })
+    result.push(...block.items.slice(questionIndex + 1))
+  }
+
+  return result
 }
 
 function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {

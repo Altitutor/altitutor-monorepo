@@ -56,6 +56,11 @@ export type ParserConfig = {
    * separately from stem text in bulk import.
    */
   questionsOnly?: boolean
+  /**
+   * Decision Making only: when item_stem, a numbered marker starts the whole item block,
+   * and the final paragraph before answer options is the question text.
+   */
+  questionNumberPlacement?: 'question' | 'item_stem'
 }
 
 const DEFAULT_CONFIG: ParserConfig = {

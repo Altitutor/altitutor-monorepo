@@ -20,7 +20,10 @@ function formatOptionLabel(label: string): string {
 
 type CollapsibleParsedQuestionCardProps = {
   question: ParsedQuestion
+  /** Question index within the stem (0-based). */
   index: number
+  /** Question index across the whole bulk import run (0-based). */
+  globalIndex?: number
   expanded: boolean
   onToggle: () => void
 }
@@ -28,11 +31,15 @@ type CollapsibleParsedQuestionCardProps = {
 export function CollapsibleParsedQuestionCard({
   question,
   index,
+  globalIndex,
   expanded,
   onToggle,
 }: CollapsibleParsedQuestionCardProps) {
   const trimmedText = question.text.trim()
-  const title = `Question ${index + 1}`
+  const title =
+    globalIndex != null
+      ? `Question ${index + 1} · Q${globalIndex + 1}`
+      : `Question ${index + 1}`
   const canExpand = questionNeedsExpand(question)
   const showExpandHint = !expanded && canExpand
 

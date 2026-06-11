@@ -101,4 +101,39 @@ c) C`;
     const stems = parseDecisionMakingPlainText(input, { answerOptionIndicator: 'paren' });
     expect(stems[0]?.questions[0]?.questionType).toBe('multiple_choice');
   });
+
+  it('parses item-stem numbered blocks by using the last paragraph before options as question text', () => {
+    const input = `5.
+A group of seven friends are going for a road trip to Rockhampton from Brisbane.
+Bob and Alex should not travel in the same car.
+Sangeetha and Joseph sit in the same row of the same car.
+If Ellie and Alex sit in the same car with Ellie in the back row, determine the possible position of Bob?
+A.
+In the front row of the other car
+B.
+In the front row of the same car
+C.
+With Tarek in the back row of the other car
+D.
+With Candice in the back row of the other car`;
+
+    const stems = parseDecisionMakingPlainText(input, {
+      questionNumberPlacement: 'item_stem',
+      answerOptionOnOwnLine: true,
+    });
+
+    expect(stems).toHaveLength(1);
+    expect(stems[0]?.stemText).toContain('A group of seven friends');
+    expect(stems[0]?.stemText).toContain('Sangeetha and Joseph');
+    expect(stems[0]?.stemText).not.toContain('determine the possible position of Bob');
+    expect(stems[0]?.questions).toHaveLength(1);
+    expect(stems[0]?.questions[0]?.number).toBe(5);
+    expect(stems[0]?.questions[0]?.text).toBe(
+      'If Ellie and Alex sit in the same car with Ellie in the back row, determine the possible position of Bob?'
+    );
+    expect(stems[0]?.questions[0]?.options).toHaveLength(4);
+    expect(stems[0]?.questions[0]?.options[0]?.text).toBe(
+      'In the front row of the other car'
+    );
+  });
 });

@@ -122,6 +122,12 @@
 - **Syllogism image options table** — A Decision Making syllogism source format where the five conclusion statements are supplied as text inside an image of a five-row table rather than as selectable text. The five statements are still answer options for one syllogism question; the image is not a separate question stem or diagram.
   _Avoid_: Syllogism diagram, image question
 
+- **Item-stem numbered Decision Making document** — A Decision Making bulk import source format where a number marker starts a whole item block rather than the question prompt itself. In this format, the item block contains the setup/stem first, and the final paragraph before the answer options is the question prompt.
+  _Avoid_: Stem-numbered question, numbered stem question
+
+- **Repeated-stem numbered Quantitative Reasoning document** — A Quantitative Reasoning bulk import source format where each numbered item repeats the same stem/setup before its own question prompt and answer options. Consecutive items with structurally identical stems should import as one question stem with multiple questions, even when repeated pasted images or tables receive different temporary file IDs.
+  _Avoid_: Duplicate stem import, QR stem-numbered question
+
 - **Separate stem document (bulk import)** — A bulk import input mode where question stems are pasted from one document and questions from another. Each parsed stem is paired with its own question paste area in one scrollable step. The paste-stems step shows live stem count, truncated previews, and in-editor markers at each split boundary. Per-stem question pastes are parsed questions-only; stem-like content in a question paste triggers a row warning. Uses a six-step wizard (section → paste stems → per-stem questions → answers → review → create set). The default combined-document flow uses five steps (section → paste document → answers → review → create set).
 
 - **Stem split marker** — A delimiter in a separate stem document that begins a new question stem. Marker lines are not included in stem text; content before the first marker is discarded. Numbers need not be consecutive or start at 1. Keyword mode: tutor supplies a prefix (e.g. `Prompt`); split at lines matching prefix + number. Stem-numbers mode: split at line-start `N.` or `N)` only (numbered lists inside passage text do not split). Line-breaks mode: split after N consecutive blank lines (whitespace-only lines count); if none found, treat as one stem and warn.

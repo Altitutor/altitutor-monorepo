@@ -49,6 +49,15 @@ export function ParsedDocumentPreviewPanel({
 
   const totalQuestions = parsedStems.reduce((acc, stem) => acc + stem.questions.length, 0)
 
+  const stemGlobalOffsets = useMemo(() => {
+    let offset = 0
+    return parsedStems.map((stem) => {
+      const start = offset
+      offset += stem.questions.length
+      return start
+    })
+  }, [parsedStems])
+
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
       <Label className="shrink-0 text-xs font-medium text-muted-foreground lg:sr-only">
@@ -80,6 +89,7 @@ export function ParsedDocumentPreviewPanel({
                         key={key}
                         question={question}
                         index={questionIndex}
+                        globalIndex={stemGlobalOffsets[stemIndex]! + questionIndex}
                         expanded={expandedQuestionKeys.has(key)}
                         onToggle={() => toggleQuestionExpanded(stemIndex, questionIndex)}
                       />

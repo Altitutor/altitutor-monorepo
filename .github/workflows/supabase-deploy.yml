@@ -44,7 +44,9 @@ jobs:
         run: supabase link --project-ref $SUPABASE_PROJECT_ID
 
       - name: Push migrations
-        run: supabase db push
+        # --include-all applies local migrations inserted before the remote's
+        # latest version (e.g. 20260609110927 after prod already ran 2026060913*).
+        run: supabase db push --include-all
 
       - name: Lint remote schema (post-push)
         run: supabase db lint --linked --level error --fail-on error
